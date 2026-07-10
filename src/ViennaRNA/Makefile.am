@@ -1,0 +1,274 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
+nvcc_verbose = $(nvcc_verbose_@AM_V@)
+nvcc_verbose_ = $(nvcc_verbose_@AM_DEFAULT_V@)
+nvcc_verbose_0 = @echo "  NVCC     $@";
+
+AM_CFLAGS = $(RNA_CFLAGS)
+AM_CXXFLAGS = $(RNA_CXXFLAGS)
+AM_CPPFLAGS = $(RNA_CPPFLAGS) -I$(top_srcdir)/src ${SVM_INC} ${JSON_INC}
+AM_LDFLAGS = $(RNA_LDFLAGS)
+
+# the library names to build
+lib_LTLIBRARIES = libRNA.la
+
+# convenience library
+noinst_LTLIBRARIES =  libRNA_conv.la \
+                      libRNA_constraints.la \
+                      libRNA_utils.la \
+                      libRNA_plotting.la \
+                      libRNA_params.la \
+                      libRNA_loops.la
+
+# where to install the headers on the system
+libRNA_ladir = $(includedir)/ViennaRNA
+libRNA_la_SOURCES = 
+
+# ldflags to avoid version information
+libRNA_la_LIBADD = libRNA_conv.la
+libRNA_la_LDFLAGS = -avoid-version -static $(LTO_LDFLAGS)
+
+libRNA_conv_la_LIBADD = \
+    libRNA_constraints.la \
+    libRNA_utils.la \
+    libRNA_plotting.la \
+    libRNA_params.la \
+    libRNA_loops.la
+
+# Dummy C++ source to cause C++ linking.
+if WITH_LIBSVM
+nodist_EXTRA_libRNA_la_SOURCES = dummy.cxx
+else
+nodist_EXTRA_libRNA_la_SOURCES = 
+endif
+
+if WITH_LIBSVM
+  SVM_SRC     = ../@LIBSVM_DIR@/svm.cpp
+  SVM_INC     = -I$(top_srcdir)/src/@LIBSVM_DIR@
+  SVM_H       = ../@LIBSVM_DIR@/svm.h
+  SVM_UTILS   = svm_utils.c
+  SVM_UTILS_H = svm_utils.h
+endif
+
+if WITH_JSON
+  JSON_SRC    = ../json/json.c
+  JSON_H      = ../json/json.h
+  JSON_INC    = -I$(top_srcdir)/src/json
+endif
+
+pkginclude_HEADERS =  \
+    energy_par.h \
+    pair_mat.h \
+    RNAstruct.h \
+    dist_vars.h \
+    mfe.h \
+    fold.h \
+    part_func.h \
+    stringdist.h \
+    edit_cost.h \
+    fold_vars.h \
+    profiledist.h \
+    treedist.h \
+    energy_const.h \
+    inverse.h \
+    PS_dot.h \
+    utils.h \
+    params.h \
+    subopt.h \
+    cofold.h \
+    duplex.h \
+    alifold.h \
+    aln_util.h \
+    part_func_co.h \
+    ProfileAln.h \
+    LPfold.h \
+    Lfold.h \
+    part_func_up.h \
+    ribo.h \
+    findpath.h \
+    data_structures.h \
+    MEA.h \
+    mm.h \
+    loop_energies.h \
+    exterior_loops.h \
+    hairpin_loops.h \
+    interior_loops.h \
+    multibranch_loops.h \
+    naview.h \
+    2Dfold.h \
+    2Dpfold.h \
+    read_epars.h \
+    convert_epars.h \
+    PKplex.h\
+    plot_layouts.h \
+    ali_plex.h \
+    plex.h \
+    snofold.h \
+    snoop.h \
+    move_set.h\
+    gquad.h \
+    constraints.h \
+    eval.h \
+    perturbation_fold.h \
+    centroid.h\
+    structure_utils.h \
+    string_utils.h \
+    model.h \
+    file_formats.h \
+    dp_matrices.h \
+    plot_structure.h \
+    plot_aln.h \
+    boltzmann_sampling.h \
+    equilibrium_probs.h \
+    constraints_ligand.h \
+    constraints_SHAPE.h \
+    constraints_hard.h \
+    constraints_soft.h \
+    alphabet.h \
+    grammar.h \
+    structured_domains.h \
+    unstructured_domains.h \
+    file_formats_msa.h \
+    file_utils.h \
+    commands.h \
+    units.h \
+    ${SVM_UTILS_H} \
+    ${SVM_H} \
+    ${JSON_H}
+
+libRNA_conv_la_SOURCES = \
+    dist_vars.c \
+    data_structures.c \
+    part_func.c \
+    treedist.c \
+    inverse.c \
+    ProfileDist.c \
+    RNAstruct.c \
+    mfe.c \
+    fold.c \
+    stringdist.c \
+    subopt.c \
+    list.c \
+    Lfold.c \
+    cofold.c \
+    part_func_co.c \
+    ProfileAln.c \
+    duplex.c \
+    alifold.c \
+    alipfold.c \
+    LPfold.c \
+    part_func_up.c \
+    ribo.c \
+    findpath.c \
+    MEA.c \
+    aliLfold.c \
+    mm.c \
+    2Dfold.c \
+    2Dpfold.c \
+    plex_functions.c \
+    ali_plex.c \
+    c_plex.c \
+    plex.c \
+    snofold.c \
+    snoop.c \
+    move_set.c \
+    gquad.c \
+    eval.c \
+    perturbation_fold.c \
+    centroid.c \
+    model.c \
+    dp_matrices.c \
+    boltzmann_sampling.c \
+    equilibrium_probs.c \
+    ${SVM_SRC} ${SVM_UTILS} ${JSON_SRC} \
+    alphabet.c \
+    unstructured_domains.c
+
+libRNA_constraints_la_SOURCES = \
+    constraints.c \
+    constraints_SHAPE.c \
+    constraints_hard.c \
+    constraints_soft.c \
+    constraints_ligand.c
+
+libRNA_utils_la_SOURCES = \
+    utils.c \
+    aln_util.c \
+    string_utils.c \
+    structure_utils.c \
+    file_utils.c \
+    file_formats.c \
+    file_formats_msa.c \
+    commands.c \
+    units.c
+
+libRNA_plotting_la_SOURCES = \
+    plot_aln.c \
+    plot_layouts.c \
+    plot_structure.c \
+    naview.c \
+    PS_dot.c
+
+libRNA_loops_la_SOURCES = \
+    exterior_loops.c \
+    hairpin_loops.c \
+    interior_loops.c \
+    multibranch_loops.c
+
+libRNA_params_la_SOURCES = \
+    read_epars.c \
+    energy_par.c \
+    params.c \
+    convert_epars.c
+
+# static library for subpackages
+BUILT_SOURCES = libRNA.a \
+                mfe_cuda.o \
+                modular_decomposition.o \
+                int_loop.o \
+                mb_loop_fast.o
+
+libRNA.a: libRNA.la
+	$(AM_V_GEN)( \
+    $(LIBTOOL) --config > libtoolconfig.tmp && \
+    ( \. ./libtoolconfig.tmp; cp "$$objdir/libRNA.a" ./ ) && \
+    rm -f libtoolconfig.tmp \
+  )
+
+##mfe_cuda.o: mfe_cuda.c stub2.h fill_arrays.c fill_arrays_loop.c
+##	${CC} -c -DSTUB ${AM_CPPFLAGS} ${AM_CFLAGS} mfe_cuda.c
+
+mfe_cuda_CPPFLAGS = ${AM_CPPFLAGS} -DSTUB
+
+modular_decomposition.o:  modular_decomposition.cu stub2.h
+	$(nvcc_verbose)$(NVCC_BIN) -ccbin ${NVCC_HOST_CC} -I${top_srcdir}/src -c $(NVCC_FLAGS) -o modular_decomposition.o ${srcdir}/modular_decomposition.cu
+
+int_loop.o:	int_loop.cu stub2.h interior_loopx.h nth.h #tick.h
+	$(nvcc_verbose)$(NVCC_BIN) -ccbin ${NVCC_HOST_CC} -I${top_srcdir}/src -c $(NVCC_FLAGS) -o int_loop.o ${srcdir}/int_loop.cu
+
+clean-local:
+	-rm -f libRNA.a
+
+noinst_HEADERS  = intl11.h intl11dH.h intl21.h intl21dH.h \
+                  intl22.h intl22dH.h list.h\
+                  1.8.4_epars.h 1.8.4_intloops.h ${SVM_H} ${JSON_H}
+
+EXTRA_DIST =  $(pkginclude_HEADERS) \
+              circfold.inc \
+              alicircfold.inc \
+              model_avg.inc \
+              model_sd.inc \
+              ${SVM_H} \
+              ${JSON_H} \
+              color_output.inc \
+              mfe_cuda.c \
+              fill_arrays.c \
+              fill_arrays_loop.c \
+              stub2.h \
+              fill_arrays.c \
+              fill_arrays_loop.c \
+              modular_decomposition.cu \
+              int_loop.cu \
+              interior_loopx.h \
+              nth.h \
+              mb_loop_fast.c
