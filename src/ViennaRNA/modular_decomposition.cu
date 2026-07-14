@@ -5,12 +5,16 @@
 //Plan is to have all CUDA code here.
 //Atleast whilst only convert modular decomposition to CUDA
 
+//LAW 14 Jul 2026 added WBL diff till 2026
+//WBL  5 Jul 2026 see if can get to compile with CUDA 13.*
+//WBL 15 May 2023 add use_cuda
 //WBL  4 Mar 2018 add optional pause to fake persistence mode
 //WBL 17 Feb 2018 simplify GPU startup message and send to stderr
 //WBL  2 Jan 2018 
 //WBL 31 Dec 2017 try without atomicMin by use of one block per column
 //WBL 30 Dec 2017 for debug make modular_decomposition_ij as in modular_decomposition.c r1.6
 //WBL 29 Dec 2017 ../rf_cuda try tuning
+
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -57,7 +61,7 @@
 
 // Helper functions and utilities to work with CUDA
 #include <helper_functions.h>
-#include <helper_cuda.h>
+//#include <helper_cuda.h> //Commented out in 2026 to get started
 
 //BLOCK_SIZE must be power of two 32 or greater
 #define BLOCK_SIZE 64
@@ -76,7 +80,7 @@ inline void gpuAssert(cudaError_t code, const char *file, const int line, const 
    }
 }
 
-//taken from helper_string.h
+/*taken from helper_string.h
 //https://people.maths.ox.ac.uk/gilesm/cuda/prac1/helper_string.h getCmdLineArgumentInt
 inline int getCmdLineArgumentInt(int argc, char **argv, const char *string_ref)
 {
@@ -112,7 +116,7 @@ inline int getCmdLineArgumentInt(int argc, char **argv, const char *string_ref)
 			     argc,argv[0],argc-1);
 		    argv[argc-1] = NULL;
 		    argc--;
-		    */
+		    **
 		    argv[i][0] = '\0'; //ensure -device= is not visible to rest of RNAfold
 		    //printf("`%s' value %d\n", &string_argv[length + auto_inc],value);
                 }
@@ -136,7 +140,8 @@ inline int getCmdLineArgumentInt(int argc, char **argv, const char *string_ref)
         return 0;
     }
 }
-
+*/   //End comment block from WBL
+int use_cuda = 0;
 //C interface to CUDA code
 extern "C" void
 choose_gpu(int argc, char **argv) {
@@ -145,7 +150,7 @@ choose_gpu(int argc, char **argv) {
     //Eg --device=1 (for second GPU)
     //Eg --persistence=1 (to pause)
     int devID = 0;
-    int persistence = 0;
+    /*int persistence = 0;
 
     if (checkCmdLineFlag(argc, (const char **)argv, "device"))
     {
@@ -156,7 +161,7 @@ choose_gpu(int argc, char **argv) {
     {
         persistence = getCmdLineArgumentInt(argc, argv, "persistence");
     }
-
+	*/
     cudaError_t error;
     cudaDeviceProp deviceProp;
     error = cudaGetDevice(&devID);
@@ -167,13 +172,13 @@ choose_gpu(int argc, char **argv) {
     }
 
     error = cudaGetDeviceProperties(&deviceProp, devID);
-
+	/*
     if (deviceProp.computeMode == cudaComputeModeProhibited)
     {
         fprintf(stderr, "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n");
         exit(EXIT_SUCCESS);
     }
-
+	*/
     if (error != cudaSuccess)
     {
         printf("cudaGetDeviceProperties returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
@@ -183,8 +188,20 @@ choose_gpu(int argc, char **argv) {
       fprintf(stderr,"RNAfold GPU Device %d: \"%s\" with compute capability %d.%d\n",
 	      devID, deviceProp.name, deviceProp.major, deviceProp.minor); //BLOCK_SIZE);
     }
+	//ok zero copy will be really inefficient but makes a start
+	//https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html
     //https://devtalk.nvidia.com/default/topic/895513/cudamalloc-slow/?offset=1
     //njuffa suggests calling cudafree can get GPU warmed up early
+	if (!deviceProp.canMapHostMemory){
+		fprintf(stderr,"RNAfold GPU Device %d: \"%s\" does not support zero copy\n", devID, deviceProp.name);
+		use_cuda = 0;
+		return; //for the time being RNAFold will use pthreads instead
+	}
+	error = cudaSetDeviceFlags(cudaDeviceMapHost);
+	if (error != cudaSuccess){
+		printf("failed to set cudaDeviceMapHost for zero copy error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
+		use_cuda = 0;
+		return; //for the time being, RNAFold will use pthreads instead
 
     error = cudaFree(0);
     if (error != cudaSuccess)
@@ -192,14 +209,15 @@ choose_gpu(int argc, char **argv) {
         printf("cudaFree(0) returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
     }
 
-    //https://devtalk.nvidia.com/default/topic/1030608/cuda-programming-and-performance/why-2-9-seconds-to-start-tesla-k20/
+    /*https://devtalk.nvidia.com/default/topic/1030608/cuda-programming-and-performance/why-2-9-seconds-to-start-tesla-k20/
     if(persistence){
       fprintf(stderr,"pausing\n");
       pause();
       fprintf(stderr,"pause returned, exiting with errno %d, %s line %d\n", 
                      errno, __FILE__,__LINE__);
       exit(errno);
-    }
+    }*/
+	use_cuda = 1
 }
 
 void int_Memcpy(int* out, const int* in, const unsigned int size, const cudaMemcpyKind dir, const int error_report) {
