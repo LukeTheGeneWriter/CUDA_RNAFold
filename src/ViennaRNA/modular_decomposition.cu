@@ -60,7 +60,7 @@
 #include <cuda_runtime.h>
 
 // Helper functions and utilities to work with CUDA
-#include <helper_functions.h>
+//#include <helper_functions.h> //Commented out in 2026, nothing here is used
 //#include <helper_cuda.h> //Commented out in 2026 to get started
 
 //BLOCK_SIZE must be power of two 32 or greater

@@ -172,6 +172,7 @@ AC_DEFUN([RNA_ENABLE_CUDA],[
   AC_ARG_VAR([NVCC_HOST_CC],[The host compiler used for CUDA nvcc, e.g. g++])
   AC_ARG_VAR([NVCC_SAMPLES],[Path to the CUDA samples directory, e.g. /opt/cuda/samples])
   AC_ARG_VAR([NVCC_GENCODE],[The CUDA nvcc -gencode options])
+  AC_ARG_VAR([NVCC_FLAGS],[Additional flags passed to the CUDA compiler nvcc])
   AC_ARG_VAR([CUDA_SMS], [CUDA compute capabilitites. This is a whitespace separated list, e.g. "35 50 61" for Tesla K20, GTX745, and GTX 1060])
 
   ## Add preprocessor define statement for generlaized hard constraints feature
@@ -186,29 +187,44 @@ AC_DEFUN([RNA_ENABLE_CUDA],[
     else
         AC_DEFINE([WITH_CUDA], [1], [Provide CUDA GPU support])
         AX_APPEND_FLAG(["-DSTUB"], [CPPFLAGS])
-        if test "x$NVCC_SAMPLES" = "x"
+
+        ## The CUDA samples are no longer required to build. If a path is given
+        ## anyway, honour both the current layout (Common/) and the pre-CUDA-11.6
+        ## one (common/inc/).
+        NVCC_SAMPLES_INC=""
+        if test "x$NVCC_SAMPLES" != "x"
         then
-          AC_MSG_ERROR([Missing path to CUDA samples directory! Please specify via NVCC_SAMPLES environment variable])
-        else
-          if test "x$NVCC_GENCODE" = "x"
+          ## probe for the headers themselves, a directory test would be fooled
+          ## by case-insensitive file systems
+          if test -f "${NVCC_SAMPLES}/Common/helper_functions.h"
           then
-            if test "x$CUDA_SMS" = "x"
-            then
-              AC_MSG_ERROR([Compute capabilities missing. Please specify via NVCC_GENCODE or CUDA_SMS environment variables])
-              enable_cuda="no"
-            else
-              NVCC_GENCODE=""
-              for sm in $CUDA_SMS
-              do
-                NVCC_GENCODE="$NVCC_GENCODE -gencode arch=compute_${sm},code=sm_${sm}"
-              done
-            fi
+            NVCC_SAMPLES_INC="-I${NVCC_SAMPLES}/Common"
+          elif test -f "${NVCC_SAMPLES}/common/inc/helper_functions.h"
+          then
+            NVCC_SAMPLES_INC="-I${NVCC_SAMPLES}/common/inc"
+          else
+            AC_MSG_WARN([No CUDA sample headers found below ${NVCC_SAMPLES}, ignoring NVCC_SAMPLES])
+          fi
+        fi
+
+        if test "x$NVCC_GENCODE" = "x"
+        then
+          if test "x$CUDA_SMS" = "x"
+          then
+            AC_MSG_ERROR([Compute capabilities missing. Please specify via NVCC_GENCODE or CUDA_SMS environment variables])
+            enable_cuda="no"
+          else
+            NVCC_GENCODE=""
+            for sm in $CUDA_SMS
+            do
+              NVCC_GENCODE="$NVCC_GENCODE -gencode arch=compute_${sm},code=sm_${sm}"
+            done
           fi
         fi
 
         NVCC_LN="${NVCC_BIN}"
         NVCC_HOST_CC="${CXX}"
-        NVCC_FLAGS="-m64 -Xcompiler -Wall -Xcompiler -fno-strict-aliasing ${NVCC_GENCODE} -I${NVCC_SAMPLES}/common/inc"
+        NVCC_FLAGS="-m64 -Xcompiler -Wall -Xcompiler -fno-strict-aliasing ${NVCC_GENCODE} ${NVCC_SAMPLES_INC} ${NVCC_FLAGS}"
         NVCC_LDFLAGS="-Xcompiler -fopenmp"
     fi
   ])

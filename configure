@@ -984,6 +984,7 @@ NVCC_PATH
 NVCC_HOST_CC
 NVCC_SAMPLES
 NVCC_GENCODE
+NVCC_FLAGS
 CUDA_SMS
 PERL_EXT_PREFIX
 PERL_EXT_SITEPREFIX
@@ -1723,6 +1724,7 @@ Some influential environment variables:
               Path to the CUDA samples directory, e.g. /opt/cuda/samples
   NVCC_GENCODE
               The CUDA nvcc -gencode options
+  NVCC_FLAGS  Additional flags passed to the CUDA compiler nvcc
   CUDA_SMS    CUDA compute capabilitites. This is a whitespace separated list,
               e.g. "35 50 61" for Tesla K20, GTX745, and GTX 1060
   PERL_EXT_PREFIX
@@ -21627,29 +21629,39 @@ else
 
 fi
 
-        if test "x$NVCC_SAMPLES" = "x"
+        NVCC_SAMPLES_INC=""
+        if test "x$NVCC_SAMPLES" != "x"
         then
-          as_fn_error $? "Missing path to CUDA samples directory! Please specify via NVCC_SAMPLES environment variable" "$LINENO" 5
-        else
-          if test "x$NVCC_GENCODE" = "x"
+          if test -f "${NVCC_SAMPLES}/Common/helper_functions.h"
           then
-            if test "x$CUDA_SMS" = "x"
-            then
-              as_fn_error $? "Compute capabilities missing. Please specify via NVCC_GENCODE or CUDA_SMS environment variables" "$LINENO" 5
-              enable_cuda="no"
-            else
-              NVCC_GENCODE=""
-              for sm in $CUDA_SMS
-              do
-                NVCC_GENCODE="$NVCC_GENCODE -gencode arch=compute_${sm},code=sm_${sm}"
-              done
-            fi
+            NVCC_SAMPLES_INC="-I${NVCC_SAMPLES}/Common"
+          elif test -f "${NVCC_SAMPLES}/common/inc/helper_functions.h"
+          then
+            NVCC_SAMPLES_INC="-I${NVCC_SAMPLES}/common/inc"
+          else
+            { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: No CUDA sample headers found below ${NVCC_SAMPLES}, ignoring NVCC_SAMPLES" >&5
+$as_echo "$as_me: WARNING: No CUDA sample headers found below ${NVCC_SAMPLES}, ignoring NVCC_SAMPLES" >&2;}
+          fi
+        fi
+
+        if test "x$NVCC_GENCODE" = "x"
+        then
+          if test "x$CUDA_SMS" = "x"
+          then
+            as_fn_error $? "Compute capabilities missing. Please specify via NVCC_GENCODE or CUDA_SMS environment variables" "$LINENO" 5
+            enable_cuda="no"
+          else
+            NVCC_GENCODE=""
+            for sm in $CUDA_SMS
+            do
+              NVCC_GENCODE="$NVCC_GENCODE -gencode arch=compute_${sm},code=sm_${sm}"
+            done
           fi
         fi
 
         NVCC_LN="${NVCC_BIN}"
         NVCC_HOST_CC="${CXX}"
-        NVCC_FLAGS="-m64 -Xcompiler -Wall -Xcompiler -fno-strict-aliasing ${NVCC_GENCODE} -I${NVCC_SAMPLES}/common/inc"
+        NVCC_FLAGS="-m64 -Xcompiler -Wall -Xcompiler -fno-strict-aliasing ${NVCC_GENCODE} ${NVCC_SAMPLES_INC} ${NVCC_FLAGS}"
         NVCC_LDFLAGS="-Xcompiler -fopenmp"
     fi
 
