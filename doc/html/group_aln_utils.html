@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Utilities for sequence alignments &#8212; RNAlib 2.4.6 documentation</title>
+    <link rel="stylesheet" href="_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/bootstrap-3.3.4/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="_static/bootstrap-3.3.4/css/bootstrap-theme.min.css" type="text/css" />
+    <link rel="stylesheet" href="_static/bootstrap-sphinx.css" type="text/css" />
+    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="_static/js/jquery-1.11.0.min.js"></script>
+    <script type="text/javascript" src="_static/js/jquery-fix.js"></script>
+    <script type="text/javascript" src="_static/bootstrap-3.3.4/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="_static/bootstrap-sphinx.js"></script>
+    <script type="text/javascript" src="_static/rnalib.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="struct vrna_pinfo_s" href="struct_vrna_pinfo_s.html" />
+    <link rel="prev" title="Utilities" href="group_utils.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+  </head><body>
+
+  <div id="navbar" class="navbar-inverse navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">
+          RNAlib</a>
+        <span class="navbar-text navbar-version pull-left"><b>2.4.6</b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="index.html">Index <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul>
+<li class="toctree-l1"><a class="reference internal" href="page_getting_started.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_install.html">Installation and Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#installing-the-viennarna-package">Installing the ViennaRNA Package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#quick-start">Quick-start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#installation-without-root-privileges">Installation without root privileges</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#notes-for-macos-x-users">Notes for MacOS X users</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#configuring-rnalib-features">Configuring RNAlib features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#streaming-simd-extension-sse-support">Streaming SIMD Extension (SSE) support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#scripting-interfaces">Scripting Interfaces</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#cluster-analysis">Cluster Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#kinfold">Kinfold</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#rnaforester">RNAforester</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#kinwalker">Kinwalker</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#link-time-optimization-lto">Link Time Optimization (LTO)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#openmp-support">OpenMP support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#posix-threads-pthread-support">POSIX threads (pthread) support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#stochastic-backtracking-using-boustrophedon-scheme">Stochastic backtracking using Boustrophedon scheme</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#svm-z-score-filter-in-rnalfold">SVM Z-score filter in RNALfold</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#gnu-scientific-library">GNU Scientific Library</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#disable-c11-c-11-feature-support">Disable C11/C++11 feature support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#enable-warnings-for-use-of-deprecated-symbols">Enable warnings for use of deprecated symbols</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#single-precision-partition-function">Single precision partition function</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#help">Help</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#linking-against-rnalib">Linking against RNAlib</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#compiler-and-linker-flags">Compiler and Linker flags</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#the-pkg-config-tool">The pkg-config tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_helloworld.html">HelloWorld</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_helloworld_swig.html">HelloWorld (Perl/Python)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_helloworld_swig.html#perl5">Perl5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_helloworld_swig.html#python">Python</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_concepts.html">Concepts and Algorithms</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_secondary_structures.html">RNA Structure</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#rna-structures">RNA Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#levels-of-structure-abstraction">Levels of Structure Abstraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#primary-structure">Primary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#secondary-structure">Secondary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#tertiary-structure">Tertiary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#quarternary-structure">Quarternary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#pseudo-knots">Pseudo-Knots</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_distance_measures.html">Distance Measures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_distance_measures.html#functions-for-tree-edit-distances">Functions for Tree Edit Distances</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_distance_measures.html#functions-for-string-alignment">Functions for String Alignment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_distance_measures.html#functions-for-comparison-of-base-pair-probabilities">Functions for Comparison of Base Pair Probabilities</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_energy_evaluation.html">Free Energy of Secondary Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#secondary-structure-loop-decomposition">Secondary Structure Loop Decomposition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#free-energy-evaluation-api">Free Energy Evaluation API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#free-energy-parameters">Free Energy Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#free-energy-parameters-modification-api">Free Energy Parameters Modification API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#fine-tuning-of-the-energy-evaluation-model">Fine-tuning of the Energy Evaluation Model</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_folding_grammar.html">Secondary Structure Folding Grammar</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#secondary-structure-folding-recurrences">Secondary Structure Folding Recurrences</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#additional-structural-domains">Additional Structural Domains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#structured-domains">Structured Domains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#unstructured-domains">Unstructured Domains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#domain-extension-api">Domain Extension API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#constraints-on-the-folding-grammar">Constraints on the Folding Grammar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#hard-constraints-api">Hard Constraints API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#soft-constraints-api">Soft Constraints API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_secondary_structure_landscape.html">RNA Secondary Structure Landscapes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structure_landscape.html#the-neighborhood-of-a-secondary-structure">The Neighborhood of a Secondary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structure_landscape.html#the-secondary-structure-landscape-api">The Secondary Structure Landscape API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_mfe_algorithm.html">Minimum Free Energy Algorithm(s)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_mfe_algorithm.html#zuker-s-algorithm">Zuker’s Algorithm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_mfe_algorithm.html#mfe-for-circular-rnas">MFE for circular RNAs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_mfe_algorithm.html#mfe-algorithm-api">MFE Algorithm API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_pf_algorithm.html">Partition Function and Equilibrium Probabilitiy Algorithm(s)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_pf_algorithm.html#equilibrium-ensemble-statistics">Equilibrium Ensemble Statistics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_pf_algorithm.html#partition-function-and-equilibrium-probability-api">Partition Function and Equilibrium Probability API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_suboptimal_structures.html">Suboptimals and (other) Representative Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_suboptimal_structures.html#suboptimal-secondary-structures">Suboptimal Secondary Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_suboptimal_structures.html#sampling-secondary-structures-from-the-ensemble">Sampling Secondary Structures from the Ensemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_suboptimal_structures.html#structure-enumeration-and-sampling-api">Structure Enumeration and Sampling API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_rip.html">RNA-RNA Interaction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_rip.html#rip-intro">rip_intro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rip.html#id1">rip_intro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rip.html#rna-rna-interaction-as-a-stepwise-process">RNA-RNA interaction as a Stepwise Process</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rip.html#rna-rna-interaction-api">RNA-RNA Interaction API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_local_vs_global.html">Locally Stable Secondary Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_local_vs_global.html#local-intro">local_intro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_local_vs_global.html#local-mfe">local_mfe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_local_vs_global.html#local-pf">local_pf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_local_vs_global.html#locally-stable-secondary-structure-api">Locally Stable Secondary Structure API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_consensus_structures.html">Comparative Structure Prediction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_consensus_structures.html#incorporate-evolutionary-information">Incorporate Evolutionary Information</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_consensus_structures.html#comparative-structure-prediction-api">Comparative Structure Prediction API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_classified_dp.html">Classified DP variations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_classified_dp.html#the-idea-of-classified-dynamic-programming">The Idea of Classified Dynamic Programming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_classified_dp.html#distance-class-partitioning">Distance Class Partitioning</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_classified_dp.html#density-of-states-dos">Density of States (DOS)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_classified_dp.html#classified-dp-api">Classified DP API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_design.html">RNA Sequence Design</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_design.html#generate-sequences-that-fold-into-particular-secondary-structures">Generate Sequences that fold into particular Secondary Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_design.html#rna-sequence-design-api">RNA Sequence Design API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_structure_probing_data.html">Experimental Structure Probing Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_probing_data.html#guide-the-structure-prediction-using-experimental-data">Guide the Structure Prediction using Experimental Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_probing_data.html#shape-reactivities">SHAPE reactivities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_probing_data.html#structure-probing-data-api">Structure Probing Data API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_ligand_binding.html">Ligand Binding</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_ligand_binding.html#small-molecules-and-proteins-that-bind-to-specific-rna-structures">Small Molecules and Proteins that bind to specific RNA Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_ligand_binding.html#ligand-binding-api">ligand_binding_api</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_structure_motifs.html">(Tertiary) Structure Motifs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_motifs.html#incorporating-higher-order-tertiary-structure-motifs">Incorporating Higher-Order (Tertiary) Structure Motifs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_motifs.html#rna-g-quadruplexes">RNA G-Quadruplexes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_motifs.html#tertiary-structure-motif-api">(Tertiary) Structure Motif API</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_io.html">I/O Formats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_rna_structure_notations.html">RNA Structure Notations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#representations-of-secondary-structures">Representations of Secondary Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#dot-bracket-notation-a-k-a-dot-parenthesis-notation">Dot-Bracket Notation (a.k.a. Dot-Parenthesis Notation)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#extended-dot-bracket-notation">Extended Dot-Bracket Notation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#washington-university-secondary-structure-wuss-notation">Washington University Secondary Structure (WUSS) notation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#examples-for-structure-parsing-and-conversion">Examples for Structure Parsing and Conversion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#structure-parsing-and-conversion-api">Structure Parsing and Conversion API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_file_formats.html">File Formats</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#file-formats-for-multiple-sequence-alignments-msa">File formats for Multiple Sequence Alignments (MSA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#clustalw-format">ClustalW format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#stockholm-1-0-format">Stockholm 1.0 format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#fasta-pearson-format">FASTA (Pearson) format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#maf-format">MAF format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#file-formats-to-manipulate-the-rna-folding-grammar">File formats to manipulate the RNA folding grammar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#command-files">Command Files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#constraint-commands">Constraint commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#rna-folding-grammar-exensions">RNA folding grammar exensions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#specification-of-the-loop-type-context">Specification of the loop type context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#controlling-the-orientation-of-base-pairing">Controlling the orientation of base pairing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#sequence-coordinates">Sequence coordinates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#valid-constraint-commands">Valid constraint commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#valid-domain-extensions-commands">Valid domain extensions commands</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_plots.html">Plotting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_plots.html#producing-secondary-structure-graphs">Producing secondary structure graphs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_plots.html#producing-colored-dot-plots-for-base-pair-probabilities">Producing (colored) dot plots for base pair probabilities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_plots.html#producing-colored-alignments">Producing (colored) alignments</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_data_structures.html">Basic Data Structures</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_sequence_structure_data.html">Sequence and Structure Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_fold_compound_container.html">The ‘Fold Compound’</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_model_settings.html">Model Details</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_api_features.html">API Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_newAPI.html">RNAlib API v3.0</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_newAPI.html#introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_newAPI.html#what-are-the-major-changes">What are the major changes?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_newAPI.html#how-to-port-your-program-to-the-new-api">How to port your program to the new API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_newAPI.html#some-examples-using-rnalib-api-v3-0">Some Examples using RNAlib API v3.0</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_callbacks.html">Callback Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_callbacks.html#the-purpose-of-callback-mechanisms">The purpose of Callback mechanisms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_callbacks.html#list-of-available-callbacks">List of available Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_wrappers.html">Scripting Language interface(s)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_wrappers.html#introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_wrappers.html#function-renaming-scheme">Function renaming scheme</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_wrappers.html#object-oriented-interface-for-data-structures">Object oriented Interface for data structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_wrappers.html#examples">Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_wrappers.html#swig-generated-wrapper-notes">SWIG generated Wrapper notes</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_utilities.html">Additional Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_examples.html">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_examples_c.html">C Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#hello-world-examples">Hello World Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#first-steps-with-the-fold-compound">First Steps with the Fold Compound</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#writing-callback-functions">Writing Callback Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#application-of-soft-constraints">Application of Soft Constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#other-examples">Other Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#deprecated-examples">Deprecated Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_examples_perl5.html">Perl5 Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_examples_python.html">Python Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_deprecated.html">Deprecated List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_bug.html">Bug List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_citelist.html">Bibliography</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="group_index.html">The RNAlib API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="group_data_structures.html">Data Structures and Preprocessor Macros</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_dp_matrices.html">The Dynamic Programming Matrices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_mx_type_e.html">enum vrna_mx_type_e</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_mx_type_e.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_mx_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="enum_vrna_mx_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_mx_mfe_s.html">struct vrna_mx_mfe_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_mx_mfe_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_mx_mfe_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_mx_mfe_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_mx_pf_s.html">struct vrna_mx_pf_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_dp_matrices.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dp_matrices.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dp_matrices.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dp_matrices.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_fold_compound.html">The Fold Compound</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_fc_type_e.html">enum vrna_fc_type_e</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_fc_type_e.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_fc_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="enum_vrna_fc_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_fc_s.html">struct vrna_fc_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_fc_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_fc_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_fc_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_constrain.html">struct constrain</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_dupVar.html">struct dupVar</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_duplexT.html">struct duplexT</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_interact.html">struct interact</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_interact.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_interact.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_interact.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_node.html">struct node</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_pu_contrib.html">struct pu_contrib</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_contrib.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_contrib.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_contrib.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_pu_out.html">struct pu_out</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_out.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_out.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_out.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_snoopT.html">struct snoopT</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_basepair_s.html">struct vrna_basepair_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_bp_stack_s.html">struct vrna_bp_stack_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_color_s.html">struct vrna_color_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_cpair_s.html">struct vrna_cpair_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_data_linear_s.html">struct vrna_data_linear_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_sect_s.html">struct vrna_sect_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_data_structures.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_data_structures.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_data_structures.html#typedefs">Typedefs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_data_structures.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="reference internal" href="group_utils.html">Utilities</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Utilities for sequence alignments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_pinfo_s.html">struct vrna_pinfo_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_pinfo_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_pinfo_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_pinfo_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_buffer_utils.html">Functions that provide dynamically buffered stream-like data structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_buffer_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_buffer_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_buffer_utils.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_buffer_utils.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_file_utils.html">Functions to Read/Write several File Formats for RNA Sequences, Structures, and Alignments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_command_e.html">enum vrna_command_e</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_command_s.html">struct vrna_command_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_command_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_command_s.html#detailed-documentation">Detailed Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_plotting_utils.html">Functions for Creating Secondary Structure Plots, Dot-Plots, and More</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_annotation_utils.html">Functions to generate annotations for Secondary Structure Plots, Dot-Plots, and Others</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="group_annotation_utils.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_annotation_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_annotation_utils.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_COORDINATE.html">struct COORDINATE</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dotplot_auxdata_t.html">struct vrna_dotplot_auxdata_t</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_string_utils.html">Parsing, converting, and comparing sequences</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_string_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_string_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_string_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_string_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_struct_utils.html">Parsing, converting, comparing secondary structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_elem_prob_s.html">struct vrna_elem_prob_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_elem_prob_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_elem_prob_s.html#detailed-documentation">Detailed Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_hx_s.html">struct vrna_hx_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_units.html">Functions to convert between various units</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_unit_energy_e.html">enum vrna_unit_energy_e</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_unit_energy_e.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_unit_energy_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="enum_vrna_unit_energy_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_unit_temperature_e.html">enum vrna_unit_temperature_e</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_unit_temperature_e.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_unit_temperature_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="enum_vrna_unit_temperature_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_units.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_units.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_units.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_class_fold.html">Classified Dynamic Programming variants</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_dos.html">Compute the Density of States</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_dos.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dos.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dos.html#global-variables">Global Variables</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_kl_neighborhood.html">Distance based partitioning of the Secondary Structure Space</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_kl_neighborhood_mfe.html">Calculating MFE representatives of a Distance Based Partitioning</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_TwoDfold_vars.html">struct TwoDfold_vars</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_TwoDfold_vars.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_TwoDfold_vars.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_TwoDfold_vars.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_sol_TwoD_t.html">struct vrna_sol_TwoD_t</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_t.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_t.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_t.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_mfe.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_mfe.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_mfe.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_mfe.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_kl_neighborhood_pf.html">Calculate Partition Functions of a Distance Based Partitioning</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_sol_TwoD_pf_t.html">struct vrna_sol_TwoD_pf_t</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_pf_t.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_pf_t.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_pf_t.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_pf.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_pf.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_pf.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_pf.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_kl_neighborhood_stochbt.html">Stochastic Backtracking of Structures from Distance Based Partitioning</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_stochbt.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_stochbt.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_stochbt.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_cofold.html">RNA-RNA interaction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_cofold.html">MFE Structures of two hybridized Sequences</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_cofold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_cofold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_cofold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_pf_cofold.html">Partition Function for two hybridized Sequences</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dimer_pf_s.html">struct vrna_dimer_pf_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_dimer_pf_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_dimer_pf_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_dimer_pf_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_up_cofold.html">Partition Function for two hybridized Sequences as a stepwise Process</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_up_cofold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_up_cofold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_up_cofold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_grammar.html">The RNA folding grammar</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_constraints.html">Constraining the RNA folding grammar</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_hard_constraints.html">Hard constraints</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_hc_s.html">struct vrna_hc_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_hc_up_s.html">struct vrna_hc_up_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_up_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_up_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_up_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#global-functions">Global Functions</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_soft_constraints.html">Soft constraints</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_sc_s.html">struct vrna_sc_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sc_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sc_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sc_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_soft_constraints.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_soft_constraints.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_soft_constraints.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_soft_constraints.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_domains.html">Extending the folding grammar with additional domains</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_domains_up.html">Unstructured domains</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_unstructured_domain_s.html">struct vrna_unstructured_domain_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_unstructured_domain_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_unstructured_domain_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_unstructured_domain_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#global-functions">Global Functions</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_energy_parameters.html">Energy parameters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters_rw.html">Reading/Writing Energy Parameter Sets from/to File</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="group_energy_parameters_convert.html">Converting Energy Parameter Files</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="group_energy_parameters_convert.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="group_energy_parameters_convert.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="group_energy_parameters_convert.html#global-functions">Global Functions</a></li>
+<li class="toctree-l6"><a class="reference internal" href="group_energy_parameters_convert.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="enum_parset.html">enum parset</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_energy_parameters_rw.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_energy_parameters_rw.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_energy_parameters_rw.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_exp_param_s.html">struct vrna_exp_param_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_exp_param_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_exp_param_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_exp_param_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_param_s.html">struct vrna_param_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_param_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_param_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_param_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_model_details.html">Fine-tuning of the implemented models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_md_s.html">struct vrna_md_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_md_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_md_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_md_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_gr_aux_s.html">struct vrna_gr_aux_s</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_landscape.html">The RNA secondary structure landscape</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_neighbors.html">Neighborhood relation and move sets for secondary structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_move_s.html">struct vrna_move_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_move_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_move_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_move_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_neighbors.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_neighbors.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_neighbors.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_neighbors.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_paths.html">Refolding paths of secondary structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_direct_paths.html">Direct refolding paths between two secondary structures</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_path_s.html">struct vrna_path_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_path_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_path_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_path_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_direct_paths.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_direct_paths.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_direct_paths.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_direct_paths.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_paths.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_paths.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_paths.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_paths.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_consensus_fold.html">Comparative structure prediction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_mfe_fold.html">MFE Consensus Structures for Sequence Alignment(s)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_mfe_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_mfe_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_mfe_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_pf_fold.html">Partition Function and Base Pair Probabilities for Sequence Alignment(s)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_pf_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_pf_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_pf_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_stochbt.html">Stochastic Backtracking of Consensus Structures from Sequence Alignment(s)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_stochbt.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_stochbt.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_stochbt.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_local_consensus_fold.html">Local MFE Consensus Structure Prediction for Sequence Alignments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_local_consensus_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_consensus_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_consensus_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_fold.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_fold.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_subopt_and_representatives.html">Suboptimals and representative structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_centroid_fold.html">Compute the centroid structure</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_centroid_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_centroid_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_centroid_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_mea_fold.html">Compute the structure with maximum expected accuracy (MEA)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_mea_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mea_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mea_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_subopt_stochbt.html">Structure sampling from the ensemble</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_stochbt.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_stochbt.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_stochbt.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_stochbt.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_subopt_wuchty.html">Suboptimal structures within an energy band arround the MFE</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_subopt_zuker.html">Suboptimal structures sensu Stiegler et al. 1984 / Zuker et al. 1989</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_zuker.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_zuker.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_zuker.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_ligand_binding.html">Ligands binding to RNA structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_constraints_ligand.html">Incorporating ligands binding to specific sequence/structure motifs using soft constraints</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints_ligand.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints_ligand.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints_ligand.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_probing_data.html">Experimental structure probing data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_SHAPE_reactivities.html">SHAPE reactivity data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_SHAPE_reactivities.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_SHAPE_reactivities.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_SHAPE_reactivities.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_perturbation.html">Generate soft constraints from data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_pf_fold.html">Partition function and equilibrium properties</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_pf_fold.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_pf_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_pf_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_eval.html">Free energy evaluation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_loops.html">Process and evaluate individual loops</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_loops.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_loops.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_loops.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_loops.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_eval.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_eval.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_eval.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_eval.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_mfe_fold.html">Minimum Free Energy (MFE) algorithms</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold_single.html">MFE Structures of single Nucleic Acid Sequences</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_fold_single.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_fold_single.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_fold_single.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold.html#typedefs">Typedefs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_paired_modules.html">Complex structured modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_gquads.html">G-quadruplexes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_gquads.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_gquads.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_gquads.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_inverse_fold.html">Inverse Folding (Design)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_inverse_fold.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_inverse_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_inverse_fold.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_inverse_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_local_fold.html">Locally stable structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_local_mfe_fold.html">Local MFE Structure Prediction and Z-scores</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_local_mfe_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_mfe_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_mfe_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_local_pf_fold.html">Partition Function and Equilibrium Probabilities for Locally Stable Secondary Structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_local_pf_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_pf_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_pf_fold.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_pf_fold.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="global.html">Global Namespace</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="enum_MOVE_TYPE.html">enum MOVE_TYPE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="enum_vrna_hc_type_e.html">enum vrna_hc_type_e</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_hc_type_e.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_hc_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_hc_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="enum_vrna_sc_type_e.html">enum vrna_sc_type_e</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_sc_type_e.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_sc_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_sc_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="enum_vrna_seq_type_e.html">enum vrna_seq_type_e</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_seq_type_e.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_seq_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_seq_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_Postorder_list.html">struct Postorder_list</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_Tree.html">struct Tree</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_TwoDpfold_vars.html">struct TwoDpfold_vars</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_TwoDpfold_vars.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_TwoDpfold_vars.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_TwoDpfold_vars.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct__struct_en.html">struct _struct_en</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_swString.html">struct swString</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_dimer_conc_s.html">struct vrna_dimer_conc_s</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dimer_conc_s.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dimer_conc_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dimer_conc_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_hc_bp_storage_t.html">struct vrna_hc_bp_storage_t</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_sc_bp_storage_t.html">struct vrna_sc_bp_storage_t</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_sc_motif_s.html">struct vrna_sc_motif_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_sequence_s.html">struct vrna_sequence_s</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_sequence_s.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_sequence_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_sequence_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_structured_domains_s.html">struct vrna_structured_domains_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_subopt_sol_s.html">struct vrna_subopt_sol_s</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_subopt_sol_s.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_subopt_sol_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_subopt_sol_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_unstructured_domain_motif_s.html">struct vrna_unstructured_domain_motif_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#typedefs">Typedefs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#global-functions">Global Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul>
+<li class="toctree-l1"><a class="reference internal" href="page_getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_concepts.html">Concepts and Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_io.html">I/O Formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_data_structures.html">Basic Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_api_features.html">API Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_utilities.html">Additional Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_deprecated.html">Deprecated List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_bug.html">Bug List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_citelist.html">Bibliography</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="group_index.html">The RNAlib API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="group_data_structures.html">Data Structures and Preprocessor Macros</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="group_utils.html">Utilities</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Utilities for sequence alignments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_pinfo_s.html">struct vrna_pinfo_s</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_buffer_utils.html">Functions that provide dynamically buffered stream-like data structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_file_utils.html">Functions to Read/Write several File Formats for RNA Sequences, Structures, and Alignments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_plotting_utils.html">Functions for Creating Secondary Structure Plots, Dot-Plots, and More</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_string_utils.html">Parsing, converting, and comparing sequences</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_struct_utils.html">Parsing, converting, comparing secondary structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_units.html">Functions to convert between various units</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_class_fold.html">Classified Dynamic Programming variants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_cofold.html">RNA-RNA interaction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_grammar.html">The RNA folding grammar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_landscape.html">The RNA secondary structure landscape</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_consensus_fold.html">Comparative structure prediction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_subopt_and_representatives.html">Suboptimals and representative structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_ligand_binding.html">Ligands binding to RNA structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_probing_data.html">Experimental structure probing data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_pf_fold.html">Partition function and equilibrium properties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_eval.html">Free energy evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_mfe_fold.html">Minimum Free Energy (MFE) algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_paired_modules.html">Complex structured modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_inverse_fold.html">Inverse Folding (Design)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_local_fold.html">Locally stable structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="global.html">Global Namespace</a></li>
+</ul>
+</li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+              
+                
+  <li>
+    <a href="group_utils.html" title="Previous Chapter: Utilities"><span class="glyphicon glyphicon-chevron-left visible-sm"></span><span class="hidden-sm hidden-tablet">&laquo; Utilities</span>
+    </a>
+  </li>
+  <li>
+    <a href="struct_vrna_pinfo_s.html" title="Next Chapter: struct vrna_pinfo_s"><span class="glyphicon glyphicon-chevron-right visible-sm"></span><span class="hidden-sm hidden-tablet">struct vrna_pinfo_s &raquo;</span>
+    </a>
+  </li>
+              
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-3">
+        <div id="sidebar" class="bs-sidenav" role="complementary">
+<form action="search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form><ul>
+<li class="toctree-l1"><a class="reference internal" href="page_getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_concepts.html">Concepts and Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_io.html">I/O Formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_data_structures.html">Basic Data Structures</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_api_features.html">API Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_utilities.html">Additional Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_deprecated.html">Deprecated List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_bug.html">Bug List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_citelist.html">Bibliography</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="group_index.html">The RNAlib API</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="group_data_structures.html">Data Structures and Preprocessor Macros</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="group_utils.html">Utilities</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Utilities for sequence alignments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_pinfo_s.html">struct vrna_pinfo_s</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_buffer_utils.html">Functions that provide dynamically buffered stream-like data structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_file_utils.html">Functions to Read/Write several File Formats for RNA Sequences, Structures, and Alignments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_plotting_utils.html">Functions for Creating Secondary Structure Plots, Dot-Plots, and More</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_string_utils.html">Parsing, converting, and comparing sequences</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_struct_utils.html">Parsing, converting, comparing secondary structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_units.html">Functions to convert between various units</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_class_fold.html">Classified Dynamic Programming variants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_cofold.html">RNA-RNA interaction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_grammar.html">The RNA folding grammar</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_landscape.html">The RNA secondary structure landscape</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_consensus_fold.html">Comparative structure prediction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_subopt_and_representatives.html">Suboptimals and representative structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_ligand_binding.html">Ligands binding to RNA structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_probing_data.html">Experimental structure probing data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_pf_fold.html">Partition function and equilibrium properties</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_eval.html">Free energy evaluation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_mfe_fold.html">Minimum Free Energy (MFE) algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_paired_modules.html">Complex structured modules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_inverse_fold.html">Inverse Folding (Design)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="group_local_fold.html">Locally stable structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="global.html">Global Namespace</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    <div class="col-md-9 content">
+      
+  <div class="section" id="utilities-for-sequence-alignments">
+<span id="cid-aln-utils"></span><span id="doxid-group-aln-utils"></span><span id="index-0"></span><h1>Utilities for sequence alignments<a class="headerlink" href="#utilities-for-sequence-alignments" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<pre class="highlight overview-code-block literal-block" id="cid-vrna-aln-uppercase">
+<span id="doxid-group-aln-utils-1ga0de72fc917d72acafe862750a3a5e0bc"></span><span id="cid-vrna-aln-rna"></span><span id="doxid-group-aln-utils-1ga1a2aa60bcc51dc8e48c07bf146bd28c1"></span><span id="cid-vrna-aln-lowercase"></span><span id="doxid-group-aln-utils-1ga27eb303be3c8368c9e8be76a4d6ca35e"></span><span id="cid-vrna-aln-dna"></span><span id="doxid-group-aln-utils-1ga36affc310a5adedf1bdbf9669dd4bf85"></span><span id="cid-vrna-aln-default"></span><span id="doxid-group-aln-utils-1ga7437bcbc3142b266f1f3b086eb669092"></span><span id="cid-get-ungapped-sequence"></span><span id="doxid-group-aln-utils-1ga4a17a26c6cfc1ad5bf4c3d035292a275"></span><span id="cid-consens-mis"></span><span id="doxid-group-aln-utils-1gab8c6d748a1b44e516759233879dadcc7"></span><span id="cid-consensus"></span><span id="doxid-group-aln-utils-1ga8e8b805faaf6dee2feb4cbc38ba48e71"></span><span id="cid-read-clustal"></span><span id="doxid-group-aln-utils-1ga1cc88b4df842ca73b4ac0cb5e71c696a"></span><span id="cid-vrna-aln-pscore"></span><span id="doxid-group-aln-utils-1ga36343f89b733b21697c981652248abca"></span><span></span><span class="c1">// typedefs</span>
+
+<span class="k">typedef</span> <span class="k">struct</span> <a class="reference internal" href="struct_vrna_pinfo_s.html#doxid-structvrna-pinfo-s"><span class="std std-ref">vrna_pinfo_s</span></a><span></span> <a class="reference internal" href="#doxid-group-aln-utils-1ga6660dfca23debee7306e0cd53341263f"><span class="std std-ref">vrna_pinfo_t</span></a><span></span>
+<span class="k">typedef</span> <span class="k">struct</span> <a class="reference internal" href="struct_vrna_pinfo_s.html#doxid-structvrna-pinfo-s"><span class="std std-ref">vrna_pinfo_s</span></a><span></span> <a class="reference internal" href="#doxid-group-aln-utils-1ga7b61662a793ad0aa1ea38efc3a5baacc"><span class="std std-ref">pair_info</span></a><span></span>
+
+<span class="c1">// structs</span>
+
+<span class="k">struct</span> <a class="reference internal" href="struct_vrna_pinfo_s.html#doxid-structvrna-pinfo-s"><span class="std std-ref">vrna_pinfo_s</span></a><span></span>
+
+<span class="c1">// global functions</span>
+
+<span class="kt">int</span> <a class="reference internal" href="#doxid-group-aln-utils-1gade5a1f2d16e7fd9a57b37d8514f08e8e"><span class="std std-ref">vrna_aln_mpi</span></a><span></span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">)</span>
+
+<a class="reference internal" href="#doxid-group-aln-utils-1ga6660dfca23debee7306e0cd53341263f"><span class="std std-ref">vrna_pinfo_t</span></a><span></span><span class="o">*</span> <a class="reference internal" href="#doxid-group-aln-utils-1gaf6421a1318586c59fea6a127ed9f65f3"><span class="std std-ref">vrna_aln_pinfo</span></a><span></span> <span class="p">(</span>
+    <a class="reference internal" href="group_fold_compound.html#doxid-group-fold-compound-1ga1b0cef17fd40466cef5968eaeeff6166"><span class="std std-ref">vrna_fold_compound_t</span></a><span></span><span class="o">*</span> <span class="n">vc</span><span class="p">,</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">structure</span><span class="p">,</span>
+    <span class="kt">double</span> <span class="n">threshold</span>
+    <span class="p">)</span>
+
+<span class="kt">int</span><span class="o">*</span> <span class="n">vrna_aln_pscore</span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">,</span>
+    <a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga1f8a10e12a0a1915f2a4eff0b28ea17c"><span class="std std-ref">vrna_md_t</span></a><span></span><span class="o">*</span> <span class="n">md</span>
+    <span class="p">)</span>
+
+<span class="kt">char</span><span class="o">**</span> <a class="reference internal" href="#doxid-group-aln-utils-1gac801b0a72eac4ab9d5b2ef7533db9193"><span class="std std-ref">vrna_aln_slice</span></a><span></span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">i</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">j</span>
+    <span class="p">)</span>
+
+<span class="kt">void</span> <a class="reference internal" href="#doxid-group-aln-utils-1gac00dc80b8a324f151f92f11ab6850ecf"><span class="std std-ref">vrna_aln_free</span></a><span></span> <span class="p">(</span><span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">)</span>
+<span class="kt">char</span><span class="o">**</span> <a class="reference internal" href="#doxid-group-aln-utils-1ga3a0476a71c4bae3d302790de58055704"><span class="std std-ref">vrna_aln_uppercase</span></a><span></span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">)</span>
+<span class="kt">char</span><span class="o">**</span> <a class="reference internal" href="#doxid-group-aln-utils-1ga7886fc678553c06472a712a335cde9cf"><span class="std std-ref">vrna_aln_toRNA</span></a><span></span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">)</span>
+
+<span class="kt">char</span><span class="o">**</span> <a class="reference internal" href="#doxid-group-aln-utils-1ga08cdca592461436860daf9738279ce17"><span class="std std-ref">vrna_aln_copy</span></a><span></span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">options</span>
+    <span class="p">)</span>
+
+<span class="kt">float</span><span class="o">*</span> <a class="reference internal" href="#doxid-group-aln-utils-1gab6f16a2ea93f3bfd4d089cc8d448bb16"><span class="std std-ref">vrna_aln_conservation_struct</span></a><span></span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">,</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">structure</span><span class="p">,</span>
+    <span class="k">const</span> <a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga1f8a10e12a0a1915f2a4eff0b28ea17c"><span class="std std-ref">vrna_md_t</span></a><span></span><span class="o">*</span> <span class="n">md</span>
+    <span class="p">)</span>
+
+<span class="kt">float</span><span class="o">*</span> <a class="reference internal" href="#doxid-group-aln-utils-1gaa12b481a7e7b965ef2eb1bcc4399e759"><span class="std std-ref">vrna_aln_conservation_col</span></a><span></span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">,</span>
+    <span class="k">const</span> <a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga1f8a10e12a0a1915f2a4eff0b28ea17c"><span class="std std-ref">vrna_md_t</span></a><span></span><span class="o">*</span> <span class="n">md_p</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">options</span>
+    <span class="p">)</span>
+
+<span class="kt">int</span> <span class="n">read_clustal</span> <span class="p">(</span>
+    <span class="kt">FILE</span><span class="o">*</span> <span class="n">clust</span><span class="p">,</span>
+    <span class="kt">char</span><span class="o">*</span> <span class="n">AlignedSeqs</span> <span class="p">[],</span>
+    <span class="kt">char</span><span class="o">*</span> <span class="n">names</span> <span class="p">[]</span>
+    <span class="p">)</span>
+
+<span class="kt">char</span><span class="o">*</span> <span class="n">consensus</span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">AS</span> <span class="p">[])</span>
+<span class="kt">char</span><span class="o">*</span> <span class="n">consens_mis</span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">AS</span> <span class="p">[])</span>
+<span class="kt">char</span><span class="o">*</span> <span class="n">get_ungapped_sequence</span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">seq</span><span class="p">)</span>
+
+<span class="kt">int</span> <a class="reference internal" href="#doxid-group-aln-utils-1gaa2d600be90844094ec145ea14a314d2f"><span class="std std-ref">get_mpi</span></a><span></span> <span class="p">(</span>
+    <span class="kt">char</span><span class="o">*</span> <span class="n">Alseq</span> <span class="p">[],</span>
+    <span class="kt">int</span> <span class="n">n_seq</span><span class="p">,</span>
+    <span class="kt">int</span> <span class="n">length</span><span class="p">,</span>
+    <span class="kt">int</span><span class="o">*</span> <span class="n">mini</span>
+    <span class="p">)</span>
+
+<span class="kt">void</span> <a class="reference internal" href="#doxid-group-aln-utils-1gaa3e40277c837d6f7603afe319884c786"><span class="std std-ref">encode_ali_sequence</span></a><span></span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">sequence</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">*</span> <span class="n">S</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">*</span> <span class="n">s5</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">*</span> <span class="n">s3</span><span class="p">,</span>
+    <span class="kt">char</span><span class="o">*</span> <span class="n">ss</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">short</span><span class="o">*</span> <span class="n">as</span><span class="p">,</span>
+    <span class="kt">int</span> <span class="n">circ</span>
+    <span class="p">)</span>
+
+<span class="kt">void</span> <a class="reference internal" href="#doxid-group-aln-utils-1ga8a560930f7f2582cc3967723a86cfdfa"><span class="std std-ref">alloc_sequence_arrays</span></a><span></span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">sequences</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S5</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S3</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">short</span><span class="o">***</span> <span class="n">a2s</span><span class="p">,</span>
+    <span class="kt">char</span><span class="o">***</span> <span class="n">Ss</span><span class="p">,</span>
+    <span class="kt">int</span> <span class="n">circ</span>
+    <span class="p">)</span>
+
+<span class="kt">void</span> <a class="reference internal" href="#doxid-group-aln-utils-1ga298a420a8c879202e2617b3f724fde38"><span class="std std-ref">free_sequence_arrays</span></a><span></span> <span class="p">(</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">n_seq</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S5</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S3</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">short</span><span class="o">***</span> <span class="n">a2s</span><span class="p">,</span>
+    <span class="kt">char</span><span class="o">***</span> <span class="n">Ss</span>
+    <span class="p">)</span>
+
+<span class="c1">// macros</span>
+
+<span class="cp">#define VRNA_ALN_DEFAULT</span>
+<span class="cp">#define VRNA_ALN_DNA</span>
+<span class="cp">#define VRNA_ALN_LOWERCASE</span>
+<span class="cp">#define VRNA_ALN_RNA</span>
+<span class="cp">#define VRNA_ALN_UPPERCASE</span>
+<span class="cp">#define </span><a class="reference internal" href="#doxid-group-aln-utils-1ga1e659227c9fc077d29989f576f129000"><span class="std std-ref">VRNA_MEASURE_SHANNON_ENTROPY</span></a>
+</pre>
+</div>
+<div class="section" id="detailed-documentation">
+<span id="details-doxid-group-aln-utils"></span><h2>Detailed Documentation<a class="headerlink" href="#detailed-documentation" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="typedefs">
+<h2>Typedefs<a class="headerlink" href="#typedefs" title="Permalink to this headline">¶</a></h2>
+<div class="typedef-container docutils container" id="cid-vrna-pinfo-t">
+<span id="doxid-group-aln-utils-1ga6660dfca23debee7306e0cd53341263f"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="k">typedef</span> <span class="k">struct</span> <a class="reference internal" href="struct_vrna_pinfo_s.html#doxid-structvrna-pinfo-s"><span class="std std-ref">vrna_pinfo_s</span></a><span></span> <span class="n">vrna_pinfo_t</span>
+</pre>
+<div class="brief-description docutils container">
+Typename for the base pair info repesenting data structure <a class="reference internal" href="struct_vrna_pinfo_s.html#doxid-structvrna-pinfo-s"><span class="std std-ref">vrna_pinfo_s</span></a> .</div>
+</div>
+<div class="typedef-container docutils container" id="cid-pair-info">
+<span id="doxid-group-aln-utils-1ga7b61662a793ad0aa1ea38efc3a5baacc"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="k">typedef</span> <span class="k">struct</span> <a class="reference internal" href="struct_vrna_pinfo_s.html#doxid-structvrna-pinfo-s"><span class="std std-ref">vrna_pinfo_s</span></a><span></span> <span class="n">pair_info</span>
+</pre>
+<div class="brief-description docutils container">
+Old typename of <a class="reference internal" href="struct_vrna_pinfo_s.html#doxid-structvrna-pinfo-s"><span class="std std-ref">vrna_pinfo_s</span></a> .</div>
+<div class="detailed-description docutils container">
+Deprecated Use <a class="reference internal" href="#doxid-group-aln-utils-1ga6660dfca23debee7306e0cd53341263f"><span class="std std-ref">vrna_pinfo_t</span></a> instead!</div>
+</div>
+</div>
+<div class="section" id="global-functions">
+<h2>Global Functions<a class="headerlink" href="#global-functions" title="Permalink to this headline">¶</a></h2>
+<div class="function-container docutils container" id="cid-vrna-aln-mpi">
+<span id="doxid-group-aln-utils-1gade5a1f2d16e7fd9a57b37d8514f08e8e"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">int</span> <span class="n">vrna_aln_mpi</span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Get the mean pairwise identity in steps from ?to?(ident)</div>
+<div class="detailed-description docutils container">
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>alignment</td>
+<td>Aligned sequences</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Returns:</p>
+<p>The mean pairwise identity</p>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-vrna-aln-pinfo">
+<span id="doxid-group-aln-utils-1gaf6421a1318586c59fea6a127ed9f65f3"></span><pre class="highlight title-code-block literal-block">
+<a class="reference internal" href="#doxid-group-aln-utils-1ga6660dfca23debee7306e0cd53341263f"><span class="std std-ref">vrna_pinfo_t</span></a><span></span><span class="o">*</span> <span class="n">vrna_aln_pinfo</span> <span class="p">(</span>
+    <a class="reference internal" href="group_fold_compound.html#doxid-group-fold-compound-1ga1b0cef17fd40466cef5968eaeeff6166"><span class="std std-ref">vrna_fold_compound_t</span></a><span></span><span class="o">*</span> <span class="n">vc</span><span class="p">,</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">structure</span><span class="p">,</span>
+    <span class="kt">double</span> <span class="n">threshold</span>
+    <span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Retrieve an array of <a class="reference internal" href="#doxid-group-aln-utils-1ga6660dfca23debee7306e0cd53341263f"><span class="std std-ref">vrna_pinfo_t</span></a> structures from precomputed pair probabilities.</div>
+<div class="detailed-description docutils container">
+<p>This array of structures contains information about positionwise pair probabilies, base pair entropy and more</p>
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>vc</td>
+<td>The <a class="reference internal" href="group_fold_compound.html#doxid-group-fold-compound-1ga1b0cef17fd40466cef5968eaeeff6166"><span class="std std-ref">vrna_fold_compound_t</span></a> of type <a class="reference internal" href="enum_vrna_fc_type_e.html#doxid-group-fold-compound-1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023"><span class="std std-ref">VRNA_FC_TYPE_COMPARATIVE</span></a> with precomputed partition function matrices</td>
+</tr>
+<tr class="row-even"><td>structure</td>
+<td>An optional structure in dot-bracket notation (Maybe NULL)</td>
+</tr>
+<tr class="row-odd"><td>threshold</td>
+<td>Do not include results with pair probabilities below threshold</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Returns:</p>
+<p>The <a class="reference internal" href="#doxid-group-aln-utils-1ga6660dfca23debee7306e0cd53341263f"><span class="std std-ref">vrna_pinfo_t</span></a> array</p>
+<div class="admonition-see-also admonition">
+<p class="first admonition-title">See also:</p>
+<p class="last"><a class="reference internal" href="#doxid-group-aln-utils-1ga6660dfca23debee7306e0cd53341263f"><span class="std std-ref">vrna_pinfo_t</span></a> , and <a class="reference internal" href="group_pf_fold.html#doxid-group-pf-fold-1ga29e256d688ad221b78d37f427e0e99bc"><span class="std std-ref">vrna_pf()</span></a></p>
+</div>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-vrna-aln-slice">
+<span id="doxid-group-aln-utils-1gac801b0a72eac4ab9d5b2ef7533db9193"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">char</span><span class="o">**</span> <span class="n">vrna_aln_slice</span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">i</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">j</span>
+    <span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Slice out a subalignment from a larger alignment.</div>
+<div class="detailed-description docutils container">
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>alignment</td>
+<td>The input alignment</td>
+</tr>
+<tr class="row-even"><td>i</td>
+<td>The first column of the subalignment (1-based)</td>
+</tr>
+<tr class="row-odd"><td>j</td>
+<td>The last column of the subalignment (1-based)</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Returns:</p>
+<p>The subalignment between column <span class="math notranslate nohighlight">\(i\)</span> and <span class="math notranslate nohighlight">\(j\)</span></p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The user is responsible to free the memory occupied by the returned subalignment</p>
+</div>
+<div class="admonition-see-also admonition">
+<p class="first admonition-title">See also:</p>
+<p class="last"><a class="reference internal" href="#doxid-group-aln-utils-1gac00dc80b8a324f151f92f11ab6850ecf"><span class="std std-ref">vrna_aln_free()</span></a></p>
+</div>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-vrna-aln-free">
+<span id="doxid-group-aln-utils-1gac00dc80b8a324f151f92f11ab6850ecf"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">void</span> <span class="n">vrna_aln_free</span> <span class="p">(</span><span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Free memory occupied by a set of aligned sequences.</div>
+<div class="detailed-description docutils container">
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>alignment</td>
+<td>The input alignment</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-vrna-aln-uppercase-2">
+<span id="doxid-group-aln-utils-1ga3a0476a71c4bae3d302790de58055704"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">char</span><span class="o">**</span> <span class="n">vrna_aln_uppercase</span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Create a copy of an alignment with only uppercase letters in the sequences.</div>
+<div class="detailed-description docutils container">
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>alignment</td>
+<td>The input sequence alignment (last entry must be <em>NULL</em> terminated)</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Returns:</p>
+<p>A copy of the input alignment where lowercase sequence letters are replaced by uppercase letters</p>
+<div class="admonition-see-also admonition">
+<p class="first admonition-title">See also:</p>
+<p class="last"><a class="reference internal" href="#doxid-group-aln-utils-1ga08cdca592461436860daf9738279ce17"><span class="std std-ref">vrna_aln_copy</span></a></p>
+</div>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-vrna-aln-torna">
+<span id="doxid-group-aln-utils-1ga7886fc678553c06472a712a335cde9cf"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">char</span><span class="o">**</span> <span class="n">vrna_aln_toRNA</span> <span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Create a copy of an alignment where DNA alphabet is replaced by RNA alphabet.</div>
+<div class="detailed-description docutils container">
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>alignment</td>
+<td>The input sequence alignment (last entry must be <em>NULL</em> terminated)</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Returns:</p>
+<p>A copy of the input alignment where DNA alphabet is replaced by RNA alphabet (T -&gt; U)</p>
+<div class="admonition-see-also admonition">
+<p class="first admonition-title">See also:</p>
+<p class="last"><a class="reference internal" href="#doxid-group-aln-utils-1ga08cdca592461436860daf9738279ce17"><span class="std std-ref">vrna_aln_copy</span></a></p>
+</div>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-vrna-aln-copy">
+<span id="doxid-group-aln-utils-1ga08cdca592461436860daf9738279ce17"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">char</span><span class="o">**</span> <span class="n">vrna_aln_copy</span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">options</span>
+    <span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Make a copy of a multiple sequence alignment.</div>
+<div class="detailed-description docutils container">
+<p>This function allows one to create a copy of a multiple sequence alignment. The <code class="docutils literal notranslate"><span class="pre">options</span></code> parameter additionally allows for sequence manipulation, such as converting DNA to RNA alphabet, and conversion to uppercase letters.</p>
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>alignment</td>
+<td>The input sequence alignment (last entry must be <em>NULL</em> terminated)</td>
+</tr>
+<tr class="row-even"><td>options</td>
+<td>Option flags indicating whether the aligned sequences should be converted</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Returns:</p>
+<p>A (manipulated) copy of the input alignment</p>
+<div class="admonition-see-also admonition">
+<p class="first admonition-title">See also:</p>
+<p class="last"><a class="reference internal" href="#doxid-group-aln-utils-1ga08cdca592461436860daf9738279ce17"><span class="std std-ref">vrna_aln_copy()</span></a> , <a class="reference internal" href="#doxid-group-aln-utils-1ga1a2aa60bcc51dc8e48c07bf146bd28c1"><span class="std std-ref">VRNA_ALN_RNA</span></a> , <a class="reference internal" href="#doxid-group-aln-utils-1ga0de72fc917d72acafe862750a3a5e0bc"><span class="std std-ref">VRNA_ALN_UPPERCASE</span></a> , <a class="reference internal" href="#doxid-group-aln-utils-1ga7437bcbc3142b266f1f3b086eb669092"><span class="std std-ref">VRNA_ALN_DEFAULT</span></a></p>
+</div>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-vrna-aln-conservation-struct">
+<span id="doxid-group-aln-utils-1gab6f16a2ea93f3bfd4d089cc8d448bb16"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">float</span><span class="o">*</span> <span class="n">vrna_aln_conservation_struct</span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">,</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">structure</span><span class="p">,</span>
+    <span class="k">const</span> <a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga1f8a10e12a0a1915f2a4eff0b28ea17c"><span class="std std-ref">vrna_md_t</span></a><span></span><span class="o">*</span> <span class="n">md</span>
+    <span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Compute base pair conservation of a consensus structure.</div>
+<div class="detailed-description docutils container">
+<p>This function computes the base pair conservation (fraction of canonical base pairs) of a consensus structure given a multiple sequence alignment. The base pair types that are considered canonical may be specified using the #vrna_md_t.pairs array. Passing <em>NULL</em> as parameter <code class="docutils literal notranslate"><span class="pre">md</span></code> results in default pairing rules, i.e. canonical Watson-Crick and GU Wobble pairs.</p>
+<p>SWIG Wrapper Notes This function is available in an overloaded form where the last parameter may be omitted, indicating <code class="docutils literal notranslate"><span class="pre">md</span></code> = <em>NULL</em></p>
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>alignment</td>
+<td>The input sequence alignment (last entry must be <em>NULL</em> terminated)</td>
+</tr>
+<tr class="row-even"><td>structure</td>
+<td>The consensus structure in dot-bracket notation</td>
+</tr>
+<tr class="row-odd"><td>md</td>
+<td>Model details that specify compatible base pairs (Maybe <em>NULL</em> )</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Returns:</p>
+<p>A 1-based vector of base pair conservations</p>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-vrna-aln-conservation-col">
+<span id="doxid-group-aln-utils-1gaa12b481a7e7b965ef2eb1bcc4399e759"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">float</span><span class="o">*</span> <span class="n">vrna_aln_conservation_col</span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">alignment</span><span class="p">,</span>
+    <span class="k">const</span> <a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga1f8a10e12a0a1915f2a4eff0b28ea17c"><span class="std std-ref">vrna_md_t</span></a><span></span><span class="o">*</span> <span class="n">md_p</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">options</span>
+    <span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Compute nucleotide conservation in an alignment.</div>
+<div class="detailed-description docutils container">
+<p>This function computes the conservation of nucleotides in alignment columns. The simples measure is Shannon Entropy and can be selected by passing the <a class="reference internal" href="#doxid-group-aln-utils-1ga1e659227c9fc077d29989f576f129000"><span class="std std-ref">VRNA_MEASURE_SHANNON_ENTROPY</span></a> flag in the <code class="docutils literal notranslate"><span class="pre">options</span></code> parameter.</p>
+<p>SWIG Wrapper Notes This function is available in an overloaded form where the last two parameters may be omitted, indicating <code class="docutils literal notranslate"><span class="pre">md</span></code> = <em>NULL</em> , and <code class="docutils literal notranslate"><span class="pre">options</span></code> = <a class="reference internal" href="#doxid-group-aln-utils-1ga1e659227c9fc077d29989f576f129000"><span class="std std-ref">VRNA_MEASURE_SHANNON_ENTROPY</span></a> , respectively.</p>
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>alignment</td>
+<td>The input sequence alignment (last entry must be <em>NULL</em> terminated)</td>
+</tr>
+<tr class="row-even"><td>md</td>
+<td>Model details that specify known nucleotides (Maybe <em>NULL</em> )</td>
+</tr>
+<tr class="row-odd"><td>options</td>
+<td>A flag indicating which measure of conservation should be applied</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Returns:</p>
+<p>A 1-based vector of column conservations</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Currently, only <a class="reference internal" href="#doxid-group-aln-utils-1ga1e659227c9fc077d29989f576f129000"><span class="std std-ref">VRNA_MEASURE_SHANNON_ENTROPY</span></a> is supported as conservation measure.</p>
+</div>
+<div class="admonition-see-also admonition">
+<p class="first admonition-title">See also:</p>
+<p class="last"><a class="reference internal" href="#doxid-group-aln-utils-1ga1e659227c9fc077d29989f576f129000"><span class="std std-ref">VRNA_MEASURE_SHANNON_ENTROPY</span></a></p>
+</div>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-get-mpi">
+<span id="doxid-group-aln-utils-1gaa2d600be90844094ec145ea14a314d2f"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">int</span> <span class="n">get_mpi</span> <span class="p">(</span>
+    <span class="kt">char</span><span class="o">*</span> <span class="n">Alseq</span> <span class="p">[],</span>
+    <span class="kt">int</span> <span class="n">n_seq</span><span class="p">,</span>
+    <span class="kt">int</span> <span class="n">length</span><span class="p">,</span>
+    <span class="kt">int</span><span class="o">*</span> <span class="n">mini</span>
+    <span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Get the mean pairwise identity in steps from ?to?(ident)</div>
+<div class="detailed-description docutils container">
+<p>Deprecated Use <a class="reference internal" href="#doxid-group-aln-utils-1gade5a1f2d16e7fd9a57b37d8514f08e8e"><span class="std std-ref">vrna_aln_mpi()</span></a> as a replacement</p>
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>Alseq</td>
+<td>&#160;</td>
+</tr>
+<tr class="row-even"><td>n_seq</td>
+<td>The number of sequences in the alignment</td>
+</tr>
+<tr class="row-odd"><td>length</td>
+<td>The length of the alignment</td>
+</tr>
+<tr class="row-even"><td>mini</td>
+<td>&#160;</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Returns:</p>
+<p>The mean pairwise identity</p>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-encode-ali-sequence">
+<span id="doxid-group-aln-utils-1gaa3e40277c837d6f7603afe319884c786"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">void</span> <span class="n">encode_ali_sequence</span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">sequence</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">*</span> <span class="n">S</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">*</span> <span class="n">s5</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">*</span> <span class="n">s3</span><span class="p">,</span>
+    <span class="kt">char</span><span class="o">*</span> <span class="n">ss</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">short</span><span class="o">*</span> <span class="n">as</span><span class="p">,</span>
+    <span class="kt">int</span> <span class="n">circ</span>
+    <span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Get arrays with encoded sequence of the alignment.</div>
+<div class="detailed-description docutils container">
+<p>this function assumes that in S, S5, s3, ss and as enough space is already allocated (size must be at least sequence length+2)</p>
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>sequence</td>
+<td>The gapped sequence from the alignment</td>
+</tr>
+<tr class="row-even"><td>S</td>
+<td>pointer to an array that holds encoded sequence</td>
+</tr>
+<tr class="row-odd"><td>s5</td>
+<td>pointer to an array that holds the next base 5’ of alignment position i</td>
+</tr>
+<tr class="row-even"><td>s3</td>
+<td>pointer to an array that holds the next base 3’ of alignment position i</td>
+</tr>
+<tr class="row-odd"><td>ss</td>
+<td>&#160;</td>
+</tr>
+<tr class="row-even"><td>as</td>
+<td>&#160;</td>
+</tr>
+<tr class="row-odd"><td>circ</td>
+<td>assume the molecules to be circular instead of linear (circ=0)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-alloc-sequence-arrays">
+<span id="doxid-group-aln-utils-1ga8a560930f7f2582cc3967723a86cfdfa"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">void</span> <span class="n">alloc_sequence_arrays</span> <span class="p">(</span>
+    <span class="k">const</span> <span class="kt">char</span><span class="o">**</span> <span class="n">sequences</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S5</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S3</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">short</span><span class="o">***</span> <span class="n">a2s</span><span class="p">,</span>
+    <span class="kt">char</span><span class="o">***</span> <span class="n">Ss</span><span class="p">,</span>
+    <span class="kt">int</span> <span class="n">circ</span>
+    <span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Allocate memory for sequence array used to deal with aligned sequences.</div>
+<div class="detailed-description docutils container">
+<p>Note that these arrays will also be initialized according to the sequence alignment given</p>
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>sequences</td>
+<td>The aligned sequences</td>
+</tr>
+<tr class="row-even"><td>S</td>
+<td>A pointer to the array of encoded sequences</td>
+</tr>
+<tr class="row-odd"><td>S5</td>
+<td>A pointer to the array that contains the next 5’ nucleotide of a sequence position</td>
+</tr>
+<tr class="row-even"><td>S3</td>
+<td>A pointer to the array that contains the next 3’ nucleotide of a sequence position</td>
+</tr>
+<tr class="row-odd"><td>a2s</td>
+<td>A pointer to the array that contains the alignment to sequence position mapping</td>
+</tr>
+<tr class="row-even"><td>Ss</td>
+<td>A pointer to the array that contains the ungapped sequence</td>
+</tr>
+<tr class="row-odd"><td>circ</td>
+<td>assume the molecules to be circular instead of linear (circ=0)</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition-see-also admonition">
+<p class="first admonition-title">See also:</p>
+<p class="last"><a class="reference internal" href="#doxid-group-aln-utils-1ga298a420a8c879202e2617b3f724fde38"><span class="std std-ref">free_sequence_arrays()</span></a></p>
+</div>
+</div>
+</div>
+<div class="function-container docutils container" id="cid-free-sequence-arrays">
+<span id="doxid-group-aln-utils-1ga298a420a8c879202e2617b3f724fde38"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="kt">void</span> <span class="n">free_sequence_arrays</span> <span class="p">(</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">n_seq</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S5</span><span class="p">,</span>
+    <span class="kt">short</span><span class="o">***</span> <span class="n">S3</span><span class="p">,</span>
+    <span class="kt">unsigned</span> <span class="kt">short</span><span class="o">***</span> <span class="n">a2s</span><span class="p">,</span>
+    <span class="kt">char</span><span class="o">***</span> <span class="n">Ss</span>
+    <span class="p">)</span>
+</pre>
+<div class="brief-description docutils container">
+Free the memory of the sequence arrays used to deal with aligned sequences.</div>
+<div class="detailed-description docutils container">
+<p>This function frees the memory previously allocated with <a class="reference internal" href="#doxid-group-aln-utils-1ga8a560930f7f2582cc3967723a86cfdfa"><span class="std std-ref">alloc_sequence_arrays()</span></a></p>
+<p class="rubric">Parameters:</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>n_seq</td>
+<td>The number of aligned sequences</td>
+</tr>
+<tr class="row-even"><td>S</td>
+<td>A pointer to the array of encoded sequences</td>
+</tr>
+<tr class="row-odd"><td>S5</td>
+<td>A pointer to the array that contains the next 5’ nucleotide of a sequence position</td>
+</tr>
+<tr class="row-even"><td>S3</td>
+<td>A pointer to the array that contains the next 3’ nucleotide of a sequence position</td>
+</tr>
+<tr class="row-odd"><td>a2s</td>
+<td>A pointer to the array that contains the alignment to sequence position mapping</td>
+</tr>
+<tr class="row-even"><td>Ss</td>
+<td>A pointer to the array that contains the ungapped sequence</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition-see-also admonition">
+<p class="first admonition-title">See also:</p>
+<p class="last"><a class="reference internal" href="#doxid-group-aln-utils-1ga8a560930f7f2582cc3967723a86cfdfa"><span class="std std-ref">alloc_sequence_arrays()</span></a></p>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="macros">
+<h2>Macros<a class="headerlink" href="#macros" title="Permalink to this headline">¶</a></h2>
+<div class="macro-container docutils container" id="cid-vrna-measure-shannon-entropy">
+<span id="doxid-group-aln-utils-1ga1e659227c9fc077d29989f576f129000"></span><pre class="highlight title-code-block literal-block">
+<span></span><span class="cp">#define VRNA_MEASURE_SHANNON_ENTROPY</span>
+</pre>
+<div class="brief-description docutils container">
+Flag indicating Shannon Entropy measure.</div>
+<div class="detailed-description docutils container">
+Shannon Entropy is defined as :math:` H = - sum_c p_c cdot log_2 p_c `</div>
+</div>
+</div>
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2017, Ronny Lorenz.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.3.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>
