@@ -1,0 +1,78 @@
+\hypertarget{plex_8h}{}\section{Vienna\+R\+N\+A/plex.h File Reference}
+\label{plex_8h}\index{Vienna\+R\+N\+A/plex.\+h@{Vienna\+R\+N\+A/plex.\+h}}
+Include dependency graph for plex.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{plex_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$ \mbox{\hyperlink{plex_8h_adf439821fe8201e071b56b8e12459762}{Lduplexfold}} (const char $\ast$s1, const char $\ast$s2, const int threshold, const int extension\+\_\+cost, const int alignment\+\_\+length, const int delta, const int fast, const int il\+\_\+a, const int il\+\_\+b, const int b\+\_\+a, const int b\+\_\+b)
+\item 
+\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$ \mbox{\hyperlink{plex_8h_a7d6b8e940b04cf72a237b88b40a1ec2c}{Lduplexfold\+\_\+\+XS}} (const char $\ast$s1, const char $\ast$s2, const int $\ast$$\ast$access\+\_\+s1, const int $\ast$$\ast$access\+\_\+s2, const int threshold, const int delta, const int alignment\+\_\+length, const int fast, const int il\+\_\+a, const int il\+\_\+b, const int b\+\_\+a, const int b\+\_\+b)
+\item 
+\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$ \mbox{\hyperlink{plex_8h_a6eb39f7e41790fd3ab02adf8349a3b57}{Lduplexfold\+\_\+C}} (const char $\ast$s1, const char $\ast$s2, const int threshold, const int extension\+\_\+cost, const int alignment\+\_\+length, const int delta, const int fast, const char $\ast$structure, const int il\+\_\+a, const int il\+\_\+b, const int b\+\_\+a, const int b\+\_\+b)
+\item 
+\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$ \mbox{\hyperlink{plex_8h_a7ec64ec26e9fbfd7bdd53c978c089829}{Lduplexfold\+\_\+\+C\+XS}} (const char $\ast$s1, const char $\ast$s2, const int $\ast$$\ast$access\+\_\+s1, const int $\ast$$\ast$access\+\_\+s2, const int threshold, const int delta, const int alignment\+\_\+length, const int fast, const char $\ast$structure, const int il\+\_\+a, const int il\+\_\+b, const int b\+\_\+a, const int b\+\_\+b)
+\item 
+int \mbox{\hyperlink{plex_8h_ae867a9c0aaca9d6913498f4bbf15d38e}{array\+Size}} (\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$array)
+\item 
+void \mbox{\hyperlink{plex_8h_a78997af137c826fb0eedb201bfc6ec4a}{free\+DuplexT}} (\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$array)
+\end{DoxyCompactItemize}
+\subsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{plex_8h_a873cf8ed69e0437f8efa8b1fec854a0e}{subopt\+\_\+sorted}}
+\end{DoxyCompactItemize}
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{plex_8h_adf439821fe8201e071b56b8e12459762}\label{plex_8h_adf439821fe8201e071b56b8e12459762}} 
+\index{plex.\+h@{plex.\+h}!Lduplexfold@{Lduplexfold}}
+\index{Lduplexfold@{Lduplexfold}!plex.\+h@{plex.\+h}}
+\subsubsection{\texorpdfstring{Lduplexfold()}{Lduplexfold()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}}$\ast$$\ast$ Lduplexfold (\begin{DoxyParamCaption}\item[{const char $\ast$}]{s1,  }\item[{const char $\ast$}]{s2,  }\item[{const int}]{threshold,  }\item[{const int}]{extension\+\_\+cost,  }\item[{const int}]{alignment\+\_\+length,  }\item[{const int}]{delta,  }\item[{const int}]{fast,  }\item[{const int}]{il\+\_\+a,  }\item[{const int}]{il\+\_\+b,  }\item[{const int}]{b\+\_\+a,  }\item[{const int}]{b\+\_\+b }\end{DoxyParamCaption})}
+
+Lduplexfold Computes duplexes between two single sequences \mbox{\Hypertarget{plex_8h_a7d6b8e940b04cf72a237b88b40a1ec2c}\label{plex_8h_a7d6b8e940b04cf72a237b88b40a1ec2c}} 
+\index{plex.\+h@{plex.\+h}!Lduplexfold\+\_\+\+XS@{Lduplexfold\+\_\+\+XS}}
+\index{Lduplexfold\+\_\+\+XS@{Lduplexfold\+\_\+\+XS}!plex.\+h@{plex.\+h}}
+\subsubsection{\texorpdfstring{Lduplexfold\+\_\+\+X\+S()}{Lduplexfold\_XS()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}}$\ast$$\ast$ Lduplexfold\+\_\+\+XS (\begin{DoxyParamCaption}\item[{const char $\ast$}]{s1,  }\item[{const char $\ast$}]{s2,  }\item[{const int $\ast$$\ast$}]{access\+\_\+s1,  }\item[{const int $\ast$$\ast$}]{access\+\_\+s2,  }\item[{const int}]{threshold,  }\item[{const int}]{delta,  }\item[{const int}]{alignment\+\_\+length,  }\item[{const int}]{fast,  }\item[{const int}]{il\+\_\+a,  }\item[{const int}]{il\+\_\+b,  }\item[{const int}]{b\+\_\+a,  }\item[{const int}]{b\+\_\+b }\end{DoxyParamCaption})}
+
+Lduplexfold\+\_\+\+XS Computes duplexes between two single sequences with accessibility \mbox{\Hypertarget{plex_8h_a6eb39f7e41790fd3ab02adf8349a3b57}\label{plex_8h_a6eb39f7e41790fd3ab02adf8349a3b57}} 
+\index{plex.\+h@{plex.\+h}!Lduplexfold\+\_\+C@{Lduplexfold\+\_\+C}}
+\index{Lduplexfold\+\_\+C@{Lduplexfold\+\_\+C}!plex.\+h@{plex.\+h}}
+\subsubsection{\texorpdfstring{Lduplexfold\+\_\+\+C()}{Lduplexfold\_C()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}}$\ast$$\ast$ Lduplexfold\+\_\+C (\begin{DoxyParamCaption}\item[{const char $\ast$}]{s1,  }\item[{const char $\ast$}]{s2,  }\item[{const int}]{threshold,  }\item[{const int}]{extension\+\_\+cost,  }\item[{const int}]{alignment\+\_\+length,  }\item[{const int}]{delta,  }\item[{const int}]{fast,  }\item[{const char $\ast$}]{structure,  }\item[{const int}]{il\+\_\+a,  }\item[{const int}]{il\+\_\+b,  }\item[{const int}]{b\+\_\+a,  }\item[{const int}]{b\+\_\+b }\end{DoxyParamCaption})}
+
+Lduplexfold\+\_\+C Computes duplexes between two single sequences and takes constraint into account \mbox{\Hypertarget{plex_8h_a7ec64ec26e9fbfd7bdd53c978c089829}\label{plex_8h_a7ec64ec26e9fbfd7bdd53c978c089829}} 
+\index{plex.\+h@{plex.\+h}!Lduplexfold\+\_\+\+C\+XS@{Lduplexfold\+\_\+\+C\+XS}}
+\index{Lduplexfold\+\_\+\+C\+XS@{Lduplexfold\+\_\+\+C\+XS}!plex.\+h@{plex.\+h}}
+\subsubsection{\texorpdfstring{Lduplexfold\+\_\+\+C\+X\+S()}{Lduplexfold\_CXS()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}}$\ast$$\ast$ Lduplexfold\+\_\+\+C\+XS (\begin{DoxyParamCaption}\item[{const char $\ast$}]{s1,  }\item[{const char $\ast$}]{s2,  }\item[{const int $\ast$$\ast$}]{access\+\_\+s1,  }\item[{const int $\ast$$\ast$}]{access\+\_\+s2,  }\item[{const int}]{threshold,  }\item[{const int}]{delta,  }\item[{const int}]{alignment\+\_\+length,  }\item[{const int}]{fast,  }\item[{const char $\ast$}]{structure,  }\item[{const int}]{il\+\_\+a,  }\item[{const int}]{il\+\_\+b,  }\item[{const int}]{b\+\_\+a,  }\item[{const int}]{b\+\_\+b }\end{DoxyParamCaption})}
+
+Lduplexfold\+\_\+\+C\+XS Computes duplexes between two single sequences and takes constraint as well as accessibility into account \mbox{\Hypertarget{plex_8h_ae867a9c0aaca9d6913498f4bbf15d38e}\label{plex_8h_ae867a9c0aaca9d6913498f4bbf15d38e}} 
+\index{plex.\+h@{plex.\+h}!array\+Size@{array\+Size}}
+\index{array\+Size@{array\+Size}!plex.\+h@{plex.\+h}}
+\subsubsection{\texorpdfstring{array\+Size()}{arraySize()}}
+{\footnotesize\ttfamily int array\+Size (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$}]{array }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{plex_8h_a78997af137c826fb0eedb201bfc6ec4a}\label{plex_8h_a78997af137c826fb0eedb201bfc6ec4a}} 
+\index{plex.\+h@{plex.\+h}!free\+DuplexT@{free\+DuplexT}}
+\index{free\+DuplexT@{free\+DuplexT}!plex.\+h@{plex.\+h}}
+\subsubsection{\texorpdfstring{free\+Duplex\+T()}{freeDuplexT()}}
+{\footnotesize\ttfamily void free\+DuplexT (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$}]{array }\end{DoxyParamCaption})}
+
+
+
+\subsection{Variable Documentation}
+\mbox{\Hypertarget{plex_8h_a873cf8ed69e0437f8efa8b1fec854a0e}\label{plex_8h_a873cf8ed69e0437f8efa8b1fec854a0e}} 
+\index{plex.\+h@{plex.\+h}!subopt\+\_\+sorted@{subopt\+\_\+sorted}}
+\index{subopt\+\_\+sorted@{subopt\+\_\+sorted}!plex.\+h@{plex.\+h}}
+\subsubsection{\texorpdfstring{subopt\+\_\+sorted}{subopt\_sorted}}
+{\footnotesize\ttfamily int subopt\+\_\+sorted}
+

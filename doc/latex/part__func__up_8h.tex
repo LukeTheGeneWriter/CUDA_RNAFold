@@ -1,0 +1,67 @@
+\hypertarget{part__func__up_8h}{}\section{Vienna\+R\+N\+A/part\+\_\+func\+\_\+up.h File Reference}
+\label{part__func__up_8h}\index{Vienna\+R\+N\+A/part\+\_\+func\+\_\+up.\+h@{Vienna\+R\+N\+A/part\+\_\+func\+\_\+up.\+h}}
+
+
+Implementations for accessibility and R\+N\+A-\/\+R\+NA interaction as a stepwise process.  
+
+
+Include dependency graph for part\+\_\+func\+\_\+up.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{part__func__up_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{part__func__up_8h_a8b383725f0e93e50f7e7a99bb2b1ef95}{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+1}}~1U
+\item 
+\#define \mbox{\hyperlink{part__func__up_8h_a90f0bbbea731d219b38368aa5f352a21}{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+2}}~2U
+\item 
+\#define \mbox{\hyperlink{part__func__up_8h_a90579142befc7aab9db8790ee6753fa9}{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+3}}~4U
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__data__structures_structpu__contrib}{pu\+\_\+contrib}} $\ast$ \mbox{\hyperlink{group__up__cofold_ga5b4ee40e190d2f633cd01cf0d2fe93cf}{pf\+\_\+unstru}} (char $\ast$sequence, int max\+\_\+w)
+\begin{DoxyCompactList}\small\item\em Calculate the partition function over all unpaired regions of a maximal length. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__data__structures_structinteract}{interact}} $\ast$ \mbox{\hyperlink{group__up__cofold_ga1aa0aa02bc3a724f87360c03097afd00}{pf\+\_\+interact}} (const char $\ast$s1, const char $\ast$s2, \mbox{\hyperlink{group__data__structures_structpu__contrib}{pu\+\_\+contrib}} $\ast$p\+\_\+c, \mbox{\hyperlink{group__data__structures_structpu__contrib}{pu\+\_\+contrib}} $\ast$p\+\_\+c2, int max\+\_\+w, char $\ast$cstruc, int incr3, int incr5)
+\begin{DoxyCompactList}\small\item\em Calculates the probability of a local interaction between two sequences. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__up__cofold_gadde308fd5f696dc271b1532aa96fd12f}{free\+\_\+interact}} (\mbox{\hyperlink{group__data__structures_structinteract}{interact}} $\ast$pin)
+\begin{DoxyCompactList}\small\item\em Frees the output of function \mbox{\hyperlink{group__up__cofold_ga1aa0aa02bc3a724f87360c03097afd00}{pf\+\_\+interact()}}. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__up__cofold_ga73efd2918cbbb2cdf44422653f996852}{Up\+\_\+plot}} (\mbox{\hyperlink{group__data__structures_structpu__contrib}{pu\+\_\+contrib}} $\ast$p\+\_\+c, \mbox{\hyperlink{group__data__structures_structpu__contrib}{pu\+\_\+contrib}} $\ast$p\+\_\+c\+\_\+sh, \mbox{\hyperlink{group__data__structures_structinteract}{interact}} $\ast$pint, char $\ast$ofile, int $\ast$$\ast$unpaired\+\_\+values, char $\ast$select\+\_\+contrib, char $\ast$head, unsigned int mode)
+\item 
+\mbox{\hyperlink{group__data__structures_structpu__contrib}{pu\+\_\+contrib}} $\ast$ \mbox{\hyperlink{group__up__cofold_gadb5cde7e5ef562664db38638171c7a66}{get\+\_\+pu\+\_\+contrib\+\_\+struct}} (unsigned int n, unsigned int w)
+\item 
+void \mbox{\hyperlink{group__up__cofold_gac20bd61824981d45ce0dc9934aa56df8}{free\+\_\+pu\+\_\+contrib\+\_\+struct}} (\mbox{\hyperlink{group__data__structures_structpu__contrib}{pu\+\_\+contrib}} $\ast$pu)
+\begin{DoxyCompactList}\small\item\em Frees the output of function \mbox{\hyperlink{group__up__cofold_ga5b4ee40e190d2f633cd01cf0d2fe93cf}{pf\+\_\+unstru()}}. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__up__cofold_gae1b3579727cf7a27eea93594d0e6d831}{free\+\_\+pu\+\_\+contrib}} (\mbox{\hyperlink{group__data__structures_structpu__contrib}{pu\+\_\+contrib}} $\ast$pu)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Implementations for accessibility and R\+N\+A-\/\+R\+NA interaction as a stepwise process. 
+
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{part__func__up_8h_a8b383725f0e93e50f7e7a99bb2b1ef95}\label{part__func__up_8h_a8b383725f0e93e50f7e7a99bb2b1ef95}} 
+\index{part\+\_\+func\+\_\+up.\+h@{part\+\_\+func\+\_\+up.\+h}!R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+1@{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+1}}
+\index{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+1@{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+1}!part\+\_\+func\+\_\+up.\+h@{part\+\_\+func\+\_\+up.\+h}}
+\subsubsection{\texorpdfstring{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+1}{RNA\_UP\_MODE\_1}}
+{\footnotesize\ttfamily \#define R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+1~1U}
+
+\mbox{\Hypertarget{part__func__up_8h_a90f0bbbea731d219b38368aa5f352a21}\label{part__func__up_8h_a90f0bbbea731d219b38368aa5f352a21}} 
+\index{part\+\_\+func\+\_\+up.\+h@{part\+\_\+func\+\_\+up.\+h}!R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+2@{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+2}}
+\index{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+2@{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+2}!part\+\_\+func\+\_\+up.\+h@{part\+\_\+func\+\_\+up.\+h}}
+\subsubsection{\texorpdfstring{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+2}{RNA\_UP\_MODE\_2}}
+{\footnotesize\ttfamily \#define R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+2~2U}
+
+\mbox{\Hypertarget{part__func__up_8h_a90579142befc7aab9db8790ee6753fa9}\label{part__func__up_8h_a90579142befc7aab9db8790ee6753fa9}} 
+\index{part\+\_\+func\+\_\+up.\+h@{part\+\_\+func\+\_\+up.\+h}!R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+3@{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+3}}
+\index{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+3@{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+3}!part\+\_\+func\+\_\+up.\+h@{part\+\_\+func\+\_\+up.\+h}}
+\subsubsection{\texorpdfstring{R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+3}{RNA\_UP\_MODE\_3}}
+{\footnotesize\ttfamily \#define R\+N\+A\+\_\+\+U\+P\+\_\+\+M\+O\+D\+E\+\_\+3~4U}
+

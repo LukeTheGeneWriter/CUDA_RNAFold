@@ -1,0 +1,715 @@
+\hypertarget{struct_two_dpfold__vars}{}\section{Two\+Dpfold\+\_\+vars Struct Reference}
+\label{struct_two_dpfold__vars}\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+
+
+Variables compound for 2\+Dfold partition function folding.  
+
+
+
+
+Collaboration diagram for Two\+Dpfold\+\_\+vars\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{struct_two_dpfold__vars__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Data Fields}
+\begin{DoxyCompactItemize}
+\item 
+unsigned int \mbox{\hyperlink{struct_two_dpfold__vars_a0821fddd5fe7892cd86933b506d2822e}{alloc}}
+\item 
+char $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a67f37b8901b8d0a049c216d4c6241b07}{ptype}}
+\begin{DoxyCompactList}\small\item\em Precomputed array of pair types. \end{DoxyCompactList}\item 
+char $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a32c15a1e31856588259556c9020f32c6}{sequence}}
+\begin{DoxyCompactList}\small\item\em The input sequence. \end{DoxyCompactList}\item 
+short $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_aa71adc5ac2f9b4c538024500222f9f3d}{S}}
+\item 
+short $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a240311ae1e8e121441651d6101e187ac}{S1}}
+\begin{DoxyCompactList}\small\item\em The input sequences in numeric form. \end{DoxyCompactList}\item 
+unsigned int \mbox{\hyperlink{struct_two_dpfold__vars_a7292b6cbc1ee5bacf55e842f316c4bef}{max\+D1}}
+\begin{DoxyCompactList}\small\item\em Maximum allowed base pair distance to first reference. \end{DoxyCompactList}\item 
+unsigned int \mbox{\hyperlink{struct_two_dpfold__vars_a8900622d91454d2d037242e290e42834}{max\+D2}}
+\begin{DoxyCompactList}\small\item\em Maximum allowed base pair distance to second reference. \end{DoxyCompactList}\item 
+double \mbox{\hyperlink{struct_two_dpfold__vars_a77da404c38e4609a8635a33f00d54eca}{temperature}}
+\item 
+double \mbox{\hyperlink{struct_two_dpfold__vars_aa63eb4185fd5e35b3ce3a1c46c44124b}{init\+\_\+temp}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a87c8a08af2acb04d134989ee5126a3ad}{scale}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{struct_two_dpfold__vars_a0f67701d0a2bc9253dce725261187a03}{pf\+\_\+scale}}
+\item 
+\mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a6158d3c08cfeecb84783ee2c30791808}{pf\+\_\+params}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_ac2d3e6abf0cb0e1df363904fc938076e}{my\+\_\+iindx}}
+\begin{DoxyCompactList}\small\item\em Index for moving in quadratic distancy dimensions. \end{DoxyCompactList}\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a0699e194a797532c91b284ab10272384}{jindx}}
+\begin{DoxyCompactList}\small\item\em Index for moving in the triangular matrix qm1. \end{DoxyCompactList}\item 
+short $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_af4c968cf0ebecfc45ce5b0c702343ff0}{reference\+\_\+pt1}}
+\item 
+short $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a3f2294a6aedd68ebea47581145ffd29a}{reference\+\_\+pt2}}
+\item 
+unsigned int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_aea15706d27b6b0fc19f5773919f43a8a}{reference\+B\+Ps1}}
+\begin{DoxyCompactList}\small\item\em Matrix containing number of basepairs of reference structure1 in interval \mbox{[}i,j\mbox{]}. \end{DoxyCompactList}\item 
+unsigned int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a1221396d712bf76b7f35297f2ab35a9f}{reference\+B\+Ps2}}
+\begin{DoxyCompactList}\small\item\em Matrix containing number of basepairs of reference structure2 in interval \mbox{[}i,j\mbox{]}. \end{DoxyCompactList}\item 
+unsigned int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_accef8eaa05fa57ca33aa22cbc7b7aaff}{bpdist}}
+\begin{DoxyCompactList}\small\item\em Matrix containing base pair distance of reference structure 1 and 2 on interval \mbox{[}i,j\mbox{]}. \end{DoxyCompactList}\item 
+unsigned int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a7c9e9af6224d4696118e05835441863d}{mm1}}
+\begin{DoxyCompactList}\small\item\em Maximum matching matrix, reference struct 1 disallowed. \end{DoxyCompactList}\item 
+unsigned int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_affb913470783f9edb12a0bfc22466269}{mm2}}
+\begin{DoxyCompactList}\small\item\em Maximum matching matrix, reference struct 2 disallowed. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_ad1b0ec8721d3ff1522a41c0bcedc3fd5}{circ}}
+\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_afdd636375f84532f290008c9389ae6bf}{dangles}}
+\item 
+unsigned int \mbox{\hyperlink{struct_two_dpfold__vars_aa5bbaa75d5c380b171a247431dd0a607}{seq\+\_\+length}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a4932f988731a07f69276223a68f715e9}{Q}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_ad17010c9f2b058aa59459c46411e1725}{Q\+\_\+B}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_aa40c26fa4c1dd244be7307246c4680aa}{Q\+\_\+M}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_ab56904033d87011d0a2bbfd870cd879a}{Q\+\_\+\+M1}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a92014fb41da28615679320ee56e008a0}{Q\+\_\+\+M2}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_aa758e10ffefee0230edc9f8542a7e883}{Q\+\_\+c}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a757367fbda95410ed39f5fd969420f05}{Q\+\_\+cH}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_af0d87dff12aff923664127aabd62430c}{Q\+\_\+cI}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_ab130b2041c808a99503944c5d235cad9}{Q\+\_\+cM}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a55e5d7528d393b09d51000da900511a4}{l\+\_\+min\+\_\+values}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a6ec37b6cfe59518ee88aaf46df33476b}{l\+\_\+max\+\_\+values}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a5a04cd991b6b48a1f12668100b6593bc}{k\+\_\+min\+\_\+values}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a9e15bed23a48a8161496d5a7ef250087}{k\+\_\+max\+\_\+values}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a3593ce07fecddfc375f0ef06dec1a853}{l\+\_\+min\+\_\+values\+\_\+b}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a48fcb9506d1479d0be5bb61e601486e5}{l\+\_\+max\+\_\+values\+\_\+b}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a0c6cb8cb9c11482daf880d8373059d4d}{k\+\_\+min\+\_\+values\+\_\+b}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a6bda3f67cb24ba140b34c63d2d5d9b00}{k\+\_\+max\+\_\+values\+\_\+b}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_aed32884b31ad2191573ee972582bdead}{l\+\_\+min\+\_\+values\+\_\+m}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a2c193e0eb652690ceb166b2201e6206d}{l\+\_\+max\+\_\+values\+\_\+m}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_ab75ba9348ed6d32403910cee911e4561}{k\+\_\+min\+\_\+values\+\_\+m}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_af027f0a71e2b71cda705b6ce54ee9d08}{k\+\_\+max\+\_\+values\+\_\+m}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a5bbf929dd3419fc8e4437629b79117d2}{l\+\_\+min\+\_\+values\+\_\+m1}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_afb84e7daa0115edd9c1f7c05c5a38a64}{l\+\_\+max\+\_\+values\+\_\+m1}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a5b2cc962c440d4d382f91d3bb83fc626}{k\+\_\+min\+\_\+values\+\_\+m1}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a479d9e1f8918141d4edb403e7ae17ffb}{k\+\_\+max\+\_\+values\+\_\+m1}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a23382c4abb1025dc70c80f123b7acb99}{l\+\_\+min\+\_\+values\+\_\+m2}}
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_aee731ff9f9241e048fb4759a08122120}{l\+\_\+max\+\_\+values\+\_\+m2}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_aa081e5d2fa07f88aff3d385e7a46501f}{k\+\_\+min\+\_\+values\+\_\+m2}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a5e7023ba4ca55d574b823d6824d5408f}{k\+\_\+max\+\_\+values\+\_\+m2}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_ac7fd855c314e33a89919836774436402}{l\+\_\+min\+\_\+values\+\_\+qc}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_ac313cb35daf31f90f3bbdd669f2efc84}{l\+\_\+max\+\_\+values\+\_\+qc}}
+\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_a81e4202585f908ee5e5df864549e85e8}{k\+\_\+min\+\_\+values\+\_\+qc}}
+\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_a49f2de79886106d8c883e3796e99cdaa}{k\+\_\+max\+\_\+values\+\_\+qc}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a340b77358b5526f4c1a103d16c063fd7}{l\+\_\+min\+\_\+values\+\_\+qcH}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a88fa363302685d07b35617a7827718fd}{l\+\_\+max\+\_\+values\+\_\+qcH}}
+\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_afe32932a2e2d8fa91f07a7428234cc89}{k\+\_\+min\+\_\+values\+\_\+qcH}}
+\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_a3864c94a156f27eca22e6e334d81b84b}{k\+\_\+max\+\_\+values\+\_\+qcH}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a8e94f36138ff5bb1dbbd09861fa94661}{l\+\_\+min\+\_\+values\+\_\+qcI}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_abbdff88571d22849621d5624ea426045}{l\+\_\+max\+\_\+values\+\_\+qcI}}
+\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_a9246bd9fc33e1a3111d20b9dabeca8e8}{k\+\_\+min\+\_\+values\+\_\+qcI}}
+\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_ab0546202982af7d4362ebd0d903f78ce}{k\+\_\+max\+\_\+values\+\_\+qcI}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_ae16b98215c9664d6a78c9fe4afadb17c}{l\+\_\+min\+\_\+values\+\_\+qcM}}
+\item 
+int $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a33bcaa57cdee87495cc4ad5bc72666e8}{l\+\_\+max\+\_\+values\+\_\+qcM}}
+\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_abede310aa070713226ddad5d617619f3}{k\+\_\+min\+\_\+values\+\_\+qcM}}
+\item 
+int \mbox{\hyperlink{struct_two_dpfold__vars_a4a1993d89e7f84824deb48408df8579d}{k\+\_\+max\+\_\+values\+\_\+qcM}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a8cdb526d5dd01cb96f8aadc108469cb7}{Q\+\_\+rem}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_af0996736f7ab00dc604ca5f55e92e6e2}{Q\+\_\+\+B\+\_\+rem}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_aa11ef78b6011ccef34ea4899767ac5d7}{Q\+\_\+\+M\+\_\+rem}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_ac7c2ae5988f1c89ca2e751b9afd63160}{Q\+\_\+\+M1\+\_\+rem}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a3da1a9601f99600f685473b890f19fe8}{Q\+\_\+\+M2\+\_\+rem}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{struct_two_dpfold__vars_a8fbe3e1efedc2830991e98f29b0ac8b3}{Q\+\_\+c\+\_\+rem}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{struct_two_dpfold__vars_a271bc83bf99cfba04619c8a7d07dba47}{Q\+\_\+c\+H\+\_\+rem}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{struct_two_dpfold__vars_a7b9e38c1962e27f0323911c99d0f77e7}{Q\+\_\+c\+I\+\_\+rem}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{struct_two_dpfold__vars_a81439a6e4648f9044f7a11b82756cac7}{Q\+\_\+c\+M\+\_\+rem}}
+\item 
+\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$ \mbox{\hyperlink{struct_two_dpfold__vars_a159ec125caf5c33f5c19dbeeed54c047}{compatibility}}
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Variables compound for 2\+Dfold partition function folding. 
+
+\begin{DoxyRefDesc}{Deprecated}
+\item[\mbox{\hyperlink{deprecated__deprecated000006}{Deprecated}}]This data structure will be removed from the library soon! Use \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} and the corresponding functions \mbox{\hyperlink{group__fold__compound_ga9d24b196753b4f9f03774f11661510f5}{vrna\+\_\+fold\+\_\+compound\+\_\+\+Two\+D()}}, \mbox{\hyperlink{group__kl__neighborhood__pf_ga0bc3427689bd09da09b8b3094a27f836}{vrna\+\_\+pf\+\_\+\+Two\+D()}}, and \mbox{\hyperlink{group__fold__compound_gadded6039d63f5d6509836e20321534ad}{vrna\+\_\+fold\+\_\+compound\+\_\+free()}} instead! \end{DoxyRefDesc}
+
+
+\subsection{Field Documentation}
+\mbox{\Hypertarget{struct_two_dpfold__vars_a0821fddd5fe7892cd86933b506d2822e}\label{struct_two_dpfold__vars_a0821fddd5fe7892cd86933b506d2822e}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!alloc@{alloc}}
+\index{alloc@{alloc}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{alloc}{alloc}}
+{\footnotesize\ttfamily unsigned int Two\+Dpfold\+\_\+vars\+::alloc}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a67f37b8901b8d0a049c216d4c6241b07}\label{struct_two_dpfold__vars_a67f37b8901b8d0a049c216d4c6241b07}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!ptype@{ptype}}
+\index{ptype@{ptype}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{ptype}{ptype}}
+{\footnotesize\ttfamily char$\ast$ Two\+Dpfold\+\_\+vars\+::ptype}
+
+
+
+Precomputed array of pair types. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a32c15a1e31856588259556c9020f32c6}\label{struct_two_dpfold__vars_a32c15a1e31856588259556c9020f32c6}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!sequence@{sequence}}
+\index{sequence@{sequence}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{sequence}{sequence}}
+{\footnotesize\ttfamily char$\ast$ Two\+Dpfold\+\_\+vars\+::sequence}
+
+
+
+The input sequence. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aa71adc5ac2f9b4c538024500222f9f3d}\label{struct_two_dpfold__vars_aa71adc5ac2f9b4c538024500222f9f3d}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!S@{S}}
+\index{S@{S}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{S}{S}}
+{\footnotesize\ttfamily short$\ast$ Two\+Dpfold\+\_\+vars\+::S}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a240311ae1e8e121441651d6101e187ac}\label{struct_two_dpfold__vars_a240311ae1e8e121441651d6101e187ac}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!S1@{S1}}
+\index{S1@{S1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{S1}{S1}}
+{\footnotesize\ttfamily short $\ast$ Two\+Dpfold\+\_\+vars\+::\+S1}
+
+
+
+The input sequences in numeric form. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a7292b6cbc1ee5bacf55e842f316c4bef}\label{struct_two_dpfold__vars_a7292b6cbc1ee5bacf55e842f316c4bef}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!max\+D1@{max\+D1}}
+\index{max\+D1@{max\+D1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{max\+D1}{maxD1}}
+{\footnotesize\ttfamily unsigned int Two\+Dpfold\+\_\+vars\+::max\+D1}
+
+
+
+Maximum allowed base pair distance to first reference. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a8900622d91454d2d037242e290e42834}\label{struct_two_dpfold__vars_a8900622d91454d2d037242e290e42834}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!max\+D2@{max\+D2}}
+\index{max\+D2@{max\+D2}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{max\+D2}{maxD2}}
+{\footnotesize\ttfamily unsigned int Two\+Dpfold\+\_\+vars\+::max\+D2}
+
+
+
+Maximum allowed base pair distance to second reference. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a77da404c38e4609a8635a33f00d54eca}\label{struct_two_dpfold__vars_a77da404c38e4609a8635a33f00d54eca}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!temperature@{temperature}}
+\index{temperature@{temperature}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{temperature}{temperature}}
+{\footnotesize\ttfamily double Two\+Dpfold\+\_\+vars\+::temperature}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aa63eb4185fd5e35b3ce3a1c46c44124b}\label{struct_two_dpfold__vars_aa63eb4185fd5e35b3ce3a1c46c44124b}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!init\+\_\+temp@{init\+\_\+temp}}
+\index{init\+\_\+temp@{init\+\_\+temp}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{init\+\_\+temp}{init\_temp}}
+{\footnotesize\ttfamily double Two\+Dpfold\+\_\+vars\+::init\+\_\+temp}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a87c8a08af2acb04d134989ee5126a3ad}\label{struct_two_dpfold__vars_a87c8a08af2acb04d134989ee5126a3ad}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!scale@{scale}}
+\index{scale@{scale}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{scale}{scale}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ Two\+Dpfold\+\_\+vars\+::scale}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a0f67701d0a2bc9253dce725261187a03}\label{struct_two_dpfold__vars_a0f67701d0a2bc9253dce725261187a03}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!pf\+\_\+scale@{pf\+\_\+scale}}
+\index{pf\+\_\+scale@{pf\+\_\+scale}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{pf\+\_\+scale}{pf\_scale}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} Two\+Dpfold\+\_\+vars\+::pf\+\_\+scale}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a6158d3c08cfeecb84783ee2c30791808}\label{struct_two_dpfold__vars_a6158d3c08cfeecb84783ee2c30791808}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!pf\+\_\+params@{pf\+\_\+params}}
+\index{pf\+\_\+params@{pf\+\_\+params}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{pf\+\_\+params}{pf\_params}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}}$\ast$ Two\+Dpfold\+\_\+vars\+::pf\+\_\+params}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ac2d3e6abf0cb0e1df363904fc938076e}\label{struct_two_dpfold__vars_ac2d3e6abf0cb0e1df363904fc938076e}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!my\+\_\+iindx@{my\+\_\+iindx}}
+\index{my\+\_\+iindx@{my\+\_\+iindx}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{my\+\_\+iindx}{my\_iindx}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::my\+\_\+iindx}
+
+
+
+Index for moving in quadratic distancy dimensions. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a0699e194a797532c91b284ab10272384}\label{struct_two_dpfold__vars_a0699e194a797532c91b284ab10272384}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!jindx@{jindx}}
+\index{jindx@{jindx}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{jindx}{jindx}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::jindx}
+
+
+
+Index for moving in the triangular matrix qm1. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_af4c968cf0ebecfc45ce5b0c702343ff0}\label{struct_two_dpfold__vars_af4c968cf0ebecfc45ce5b0c702343ff0}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!reference\+\_\+pt1@{reference\+\_\+pt1}}
+\index{reference\+\_\+pt1@{reference\+\_\+pt1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{reference\+\_\+pt1}{reference\_pt1}}
+{\footnotesize\ttfamily short$\ast$ Two\+Dpfold\+\_\+vars\+::reference\+\_\+pt1}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a3f2294a6aedd68ebea47581145ffd29a}\label{struct_two_dpfold__vars_a3f2294a6aedd68ebea47581145ffd29a}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!reference\+\_\+pt2@{reference\+\_\+pt2}}
+\index{reference\+\_\+pt2@{reference\+\_\+pt2}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{reference\+\_\+pt2}{reference\_pt2}}
+{\footnotesize\ttfamily short$\ast$ Two\+Dpfold\+\_\+vars\+::reference\+\_\+pt2}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aea15706d27b6b0fc19f5773919f43a8a}\label{struct_two_dpfold__vars_aea15706d27b6b0fc19f5773919f43a8a}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!reference\+B\+Ps1@{reference\+B\+Ps1}}
+\index{reference\+B\+Ps1@{reference\+B\+Ps1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{reference\+B\+Ps1}{referenceBPs1}}
+{\footnotesize\ttfamily unsigned int$\ast$ Two\+Dpfold\+\_\+vars\+::reference\+B\+Ps1}
+
+
+
+Matrix containing number of basepairs of reference structure1 in interval \mbox{[}i,j\mbox{]}. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a1221396d712bf76b7f35297f2ab35a9f}\label{struct_two_dpfold__vars_a1221396d712bf76b7f35297f2ab35a9f}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!reference\+B\+Ps2@{reference\+B\+Ps2}}
+\index{reference\+B\+Ps2@{reference\+B\+Ps2}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{reference\+B\+Ps2}{referenceBPs2}}
+{\footnotesize\ttfamily unsigned int$\ast$ Two\+Dpfold\+\_\+vars\+::reference\+B\+Ps2}
+
+
+
+Matrix containing number of basepairs of reference structure2 in interval \mbox{[}i,j\mbox{]}. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_accef8eaa05fa57ca33aa22cbc7b7aaff}\label{struct_two_dpfold__vars_accef8eaa05fa57ca33aa22cbc7b7aaff}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!bpdist@{bpdist}}
+\index{bpdist@{bpdist}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{bpdist}{bpdist}}
+{\footnotesize\ttfamily unsigned int$\ast$ Two\+Dpfold\+\_\+vars\+::bpdist}
+
+
+
+Matrix containing base pair distance of reference structure 1 and 2 on interval \mbox{[}i,j\mbox{]}. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a7c9e9af6224d4696118e05835441863d}\label{struct_two_dpfold__vars_a7c9e9af6224d4696118e05835441863d}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!mm1@{mm1}}
+\index{mm1@{mm1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{mm1}{mm1}}
+{\footnotesize\ttfamily unsigned int$\ast$ Two\+Dpfold\+\_\+vars\+::mm1}
+
+
+
+Maximum matching matrix, reference struct 1 disallowed. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_affb913470783f9edb12a0bfc22466269}\label{struct_two_dpfold__vars_affb913470783f9edb12a0bfc22466269}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!mm2@{mm2}}
+\index{mm2@{mm2}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{mm2}{mm2}}
+{\footnotesize\ttfamily unsigned int$\ast$ Two\+Dpfold\+\_\+vars\+::mm2}
+
+
+
+Maximum matching matrix, reference struct 2 disallowed. 
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ad1b0ec8721d3ff1522a41c0bcedc3fd5}\label{struct_two_dpfold__vars_ad1b0ec8721d3ff1522a41c0bcedc3fd5}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!circ@{circ}}
+\index{circ@{circ}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{circ}{circ}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::circ}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_afdd636375f84532f290008c9389ae6bf}\label{struct_two_dpfold__vars_afdd636375f84532f290008c9389ae6bf}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!dangles@{dangles}}
+\index{dangles@{dangles}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{dangles}{dangles}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::dangles}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aa5bbaa75d5c380b171a247431dd0a607}\label{struct_two_dpfold__vars_aa5bbaa75d5c380b171a247431dd0a607}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!seq\+\_\+length@{seq\+\_\+length}}
+\index{seq\+\_\+length@{seq\+\_\+length}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{seq\+\_\+length}{seq\_length}}
+{\footnotesize\ttfamily unsigned int Two\+Dpfold\+\_\+vars\+::seq\+\_\+length}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a4932f988731a07f69276223a68f715e9}\label{struct_two_dpfold__vars_a4932f988731a07f69276223a68f715e9}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q@{Q}}
+\index{Q@{Q}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q}{Q}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::Q}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ad17010c9f2b058aa59459c46411e1725}\label{struct_two_dpfold__vars_ad17010c9f2b058aa59459c46411e1725}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+B@{Q\+\_\+B}}
+\index{Q\+\_\+B@{Q\+\_\+B}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+B}{Q\_B}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+B}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aa40c26fa4c1dd244be7307246c4680aa}\label{struct_two_dpfold__vars_aa40c26fa4c1dd244be7307246c4680aa}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+M@{Q\+\_\+M}}
+\index{Q\+\_\+M@{Q\+\_\+M}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+M}{Q\_M}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+M}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ab56904033d87011d0a2bbfd870cd879a}\label{struct_two_dpfold__vars_ab56904033d87011d0a2bbfd870cd879a}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+\+M1@{Q\+\_\+\+M1}}
+\index{Q\+\_\+\+M1@{Q\+\_\+\+M1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+\+M1}{Q\_M1}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+\+M1}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a92014fb41da28615679320ee56e008a0}\label{struct_two_dpfold__vars_a92014fb41da28615679320ee56e008a0}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+\+M2@{Q\+\_\+\+M2}}
+\index{Q\+\_\+\+M2@{Q\+\_\+\+M2}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+\+M2}{Q\_M2}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+\+M2}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aa758e10ffefee0230edc9f8542a7e883}\label{struct_two_dpfold__vars_aa758e10ffefee0230edc9f8542a7e883}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+c@{Q\+\_\+c}}
+\index{Q\+\_\+c@{Q\+\_\+c}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+c}{Q\_c}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+c}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a757367fbda95410ed39f5fd969420f05}\label{struct_two_dpfold__vars_a757367fbda95410ed39f5fd969420f05}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+cH@{Q\+\_\+cH}}
+\index{Q\+\_\+cH@{Q\+\_\+cH}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+cH}{Q\_cH}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+cH}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_af0d87dff12aff923664127aabd62430c}\label{struct_two_dpfold__vars_af0d87dff12aff923664127aabd62430c}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+cI@{Q\+\_\+cI}}
+\index{Q\+\_\+cI@{Q\+\_\+cI}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+cI}{Q\_cI}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+cI}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ab130b2041c808a99503944c5d235cad9}\label{struct_two_dpfold__vars_ab130b2041c808a99503944c5d235cad9}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+cM@{Q\+\_\+cM}}
+\index{Q\+\_\+cM@{Q\+\_\+cM}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+cM}{Q\_cM}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+cM}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a55e5d7528d393b09d51000da900511a4}\label{struct_two_dpfold__vars_a55e5d7528d393b09d51000da900511a4}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+min\+\_\+values@{l\+\_\+min\+\_\+values}}
+\index{l\+\_\+min\+\_\+values@{l\+\_\+min\+\_\+values}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+min\+\_\+values}{l\_min\_values}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+min\+\_\+values}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a6ec37b6cfe59518ee88aaf46df33476b}\label{struct_two_dpfold__vars_a6ec37b6cfe59518ee88aaf46df33476b}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+max\+\_\+values@{l\+\_\+max\+\_\+values}}
+\index{l\+\_\+max\+\_\+values@{l\+\_\+max\+\_\+values}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+max\+\_\+values}{l\_max\_values}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+max\+\_\+values}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a5a04cd991b6b48a1f12668100b6593bc}\label{struct_two_dpfold__vars_a5a04cd991b6b48a1f12668100b6593bc}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+min\+\_\+values@{k\+\_\+min\+\_\+values}}
+\index{k\+\_\+min\+\_\+values@{k\+\_\+min\+\_\+values}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+min\+\_\+values}{k\_min\_values}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+min\+\_\+values}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a9e15bed23a48a8161496d5a7ef250087}\label{struct_two_dpfold__vars_a9e15bed23a48a8161496d5a7ef250087}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+max\+\_\+values@{k\+\_\+max\+\_\+values}}
+\index{k\+\_\+max\+\_\+values@{k\+\_\+max\+\_\+values}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+max\+\_\+values}{k\_max\_values}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+max\+\_\+values}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a3593ce07fecddfc375f0ef06dec1a853}\label{struct_two_dpfold__vars_a3593ce07fecddfc375f0ef06dec1a853}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+min\+\_\+values\+\_\+b@{l\+\_\+min\+\_\+values\+\_\+b}}
+\index{l\+\_\+min\+\_\+values\+\_\+b@{l\+\_\+min\+\_\+values\+\_\+b}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+min\+\_\+values\+\_\+b}{l\_min\_values\_b}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+min\+\_\+values\+\_\+b}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a48fcb9506d1479d0be5bb61e601486e5}\label{struct_two_dpfold__vars_a48fcb9506d1479d0be5bb61e601486e5}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+max\+\_\+values\+\_\+b@{l\+\_\+max\+\_\+values\+\_\+b}}
+\index{l\+\_\+max\+\_\+values\+\_\+b@{l\+\_\+max\+\_\+values\+\_\+b}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+max\+\_\+values\+\_\+b}{l\_max\_values\_b}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+max\+\_\+values\+\_\+b}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a0c6cb8cb9c11482daf880d8373059d4d}\label{struct_two_dpfold__vars_a0c6cb8cb9c11482daf880d8373059d4d}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+min\+\_\+values\+\_\+b@{k\+\_\+min\+\_\+values\+\_\+b}}
+\index{k\+\_\+min\+\_\+values\+\_\+b@{k\+\_\+min\+\_\+values\+\_\+b}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+min\+\_\+values\+\_\+b}{k\_min\_values\_b}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+min\+\_\+values\+\_\+b}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a6bda3f67cb24ba140b34c63d2d5d9b00}\label{struct_two_dpfold__vars_a6bda3f67cb24ba140b34c63d2d5d9b00}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+max\+\_\+values\+\_\+b@{k\+\_\+max\+\_\+values\+\_\+b}}
+\index{k\+\_\+max\+\_\+values\+\_\+b@{k\+\_\+max\+\_\+values\+\_\+b}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+max\+\_\+values\+\_\+b}{k\_max\_values\_b}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+max\+\_\+values\+\_\+b}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aed32884b31ad2191573ee972582bdead}\label{struct_two_dpfold__vars_aed32884b31ad2191573ee972582bdead}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+min\+\_\+values\+\_\+m@{l\+\_\+min\+\_\+values\+\_\+m}}
+\index{l\+\_\+min\+\_\+values\+\_\+m@{l\+\_\+min\+\_\+values\+\_\+m}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+min\+\_\+values\+\_\+m}{l\_min\_values\_m}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+min\+\_\+values\+\_\+m}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a2c193e0eb652690ceb166b2201e6206d}\label{struct_two_dpfold__vars_a2c193e0eb652690ceb166b2201e6206d}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+max\+\_\+values\+\_\+m@{l\+\_\+max\+\_\+values\+\_\+m}}
+\index{l\+\_\+max\+\_\+values\+\_\+m@{l\+\_\+max\+\_\+values\+\_\+m}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+max\+\_\+values\+\_\+m}{l\_max\_values\_m}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+max\+\_\+values\+\_\+m}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ab75ba9348ed6d32403910cee911e4561}\label{struct_two_dpfold__vars_ab75ba9348ed6d32403910cee911e4561}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+min\+\_\+values\+\_\+m@{k\+\_\+min\+\_\+values\+\_\+m}}
+\index{k\+\_\+min\+\_\+values\+\_\+m@{k\+\_\+min\+\_\+values\+\_\+m}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+min\+\_\+values\+\_\+m}{k\_min\_values\_m}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+min\+\_\+values\+\_\+m}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_af027f0a71e2b71cda705b6ce54ee9d08}\label{struct_two_dpfold__vars_af027f0a71e2b71cda705b6ce54ee9d08}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+max\+\_\+values\+\_\+m@{k\+\_\+max\+\_\+values\+\_\+m}}
+\index{k\+\_\+max\+\_\+values\+\_\+m@{k\+\_\+max\+\_\+values\+\_\+m}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+max\+\_\+values\+\_\+m}{k\_max\_values\_m}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+max\+\_\+values\+\_\+m}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a5bbf929dd3419fc8e4437629b79117d2}\label{struct_two_dpfold__vars_a5bbf929dd3419fc8e4437629b79117d2}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+min\+\_\+values\+\_\+m1@{l\+\_\+min\+\_\+values\+\_\+m1}}
+\index{l\+\_\+min\+\_\+values\+\_\+m1@{l\+\_\+min\+\_\+values\+\_\+m1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+min\+\_\+values\+\_\+m1}{l\_min\_values\_m1}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+min\+\_\+values\+\_\+m1}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_afb84e7daa0115edd9c1f7c05c5a38a64}\label{struct_two_dpfold__vars_afb84e7daa0115edd9c1f7c05c5a38a64}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+max\+\_\+values\+\_\+m1@{l\+\_\+max\+\_\+values\+\_\+m1}}
+\index{l\+\_\+max\+\_\+values\+\_\+m1@{l\+\_\+max\+\_\+values\+\_\+m1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+max\+\_\+values\+\_\+m1}{l\_max\_values\_m1}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+max\+\_\+values\+\_\+m1}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a5b2cc962c440d4d382f91d3bb83fc626}\label{struct_two_dpfold__vars_a5b2cc962c440d4d382f91d3bb83fc626}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+min\+\_\+values\+\_\+m1@{k\+\_\+min\+\_\+values\+\_\+m1}}
+\index{k\+\_\+min\+\_\+values\+\_\+m1@{k\+\_\+min\+\_\+values\+\_\+m1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+min\+\_\+values\+\_\+m1}{k\_min\_values\_m1}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+min\+\_\+values\+\_\+m1}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a479d9e1f8918141d4edb403e7ae17ffb}\label{struct_two_dpfold__vars_a479d9e1f8918141d4edb403e7ae17ffb}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+max\+\_\+values\+\_\+m1@{k\+\_\+max\+\_\+values\+\_\+m1}}
+\index{k\+\_\+max\+\_\+values\+\_\+m1@{k\+\_\+max\+\_\+values\+\_\+m1}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+max\+\_\+values\+\_\+m1}{k\_max\_values\_m1}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+max\+\_\+values\+\_\+m1}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a23382c4abb1025dc70c80f123b7acb99}\label{struct_two_dpfold__vars_a23382c4abb1025dc70c80f123b7acb99}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+min\+\_\+values\+\_\+m2@{l\+\_\+min\+\_\+values\+\_\+m2}}
+\index{l\+\_\+min\+\_\+values\+\_\+m2@{l\+\_\+min\+\_\+values\+\_\+m2}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+min\+\_\+values\+\_\+m2}{l\_min\_values\_m2}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+min\+\_\+values\+\_\+m2}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aee731ff9f9241e048fb4759a08122120}\label{struct_two_dpfold__vars_aee731ff9f9241e048fb4759a08122120}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+max\+\_\+values\+\_\+m2@{l\+\_\+max\+\_\+values\+\_\+m2}}
+\index{l\+\_\+max\+\_\+values\+\_\+m2@{l\+\_\+max\+\_\+values\+\_\+m2}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+max\+\_\+values\+\_\+m2}{l\_max\_values\_m2}}
+{\footnotesize\ttfamily int$\ast$$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+max\+\_\+values\+\_\+m2}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aa081e5d2fa07f88aff3d385e7a46501f}\label{struct_two_dpfold__vars_aa081e5d2fa07f88aff3d385e7a46501f}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+min\+\_\+values\+\_\+m2@{k\+\_\+min\+\_\+values\+\_\+m2}}
+\index{k\+\_\+min\+\_\+values\+\_\+m2@{k\+\_\+min\+\_\+values\+\_\+m2}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+min\+\_\+values\+\_\+m2}{k\_min\_values\_m2}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+min\+\_\+values\+\_\+m2}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a5e7023ba4ca55d574b823d6824d5408f}\label{struct_two_dpfold__vars_a5e7023ba4ca55d574b823d6824d5408f}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+max\+\_\+values\+\_\+m2@{k\+\_\+max\+\_\+values\+\_\+m2}}
+\index{k\+\_\+max\+\_\+values\+\_\+m2@{k\+\_\+max\+\_\+values\+\_\+m2}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+max\+\_\+values\+\_\+m2}{k\_max\_values\_m2}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::k\+\_\+max\+\_\+values\+\_\+m2}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ac7fd855c314e33a89919836774436402}\label{struct_two_dpfold__vars_ac7fd855c314e33a89919836774436402}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+min\+\_\+values\+\_\+qc@{l\+\_\+min\+\_\+values\+\_\+qc}}
+\index{l\+\_\+min\+\_\+values\+\_\+qc@{l\+\_\+min\+\_\+values\+\_\+qc}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+min\+\_\+values\+\_\+qc}{l\_min\_values\_qc}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+min\+\_\+values\+\_\+qc}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ac313cb35daf31f90f3bbdd669f2efc84}\label{struct_two_dpfold__vars_ac313cb35daf31f90f3bbdd669f2efc84}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+max\+\_\+values\+\_\+qc@{l\+\_\+max\+\_\+values\+\_\+qc}}
+\index{l\+\_\+max\+\_\+values\+\_\+qc@{l\+\_\+max\+\_\+values\+\_\+qc}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+max\+\_\+values\+\_\+qc}{l\_max\_values\_qc}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+max\+\_\+values\+\_\+qc}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a81e4202585f908ee5e5df864549e85e8}\label{struct_two_dpfold__vars_a81e4202585f908ee5e5df864549e85e8}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+min\+\_\+values\+\_\+qc@{k\+\_\+min\+\_\+values\+\_\+qc}}
+\index{k\+\_\+min\+\_\+values\+\_\+qc@{k\+\_\+min\+\_\+values\+\_\+qc}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+min\+\_\+values\+\_\+qc}{k\_min\_values\_qc}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::k\+\_\+min\+\_\+values\+\_\+qc}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a49f2de79886106d8c883e3796e99cdaa}\label{struct_two_dpfold__vars_a49f2de79886106d8c883e3796e99cdaa}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+max\+\_\+values\+\_\+qc@{k\+\_\+max\+\_\+values\+\_\+qc}}
+\index{k\+\_\+max\+\_\+values\+\_\+qc@{k\+\_\+max\+\_\+values\+\_\+qc}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+max\+\_\+values\+\_\+qc}{k\_max\_values\_qc}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::k\+\_\+max\+\_\+values\+\_\+qc}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a340b77358b5526f4c1a103d16c063fd7}\label{struct_two_dpfold__vars_a340b77358b5526f4c1a103d16c063fd7}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+min\+\_\+values\+\_\+qcH@{l\+\_\+min\+\_\+values\+\_\+qcH}}
+\index{l\+\_\+min\+\_\+values\+\_\+qcH@{l\+\_\+min\+\_\+values\+\_\+qcH}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+min\+\_\+values\+\_\+qcH}{l\_min\_values\_qcH}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+min\+\_\+values\+\_\+qcH}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a88fa363302685d07b35617a7827718fd}\label{struct_two_dpfold__vars_a88fa363302685d07b35617a7827718fd}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+max\+\_\+values\+\_\+qcH@{l\+\_\+max\+\_\+values\+\_\+qcH}}
+\index{l\+\_\+max\+\_\+values\+\_\+qcH@{l\+\_\+max\+\_\+values\+\_\+qcH}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+max\+\_\+values\+\_\+qcH}{l\_max\_values\_qcH}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+max\+\_\+values\+\_\+qcH}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_afe32932a2e2d8fa91f07a7428234cc89}\label{struct_two_dpfold__vars_afe32932a2e2d8fa91f07a7428234cc89}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+min\+\_\+values\+\_\+qcH@{k\+\_\+min\+\_\+values\+\_\+qcH}}
+\index{k\+\_\+min\+\_\+values\+\_\+qcH@{k\+\_\+min\+\_\+values\+\_\+qcH}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+min\+\_\+values\+\_\+qcH}{k\_min\_values\_qcH}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::k\+\_\+min\+\_\+values\+\_\+qcH}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a3864c94a156f27eca22e6e334d81b84b}\label{struct_two_dpfold__vars_a3864c94a156f27eca22e6e334d81b84b}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+max\+\_\+values\+\_\+qcH@{k\+\_\+max\+\_\+values\+\_\+qcH}}
+\index{k\+\_\+max\+\_\+values\+\_\+qcH@{k\+\_\+max\+\_\+values\+\_\+qcH}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+max\+\_\+values\+\_\+qcH}{k\_max\_values\_qcH}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::k\+\_\+max\+\_\+values\+\_\+qcH}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a8e94f36138ff5bb1dbbd09861fa94661}\label{struct_two_dpfold__vars_a8e94f36138ff5bb1dbbd09861fa94661}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+min\+\_\+values\+\_\+qcI@{l\+\_\+min\+\_\+values\+\_\+qcI}}
+\index{l\+\_\+min\+\_\+values\+\_\+qcI@{l\+\_\+min\+\_\+values\+\_\+qcI}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+min\+\_\+values\+\_\+qcI}{l\_min\_values\_qcI}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+min\+\_\+values\+\_\+qcI}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_abbdff88571d22849621d5624ea426045}\label{struct_two_dpfold__vars_abbdff88571d22849621d5624ea426045}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+max\+\_\+values\+\_\+qcI@{l\+\_\+max\+\_\+values\+\_\+qcI}}
+\index{l\+\_\+max\+\_\+values\+\_\+qcI@{l\+\_\+max\+\_\+values\+\_\+qcI}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+max\+\_\+values\+\_\+qcI}{l\_max\_values\_qcI}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+max\+\_\+values\+\_\+qcI}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a9246bd9fc33e1a3111d20b9dabeca8e8}\label{struct_two_dpfold__vars_a9246bd9fc33e1a3111d20b9dabeca8e8}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+min\+\_\+values\+\_\+qcI@{k\+\_\+min\+\_\+values\+\_\+qcI}}
+\index{k\+\_\+min\+\_\+values\+\_\+qcI@{k\+\_\+min\+\_\+values\+\_\+qcI}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+min\+\_\+values\+\_\+qcI}{k\_min\_values\_qcI}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::k\+\_\+min\+\_\+values\+\_\+qcI}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ab0546202982af7d4362ebd0d903f78ce}\label{struct_two_dpfold__vars_ab0546202982af7d4362ebd0d903f78ce}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+max\+\_\+values\+\_\+qcI@{k\+\_\+max\+\_\+values\+\_\+qcI}}
+\index{k\+\_\+max\+\_\+values\+\_\+qcI@{k\+\_\+max\+\_\+values\+\_\+qcI}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+max\+\_\+values\+\_\+qcI}{k\_max\_values\_qcI}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::k\+\_\+max\+\_\+values\+\_\+qcI}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ae16b98215c9664d6a78c9fe4afadb17c}\label{struct_two_dpfold__vars_ae16b98215c9664d6a78c9fe4afadb17c}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+min\+\_\+values\+\_\+qcM@{l\+\_\+min\+\_\+values\+\_\+qcM}}
+\index{l\+\_\+min\+\_\+values\+\_\+qcM@{l\+\_\+min\+\_\+values\+\_\+qcM}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+min\+\_\+values\+\_\+qcM}{l\_min\_values\_qcM}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+min\+\_\+values\+\_\+qcM}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a33bcaa57cdee87495cc4ad5bc72666e8}\label{struct_two_dpfold__vars_a33bcaa57cdee87495cc4ad5bc72666e8}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!l\+\_\+max\+\_\+values\+\_\+qcM@{l\+\_\+max\+\_\+values\+\_\+qcM}}
+\index{l\+\_\+max\+\_\+values\+\_\+qcM@{l\+\_\+max\+\_\+values\+\_\+qcM}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{l\+\_\+max\+\_\+values\+\_\+qcM}{l\_max\_values\_qcM}}
+{\footnotesize\ttfamily int$\ast$ Two\+Dpfold\+\_\+vars\+::l\+\_\+max\+\_\+values\+\_\+qcM}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_abede310aa070713226ddad5d617619f3}\label{struct_two_dpfold__vars_abede310aa070713226ddad5d617619f3}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+min\+\_\+values\+\_\+qcM@{k\+\_\+min\+\_\+values\+\_\+qcM}}
+\index{k\+\_\+min\+\_\+values\+\_\+qcM@{k\+\_\+min\+\_\+values\+\_\+qcM}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+min\+\_\+values\+\_\+qcM}{k\_min\_values\_qcM}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::k\+\_\+min\+\_\+values\+\_\+qcM}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a4a1993d89e7f84824deb48408df8579d}\label{struct_two_dpfold__vars_a4a1993d89e7f84824deb48408df8579d}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!k\+\_\+max\+\_\+values\+\_\+qcM@{k\+\_\+max\+\_\+values\+\_\+qcM}}
+\index{k\+\_\+max\+\_\+values\+\_\+qcM@{k\+\_\+max\+\_\+values\+\_\+qcM}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{k\+\_\+max\+\_\+values\+\_\+qcM}{k\_max\_values\_qcM}}
+{\footnotesize\ttfamily int Two\+Dpfold\+\_\+vars\+::k\+\_\+max\+\_\+values\+\_\+qcM}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a8cdb526d5dd01cb96f8aadc108469cb7}\label{struct_two_dpfold__vars_a8cdb526d5dd01cb96f8aadc108469cb7}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+rem@{Q\+\_\+rem}}
+\index{Q\+\_\+rem@{Q\+\_\+rem}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+rem}{Q\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+rem}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_af0996736f7ab00dc604ca5f55e92e6e2}\label{struct_two_dpfold__vars_af0996736f7ab00dc604ca5f55e92e6e2}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+\+B\+\_\+rem@{Q\+\_\+\+B\+\_\+rem}}
+\index{Q\+\_\+\+B\+\_\+rem@{Q\+\_\+\+B\+\_\+rem}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+\+B\+\_\+rem}{Q\_B\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+\+B\+\_\+rem}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_aa11ef78b6011ccef34ea4899767ac5d7}\label{struct_two_dpfold__vars_aa11ef78b6011ccef34ea4899767ac5d7}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+\+M\+\_\+rem@{Q\+\_\+\+M\+\_\+rem}}
+\index{Q\+\_\+\+M\+\_\+rem@{Q\+\_\+\+M\+\_\+rem}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+\+M\+\_\+rem}{Q\_M\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+\+M\+\_\+rem}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_ac7c2ae5988f1c89ca2e751b9afd63160}\label{struct_two_dpfold__vars_ac7c2ae5988f1c89ca2e751b9afd63160}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+\+M1\+\_\+rem@{Q\+\_\+\+M1\+\_\+rem}}
+\index{Q\+\_\+\+M1\+\_\+rem@{Q\+\_\+\+M1\+\_\+rem}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+\+M1\+\_\+rem}{Q\_M1\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+\+M1\+\_\+rem}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a3da1a9601f99600f685473b890f19fe8}\label{struct_two_dpfold__vars_a3da1a9601f99600f685473b890f19fe8}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+\+M2\+\_\+rem@{Q\+\_\+\+M2\+\_\+rem}}
+\index{Q\+\_\+\+M2\+\_\+rem@{Q\+\_\+\+M2\+\_\+rem}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+\+M2\+\_\+rem}{Q\_M2\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+\+M2\+\_\+rem}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a8fbe3e1efedc2830991e98f29b0ac8b3}\label{struct_two_dpfold__vars_a8fbe3e1efedc2830991e98f29b0ac8b3}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+c\+\_\+rem@{Q\+\_\+c\+\_\+rem}}
+\index{Q\+\_\+c\+\_\+rem@{Q\+\_\+c\+\_\+rem}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+c\+\_\+rem}{Q\_c\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+c\+\_\+rem}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a271bc83bf99cfba04619c8a7d07dba47}\label{struct_two_dpfold__vars_a271bc83bf99cfba04619c8a7d07dba47}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+c\+H\+\_\+rem@{Q\+\_\+c\+H\+\_\+rem}}
+\index{Q\+\_\+c\+H\+\_\+rem@{Q\+\_\+c\+H\+\_\+rem}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+c\+H\+\_\+rem}{Q\_cH\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+c\+H\+\_\+rem}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a7b9e38c1962e27f0323911c99d0f77e7}\label{struct_two_dpfold__vars_a7b9e38c1962e27f0323911c99d0f77e7}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+c\+I\+\_\+rem@{Q\+\_\+c\+I\+\_\+rem}}
+\index{Q\+\_\+c\+I\+\_\+rem@{Q\+\_\+c\+I\+\_\+rem}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+c\+I\+\_\+rem}{Q\_cI\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+c\+I\+\_\+rem}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a81439a6e4648f9044f7a11b82756cac7}\label{struct_two_dpfold__vars_a81439a6e4648f9044f7a11b82756cac7}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!Q\+\_\+c\+M\+\_\+rem@{Q\+\_\+c\+M\+\_\+rem}}
+\index{Q\+\_\+c\+M\+\_\+rem@{Q\+\_\+c\+M\+\_\+rem}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{Q\+\_\+c\+M\+\_\+rem}{Q\_cM\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} Two\+Dpfold\+\_\+vars\+::\+Q\+\_\+c\+M\+\_\+rem}
+
+\mbox{\Hypertarget{struct_two_dpfold__vars_a159ec125caf5c33f5c19dbeeed54c047}\label{struct_two_dpfold__vars_a159ec125caf5c33f5c19dbeeed54c047}} 
+\index{Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}!compatibility@{compatibility}}
+\index{compatibility@{compatibility}!Two\+Dpfold\+\_\+vars@{Two\+Dpfold\+\_\+vars}}
+\subsubsection{\texorpdfstring{compatibility}{compatibility}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}}$\ast$ Two\+Dpfold\+\_\+vars\+::compatibility}
+
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Vienna\+R\+N\+A/\mbox{\hyperlink{2_dpfold_8h}{2\+Dpfold.\+h}}\end{DoxyCompactItemize}

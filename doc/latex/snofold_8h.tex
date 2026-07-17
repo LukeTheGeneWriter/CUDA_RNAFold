@@ -1,0 +1,132 @@
+\hypertarget{snofold_8h}{}\section{Vienna\+R\+N\+A/snofold.h File Reference}
+\label{snofold_8h}\index{Vienna\+R\+N\+A/snofold.\+h@{Vienna\+R\+N\+A/snofold.\+h}}
+Include dependency graph for snofold.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{snofold_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{snofold_8h_a37e3d25275c285015f9ac3e4b33634d8}{M\+I\+S\+M\+A\+T\+CH}}~3
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{snofold_8h_a54b7d4cc4aa9c2d165be4626ca799831}{snofold}} (const char $\ast$sequence, char $\ast$structure, const int max\+\_\+assym, const int threshold, const int min\+\_\+s2, const int max\+\_\+s2, const int half\+\_\+stem, const int max\+\_\+half\+\_\+stem)
+\item 
+void \mbox{\hyperlink{snofold_8h_a8020f3ccd30d0b7ade53cbb08f386133}{snofree\+\_\+arrays}} (const int length)
+\item 
+void \mbox{\hyperlink{snofold_8h_a4396715172d0f8d3baf1fdc3ec7859e6}{snoinitialize\+\_\+fold}} (int length)
+\item 
+void \mbox{\hyperlink{snofold_8h_a2dd5ca78afbfeb421d7ae8a2f63150ca}{snoupdate\+\_\+fold\+\_\+params}} (void)
+\item 
+int \mbox{\hyperlink{snofold_8h_a9815482804bf292565020b8202f11a6d}{snoloop\+\_\+energy}} (short $\ast$ptable, short $\ast$s, short $\ast$s1, int i)
+\item 
+void \mbox{\hyperlink{snofold_8h_a14752dbd6533360ca6fce26f1981fedd}{snoexport\+\_\+fold\+\_\+arrays}} (int $\ast$$\ast$indx\+\_\+p, int $\ast$$\ast$m\+Loop\+\_\+p, int $\ast$$\ast$c\+Loop, \mbox{\hyperlink{group__data__structures_gaaf402058651c8218fa72788d591cda05}{folden}} $\ast$$\ast$$\ast$fold\+\_\+p, \mbox{\hyperlink{group__data__structures_gaaf402058651c8218fa72788d591cda05}{folden}} $\ast$$\ast$$\ast$fold\+\_\+p\+\_\+\+XS)
+\item 
+char $\ast$ \mbox{\hyperlink{snofold_8h_a71682a6924926168cdbb66853f18bd3d}{snobacktrack\+\_\+fold\+\_\+from\+\_\+pair}} (const char $\ast$sequence, int i, int j)
+\item 
+float \mbox{\hyperlink{snofold_8h_a5fe3b9abb7873252f2c743e4e74d41a3}{alisnofold}} (const char $\ast$$\ast$strings, const int max\+\_\+assym, const int threshloop, const int min\+\_\+s2, const int max\+\_\+s2, const int half\+\_\+stem, const int max\+\_\+half\+\_\+stem)
+\item 
+void \mbox{\hyperlink{snofold_8h_a59d5349b76f780001138d206c61f4683}{alisnofree\+\_\+arrays}} (const int length)
+\item 
+char $\ast$ \mbox{\hyperlink{snofold_8h_a625399b54ae4b98303b78039eb78dd86}{alisnobacktrack\+\_\+fold\+\_\+from\+\_\+pair}} (const char $\ast$$\ast$sequence, int i, int j, int $\ast$cov)
+\end{DoxyCompactItemize}
+\subsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+double \mbox{\hyperlink{snofold_8h_af3cbac6ff5d706d6e414677841ddf94c}{cv\+\_\+fact}}
+\item 
+double \mbox{\hyperlink{snofold_8h_a502948a122a2af5b914355b1f3ea2f61}{nc\+\_\+fact}}
+\end{DoxyCompactItemize}
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{snofold_8h_a37e3d25275c285015f9ac3e4b33634d8}\label{snofold_8h_a37e3d25275c285015f9ac3e4b33634d8}} 
+\index{snofold.\+h@{snofold.\+h}!M\+I\+S\+M\+A\+T\+CH@{M\+I\+S\+M\+A\+T\+CH}}
+\index{M\+I\+S\+M\+A\+T\+CH@{M\+I\+S\+M\+A\+T\+CH}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{M\+I\+S\+M\+A\+T\+CH}{MISMATCH}}
+{\footnotesize\ttfamily \#define M\+I\+S\+M\+A\+T\+CH~3}
+
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{snofold_8h_a54b7d4cc4aa9c2d165be4626ca799831}\label{snofold_8h_a54b7d4cc4aa9c2d165be4626ca799831}} 
+\index{snofold.\+h@{snofold.\+h}!snofold@{snofold}}
+\index{snofold@{snofold}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{snofold()}{snofold()}}
+{\footnotesize\ttfamily int snofold (\begin{DoxyParamCaption}\item[{const char $\ast$}]{sequence,  }\item[{char $\ast$}]{structure,  }\item[{const int}]{max\+\_\+assym,  }\item[{const int}]{threshold,  }\item[{const int}]{min\+\_\+s2,  }\item[{const int}]{max\+\_\+s2,  }\item[{const int}]{half\+\_\+stem,  }\item[{const int}]{max\+\_\+half\+\_\+stem }\end{DoxyParamCaption})}
+
+snofold is the stem folding array for R\+N\+Asnoop \mbox{\Hypertarget{snofold_8h_a8020f3ccd30d0b7ade53cbb08f386133}\label{snofold_8h_a8020f3ccd30d0b7ade53cbb08f386133}} 
+\index{snofold.\+h@{snofold.\+h}!snofree\+\_\+arrays@{snofree\+\_\+arrays}}
+\index{snofree\+\_\+arrays@{snofree\+\_\+arrays}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{snofree\+\_\+arrays()}{snofree\_arrays()}}
+{\footnotesize\ttfamily void snofree\+\_\+arrays (\begin{DoxyParamCaption}\item[{const int}]{length }\end{DoxyParamCaption})}
+
+Free arrays and structure related to snofold \mbox{\Hypertarget{snofold_8h_a4396715172d0f8d3baf1fdc3ec7859e6}\label{snofold_8h_a4396715172d0f8d3baf1fdc3ec7859e6}} 
+\index{snofold.\+h@{snofold.\+h}!snoinitialize\+\_\+fold@{snoinitialize\+\_\+fold}}
+\index{snoinitialize\+\_\+fold@{snoinitialize\+\_\+fold}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{snoinitialize\+\_\+fold()}{snoinitialize\_fold()}}
+{\footnotesize\ttfamily void snoinitialize\+\_\+fold (\begin{DoxyParamCaption}\item[{int}]{length }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{snofold_8h_a2dd5ca78afbfeb421d7ae8a2f63150ca}\label{snofold_8h_a2dd5ca78afbfeb421d7ae8a2f63150ca}} 
+\index{snofold.\+h@{snofold.\+h}!snoupdate\+\_\+fold\+\_\+params@{snoupdate\+\_\+fold\+\_\+params}}
+\index{snoupdate\+\_\+fold\+\_\+params@{snoupdate\+\_\+fold\+\_\+params}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{snoupdate\+\_\+fold\+\_\+params()}{snoupdate\_fold\_params()}}
+{\footnotesize\ttfamily void snoupdate\+\_\+fold\+\_\+params (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{snofold_8h_a9815482804bf292565020b8202f11a6d}\label{snofold_8h_a9815482804bf292565020b8202f11a6d}} 
+\index{snofold.\+h@{snofold.\+h}!snoloop\+\_\+energy@{snoloop\+\_\+energy}}
+\index{snoloop\+\_\+energy@{snoloop\+\_\+energy}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{snoloop\+\_\+energy()}{snoloop\_energy()}}
+{\footnotesize\ttfamily int snoloop\+\_\+energy (\begin{DoxyParamCaption}\item[{short $\ast$}]{ptable,  }\item[{short $\ast$}]{s,  }\item[{short $\ast$}]{s1,  }\item[{int}]{i }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{snofold_8h_a14752dbd6533360ca6fce26f1981fedd}\label{snofold_8h_a14752dbd6533360ca6fce26f1981fedd}} 
+\index{snofold.\+h@{snofold.\+h}!snoexport\+\_\+fold\+\_\+arrays@{snoexport\+\_\+fold\+\_\+arrays}}
+\index{snoexport\+\_\+fold\+\_\+arrays@{snoexport\+\_\+fold\+\_\+arrays}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{snoexport\+\_\+fold\+\_\+arrays()}{snoexport\_fold\_arrays()}}
+{\footnotesize\ttfamily void snoexport\+\_\+fold\+\_\+arrays (\begin{DoxyParamCaption}\item[{int $\ast$$\ast$}]{indx\+\_\+p,  }\item[{int $\ast$$\ast$}]{m\+Loop\+\_\+p,  }\item[{int $\ast$$\ast$}]{c\+Loop,  }\item[{\mbox{\hyperlink{group__data__structures_gaaf402058651c8218fa72788d591cda05}{folden}} $\ast$$\ast$$\ast$}]{fold\+\_\+p,  }\item[{\mbox{\hyperlink{group__data__structures_gaaf402058651c8218fa72788d591cda05}{folden}} $\ast$$\ast$$\ast$}]{fold\+\_\+p\+\_\+\+XS }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{snofold_8h_a71682a6924926168cdbb66853f18bd3d}\label{snofold_8h_a71682a6924926168cdbb66853f18bd3d}} 
+\index{snofold.\+h@{snofold.\+h}!snobacktrack\+\_\+fold\+\_\+from\+\_\+pair@{snobacktrack\+\_\+fold\+\_\+from\+\_\+pair}}
+\index{snobacktrack\+\_\+fold\+\_\+from\+\_\+pair@{snobacktrack\+\_\+fold\+\_\+from\+\_\+pair}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{snobacktrack\+\_\+fold\+\_\+from\+\_\+pair()}{snobacktrack\_fold\_from\_pair()}}
+{\footnotesize\ttfamily char$\ast$ snobacktrack\+\_\+fold\+\_\+from\+\_\+pair (\begin{DoxyParamCaption}\item[{const char $\ast$}]{sequence,  }\item[{int}]{i,  }\item[{int}]{j }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{snofold_8h_a5fe3b9abb7873252f2c743e4e74d41a3}\label{snofold_8h_a5fe3b9abb7873252f2c743e4e74d41a3}} 
+\index{snofold.\+h@{snofold.\+h}!alisnofold@{alisnofold}}
+\index{alisnofold@{alisnofold}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{alisnofold()}{alisnofold()}}
+{\footnotesize\ttfamily float alisnofold (\begin{DoxyParamCaption}\item[{const char $\ast$$\ast$}]{strings,  }\item[{const int}]{max\+\_\+assym,  }\item[{const int}]{threshloop,  }\item[{const int}]{min\+\_\+s2,  }\item[{const int}]{max\+\_\+s2,  }\item[{const int}]{half\+\_\+stem,  }\item[{const int}]{max\+\_\+half\+\_\+stem }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{snofold_8h_a59d5349b76f780001138d206c61f4683}\label{snofold_8h_a59d5349b76f780001138d206c61f4683}} 
+\index{snofold.\+h@{snofold.\+h}!alisnofree\+\_\+arrays@{alisnofree\+\_\+arrays}}
+\index{alisnofree\+\_\+arrays@{alisnofree\+\_\+arrays}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{alisnofree\+\_\+arrays()}{alisnofree\_arrays()}}
+{\footnotesize\ttfamily void alisnofree\+\_\+arrays (\begin{DoxyParamCaption}\item[{const int}]{length }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{snofold_8h_a625399b54ae4b98303b78039eb78dd86}\label{snofold_8h_a625399b54ae4b98303b78039eb78dd86}} 
+\index{snofold.\+h@{snofold.\+h}!alisnobacktrack\+\_\+fold\+\_\+from\+\_\+pair@{alisnobacktrack\+\_\+fold\+\_\+from\+\_\+pair}}
+\index{alisnobacktrack\+\_\+fold\+\_\+from\+\_\+pair@{alisnobacktrack\+\_\+fold\+\_\+from\+\_\+pair}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{alisnobacktrack\+\_\+fold\+\_\+from\+\_\+pair()}{alisnobacktrack\_fold\_from\_pair()}}
+{\footnotesize\ttfamily char$\ast$ alisnobacktrack\+\_\+fold\+\_\+from\+\_\+pair (\begin{DoxyParamCaption}\item[{const char $\ast$$\ast$}]{sequence,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{int $\ast$}]{cov }\end{DoxyParamCaption})}
+
+
+
+\subsection{Variable Documentation}
+\mbox{\Hypertarget{snofold_8h_af3cbac6ff5d706d6e414677841ddf94c}\label{snofold_8h_af3cbac6ff5d706d6e414677841ddf94c}} 
+\index{snofold.\+h@{snofold.\+h}!cv\+\_\+fact@{cv\+\_\+fact}}
+\index{cv\+\_\+fact@{cv\+\_\+fact}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{cv\+\_\+fact}{cv\_fact}}
+{\footnotesize\ttfamily double cv\+\_\+fact}
+
+\mbox{\Hypertarget{snofold_8h_a502948a122a2af5b914355b1f3ea2f61}\label{snofold_8h_a502948a122a2af5b914355b1f3ea2f61}} 
+\index{snofold.\+h@{snofold.\+h}!nc\+\_\+fact@{nc\+\_\+fact}}
+\index{nc\+\_\+fact@{nc\+\_\+fact}!snofold.\+h@{snofold.\+h}}
+\subsubsection{\texorpdfstring{nc\+\_\+fact}{nc\_fact}}
+{\footnotesize\ttfamily double nc\+\_\+fact}
+

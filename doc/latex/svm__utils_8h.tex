@@ -1,0 +1,86 @@
+\hypertarget{svm__utils_8h}{}\section{Vienna\+R\+N\+A/svm\+\_\+utils.h File Reference}
+\label{svm__utils_8h}\index{Vienna\+R\+N\+A/svm\+\_\+utils.\+h@{Vienna\+R\+N\+A/svm\+\_\+utils.\+h}}
+Include dependency graph for svm\+\_\+utils.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=202pt]{svm__utils_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+float \mbox{\hyperlink{svm__utils_8h_ae607dddedebc9afa16c5dff3bba1394f}{get\+\_\+z}} (char $\ast$sequence, double energy)
+\item 
+double \mbox{\hyperlink{svm__utils_8h_a88269e88d6fd467dddac2d7e3721980b}{avg\+\_\+regression}} (int N, int A, int C, int G, int T, struct svm\+\_\+model $\ast$avg\+\_\+model, int $\ast$info)
+\item 
+double \mbox{\hyperlink{svm__utils_8h_aa8d1363adb772aa84daeeddb7fe6aff6}{sd\+\_\+regression}} (int N, int A, int C, int G, int T, struct svm\+\_\+model $\ast$sd\+\_\+model)
+\item 
+double \mbox{\hyperlink{svm__utils_8h_ada672a00584fc57b842ae1328b0d9c72}{minimal\+\_\+sd}} (int N, int A, int C, int G, int T)
+\item 
+struct svm\+\_\+model $\ast$ \mbox{\hyperlink{svm__utils_8h_a5d09a7efabeaabd3623a58271e30b7b5}{svm\+\_\+load\+\_\+model\+\_\+string}} (char $\ast$model\+String)
+\item 
+int $\ast$ \mbox{\hyperlink{svm__utils_8h_a76ae96b50708df1dbac30eab32e9ace4}{get\+\_\+seq\+\_\+composition}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, unsigned int \mbox{\hyperlink{special__const_8h_ab53016e6941484f46238d59e2549decb}{start}}, unsigned int stop, unsigned int length)
+\end{DoxyCompactItemize}
+\subsection*{Variables}
+\begin{DoxyCompactItemize}
+\item 
+char $\ast$ \mbox{\hyperlink{svm__utils_8h_a882fe0794ca32aad1e1682ea38689045}{avg\+\_\+model\+\_\+string}}
+\item 
+char $\ast$ \mbox{\hyperlink{svm__utils_8h_a291a03d64d5fba49646fd017e22494b2}{sd\+\_\+model\+\_\+string}}
+\end{DoxyCompactItemize}
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{svm__utils_8h_ae607dddedebc9afa16c5dff3bba1394f}\label{svm__utils_8h_ae607dddedebc9afa16c5dff3bba1394f}} 
+\index{svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}!get\+\_\+z@{get\+\_\+z}}
+\index{get\+\_\+z@{get\+\_\+z}!svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}}
+\subsubsection{\texorpdfstring{get\+\_\+z()}{get\_z()}}
+{\footnotesize\ttfamily float get\+\_\+z (\begin{DoxyParamCaption}\item[{char $\ast$}]{sequence,  }\item[{double}]{energy }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{svm__utils_8h_a88269e88d6fd467dddac2d7e3721980b}\label{svm__utils_8h_a88269e88d6fd467dddac2d7e3721980b}} 
+\index{svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}!avg\+\_\+regression@{avg\+\_\+regression}}
+\index{avg\+\_\+regression@{avg\+\_\+regression}!svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}}
+\subsubsection{\texorpdfstring{avg\+\_\+regression()}{avg\_regression()}}
+{\footnotesize\ttfamily double avg\+\_\+regression (\begin{DoxyParamCaption}\item[{int}]{N,  }\item[{int}]{A,  }\item[{int}]{C,  }\item[{int}]{G,  }\item[{int}]{T,  }\item[{struct svm\+\_\+model $\ast$}]{avg\+\_\+model,  }\item[{int $\ast$}]{info }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{svm__utils_8h_aa8d1363adb772aa84daeeddb7fe6aff6}\label{svm__utils_8h_aa8d1363adb772aa84daeeddb7fe6aff6}} 
+\index{svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}!sd\+\_\+regression@{sd\+\_\+regression}}
+\index{sd\+\_\+regression@{sd\+\_\+regression}!svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}}
+\subsubsection{\texorpdfstring{sd\+\_\+regression()}{sd\_regression()}}
+{\footnotesize\ttfamily double sd\+\_\+regression (\begin{DoxyParamCaption}\item[{int}]{N,  }\item[{int}]{A,  }\item[{int}]{C,  }\item[{int}]{G,  }\item[{int}]{T,  }\item[{struct svm\+\_\+model $\ast$}]{sd\+\_\+model }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{svm__utils_8h_ada672a00584fc57b842ae1328b0d9c72}\label{svm__utils_8h_ada672a00584fc57b842ae1328b0d9c72}} 
+\index{svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}!minimal\+\_\+sd@{minimal\+\_\+sd}}
+\index{minimal\+\_\+sd@{minimal\+\_\+sd}!svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}}
+\subsubsection{\texorpdfstring{minimal\+\_\+sd()}{minimal\_sd()}}
+{\footnotesize\ttfamily double minimal\+\_\+sd (\begin{DoxyParamCaption}\item[{int}]{N,  }\item[{int}]{A,  }\item[{int}]{C,  }\item[{int}]{G,  }\item[{int}]{T }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{svm__utils_8h_a5d09a7efabeaabd3623a58271e30b7b5}\label{svm__utils_8h_a5d09a7efabeaabd3623a58271e30b7b5}} 
+\index{svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}!svm\+\_\+load\+\_\+model\+\_\+string@{svm\+\_\+load\+\_\+model\+\_\+string}}
+\index{svm\+\_\+load\+\_\+model\+\_\+string@{svm\+\_\+load\+\_\+model\+\_\+string}!svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}}
+\subsubsection{\texorpdfstring{svm\+\_\+load\+\_\+model\+\_\+string()}{svm\_load\_model\_string()}}
+{\footnotesize\ttfamily struct svm\+\_\+model$\ast$ svm\+\_\+load\+\_\+model\+\_\+string (\begin{DoxyParamCaption}\item[{char $\ast$}]{model\+String }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{svm__utils_8h_a76ae96b50708df1dbac30eab32e9ace4}\label{svm__utils_8h_a76ae96b50708df1dbac30eab32e9ace4}} 
+\index{svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}!get\+\_\+seq\+\_\+composition@{get\+\_\+seq\+\_\+composition}}
+\index{get\+\_\+seq\+\_\+composition@{get\+\_\+seq\+\_\+composition}!svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}}
+\subsubsection{\texorpdfstring{get\+\_\+seq\+\_\+composition()}{get\_seq\_composition()}}
+{\footnotesize\ttfamily int$\ast$ get\+\_\+seq\+\_\+composition (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{unsigned int}]{start,  }\item[{unsigned int}]{stop,  }\item[{unsigned int}]{length }\end{DoxyParamCaption})}
+
+
+
+\subsection{Variable Documentation}
+\mbox{\Hypertarget{svm__utils_8h_a882fe0794ca32aad1e1682ea38689045}\label{svm__utils_8h_a882fe0794ca32aad1e1682ea38689045}} 
+\index{svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}!avg\+\_\+model\+\_\+string@{avg\+\_\+model\+\_\+string}}
+\index{avg\+\_\+model\+\_\+string@{avg\+\_\+model\+\_\+string}!svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}}
+\subsubsection{\texorpdfstring{avg\+\_\+model\+\_\+string}{avg\_model\_string}}
+{\footnotesize\ttfamily char$\ast$ avg\+\_\+model\+\_\+string}
+
+\mbox{\Hypertarget{svm__utils_8h_a291a03d64d5fba49646fd017e22494b2}\label{svm__utils_8h_a291a03d64d5fba49646fd017e22494b2}} 
+\index{svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}!sd\+\_\+model\+\_\+string@{sd\+\_\+model\+\_\+string}}
+\index{sd\+\_\+model\+\_\+string@{sd\+\_\+model\+\_\+string}!svm\+\_\+utils.\+h@{svm\+\_\+utils.\+h}}
+\subsubsection{\texorpdfstring{sd\+\_\+model\+\_\+string}{sd\_model\_string}}
+{\footnotesize\ttfamily char$\ast$ sd\+\_\+model\+\_\+string}
+

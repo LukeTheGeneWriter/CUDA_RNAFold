@@ -1,0 +1,136 @@
+\hypertarget{sequence_8h}{}\section{Vienna\+R\+N\+A/sequence.h File Reference}
+\label{sequence_8h}\index{Vienna\+R\+N\+A/sequence.\+h@{Vienna\+R\+N\+A/sequence.\+h}}
+
+
+Functions and data structures related to sequence representations.  
+
+
+This graph shows which files directly or indirectly include this file\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{sequence_8h__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Data Structures}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structvrna__sequence__s}{vrna\+\_\+sequence\+\_\+s}}
+\begin{DoxyCompactList}\small\item\em Data structure representing a nucleotide sequence. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{sequence_8h_a0c1c7a9244d4a300adbc0c1d81d58ac5}{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+R\+NA}}~1U
+\item 
+\#define \mbox{\hyperlink{sequence_8h_ac4bc4b1aad71d684a95ee1b2c7ee4db1}{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+D\+NA}}~2U
+\item 
+enum \mbox{\hyperlink{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609}{vrna\+\_\+seq\+\_\+type\+\_\+e}} \{ \mbox{\hyperlink{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609ad8682ac290d0dd51022e3b82840e1a74}{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+U\+N\+K\+N\+O\+WN}}, 
+\mbox{\hyperlink{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609ac52309234beaf94e6a3bd1b9b69de9f4}{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+R\+NA}}, 
+\mbox{\hyperlink{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609a4da1613644c3a3766ef1d6494f271332}{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+D\+NA}}
+ \}
+\begin{DoxyCompactList}\small\item\em A enumerator used in \mbox{\hyperlink{structvrna__sequence__s}{vrna\+\_\+sequence\+\_\+s}} to distinguish different nucleotide sequences. \end{DoxyCompactList}\item 
+typedef struct \mbox{\hyperlink{structvrna__sequence__s}{vrna\+\_\+sequence\+\_\+s}} \mbox{\hyperlink{sequence_8h_aa35bee3061759495467070b47d0e1f22}{vrna\+\_\+seq\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Typename for nucleotide sequence representation data structure \mbox{\hyperlink{structvrna__sequence__s}{vrna\+\_\+sequence\+\_\+s}}. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{sequence_8h_aa35bee3061759495467070b47d0e1f22}{vrna\+\_\+seq\+\_\+t}} $\ast$ \mbox{\hyperlink{sequence_8h_a6018070ab3c3bb711578ff42eca81c2a}{vrna\+\_\+sequence}} (const char $\ast$string, unsigned int options)
+\item 
+int \mbox{\hyperlink{sequence_8h_a73808223b67548477f835e67b27b5031}{vrna\+\_\+sequence\+\_\+add}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, const char $\ast$string, unsigned int options)
+\item 
+int \mbox{\hyperlink{sequence_8h_a57454794af2b20292716d99f5b60b94a}{vrna\+\_\+sequence\+\_\+remove}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, unsigned int i)
+\item 
+void \mbox{\hyperlink{sequence_8h_a316364ad63d49f228cc9c321af0da018}{vrna\+\_\+sequence\+\_\+remove\+\_\+all}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc)
+\item 
+void \mbox{\hyperlink{sequence_8h_a482e89d70cff3b867a93d7ecdba167d3}{vrna\+\_\+sequence\+\_\+prepare}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$fc)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Functions and data structures related to sequence representations. 
+
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{sequence_8h_a0c1c7a9244d4a300adbc0c1d81d58ac5}\label{sequence_8h_a0c1c7a9244d4a300adbc0c1d81d58ac5}} 
+\index{sequence.\+h@{sequence.\+h}!V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+R\+NA@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+R\+NA}}
+\index{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+R\+NA@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+R\+NA}!sequence.\+h@{sequence.\+h}}
+\subsubsection{\texorpdfstring{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+R\+NA}{VRNA\_SEQUENCE\_RNA}}
+{\footnotesize\ttfamily \#define V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+R\+NA~1U}
+
+\mbox{\Hypertarget{sequence_8h_ac4bc4b1aad71d684a95ee1b2c7ee4db1}\label{sequence_8h_ac4bc4b1aad71d684a95ee1b2c7ee4db1}} 
+\index{sequence.\+h@{sequence.\+h}!V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+D\+NA@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+D\+NA}}
+\index{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+D\+NA@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+D\+NA}!sequence.\+h@{sequence.\+h}}
+\subsubsection{\texorpdfstring{V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+D\+NA}{VRNA\_SEQUENCE\_DNA}}
+{\footnotesize\ttfamily \#define V\+R\+N\+A\+\_\+\+S\+E\+Q\+U\+E\+N\+C\+E\+\_\+\+D\+NA~2U}
+
+
+
+\subsection{Typedef Documentation}
+\mbox{\Hypertarget{sequence_8h_aa35bee3061759495467070b47d0e1f22}\label{sequence_8h_aa35bee3061759495467070b47d0e1f22}} 
+\index{sequence.\+h@{sequence.\+h}!vrna\+\_\+seq\+\_\+t@{vrna\+\_\+seq\+\_\+t}}
+\index{vrna\+\_\+seq\+\_\+t@{vrna\+\_\+seq\+\_\+t}!sequence.\+h@{sequence.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+seq\+\_\+t}{vrna\_seq\_t}}
+{\footnotesize\ttfamily typedef struct \mbox{\hyperlink{structvrna__sequence__s}{vrna\+\_\+sequence\+\_\+s}} \mbox{\hyperlink{sequence_8h_aa35bee3061759495467070b47d0e1f22}{vrna\+\_\+seq\+\_\+t}}}
+
+
+
+Typename for nucleotide sequence representation data structure \mbox{\hyperlink{structvrna__sequence__s}{vrna\+\_\+sequence\+\_\+s}}. 
+
+
+
+\subsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609}\label{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609}} 
+\index{sequence.\+h@{sequence.\+h}!vrna\+\_\+seq\+\_\+type\+\_\+e@{vrna\+\_\+seq\+\_\+type\+\_\+e}}
+\index{vrna\+\_\+seq\+\_\+type\+\_\+e@{vrna\+\_\+seq\+\_\+type\+\_\+e}!sequence.\+h@{sequence.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+seq\+\_\+type\+\_\+e}{vrna\_seq\_type\_e}}
+{\footnotesize\ttfamily enum \mbox{\hyperlink{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609}{vrna\+\_\+seq\+\_\+type\+\_\+e}}}
+
+
+
+A enumerator used in \mbox{\hyperlink{structvrna__sequence__s}{vrna\+\_\+sequence\+\_\+s}} to distinguish different nucleotide sequences. 
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+U\+N\+K\+N\+O\+WN@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+U\+N\+K\+N\+O\+WN}!sequence.\+h@{sequence.\+h}}\index{sequence.\+h@{sequence.\+h}!V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+U\+N\+K\+N\+O\+WN@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+U\+N\+K\+N\+O\+WN}}}\mbox{\Hypertarget{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609ad8682ac290d0dd51022e3b82840e1a74}\label{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609ad8682ac290d0dd51022e3b82840e1a74}} 
+V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+U\+N\+K\+N\+O\+WN&Nucleotide sequence represents an Unkown type. \\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+R\+NA@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+R\+NA}!sequence.\+h@{sequence.\+h}}\index{sequence.\+h@{sequence.\+h}!V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+R\+NA@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+R\+NA}}}\mbox{\Hypertarget{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609ac52309234beaf94e6a3bd1b9b69de9f4}\label{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609ac52309234beaf94e6a3bd1b9b69de9f4}} 
+V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+R\+NA&Nucleotide sequence represents an R\+NA type. \\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+D\+NA@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+D\+NA}!sequence.\+h@{sequence.\+h}}\index{sequence.\+h@{sequence.\+h}!V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+D\+NA@{V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+D\+NA}}}\mbox{\Hypertarget{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609a4da1613644c3a3766ef1d6494f271332}\label{sequence_8h_a85cda3fcf5d6bd7ec090d3a96e808609a4da1613644c3a3766ef1d6494f271332}} 
+V\+R\+N\+A\+\_\+\+S\+E\+Q\+\_\+\+D\+NA&Nucleotide sequence represents a D\+NA type. \\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{sequence_8h_a6018070ab3c3bb711578ff42eca81c2a}\label{sequence_8h_a6018070ab3c3bb711578ff42eca81c2a}} 
+\index{sequence.\+h@{sequence.\+h}!vrna\+\_\+sequence@{vrna\+\_\+sequence}}
+\index{vrna\+\_\+sequence@{vrna\+\_\+sequence}!sequence.\+h@{sequence.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+sequence()}{vrna\_sequence()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{sequence_8h_aa35bee3061759495467070b47d0e1f22}{vrna\+\_\+seq\+\_\+t}}$\ast$ vrna\+\_\+sequence (\begin{DoxyParamCaption}\item[{const char $\ast$}]{string,  }\item[{unsigned int}]{options }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{sequence_8h_a73808223b67548477f835e67b27b5031}\label{sequence_8h_a73808223b67548477f835e67b27b5031}} 
+\index{sequence.\+h@{sequence.\+h}!vrna\+\_\+sequence\+\_\+add@{vrna\+\_\+sequence\+\_\+add}}
+\index{vrna\+\_\+sequence\+\_\+add@{vrna\+\_\+sequence\+\_\+add}!sequence.\+h@{sequence.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+sequence\+\_\+add()}{vrna\_sequence\_add()}}
+{\footnotesize\ttfamily int vrna\+\_\+sequence\+\_\+add (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{const char $\ast$}]{string,  }\item[{unsigned int}]{options }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{sequence_8h_a57454794af2b20292716d99f5b60b94a}\label{sequence_8h_a57454794af2b20292716d99f5b60b94a}} 
+\index{sequence.\+h@{sequence.\+h}!vrna\+\_\+sequence\+\_\+remove@{vrna\+\_\+sequence\+\_\+remove}}
+\index{vrna\+\_\+sequence\+\_\+remove@{vrna\+\_\+sequence\+\_\+remove}!sequence.\+h@{sequence.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+sequence\+\_\+remove()}{vrna\_sequence\_remove()}}
+{\footnotesize\ttfamily int vrna\+\_\+sequence\+\_\+remove (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{unsigned int}]{i }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{sequence_8h_a316364ad63d49f228cc9c321af0da018}\label{sequence_8h_a316364ad63d49f228cc9c321af0da018}} 
+\index{sequence.\+h@{sequence.\+h}!vrna\+\_\+sequence\+\_\+remove\+\_\+all@{vrna\+\_\+sequence\+\_\+remove\+\_\+all}}
+\index{vrna\+\_\+sequence\+\_\+remove\+\_\+all@{vrna\+\_\+sequence\+\_\+remove\+\_\+all}!sequence.\+h@{sequence.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+sequence\+\_\+remove\+\_\+all()}{vrna\_sequence\_remove\_all()}}
+{\footnotesize\ttfamily void vrna\+\_\+sequence\+\_\+remove\+\_\+all (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{sequence_8h_a482e89d70cff3b867a93d7ecdba167d3}\label{sequence_8h_a482e89d70cff3b867a93d7ecdba167d3}} 
+\index{sequence.\+h@{sequence.\+h}!vrna\+\_\+sequence\+\_\+prepare@{vrna\+\_\+sequence\+\_\+prepare}}
+\index{vrna\+\_\+sequence\+\_\+prepare@{vrna\+\_\+sequence\+\_\+prepare}!sequence.\+h@{sequence.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+sequence\+\_\+prepare()}{vrna\_sequence\_prepare()}}
+{\footnotesize\ttfamily void vrna\+\_\+sequence\+\_\+prepare (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{fc }\end{DoxyParamCaption})}
+
