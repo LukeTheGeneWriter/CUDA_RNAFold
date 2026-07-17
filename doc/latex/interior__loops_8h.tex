@@ -1,0 +1,81 @@
+\hypertarget{interior__loops_8h}{}\section{Vienna\+R\+N\+A/interior\+\_\+loops.h File Reference}
+\label{interior__loops_8h}\index{Vienna\+R\+N\+A/interior\+\_\+loops.\+h@{Vienna\+R\+N\+A/interior\+\_\+loops.\+h}}
+
+
+Energy evaluation of interior loops for M\+FE and partition function calculations.  
+
+
+Include dependency graph for interior\+\_\+loops.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{interior__loops_8h__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=220pt]{interior__loops_8h__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{interior__loops_8h_a2eb6f9e0395b47b8d5e3eeae4fe0c116}{I\+N\+L\+I\+NE}}
+\item 
+\#define \mbox{\hyperlink{interior__loops_8h_a6b109d72bf39073254090cf105a17641}{O\+N\+\_\+\+S\+A\+M\+E\+\_\+\+S\+T\+R\+A\+ND}}(I,  J,  C)~(((I) $>$= (C)) $\vert$$\vert$ ((J) $<$ (C)))
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__loops_gaafbc187b7f78e8e82afb77dd6f3b8fc5}{E\+\_\+\+Int\+Loop}} (int n1, int n2, int type, int type\+\_\+2, int si1, int sj1, int sp1, int sq1, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{group__loops_ga95de54d8a2a17645a95e0f34e189d9c9}{exp\+\_\+\+E\+\_\+\+Int\+Loop}} (int u1, int u2, int type, int type2, short si1, short sj1, short sp1, short sq1, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__loops_ga2d2e4f3f3448c9060763dac6c0c489f0}{E\+\_\+\+Int\+Loop\+\_\+\+Co}} (int type, int type\+\_\+2, int i, int j, int p, int q, int cutpoint, short si1, short sj1, short sp1, short sq1, int \mbox{\hyperlink{group__model__details_ga72b511ed1201f7e23ec437e468790d74}{dangles}}, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__loops_ga7023a0172febe830dfca95499d8d1bbb}{ubf\+\_\+eval\+\_\+int\+\_\+loop}} (int i, int j, int p, int q, int i1, int j1, int p1, int q1, short si, short sj, short sp, short sq, unsigned char type, unsigned char type\+\_\+2, int $\ast$rtype, int ij, int cp, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P, \mbox{\hyperlink{group__soft__constraints_ga75401ce219ef8dbcceb672db82d434c6}{vrna\+\_\+sc\+\_\+t}} $\ast$sc)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__loops_gae85ec93c39058ce80d67b64239f64c71}{ubf\+\_\+eval\+\_\+int\+\_\+loop2}} (int i, int j, int p, int q, int i1, int j1, int p1, int q1, short si, short sj, short sp, short sq, unsigned char type, unsigned char type\+\_\+2, int $\ast$rtype, int ij, unsigned int $\ast$sn, unsigned int $\ast$ss, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P, \mbox{\hyperlink{group__soft__constraints_ga75401ce219ef8dbcceb672db82d434c6}{vrna\+\_\+sc\+\_\+t}} $\ast$sc)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__loops_ga0f0ba96735be7e218bed5db4746012fd}{ubf\+\_\+eval\+\_\+ext\+\_\+int\+\_\+loop}} (int i, int j, int p, int q, int i1, int j1, int p1, int q1, short si, short sj, short sp, short sq, unsigned char type, unsigned char type\+\_\+2, int length, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P, \mbox{\hyperlink{group__soft__constraints_ga75401ce219ef8dbcceb672db82d434c6}{vrna\+\_\+sc\+\_\+t}} $\ast$sc)
+\item 
+int \mbox{\hyperlink{group__loops_ga8aab34f532276b7e38837d78ef591847}{vrna\+\_\+\+E\+\_\+int\+\_\+loop}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j)
+\item 
+int \mbox{\hyperlink{group__loops_ga018f1314dbbae42fdd27c94670b61721}{vrna\+\_\+eval\+\_\+int\+\_\+loop}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j, int k, int l)
+\begin{DoxyCompactList}\small\item\em Evaluate the free energy contribution of an interior loop with delimiting base pairs $(i,j)$ and $(k,l)$. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{group__loops_ga516749f1374dccb079ea75c9711c31e6}{vrna\+\_\+exp\+\_\+\+E\+\_\+int\+\_\+loop}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j)
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{group__loops_gae27361b54e40da510011988326fcdfe1}{vrna\+\_\+exp\+\_\+\+E\+\_\+interior\+\_\+loop}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j, int k, int l)
+\item 
+int \mbox{\hyperlink{group__loops_ga821f83d41e68dd5e8e3c182c989b1fbf}{vrna\+\_\+\+E\+\_\+ext\+\_\+int\+\_\+loop}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j, int $\ast$ip, int $\ast$iq)
+\item 
+int \mbox{\hyperlink{group__loops_gac1e873bc12317fa9318a8185018a6f60}{vrna\+\_\+\+E\+\_\+stack}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j)
+\item 
+int \mbox{\hyperlink{group__loops_gad320d5d721e33bed120168213d8f45e5}{vrna\+\_\+\+B\+T\+\_\+stack}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int $\ast$i, int $\ast$j, int $\ast$en, \mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$bp\+\_\+stack, int $\ast$stack\+\_\+count)
+\begin{DoxyCompactList}\small\item\em Backtrack a stacked pair closed by $ (i,j) $. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__loops_ga849b7dc373b6c0b029672e16a7e52053}{vrna\+\_\+\+B\+T\+\_\+int\+\_\+loop}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int $\ast$i, int $\ast$j, int en, \mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$bp\+\_\+stack, int $\ast$stack\+\_\+count)
+\begin{DoxyCompactList}\small\item\em Backtrack an interior loop closed by $ (i,j) $. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Energy evaluation of interior loops for M\+FE and partition function calculations. 
+
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{interior__loops_8h_a2eb6f9e0395b47b8d5e3eeae4fe0c116}\label{interior__loops_8h_a2eb6f9e0395b47b8d5e3eeae4fe0c116}} 
+\index{interior\+\_\+loops.\+h@{interior\+\_\+loops.\+h}!I\+N\+L\+I\+NE@{I\+N\+L\+I\+NE}}
+\index{I\+N\+L\+I\+NE@{I\+N\+L\+I\+NE}!interior\+\_\+loops.\+h@{interior\+\_\+loops.\+h}}
+\subsubsection{\texorpdfstring{I\+N\+L\+I\+NE}{INLINE}}
+{\footnotesize\ttfamily \#define I\+N\+L\+I\+NE}
+
+\mbox{\Hypertarget{interior__loops_8h_a6b109d72bf39073254090cf105a17641}\label{interior__loops_8h_a6b109d72bf39073254090cf105a17641}} 
+\index{interior\+\_\+loops.\+h@{interior\+\_\+loops.\+h}!O\+N\+\_\+\+S\+A\+M\+E\+\_\+\+S\+T\+R\+A\+ND@{O\+N\+\_\+\+S\+A\+M\+E\+\_\+\+S\+T\+R\+A\+ND}}
+\index{O\+N\+\_\+\+S\+A\+M\+E\+\_\+\+S\+T\+R\+A\+ND@{O\+N\+\_\+\+S\+A\+M\+E\+\_\+\+S\+T\+R\+A\+ND}!interior\+\_\+loops.\+h@{interior\+\_\+loops.\+h}}
+\subsubsection{\texorpdfstring{O\+N\+\_\+\+S\+A\+M\+E\+\_\+\+S\+T\+R\+A\+ND}{ON\_SAME\_STRAND}}
+{\footnotesize\ttfamily \#define O\+N\+\_\+\+S\+A\+M\+E\+\_\+\+S\+T\+R\+A\+ND(\begin{DoxyParamCaption}\item[{}]{I,  }\item[{}]{J,  }\item[{}]{C }\end{DoxyParamCaption})~(((I) $>$= (C)) $\vert$$\vert$ ((J) $<$ (C)))}
+

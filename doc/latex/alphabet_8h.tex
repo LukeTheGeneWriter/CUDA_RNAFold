@@ -1,0 +1,79 @@
+\hypertarget{alphabet_8h}{}\section{Vienna\+R\+N\+A/alphabet.h File Reference}
+\label{alphabet_8h}\index{Vienna\+R\+N\+A/alphabet.\+h@{Vienna\+R\+N\+A/alphabet.\+h}}
+
+
+Functions to process, convert, and generally handle different nucleotide and/or base pair alphabets.  
+
+
+Include dependency graph for alphabet.\+h\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=196pt]{alphabet_8h__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{alphabet_8h__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{alphabet_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{D\+E\+P\+R\+E\+C\+A\+T\+ED}}(func,  msg)~func
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+unsigned int \mbox{\hyperlink{group__utils_ga0fe05749df8bae9d2eda9013d6ba5551}{vrna\+\_\+sequence\+\_\+length\+\_\+max}} (unsigned int options)
+\item 
+int \mbox{\hyperlink{group__utils_ga2ee2b98985e6335910f128c81c8f5842}{vrna\+\_\+nucleotide\+\_\+\+I\+U\+P\+A\+C\+\_\+identity}} (char a, char b)
+\item 
+void \mbox{\hyperlink{group__utils_gafa82673941b3bbb8006e9ca105fa33b9}{vrna\+\_\+ptypes\+\_\+prepare}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$fc, unsigned int options)
+\item 
+char $\ast$ \mbox{\hyperlink{group__utils_ga51a9e86a5f731f5f2f5584ee67cee4a8}{vrna\+\_\+ptypes}} (const short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} $\ast$md)
+\begin{DoxyCompactList}\small\item\em Get an array of the numerical encoding for each possible base pair (i,j) \end{DoxyCompactList}\item 
+short $\ast$ \mbox{\hyperlink{group__utils_ga636e7d6f888fd639587296a5eddea660}{vrna\+\_\+seq\+\_\+encode}} (const char $\ast$sequence, \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} $\ast$md)
+\begin{DoxyCompactList}\small\item\em Get a numerical representation of the nucleotide sequence. \end{DoxyCompactList}\item 
+short $\ast$ \mbox{\hyperlink{group__utils_ga3cd79d21d53248ad2634c1c0d43e97d7}{vrna\+\_\+seq\+\_\+encode\+\_\+simple}} (const char $\ast$sequence, \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} $\ast$md)
+\begin{DoxyCompactList}\small\item\em Get a numerical representation of the nucleotide sequence (simple version) \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__utils_gac12bf00123f88621c9be847b0879c1fb}{vrna\+\_\+nucleotide\+\_\+encode}} (char c, \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} $\ast$md)
+\begin{DoxyCompactList}\small\item\em Encode a nucleotide character to numerical value. \end{DoxyCompactList}\item 
+char \mbox{\hyperlink{group__utils_ga48ef585e697be9c8a08ed68c655e29b6}{vrna\+\_\+nucleotide\+\_\+decode}} (int enc, \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} $\ast$md)
+\begin{DoxyCompactList}\small\item\em Decode a numerical representation of a nucleotide back into nucleotide alphabet. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__utils_ga56dfbd38023d289a3b5daf7fe06ab4d6}{vrna\+\_\+aln\+\_\+encode}} (const char $\ast$sequence, short $\ast$$\ast$S\+\_\+p, short $\ast$$\ast$s5\+\_\+p, short $\ast$$\ast$s3\+\_\+p, char $\ast$$\ast$ss\+\_\+p, unsigned int $\ast$$\ast$as\+\_\+p, \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} $\ast$md)
+\item 
+unsigned int \mbox{\hyperlink{group__utils_ga629aeca7a1a5d148e2c7e0e5d12299cc}{vrna\+\_\+get\+\_\+ptype\+\_\+md}} (int i, int j, \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} $\ast$md)
+\item 
+unsigned int \mbox{\hyperlink{group__utils_ga1cef98562ce6016ed83e38bc15d7b4bb}{vrna\+\_\+get\+\_\+ptype}} (int ij, char $\ast$ptype)
+\item 
+unsigned int \mbox{\hyperlink{group__utils_gab134b2a70a6933b7f3aada9abdc7b96e}{vrna\+\_\+get\+\_\+ptype\+\_\+window}} (int i, int j, char $\ast$$\ast$ptype)
+\item 
+char $\ast$ \mbox{\hyperlink{alphabet_8h_a3081b67381e066d6e835aaf8a466899d}{get\+\_\+ptypes}} (const short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} $\ast$md, unsigned int idx\+\_\+type)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Functions to process, convert, and generally handle different nucleotide and/or base pair alphabets. 
+
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{alphabet_8h_aab347a3c03fbe8e7319551b9fa0cce4a}\label{alphabet_8h_aab347a3c03fbe8e7319551b9fa0cce4a}} 
+\index{alphabet.\+h@{alphabet.\+h}!D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}}
+\index{D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}!alphabet.\+h@{alphabet.\+h}}
+\subsubsection{\texorpdfstring{D\+E\+P\+R\+E\+C\+A\+T\+ED}{DEPRECATED}}
+{\footnotesize\ttfamily \#define D\+E\+P\+R\+E\+C\+A\+T\+ED(\begin{DoxyParamCaption}\item[{}]{func,  }\item[{}]{msg }\end{DoxyParamCaption})~func}
+
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{alphabet_8h_a3081b67381e066d6e835aaf8a466899d}\label{alphabet_8h_a3081b67381e066d6e835aaf8a466899d}} 
+\index{alphabet.\+h@{alphabet.\+h}!get\+\_\+ptypes@{get\+\_\+ptypes}}
+\index{get\+\_\+ptypes@{get\+\_\+ptypes}!alphabet.\+h@{alphabet.\+h}}
+\subsubsection{\texorpdfstring{get\+\_\+ptypes()}{get\_ptypes()}}
+{\footnotesize\ttfamily char$\ast$ get\+\_\+ptypes (\begin{DoxyParamCaption}\item[{const short $\ast$}]{S,  }\item[{\mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} $\ast$}]{md,  }\item[{unsigned int}]{idx\+\_\+type }\end{DoxyParamCaption})}
+

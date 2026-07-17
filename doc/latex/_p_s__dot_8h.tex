@@ -1,0 +1,74 @@
+\hypertarget{_p_s__dot_8h}{}\section{Vienna\+R\+N\+A/\+P\+S\+\_\+dot.h File Reference}
+\label{_p_s__dot_8h}\index{Vienna\+R\+N\+A/\+P\+S\+\_\+dot.\+h@{Vienna\+R\+N\+A/\+P\+S\+\_\+dot.\+h}}
+
+
+Various functions for plotting R\+NA secondary structures, dot-\/plots and other visualizations.  
+
+
+Include dependency graph for P\+S\+\_\+dot.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{_p_s__dot_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Data Structures}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{group__plotting__utils_structvrna__dotplot__auxdata__t}{vrna\+\_\+dotplot\+\_\+auxdata\+\_\+t}}
+\end{DoxyCompactItemize}
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{_p_s__dot_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{D\+E\+P\+R\+E\+C\+A\+T\+ED}}(func,  msg)~func
+\item 
+\#define \mbox{\hyperlink{group__plotting__utils_gacbb7170d7e64a20671b97dafe3825011}{V\+R\+N\+A\+\_\+\+P\+L\+O\+T\+\_\+\+P\+R\+O\+B\+A\+B\+I\+L\+I\+T\+I\+E\+S\+\_\+\+BP}}~1U
+\item 
+\#define \mbox{\hyperlink{group__plotting__utils_ga7cf7de27166f5c445e2cf0ffc03b1a7a}{V\+R\+N\+A\+\_\+\+P\+L\+O\+T\+\_\+\+P\+R\+O\+B\+A\+B\+I\+L\+I\+T\+I\+E\+S\+\_\+\+A\+CC}}~2U
+\item 
+\#define \mbox{\hyperlink{group__plotting__utils_ga7f35d77121d2080b8c172841248b2060}{V\+R\+N\+A\+\_\+\+P\+L\+O\+T\+\_\+\+P\+R\+O\+B\+A\+B\+I\+L\+I\+T\+I\+E\+S\+\_\+\+UD}}~4U
+\item 
+\#define \mbox{\hyperlink{group__plotting__utils_ga6cce76e1c319a60a8b8e39d8887e2f1a}{V\+R\+N\+A\+\_\+\+P\+L\+O\+T\+\_\+\+P\+R\+O\+B\+A\+B\+I\+L\+I\+T\+I\+E\+S\+\_\+\+U\+D\+\_\+\+L\+IN}}~8U
+\item 
+\#define \mbox{\hyperlink{group__plotting__utils_ga78f8da179bc3f52b1c1180931ed8b0f7}{V\+R\+N\+A\+\_\+\+P\+L\+O\+T\+\_\+\+P\+R\+O\+B\+A\+B\+I\+L\+I\+T\+I\+E\+S\+\_\+\+SD}}~16U
+\item 
+\#define \mbox{\hyperlink{group__plotting__utils_ga228fe1c75b71cb40726b9423d2bed2a9}{V\+R\+N\+A\+\_\+\+P\+L\+O\+T\+\_\+\+P\+R\+O\+B\+A\+B\+I\+L\+I\+T\+I\+E\+S\+\_\+\+S\+C\+\_\+\+M\+O\+T\+IF}}~32U
+\item 
+\#define \mbox{\hyperlink{group__plotting__utils_ga41a92625e75a77555b3f6e3a0ef7b89b}{V\+R\+N\+A\+\_\+\+P\+L\+O\+T\+\_\+\+P\+R\+O\+B\+A\+B\+I\+L\+I\+T\+I\+E\+S\+\_\+\+S\+C\+\_\+\+UP}}~64U
+\item 
+\#define \mbox{\hyperlink{group__plotting__utils_ga886fa0619733b98667111faa56cd03d6}{V\+R\+N\+A\+\_\+\+P\+L\+O\+T\+\_\+\+P\+R\+O\+B\+A\+B\+I\+L\+I\+T\+I\+E\+S\+\_\+\+S\+C\+\_\+\+BP}}~128U
+\item 
+\#define \mbox{\hyperlink{group__plotting__utils_gaa3a3d5cf87de5120a93eab3be788b6fb}{V\+R\+N\+A\+\_\+\+P\+L\+O\+T\+\_\+\+P\+R\+O\+B\+A\+B\+I\+L\+I\+T\+I\+E\+S\+\_\+\+D\+E\+F\+A\+U\+LT}}
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{group__plotting__utils_ga45e56b67e3f333f4335197737b5f9822}{vrna\+\_\+plot\+\_\+dp\+\_\+\+E\+PS}} (const char $\ast$filename, const char $\ast$sequence, \mbox{\hyperlink{group__struct__utils_gab9ac98ab55ded9fb90043b024b915aca}{vrna\+\_\+ep\+\_\+t}} $\ast$upper, \mbox{\hyperlink{group__struct__utils_gab9ac98ab55ded9fb90043b024b915aca}{vrna\+\_\+ep\+\_\+t}} $\ast$lower, \mbox{\hyperlink{group__plotting__utils_structvrna__dotplot__auxdata__t}{vrna\+\_\+dotplot\+\_\+auxdata\+\_\+t}} $\ast$auxdata, unsigned int options)
+\item 
+int \mbox{\hyperlink{group__plotting__utils_ga2f6294599b0fbe8338bec6918c3b1ba7}{P\+S\+\_\+color\+\_\+dot\+\_\+plot}} (char $\ast$string, \mbox{\hyperlink{group__data__structures_ga8412f116a2eb07b59ade9e14ca7c5ef1}{cpair}} $\ast$pi, char $\ast$filename)
+\item 
+int \mbox{\hyperlink{group__plotting__utils_gab3e6bb8fac08c07b32883ae2049aed9d}{P\+S\+\_\+color\+\_\+dot\+\_\+plot\+\_\+turn}} (char $\ast$seq, \mbox{\hyperlink{group__data__structures_ga8412f116a2eb07b59ade9e14ca7c5ef1}{cpair}} $\ast$pi, char $\ast$filename, int win\+Size)
+\item 
+int \mbox{\hyperlink{group__plotting__utils_ga00ea223b5cf02eb2faae5ff29f0d5e12}{P\+S\+\_\+dot\+\_\+plot\+\_\+list}} (char $\ast$seq, char $\ast$filename, \mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}} $\ast$pl, \mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}} $\ast$mf, char $\ast$comment)
+\begin{DoxyCompactList}\small\item\em Produce a postscript dot-\/plot from two pair lists. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__plotting__utils_ga3921213b67eb931daeb24451e989f8de}{vrna\+\_\+plot\+\_\+dp\+\_\+\+P\+S\+\_\+list}} (char $\ast$seq, int cp, char $\ast$wastlfile, \mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}} $\ast$pl, \mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}} $\ast$mf, char $\ast$comment)
+\item 
+int \mbox{\hyperlink{group__plotting__utils_ga5582a502d39ec3bc8d5ba3262102991c}{P\+S\+\_\+dot\+\_\+plot\+\_\+turn}} (char $\ast$seq, \mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}} $\ast$pl, char $\ast$filename, int win\+Size)
+\item 
+int \mbox{\hyperlink{group__plotting__utils_ga689a97a7e3b8a2df14728b8204d9d57b}{P\+S\+\_\+dot\+\_\+plot}} (char $\ast$string, char $\ast$file)
+\begin{DoxyCompactList}\small\item\em Produce postscript dot-\/plot. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Various functions for plotting R\+NA secondary structures, dot-\/plots and other visualizations. 
+
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{_p_s__dot_8h_aab347a3c03fbe8e7319551b9fa0cce4a}\label{_p_s__dot_8h_aab347a3c03fbe8e7319551b9fa0cce4a}} 
+\index{P\+S\+\_\+dot.\+h@{P\+S\+\_\+dot.\+h}!D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}}
+\index{D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}!P\+S\+\_\+dot.\+h@{P\+S\+\_\+dot.\+h}}
+\subsubsection{\texorpdfstring{D\+E\+P\+R\+E\+C\+A\+T\+ED}{DEPRECATED}}
+{\footnotesize\ttfamily \#define D\+E\+P\+R\+E\+C\+A\+T\+ED(\begin{DoxyParamCaption}\item[{}]{func,  }\item[{}]{msg }\end{DoxyParamCaption})~func}
+

@@ -1,0 +1,84 @@
+\hypertarget{exterior__loops_8h}{}\section{Vienna\+R\+N\+A/exterior\+\_\+loops.h File Reference}
+\label{exterior__loops_8h}\index{Vienna\+R\+N\+A/exterior\+\_\+loops.\+h@{Vienna\+R\+N\+A/exterior\+\_\+loops.\+h}}
+
+
+Energy evaluation of exterior loops for M\+FE and partition function calculations.  
+
+
+Include dependency graph for exterior\+\_\+loops.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{exterior__loops_8h__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=220pt]{exterior__loops_8h__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{exterior__loops_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{D\+E\+P\+R\+E\+C\+A\+T\+ED}}(func,  msg)~func
+\end{DoxyCompactItemize}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef struct vrna\+\_\+mx\+\_\+pf\+\_\+aux\+\_\+el\+\_\+s $\ast$ \mbox{\hyperlink{group__loops_gaf9d5160c11ffad3ec258124a77fee13c}{vrna\+\_\+mx\+\_\+pf\+\_\+aux\+\_\+el\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Auxiliary helper arrays for fast exterior loop computations. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{group__loops_gaa0c313c90da11aa741dcd62746d85337}{vrna\+\_\+\+E\+\_\+ext\+\_\+stem}} (unsigned int type, int n5d, int n3d, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$p)
+\begin{DoxyCompactList}\small\item\em Evaluate a stem branching off the exterior loop. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{group__loops_ga357484958d3cd677f88f16c75c8a5730}{vrna\+\_\+exp\+\_\+\+E\+\_\+ext\+\_\+stem}} (unsigned int type, int n5d, int n3d, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$p)
+\begin{DoxyCompactList}\small\item\em Evaluate a stem branching off the exterior loop (Boltzmann factor version) \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__loops_gafe7e94269aaae793a09427364ebb1ec0}{vrna\+\_\+\+E\+\_\+ext\+\_\+loop}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j)
+\begin{DoxyCompactList}\small\item\em Evaluate the free energy of a base pair in the exterior loop. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__loops_ga5dfb0f165d3a69a1a1ba82ace3002f0d}{vrna\+\_\+\+E\+\_\+ext\+\_\+loop\+\_\+5}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc)
+\item 
+int \mbox{\hyperlink{group__loops_ga6e57363a8ff3597cc69181c33fbb8196}{vrna\+\_\+\+E\+\_\+ext\+\_\+loop\+\_\+3}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$fc, int i)
+\item 
+int \mbox{\hyperlink{group__loops_ga55074e49f49ac4cd71395b1bb7a35f5b}{vrna\+\_\+\+B\+T\+\_\+ext\+\_\+loop\+\_\+f5}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int $\ast$k, int $\ast$i, int $\ast$j, \mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$bp\+\_\+stack, int $\ast$stack\+\_\+count)
+\item 
+int \mbox{\hyperlink{group__loops_gaf80500114aa4eed8f9dba1e98a1056a7}{vrna\+\_\+\+B\+T\+\_\+ext\+\_\+loop\+\_\+f3}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int $\ast$k, int maxdist, int $\ast$i, int $\ast$j, \mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$bp\+\_\+stack, int $\ast$stack\+\_\+count)
+\item 
+int \mbox{\hyperlink{group__loops_gaf5360c7f7f85f5d557592a3336bef945}{vrna\+\_\+\+B\+T\+\_\+ext\+\_\+loop\+\_\+f3\+\_\+pp}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$fc, int $\ast$i, int maxdist)
+\item 
+struct vrna\+\_\+mx\+\_\+pf\+\_\+aux\+\_\+el\+\_\+s $\ast$ \mbox{\hyperlink{group__loops_ga3da479a5c627d50530d81f028c181731}{vrna\+\_\+exp\+\_\+\+E\+\_\+ext\+\_\+fast\+\_\+init}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc)
+\item 
+void \mbox{\hyperlink{group__loops_gabe4ed7e3d6152a3b9db4e4ed762aa1ba}{vrna\+\_\+exp\+\_\+\+E\+\_\+ext\+\_\+fast\+\_\+rotate}} (struct vrna\+\_\+mx\+\_\+pf\+\_\+aux\+\_\+el\+\_\+s $\ast$aux\+\_\+mx)
+\item 
+void \mbox{\hyperlink{group__loops_ga4357b7937f1b840f063e44b859332f98}{vrna\+\_\+exp\+\_\+\+E\+\_\+ext\+\_\+fast\+\_\+free}} (struct vrna\+\_\+mx\+\_\+pf\+\_\+aux\+\_\+el\+\_\+s $\ast$aux\+\_\+mx)
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{group__loops_ga1c40acdc5e007f72d37a404127e9bcfb}{vrna\+\_\+exp\+\_\+\+E\+\_\+ext\+\_\+fast}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j, struct vrna\+\_\+mx\+\_\+pf\+\_\+aux\+\_\+el\+\_\+s $\ast$aux\+\_\+mx)
+\item 
+void \mbox{\hyperlink{group__loops_gaceb115e3d8855129797620b3b26882d5}{vrna\+\_\+exp\+\_\+\+E\+\_\+ext\+\_\+fast\+\_\+update}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$fc, int j, struct vrna\+\_\+mx\+\_\+pf\+\_\+aux\+\_\+el\+\_\+s $\ast$aux\+\_\+mx)
+\item 
+int \mbox{\hyperlink{group__loops_ga51f9851f3500c2aae66674142a6a2dd5}{E\+\_\+\+Stem}} (int type, int si1, int sj1, int ext\+Loop, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\begin{DoxyCompactList}\small\item\em Compute the energy contribution of a stem branching off a loop-\/region. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__loops_ga05c6288c5a79d3bd5ad6d33c1bb34bd0}{E\+\_\+\+Ext\+Loop}} (int type, int si1, int sj1, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{group__loops_ga446828a191c127861e76e2c84055f672}{exp\+\_\+\+E\+\_\+\+Ext\+Loop}} (int type, int si1, int sj1, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{group__loops_gab0aa9833ab41875a91a9be8a5ffd7092}{exp\+\_\+\+E\+\_\+\+Stem}} (int type, int si1, int sj1, int ext\+Loop, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$P)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Energy evaluation of exterior loops for M\+FE and partition function calculations. 
+
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{exterior__loops_8h_aab347a3c03fbe8e7319551b9fa0cce4a}\label{exterior__loops_8h_aab347a3c03fbe8e7319551b9fa0cce4a}} 
+\index{exterior\+\_\+loops.\+h@{exterior\+\_\+loops.\+h}!D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}}
+\index{D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}!exterior\+\_\+loops.\+h@{exterior\+\_\+loops.\+h}}
+\subsubsection{\texorpdfstring{D\+E\+P\+R\+E\+C\+A\+T\+ED}{DEPRECATED}}
+{\footnotesize\ttfamily \#define D\+E\+P\+R\+E\+C\+A\+T\+ED(\begin{DoxyParamCaption}\item[{}]{func,  }\item[{}]{msg }\end{DoxyParamCaption})~func}
+

@@ -1,0 +1,33 @@
+\hypertarget{ali__plex_8h}{}\section{Vienna\+R\+N\+A/ali\+\_\+plex.h File Reference}
+\label{ali__plex_8h}\index{Vienna\+R\+N\+A/ali\+\_\+plex.\+h@{Vienna\+R\+N\+A/ali\+\_\+plex.\+h}}
+Include dependency graph for ali\+\_\+plex.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{ali__plex_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$ \mbox{\hyperlink{ali__plex_8h_ac7c960b1d866da6eb8d1a3297ae1a2dd}{ali\+Lduplexfold}} (const char $\ast$s1\mbox{[}$\,$\mbox{]}, const char $\ast$s2\mbox{[}$\,$\mbox{]}, const int threshold, const int extension\+\_\+cost, const int alignment\+\_\+length, const int delta, const int fast, const int il\+\_\+a, const int il\+\_\+b, const int b\+\_\+a, const int b\+\_\+b)
+\item 
+\mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}} $\ast$$\ast$ \mbox{\hyperlink{ali__plex_8h_a9953709a629897d8b52bd13c7c87a0c6}{ali\+Lduplexfold\+\_\+\+XS}} (const char $\ast$s1\mbox{[}$\,$\mbox{]}, const char $\ast$s2\mbox{[}$\,$\mbox{]}, const int $\ast$$\ast$access\+\_\+s1, const int $\ast$$\ast$access\+\_\+s2, const int threshold, const int alignment\+\_\+length, const int delta, const int fast, const int il\+\_\+a, const int il\+\_\+b, const int b\+\_\+a, const int b\+\_\+b)
+\end{DoxyCompactItemize}
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{ali__plex_8h_ac7c960b1d866da6eb8d1a3297ae1a2dd}\label{ali__plex_8h_ac7c960b1d866da6eb8d1a3297ae1a2dd}} 
+\index{ali\+\_\+plex.\+h@{ali\+\_\+plex.\+h}!ali\+Lduplexfold@{ali\+Lduplexfold}}
+\index{ali\+Lduplexfold@{ali\+Lduplexfold}!ali\+\_\+plex.\+h@{ali\+\_\+plex.\+h}}
+\subsubsection{\texorpdfstring{ali\+Lduplexfold()}{aliLduplexfold()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}}$\ast$$\ast$ ali\+Lduplexfold (\begin{DoxyParamCaption}\item[{const char $\ast$}]{s1\mbox{[}$\,$\mbox{]},  }\item[{const char $\ast$}]{s2\mbox{[}$\,$\mbox{]},  }\item[{const int}]{threshold,  }\item[{const int}]{extension\+\_\+cost,  }\item[{const int}]{alignment\+\_\+length,  }\item[{const int}]{delta,  }\item[{const int}]{fast,  }\item[{const int}]{il\+\_\+a,  }\item[{const int}]{il\+\_\+b,  }\item[{const int}]{b\+\_\+a,  }\item[{const int}]{b\+\_\+b }\end{DoxyParamCaption})}
+
+ali\+Lduplexfold computes the duplexes between two alignments \mbox{\Hypertarget{ali__plex_8h_a9953709a629897d8b52bd13c7c87a0c6}\label{ali__plex_8h_a9953709a629897d8b52bd13c7c87a0c6}} 
+\index{ali\+\_\+plex.\+h@{ali\+\_\+plex.\+h}!ali\+Lduplexfold\+\_\+\+XS@{ali\+Lduplexfold\+\_\+\+XS}}
+\index{ali\+Lduplexfold\+\_\+\+XS@{ali\+Lduplexfold\+\_\+\+XS}!ali\+\_\+plex.\+h@{ali\+\_\+plex.\+h}}
+\subsubsection{\texorpdfstring{ali\+Lduplexfold\+\_\+\+X\+S()}{aliLduplexfold\_XS()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_structduplex_t}{duplexT}}$\ast$$\ast$ ali\+Lduplexfold\+\_\+\+XS (\begin{DoxyParamCaption}\item[{const char $\ast$}]{s1\mbox{[}$\,$\mbox{]},  }\item[{const char $\ast$}]{s2\mbox{[}$\,$\mbox{]},  }\item[{const int $\ast$$\ast$}]{access\+\_\+s1,  }\item[{const int $\ast$$\ast$}]{access\+\_\+s2,  }\item[{const int}]{threshold,  }\item[{const int}]{alignment\+\_\+length,  }\item[{const int}]{delta,  }\item[{const int}]{fast,  }\item[{const int}]{il\+\_\+a,  }\item[{const int}]{il\+\_\+b,  }\item[{const int}]{b\+\_\+a,  }\item[{const int}]{b\+\_\+b }\end{DoxyParamCaption})}
+
+ali\+Lduplexfold computes the duplexes between two alignments. It also takes the average accessibility into account 

@@ -1,0 +1,1535 @@
+\hypertarget{group__dp__matrices}{}\section{The Dynamic Programming Matrices}
+\label{group__dp__matrices}\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+
+
+This module provides interfaces that deal with creation and destruction of dynamic programming matrices used within the R\+N\+Alib.  
+
+
+
+
+\subsection{Detailed Description}
+This module provides interfaces that deal with creation and destruction of dynamic programming matrices used within the R\+N\+Alib. 
+
+Collaboration diagram for The Dynamic Programming Matrices\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{group__dp__matrices}
+\end{center}
+\end{figure}
+\subsection*{Data Structures}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\begin{DoxyCompactList}\small\item\em Minimum Free Energy (M\+FE) Dynamic Programming (DP) matrices data structure required within the \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}}.  \mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{More...}}\end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{group__dp__matrices_structvrna__mx__pf__s}{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\begin{DoxyCompactList}\small\item\em Partition function (PF) Dynamic Programming (DP) matrices data structure required within the \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}}.  \mbox{\hyperlink{group__dp__matrices_structvrna__mx__pf__s}{More...}}\end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef struct \mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{vrna\+\_\+mx\+\_\+mfe\+\_\+s}} \mbox{\hyperlink{group__dp__matrices_gae5aef35d016475e758f619b7bcb534f9}{vrna\+\_\+mx\+\_\+mfe\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Typename for the Minimum Free Energy (M\+FE) DP matrices data structure \mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}. \end{DoxyCompactList}\item 
+typedef struct \mbox{\hyperlink{group__dp__matrices_structvrna__mx__pf__s}{vrna\+\_\+mx\+\_\+pf\+\_\+s}} \mbox{\hyperlink{group__dp__matrices_ga68729ab3fed26bdd1806fa814f172fc1}{vrna\+\_\+mx\+\_\+pf\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Typename for the Partition Function (PF) DP matrices data structure \mbox{\hyperlink{group__dp__matrices_structvrna__mx__pf__s}{vrna\+\_\+mx\+\_\+pf\+\_\+s}}. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}} \{ \mbox{\hyperlink{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343aafa2568956dab79595521e20c49a5f75}{V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+D\+E\+F\+A\+U\+LT}}, 
+\mbox{\hyperlink{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343a2ea5d5947f6ec02544934b0ff2785e99}{V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+W\+I\+N\+D\+OW}}, 
+\mbox{\hyperlink{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343ae656f8391445ff71bed8a597a0a19417}{V\+R\+N\+A\+\_\+\+M\+X\+\_\+2\+D\+F\+O\+LD}}
+ \}
+\begin{DoxyCompactList}\small\item\em An enumerator that is used to specify the type of a polymorphic Dynamic Programming (DP) matrix data structure. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{group__dp__matrices_ga08661f098008961dab0023bf300f0c33}{vrna\+\_\+mx\+\_\+add}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, \mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}} type, unsigned int options)
+\begin{DoxyCompactList}\small\item\em Add Dynamic Programming (DP) matrices (allocate memory) \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__dp__matrices_ga0b29f2a8a5632879014a80d51b334374}{vrna\+\_\+mx\+\_\+mfe\+\_\+add}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, \mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}} mx\+\_\+type, unsigned int options)
+\item 
+int \mbox{\hyperlink{group__dp__matrices_gaf80ade1ec97fc158875736e69eff999f}{vrna\+\_\+mx\+\_\+pf\+\_\+add}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, \mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}} mx\+\_\+type, unsigned int options)
+\item 
+int \mbox{\hyperlink{group__dp__matrices_ga35e1fa4fdab869abb14f06ba5a3ba5b4}{vrna\+\_\+mx\+\_\+prepare}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, unsigned int options)
+\item 
+void \mbox{\hyperlink{group__dp__matrices_ga6a9422feb5dfe5c64050cebf447672d0}{vrna\+\_\+mx\+\_\+mfe\+\_\+free}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc)
+\begin{DoxyCompactList}\small\item\em Free memory occupied by the Minimum Free Energy (M\+FE) Dynamic Programming (DP) matrices. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__dp__matrices_ga2283e69fd139fb8e58d7ade3b5773f9c}{vrna\+\_\+mx\+\_\+pf\+\_\+free}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc)
+\begin{DoxyCompactList}\small\item\em Free memory occupied by the Partition Function (PF) Dynamic Programming (DP) matrices. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Data Structure Documentation}
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}\label{structvrna__mx__mfe__s}
+\Hypertarget{group__dp__matrices_structvrna__mx__mfe__s}
+\subsubsection{struct vrna\+\_\+mx\+\_\+mfe\+\_\+s}
+Minimum Free Energy (M\+FE) Dynamic Programming (DP) matrices data structure required within the \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}}. \subsubsection*{Data Fields}
+\begin{DoxyCompactItemize}
+\item 
+\begin{tabbing}
+xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=\kill
+union \{\\
+\>struct \{\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a60a511fd42905ee4f046c56a76865bf9}{c}}\\
+\>\>\>{\em Energy array, given that i-\/j pair. }\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_abebad693be987c2701d64477ab858039}{f5}}\\
+\>\>\>{\em Energy of 5\textquotesingle{} end. }\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a4ea4595a93733adef047ece8e6f5da52}{f3}}\\
+\>\>\>{\em Energy of 3\textquotesingle{} end. }\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a8ee6b6cefe20cfbf1f6bef5c788b6667}{fc}}\\
+\>\>\>{\em Energy from i to cutpoint (and vice versa if i$>$cut) }\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a103995e4ab8e21e7f8bc36a6edcb1331}{fML}}\\
+\>\>\>{\em Multi-\/loop auxiliary energy array. }\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_ae4e598d601f5ece6b8b4ffffcae2db06}{fM1}}\\
+\>\>\>{\em Second ML array, only for unique multibrnach loop decomposition. }\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_ad29106e37d485b3f20b7be468e6c179c}{fM2}}\\
+\>\>\>{\em Energy for a multibranch loop region with exactly two stems, extending to 3\textquotesingle{} end. }\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a0b7b86a5c75c96eabb89eb53a13e7164}{ggg}}\\
+\>\>\>{\em Energies of g-\/quadruplexes. }\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_ac6a22d71c6a0eccedf978372b19b458a}{Fc}}\\
+\>\>\>{\em Minimum Free Energy of entire circular RNA. }\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a1ba03c53ee2a32eaf8b46c0eb259e0c4}{FcH}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a96ac173770c9745a30823fa17fe0b7f4}{FcI}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a9a4bf70926f79372388eccc7e73759e9}{FcM}}\\
+\>\} \\
+\>struct \{\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a116c677ece0832e6ab9cc2fd1ebfe452}{c\_local}}\\
+\>\>\>{\em Energy array, given that i-\/j pair. }\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a6eae0a2b696b0c63bbaa78a70b950600}{f3\_local}}\\
+\>\>\>{\em Energy of 5\textquotesingle{} end. }\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_ad37d705240a8e6b1e9a4e4ea19e74003}{fML\_local}}\\
+\>\>\>{\em Multi-\/loop auxiliary energy array. }\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_afd3ea65bc8f06559f7f1ea79072fa385}{ggg\_local}}\\
+\>\>\>{\em Energies of g-\/quadruplexes. }\\
+\>\} \\
+\>struct \{\\
+\>\>int $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_ab917aa1e2b069af7fb5d11c5d067cdf0}{E\_F5}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a4035d3c6a9e23e388ddec18a9fdc2315}{l\_min\_F5}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a794ba42ca5afa5320a2da88554928516}{l\_max\_F5}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_aad6fc641a5815149b8d938ca277019a5}{k\_min\_F5}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a321a00180a1d046796328d0a9b66ec81}{k\_max\_F5}}\\
+\>\>int $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a4d055707928eb6f3147c962141cc70e8}{E\_F3}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_abf0389ece58e97652f580d7dc1e133d8}{l\_min\_F3}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_afadce4435141575c7275b1e0b75e8eba}{l\_max\_F3}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a063fb9477172048bd24786ef363315db}{k\_min\_F3}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a1e20cd5b9d422f547b3366e74b59b1bd}{k\_max\_F3}}\\
+\>\>int $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_af7007bfa68981a0d7a7a2186c357eb4f}{E\_C}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a33f9c476304c568c78918a5bcc3e2c2f}{l\_min\_C}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_afb0db136ff9fd3c78ad30816aa276ed3}{l\_max\_C}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a37d2df63ba2ae973059279f325b0e617}{k\_min\_C}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a9bb98ec849469ab7dda8042384a0114e}{k\_max\_C}}\\
+\>\>int $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_aace1bc1fb8f3e0e83296a91e40bda7a5}{E\_M}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a48afd9784e58e427fcbe4694d4670c57}{l\_min\_M}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a59641489689bf8ba2236466b4a9be82a}{l\_max\_M}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a7a723bdda23a431fa498b6e46f71de05}{k\_min\_M}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a45f8584d5a51e734de9376889e9a890e}{k\_max\_M}}\\
+\>\>int $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a2a0eccd64e94962e9ec7c0652c5adcf2}{E\_M1}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a83ceae2cd2fa2a478fbc917419f4f43c}{l\_min\_M1}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_abacc2eb5bd2798188191693d562941fe}{l\_max\_M1}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a31b0f5d774d868d3723b0e98a64ab4c2}{k\_min\_M1}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_ad7aa8ad7e4246927b79f0e69cfdb20b2}{k\_max\_M1}}\\
+\>\>int $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a84f072a7e5a9d1dc978e92b3a78f53f8}{E\_M2}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a0ee034810d6ece4cd0f4604ec4c94c22}{l\_min\_M2}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a0d78bbbc4621247d97f00160803a05b0}{l\_max\_M2}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a27eede8de57b179fc24839bc25e96be0}{k\_min\_M2}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_ac3bc074f2b291247b65d34e336ef064f}{k\_max\_M2}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_ac81b8edd7d1297b43af1c163214ec95b}{E\_Fc}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a64f1fdc523370d4d27f4e74db37ec3f2}{l\_min\_Fc}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a253b64237c811ef8587de8a714658365}{l\_max\_Fc}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a3b381c1a816112c9557056a52db5d104}{k\_min\_Fc}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a2aa2123340602899bd7a61d82db95a3f}{k\_max\_Fc}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a366499237acdae5e4f422e4bc82bfc0d}{E\_FcH}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a5d0a6a5cd45a42d23fc0eabf0763caa8}{l\_min\_FcH}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a89192a2ab2c8de9f5b702edc9fe68613}{l\_max\_FcH}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_aa3f7198e3c6207737934088d27639911}{k\_min\_FcH}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a8e94d63c103c7effce55652619b3b469}{k\_max\_FcH}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a3e9793de5245f038ed83c2a607b37970}{E\_FcI}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_abc4dd9942f140f91adb52d2719e78bc4}{l\_min\_FcI}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a41cb6dbbda30f5d7bafd6b0ea62bca8c}{l\_max\_FcI}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_acbf5d0bd27435ad5328482f9b4b32833}{k\_min\_FcI}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a6b13abef4bee7a08fd28b0780535373e}{k\_max\_FcI}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_aad18f800b7bc0f26d012b9bc36aa5382}{E\_FcM}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a7ee24b747cf1d4ecc1cdc7380cf39594}{l\_min\_FcM}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a0d419ae5a7e10b98734d42f5391d25f5}{l\_max\_FcM}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a36089cee4d38f465f79db7e3589693a7}{k\_min\_FcM}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_aa5a4d2fd78e38c82ee666f9bdc911e66}{k\_max\_FcM}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_af286d9ea990a98a33c065b4e16eaa311}{E\_F5\_rem}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_afa8e42da47467e098bab0c6f1c16bea4}{E\_F3\_rem}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a00f20c8bd9eda2ebcd99267cce52909c}{E\_C\_rem}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a92b0234e1e3cdaba2dea416e37904a09}{E\_M\_rem}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a89dddd61f360292fddcc9b25e7cbc699}{E\_M1\_rem}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a5fc042fba42b3676226b64fb4ab80ad2}{E\_M2\_rem}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_aec03a4d7538bfa0e1113ba2825175428}{E\_Fc\_rem}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a120dc87d9b5f452b12ab796046a0f704}{E\_FcH\_rem}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_add53b23599a083140d0ddbd158a84d1d}{E\_FcI\_rem}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_ad821cb861e772e1c0fd4efddb44380c7}{E\_FcM\_rem}}\\
+\>\} \\
+\}; \\
+
+\end{tabbing}\end{DoxyCompactItemize}
+\begin{Indent}\textbf{ Common fields for M\+FE matrices}\par
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}} \mbox{\hyperlink{group__dp__matrices_a468680aa937b664d453075108d976ae2}{type}}
+\item 
+unsigned int \mbox{\hyperlink{group__dp__matrices_a1f92a8406fc1fb721dbf9193c34ad826}{length}}
+\begin{DoxyCompactList}\small\item\em Length of the sequence, therefore an indicator of the size of the DP matrices. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\end{Indent}
+\begin{Indent}\textbf{ Default DP matrices}\par
+{\em \begin{DoxyNote}{Note}
+These data fields are available if 
+\begin{DoxyCode}
+\mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{vrna\_mx\_mfe\_t}}.\mbox{\hyperlink{group__dp__matrices_a468680aa937b664d453075108d976ae2}{type}} == \mbox{\hyperlink{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343aafa2568956dab79595521e20c49a5f75}{VRNA\_MX\_DEFAULT}} 
+\end{DoxyCode}
+ 
+\end{DoxyNote}
+}\end{Indent}
+\begin{Indent}\textbf{ Local Folding DP matrices using window approach}\par
+{\em \begin{DoxyNote}{Note}
+These data fields are available if 
+\begin{DoxyCode}
+\mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{vrna\_mx\_mfe\_t}}.\mbox{\hyperlink{group__dp__matrices_a468680aa937b664d453075108d976ae2}{type}} == \mbox{\hyperlink{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343a2ea5d5947f6ec02544934b0ff2785e99}{VRNA\_MX\_WINDOW}} 
+\end{DoxyCode}
+ 
+\end{DoxyNote}
+}\end{Indent}
+\begin{Indent}\textbf{ Distance Class DP matrices}\par
+{\em \begin{DoxyNote}{Note}
+These data fields are available if 
+\begin{DoxyCode}
+\mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{vrna\_mx\_mfe\_t}}.\mbox{\hyperlink{group__dp__matrices_a468680aa937b664d453075108d976ae2}{type}} == \mbox{\hyperlink{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343ae656f8391445ff71bed8a597a0a19417}{VRNA\_MX\_2DFOLD}} 
+\end{DoxyCode}
+ 
+\end{DoxyNote}
+}\end{Indent}
+
+
+\paragraph{Field Documentation}
+\mbox{\Hypertarget{group__dp__matrices_a468680aa937b664d453075108d976ae2}\label{group__dp__matrices_a468680aa937b664d453075108d976ae2}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!type@{type}}
+\index{type@{type}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{type}{type}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}} vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::type}
+
+\mbox{\Hypertarget{group__dp__matrices_a1f92a8406fc1fb721dbf9193c34ad826}\label{group__dp__matrices_a1f92a8406fc1fb721dbf9193c34ad826}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!length@{length}}
+\index{length@{length}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{length}{length}}
+{\footnotesize\ttfamily unsigned int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::length}
+
+
+
+Length of the sequence, therefore an indicator of the size of the DP matrices. 
+
+\mbox{\Hypertarget{group__dp__matrices_a60a511fd42905ee4f046c56a76865bf9}\label{group__dp__matrices_a60a511fd42905ee4f046c56a76865bf9}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!c@{c}}
+\index{c@{c}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{c}{c}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::c}
+
+
+
+Energy array, given that i-\/j pair. 
+
+\mbox{\Hypertarget{group__dp__matrices_abebad693be987c2701d64477ab858039}\label{group__dp__matrices_abebad693be987c2701d64477ab858039}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!f5@{f5}}
+\index{f5@{f5}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{f5}{f5}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::f5}
+
+
+
+Energy of 5\textquotesingle{} end. 
+
+\mbox{\Hypertarget{group__dp__matrices_a4ea4595a93733adef047ece8e6f5da52}\label{group__dp__matrices_a4ea4595a93733adef047ece8e6f5da52}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!f3@{f3}}
+\index{f3@{f3}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{f3}{f3}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::f3}
+
+
+
+Energy of 3\textquotesingle{} end. 
+
+\mbox{\Hypertarget{group__dp__matrices_a8ee6b6cefe20cfbf1f6bef5c788b6667}\label{group__dp__matrices_a8ee6b6cefe20cfbf1f6bef5c788b6667}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!fc@{fc}}
+\index{fc@{fc}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{fc}{fc}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::fc}
+
+
+
+Energy from i to cutpoint (and vice versa if i$>$cut) 
+
+\mbox{\Hypertarget{group__dp__matrices_a103995e4ab8e21e7f8bc36a6edcb1331}\label{group__dp__matrices_a103995e4ab8e21e7f8bc36a6edcb1331}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!f\+ML@{f\+ML}}
+\index{f\+ML@{f\+ML}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{f\+ML}{fML}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::f\+ML}
+
+
+
+Multi-\/loop auxiliary energy array. 
+
+\mbox{\Hypertarget{group__dp__matrices_ae4e598d601f5ece6b8b4ffffcae2db06}\label{group__dp__matrices_ae4e598d601f5ece6b8b4ffffcae2db06}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!f\+M1@{f\+M1}}
+\index{f\+M1@{f\+M1}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{f\+M1}{fM1}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::f\+M1}
+
+
+
+Second ML array, only for unique multibrnach loop decomposition. 
+
+\mbox{\Hypertarget{group__dp__matrices_ad29106e37d485b3f20b7be468e6c179c}\label{group__dp__matrices_ad29106e37d485b3f20b7be468e6c179c}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!f\+M2@{f\+M2}}
+\index{f\+M2@{f\+M2}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{f\+M2}{fM2}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::f\+M2}
+
+
+
+Energy for a multibranch loop region with exactly two stems, extending to 3\textquotesingle{} end. 
+
+\mbox{\Hypertarget{group__dp__matrices_a0b7b86a5c75c96eabb89eb53a13e7164}\label{group__dp__matrices_a0b7b86a5c75c96eabb89eb53a13e7164}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!ggg@{ggg}}
+\index{ggg@{ggg}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{ggg}{ggg}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::ggg}
+
+
+
+Energies of g-\/quadruplexes. 
+
+\mbox{\Hypertarget{group__dp__matrices_ac6a22d71c6a0eccedf978372b19b458a}\label{group__dp__matrices_ac6a22d71c6a0eccedf978372b19b458a}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!Fc@{Fc}}
+\index{Fc@{Fc}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{Fc}{Fc}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+Fc}
+
+
+
+Minimum Free Energy of entire circular R\+NA. 
+
+\mbox{\Hypertarget{group__dp__matrices_a1ba03c53ee2a32eaf8b46c0eb259e0c4}\label{group__dp__matrices_a1ba03c53ee2a32eaf8b46c0eb259e0c4}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!FcH@{FcH}}
+\index{FcH@{FcH}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{FcH}{FcH}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+FcH}
+
+\mbox{\Hypertarget{group__dp__matrices_a96ac173770c9745a30823fa17fe0b7f4}\label{group__dp__matrices_a96ac173770c9745a30823fa17fe0b7f4}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!FcI@{FcI}}
+\index{FcI@{FcI}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{FcI}{FcI}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+FcI}
+
+\mbox{\Hypertarget{group__dp__matrices_a9a4bf70926f79372388eccc7e73759e9}\label{group__dp__matrices_a9a4bf70926f79372388eccc7e73759e9}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!FcM@{FcM}}
+\index{FcM@{FcM}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{FcM}{FcM}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+FcM}
+
+\mbox{\Hypertarget{group__dp__matrices_a116c677ece0832e6ab9cc2fd1ebfe452}\label{group__dp__matrices_a116c677ece0832e6ab9cc2fd1ebfe452}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!c\+\_\+local@{c\+\_\+local}}
+\index{c\+\_\+local@{c\+\_\+local}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{c\+\_\+local}{c\_local}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::c\+\_\+local}
+
+
+
+Energy array, given that i-\/j pair. 
+
+\mbox{\Hypertarget{group__dp__matrices_a6eae0a2b696b0c63bbaa78a70b950600}\label{group__dp__matrices_a6eae0a2b696b0c63bbaa78a70b950600}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!f3\+\_\+local@{f3\+\_\+local}}
+\index{f3\+\_\+local@{f3\+\_\+local}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{f3\+\_\+local}{f3\_local}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::f3\+\_\+local}
+
+
+
+Energy of 5\textquotesingle{} end. 
+
+\mbox{\Hypertarget{group__dp__matrices_ad37d705240a8e6b1e9a4e4ea19e74003}\label{group__dp__matrices_ad37d705240a8e6b1e9a4e4ea19e74003}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!f\+M\+L\+\_\+local@{f\+M\+L\+\_\+local}}
+\index{f\+M\+L\+\_\+local@{f\+M\+L\+\_\+local}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{f\+M\+L\+\_\+local}{fML\_local}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::f\+M\+L\+\_\+local}
+
+
+
+Multi-\/loop auxiliary energy array. 
+
+\mbox{\Hypertarget{group__dp__matrices_afd3ea65bc8f06559f7f1ea79072fa385}\label{group__dp__matrices_afd3ea65bc8f06559f7f1ea79072fa385}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!ggg\+\_\+local@{ggg\+\_\+local}}
+\index{ggg\+\_\+local@{ggg\+\_\+local}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{ggg\+\_\+local}{ggg\_local}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::ggg\+\_\+local}
+
+
+
+Energies of g-\/quadruplexes. 
+
+\mbox{\Hypertarget{group__dp__matrices_ab917aa1e2b069af7fb5d11c5d067cdf0}\label{group__dp__matrices_ab917aa1e2b069af7fb5d11c5d067cdf0}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+F5@{E\+\_\+\+F5}}
+\index{E\+\_\+\+F5@{E\+\_\+\+F5}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+F5}{E\_F5}}
+{\footnotesize\ttfamily int$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+F5}
+
+\mbox{\Hypertarget{group__dp__matrices_a4035d3c6a9e23e388ddec18a9fdc2315}\label{group__dp__matrices_a4035d3c6a9e23e388ddec18a9fdc2315}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+\+F5@{l\+\_\+min\+\_\+\+F5}}
+\index{l\+\_\+min\+\_\+\+F5@{l\+\_\+min\+\_\+\+F5}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+F5}{l\_min\_F5}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+\+F5}
+
+\mbox{\Hypertarget{group__dp__matrices_a794ba42ca5afa5320a2da88554928516}\label{group__dp__matrices_a794ba42ca5afa5320a2da88554928516}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+\+F5@{l\+\_\+max\+\_\+\+F5}}
+\index{l\+\_\+max\+\_\+\+F5@{l\+\_\+max\+\_\+\+F5}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+F5}{l\_max\_F5}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+\+F5}
+
+\mbox{\Hypertarget{group__dp__matrices_aad6fc641a5815149b8d938ca277019a5}\label{group__dp__matrices_aad6fc641a5815149b8d938ca277019a5}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+\+F5@{k\+\_\+min\+\_\+\+F5}}
+\index{k\+\_\+min\+\_\+\+F5@{k\+\_\+min\+\_\+\+F5}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+F5}{k\_min\_F5}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+\+F5}
+
+\mbox{\Hypertarget{group__dp__matrices_a321a00180a1d046796328d0a9b66ec81}\label{group__dp__matrices_a321a00180a1d046796328d0a9b66ec81}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+\+F5@{k\+\_\+max\+\_\+\+F5}}
+\index{k\+\_\+max\+\_\+\+F5@{k\+\_\+max\+\_\+\+F5}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+F5}{k\_max\_F5}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+\+F5}
+
+\mbox{\Hypertarget{group__dp__matrices_a4d055707928eb6f3147c962141cc70e8}\label{group__dp__matrices_a4d055707928eb6f3147c962141cc70e8}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+F3@{E\+\_\+\+F3}}
+\index{E\+\_\+\+F3@{E\+\_\+\+F3}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+F3}{E\_F3}}
+{\footnotesize\ttfamily int$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+F3}
+
+\mbox{\Hypertarget{group__dp__matrices_abf0389ece58e97652f580d7dc1e133d8}\label{group__dp__matrices_abf0389ece58e97652f580d7dc1e133d8}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+\+F3@{l\+\_\+min\+\_\+\+F3}}
+\index{l\+\_\+min\+\_\+\+F3@{l\+\_\+min\+\_\+\+F3}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+F3}{l\_min\_F3}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+\+F3}
+
+\mbox{\Hypertarget{group__dp__matrices_afadce4435141575c7275b1e0b75e8eba}\label{group__dp__matrices_afadce4435141575c7275b1e0b75e8eba}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+\+F3@{l\+\_\+max\+\_\+\+F3}}
+\index{l\+\_\+max\+\_\+\+F3@{l\+\_\+max\+\_\+\+F3}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+F3}{l\_max\_F3}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+\+F3}
+
+\mbox{\Hypertarget{group__dp__matrices_a063fb9477172048bd24786ef363315db}\label{group__dp__matrices_a063fb9477172048bd24786ef363315db}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+\+F3@{k\+\_\+min\+\_\+\+F3}}
+\index{k\+\_\+min\+\_\+\+F3@{k\+\_\+min\+\_\+\+F3}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+F3}{k\_min\_F3}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+\+F3}
+
+\mbox{\Hypertarget{group__dp__matrices_a1e20cd5b9d422f547b3366e74b59b1bd}\label{group__dp__matrices_a1e20cd5b9d422f547b3366e74b59b1bd}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+\+F3@{k\+\_\+max\+\_\+\+F3}}
+\index{k\+\_\+max\+\_\+\+F3@{k\+\_\+max\+\_\+\+F3}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+F3}{k\_max\_F3}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+\+F3}
+
+\mbox{\Hypertarget{group__dp__matrices_af7007bfa68981a0d7a7a2186c357eb4f}\label{group__dp__matrices_af7007bfa68981a0d7a7a2186c357eb4f}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+C@{E\+\_\+C}}
+\index{E\+\_\+C@{E\+\_\+C}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+C}{E\_C}}
+{\footnotesize\ttfamily int$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+C}
+
+\mbox{\Hypertarget{group__dp__matrices_a33f9c476304c568c78918a5bcc3e2c2f}\label{group__dp__matrices_a33f9c476304c568c78918a5bcc3e2c2f}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+C@{l\+\_\+min\+\_\+C}}
+\index{l\+\_\+min\+\_\+C@{l\+\_\+min\+\_\+C}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+C}{l\_min\_C}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+C}
+
+\mbox{\Hypertarget{group__dp__matrices_afb0db136ff9fd3c78ad30816aa276ed3}\label{group__dp__matrices_afb0db136ff9fd3c78ad30816aa276ed3}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+C@{l\+\_\+max\+\_\+C}}
+\index{l\+\_\+max\+\_\+C@{l\+\_\+max\+\_\+C}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+C}{l\_max\_C}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+C}
+
+\mbox{\Hypertarget{group__dp__matrices_a37d2df63ba2ae973059279f325b0e617}\label{group__dp__matrices_a37d2df63ba2ae973059279f325b0e617}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+C@{k\+\_\+min\+\_\+C}}
+\index{k\+\_\+min\+\_\+C@{k\+\_\+min\+\_\+C}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+C}{k\_min\_C}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+C}
+
+\mbox{\Hypertarget{group__dp__matrices_a9bb98ec849469ab7dda8042384a0114e}\label{group__dp__matrices_a9bb98ec849469ab7dda8042384a0114e}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+C@{k\+\_\+max\+\_\+C}}
+\index{k\+\_\+max\+\_\+C@{k\+\_\+max\+\_\+C}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+C}{k\_max\_C}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+C}
+
+\mbox{\Hypertarget{group__dp__matrices_aace1bc1fb8f3e0e83296a91e40bda7a5}\label{group__dp__matrices_aace1bc1fb8f3e0e83296a91e40bda7a5}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+M@{E\+\_\+M}}
+\index{E\+\_\+M@{E\+\_\+M}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+M}{E\_M}}
+{\footnotesize\ttfamily int$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_a48afd9784e58e427fcbe4694d4670c57}\label{group__dp__matrices_a48afd9784e58e427fcbe4694d4670c57}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+M@{l\+\_\+min\+\_\+M}}
+\index{l\+\_\+min\+\_\+M@{l\+\_\+min\+\_\+M}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+M}{l\_min\_M}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_a59641489689bf8ba2236466b4a9be82a}\label{group__dp__matrices_a59641489689bf8ba2236466b4a9be82a}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+M@{l\+\_\+max\+\_\+M}}
+\index{l\+\_\+max\+\_\+M@{l\+\_\+max\+\_\+M}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+M}{l\_max\_M}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_a7a723bdda23a431fa498b6e46f71de05}\label{group__dp__matrices_a7a723bdda23a431fa498b6e46f71de05}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+M@{k\+\_\+min\+\_\+M}}
+\index{k\+\_\+min\+\_\+M@{k\+\_\+min\+\_\+M}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+M}{k\_min\_M}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_a45f8584d5a51e734de9376889e9a890e}\label{group__dp__matrices_a45f8584d5a51e734de9376889e9a890e}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+M@{k\+\_\+max\+\_\+M}}
+\index{k\+\_\+max\+\_\+M@{k\+\_\+max\+\_\+M}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+M}{k\_max\_M}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_a2a0eccd64e94962e9ec7c0652c5adcf2}\label{group__dp__matrices_a2a0eccd64e94962e9ec7c0652c5adcf2}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+M1@{E\+\_\+\+M1}}
+\index{E\+\_\+\+M1@{E\+\_\+\+M1}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+M1}{E\_M1}}
+{\footnotesize\ttfamily int$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_a83ceae2cd2fa2a478fbc917419f4f43c}\label{group__dp__matrices_a83ceae2cd2fa2a478fbc917419f4f43c}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+\+M1@{l\+\_\+min\+\_\+\+M1}}
+\index{l\+\_\+min\+\_\+\+M1@{l\+\_\+min\+\_\+\+M1}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+M1}{l\_min\_M1}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_abacc2eb5bd2798188191693d562941fe}\label{group__dp__matrices_abacc2eb5bd2798188191693d562941fe}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+\+M1@{l\+\_\+max\+\_\+\+M1}}
+\index{l\+\_\+max\+\_\+\+M1@{l\+\_\+max\+\_\+\+M1}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+M1}{l\_max\_M1}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_a31b0f5d774d868d3723b0e98a64ab4c2}\label{group__dp__matrices_a31b0f5d774d868d3723b0e98a64ab4c2}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+\+M1@{k\+\_\+min\+\_\+\+M1}}
+\index{k\+\_\+min\+\_\+\+M1@{k\+\_\+min\+\_\+\+M1}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+M1}{k\_min\_M1}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_ad7aa8ad7e4246927b79f0e69cfdb20b2}\label{group__dp__matrices_ad7aa8ad7e4246927b79f0e69cfdb20b2}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+\+M1@{k\+\_\+max\+\_\+\+M1}}
+\index{k\+\_\+max\+\_\+\+M1@{k\+\_\+max\+\_\+\+M1}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+M1}{k\_max\_M1}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_a84f072a7e5a9d1dc978e92b3a78f53f8}\label{group__dp__matrices_a84f072a7e5a9d1dc978e92b3a78f53f8}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+M2@{E\+\_\+\+M2}}
+\index{E\+\_\+\+M2@{E\+\_\+\+M2}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+M2}{E\_M2}}
+{\footnotesize\ttfamily int$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_a0ee034810d6ece4cd0f4604ec4c94c22}\label{group__dp__matrices_a0ee034810d6ece4cd0f4604ec4c94c22}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+\+M2@{l\+\_\+min\+\_\+\+M2}}
+\index{l\+\_\+min\+\_\+\+M2@{l\+\_\+min\+\_\+\+M2}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+M2}{l\_min\_M2}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_a0d78bbbc4621247d97f00160803a05b0}\label{group__dp__matrices_a0d78bbbc4621247d97f00160803a05b0}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+\+M2@{l\+\_\+max\+\_\+\+M2}}
+\index{l\+\_\+max\+\_\+\+M2@{l\+\_\+max\+\_\+\+M2}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+M2}{l\_max\_M2}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_a27eede8de57b179fc24839bc25e96be0}\label{group__dp__matrices_a27eede8de57b179fc24839bc25e96be0}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+\+M2@{k\+\_\+min\+\_\+\+M2}}
+\index{k\+\_\+min\+\_\+\+M2@{k\+\_\+min\+\_\+\+M2}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+M2}{k\_min\_M2}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_ac3bc074f2b291247b65d34e336ef064f}\label{group__dp__matrices_ac3bc074f2b291247b65d34e336ef064f}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+\+M2@{k\+\_\+max\+\_\+\+M2}}
+\index{k\+\_\+max\+\_\+\+M2@{k\+\_\+max\+\_\+\+M2}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+M2}{k\_max\_M2}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_ac81b8edd7d1297b43af1c163214ec95b}\label{group__dp__matrices_ac81b8edd7d1297b43af1c163214ec95b}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+Fc@{E\+\_\+\+Fc}}
+\index{E\+\_\+\+Fc@{E\+\_\+\+Fc}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+Fc}{E\_Fc}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+Fc}
+
+\mbox{\Hypertarget{group__dp__matrices_a64f1fdc523370d4d27f4e74db37ec3f2}\label{group__dp__matrices_a64f1fdc523370d4d27f4e74db37ec3f2}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+\+Fc@{l\+\_\+min\+\_\+\+Fc}}
+\index{l\+\_\+min\+\_\+\+Fc@{l\+\_\+min\+\_\+\+Fc}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+Fc}{l\_min\_Fc}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+\+Fc}
+
+\mbox{\Hypertarget{group__dp__matrices_a253b64237c811ef8587de8a714658365}\label{group__dp__matrices_a253b64237c811ef8587de8a714658365}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+\+Fc@{l\+\_\+max\+\_\+\+Fc}}
+\index{l\+\_\+max\+\_\+\+Fc@{l\+\_\+max\+\_\+\+Fc}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+Fc}{l\_max\_Fc}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+\+Fc}
+
+\mbox{\Hypertarget{group__dp__matrices_a3b381c1a816112c9557056a52db5d104}\label{group__dp__matrices_a3b381c1a816112c9557056a52db5d104}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+\+Fc@{k\+\_\+min\+\_\+\+Fc}}
+\index{k\+\_\+min\+\_\+\+Fc@{k\+\_\+min\+\_\+\+Fc}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+Fc}{k\_min\_Fc}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+\+Fc}
+
+\mbox{\Hypertarget{group__dp__matrices_a2aa2123340602899bd7a61d82db95a3f}\label{group__dp__matrices_a2aa2123340602899bd7a61d82db95a3f}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+\+Fc@{k\+\_\+max\+\_\+\+Fc}}
+\index{k\+\_\+max\+\_\+\+Fc@{k\+\_\+max\+\_\+\+Fc}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+Fc}{k\_max\_Fc}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+\+Fc}
+
+\mbox{\Hypertarget{group__dp__matrices_a366499237acdae5e4f422e4bc82bfc0d}\label{group__dp__matrices_a366499237acdae5e4f422e4bc82bfc0d}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+FcH@{E\+\_\+\+FcH}}
+\index{E\+\_\+\+FcH@{E\+\_\+\+FcH}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+FcH}{E\_FcH}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+FcH}
+
+\mbox{\Hypertarget{group__dp__matrices_a5d0a6a5cd45a42d23fc0eabf0763caa8}\label{group__dp__matrices_a5d0a6a5cd45a42d23fc0eabf0763caa8}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+\+FcH@{l\+\_\+min\+\_\+\+FcH}}
+\index{l\+\_\+min\+\_\+\+FcH@{l\+\_\+min\+\_\+\+FcH}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+FcH}{l\_min\_FcH}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+\+FcH}
+
+\mbox{\Hypertarget{group__dp__matrices_a89192a2ab2c8de9f5b702edc9fe68613}\label{group__dp__matrices_a89192a2ab2c8de9f5b702edc9fe68613}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+\+FcH@{l\+\_\+max\+\_\+\+FcH}}
+\index{l\+\_\+max\+\_\+\+FcH@{l\+\_\+max\+\_\+\+FcH}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+FcH}{l\_max\_FcH}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+\+FcH}
+
+\mbox{\Hypertarget{group__dp__matrices_aa3f7198e3c6207737934088d27639911}\label{group__dp__matrices_aa3f7198e3c6207737934088d27639911}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+\+FcH@{k\+\_\+min\+\_\+\+FcH}}
+\index{k\+\_\+min\+\_\+\+FcH@{k\+\_\+min\+\_\+\+FcH}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+FcH}{k\_min\_FcH}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+\+FcH}
+
+\mbox{\Hypertarget{group__dp__matrices_a8e94d63c103c7effce55652619b3b469}\label{group__dp__matrices_a8e94d63c103c7effce55652619b3b469}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+\+FcH@{k\+\_\+max\+\_\+\+FcH}}
+\index{k\+\_\+max\+\_\+\+FcH@{k\+\_\+max\+\_\+\+FcH}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+FcH}{k\_max\_FcH}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+\+FcH}
+
+\mbox{\Hypertarget{group__dp__matrices_a3e9793de5245f038ed83c2a607b37970}\label{group__dp__matrices_a3e9793de5245f038ed83c2a607b37970}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+FcI@{E\+\_\+\+FcI}}
+\index{E\+\_\+\+FcI@{E\+\_\+\+FcI}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+FcI}{E\_FcI}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+FcI}
+
+\mbox{\Hypertarget{group__dp__matrices_abc4dd9942f140f91adb52d2719e78bc4}\label{group__dp__matrices_abc4dd9942f140f91adb52d2719e78bc4}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+\+FcI@{l\+\_\+min\+\_\+\+FcI}}
+\index{l\+\_\+min\+\_\+\+FcI@{l\+\_\+min\+\_\+\+FcI}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+FcI}{l\_min\_FcI}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+\+FcI}
+
+\mbox{\Hypertarget{group__dp__matrices_a41cb6dbbda30f5d7bafd6b0ea62bca8c}\label{group__dp__matrices_a41cb6dbbda30f5d7bafd6b0ea62bca8c}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+\+FcI@{l\+\_\+max\+\_\+\+FcI}}
+\index{l\+\_\+max\+\_\+\+FcI@{l\+\_\+max\+\_\+\+FcI}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+FcI}{l\_max\_FcI}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+\+FcI}
+
+\mbox{\Hypertarget{group__dp__matrices_acbf5d0bd27435ad5328482f9b4b32833}\label{group__dp__matrices_acbf5d0bd27435ad5328482f9b4b32833}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+\+FcI@{k\+\_\+min\+\_\+\+FcI}}
+\index{k\+\_\+min\+\_\+\+FcI@{k\+\_\+min\+\_\+\+FcI}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+FcI}{k\_min\_FcI}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+\+FcI}
+
+\mbox{\Hypertarget{group__dp__matrices_a6b13abef4bee7a08fd28b0780535373e}\label{group__dp__matrices_a6b13abef4bee7a08fd28b0780535373e}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+\+FcI@{k\+\_\+max\+\_\+\+FcI}}
+\index{k\+\_\+max\+\_\+\+FcI@{k\+\_\+max\+\_\+\+FcI}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+FcI}{k\_max\_FcI}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+\+FcI}
+
+\mbox{\Hypertarget{group__dp__matrices_aad18f800b7bc0f26d012b9bc36aa5382}\label{group__dp__matrices_aad18f800b7bc0f26d012b9bc36aa5382}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+FcM@{E\+\_\+\+FcM}}
+\index{E\+\_\+\+FcM@{E\+\_\+\+FcM}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+FcM}{E\_FcM}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+FcM}
+
+\mbox{\Hypertarget{group__dp__matrices_a7ee24b747cf1d4ecc1cdc7380cf39594}\label{group__dp__matrices_a7ee24b747cf1d4ecc1cdc7380cf39594}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+min\+\_\+\+FcM@{l\+\_\+min\+\_\+\+FcM}}
+\index{l\+\_\+min\+\_\+\+FcM@{l\+\_\+min\+\_\+\+FcM}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+FcM}{l\_min\_FcM}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+min\+\_\+\+FcM}
+
+\mbox{\Hypertarget{group__dp__matrices_a0d419ae5a7e10b98734d42f5391d25f5}\label{group__dp__matrices_a0d419ae5a7e10b98734d42f5391d25f5}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!l\+\_\+max\+\_\+\+FcM@{l\+\_\+max\+\_\+\+FcM}}
+\index{l\+\_\+max\+\_\+\+FcM@{l\+\_\+max\+\_\+\+FcM}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+FcM}{l\_max\_FcM}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::l\+\_\+max\+\_\+\+FcM}
+
+\mbox{\Hypertarget{group__dp__matrices_a36089cee4d38f465f79db7e3589693a7}\label{group__dp__matrices_a36089cee4d38f465f79db7e3589693a7}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+min\+\_\+\+FcM@{k\+\_\+min\+\_\+\+FcM}}
+\index{k\+\_\+min\+\_\+\+FcM@{k\+\_\+min\+\_\+\+FcM}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+FcM}{k\_min\_FcM}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+min\+\_\+\+FcM}
+
+\mbox{\Hypertarget{group__dp__matrices_aa5a4d2fd78e38c82ee666f9bdc911e66}\label{group__dp__matrices_aa5a4d2fd78e38c82ee666f9bdc911e66}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!k\+\_\+max\+\_\+\+FcM@{k\+\_\+max\+\_\+\+FcM}}
+\index{k\+\_\+max\+\_\+\+FcM@{k\+\_\+max\+\_\+\+FcM}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+FcM}{k\_max\_FcM}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::k\+\_\+max\+\_\+\+FcM}
+
+\mbox{\Hypertarget{group__dp__matrices_af286d9ea990a98a33c065b4e16eaa311}\label{group__dp__matrices_af286d9ea990a98a33c065b4e16eaa311}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+F5\+\_\+rem@{E\+\_\+\+F5\+\_\+rem}}
+\index{E\+\_\+\+F5\+\_\+rem@{E\+\_\+\+F5\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+F5\+\_\+rem}{E\_F5\_rem}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+F5\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_afa8e42da47467e098bab0c6f1c16bea4}\label{group__dp__matrices_afa8e42da47467e098bab0c6f1c16bea4}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+F3\+\_\+rem@{E\+\_\+\+F3\+\_\+rem}}
+\index{E\+\_\+\+F3\+\_\+rem@{E\+\_\+\+F3\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+F3\+\_\+rem}{E\_F3\_rem}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+F3\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a00f20c8bd9eda2ebcd99267cce52909c}\label{group__dp__matrices_a00f20c8bd9eda2ebcd99267cce52909c}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+C\+\_\+rem@{E\+\_\+\+C\+\_\+rem}}
+\index{E\+\_\+\+C\+\_\+rem@{E\+\_\+\+C\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+C\+\_\+rem}{E\_C\_rem}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+C\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a92b0234e1e3cdaba2dea416e37904a09}\label{group__dp__matrices_a92b0234e1e3cdaba2dea416e37904a09}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+M\+\_\+rem@{E\+\_\+\+M\+\_\+rem}}
+\index{E\+\_\+\+M\+\_\+rem@{E\+\_\+\+M\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+M\+\_\+rem}{E\_M\_rem}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+M\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a89dddd61f360292fddcc9b25e7cbc699}\label{group__dp__matrices_a89dddd61f360292fddcc9b25e7cbc699}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+M1\+\_\+rem@{E\+\_\+\+M1\+\_\+rem}}
+\index{E\+\_\+\+M1\+\_\+rem@{E\+\_\+\+M1\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+M1\+\_\+rem}{E\_M1\_rem}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+M1\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a5fc042fba42b3676226b64fb4ab80ad2}\label{group__dp__matrices_a5fc042fba42b3676226b64fb4ab80ad2}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+M2\+\_\+rem@{E\+\_\+\+M2\+\_\+rem}}
+\index{E\+\_\+\+M2\+\_\+rem@{E\+\_\+\+M2\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+M2\+\_\+rem}{E\_M2\_rem}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+M2\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_aec03a4d7538bfa0e1113ba2825175428}\label{group__dp__matrices_aec03a4d7538bfa0e1113ba2825175428}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+Fc\+\_\+rem@{E\+\_\+\+Fc\+\_\+rem}}
+\index{E\+\_\+\+Fc\+\_\+rem@{E\+\_\+\+Fc\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+Fc\+\_\+rem}{E\_Fc\_rem}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+Fc\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a120dc87d9b5f452b12ab796046a0f704}\label{group__dp__matrices_a120dc87d9b5f452b12ab796046a0f704}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+Fc\+H\+\_\+rem@{E\+\_\+\+Fc\+H\+\_\+rem}}
+\index{E\+\_\+\+Fc\+H\+\_\+rem@{E\+\_\+\+Fc\+H\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+Fc\+H\+\_\+rem}{E\_FcH\_rem}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+Fc\+H\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_add53b23599a083140d0ddbd158a84d1d}\label{group__dp__matrices_add53b23599a083140d0ddbd158a84d1d}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+Fc\+I\+\_\+rem@{E\+\_\+\+Fc\+I\+\_\+rem}}
+\index{E\+\_\+\+Fc\+I\+\_\+rem@{E\+\_\+\+Fc\+I\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+Fc\+I\+\_\+rem}{E\_FcI\_rem}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+Fc\+I\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_ad821cb861e772e1c0fd4efddb44380c7}\label{group__dp__matrices_ad821cb861e772e1c0fd4efddb44380c7}} 
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}!E\+\_\+\+Fc\+M\+\_\+rem@{E\+\_\+\+Fc\+M\+\_\+rem}}
+\index{E\+\_\+\+Fc\+M\+\_\+rem@{E\+\_\+\+Fc\+M\+\_\+rem}!vrna\+\_\+mx\+\_\+mfe\+\_\+s@{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}
+\subparagraph{\texorpdfstring{E\+\_\+\+Fc\+M\+\_\+rem}{E\_FcM\_rem}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+s\+::\+E\+\_\+\+Fc\+M\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_af259a2550e8a16c61c009b5385c2ca95}\label{group__dp__matrices_af259a2550e8a16c61c009b5385c2ca95}} 
+\subparagraph{\texorpdfstring{"@13}{@13}}
+{\footnotesize\ttfamily union \{ ... \} }
+
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}\label{structvrna__mx__pf__s}
+\Hypertarget{group__dp__matrices_structvrna__mx__pf__s}
+\subsubsection{struct vrna\+\_\+mx\+\_\+pf\+\_\+s}
+Partition function (PF) Dynamic Programming (DP) matrices data structure required within the \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}}. \subsubsection*{Data Fields}
+\begin{DoxyCompactItemize}
+\item 
+\begin{tabbing}
+xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=xx\=\kill
+union \{\\
+\>struct \{\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a033a0277ac33736256c6a13f13d75879}{q}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_abd5ea8aa63458625d0c8b2a868fcfa28}{qb}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a612e774309a7fd0b6812200aa31f87d5}{qm}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_ad60e1fd6fa490ae72cdd899c37a52165}{qm1}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_aee4b900811aa012ab135838e2e5868f2}{probs}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a6ee76a2c5cefd1a9d6addf0a32071124}{q1k}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_ae3a10b81e574b966d062e705b4ad8168}{qln}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a40d61ddad03db0ba06e1848ce9004138}{G}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__dp__matrices_a160e39f74bfcd3f94c77bdf334070782}{qo}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a0a4ff1fd1b71810ccab242a862cfdf8c}{qm2}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__dp__matrices_a0841b18e38c22bb92df7efee9caaabb0}{qho}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__dp__matrices_ac9c23d0dd3a0bb150c389399afe119eb}{qio}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__dp__matrices_a970e8f6dfdf874185a9d4f77a942f61c}{qmo}}\\
+\>\} \\
+\>struct \{\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a742126d3bbd599a459660e78ea150564}{q\_local}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a8676136222e69b430a7a4fcbbf27c65c}{qb\_local}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_adc05b79fd8df7a618a7dfdc852c9703d}{qm\_local}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a401780fdba30145d0e3af22c36b432d6}{pR}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a24af2da1539a28f43f1c557f7d7ec1bf}{qm2\_local}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a1398df7d88fef9aac386d24ee4cb9d17}{QI5}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_ab0cbf800f6a85a2d3f8a45ffcd08d7a8}{q2l}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a3eb1defdbdc5494a392a7c2c5eaf63b1}{qmb}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_abecae05445c9fcf21081b7a8e2f8b395}{G\_local}}\\
+\>\} \\
+\>struct \{\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a29678f1d17a805ce2c80d765e00f694d}{Q}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a13ccc584739950bcd6de23925a9afe0e}{l\_min\_Q}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_ac136ef6871aad05b013aaec2a4cc9298}{l\_max\_Q}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_aa09c7b59d39b4b669173330976ae4798}{k\_min\_Q}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a6405e58faa7aac0d7fd7bf6fc2821b99}{k\_max\_Q}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a7bf41bf6ce96a6a6ffad912a6bb9f023}{Q\_B}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_aa6ab6ade9a4f4aa347ea1ac3d780bbf4}{l\_min\_Q\_B}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a7a6b46c40f038de8798e009ead7e5c81}{l\_max\_Q\_B}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a32a61364685e55e2cb90c3bef635fe9e}{k\_min\_Q\_B}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a4bb8b8fc4b39dbf163584164575253e4}{k\_max\_Q\_B}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a283eb582a89f62cf7d12bb6afc774ba7}{Q\_M}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_acdb695807092c9fa8ba32b4c033881b2}{l\_min\_Q\_M}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a0e46adc65e479d671aed00097b8f162a}{l\_max\_Q\_M}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_ab3375971ac859512a745d6eec99244d2}{k\_min\_Q\_M}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a9b9d2a9a7a25929605437af8fe3e7f47}{k\_max\_Q\_M}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a3ebab8245e0d6747c8cb4068fcb2f14c}{Q\_M1}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a798dd2cc60f5af4b93dac4cba0459683}{l\_min\_Q\_M1}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_afec22c55d9cdea707596702ce40221ec}{l\_max\_Q\_M1}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a89548e61d9fbf7936f9e46aed2296813}{k\_min\_Q\_M1}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_abb96656ec2020302fb1e1c9394ff2519}{k\_max\_Q\_M1}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a4271859f583cc0b27d0bfb6951c050f5}{Q\_M2}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_ad23a0e61af82fdf8243c10000d418a8f}{l\_min\_Q\_M2}}\\
+\>\>int $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a8182f4fd762fcb853a78ae818e275114}{l\_max\_Q\_M2}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_ac76826db329f701f0abf43d9e1a4446c}{k\_min\_Q\_M2}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a9dc7897463d929ff56198e3cd79aa531}{k\_max\_Q\_M2}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a50d4c30dd0d535cd3a00c29e2b77c81e}{Q\_c}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a1a165b9e68b552abd6970e7b79398e68}{l\_min\_Q\_c}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_ad16c8bacc50d9ad75fc4d3aad18b3c74}{l\_max\_Q\_c}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_aca9ff00550c75057c3f0796526eaa3fd}{k\_min\_Q\_c}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_ac5cdf53876b9ea8060b7c0fc12b2bdca}{k\_max\_Q\_c}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_aba4db9bf16cbe37199838b8ed1ba096c}{Q\_cH}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a08f5bfd11886731ebb3a9f0ba97a0b6b}{l\_min\_Q\_cH}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a1ac1d79977932e1b7131b47948b3915a}{l\_max\_Q\_cH}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a763eab70c62986a630fd0013d1931ea8}{k\_min\_Q\_cH}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a8093a0a48f24c26e575b18e5d59b1e5c}{k\_max\_Q\_cH}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_a1db737927aabceddad13832191c5fa27}{Q\_cI}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a9e0b38f8272badd75df592524e383973}{l\_min\_Q\_cI}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a852c2d9450a188cc49d72150f7647e48}{l\_max\_Q\_cI}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_addf9d5e7d009a936651fa1b98421e2bd}{k\_min\_Q\_cI}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_abc3dd1b2bf0f90647e8c73c93432b154}{k\_max\_Q\_cI}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$$\ast$ \mbox{\hyperlink{group__dp__matrices_ae8e6bc3de40ebe54c7c36677cdc38df8}{Q\_cM}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_aef4bfb509acba7441d9ace1e0a7e4b93}{l\_min\_Q\_cM}}\\
+\>\>int $\ast$ \mbox{\hyperlink{group__dp__matrices_a57c50e60f1679e2d1add5b48d67b4ad4}{l\_max\_Q\_cM}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_ab014ff37700866fd2be6139b3ec470c6}{k\_min\_Q\_cM}}\\
+\>\>int \mbox{\hyperlink{group__dp__matrices_a10c73fd5be9a9bbd350f929d758ac8cf}{k\_max\_Q\_cM}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a9d0f5ad230b36b3553ddf7585c1ae2ec}{Q\_rem}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a3e398f1778086b00deb05a3990d533ab}{Q\_B\_rem}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a07d9c31f3205d96e094104971b8a85a6}{Q\_M\_rem}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a7d77708c602e982af5a6c1f340d329f4}{Q\_M1\_rem}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a6480ac40d5405af825dee74e3518d6ae}{Q\_M2\_rem}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__dp__matrices_a0ce7f4b73a6df939f79dfd2f21de80b8}{Q\_c\_rem}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__dp__matrices_aff841b24d39a4f162ba1d10e5109cbe3}{Q\_cH\_rem}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__dp__matrices_a844916b65f091b27e89547f7a51a2dea}{Q\_cI\_rem}}\\
+\>\>\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__dp__matrices_a6f6bad095f31114e990d68af46d2eda5}{Q\_cM\_rem}}\\
+\>\} \\
+\}; \\
+
+\end{tabbing}\end{DoxyCompactItemize}
+\begin{Indent}\textbf{ Common fields for DP matrices}\par
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}} \mbox{\hyperlink{group__dp__matrices_a74ba745d6fc4ac5d437bc24450ea789c}{type}}
+\item 
+unsigned int \mbox{\hyperlink{group__dp__matrices_a798f72ece3f3f970bb0de2120600ad63}{length}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_a133ac57938cb0969da254a594572baf8}{scale}}
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$ \mbox{\hyperlink{group__dp__matrices_ae18e83833416f62943d5dd7be1cc038f}{exp\+M\+Lbase}}
+\end{DoxyCompactItemize}
+\end{Indent}
+\begin{Indent}\textbf{ Default PF matrices}\par
+{\em \begin{DoxyNote}{Note}
+These data fields are available if 
+\begin{DoxyCode}
+\mbox{\hyperlink{group__dp__matrices_structvrna__mx__pf__s}{vrna\_mx\_pf\_t}}.\mbox{\hyperlink{group__dp__matrices_a74ba745d6fc4ac5d437bc24450ea789c}{type}} == \mbox{\hyperlink{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343aafa2568956dab79595521e20c49a5f75}{VRNA\_MX\_DEFAULT}} 
+\end{DoxyCode}
+ 
+\end{DoxyNote}
+}\end{Indent}
+\begin{Indent}\textbf{ Local Folding DP matrices using window approach}\par
+{\em \begin{DoxyNote}{Note}
+These data fields are available if 
+\begin{DoxyCode}
+\mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{vrna\_mx\_mfe\_t}}.\mbox{\hyperlink{group__dp__matrices_a468680aa937b664d453075108d976ae2}{type}} == \mbox{\hyperlink{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343a2ea5d5947f6ec02544934b0ff2785e99}{VRNA\_MX\_WINDOW}} 
+\end{DoxyCode}
+ 
+\end{DoxyNote}
+}\end{Indent}
+\begin{Indent}\textbf{ Distance Class DP matrices}\par
+{\em \begin{DoxyNote}{Note}
+These data fields are available if 
+\begin{DoxyCode}
+\mbox{\hyperlink{group__dp__matrices_structvrna__mx__pf__s}{vrna\_mx\_pf\_t}}.\mbox{\hyperlink{group__dp__matrices_a74ba745d6fc4ac5d437bc24450ea789c}{type}} == \mbox{\hyperlink{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343ae656f8391445ff71bed8a597a0a19417}{VRNA\_MX\_2DFOLD}} 
+\end{DoxyCode}
+ 
+\end{DoxyNote}
+}\end{Indent}
+
+
+\paragraph{Field Documentation}
+\mbox{\Hypertarget{group__dp__matrices_a74ba745d6fc4ac5d437bc24450ea789c}\label{group__dp__matrices_a74ba745d6fc4ac5d437bc24450ea789c}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!type@{type}}
+\index{type@{type}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{type}{type}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}} vrna\+\_\+mx\+\_\+pf\+\_\+s\+::type}
+
+\mbox{\Hypertarget{group__dp__matrices_a798f72ece3f3f970bb0de2120600ad63}\label{group__dp__matrices_a798f72ece3f3f970bb0de2120600ad63}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!length@{length}}
+\index{length@{length}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{length}{length}}
+{\footnotesize\ttfamily unsigned int vrna\+\_\+mx\+\_\+pf\+\_\+s\+::length}
+
+\mbox{\Hypertarget{group__dp__matrices_a133ac57938cb0969da254a594572baf8}\label{group__dp__matrices_a133ac57938cb0969da254a594572baf8}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!scale@{scale}}
+\index{scale@{scale}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{scale}{scale}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::scale}
+
+\mbox{\Hypertarget{group__dp__matrices_ae18e83833416f62943d5dd7be1cc038f}\label{group__dp__matrices_ae18e83833416f62943d5dd7be1cc038f}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!exp\+M\+Lbase@{exp\+M\+Lbase}}
+\index{exp\+M\+Lbase@{exp\+M\+Lbase}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{exp\+M\+Lbase}{expMLbase}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::exp\+M\+Lbase}
+
+\mbox{\Hypertarget{group__dp__matrices_a033a0277ac33736256c6a13f13d75879}\label{group__dp__matrices_a033a0277ac33736256c6a13f13d75879}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!q@{q}}
+\index{q@{q}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{q}{q}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::q}
+
+\mbox{\Hypertarget{group__dp__matrices_abd5ea8aa63458625d0c8b2a868fcfa28}\label{group__dp__matrices_abd5ea8aa63458625d0c8b2a868fcfa28}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qb@{qb}}
+\index{qb@{qb}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qb}{qb}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qb}
+
+\mbox{\Hypertarget{group__dp__matrices_a612e774309a7fd0b6812200aa31f87d5}\label{group__dp__matrices_a612e774309a7fd0b6812200aa31f87d5}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qm@{qm}}
+\index{qm@{qm}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qm}{qm}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qm}
+
+\mbox{\Hypertarget{group__dp__matrices_ad60e1fd6fa490ae72cdd899c37a52165}\label{group__dp__matrices_ad60e1fd6fa490ae72cdd899c37a52165}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qm1@{qm1}}
+\index{qm1@{qm1}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qm1}{qm1}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qm1}
+
+\mbox{\Hypertarget{group__dp__matrices_aee4b900811aa012ab135838e2e5868f2}\label{group__dp__matrices_aee4b900811aa012ab135838e2e5868f2}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!probs@{probs}}
+\index{probs@{probs}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{probs}{probs}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::probs}
+
+\mbox{\Hypertarget{group__dp__matrices_a6ee76a2c5cefd1a9d6addf0a32071124}\label{group__dp__matrices_a6ee76a2c5cefd1a9d6addf0a32071124}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!q1k@{q1k}}
+\index{q1k@{q1k}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{q1k}{q1k}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::q1k}
+
+\mbox{\Hypertarget{group__dp__matrices_ae3a10b81e574b966d062e705b4ad8168}\label{group__dp__matrices_ae3a10b81e574b966d062e705b4ad8168}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qln@{qln}}
+\index{qln@{qln}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qln}{qln}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qln}
+
+\mbox{\Hypertarget{group__dp__matrices_a40d61ddad03db0ba06e1848ce9004138}\label{group__dp__matrices_a40d61ddad03db0ba06e1848ce9004138}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!G@{G}}
+\index{G@{G}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{G}{G}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::G}
+
+\mbox{\Hypertarget{group__dp__matrices_a160e39f74bfcd3f94c77bdf334070782}\label{group__dp__matrices_a160e39f74bfcd3f94c77bdf334070782}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qo@{qo}}
+\index{qo@{qo}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qo}{qo}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qo}
+
+\mbox{\Hypertarget{group__dp__matrices_a0a4ff1fd1b71810ccab242a862cfdf8c}\label{group__dp__matrices_a0a4ff1fd1b71810ccab242a862cfdf8c}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qm2@{qm2}}
+\index{qm2@{qm2}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qm2}{qm2}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qm2}
+
+\mbox{\Hypertarget{group__dp__matrices_a0841b18e38c22bb92df7efee9caaabb0}\label{group__dp__matrices_a0841b18e38c22bb92df7efee9caaabb0}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qho@{qho}}
+\index{qho@{qho}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qho}{qho}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qho}
+
+\mbox{\Hypertarget{group__dp__matrices_ac9c23d0dd3a0bb150c389399afe119eb}\label{group__dp__matrices_ac9c23d0dd3a0bb150c389399afe119eb}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qio@{qio}}
+\index{qio@{qio}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qio}{qio}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qio}
+
+\mbox{\Hypertarget{group__dp__matrices_a970e8f6dfdf874185a9d4f77a942f61c}\label{group__dp__matrices_a970e8f6dfdf874185a9d4f77a942f61c}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qmo@{qmo}}
+\index{qmo@{qmo}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qmo}{qmo}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qmo}
+
+\mbox{\Hypertarget{group__dp__matrices_a742126d3bbd599a459660e78ea150564}\label{group__dp__matrices_a742126d3bbd599a459660e78ea150564}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!q\+\_\+local@{q\+\_\+local}}
+\index{q\+\_\+local@{q\+\_\+local}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{q\+\_\+local}{q\_local}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::q\+\_\+local}
+
+\mbox{\Hypertarget{group__dp__matrices_a8676136222e69b430a7a4fcbbf27c65c}\label{group__dp__matrices_a8676136222e69b430a7a4fcbbf27c65c}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qb\+\_\+local@{qb\+\_\+local}}
+\index{qb\+\_\+local@{qb\+\_\+local}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qb\+\_\+local}{qb\_local}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qb\+\_\+local}
+
+\mbox{\Hypertarget{group__dp__matrices_adc05b79fd8df7a618a7dfdc852c9703d}\label{group__dp__matrices_adc05b79fd8df7a618a7dfdc852c9703d}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qm\+\_\+local@{qm\+\_\+local}}
+\index{qm\+\_\+local@{qm\+\_\+local}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qm\+\_\+local}{qm\_local}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qm\+\_\+local}
+
+\mbox{\Hypertarget{group__dp__matrices_a401780fdba30145d0e3af22c36b432d6}\label{group__dp__matrices_a401780fdba30145d0e3af22c36b432d6}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!pR@{pR}}
+\index{pR@{pR}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{pR}{pR}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::pR}
+
+\mbox{\Hypertarget{group__dp__matrices_a24af2da1539a28f43f1c557f7d7ec1bf}\label{group__dp__matrices_a24af2da1539a28f43f1c557f7d7ec1bf}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qm2\+\_\+local@{qm2\+\_\+local}}
+\index{qm2\+\_\+local@{qm2\+\_\+local}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qm2\+\_\+local}{qm2\_local}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qm2\+\_\+local}
+
+\mbox{\Hypertarget{group__dp__matrices_a1398df7d88fef9aac386d24ee4cb9d17}\label{group__dp__matrices_a1398df7d88fef9aac386d24ee4cb9d17}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+I5@{Q\+I5}}
+\index{Q\+I5@{Q\+I5}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+I5}{QI5}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+I5}
+
+\mbox{\Hypertarget{group__dp__matrices_ab0cbf800f6a85a2d3f8a45ffcd08d7a8}\label{group__dp__matrices_ab0cbf800f6a85a2d3f8a45ffcd08d7a8}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!q2l@{q2l}}
+\index{q2l@{q2l}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{q2l}{q2l}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::q2l}
+
+\mbox{\Hypertarget{group__dp__matrices_a3eb1defdbdc5494a392a7c2c5eaf63b1}\label{group__dp__matrices_a3eb1defdbdc5494a392a7c2c5eaf63b1}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!qmb@{qmb}}
+\index{qmb@{qmb}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{qmb}{qmb}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::qmb}
+
+\mbox{\Hypertarget{group__dp__matrices_abecae05445c9fcf21081b7a8e2f8b395}\label{group__dp__matrices_abecae05445c9fcf21081b7a8e2f8b395}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!G\+\_\+local@{G\+\_\+local}}
+\index{G\+\_\+local@{G\+\_\+local}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{G\+\_\+local}{G\_local}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+G\+\_\+local}
+
+\mbox{\Hypertarget{group__dp__matrices_a29678f1d17a805ce2c80d765e00f694d}\label{group__dp__matrices_a29678f1d17a805ce2c80d765e00f694d}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q@{Q}}
+\index{Q@{Q}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q}{Q}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::Q}
+
+\mbox{\Hypertarget{group__dp__matrices_a13ccc584739950bcd6de23925a9afe0e}\label{group__dp__matrices_a13ccc584739950bcd6de23925a9afe0e}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+min\+\_\+Q@{l\+\_\+min\+\_\+Q}}
+\index{l\+\_\+min\+\_\+Q@{l\+\_\+min\+\_\+Q}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+Q}{l\_min\_Q}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+min\+\_\+Q}
+
+\mbox{\Hypertarget{group__dp__matrices_ac136ef6871aad05b013aaec2a4cc9298}\label{group__dp__matrices_ac136ef6871aad05b013aaec2a4cc9298}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+max\+\_\+Q@{l\+\_\+max\+\_\+Q}}
+\index{l\+\_\+max\+\_\+Q@{l\+\_\+max\+\_\+Q}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+Q}{l\_max\_Q}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+max\+\_\+Q}
+
+\mbox{\Hypertarget{group__dp__matrices_aa09c7b59d39b4b669173330976ae4798}\label{group__dp__matrices_aa09c7b59d39b4b669173330976ae4798}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+min\+\_\+Q@{k\+\_\+min\+\_\+Q}}
+\index{k\+\_\+min\+\_\+Q@{k\+\_\+min\+\_\+Q}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+Q}{k\_min\_Q}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+min\+\_\+Q}
+
+\mbox{\Hypertarget{group__dp__matrices_a6405e58faa7aac0d7fd7bf6fc2821b99}\label{group__dp__matrices_a6405e58faa7aac0d7fd7bf6fc2821b99}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+max\+\_\+Q@{k\+\_\+max\+\_\+Q}}
+\index{k\+\_\+max\+\_\+Q@{k\+\_\+max\+\_\+Q}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+Q}{k\_max\_Q}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+max\+\_\+Q}
+
+\mbox{\Hypertarget{group__dp__matrices_a7bf41bf6ce96a6a6ffad912a6bb9f023}\label{group__dp__matrices_a7bf41bf6ce96a6a6ffad912a6bb9f023}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+B@{Q\+\_\+B}}
+\index{Q\+\_\+B@{Q\+\_\+B}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+B}{Q\_B}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+B}
+
+\mbox{\Hypertarget{group__dp__matrices_aa6ab6ade9a4f4aa347ea1ac3d780bbf4}\label{group__dp__matrices_aa6ab6ade9a4f4aa347ea1ac3d780bbf4}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+min\+\_\+\+Q\+\_\+B@{l\+\_\+min\+\_\+\+Q\+\_\+B}}
+\index{l\+\_\+min\+\_\+\+Q\+\_\+B@{l\+\_\+min\+\_\+\+Q\+\_\+B}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+Q\+\_\+B}{l\_min\_Q\_B}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+min\+\_\+\+Q\+\_\+B}
+
+\mbox{\Hypertarget{group__dp__matrices_a7a6b46c40f038de8798e009ead7e5c81}\label{group__dp__matrices_a7a6b46c40f038de8798e009ead7e5c81}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+max\+\_\+\+Q\+\_\+B@{l\+\_\+max\+\_\+\+Q\+\_\+B}}
+\index{l\+\_\+max\+\_\+\+Q\+\_\+B@{l\+\_\+max\+\_\+\+Q\+\_\+B}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+Q\+\_\+B}{l\_max\_Q\_B}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+max\+\_\+\+Q\+\_\+B}
+
+\mbox{\Hypertarget{group__dp__matrices_a32a61364685e55e2cb90c3bef635fe9e}\label{group__dp__matrices_a32a61364685e55e2cb90c3bef635fe9e}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+min\+\_\+\+Q\+\_\+B@{k\+\_\+min\+\_\+\+Q\+\_\+B}}
+\index{k\+\_\+min\+\_\+\+Q\+\_\+B@{k\+\_\+min\+\_\+\+Q\+\_\+B}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+Q\+\_\+B}{k\_min\_Q\_B}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+min\+\_\+\+Q\+\_\+B}
+
+\mbox{\Hypertarget{group__dp__matrices_a4bb8b8fc4b39dbf163584164575253e4}\label{group__dp__matrices_a4bb8b8fc4b39dbf163584164575253e4}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+max\+\_\+\+Q\+\_\+B@{k\+\_\+max\+\_\+\+Q\+\_\+B}}
+\index{k\+\_\+max\+\_\+\+Q\+\_\+B@{k\+\_\+max\+\_\+\+Q\+\_\+B}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+Q\+\_\+B}{k\_max\_Q\_B}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+max\+\_\+\+Q\+\_\+B}
+
+\mbox{\Hypertarget{group__dp__matrices_a283eb582a89f62cf7d12bb6afc774ba7}\label{group__dp__matrices_a283eb582a89f62cf7d12bb6afc774ba7}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+M@{Q\+\_\+M}}
+\index{Q\+\_\+M@{Q\+\_\+M}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+M}{Q\_M}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_acdb695807092c9fa8ba32b4c033881b2}\label{group__dp__matrices_acdb695807092c9fa8ba32b4c033881b2}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+min\+\_\+\+Q\+\_\+M@{l\+\_\+min\+\_\+\+Q\+\_\+M}}
+\index{l\+\_\+min\+\_\+\+Q\+\_\+M@{l\+\_\+min\+\_\+\+Q\+\_\+M}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+Q\+\_\+M}{l\_min\_Q\_M}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+min\+\_\+\+Q\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_a0e46adc65e479d671aed00097b8f162a}\label{group__dp__matrices_a0e46adc65e479d671aed00097b8f162a}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+max\+\_\+\+Q\+\_\+M@{l\+\_\+max\+\_\+\+Q\+\_\+M}}
+\index{l\+\_\+max\+\_\+\+Q\+\_\+M@{l\+\_\+max\+\_\+\+Q\+\_\+M}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+Q\+\_\+M}{l\_max\_Q\_M}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+max\+\_\+\+Q\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_ab3375971ac859512a745d6eec99244d2}\label{group__dp__matrices_ab3375971ac859512a745d6eec99244d2}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+min\+\_\+\+Q\+\_\+M@{k\+\_\+min\+\_\+\+Q\+\_\+M}}
+\index{k\+\_\+min\+\_\+\+Q\+\_\+M@{k\+\_\+min\+\_\+\+Q\+\_\+M}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+Q\+\_\+M}{k\_min\_Q\_M}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+min\+\_\+\+Q\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_a9b9d2a9a7a25929605437af8fe3e7f47}\label{group__dp__matrices_a9b9d2a9a7a25929605437af8fe3e7f47}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+max\+\_\+\+Q\+\_\+M@{k\+\_\+max\+\_\+\+Q\+\_\+M}}
+\index{k\+\_\+max\+\_\+\+Q\+\_\+M@{k\+\_\+max\+\_\+\+Q\+\_\+M}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+Q\+\_\+M}{k\_max\_Q\_M}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+max\+\_\+\+Q\+\_\+M}
+
+\mbox{\Hypertarget{group__dp__matrices_a3ebab8245e0d6747c8cb4068fcb2f14c}\label{group__dp__matrices_a3ebab8245e0d6747c8cb4068fcb2f14c}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+\+M1@{Q\+\_\+\+M1}}
+\index{Q\+\_\+\+M1@{Q\+\_\+\+M1}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+\+M1}{Q\_M1}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_a798dd2cc60f5af4b93dac4cba0459683}\label{group__dp__matrices_a798dd2cc60f5af4b93dac4cba0459683}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+min\+\_\+\+Q\+\_\+\+M1@{l\+\_\+min\+\_\+\+Q\+\_\+\+M1}}
+\index{l\+\_\+min\+\_\+\+Q\+\_\+\+M1@{l\+\_\+min\+\_\+\+Q\+\_\+\+M1}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+Q\+\_\+\+M1}{l\_min\_Q\_M1}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+min\+\_\+\+Q\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_afec22c55d9cdea707596702ce40221ec}\label{group__dp__matrices_afec22c55d9cdea707596702ce40221ec}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+max\+\_\+\+Q\+\_\+\+M1@{l\+\_\+max\+\_\+\+Q\+\_\+\+M1}}
+\index{l\+\_\+max\+\_\+\+Q\+\_\+\+M1@{l\+\_\+max\+\_\+\+Q\+\_\+\+M1}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+Q\+\_\+\+M1}{l\_max\_Q\_M1}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+max\+\_\+\+Q\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_a89548e61d9fbf7936f9e46aed2296813}\label{group__dp__matrices_a89548e61d9fbf7936f9e46aed2296813}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+min\+\_\+\+Q\+\_\+\+M1@{k\+\_\+min\+\_\+\+Q\+\_\+\+M1}}
+\index{k\+\_\+min\+\_\+\+Q\+\_\+\+M1@{k\+\_\+min\+\_\+\+Q\+\_\+\+M1}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+Q\+\_\+\+M1}{k\_min\_Q\_M1}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+min\+\_\+\+Q\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_abb96656ec2020302fb1e1c9394ff2519}\label{group__dp__matrices_abb96656ec2020302fb1e1c9394ff2519}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+max\+\_\+\+Q\+\_\+\+M1@{k\+\_\+max\+\_\+\+Q\+\_\+\+M1}}
+\index{k\+\_\+max\+\_\+\+Q\+\_\+\+M1@{k\+\_\+max\+\_\+\+Q\+\_\+\+M1}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+Q\+\_\+\+M1}{k\_max\_Q\_M1}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+max\+\_\+\+Q\+\_\+\+M1}
+
+\mbox{\Hypertarget{group__dp__matrices_a4271859f583cc0b27d0bfb6951c050f5}\label{group__dp__matrices_a4271859f583cc0b27d0bfb6951c050f5}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+\+M2@{Q\+\_\+\+M2}}
+\index{Q\+\_\+\+M2@{Q\+\_\+\+M2}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+\+M2}{Q\_M2}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_ad23a0e61af82fdf8243c10000d418a8f}\label{group__dp__matrices_ad23a0e61af82fdf8243c10000d418a8f}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+min\+\_\+\+Q\+\_\+\+M2@{l\+\_\+min\+\_\+\+Q\+\_\+\+M2}}
+\index{l\+\_\+min\+\_\+\+Q\+\_\+\+M2@{l\+\_\+min\+\_\+\+Q\+\_\+\+M2}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+Q\+\_\+\+M2}{l\_min\_Q\_M2}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+min\+\_\+\+Q\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_a8182f4fd762fcb853a78ae818e275114}\label{group__dp__matrices_a8182f4fd762fcb853a78ae818e275114}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+max\+\_\+\+Q\+\_\+\+M2@{l\+\_\+max\+\_\+\+Q\+\_\+\+M2}}
+\index{l\+\_\+max\+\_\+\+Q\+\_\+\+M2@{l\+\_\+max\+\_\+\+Q\+\_\+\+M2}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+Q\+\_\+\+M2}{l\_max\_Q\_M2}}
+{\footnotesize\ttfamily int$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+max\+\_\+\+Q\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_ac76826db329f701f0abf43d9e1a4446c}\label{group__dp__matrices_ac76826db329f701f0abf43d9e1a4446c}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+min\+\_\+\+Q\+\_\+\+M2@{k\+\_\+min\+\_\+\+Q\+\_\+\+M2}}
+\index{k\+\_\+min\+\_\+\+Q\+\_\+\+M2@{k\+\_\+min\+\_\+\+Q\+\_\+\+M2}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+Q\+\_\+\+M2}{k\_min\_Q\_M2}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+min\+\_\+\+Q\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_a9dc7897463d929ff56198e3cd79aa531}\label{group__dp__matrices_a9dc7897463d929ff56198e3cd79aa531}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+max\+\_\+\+Q\+\_\+\+M2@{k\+\_\+max\+\_\+\+Q\+\_\+\+M2}}
+\index{k\+\_\+max\+\_\+\+Q\+\_\+\+M2@{k\+\_\+max\+\_\+\+Q\+\_\+\+M2}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+Q\+\_\+\+M2}{k\_max\_Q\_M2}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+max\+\_\+\+Q\+\_\+\+M2}
+
+\mbox{\Hypertarget{group__dp__matrices_a50d4c30dd0d535cd3a00c29e2b77c81e}\label{group__dp__matrices_a50d4c30dd0d535cd3a00c29e2b77c81e}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+c@{Q\+\_\+c}}
+\index{Q\+\_\+c@{Q\+\_\+c}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+c}{Q\_c}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+c}
+
+\mbox{\Hypertarget{group__dp__matrices_a1a165b9e68b552abd6970e7b79398e68}\label{group__dp__matrices_a1a165b9e68b552abd6970e7b79398e68}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+min\+\_\+\+Q\+\_\+c@{l\+\_\+min\+\_\+\+Q\+\_\+c}}
+\index{l\+\_\+min\+\_\+\+Q\+\_\+c@{l\+\_\+min\+\_\+\+Q\+\_\+c}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+Q\+\_\+c}{l\_min\_Q\_c}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+min\+\_\+\+Q\+\_\+c}
+
+\mbox{\Hypertarget{group__dp__matrices_ad16c8bacc50d9ad75fc4d3aad18b3c74}\label{group__dp__matrices_ad16c8bacc50d9ad75fc4d3aad18b3c74}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+max\+\_\+\+Q\+\_\+c@{l\+\_\+max\+\_\+\+Q\+\_\+c}}
+\index{l\+\_\+max\+\_\+\+Q\+\_\+c@{l\+\_\+max\+\_\+\+Q\+\_\+c}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+Q\+\_\+c}{l\_max\_Q\_c}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+max\+\_\+\+Q\+\_\+c}
+
+\mbox{\Hypertarget{group__dp__matrices_aca9ff00550c75057c3f0796526eaa3fd}\label{group__dp__matrices_aca9ff00550c75057c3f0796526eaa3fd}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+min\+\_\+\+Q\+\_\+c@{k\+\_\+min\+\_\+\+Q\+\_\+c}}
+\index{k\+\_\+min\+\_\+\+Q\+\_\+c@{k\+\_\+min\+\_\+\+Q\+\_\+c}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+Q\+\_\+c}{k\_min\_Q\_c}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+min\+\_\+\+Q\+\_\+c}
+
+\mbox{\Hypertarget{group__dp__matrices_ac5cdf53876b9ea8060b7c0fc12b2bdca}\label{group__dp__matrices_ac5cdf53876b9ea8060b7c0fc12b2bdca}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+max\+\_\+\+Q\+\_\+c@{k\+\_\+max\+\_\+\+Q\+\_\+c}}
+\index{k\+\_\+max\+\_\+\+Q\+\_\+c@{k\+\_\+max\+\_\+\+Q\+\_\+c}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+Q\+\_\+c}{k\_max\_Q\_c}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+max\+\_\+\+Q\+\_\+c}
+
+\mbox{\Hypertarget{group__dp__matrices_aba4db9bf16cbe37199838b8ed1ba096c}\label{group__dp__matrices_aba4db9bf16cbe37199838b8ed1ba096c}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+cH@{Q\+\_\+cH}}
+\index{Q\+\_\+cH@{Q\+\_\+cH}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+cH}{Q\_cH}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+cH}
+
+\mbox{\Hypertarget{group__dp__matrices_a08f5bfd11886731ebb3a9f0ba97a0b6b}\label{group__dp__matrices_a08f5bfd11886731ebb3a9f0ba97a0b6b}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+min\+\_\+\+Q\+\_\+cH@{l\+\_\+min\+\_\+\+Q\+\_\+cH}}
+\index{l\+\_\+min\+\_\+\+Q\+\_\+cH@{l\+\_\+min\+\_\+\+Q\+\_\+cH}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+Q\+\_\+cH}{l\_min\_Q\_cH}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+min\+\_\+\+Q\+\_\+cH}
+
+\mbox{\Hypertarget{group__dp__matrices_a1ac1d79977932e1b7131b47948b3915a}\label{group__dp__matrices_a1ac1d79977932e1b7131b47948b3915a}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+max\+\_\+\+Q\+\_\+cH@{l\+\_\+max\+\_\+\+Q\+\_\+cH}}
+\index{l\+\_\+max\+\_\+\+Q\+\_\+cH@{l\+\_\+max\+\_\+\+Q\+\_\+cH}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+Q\+\_\+cH}{l\_max\_Q\_cH}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+max\+\_\+\+Q\+\_\+cH}
+
+\mbox{\Hypertarget{group__dp__matrices_a763eab70c62986a630fd0013d1931ea8}\label{group__dp__matrices_a763eab70c62986a630fd0013d1931ea8}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+min\+\_\+\+Q\+\_\+cH@{k\+\_\+min\+\_\+\+Q\+\_\+cH}}
+\index{k\+\_\+min\+\_\+\+Q\+\_\+cH@{k\+\_\+min\+\_\+\+Q\+\_\+cH}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+Q\+\_\+cH}{k\_min\_Q\_cH}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+min\+\_\+\+Q\+\_\+cH}
+
+\mbox{\Hypertarget{group__dp__matrices_a8093a0a48f24c26e575b18e5d59b1e5c}\label{group__dp__matrices_a8093a0a48f24c26e575b18e5d59b1e5c}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+max\+\_\+\+Q\+\_\+cH@{k\+\_\+max\+\_\+\+Q\+\_\+cH}}
+\index{k\+\_\+max\+\_\+\+Q\+\_\+cH@{k\+\_\+max\+\_\+\+Q\+\_\+cH}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+Q\+\_\+cH}{k\_max\_Q\_cH}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+max\+\_\+\+Q\+\_\+cH}
+
+\mbox{\Hypertarget{group__dp__matrices_a1db737927aabceddad13832191c5fa27}\label{group__dp__matrices_a1db737927aabceddad13832191c5fa27}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+cI@{Q\+\_\+cI}}
+\index{Q\+\_\+cI@{Q\+\_\+cI}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+cI}{Q\_cI}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+cI}
+
+\mbox{\Hypertarget{group__dp__matrices_a9e0b38f8272badd75df592524e383973}\label{group__dp__matrices_a9e0b38f8272badd75df592524e383973}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+min\+\_\+\+Q\+\_\+cI@{l\+\_\+min\+\_\+\+Q\+\_\+cI}}
+\index{l\+\_\+min\+\_\+\+Q\+\_\+cI@{l\+\_\+min\+\_\+\+Q\+\_\+cI}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+Q\+\_\+cI}{l\_min\_Q\_cI}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+min\+\_\+\+Q\+\_\+cI}
+
+\mbox{\Hypertarget{group__dp__matrices_a852c2d9450a188cc49d72150f7647e48}\label{group__dp__matrices_a852c2d9450a188cc49d72150f7647e48}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+max\+\_\+\+Q\+\_\+cI@{l\+\_\+max\+\_\+\+Q\+\_\+cI}}
+\index{l\+\_\+max\+\_\+\+Q\+\_\+cI@{l\+\_\+max\+\_\+\+Q\+\_\+cI}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+Q\+\_\+cI}{l\_max\_Q\_cI}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+max\+\_\+\+Q\+\_\+cI}
+
+\mbox{\Hypertarget{group__dp__matrices_addf9d5e7d009a936651fa1b98421e2bd}\label{group__dp__matrices_addf9d5e7d009a936651fa1b98421e2bd}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+min\+\_\+\+Q\+\_\+cI@{k\+\_\+min\+\_\+\+Q\+\_\+cI}}
+\index{k\+\_\+min\+\_\+\+Q\+\_\+cI@{k\+\_\+min\+\_\+\+Q\+\_\+cI}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+Q\+\_\+cI}{k\_min\_Q\_cI}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+min\+\_\+\+Q\+\_\+cI}
+
+\mbox{\Hypertarget{group__dp__matrices_abc3dd1b2bf0f90647e8c73c93432b154}\label{group__dp__matrices_abc3dd1b2bf0f90647e8c73c93432b154}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+max\+\_\+\+Q\+\_\+cI@{k\+\_\+max\+\_\+\+Q\+\_\+cI}}
+\index{k\+\_\+max\+\_\+\+Q\+\_\+cI@{k\+\_\+max\+\_\+\+Q\+\_\+cI}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+Q\+\_\+cI}{k\_max\_Q\_cI}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+max\+\_\+\+Q\+\_\+cI}
+
+\mbox{\Hypertarget{group__dp__matrices_ae8e6bc3de40ebe54c7c36677cdc38df8}\label{group__dp__matrices_ae8e6bc3de40ebe54c7c36677cdc38df8}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+cM@{Q\+\_\+cM}}
+\index{Q\+\_\+cM@{Q\+\_\+cM}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+cM}{Q\_cM}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+cM}
+
+\mbox{\Hypertarget{group__dp__matrices_aef4bfb509acba7441d9ace1e0a7e4b93}\label{group__dp__matrices_aef4bfb509acba7441d9ace1e0a7e4b93}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+min\+\_\+\+Q\+\_\+cM@{l\+\_\+min\+\_\+\+Q\+\_\+cM}}
+\index{l\+\_\+min\+\_\+\+Q\+\_\+cM@{l\+\_\+min\+\_\+\+Q\+\_\+cM}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+min\+\_\+\+Q\+\_\+cM}{l\_min\_Q\_cM}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+min\+\_\+\+Q\+\_\+cM}
+
+\mbox{\Hypertarget{group__dp__matrices_a57c50e60f1679e2d1add5b48d67b4ad4}\label{group__dp__matrices_a57c50e60f1679e2d1add5b48d67b4ad4}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!l\+\_\+max\+\_\+\+Q\+\_\+cM@{l\+\_\+max\+\_\+\+Q\+\_\+cM}}
+\index{l\+\_\+max\+\_\+\+Q\+\_\+cM@{l\+\_\+max\+\_\+\+Q\+\_\+cM}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{l\+\_\+max\+\_\+\+Q\+\_\+cM}{l\_max\_Q\_cM}}
+{\footnotesize\ttfamily int$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::l\+\_\+max\+\_\+\+Q\+\_\+cM}
+
+\mbox{\Hypertarget{group__dp__matrices_ab014ff37700866fd2be6139b3ec470c6}\label{group__dp__matrices_ab014ff37700866fd2be6139b3ec470c6}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+min\+\_\+\+Q\+\_\+cM@{k\+\_\+min\+\_\+\+Q\+\_\+cM}}
+\index{k\+\_\+min\+\_\+\+Q\+\_\+cM@{k\+\_\+min\+\_\+\+Q\+\_\+cM}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+min\+\_\+\+Q\+\_\+cM}{k\_min\_Q\_cM}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+min\+\_\+\+Q\+\_\+cM}
+
+\mbox{\Hypertarget{group__dp__matrices_a10c73fd5be9a9bbd350f929d758ac8cf}\label{group__dp__matrices_a10c73fd5be9a9bbd350f929d758ac8cf}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!k\+\_\+max\+\_\+\+Q\+\_\+cM@{k\+\_\+max\+\_\+\+Q\+\_\+cM}}
+\index{k\+\_\+max\+\_\+\+Q\+\_\+cM@{k\+\_\+max\+\_\+\+Q\+\_\+cM}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{k\+\_\+max\+\_\+\+Q\+\_\+cM}{k\_max\_Q\_cM}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+pf\+\_\+s\+::k\+\_\+max\+\_\+\+Q\+\_\+cM}
+
+\mbox{\Hypertarget{group__dp__matrices_a9d0f5ad230b36b3553ddf7585c1ae2ec}\label{group__dp__matrices_a9d0f5ad230b36b3553ddf7585c1ae2ec}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+rem@{Q\+\_\+rem}}
+\index{Q\+\_\+rem@{Q\+\_\+rem}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+rem}{Q\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a3e398f1778086b00deb05a3990d533ab}\label{group__dp__matrices_a3e398f1778086b00deb05a3990d533ab}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+\+B\+\_\+rem@{Q\+\_\+\+B\+\_\+rem}}
+\index{Q\+\_\+\+B\+\_\+rem@{Q\+\_\+\+B\+\_\+rem}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+\+B\+\_\+rem}{Q\_B\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+\+B\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a07d9c31f3205d96e094104971b8a85a6}\label{group__dp__matrices_a07d9c31f3205d96e094104971b8a85a6}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+\+M\+\_\+rem@{Q\+\_\+\+M\+\_\+rem}}
+\index{Q\+\_\+\+M\+\_\+rem@{Q\+\_\+\+M\+\_\+rem}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+\+M\+\_\+rem}{Q\_M\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+\+M\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a7d77708c602e982af5a6c1f340d329f4}\label{group__dp__matrices_a7d77708c602e982af5a6c1f340d329f4}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+\+M1\+\_\+rem@{Q\+\_\+\+M1\+\_\+rem}}
+\index{Q\+\_\+\+M1\+\_\+rem@{Q\+\_\+\+M1\+\_\+rem}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+\+M1\+\_\+rem}{Q\_M1\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+\+M1\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a6480ac40d5405af825dee74e3518d6ae}\label{group__dp__matrices_a6480ac40d5405af825dee74e3518d6ae}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+\+M2\+\_\+rem@{Q\+\_\+\+M2\+\_\+rem}}
+\index{Q\+\_\+\+M2\+\_\+rem@{Q\+\_\+\+M2\+\_\+rem}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+\+M2\+\_\+rem}{Q\_M2\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+\+M2\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a0ce7f4b73a6df939f79dfd2f21de80b8}\label{group__dp__matrices_a0ce7f4b73a6df939f79dfd2f21de80b8}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+c\+\_\+rem@{Q\+\_\+c\+\_\+rem}}
+\index{Q\+\_\+c\+\_\+rem@{Q\+\_\+c\+\_\+rem}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+c\+\_\+rem}{Q\_c\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+c\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_aff841b24d39a4f162ba1d10e5109cbe3}\label{group__dp__matrices_aff841b24d39a4f162ba1d10e5109cbe3}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+c\+H\+\_\+rem@{Q\+\_\+c\+H\+\_\+rem}}
+\index{Q\+\_\+c\+H\+\_\+rem@{Q\+\_\+c\+H\+\_\+rem}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+c\+H\+\_\+rem}{Q\_cH\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+c\+H\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a844916b65f091b27e89547f7a51a2dea}\label{group__dp__matrices_a844916b65f091b27e89547f7a51a2dea}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+c\+I\+\_\+rem@{Q\+\_\+c\+I\+\_\+rem}}
+\index{Q\+\_\+c\+I\+\_\+rem@{Q\+\_\+c\+I\+\_\+rem}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+c\+I\+\_\+rem}{Q\_cI\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+c\+I\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_a6f6bad095f31114e990d68af46d2eda5}\label{group__dp__matrices_a6f6bad095f31114e990d68af46d2eda5}} 
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}!Q\+\_\+c\+M\+\_\+rem@{Q\+\_\+c\+M\+\_\+rem}}
+\index{Q\+\_\+c\+M\+\_\+rem@{Q\+\_\+c\+M\+\_\+rem}!vrna\+\_\+mx\+\_\+pf\+\_\+s@{vrna\+\_\+mx\+\_\+pf\+\_\+s}}
+\subparagraph{\texorpdfstring{Q\+\_\+c\+M\+\_\+rem}{Q\_cM\_rem}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} vrna\+\_\+mx\+\_\+pf\+\_\+s\+::\+Q\+\_\+c\+M\+\_\+rem}
+
+\mbox{\Hypertarget{group__dp__matrices_aaf100e121f20be727a22545f24f568ec}\label{group__dp__matrices_aaf100e121f20be727a22545f24f568ec}} 
+\subparagraph{\texorpdfstring{"@21}{@21}}
+{\footnotesize\ttfamily union \{ ... \} }
+
+
+
+\subsection{Typedef Documentation}
+\mbox{\Hypertarget{group__dp__matrices_gae5aef35d016475e758f619b7bcb534f9}\label{group__dp__matrices_gae5aef35d016475e758f619b7bcb534f9}} 
+\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!vrna\+\_\+mx\+\_\+mfe\+\_\+t@{vrna\+\_\+mx\+\_\+mfe\+\_\+t}}
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+t@{vrna\+\_\+mx\+\_\+mfe\+\_\+t}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mx\+\_\+mfe\+\_\+t}{vrna\_mx\_mfe\_t}}
+{\footnotesize\ttfamily typedef struct \mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{vrna\+\_\+mx\+\_\+mfe\+\_\+s}} \mbox{\hyperlink{group__dp__matrices_gae5aef35d016475e758f619b7bcb534f9}{vrna\+\_\+mx\+\_\+mfe\+\_\+t}}}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{dp__matrices_8h}{Vienna\+R\+N\+A/dp\+\_\+matrices.\+h}}$>$}
+
+
+
+Typename for the Minimum Free Energy (M\+FE) DP matrices data structure \mbox{\hyperlink{group__dp__matrices_structvrna__mx__mfe__s}{vrna\+\_\+mx\+\_\+mfe\+\_\+s}}. 
+
+\mbox{\Hypertarget{group__dp__matrices_ga68729ab3fed26bdd1806fa814f172fc1}\label{group__dp__matrices_ga68729ab3fed26bdd1806fa814f172fc1}} 
+\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!vrna\+\_\+mx\+\_\+pf\+\_\+t@{vrna\+\_\+mx\+\_\+pf\+\_\+t}}
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+t@{vrna\+\_\+mx\+\_\+pf\+\_\+t}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mx\+\_\+pf\+\_\+t}{vrna\_mx\_pf\_t}}
+{\footnotesize\ttfamily typedef struct \mbox{\hyperlink{group__dp__matrices_structvrna__mx__pf__s}{vrna\+\_\+mx\+\_\+pf\+\_\+s}} \mbox{\hyperlink{group__dp__matrices_ga68729ab3fed26bdd1806fa814f172fc1}{vrna\+\_\+mx\+\_\+pf\+\_\+t}}}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{dp__matrices_8h}{Vienna\+R\+N\+A/dp\+\_\+matrices.\+h}}$>$}
+
+
+
+Typename for the Partition Function (PF) DP matrices data structure \mbox{\hyperlink{group__dp__matrices_structvrna__mx__pf__s}{vrna\+\_\+mx\+\_\+pf\+\_\+s}}. 
+
+
+
+\subsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}\label{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}} 
+\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!vrna\+\_\+mx\+\_\+type\+\_\+e@{vrna\+\_\+mx\+\_\+type\+\_\+e}}
+\index{vrna\+\_\+mx\+\_\+type\+\_\+e@{vrna\+\_\+mx\+\_\+type\+\_\+e}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mx\+\_\+type\+\_\+e}{vrna\_mx\_type\_e}}
+{\footnotesize\ttfamily enum \mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}}}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{dp__matrices_8h}{Vienna\+R\+N\+A/dp\+\_\+matrices.\+h}}$>$}
+
+
+
+An enumerator that is used to specify the type of a polymorphic Dynamic Programming (DP) matrix data structure. 
+
+\begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__dp__matrices_gae5aef35d016475e758f619b7bcb534f9}{vrna\+\_\+mx\+\_\+mfe\+\_\+t}}, \mbox{\hyperlink{group__dp__matrices_ga68729ab3fed26bdd1806fa814f172fc1}{vrna\+\_\+mx\+\_\+pf\+\_\+t}} 
+\end{DoxySeeAlso}
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+D\+E\+F\+A\+U\+LT@{V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+D\+E\+F\+A\+U\+LT}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+D\+E\+F\+A\+U\+LT@{V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+D\+E\+F\+A\+U\+LT}}}\mbox{\Hypertarget{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343aafa2568956dab79595521e20c49a5f75}\label{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343aafa2568956dab79595521e20c49a5f75}} 
+V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+D\+E\+F\+A\+U\+LT&Default DP matrices. \\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+W\+I\+N\+D\+OW@{V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+W\+I\+N\+D\+OW}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+W\+I\+N\+D\+OW@{V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+W\+I\+N\+D\+OW}}}\mbox{\Hypertarget{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343a2ea5d5947f6ec02544934b0ff2785e99}\label{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343a2ea5d5947f6ec02544934b0ff2785e99}} 
+V\+R\+N\+A\+\_\+\+M\+X\+\_\+\+W\+I\+N\+D\+OW&DP matrices suitable for local structure prediction using window approach. \begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__local__mfe__fold_ga689df235a1915a1ad56e377383c044ce}{vrna\+\_\+mfe\+\_\+window()}}, \mbox{\hyperlink{group__local__mfe__fold_gaa4f67ae94efd08d800c17f9b53423fd6}{vrna\+\_\+mfe\+\_\+window\+\_\+zscore()}}, \mbox{\hyperlink{group__local__pf__fold_ga7cdf690583871f9c158a0f91d4785cb6}{pfl\+\_\+fold()}} 
+\end{DoxySeeAlso}
+\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{V\+R\+N\+A\+\_\+\+M\+X\+\_\+2\+D\+F\+O\+LD@{V\+R\+N\+A\+\_\+\+M\+X\+\_\+2\+D\+F\+O\+LD}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!V\+R\+N\+A\+\_\+\+M\+X\+\_\+2\+D\+F\+O\+LD@{V\+R\+N\+A\+\_\+\+M\+X\+\_\+2\+D\+F\+O\+LD}}}\mbox{\Hypertarget{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343ae656f8391445ff71bed8a597a0a19417}\label{group__dp__matrices_gga6042ea1d58d01931e959791be6d89343ae656f8391445ff71bed8a597a0a19417}} 
+V\+R\+N\+A\+\_\+\+M\+X\+\_\+2\+D\+F\+O\+LD&DP matrices suitable for distance class partitioned structure prediction. \begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__kl__neighborhood__mfe_ga243c288b463147352829df04de6a2f77}{vrna\+\_\+mfe\+\_\+\+Two\+D()}}, \mbox{\hyperlink{group__kl__neighborhood__pf_ga0bc3427689bd09da09b8b3094a27f836}{vrna\+\_\+pf\+\_\+\+Two\+D()}} 
+\end{DoxySeeAlso}
+\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{group__dp__matrices_ga08661f098008961dab0023bf300f0c33}\label{group__dp__matrices_ga08661f098008961dab0023bf300f0c33}} 
+\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!vrna\+\_\+mx\+\_\+add@{vrna\+\_\+mx\+\_\+add}}
+\index{vrna\+\_\+mx\+\_\+add@{vrna\+\_\+mx\+\_\+add}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mx\+\_\+add()}{vrna\_mx\_add()}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+add (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{\mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}}}]{type,  }\item[{unsigned int}]{options }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{dp__matrices_8h}{Vienna\+R\+N\+A/dp\+\_\+matrices.\+h}}$>$}
+
+
+
+Add Dynamic Programming (DP) matrices (allocate memory) 
+
+This function adds DP matrices of a specific type to the provided \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}}, such that successive DP recursion can be applied. The function caller has to specify which type of DP matrix is requested, see \mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}}, and what kind of recursive algorithm will be applied later on, using the parameters type, and options, respectively. For the latter, Minimum free energy (M\+FE), and Partition function (PF) computations are distinguished. A third option that may be passed is \mbox{\hyperlink{group__fold__compound_ga8f681fa12b8d4b348bf58415fd1fc82f}{V\+R\+N\+A\+\_\+\+O\+P\+T\+I\+O\+N\+\_\+\+H\+Y\+B\+R\+ID}}, indicating that auxiliary DP arrays are required for R\+N\+A-\/\+R\+NA interaction prediction.
+
+\begin{DoxyNote}{Note}
+Usually, there is no need to call this function, since the constructors of \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} are handling all the DP matrix memory allocation.
+\end{DoxyNote}
+\begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__dp__matrices_ga0b29f2a8a5632879014a80d51b334374}{vrna\+\_\+mx\+\_\+mfe\+\_\+add()}}, \mbox{\hyperlink{group__dp__matrices_gaf80ade1ec97fc158875736e69eff999f}{vrna\+\_\+mx\+\_\+pf\+\_\+add()}}, \mbox{\hyperlink{group__fold__compound_ga6601d994ba32b11511b36f68b08403be}{vrna\+\_\+fold\+\_\+compound()}}, \mbox{\hyperlink{group__fold__compound_gad6bacc816af274922b13d947f708aa0c}{vrna\+\_\+fold\+\_\+compound\+\_\+comparative()}}, \mbox{\hyperlink{group__fold__compound_gadded6039d63f5d6509836e20321534ad}{vrna\+\_\+fold\+\_\+compound\+\_\+free()}}, \mbox{\hyperlink{group__dp__matrices_ga2283e69fd139fb8e58d7ade3b5773f9c}{vrna\+\_\+mx\+\_\+pf\+\_\+free()}}, \mbox{\hyperlink{group__dp__matrices_ga6a9422feb5dfe5c64050cebf447672d0}{vrna\+\_\+mx\+\_\+mfe\+\_\+free()}}, \mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}}, \mbox{\hyperlink{group__fold__compound_gae63be9127fe7dcc1f9bb14f5bb1064ee}{V\+R\+N\+A\+\_\+\+O\+P\+T\+I\+O\+N\+\_\+\+M\+FE}}, \mbox{\hyperlink{group__fold__compound_gabfbadcddda3e74ce7f49035ef8f058f7}{V\+R\+N\+A\+\_\+\+O\+P\+T\+I\+O\+N\+\_\+\+PF}}, \mbox{\hyperlink{group__fold__compound_ga8f681fa12b8d4b348bf58415fd1fc82f}{V\+R\+N\+A\+\_\+\+O\+P\+T\+I\+O\+N\+\_\+\+H\+Y\+B\+R\+ID}}, \mbox{\hyperlink{group__fold__compound_ga61469c423131552c8483229f8b6c7e0e}{V\+R\+N\+A\+\_\+\+O\+P\+T\+I\+O\+N\+\_\+\+E\+V\+A\+L\+\_\+\+O\+N\+LY}}
+\end{DoxySeeAlso}
+
+\begin{DoxyParams}{Parameters}
+{\em vc} & The \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} that holds pointers to the DP matrices \\
+\hline
+{\em type} & The type of DP matrices requested \\
+\hline
+{\em options} & Option flags that specify the kind of DP matrices, such as M\+FE or PF arrays, and auxiliary requirements \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+1 if DP matrices were properly allocated and attached, 0 otherwise 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__dp__matrices_ga0b29f2a8a5632879014a80d51b334374}\label{group__dp__matrices_ga0b29f2a8a5632879014a80d51b334374}} 
+\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!vrna\+\_\+mx\+\_\+mfe\+\_\+add@{vrna\+\_\+mx\+\_\+mfe\+\_\+add}}
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+add@{vrna\+\_\+mx\+\_\+mfe\+\_\+add}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mx\+\_\+mfe\+\_\+add()}{vrna\_mx\_mfe\_add()}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+mfe\+\_\+add (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{\mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}}}]{mx\+\_\+type,  }\item[{unsigned int}]{options }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{dp__matrices_8h}{Vienna\+R\+N\+A/dp\+\_\+matrices.\+h}}$>$}
+
+\mbox{\Hypertarget{group__dp__matrices_gaf80ade1ec97fc158875736e69eff999f}\label{group__dp__matrices_gaf80ade1ec97fc158875736e69eff999f}} 
+\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!vrna\+\_\+mx\+\_\+pf\+\_\+add@{vrna\+\_\+mx\+\_\+pf\+\_\+add}}
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+add@{vrna\+\_\+mx\+\_\+pf\+\_\+add}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mx\+\_\+pf\+\_\+add()}{vrna\_mx\_pf\_add()}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+pf\+\_\+add (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{\mbox{\hyperlink{group__dp__matrices_ga6042ea1d58d01931e959791be6d89343}{vrna\+\_\+mx\+\_\+type\+\_\+e}}}]{mx\+\_\+type,  }\item[{unsigned int}]{options }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{dp__matrices_8h}{Vienna\+R\+N\+A/dp\+\_\+matrices.\+h}}$>$}
+
+\mbox{\Hypertarget{group__dp__matrices_ga35e1fa4fdab869abb14f06ba5a3ba5b4}\label{group__dp__matrices_ga35e1fa4fdab869abb14f06ba5a3ba5b4}} 
+\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!vrna\+\_\+mx\+\_\+prepare@{vrna\+\_\+mx\+\_\+prepare}}
+\index{vrna\+\_\+mx\+\_\+prepare@{vrna\+\_\+mx\+\_\+prepare}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mx\+\_\+prepare()}{vrna\_mx\_prepare()}}
+{\footnotesize\ttfamily int vrna\+\_\+mx\+\_\+prepare (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{unsigned int}]{options }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{dp__matrices_8h}{Vienna\+R\+N\+A/dp\+\_\+matrices.\+h}}$>$}
+
+\mbox{\Hypertarget{group__dp__matrices_ga6a9422feb5dfe5c64050cebf447672d0}\label{group__dp__matrices_ga6a9422feb5dfe5c64050cebf447672d0}} 
+\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!vrna\+\_\+mx\+\_\+mfe\+\_\+free@{vrna\+\_\+mx\+\_\+mfe\+\_\+free}}
+\index{vrna\+\_\+mx\+\_\+mfe\+\_\+free@{vrna\+\_\+mx\+\_\+mfe\+\_\+free}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mx\+\_\+mfe\+\_\+free()}{vrna\_mx\_mfe\_free()}}
+{\footnotesize\ttfamily void vrna\+\_\+mx\+\_\+mfe\+\_\+free (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{dp__matrices_8h}{Vienna\+R\+N\+A/dp\+\_\+matrices.\+h}}$>$}
+
+
+
+Free memory occupied by the Minimum Free Energy (M\+FE) Dynamic Programming (DP) matrices. 
+
+\begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__fold__compound_ga6601d994ba32b11511b36f68b08403be}{vrna\+\_\+fold\+\_\+compound()}}, \mbox{\hyperlink{group__fold__compound_gad6bacc816af274922b13d947f708aa0c}{vrna\+\_\+fold\+\_\+compound\+\_\+comparative()}}, \mbox{\hyperlink{group__fold__compound_gadded6039d63f5d6509836e20321534ad}{vrna\+\_\+fold\+\_\+compound\+\_\+free()}}, \mbox{\hyperlink{group__dp__matrices_ga2283e69fd139fb8e58d7ade3b5773f9c}{vrna\+\_\+mx\+\_\+pf\+\_\+free()}}
+\end{DoxySeeAlso}
+
+\begin{DoxyParams}{Parameters}
+{\em vc} & The \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} storing the M\+FE DP matrices that are to be erased from memory \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{group__dp__matrices_ga2283e69fd139fb8e58d7ade3b5773f9c}\label{group__dp__matrices_ga2283e69fd139fb8e58d7ade3b5773f9c}} 
+\index{The Dynamic Programming Matrices@{The Dynamic Programming Matrices}!vrna\+\_\+mx\+\_\+pf\+\_\+free@{vrna\+\_\+mx\+\_\+pf\+\_\+free}}
+\index{vrna\+\_\+mx\+\_\+pf\+\_\+free@{vrna\+\_\+mx\+\_\+pf\+\_\+free}!The Dynamic Programming Matrices@{The Dynamic Programming Matrices}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mx\+\_\+pf\+\_\+free()}{vrna\_mx\_pf\_free()}}
+{\footnotesize\ttfamily void vrna\+\_\+mx\+\_\+pf\+\_\+free (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{dp__matrices_8h}{Vienna\+R\+N\+A/dp\+\_\+matrices.\+h}}$>$}
+
+
+
+Free memory occupied by the Partition Function (PF) Dynamic Programming (DP) matrices. 
+
+\begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__fold__compound_ga6601d994ba32b11511b36f68b08403be}{vrna\+\_\+fold\+\_\+compound()}}, \mbox{\hyperlink{group__fold__compound_gad6bacc816af274922b13d947f708aa0c}{vrna\+\_\+fold\+\_\+compound\+\_\+comparative()}}, \mbox{\hyperlink{group__fold__compound_gadded6039d63f5d6509836e20321534ad}{vrna\+\_\+fold\+\_\+compound\+\_\+free()}}, \mbox{\hyperlink{group__dp__matrices_ga6a9422feb5dfe5c64050cebf447672d0}{vrna\+\_\+mx\+\_\+mfe\+\_\+free()}}
+\end{DoxySeeAlso}
+
+\begin{DoxyParams}{Parameters}
+{\em vc} & The \mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} storing the PF DP matrices that are to be erased from memory \\
+\hline
+\end{DoxyParams}

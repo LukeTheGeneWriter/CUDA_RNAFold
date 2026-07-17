@@ -1,0 +1,82 @@
+\hypertarget{mfe_8h}{}\section{Vienna\+R\+N\+A/mfe.h File Reference}
+\label{mfe_8h}\index{Vienna\+R\+N\+A/mfe.\+h@{Vienna\+R\+N\+A/mfe.\+h}}
+
+
+Compute Minimum Free energy (M\+FE) and backtrace corresponding secondary structures from R\+NA sequence data.  
+
+
+Include dependency graph for mfe.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{mfe_8h__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{mfe_8h__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef void() \mbox{\hyperlink{group__mfe__fold_ga4f3e5bc214ef803074ace313cb9571b4}{vrna\+\_\+mfe\+\_\+window\+\_\+callback}}(int \mbox{\hyperlink{special__const_8h_ab53016e6941484f46238d59e2549decb}{start}}, int \mbox{\hyperlink{special__const_8h_acc28e141c890270905160748bebdc3ed}{end}}, const char $\ast$structure, float en, void $\ast$data)
+\begin{DoxyCompactList}\small\item\em The default callback for sliding window M\+FE structure predictions. \end{DoxyCompactList}\item 
+typedef void() \mbox{\hyperlink{mfe_8h_afeb8eb92805a0f0045dc20646ed0255b}{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback}}(int \mbox{\hyperlink{special__const_8h_ab53016e6941484f46238d59e2549decb}{start}}, int \mbox{\hyperlink{special__const_8h_acc28e141c890270905160748bebdc3ed}{end}}, const char $\ast$structure, float en, float zscore, void $\ast$data)
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+float \mbox{\hyperlink{group__mfe__fold_gabd3b147371ccf25c577f88bbbaf159fd}{vrna\+\_\+mfe}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, char $\ast$structure)
+\begin{DoxyCompactList}\small\item\em Compute minimum free energy and an appropriate secondary structure of an R\+NA sequence, or R\+NA sequence alignment. \end{DoxyCompactList}\item 
+float \mbox{\hyperlink{group__mfe__cofold_gaab22d10c1190f205f16a77cab9d5d3ee}{vrna\+\_\+mfe\+\_\+dimer}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, char $\ast$structure)
+\begin{DoxyCompactList}\small\item\em Compute the minimum free energy of two interacting R\+NA molecules. \end{DoxyCompactList}\item 
+float \mbox{\hyperlink{group__local__mfe__fold_ga689df235a1915a1ad56e377383c044ce}{vrna\+\_\+mfe\+\_\+window}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, F\+I\+LE $\ast$file)
+\begin{DoxyCompactList}\small\item\em Local M\+FE prediction using a sliding window approach. \end{DoxyCompactList}\item 
+float \mbox{\hyperlink{mfe_8h_ad4995894b294ddb8550af444a0decbd1}{vrna\+\_\+mfe\+\_\+window\+\_\+cb}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, \mbox{\hyperlink{group__mfe__fold_ga4f3e5bc214ef803074ace313cb9571b4}{vrna\+\_\+mfe\+\_\+window\+\_\+callback}} $\ast$cb, void $\ast$data)
+\item 
+float \mbox{\hyperlink{group__local__mfe__fold_gaa4f67ae94efd08d800c17f9b53423fd6}{vrna\+\_\+mfe\+\_\+window\+\_\+zscore}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, double min\+\_\+z, F\+I\+LE $\ast$file)
+\begin{DoxyCompactList}\small\item\em Local M\+FE prediction using a sliding window approach (with z-\/score cut-\/off) \end{DoxyCompactList}\item 
+float \mbox{\hyperlink{mfe_8h_a2762be816af3dbc18c256e44c1345e4f}{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+cb}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, double min\+\_\+z, \mbox{\hyperlink{mfe_8h_afeb8eb92805a0f0045dc20646ed0255b}{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback}} $\ast$cb, void $\ast$data)
+\item 
+void \mbox{\hyperlink{mfe_8h_a0c5119f7e130d7db9c0a46953cb068c4}{vrna\+\_\+backtrack\+\_\+from\+\_\+intervals}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, \mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$bp\+\_\+stack, \mbox{\hyperlink{group__data__structures_gaaacedee1f05d3d45aa6764eca51a8876}{sect}} bt\+\_\+stack\mbox{[}$\,$\mbox{]}, int s)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Compute Minimum Free energy (M\+FE) and backtrace corresponding secondary structures from R\+NA sequence data. 
+
+This file includes (almost) all function declarations within the R\+N\+Alib that are related to M\+FE folding... 
+
+\subsection{Typedef Documentation}
+\mbox{\Hypertarget{mfe_8h_afeb8eb92805a0f0045dc20646ed0255b}\label{mfe_8h_afeb8eb92805a0f0045dc20646ed0255b}} 
+\index{mfe.\+h@{mfe.\+h}!vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback@{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback}}
+\index{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback@{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback}!mfe.\+h@{mfe.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback}{vrna\_mfe\_window\_zscore\_callback}}
+{\footnotesize\ttfamily typedef void() vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback(int \mbox{\hyperlink{special__const_8h_ab53016e6941484f46238d59e2549decb}{start}}, int \mbox{\hyperlink{special__const_8h_acc28e141c890270905160748bebdc3ed}{end}}, const char $\ast$structure, float en, float zscore, void $\ast$data)}
+
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{mfe_8h_ad4995894b294ddb8550af444a0decbd1}\label{mfe_8h_ad4995894b294ddb8550af444a0decbd1}} 
+\index{mfe.\+h@{mfe.\+h}!vrna\+\_\+mfe\+\_\+window\+\_\+cb@{vrna\+\_\+mfe\+\_\+window\+\_\+cb}}
+\index{vrna\+\_\+mfe\+\_\+window\+\_\+cb@{vrna\+\_\+mfe\+\_\+window\+\_\+cb}!mfe.\+h@{mfe.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mfe\+\_\+window\+\_\+cb()}{vrna\_mfe\_window\_cb()}}
+{\footnotesize\ttfamily float vrna\+\_\+mfe\+\_\+window\+\_\+cb (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{\mbox{\hyperlink{group__mfe__fold_ga4f3e5bc214ef803074ace313cb9571b4}{vrna\+\_\+mfe\+\_\+window\+\_\+callback}} $\ast$}]{cb,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mfe_8h_a2762be816af3dbc18c256e44c1345e4f}\label{mfe_8h_a2762be816af3dbc18c256e44c1345e4f}} 
+\index{mfe.\+h@{mfe.\+h}!vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+cb@{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+cb}}
+\index{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+cb@{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+cb}!mfe.\+h@{mfe.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+cb()}{vrna\_mfe\_window\_zscore\_cb()}}
+{\footnotesize\ttfamily float vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+cb (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{double}]{min\+\_\+z,  }\item[{\mbox{\hyperlink{mfe_8h_afeb8eb92805a0f0045dc20646ed0255b}{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback}} $\ast$}]{cb,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{mfe_8h_a0c5119f7e130d7db9c0a46953cb068c4}\label{mfe_8h_a0c5119f7e130d7db9c0a46953cb068c4}} 
+\index{mfe.\+h@{mfe.\+h}!vrna\+\_\+backtrack\+\_\+from\+\_\+intervals@{vrna\+\_\+backtrack\+\_\+from\+\_\+intervals}}
+\index{vrna\+\_\+backtrack\+\_\+from\+\_\+intervals@{vrna\+\_\+backtrack\+\_\+from\+\_\+intervals}!mfe.\+h@{mfe.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+backtrack\+\_\+from\+\_\+intervals()}{vrna\_backtrack\_from\_intervals()}}
+{\footnotesize\ttfamily void vrna\+\_\+backtrack\+\_\+from\+\_\+intervals (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{\mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$}]{bp\+\_\+stack,  }\item[{\mbox{\hyperlink{group__data__structures_gaaacedee1f05d3d45aa6764eca51a8876}{sect}}}]{bt\+\_\+stack\mbox{[}$\,$\mbox{]},  }\item[{int}]{s }\end{DoxyParamCaption})}
+

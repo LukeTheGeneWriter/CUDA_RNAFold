@@ -1,0 +1,71 @@
+\hypertarget{constraints__ligand_8h}{}\section{Vienna\+R\+N\+A/constraints\+\_\+ligand.h File Reference}
+\label{constraints__ligand_8h}\index{Vienna\+R\+N\+A/constraints\+\_\+ligand.\+h@{Vienna\+R\+N\+A/constraints\+\_\+ligand.\+h}}
+
+
+Functions for incorporation of ligands binding to hairpin and interior loop motifs using the soft constraints framework.  
+
+
+Include dependency graph for constraints\+\_\+ligand.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{constraints__ligand_8h__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{constraints__ligand_8h__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Data Structures}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{structvrna__sc__motif__s}{vrna\+\_\+sc\+\_\+motif\+\_\+s}}
+\end{DoxyCompactItemize}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef struct \mbox{\hyperlink{structvrna__sc__motif__s}{vrna\+\_\+sc\+\_\+motif\+\_\+s}} \mbox{\hyperlink{constraints__ligand_8h_a56615bc45d2aa4d6d3326fb74183c9ac}{vrna\+\_\+sc\+\_\+motif\+\_\+t}}
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{group__constraints__ligand_gaa6ff0113a3a76dc0b8d62961f4e1dfa0}{vrna\+\_\+sc\+\_\+add\+\_\+hi\+\_\+motif}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, const char $\ast$seq, const char $\ast$structure, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} energy, unsigned int options)
+\begin{DoxyCompactList}\small\item\em Add soft constraints for hairpin or interior loop binding motif. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{constraints__ligand_8h_a56615bc45d2aa4d6d3326fb74183c9ac}{vrna\+\_\+sc\+\_\+motif\+\_\+t}} $\ast$ \mbox{\hyperlink{constraints__ligand_8h_a43b6e725dd1f52b407e52a7dd1150987}{vrna\+\_\+sc\+\_\+ligand\+\_\+detect\+\_\+motifs}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, const char $\ast$structure)
+\item 
+\mbox{\hyperlink{constraints__ligand_8h_a56615bc45d2aa4d6d3326fb74183c9ac}{vrna\+\_\+sc\+\_\+motif\+\_\+t}} $\ast$ \mbox{\hyperlink{constraints__ligand_8h_a7dfe1352f53d8dd16a742b6daa5dc7be}{vrna\+\_\+sc\+\_\+ligand\+\_\+get\+\_\+all\+\_\+motifs}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Functions for incorporation of ligands binding to hairpin and interior loop motifs using the soft constraints framework. 
+
+
+
+\subsection{Typedef Documentation}
+\mbox{\Hypertarget{constraints__ligand_8h_a56615bc45d2aa4d6d3326fb74183c9ac}\label{constraints__ligand_8h_a56615bc45d2aa4d6d3326fb74183c9ac}} 
+\index{constraints\+\_\+ligand.\+h@{constraints\+\_\+ligand.\+h}!vrna\+\_\+sc\+\_\+motif\+\_\+t@{vrna\+\_\+sc\+\_\+motif\+\_\+t}}
+\index{vrna\+\_\+sc\+\_\+motif\+\_\+t@{vrna\+\_\+sc\+\_\+motif\+\_\+t}!constraints\+\_\+ligand.\+h@{constraints\+\_\+ligand.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+sc\+\_\+motif\+\_\+t}{vrna\_sc\_motif\_t}}
+{\footnotesize\ttfamily typedef struct \mbox{\hyperlink{structvrna__sc__motif__s}{vrna\+\_\+sc\+\_\+motif\+\_\+s}} \mbox{\hyperlink{constraints__ligand_8h_a56615bc45d2aa4d6d3326fb74183c9ac}{vrna\+\_\+sc\+\_\+motif\+\_\+t}}}
+
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{constraints__ligand_8h_a43b6e725dd1f52b407e52a7dd1150987}\label{constraints__ligand_8h_a43b6e725dd1f52b407e52a7dd1150987}} 
+\index{constraints\+\_\+ligand.\+h@{constraints\+\_\+ligand.\+h}!vrna\+\_\+sc\+\_\+ligand\+\_\+detect\+\_\+motifs@{vrna\+\_\+sc\+\_\+ligand\+\_\+detect\+\_\+motifs}}
+\index{vrna\+\_\+sc\+\_\+ligand\+\_\+detect\+\_\+motifs@{vrna\+\_\+sc\+\_\+ligand\+\_\+detect\+\_\+motifs}!constraints\+\_\+ligand.\+h@{constraints\+\_\+ligand.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+sc\+\_\+ligand\+\_\+detect\+\_\+motifs()}{vrna\_sc\_ligand\_detect\_motifs()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{constraints__ligand_8h_a56615bc45d2aa4d6d3326fb74183c9ac}{vrna\+\_\+sc\+\_\+motif\+\_\+t}}$\ast$ vrna\+\_\+sc\+\_\+ligand\+\_\+detect\+\_\+motifs (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{const char $\ast$}]{structure }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{constraints__ligand_8h_a7dfe1352f53d8dd16a742b6daa5dc7be}\label{constraints__ligand_8h_a7dfe1352f53d8dd16a742b6daa5dc7be}} 
+\index{constraints\+\_\+ligand.\+h@{constraints\+\_\+ligand.\+h}!vrna\+\_\+sc\+\_\+ligand\+\_\+get\+\_\+all\+\_\+motifs@{vrna\+\_\+sc\+\_\+ligand\+\_\+get\+\_\+all\+\_\+motifs}}
+\index{vrna\+\_\+sc\+\_\+ligand\+\_\+get\+\_\+all\+\_\+motifs@{vrna\+\_\+sc\+\_\+ligand\+\_\+get\+\_\+all\+\_\+motifs}!constraints\+\_\+ligand.\+h@{constraints\+\_\+ligand.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+sc\+\_\+ligand\+\_\+get\+\_\+all\+\_\+motifs()}{vrna\_sc\_ligand\_get\_all\_motifs()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{constraints__ligand_8h_a56615bc45d2aa4d6d3326fb74183c9ac}{vrna\+\_\+sc\+\_\+motif\+\_\+t}}$\ast$ vrna\+\_\+sc\+\_\+ligand\+\_\+get\+\_\+all\+\_\+motifs (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc }\end{DoxyParamCaption})}
+

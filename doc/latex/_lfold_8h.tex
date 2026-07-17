@@ -1,0 +1,90 @@
+\hypertarget{_lfold_8h}{}\section{Vienna\+R\+N\+A/\+Lfold.h File Reference}
+\label{_lfold_8h}\index{Vienna\+R\+N\+A/\+Lfold.\+h@{Vienna\+R\+N\+A/\+Lfold.\+h}}
+
+
+Functions for locally optimal M\+FE structure prediction.  
+
+
+Include dependency graph for Lfold.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{_lfold_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{_lfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{D\+E\+P\+R\+E\+C\+A\+T\+ED}}(func,  msg)~func
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+float \mbox{\hyperlink{group__local__mfe__fold_ga4918cce52bf69c1913cda503b2ac75d8}{vrna\+\_\+\+Lfold}} (const char $\ast$string, int window\+\_\+size, F\+I\+LE $\ast$file)
+\begin{DoxyCompactList}\small\item\em Local M\+FE prediction using a sliding window approach (simplified interface) \end{DoxyCompactList}\item 
+float \mbox{\hyperlink{_lfold_8h_a8b70293ad3c9dd3dc384d06290bf8069}{vrna\+\_\+\+Lfold\+\_\+cb}} (const char $\ast$string, int window\+\_\+size, \mbox{\hyperlink{group__mfe__fold_ga4f3e5bc214ef803074ace313cb9571b4}{vrna\+\_\+mfe\+\_\+window\+\_\+callback}} $\ast$cb, void $\ast$data)
+\item 
+float \mbox{\hyperlink{group__local__mfe__fold_ga27fddda5fc63eb49c861e38845fc34b4}{vrna\+\_\+\+Lfoldz}} (const char $\ast$string, int window\+\_\+size, double min\+\_\+z, F\+I\+LE $\ast$file)
+\begin{DoxyCompactList}\small\item\em Local M\+FE prediction using a sliding window approach with z-\/score cut-\/off (simplified interface) \end{DoxyCompactList}\item 
+float \mbox{\hyperlink{_lfold_8h_a41b18568b846f1db70cdf2fe83b0ed47}{vrna\+\_\+\+Lfoldz\+\_\+cb}} (const char $\ast$string, int window\+\_\+size, double min\+\_\+z, \mbox{\hyperlink{mfe_8h_afeb8eb92805a0f0045dc20646ed0255b}{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback}} $\ast$cb, void $\ast$data)
+\item 
+float \mbox{\hyperlink{_lfold_8h_a4ed226a726e2c85fbacf9705591becee}{vrna\+\_\+ali\+Lfold}} (const char $\ast$$\ast$AS, int maxdist, F\+I\+LE $\ast$fp)
+\item 
+float \mbox{\hyperlink{_lfold_8h_a04c8e0d7d4a1c28378b5046e8f62d9e8}{vrna\+\_\+ali\+Lfold\+\_\+cb}} (const char $\ast$$\ast$AS, int maxdist, \mbox{\hyperlink{group__mfe__fold_ga4f3e5bc214ef803074ace313cb9571b4}{vrna\+\_\+mfe\+\_\+window\+\_\+callback}} $\ast$cb, void $\ast$data)
+\item 
+float \mbox{\hyperlink{group__local__mfe__fold_ga16e5a70e60835bb969eaecbe6482f1be}{Lfold}} (const char $\ast$string, char $\ast$structure, int maxdist)
+\begin{DoxyCompactList}\small\item\em The local analog to \mbox{\hyperlink{group__mfe__fold__single_gaadafcb0f140795ae62e5ca027e335a9b}{fold()}}. \end{DoxyCompactList}\item 
+float \mbox{\hyperlink{group__local__mfe__fold_gab6d79eecc180f586679f7b85cce5cbe9}{Lfoldz}} (const char $\ast$string, char $\ast$structure, int maxdist, int zsc, double min\+\_\+z)
+\item 
+float \mbox{\hyperlink{group__local__consensus__fold_ga864db0f9c428356d978ad0600aa9a8bc}{ali\+Lfold}} (const char $\ast$$\ast$AS, char $\ast$structure, int maxdist)
+\item 
+float \mbox{\hyperlink{_lfold_8h_af699f3dfc94a2b543721b6f8bcc72737}{ali\+Lfold\+\_\+cb}} (const char $\ast$$\ast$AS, int maxdist, \mbox{\hyperlink{group__mfe__fold_ga4f3e5bc214ef803074ace313cb9571b4}{vrna\+\_\+mfe\+\_\+window\+\_\+callback}} $\ast$cb, void $\ast$data)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Functions for locally optimal M\+FE structure prediction. 
+
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{_lfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}\label{_lfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}} 
+\index{Lfold.\+h@{Lfold.\+h}!D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}}
+\index{D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}!Lfold.\+h@{Lfold.\+h}}
+\subsubsection{\texorpdfstring{D\+E\+P\+R\+E\+C\+A\+T\+ED}{DEPRECATED}}
+{\footnotesize\ttfamily \#define D\+E\+P\+R\+E\+C\+A\+T\+ED(\begin{DoxyParamCaption}\item[{}]{func,  }\item[{}]{msg }\end{DoxyParamCaption})~func}
+
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{_lfold_8h_a8b70293ad3c9dd3dc384d06290bf8069}\label{_lfold_8h_a8b70293ad3c9dd3dc384d06290bf8069}} 
+\index{Lfold.\+h@{Lfold.\+h}!vrna\+\_\+\+Lfold\+\_\+cb@{vrna\+\_\+\+Lfold\+\_\+cb}}
+\index{vrna\+\_\+\+Lfold\+\_\+cb@{vrna\+\_\+\+Lfold\+\_\+cb}!Lfold.\+h@{Lfold.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+\+Lfold\+\_\+cb()}{vrna\_Lfold\_cb()}}
+{\footnotesize\ttfamily float vrna\+\_\+\+Lfold\+\_\+cb (\begin{DoxyParamCaption}\item[{const char $\ast$}]{string,  }\item[{int}]{window\+\_\+size,  }\item[{\mbox{\hyperlink{group__mfe__fold_ga4f3e5bc214ef803074ace313cb9571b4}{vrna\+\_\+mfe\+\_\+window\+\_\+callback}} $\ast$}]{cb,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{_lfold_8h_a41b18568b846f1db70cdf2fe83b0ed47}\label{_lfold_8h_a41b18568b846f1db70cdf2fe83b0ed47}} 
+\index{Lfold.\+h@{Lfold.\+h}!vrna\+\_\+\+Lfoldz\+\_\+cb@{vrna\+\_\+\+Lfoldz\+\_\+cb}}
+\index{vrna\+\_\+\+Lfoldz\+\_\+cb@{vrna\+\_\+\+Lfoldz\+\_\+cb}!Lfold.\+h@{Lfold.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+\+Lfoldz\+\_\+cb()}{vrna\_Lfoldz\_cb()}}
+{\footnotesize\ttfamily float vrna\+\_\+\+Lfoldz\+\_\+cb (\begin{DoxyParamCaption}\item[{const char $\ast$}]{string,  }\item[{int}]{window\+\_\+size,  }\item[{double}]{min\+\_\+z,  }\item[{\mbox{\hyperlink{mfe_8h_afeb8eb92805a0f0045dc20646ed0255b}{vrna\+\_\+mfe\+\_\+window\+\_\+zscore\+\_\+callback}} $\ast$}]{cb,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{_lfold_8h_a4ed226a726e2c85fbacf9705591becee}\label{_lfold_8h_a4ed226a726e2c85fbacf9705591becee}} 
+\index{Lfold.\+h@{Lfold.\+h}!vrna\+\_\+ali\+Lfold@{vrna\+\_\+ali\+Lfold}}
+\index{vrna\+\_\+ali\+Lfold@{vrna\+\_\+ali\+Lfold}!Lfold.\+h@{Lfold.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+ali\+Lfold()}{vrna\_aliLfold()}}
+{\footnotesize\ttfamily float vrna\+\_\+ali\+Lfold (\begin{DoxyParamCaption}\item[{const char $\ast$$\ast$}]{AS,  }\item[{int}]{maxdist,  }\item[{F\+I\+LE $\ast$}]{fp }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{_lfold_8h_a04c8e0d7d4a1c28378b5046e8f62d9e8}\label{_lfold_8h_a04c8e0d7d4a1c28378b5046e8f62d9e8}} 
+\index{Lfold.\+h@{Lfold.\+h}!vrna\+\_\+ali\+Lfold\+\_\+cb@{vrna\+\_\+ali\+Lfold\+\_\+cb}}
+\index{vrna\+\_\+ali\+Lfold\+\_\+cb@{vrna\+\_\+ali\+Lfold\+\_\+cb}!Lfold.\+h@{Lfold.\+h}}
+\subsubsection{\texorpdfstring{vrna\+\_\+ali\+Lfold\+\_\+cb()}{vrna\_aliLfold\_cb()}}
+{\footnotesize\ttfamily float vrna\+\_\+ali\+Lfold\+\_\+cb (\begin{DoxyParamCaption}\item[{const char $\ast$$\ast$}]{AS,  }\item[{int}]{maxdist,  }\item[{\mbox{\hyperlink{group__mfe__fold_ga4f3e5bc214ef803074ace313cb9571b4}{vrna\+\_\+mfe\+\_\+window\+\_\+callback}} $\ast$}]{cb,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{_lfold_8h_af699f3dfc94a2b543721b6f8bcc72737}\label{_lfold_8h_af699f3dfc94a2b543721b6f8bcc72737}} 
+\index{Lfold.\+h@{Lfold.\+h}!ali\+Lfold\+\_\+cb@{ali\+Lfold\+\_\+cb}}
+\index{ali\+Lfold\+\_\+cb@{ali\+Lfold\+\_\+cb}!Lfold.\+h@{Lfold.\+h}}
+\subsubsection{\texorpdfstring{ali\+Lfold\+\_\+cb()}{aliLfold\_cb()}}
+{\footnotesize\ttfamily float ali\+Lfold\+\_\+cb (\begin{DoxyParamCaption}\item[{const char $\ast$$\ast$}]{AS,  }\item[{int}]{maxdist,  }\item[{\mbox{\hyperlink{group__mfe__fold_ga4f3e5bc214ef803074ace313cb9571b4}{vrna\+\_\+mfe\+\_\+window\+\_\+callback}} $\ast$}]{cb,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+

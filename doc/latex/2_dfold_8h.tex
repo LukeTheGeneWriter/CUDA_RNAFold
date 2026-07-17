@@ -1,0 +1,67 @@
+\hypertarget{2_dfold_8h}{}\section{Vienna\+R\+N\+A/2\+Dfold.h File Reference}
+\label{2_dfold_8h}\index{Vienna\+R\+N\+A/2\+Dfold.\+h@{Vienna\+R\+N\+A/2\+Dfold.\+h}}
+
+
+M\+FE structures for base pair distance classes.  
+
+
+Include dependency graph for 2\+Dfold.h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{2_dfold_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Data Structures}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{group__kl__neighborhood__mfe_structvrna__sol___two_d__t}{vrna\+\_\+sol\+\_\+\+Two\+D\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Solution element returned from \mbox{\hyperlink{group__kl__neighborhood__mfe_ga243c288b463147352829df04de6a2f77}{vrna\+\_\+mfe\+\_\+\+Two\+D()}}  \mbox{\hyperlink{group__kl__neighborhood__mfe_structvrna__sol___two_d__t}{More...}}\end{DoxyCompactList}\item 
+struct \mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{Two\+Dfold\+\_\+vars}}
+\begin{DoxyCompactList}\small\item\em Variables compound for 2\+Dfold M\+FE folding.  \mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{More...}}\end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{2_dfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{D\+E\+P\+R\+E\+C\+A\+T\+ED}}(func,  msg)~func
+\item 
+\#define \mbox{\hyperlink{group__kl__neighborhood__mfe_ga09e71024abb1a2bd19d9137596376e15}{Two\+Dfold\+\_\+solution}}~\mbox{\hyperlink{group__kl__neighborhood__mfe_structvrna__sol___two_d__t}{vrna\+\_\+sol\+\_\+\+Two\+D\+\_\+t}}         /$\ast$ restore compatibility of struct rename $\ast$/
+\end{DoxyCompactItemize}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef struct \mbox{\hyperlink{group__kl__neighborhood__mfe_structvrna__sol___two_d__t}{vrna\+\_\+sol\+\_\+\+Two\+D\+\_\+t}} \mbox{\hyperlink{group__kl__neighborhood__mfe_ga6a81a58268d250309712549a3fa0aab2}{vrna\+\_\+sol\+\_\+\+Two\+D\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em Solution element returned from \mbox{\hyperlink{group__kl__neighborhood__mfe_ga243c288b463147352829df04de6a2f77}{vrna\+\_\+mfe\+\_\+\+Two\+D()}} \end{DoxyCompactList}\item 
+typedef struct \mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{Two\+Dfold\+\_\+vars}} \mbox{\hyperlink{group__kl__neighborhood__mfe_gaf4f514010a14f9d59d850742b3e96954}{Two\+Dfold\+\_\+vars}}
+\begin{DoxyCompactList}\small\item\em Variables compound for 2\+Dfold M\+FE folding. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__kl__neighborhood__mfe_structvrna__sol___two_d__t}{vrna\+\_\+sol\+\_\+\+Two\+D\+\_\+t}} $\ast$ \mbox{\hyperlink{group__kl__neighborhood__mfe_ga243c288b463147352829df04de6a2f77}{vrna\+\_\+mfe\+\_\+\+TwoD}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int distance1, int distance2)
+\begin{DoxyCompactList}\small\item\em Compute M\+FE\textquotesingle{}s and representative for distance partitioning. \end{DoxyCompactList}\item 
+char $\ast$ \mbox{\hyperlink{group__kl__neighborhood__mfe_ga15a96fc96f4f4c2e01a11b3e17d1ef43}{vrna\+\_\+backtrack5\+\_\+\+TwoD}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int k, int l, unsigned int j)
+\begin{DoxyCompactList}\small\item\em Backtrack a minimum free energy structure from a 5\textquotesingle{} section of specified length. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{Two\+Dfold\+\_\+vars}} $\ast$ \mbox{\hyperlink{group__kl__neighborhood__mfe_gac9284f132cf0eaa0a2f43590eda05488}{get\+\_\+\+Two\+Dfold\+\_\+variables}} (const char $\ast$seq, const char $\ast$structure1, const char $\ast$structure2, int \mbox{\hyperlink{group__model__details_gaf9202a1a09f5828dc731e2d9a10fa111}{circ}})
+\begin{DoxyCompactList}\small\item\em Get a structure of type \mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{Two\+Dfold\+\_\+vars}} prefilled with current global settings. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__kl__neighborhood__mfe_ga05bf4f31d216b1b160fd2d3d68e9b487}{destroy\+\_\+\+Two\+Dfold\+\_\+variables}} (\mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{Two\+Dfold\+\_\+vars}} $\ast$our\+\_\+variables)
+\begin{DoxyCompactList}\small\item\em Destroy a \mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{Two\+Dfold\+\_\+vars}} datastructure without memory loss. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__kl__neighborhood__mfe_structvrna__sol___two_d__t}{vrna\+\_\+sol\+\_\+\+Two\+D\+\_\+t}} $\ast$ \mbox{\hyperlink{group__kl__neighborhood__mfe_ga7fc5e3e92fe97914ca4eccd33c01c2a7}{Two\+Dfold\+List}} (\mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{Two\+Dfold\+\_\+vars}} $\ast$vars, int distance1, int distance2)
+\begin{DoxyCompactList}\small\item\em Compute M\+FE\textquotesingle{}s and representative for distance partitioning. \end{DoxyCompactList}\item 
+char $\ast$ \mbox{\hyperlink{group__kl__neighborhood__mfe_gaf4dc05bf8fc1ea53acd7aeb798ba80c2}{Two\+Dfold\+\_\+backtrack\+\_\+f5}} (unsigned int j, int k, int l, \mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{Two\+Dfold\+\_\+vars}} $\ast$vars)
+\begin{DoxyCompactList}\small\item\em Backtrack a minimum free energy structure from a 5\textquotesingle{} section of specified length. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__kl__neighborhood__mfe_structvrna__sol___two_d__t}{vrna\+\_\+sol\+\_\+\+Two\+D\+\_\+t}} $\ast$$\ast$ \mbox{\hyperlink{group__kl__neighborhood__mfe_ga9827e1deba983a95d0509d36b61fb0e2}{Two\+Dfold}} (\mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{Two\+Dfold\+\_\+vars}} $\ast$our\+\_\+variables, int distance1, int distance2)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+M\+FE structures for base pair distance classes. 
+
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{2_dfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}\label{2_dfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}} 
+\index{2\+Dfold.\+h@{2\+Dfold.\+h}!D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}}
+\index{D\+E\+P\+R\+E\+C\+A\+T\+ED@{D\+E\+P\+R\+E\+C\+A\+T\+ED}!2\+Dfold.\+h@{2\+Dfold.\+h}}
+\subsubsection{\texorpdfstring{D\+E\+P\+R\+E\+C\+A\+T\+ED}{DEPRECATED}}
+{\footnotesize\ttfamily \#define D\+E\+P\+R\+E\+C\+A\+T\+ED(\begin{DoxyParamCaption}\item[{}]{func,  }\item[{}]{msg }\end{DoxyParamCaption})~func}
+
