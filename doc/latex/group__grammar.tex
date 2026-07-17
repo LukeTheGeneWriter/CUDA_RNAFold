@@ -1,0 +1,150 @@
+\hypertarget{group__grammar}{}\section{The R\+NA folding grammar}
+\label{group__grammar}\index{The R\+N\+A folding grammar@{The R\+N\+A folding grammar}}
+
+
+The R\+NA folding grammar as implemented in R\+N\+Alib.  
+
+
+
+
+\subsection{Detailed Description}
+The R\+NA folding grammar as implemented in R\+N\+Alib. 
+
+Collaboration diagram for The R\+NA folding grammar\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{group__grammar}
+\end{center}
+\end{figure}
+\subsection*{Modules}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__model__details}{Fine-\/tuning of the implemented models}}
+\begin{DoxyCompactList}\small\item\em Functions and data structures to fine-\/tune the implemented secondary structure evaluation model. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__energy__parameters}{Energy parameters}}
+\begin{DoxyCompactList}\small\item\em All relevant functions to retrieve and copy pre-\/calculated energy parameter sets as well as reading/writing the energy parameter set from/to file(s). \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__domains}{Extending the folding grammar with additional domains}}
+\begin{DoxyCompactList}\small\item\em This module covers simple and straight-\/forward extensions to the R\+NA folding grammar. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__constraints}{Constraining the R\+N\+A folding grammar}}
+\begin{DoxyCompactList}\small\item\em This module provides general functions that allow for an easy control of constrained secondary structure prediction and evaluation. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Files}
+\begin{DoxyCompactItemize}
+\item 
+file \mbox{\hyperlink{grammar_8h}{grammar.\+h}}
+\begin{DoxyCompactList}\small\item\em Implementations for the R\+NA folding grammar. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Data Structures}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{group__grammar_structvrna__gr__aux__s}{vrna\+\_\+gr\+\_\+aux\+\_\+s}}
+\end{DoxyCompactItemize}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef void() \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}}(\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j, void $\ast$data)
+\item 
+typedef void() \mbox{\hyperlink{group__grammar_gadc8bec7146fda1ee9276df8fc22d8639}{vrna\+\_\+callback\+\_\+gr\+\_\+free\+\_\+auxdata}}(void $\ast$data)
+\item 
+typedef struct \mbox{\hyperlink{group__grammar_structvrna__gr__aux__s}{vrna\+\_\+gr\+\_\+aux\+\_\+s}} \mbox{\hyperlink{group__grammar_ga8825fbe6d7de2ff61c232cc7550a82cc}{vrna\+\_\+gr\+\_\+aux\+\_\+t}}
+\end{DoxyCompactItemize}
+
+
+\subsection{Data Structure Documentation}
+\index{vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}}\label{structvrna__gr__aux__s}
+\Hypertarget{group__grammar_structvrna__gr__aux__s}
+\subsubsection{struct vrna\+\_\+gr\+\_\+aux\+\_\+s}
+\subsubsection*{Data Fields}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}} $\ast$ \mbox{\hyperlink{group__grammar_a177c06df7c9632acd61e833671e128a4}{cb\+\_\+aux\+\_\+f}}
+\item 
+\mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}} $\ast$ \mbox{\hyperlink{group__grammar_a6437d8207d52503cfeeec87666652faf}{cb\+\_\+aux\+\_\+c}}
+\item 
+\mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}} $\ast$ \mbox{\hyperlink{group__grammar_a56558a56dc06c22667bda4ce2a2ddc57}{cb\+\_\+aux\+\_\+m}}
+\item 
+\mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}} $\ast$ \mbox{\hyperlink{group__grammar_a2ac5c8adff5f9a69a82b21cd7496eea9}{cb\+\_\+aux\+\_\+m1}}
+\item 
+\mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}} $\ast$ \mbox{\hyperlink{group__grammar_a028eee994dbc35f78e3266d030abed58}{cb\+\_\+aux}}
+\item 
+void $\ast$ \mbox{\hyperlink{group__grammar_af02cce70c1873f975cf6f60fa37751da}{auxdata}}
+\item 
+\mbox{\hyperlink{group__grammar_gadc8bec7146fda1ee9276df8fc22d8639}{vrna\+\_\+callback\+\_\+gr\+\_\+free\+\_\+auxdata}} $\ast$ \mbox{\hyperlink{group__grammar_ad558dc65d426484476551479c0705326}{free\+\_\+auxdata}}
+\end{DoxyCompactItemize}
+
+
+\paragraph{Field Documentation}
+\mbox{\Hypertarget{group__grammar_a177c06df7c9632acd61e833671e128a4}\label{group__grammar_a177c06df7c9632acd61e833671e128a4}} 
+\index{vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}!cb\+\_\+aux\+\_\+f@{cb\+\_\+aux\+\_\+f}}
+\index{cb\+\_\+aux\+\_\+f@{cb\+\_\+aux\+\_\+f}!vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}}
+\subparagraph{\texorpdfstring{cb\+\_\+aux\+\_\+f}{cb\_aux\_f}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}}$\ast$ vrna\+\_\+gr\+\_\+aux\+\_\+s\+::cb\+\_\+aux\+\_\+f}
+
+\mbox{\Hypertarget{group__grammar_a6437d8207d52503cfeeec87666652faf}\label{group__grammar_a6437d8207d52503cfeeec87666652faf}} 
+\index{vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}!cb\+\_\+aux\+\_\+c@{cb\+\_\+aux\+\_\+c}}
+\index{cb\+\_\+aux\+\_\+c@{cb\+\_\+aux\+\_\+c}!vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}}
+\subparagraph{\texorpdfstring{cb\+\_\+aux\+\_\+c}{cb\_aux\_c}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}}$\ast$ vrna\+\_\+gr\+\_\+aux\+\_\+s\+::cb\+\_\+aux\+\_\+c}
+
+\mbox{\Hypertarget{group__grammar_a56558a56dc06c22667bda4ce2a2ddc57}\label{group__grammar_a56558a56dc06c22667bda4ce2a2ddc57}} 
+\index{vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}!cb\+\_\+aux\+\_\+m@{cb\+\_\+aux\+\_\+m}}
+\index{cb\+\_\+aux\+\_\+m@{cb\+\_\+aux\+\_\+m}!vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}}
+\subparagraph{\texorpdfstring{cb\+\_\+aux\+\_\+m}{cb\_aux\_m}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}}$\ast$ vrna\+\_\+gr\+\_\+aux\+\_\+s\+::cb\+\_\+aux\+\_\+m}
+
+\mbox{\Hypertarget{group__grammar_a2ac5c8adff5f9a69a82b21cd7496eea9}\label{group__grammar_a2ac5c8adff5f9a69a82b21cd7496eea9}} 
+\index{vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}!cb\+\_\+aux\+\_\+m1@{cb\+\_\+aux\+\_\+m1}}
+\index{cb\+\_\+aux\+\_\+m1@{cb\+\_\+aux\+\_\+m1}!vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}}
+\subparagraph{\texorpdfstring{cb\+\_\+aux\+\_\+m1}{cb\_aux\_m1}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}}$\ast$ vrna\+\_\+gr\+\_\+aux\+\_\+s\+::cb\+\_\+aux\+\_\+m1}
+
+\mbox{\Hypertarget{group__grammar_a028eee994dbc35f78e3266d030abed58}\label{group__grammar_a028eee994dbc35f78e3266d030abed58}} 
+\index{vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}!cb\+\_\+aux@{cb\+\_\+aux}}
+\index{cb\+\_\+aux@{cb\+\_\+aux}!vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}}
+\subparagraph{\texorpdfstring{cb\+\_\+aux}{cb\_aux}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}}$\ast$ vrna\+\_\+gr\+\_\+aux\+\_\+s\+::cb\+\_\+aux}
+
+\mbox{\Hypertarget{group__grammar_af02cce70c1873f975cf6f60fa37751da}\label{group__grammar_af02cce70c1873f975cf6f60fa37751da}} 
+\index{vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}!auxdata@{auxdata}}
+\index{auxdata@{auxdata}!vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}}
+\subparagraph{\texorpdfstring{auxdata}{auxdata}}
+{\footnotesize\ttfamily void$\ast$ vrna\+\_\+gr\+\_\+aux\+\_\+s\+::auxdata}
+
+\mbox{\Hypertarget{group__grammar_ad558dc65d426484476551479c0705326}\label{group__grammar_ad558dc65d426484476551479c0705326}} 
+\index{vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}!free\+\_\+auxdata@{free\+\_\+auxdata}}
+\index{free\+\_\+auxdata@{free\+\_\+auxdata}!vrna\+\_\+gr\+\_\+aux\+\_\+s@{vrna\+\_\+gr\+\_\+aux\+\_\+s}}
+\subparagraph{\texorpdfstring{free\+\_\+auxdata}{free\_auxdata}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__grammar_gadc8bec7146fda1ee9276df8fc22d8639}{vrna\+\_\+callback\+\_\+gr\+\_\+free\+\_\+auxdata}}$\ast$ vrna\+\_\+gr\+\_\+aux\+\_\+s\+::free\+\_\+auxdata}
+
+
+
+\subsection{Typedef Documentation}
+\mbox{\Hypertarget{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}\label{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}} 
+\index{The R\+N\+A folding grammar@{The R\+N\+A folding grammar}!vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux@{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}}
+\index{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux@{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}!The R\+N\+A folding grammar@{The R\+N\+A folding grammar}}
+\subsubsection{\texorpdfstring{vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux}{vrna\_callback\_gr\_rule\_aux}}
+{\footnotesize\ttfamily typedef void() vrna\+\_\+callback\+\_\+gr\+\_\+rule\+\_\+aux(\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j, void $\ast$data)}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{grammar_8h}{Vienna\+R\+N\+A/grammar.\+h}}$>$}
+
+\mbox{\Hypertarget{group__grammar_gadc8bec7146fda1ee9276df8fc22d8639}\label{group__grammar_gadc8bec7146fda1ee9276df8fc22d8639}} 
+\index{The R\+N\+A folding grammar@{The R\+N\+A folding grammar}!vrna\+\_\+callback\+\_\+gr\+\_\+free\+\_\+auxdata@{vrna\+\_\+callback\+\_\+gr\+\_\+free\+\_\+auxdata}}
+\index{vrna\+\_\+callback\+\_\+gr\+\_\+free\+\_\+auxdata@{vrna\+\_\+callback\+\_\+gr\+\_\+free\+\_\+auxdata}!The R\+N\+A folding grammar@{The R\+N\+A folding grammar}}
+\subsubsection{\texorpdfstring{vrna\+\_\+callback\+\_\+gr\+\_\+free\+\_\+auxdata}{vrna\_callback\_gr\_free\_auxdata}}
+{\footnotesize\ttfamily typedef void() vrna\+\_\+callback\+\_\+gr\+\_\+free\+\_\+auxdata(void $\ast$data)}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{grammar_8h}{Vienna\+R\+N\+A/grammar.\+h}}$>$}
+
+\mbox{\Hypertarget{group__grammar_ga8825fbe6d7de2ff61c232cc7550a82cc}\label{group__grammar_ga8825fbe6d7de2ff61c232cc7550a82cc}} 
+\index{The R\+N\+A folding grammar@{The R\+N\+A folding grammar}!vrna\+\_\+gr\+\_\+aux\+\_\+t@{vrna\+\_\+gr\+\_\+aux\+\_\+t}}
+\index{vrna\+\_\+gr\+\_\+aux\+\_\+t@{vrna\+\_\+gr\+\_\+aux\+\_\+t}!The R\+N\+A folding grammar@{The R\+N\+A folding grammar}}
+\subsubsection{\texorpdfstring{vrna\+\_\+gr\+\_\+aux\+\_\+t}{vrna\_gr\_aux\_t}}
+{\footnotesize\ttfamily typedef struct \mbox{\hyperlink{group__grammar_structvrna__gr__aux__s}{vrna\+\_\+gr\+\_\+aux\+\_\+s}} \mbox{\hyperlink{group__grammar_ga8825fbe6d7de2ff61c232cc7550a82cc}{vrna\+\_\+gr\+\_\+aux\+\_\+t}}}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{grammar_8h}{Vienna\+R\+N\+A/grammar.\+h}}$>$}
+

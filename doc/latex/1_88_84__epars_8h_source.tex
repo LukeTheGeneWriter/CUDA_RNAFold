@@ -1,0 +1,338 @@
+\hypertarget{1_88_84__epars_8h_source}{}\section{1.8.4\+\_\+epars.h}
+\label{1_88_84__epars_8h_source}\index{Vienna\+R\+N\+A/1.\+8.\+4\+\_\+epars.\+h@{Vienna\+R\+N\+A/1.\+8.\+4\+\_\+epars.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_OLD\_EPARS\_\_}
+00002 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_OLD\_EPARS\_\_}
+00003 
+\Hypertarget{1_88_84__epars_8h_source_l00039}\mbox{\hyperlink{1_88_84__epars_8h_a307c72605e3713972b4f4fb2d53ea20e}{00039}} \textcolor{preprocessor}{#define K0        273.15}
+00040 \textcolor{preprocessor}{#ifdef INF}
+00041 \textcolor{preprocessor}{#undef INF}
+00042 \textcolor{preprocessor}{#endif}
+\Hypertarget{1_88_84__epars_8h_source_l00043}\mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{00043}} \textcolor{preprocessor}{#define INF       1000000}
+\Hypertarget{1_88_84__epars_8h_source_l00044}\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{00044}} \textcolor{preprocessor}{#define NBPAIRS   7}
+\Hypertarget{1_88_84__epars_8h_source_l00045}\mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{00045}} \textcolor{preprocessor}{#define NST       0     }\textcolor{comment}{/* Energy for nonstandard stacked pairs */}\textcolor{preprocessor}{}
+\Hypertarget{1_88_84__epars_8h_source_l00046}\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{00046}} \textcolor{preprocessor}{#define DEF       -50   }\textcolor{comment}{/* Default terminal mismatch, used for I */}\textcolor{preprocessor}{}
+00047                         \textcolor{comment}{/* and any non\_pairing bases */}
+\Hypertarget{1_88_84__epars_8h_source_l00048}\mbox{\hyperlink{1_88_84__epars_8h_a5e79d53b15366c1b3a441272ab27d8ec}{00048}} \textcolor{preprocessor}{#define NSM       0     }\textcolor{comment}{/* terminal mismatch for non standard pairs */}\textcolor{preprocessor}{}
+00049 
+\Hypertarget{1_88_84__epars_8h_source_l00050}\mbox{\hyperlink{1_88_84__epars_8h_a0b62381b924e10aeb1e48aac55bd5f52}{00050}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{double} \mbox{\hyperlink{1_88_84__epars_8h_a0b62381b924e10aeb1e48aac55bd5f52}{Tmeasure\_184}} = 37 + \mbox{\hyperlink{1_88_84__epars_8h_a307c72605e3713972b4f4fb2d53ea20e}{K0}};  \textcolor{comment}{/* temperature of param measurements */}
+\Hypertarget{1_88_84__epars_8h_source_l00051}\mbox{\hyperlink{1_88_84__epars_8h_a2a5266b061d50fc5fe0cf25304ba4191}{00051}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{double} \mbox{\hyperlink{1_88_84__epars_8h_a2a5266b061d50fc5fe0cf25304ba4191}{lxc37\_184}}    = 107.856;  \textcolor{comment}{/* parameter for logarithmic loop}
+00052 \textcolor{comment}{                                           energy extrapolation */}
+00053 
+\Hypertarget{1_88_84__epars_8h_source_l00054}\mbox{\hyperlink{1_88_84__epars_8h_a7caa634a6dd4517bf2c13f3ccec67a88}{00054}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a7caa634a6dd4517bf2c13f3ccec67a88}{stack37\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1] =
+00055 \textcolor{comment}{/*          CG     GC     GU     UG     AU     UA  */}
+00056 \{ \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}\},
+00057   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -240,  -330,  -210,  -140,  -210,  -210, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00058   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -330,  -340,  -250,  -150,  -220,  -240, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00059   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -210,  -250,   130,   -50,  -140,  -130, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00060   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -140,  -150,   -50,    30,   -60,  -100, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00061   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -210,  -220,  -140,   -60,  -110,   -90, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00062   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -210,  -240,  -130,  -100,   -90,  -130, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00063   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\}\};
+00064 
+00065 \textcolor{comment}{/* enthalpies (0.01*kcal/mol at 37 C) for stacked pairs */}
+00066 \textcolor{comment}{/* different from mfold-2.3, which uses values from mfold-2.2 */}
+\Hypertarget{1_88_84__epars_8h_source_l00067}\mbox{\hyperlink{1_88_84__epars_8h_a3e3f8fe697041d505ecf89452a5211dd}{00067}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a3e3f8fe697041d505ecf89452a5211dd}{enthalpies\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1] =
+00068 \textcolor{comment}{/*          CG     GC     GU     UG     AU     UA  */}
+00069 \{ \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}\},
+00070   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, -1060, -1340, -1210,  -560, -1050, -1040, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00071   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, -1340, -1490, -1260,  -830, -1140, -1240, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00072   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, -1210, -1260, -1460, -1350,  -880, -1280, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00073   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -560,  -830, -1350,  -930,  -320,  -700, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00074   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, -1050, -1140,  -880,  -320,  -940,  -680, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00075   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, -1040, -1240, -1280,  -700,  -680,  -770, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\},
+00076   \{  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}},   \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}, \mbox{\hyperlink{1_88_84__epars_8h_aba99514484a1d6388a800285ffa8677a}{NST}}\}\};
+00077 
+00078 
+00079 \textcolor{comment}{/* old values are here just for comparison */}
+\Hypertarget{1_88_84__epars_8h_source_l00080}\mbox{\hyperlink{1_88_84__epars_8h_a280209e9d9d39f0f061d542adbf4595f}{00080}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a280209e9d9d39f0f061d542adbf4595f}{oldhairpin37\_184}}[31] = \{ \textcolor{comment}{/* from ViennaRNA 1.3 */}
+00081   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, 410, 490, 440, 470, 500, 510, 520, 531,
+00082        542, 551, 560, 568, 575, 582, 589, 595, 601, 606,
+00083        611, 616, 621, 626, 630, 634, 638, 642, 646, 650\};
+00084 
+\Hypertarget{1_88_84__epars_8h_source_l00085}\mbox{\hyperlink{1_88_84__epars_8h_a3c57d831be032b8eedd97e726384657f}{00085}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a3c57d831be032b8eedd97e726384657f}{hairpin37\_184}}[31] = \{
+00086   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, 570, 560, 560, 540, 590, 560, 640, 650,
+00087        660, 670, 678, 686, 694, 701, 707, 713, 719, 725,
+00088        730, 735, 740, 744, 749, 753, 757, 761, 765, 769\};
+00089 
+\Hypertarget{1_88_84__epars_8h_source_l00090}\mbox{\hyperlink{1_88_84__epars_8h_ac9988d2f7b88461cfc7b34793e910c7a}{00090}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_ac9988d2f7b88461cfc7b34793e910c7a}{oldbulge37\_184}}[31] = \{
+00091   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, 390, 310, 350, 420, 480, 500, 516, 531, 543, 555,
+00092        565, 574, 583, 591, 598, 605, 612, 618, 624, 630,
+00093        635, 640, 645, 649, 654, 658, 662, 666, 670, 673\};
+00094 
+\Hypertarget{1_88_84__epars_8h_source_l00095}\mbox{\hyperlink{1_88_84__epars_8h_ae14d2523a2f85dd3aa11a0f2be5d1621}{00095}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_ae14d2523a2f85dd3aa11a0f2be5d1621}{bulge37\_184}}[31] = \{
+00096   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, 380, 280, 320, 360, 400, 440, 459, 470, 480, 490,
+00097        500, 510, 519, 527, 534, 541, 548, 554, 560, 565,
+00098   571, 576, 580, 585, 589, 594, 598, 602, 605, 609\};
+00099 
+\Hypertarget{1_88_84__epars_8h_source_l00100}\mbox{\hyperlink{1_88_84__epars_8h_a778918fd419dc7aaa36a9fea2def4b52}{00100}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a778918fd419dc7aaa36a9fea2def4b52}{oldinternal\_loop37\_184}}[31] = \{
+00101   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, 410, 510, 490, 530, 570, 587, 601, 614, 625,
+00102        635, 645, 653, 661, 669, 676, 682, 688, 694, 700,
+00103        705, 710, 715, 720, 724, 728, 732, 736, 740, 744\};
+00104 
+\Hypertarget{1_88_84__epars_8h_source_l00105}\mbox{\hyperlink{1_88_84__epars_8h_a8987ad28dc4a82a91c635f365e04967f}{00105}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a8987ad28dc4a82a91c635f365e04967f}{internal\_loop37\_184}}[31] = \{
+00106   \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, 410, 510, 170, 180, 200, 220, 230, 240, 250,
+00107        260, 270, 278, 286, 294, 301, 307, 313, 319, 325,
+00108        330, 335, 340, 345, 349, 353, 357, 361, 365, 369\};
+00109 
+00110 \textcolor{comment}{/* terminal mismatches */}
+00111 \textcolor{comment}{/* mismatch free energies for interior loops at 37C */}
+\Hypertarget{1_88_84__epars_8h_source_l00112}\mbox{\hyperlink{1_88_84__epars_8h_aa19b772336a246248ce46c4d7f947e5a}{00112}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_aa19b772336a246248ce46c4d7f947e5a}{mismatchI37\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5] =
+00113 \{ \textcolor{comment}{/* @@ */}
+00114   \{\{0,0,0,0,0\},\{0,0,0,0,0\},\{0,0,0,0,0\},\{0,0,0,0,0\},\{0,0,0,0,0\}\},
+00115   \{ \textcolor{comment}{/* CG */}
+00116    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00117    \{   0,    0,    0, -110,    0\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00118    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00119    \{   0, -110,    0,    0,    0\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00120    \{   0,    0,    0,    0,  -70\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00121   \{ \textcolor{comment}{/* GC */}
+00122    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00123    \{   0,    0,    0, -110,    0\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00124    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00125    \{   0, -110,    0,    0,    0\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00126    \{   0,    0,    0,    0,  -70\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00127   \{ \textcolor{comment}{/* GU */}
+00128    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00129    \{   0,   70,   70,  -40,   70\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00130    \{   0,   70,   70,   70,   70\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00131    \{   0,  -40,   70,   70,   70\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00132    \{   0,   70,   70,   70,    0\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00133   \{ \textcolor{comment}{/* UG */}
+00134    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00135    \{   0,   70,   70,  -40,   70\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00136    \{   0,   70,   70,   70,   70\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00137    \{   0,  -40,   70,   70,   70\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00138    \{   0,   70,   70,   70,    0\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00139   \{ \textcolor{comment}{/* AU */}
+00140    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00141    \{   0,   70,   70,  -40,   70\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00142    \{   0,   70,   70,   70,   70\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00143    \{   0,  -40,   70,   70,   70\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00144    \{   0,   70,   70,   70,    0\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00145   \{ \textcolor{comment}{/* UA */}
+00146    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00147    \{   0,   70,   70,  -40,   70\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00148    \{   0,   70,   70,   70,   70\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00149    \{   0,  -40,   70,   70,   70\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00150    \{   0,   70,   70,   70,    0\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00151   \{ \textcolor{comment}{/* @@ */}
+00152    \{ 90, 90, 90, 90, 90\},\{ 90, 90, 90, 90,-20\},\{ 90, 90, 90, 90, 90\},
+00153    \{ 90,-20, 90, 90, 90\},\{ 90, 90, 90, 90, 20\}\}
+00154 \};
+00155 
+00156 \textcolor{comment}{/* mismatch free energies for hairpins at 37C */}
+\Hypertarget{1_88_84__epars_8h_source_l00157}\mbox{\hyperlink{1_88_84__epars_8h_a5f61953c0b965af1d84240529f966099}{00157}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a5f61953c0b965af1d84240529f966099}{mismatchH37\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5] =
+00158 \{ \textcolor{comment}{/* @@ */}
+00159   \{\{0,0,0,0,0\},\{0,0,0,0,0\},\{0,0,0,0,0\},\{0,0,0,0,0\},\{0,0,0,0,0\}\},
+00160   \{ \textcolor{comment}{/* CG */}
+00161    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00162    \{ -90, -150, -150, -140, -180\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00163    \{ -90, -100,  -90, -290,  -80\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00164    \{ -90, -220, -200, -160, -110\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00165    \{ -90, -170, -140, -180, -200\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00166   \{ \textcolor{comment}{/* GC */}
+00167    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00168    \{ -70, -110, -150, -130, -210\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00169    \{ -70, -110,  -70, -240,  -50\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00170    \{ -70, -240, -290, -140, -120\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00171    \{ -70, -190, -100, -220, -150\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00172   \{ \textcolor{comment}{/* GU */}
+00173    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00174    \{   0,   20,  -50,  -30,  -30\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00175    \{   0,  -10,  -20, -150,  -20\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00176    \{   0,  -90, -110,  -30,    0\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00177    \{   0,  -30,  -30,  -40, -110\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00178   \{ \textcolor{comment}{/* UG */}
+00179    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00180    \{   0,  -50,  -30,  -60,  -50\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00181    \{   0,  -20,  -10, -170,    0\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00182    \{   0,  -80, -120,  -30,  -70\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00183    \{   0,  -60,  -10,  -60,  -80\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00184   \{ \textcolor{comment}{/* AU */}
+00185    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00186    \{   0,  -30,  -50,  -30,  -30\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00187    \{   0,  -10,  -20, -150,  -20\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00188    \{   0, -110, -120,  -20,   20\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00189    \{   0,  -30,  -30,  -60, -110\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00190   \{ \textcolor{comment}{/* UA */}
+00191    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00192    \{   0,  -50,  -30,  -60,  -50\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00193    \{   0,  -20,  -10, -120,   -0\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00194    \{   0, -140, -120,  -70,  -20\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00195    \{   0,  -30,  -10,  -50,  -80\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00196   \{ \textcolor{comment}{/* @@ */}
+00197    \{  0,  0,  0,  0,  0\},\{  0,  0,  0,  0,  0\},\{  0,  0,  0,  0,  0\},
+00198    \{  0,  0,  0,  0,  0\},\{  0,  0,  0,  0,  0\}\}
+00199 \};
+00200 
+00201 \textcolor{comment}{/* mismatch energies in multiloops */}
+\Hypertarget{1_88_84__epars_8h_source_l00202}\mbox{\hyperlink{1_88_84__epars_8h_a1309d70454ad5ccbc1ef1d2eafdbc928}{00202}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a1309d70454ad5ccbc1ef1d2eafdbc928}{mismatchM37\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];
+00203 
+00204 \textcolor{comment}{/* these are probably junk */}
+00205 \textcolor{comment}{/* mismatch enthalpies for temperature scaling */}
+\Hypertarget{1_88_84__epars_8h_source_l00206}\mbox{\hyperlink{1_88_84__epars_8h_aff0b5b9c5e493470fbc6aa26dd5e7544}{00206}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_aff0b5b9c5e493470fbc6aa26dd5e7544}{mism\_H\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5] =
+00207 \{ \textcolor{comment}{/* no pair */}
+00208   \{\{0,0,0,0,0\},\{0,0,0,0,0\},\{0,0,0,0,0\},\{0,0,0,0,0\},\{0,0,0,0,0\}\},
+00209   \{ \textcolor{comment}{/* CG */}
+00210    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00211    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},-1030, -950,-1030,-1030\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00212    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -520, -450, -520, -670\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00213    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -940, -940, -940, -940\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00214    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -810, -740, -810, -860\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00215   \{ \textcolor{comment}{/* GC */}
+00216    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00217    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -520, -880, -560, -880\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00218    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -720, -310, -310, -390\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00219    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -710, -740, -620, -740\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00220    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -500, -500, -500, -570\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00221   \{ \textcolor{comment}{/* GU */}
+00222    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00223    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -430, -600, -600, -600\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00224    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -260, -240, -240, -240\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00225    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -340, -690, -690, -690\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00226    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -330, -330, -330, -330\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00227   \{ \textcolor{comment}{/* UG */}
+00228    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00229    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -720, -790, -960, -810\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00230    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -480, -480, -360, -480\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00231    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -660, -810, -920, -810\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00232    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -550, -440, -550, -360\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00233   \{ \textcolor{comment}{/* AU */}
+00234    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00235    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -430, -600, -600, -600\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00236    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -260, -240, -240, -240\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00237    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -340, -690, -690, -690\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00238    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -330, -330, -330, -330\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00239   \{ \textcolor{comment}{/* UA */}
+00240    \{   0,    0,    0,    0,    0\}, \textcolor{comment}{/* @@  @A  @C  @G  @U */}
+00241    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -400, -630, -890, -590\}, \textcolor{comment}{/* A@  AA  AC  AG  AU */}
+00242    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -430, -510, -200, -180\}, \textcolor{comment}{/* C@  CA  CC  CG  CU */}
+00243    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -380, -680, -890, -680\}, \textcolor{comment}{/* G@  GA  GC  GG  GU */}
+00244    \{ \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}, -280, -140, -280, -140\}\},\textcolor{comment}{/* U@  UA  UC  UG  UU */}
+00245   \{ \textcolor{comment}{/* nonstandard pair */}
+00246    \{\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}\},\{\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}\},\{
+      \mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}\},
+00247    \{\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}\},\{\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}},\mbox{\hyperlink{1_88_84__epars_8h_a397419fc12b37ed479c8abb9d444d843}{DEF}}\}\}
+00248 \};
+00249 
+00250 \textcolor{comment}{/* 5' dangling ends (unpaird base stacks on first paired base) */}
+\Hypertarget{1_88_84__epars_8h_source_l00251}\mbox{\hyperlink{1_88_84__epars_8h_ada2ecff3de340ed7e884b3cb98d2369d}{00251}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_ada2ecff3de340ed7e884b3cb98d2369d}{dangle5\_37\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5]=
+00252 \{\textcolor{comment}{/*   @     A     C     G     U   */}
+00253    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}\}, \textcolor{comment}{/* no pair */}
+00254    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -50,  -30,  -20,  -10\}, \textcolor{comment}{/* CG  (stacks on C) */}
+00255    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -20,  -30,   -0,   -0\}, \textcolor{comment}{/* GC  (stacks on G) */}
+00256    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -30,  -30,  -40,  -20\}, \textcolor{comment}{/* GU */}
+00257    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -30,  -10,  -20,  -20\}, \textcolor{comment}{/* UG */}
+00258    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -30,  -30,  -40,  -20\}, \textcolor{comment}{/* AU */}
+00259    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -30,  -10,  -20,  -20\}, \textcolor{comment}{/* UA */}
+00260    \{   0,    0,     0,    0,   0\}  \textcolor{comment}{/*  @ */}
+00261 \};
+00262 
+00263 \textcolor{comment}{/* 3' dangling ends (unpaired base stacks on second paired base */}
+\Hypertarget{1_88_84__epars_8h_source_l00264}\mbox{\hyperlink{1_88_84__epars_8h_a933095f7ca24abe3d838f9fb63a1ee6c}{00264}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a933095f7ca24abe3d838f9fb63a1ee6c}{dangle3\_37\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5]=
+00265 \{\textcolor{comment}{/*   @     A     C     G     U   */}
+00266    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}\},  \textcolor{comment}{/* no pair */}
+00267    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, -110,  -40, -130,  -60\},  \textcolor{comment}{/* CG  (stacks on G) */}
+00268    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}, -170,  -80, -170, -120\},  \textcolor{comment}{/* GC */}
+00269    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -70,  -10,  -70,  -10\},  \textcolor{comment}{/* GU */}
+00270    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -80,  -50,  -80,  -60\},  \textcolor{comment}{/* UG */}
+00271    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -70,  -10,  -70,  -10\},  \textcolor{comment}{/* AU */}
+00272    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  -80,  -50,  -80,  -60\},  \textcolor{comment}{/* UA */}
+00273    \{   0,    0,     0,    0,   0\}   \textcolor{comment}{/*  @ */}
+00274 \};
+00275 
+00276 \textcolor{comment}{/* enthalpies for temperature scaling */}
+\Hypertarget{1_88_84__epars_8h_source_l00277}\mbox{\hyperlink{1_88_84__epars_8h_a3a3660a78e6e0722e7c3b26cf0429f72}{00277}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a3a3660a78e6e0722e7c3b26cf0429f72}{dangle3\_H\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5] =
+00278 \{\textcolor{comment}{/*   @     A     C     G     U   */}
+00279    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}\},  \textcolor{comment}{/* no pair */}
+00280    \{   0, -740, -280, -640, -360\},
+00281    \{   0, -900, -410, -860, -750\},
+00282    \{   0, -740, -240, -720, -490\},
+00283    \{   0, -490,  -90, -550, -230\},
+00284    \{   0, -570,  -70, -580, -220\},
+00285    \{   0, -490,  -90, -550, -230\},
+00286    \{   0,    0,    0,    0,   0\}
+00287 \};
+00288 
+\Hypertarget{1_88_84__epars_8h_source_l00289}\mbox{\hyperlink{1_88_84__epars_8h_aae8d00317ce57963d026d5e0910e241d}{00289}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_aae8d00317ce57963d026d5e0910e241d}{dangle5\_H\_184}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5] =
+00290 \{\textcolor{comment}{/*   @     A     C     G     U   */}
+00291    \{ \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}},  \mbox{\hyperlink{1_88_84__epars_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}}\},  \textcolor{comment}{/* no pair */}
+00292    \{   0, -240,  330,   80, -140\},
+00293    \{   0, -160,   70, -460,  -40\},
+00294    \{   0,  160,  220,   70,  310\},
+00295    \{   0, -150,  510,   10,  100\},
+00296    \{   0,  160,  220,   70,  310\},
+00297    \{   0,  -50,  690,  -60,  -60\},
+00298    \{   0,    0,    0,    0,   0\}
+00299 \};
+00300 
+00301 
+00302 \textcolor{comment}{/* constants for linearly destabilizing contributions for multi-loops}
+00303 \textcolor{comment}{   F = ML\_closing + ML\_intern*k + ML\_BASE*u  */}
+00304 \textcolor{comment}{/* old versions erroneously used ML\_intern*(k-1) */}
+\Hypertarget{1_88_84__epars_8h_source_l00305}\mbox{\hyperlink{1_88_84__epars_8h_acb9c8c0d18c803468fb106377df8fdb1}{00305}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_acb9c8c0d18c803468fb106377df8fdb1}{ML\_BASE37\_184}} = 0;
+\Hypertarget{1_88_84__epars_8h_source_l00306}\mbox{\hyperlink{1_88_84__epars_8h_ae0ca8df5fc307548dab9fe97fa043ed2}{00306}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_ae0ca8df5fc307548dab9fe97fa043ed2}{ML\_closing37\_184}} = 340;
+\Hypertarget{1_88_84__epars_8h_source_l00307}\mbox{\hyperlink{1_88_84__epars_8h_ada2f69ac00d5e7497374736aae8d403c}{00307}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_ada2f69ac00d5e7497374736aae8d403c}{ML\_intern37\_184}} =  40;
+00308 
+00309 \textcolor{comment}{/* Ninio-correction for asymmetric internal loops with branches n1 and n2 */}
+00310 \textcolor{comment}{/*    ninio\_energy = min\{max\_ninio, |n1-n2|*F\_ninio[min\{4.0, n1, n2\}] \} */}
+\Hypertarget{1_88_84__epars_8h_source_l00311}\mbox{\hyperlink{1_88_84__epars_8h_aaf409a10382c3468988f6e877b7adbf4}{00311}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_aaf409a10382c3468988f6e877b7adbf4}{MAX\_NINIO\_184}} = 300;                   \textcolor{comment}{/* maximum correction */}
+\Hypertarget{1_88_84__epars_8h_source_l00312}\mbox{\hyperlink{1_88_84__epars_8h_a342dc18cb7ef70b91b1d3d3df6bde7d6}{00312}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a342dc18cb7ef70b91b1d3d3df6bde7d6}{F\_ninio37\_184}}[5] = \{ 0, 40, 50, 20, 10 \};      \textcolor{comment}{/* only F[2] used */}
+00313 
+00314 \textcolor{comment}{/* stabilizing contribution due to special hairpins of size 4 (tetraloops) */}
+00315 
+\Hypertarget{1_88_84__epars_8h_source_l00316}\mbox{\hyperlink{1_88_84__epars_8h_af36cc09268d1f18dd367ca54d6c9084f}{00316}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{char} \mbox{\hyperlink{1_88_84__epars_8h_af36cc09268d1f18dd367ca54d6c9084f}{Tetraloops\_184}}[1400] =  \textcolor{comment}{/* place for up to 200 tetra loops */}
+00317   \textcolor{stringliteral}{"GGGGAC "}
+00318   \textcolor{stringliteral}{"GGUGAC "}
+00319   \textcolor{stringliteral}{"CGAAAG "}
+00320   \textcolor{stringliteral}{"GGAGAC "}
+00321   \textcolor{stringliteral}{"CGCAAG "}
+00322   \textcolor{stringliteral}{"GGAAAC "}
+00323   \textcolor{stringliteral}{"CGGAAG "}
+00324   \textcolor{stringliteral}{"CUUCGG "}
+00325   \textcolor{stringliteral}{"CGUGAG "}
+00326   \textcolor{stringliteral}{"CGAAGG "}
+00327   \textcolor{stringliteral}{"CUACGG "}
+00328   \textcolor{stringliteral}{"GGCAAC "}
+00329   \textcolor{stringliteral}{"CGCGAG "}
+00330   \textcolor{stringliteral}{"UGAGAG "}
+00331   \textcolor{stringliteral}{"CGAGAG "}
+00332   \textcolor{stringliteral}{"AGAAAU "}
+00333   \textcolor{stringliteral}{"CGUAAG "}
+00334   \textcolor{stringliteral}{"CUAACG "}
+00335   \textcolor{stringliteral}{"UGAAAG "}
+00336   \textcolor{stringliteral}{"GGAAGC "}
+00337   \textcolor{stringliteral}{"GGGAAC "}
+00338   \textcolor{stringliteral}{"UGAAAA "}
+00339   \textcolor{stringliteral}{"AGCAAU "}
+00340   \textcolor{stringliteral}{"AGUAAU "}
+00341   \textcolor{stringliteral}{"CGGGAG "}
+00342   \textcolor{stringliteral}{"AGUGAU "}
+00343   \textcolor{stringliteral}{"GGCGAC "}
+00344   \textcolor{stringliteral}{"GGGAGC "}
+00345   \textcolor{stringliteral}{"GUGAAC "}
+00346   \textcolor{stringliteral}{"UGGAAA "}
+00347 ;
+00348 
+\Hypertarget{1_88_84__epars_8h_source_l00349}\mbox{\hyperlink{1_88_84__epars_8h_ac421cb01d511bad0a9a7869117332a54}{00349}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int}   \mbox{\hyperlink{1_88_84__epars_8h_ac421cb01d511bad0a9a7869117332a54}{TETRA\_ENERGY37\_184}}[200] = \{
+00350   -300, -300, -300, -300, -300, -300, -300, -300, -300, -250, -250, -250,
+00351   -250, -250, -200, -200, -200, -200, -200, -150, -150, -150, -150, -150,
+00352   -150, -150, -150, -150, -150, -150\};
+00353 
+\Hypertarget{1_88_84__epars_8h_source_l00354}\mbox{\hyperlink{1_88_84__epars_8h_af2e0d0e21e5a4a917de202825af89bb9}{00354}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int}   \mbox{\hyperlink{1_88_84__epars_8h_af2e0d0e21e5a4a917de202825af89bb9}{TETRA\_ENTH37\_184}}   = -400;
+00355 
+\Hypertarget{1_88_84__epars_8h_source_l00356}\mbox{\hyperlink{1_88_84__epars_8h_af76b33439c0facb3182d4ab96efe0e0e}{00356}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{char} \mbox{\hyperlink{1_88_84__epars_8h_af76b33439c0facb3182d4ab96efe0e0e}{Triloops\_184}}[241] = \textcolor{stringliteral}{""};
+00357 
+\Hypertarget{1_88_84__epars_8h_source_l00358}\mbox{\hyperlink{1_88_84__epars_8h_a988506859b091e5106c77c965955d9d4}{00358}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a988506859b091e5106c77c965955d9d4}{Triloop\_E37\_184}}[40];
+00359 
+00360 \textcolor{comment}{/* penalty for AU (or GU) terminating helix) */}
+00361 \textcolor{comment}{/* mismatches already contain these */}
+\Hypertarget{1_88_84__epars_8h_source_l00362}\mbox{\hyperlink{1_88_84__epars_8h_a365bc9260cbf323a5ac9b00e0cd5f4a5}{00362}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a365bc9260cbf323a5ac9b00e0cd5f4a5}{TerminalAU\_184}} = 50;
+00363 
+00364 \textcolor{comment}{/* penalty for forming a bi-molecular duplex */}
+\Hypertarget{1_88_84__epars_8h_source_l00365}\mbox{\hyperlink{1_88_84__epars_8h_a27030969950d3bd7612574826bdf9557}{00365}} \mbox{\hyperlink{edit__cost_8h_a5e151c615eda34903514212f05a5ccf8}{PRIVATE}} \textcolor{keywordtype}{int} \mbox{\hyperlink{1_88_84__epars_8h_a27030969950d3bd7612574826bdf9557}{DuplexInit\_184}} = 410;
+00366 
+00367 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}

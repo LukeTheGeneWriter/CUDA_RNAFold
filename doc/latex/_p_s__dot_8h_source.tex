@@ -1,0 +1,104 @@
+\hypertarget{_p_s__dot_8h_source}{}\section{P\+S\+\_\+dot.\+h}
+\label{_p_s__dot_8h_source}\index{Vienna\+R\+N\+A/\+P\+S\+\_\+dot.\+h@{Vienna\+R\+N\+A/\+P\+S\+\_\+dot.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_PS\_DOT\_H}
+00002 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_PS\_DOT\_H}
+00003 
+00004 
+00005 \textcolor{preprocessor}{#include <\mbox{\hyperlink{data__structures_8h}{ViennaRNA/data\_structures.h}}>}
+00006 \textcolor{preprocessor}{#include <\mbox{\hyperlink{structure__utils_8h}{ViennaRNA/structure\_utils.h}}>}
+00007 \textcolor{preprocessor}{#include <\mbox{\hyperlink{plot__structure_8h}{ViennaRNA/plot\_structure.h}}>}
+00008 \textcolor{preprocessor}{#include <\mbox{\hyperlink{plot__aln_8h}{ViennaRNA/plot\_aln.h}}>}
+00009 
+00010 \textcolor{preprocessor}{#ifdef VRNA\_WARN\_DEPRECATED}
+00011 \textcolor{preprocessor}{# if defined(\_\_clang\_\_)}
+00012 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func \_\_attribute\_\_ ((deprecated("", msg)))}
+00013 \textcolor{preprocessor}{# elif defined(\_\_GNUC\_\_)}
+00014 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func \_\_attribute\_\_ ((deprecated(msg)))}
+00015 \textcolor{preprocessor}{# else}
+00016 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func}
+00017 \textcolor{preprocessor}{# endif}
+00018 \textcolor{preprocessor}{#else}
+\Hypertarget{_p_s__dot_8h_source_l00019}\mbox{\hyperlink{_p_s__dot_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{00019}} \textcolor{preprocessor}{# define DEPRECATED(func, msg) func}
+00020 \textcolor{preprocessor}{#endif}
+00021 
+\Hypertarget{_p_s__dot_8h_source_l00034}\mbox{\hyperlink{group__plotting__utils_gacbb7170d7e64a20671b97dafe3825011}{00034}} \textcolor{preprocessor}{#define VRNA\_PLOT\_PROBABILITIES\_BP        1U}
+\Hypertarget{_p_s__dot_8h_source_l00035}\mbox{\hyperlink{group__plotting__utils_ga7cf7de27166f5c445e2cf0ffc03b1a7a}{00035}} \textcolor{preprocessor}{#define VRNA\_PLOT\_PROBABILITIES\_ACC       2U}
+00036 
+\Hypertarget{_p_s__dot_8h_source_l00037}\mbox{\hyperlink{group__plotting__utils_ga7f35d77121d2080b8c172841248b2060}{00037}} \textcolor{preprocessor}{#define VRNA\_PLOT\_PROBABILITIES\_UD        4U}
+\Hypertarget{_p_s__dot_8h_source_l00038}\mbox{\hyperlink{group__plotting__utils_ga6cce76e1c319a60a8b8e39d8887e2f1a}{00038}} \textcolor{preprocessor}{#define VRNA\_PLOT\_PROBABILITIES\_UD\_LIN    8U}
+00039 
+\Hypertarget{_p_s__dot_8h_source_l00040}\mbox{\hyperlink{group__plotting__utils_ga78f8da179bc3f52b1c1180931ed8b0f7}{00040}} \textcolor{preprocessor}{#define VRNA\_PLOT\_PROBABILITIES\_SD        16U}
+00041 
+\Hypertarget{_p_s__dot_8h_source_l00042}\mbox{\hyperlink{group__plotting__utils_ga228fe1c75b71cb40726b9423d2bed2a9}{00042}} \textcolor{preprocessor}{#define VRNA\_PLOT\_PROBABILITIES\_SC\_MOTIF  32U}
+\Hypertarget{_p_s__dot_8h_source_l00043}\mbox{\hyperlink{group__plotting__utils_ga41a92625e75a77555b3f6e3a0ef7b89b}{00043}} \textcolor{preprocessor}{#define VRNA\_PLOT\_PROBABILITIES\_SC\_UP     64U}
+\Hypertarget{_p_s__dot_8h_source_l00044}\mbox{\hyperlink{group__plotting__utils_ga886fa0619733b98667111faa56cd03d6}{00044}} \textcolor{preprocessor}{#define VRNA\_PLOT\_PROBABILITIES\_SC\_BP     128U}
+00045 
+\Hypertarget{_p_s__dot_8h_source_l00046}\mbox{\hyperlink{group__plotting__utils_gaa3a3d5cf87de5120a93eab3be788b6fb}{00046}} \textcolor{preprocessor}{#define VRNA\_PLOT\_PROBABILITIES\_DEFAULT   (   VRNA\_PLOT\_PROBABILITIES\_BP \(\backslash\)}
+00047 \textcolor{preprocessor}{                                            | VRNA\_PLOT\_PROBABILITIES\_SD \(\backslash\)}
+00048 \textcolor{preprocessor}{                                            | VRNA\_PLOT\_PROBABILITIES\_SC\_MOTIF \(\backslash\)}
+00049 \textcolor{preprocessor}{                                            | VRNA\_PLOT\_PROBABILITIES\_UD\_LIN )}
+\Hypertarget{_p_s__dot_8h_source_l00050}\mbox{\hyperlink{group__plotting__utils}{00050}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\{
+\Hypertarget{_p_s__dot_8h_source_l00051}\mbox{\hyperlink{group__plotting__utils_a244ff5044623adbb46db61f89a812f4c}{00051}}   \textcolor{keywordtype}{char}            *\mbox{\hyperlink{group__plotting__utils_a244ff5044623adbb46db61f89a812f4c}{comment}};
+\Hypertarget{_p_s__dot_8h_source_l00052}\mbox{\hyperlink{group__plotting__utils_a651c8b62c91f07056a2018219f9e3834}{00052}}   \textcolor{keywordtype}{char}            *\mbox{\hyperlink{group__plotting__utils_a651c8b62c91f07056a2018219f9e3834}{title}};
+00053 
+\Hypertarget{_p_s__dot_8h_source_l00054}\mbox{\hyperlink{group__plotting__utils_a5834cd1f871a38c76c91560679864a44}{00054}}   \mbox{\hyperlink{group__data__structures_structvrna__data__linear__s}{vrna\_data\_lin\_t}} **\mbox{\hyperlink{group__plotting__utils_a5834cd1f871a38c76c91560679864a44}{top}};
+\Hypertarget{_p_s__dot_8h_source_l00055}\mbox{\hyperlink{group__plotting__utils_a9614c3ff559137f289d318b5a90bab05}{00055}}   \textcolor{keywordtype}{char}            **\mbox{\hyperlink{group__plotting__utils_a9614c3ff559137f289d318b5a90bab05}{top\_title}};
+00056 
+\Hypertarget{_p_s__dot_8h_source_l00057}\mbox{\hyperlink{group__plotting__utils_a60035f57164299f6f164d6c7a4dcfd08}{00057}}   \mbox{\hyperlink{group__data__structures_structvrna__data__linear__s}{vrna\_data\_lin\_t}} **\mbox{\hyperlink{group__plotting__utils_a60035f57164299f6f164d6c7a4dcfd08}{bottom}};
+\Hypertarget{_p_s__dot_8h_source_l00058}\mbox{\hyperlink{group__plotting__utils_a0afcf35613891c523b9934c563fe4ede}{00058}}   \textcolor{keywordtype}{char}            **\mbox{\hyperlink{group__plotting__utils_a0afcf35613891c523b9934c563fe4ede}{bottom\_title}};
+00059 
+\Hypertarget{_p_s__dot_8h_source_l00060}\mbox{\hyperlink{group__plotting__utils_a249418dc916bf2609186240c86dd3f66}{00060}}   \mbox{\hyperlink{group__data__structures_structvrna__data__linear__s}{vrna\_data\_lin\_t}} **\mbox{\hyperlink{group__plotting__utils_a249418dc916bf2609186240c86dd3f66}{left}};
+\Hypertarget{_p_s__dot_8h_source_l00061}\mbox{\hyperlink{group__plotting__utils_a69c277c5aae30fae6454933ee29a8123}{00061}}   \textcolor{keywordtype}{char}            **\mbox{\hyperlink{group__plotting__utils_a69c277c5aae30fae6454933ee29a8123}{left\_title}};
+00062 
+\Hypertarget{_p_s__dot_8h_source_l00063}\mbox{\hyperlink{group__plotting__utils_aa22630b90143fb534cd68301cb852095}{00063}}   \mbox{\hyperlink{group__data__structures_structvrna__data__linear__s}{vrna\_data\_lin\_t}} **\mbox{\hyperlink{group__plotting__utils_aa22630b90143fb534cd68301cb852095}{right}};
+\Hypertarget{_p_s__dot_8h_source_l00064}\mbox{\hyperlink{group__plotting__utils_acb6f56b185c7c27573ea4a2dfcc15f4d}{00064}}   \textcolor{keywordtype}{char}            **\mbox{\hyperlink{group__plotting__utils_acb6f56b185c7c27573ea4a2dfcc15f4d}{right\_title}};
+00065 \} \mbox{\hyperlink{group__plotting__utils_structvrna__dotplot__auxdata__t}{vrna\_dotplot\_auxdata\_t}};
+00066 
+00067 
+00068 \textcolor{keywordtype}{int}
+00069 \mbox{\hyperlink{group__plotting__utils_ga45e56b67e3f333f4335197737b5f9822}{vrna\_plot\_dp\_EPS}}( \textcolor{keyword}{const} \textcolor{keywordtype}{char}              *filename,
+00070                   \textcolor{keyword}{const} \textcolor{keywordtype}{char}              *sequence,
+00071                   \mbox{\hyperlink{group__struct__utils_structvrna__elem__prob__s}{vrna\_ep\_t}}               *upper,
+00072                   \mbox{\hyperlink{group__struct__utils_structvrna__elem__prob__s}{vrna\_ep\_t}}               *lower,
+00073                   \mbox{\hyperlink{group__plotting__utils_structvrna__dotplot__auxdata__t}{vrna\_dotplot\_auxdata\_t}}  *auxdata,
+00074                   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}            options);
+00075 
+00076 \textcolor{keywordtype}{int} \mbox{\hyperlink{group__plotting__utils_ga2f6294599b0fbe8338bec6918c3b1ba7}{PS\_color\_dot\_plot}}(\textcolor{keywordtype}{char} *\textcolor{keywordtype}{string},
+00077                       \mbox{\hyperlink{group__data__structures_structvrna__cpair__s}{cpair}} *pi,
+00078                       \textcolor{keywordtype}{char} *filename);
+00079 
+00080 \textcolor{keywordtype}{int} \mbox{\hyperlink{group__plotting__utils_gab3e6bb8fac08c07b32883ae2049aed9d}{PS\_color\_dot\_plot\_turn}}( \textcolor{keywordtype}{char} *seq,
+00081                             \mbox{\hyperlink{group__data__structures_structvrna__cpair__s}{cpair}} *pi,
+00082                             \textcolor{keywordtype}{char} *filename,
+00083                             \textcolor{keywordtype}{int} winSize);
+00084 
+00104 \textcolor{keywordtype}{int} \mbox{\hyperlink{group__plotting__utils_ga00ea223b5cf02eb2faae5ff29f0d5e12}{PS\_dot\_plot\_list}}( \textcolor{keywordtype}{char} *seq,
+00105                       \textcolor{keywordtype}{char} *filename,
+00106                       \mbox{\hyperlink{group__struct__utils_structvrna__elem__prob__s}{plist}} *pl,
+00107                       \mbox{\hyperlink{group__struct__utils_structvrna__elem__prob__s}{plist}} *mf,
+00108                       \textcolor{keywordtype}{char} *comment);
+00109 
+00110 \textcolor{keywordtype}{int} \mbox{\hyperlink{group__plotting__utils_ga3921213b67eb931daeb24451e989f8de}{vrna\_plot\_dp\_PS\_list}}( \textcolor{keywordtype}{char} *seq,
+00111                           \textcolor{keywordtype}{int} cp,
+00112                           \textcolor{keywordtype}{char} *wastlfile,
+00113                           \mbox{\hyperlink{group__struct__utils_structvrna__elem__prob__s}{plist}} *pl,
+00114                           \mbox{\hyperlink{group__struct__utils_structvrna__elem__prob__s}{plist}} *mf,
+00115                           \textcolor{keywordtype}{char} *comment);
+00116 
+00117 \textcolor{keywordtype}{int} \mbox{\hyperlink{group__plotting__utils_ga5582a502d39ec3bc8d5ba3262102991c}{PS\_dot\_plot\_turn}}( \textcolor{keywordtype}{char} *seq,
+00118                       \mbox{\hyperlink{group__struct__utils_structvrna__elem__prob__s}{plist}} *pl,
+00119                       \textcolor{keywordtype}{char} *filename,
+00120                       \textcolor{keywordtype}{int} winSize);
+00121 
+00122 \textcolor{preprocessor}{#ifndef VRNA\_DISABLE\_BACKWARD\_COMPATIBILITY}
+00123 
+00139 \mbox{\hyperlink{_p_s__dot_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\textcolor{keywordtype}{int} \mbox{\hyperlink{group__plotting__utils_ga689a97a7e3b8a2df14728b8204d9d57b}{PS\_dot\_plot}}( \textcolor{keywordtype}{char} *\textcolor{keywordtype}{string},
+00140                             \textcolor{keywordtype}{char} *file),
+00141 \textcolor{stringliteral}{"Use vrna\_plot\_dp\_EPS() instead"});
+00142 
+00143 \textcolor{preprocessor}{#endif}
+00144 
+00149 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}
