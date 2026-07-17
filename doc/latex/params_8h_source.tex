@@ -1,0 +1,230 @@
+\hypertarget{params_8h_source}{}\section{params.\+h}
+\label{params_8h_source}\index{Vienna\+R\+N\+A/params.\+h@{Vienna\+R\+N\+A/params.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_PARAMS\_H}
+00002 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_PARAMS\_H}
+00003 
+00004 \textcolor{preprocessor}{#ifdef VRNA\_WARN\_DEPRECATED}
+00005 \textcolor{preprocessor}{# if defined(\_\_clang\_\_)}
+00006 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func \_\_attribute\_\_ ((deprecated("", msg)))}
+00007 \textcolor{preprocessor}{# elif defined(\_\_GNUC\_\_)}
+00008 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func \_\_attribute\_\_ ((deprecated(msg)))}
+00009 \textcolor{preprocessor}{# else}
+00010 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func}
+00011 \textcolor{preprocessor}{# endif}
+00012 \textcolor{preprocessor}{#else}
+\Hypertarget{params_8h_source_l00013}\mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{00013}} \textcolor{preprocessor}{# define DEPRECATED(func, msg) func}
+00014 \textcolor{preprocessor}{#endif}
+00015 
+\Hypertarget{params_8h_source_l00036}\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{00036}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct  }\mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_s}} \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}};
+\Hypertarget{params_8h_source_l00038}\mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{00038}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct  }\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_s}} \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}};
+00039 
+00040 \textcolor{preprocessor}{#include <\mbox{\hyperlink{energy__const_8h}{ViennaRNA/energy\_const.h}}>}
+00041 \textcolor{preprocessor}{#include <\mbox{\hyperlink{data__structures_8h}{ViennaRNA/data\_structures.h}}>}
+00042 \textcolor{preprocessor}{#include <\mbox{\hyperlink{model_8h}{ViennaRNA/model.h}}>}
+00043 
+\Hypertarget{params_8h_source_l00044}\mbox{\hyperlink{group__energy__parameters_gab7b5159125a90babbd3b81319305f35f}{00044}} \textcolor{preprocessor}{#define   VRNA\_GQUAD\_MAX\_STACK\_SIZE     7}
+\Hypertarget{params_8h_source_l00045}\mbox{\hyperlink{group__energy__parameters_gae24794ad38d2bf86d4c1e2f24cf35230}{00045}} \textcolor{preprocessor}{#define   VRNA\_GQUAD\_MIN\_STACK\_SIZE     2}
+\Hypertarget{params_8h_source_l00046}\mbox{\hyperlink{group__energy__parameters_gaabc251a60f6dbe927dd3a3881a161fb7}{00046}} \textcolor{preprocessor}{#define   VRNA\_GQUAD\_MAX\_LINKER\_LENGTH  15}
+\Hypertarget{params_8h_source_l00047}\mbox{\hyperlink{group__energy__parameters_gab0e3cb58bc3a7e3fb08cc05f8e58ddab}{00047}} \textcolor{preprocessor}{#define   VRNA\_GQUAD\_MIN\_LINKER\_LENGTH  1}
+\Hypertarget{params_8h_source_l00048}\mbox{\hyperlink{group__energy__parameters_gad7bdd880afca461f97763d79ee57a347}{00048}} \textcolor{preprocessor}{#define   VRNA\_GQUAD\_MIN\_BOX\_SIZE       ((4 * VRNA\_GQUAD\_MIN\_STACK\_SIZE) + \(\backslash\)}
+00049 \textcolor{preprocessor}{                                         (3 * VRNA\_GQUAD\_MIN\_LINKER\_LENGTH))}
+\Hypertarget{params_8h_source_l00050}\mbox{\hyperlink{group__energy__parameters_ga56cafabad2f8a7db83f2d5d3b0e8d313}{00050}} \textcolor{preprocessor}{#define   VRNA\_GQUAD\_MAX\_BOX\_SIZE       ((4 * VRNA\_GQUAD\_MAX\_STACK\_SIZE) + \(\backslash\)}
+00051 \textcolor{preprocessor}{                                         (3 * VRNA\_GQUAD\_MAX\_LINKER\_LENGTH))}
+00052 
+\Hypertarget{params_8h_source_l00056}\mbox{\hyperlink{group__energy__parameters}{00056}} \textcolor{keyword}{struct }\mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_s}} \{
+\Hypertarget{params_8h_source_l00057}\mbox{\hyperlink{group__energy__parameters_ab2e674fea69570fb83bcf63f19e433ee}{00057}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_ab2e674fea69570fb83bcf63f19e433ee}{id}};
+\Hypertarget{params_8h_source_l00058}\mbox{\hyperlink{group__energy__parameters_af7cdedcea1bb1c171856ab06dc9f6ed2}{00058}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_af7cdedcea1bb1c171856ab06dc9f6ed2}{stack}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1];
+\Hypertarget{params_8h_source_l00059}\mbox{\hyperlink{group__energy__parameters_ac3160bdbb97b2ef9e949c9ba66bf057c}{00059}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_ac3160bdbb97b2ef9e949c9ba66bf057c}{hairpin}}[31];
+\Hypertarget{params_8h_source_l00060}\mbox{\hyperlink{group__energy__parameters_aa7121473b8a705f84048c09b12c1d1c2}{00060}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_aa7121473b8a705f84048c09b12c1d1c2}{bulge}}[\mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}} + 1];
+\Hypertarget{params_8h_source_l00061}\mbox{\hyperlink{group__energy__parameters_a2a4fb2c65023ec371c9b96573da6d2fc}{00061}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a2a4fb2c65023ec371c9b96573da6d2fc}{internal\_loop}}[\mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}} + 1];
+\Hypertarget{params_8h_source_l00062}\mbox{\hyperlink{group__energy__parameters_a6122f31447a8cccdd1203c9695ba1e3b}{00062}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a6122f31447a8cccdd1203c9695ba1e3b}{mismatchExt}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00063}\mbox{\hyperlink{group__energy__parameters_af1a456ce5983b107c47e5dd25727205e}{00063}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_af1a456ce5983b107c47e5dd25727205e}{mismatchI}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00064}\mbox{\hyperlink{group__energy__parameters_a6058cd6334a2e5929bd36315e9d0fe3a}{00064}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a6058cd6334a2e5929bd36315e9d0fe3a}{mismatch1nI}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00065}\mbox{\hyperlink{group__energy__parameters_a2d8a2ed8936cd60fbed953a2bc64f9b3}{00065}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a2d8a2ed8936cd60fbed953a2bc64f9b3}{mismatch23I}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00066}\mbox{\hyperlink{group__energy__parameters_ad07794648fa1cac6f02c57c095fb53e6}{00066}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_ad07794648fa1cac6f02c57c095fb53e6}{mismatchH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00067}\mbox{\hyperlink{group__energy__parameters_afcc32f63f2c829bfb0016db82f7810fc}{00067}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_afcc32f63f2c829bfb0016db82f7810fc}{mismatchM}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00068}\mbox{\hyperlink{group__energy__parameters_ad2534b54836d48b4f549b319766f658f}{00068}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_ad2534b54836d48b4f549b319766f658f}{dangle5}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5];
+\Hypertarget{params_8h_source_l00069}\mbox{\hyperlink{group__energy__parameters_a75c644da73d4d01c86b5f6a1e3af3ae9}{00069}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a75c644da73d4d01c86b5f6a1e3af3ae9}{dangle3}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5];
+\Hypertarget{params_8h_source_l00070}\mbox{\hyperlink{group__energy__parameters_a585e235827774a0073be22bf00e48c30}{00070}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a585e235827774a0073be22bf00e48c30}{int11}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00071}\mbox{\hyperlink{group__energy__parameters_a983245e30d7a41a3102e5e5ea4bec7e2}{00071}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a983245e30d7a41a3102e5e5ea4bec7e2}{int21}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5][5];
+\Hypertarget{params_8h_source_l00072}\mbox{\hyperlink{group__energy__parameters_ad56fdeadc2a2e51b9f23b2c26d067ec4}{00072}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_ad56fdeadc2a2e51b9f23b2c26d067ec4}{int22}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5][5][5];
+\Hypertarget{params_8h_source_l00073}\mbox{\hyperlink{group__energy__parameters_ac03c4835310b225a64ea9eb77a174940}{00073}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_ac03c4835310b225a64ea9eb77a174940}{ninio}}[5];
+\Hypertarget{params_8h_source_l00074}\mbox{\hyperlink{group__energy__parameters_a24ea058414d3fb918c7fbf189a4a1e51}{00074}}   \textcolor{keywordtype}{double}    \mbox{\hyperlink{group__energy__parameters_a24ea058414d3fb918c7fbf189a4a1e51}{lxc}};
+\Hypertarget{params_8h_source_l00075}\mbox{\hyperlink{group__energy__parameters_a6fd54883ec8b69345e970ad372f83679}{00075}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a6fd54883ec8b69345e970ad372f83679}{MLbase}};
+\Hypertarget{params_8h_source_l00076}\mbox{\hyperlink{group__energy__parameters_a28c7b54d5e8edf9a1121a2d1f9c98e7f}{00076}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a28c7b54d5e8edf9a1121a2d1f9c98e7f}{MLintern}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1];
+\Hypertarget{params_8h_source_l00077}\mbox{\hyperlink{group__energy__parameters_a585d850089d454a367daef9ce2fc8395}{00077}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a585d850089d454a367daef9ce2fc8395}{MLclosing}};
+\Hypertarget{params_8h_source_l00078}\mbox{\hyperlink{group__energy__parameters_a0ad35507a03ba7f751e82cb375e991dd}{00078}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a0ad35507a03ba7f751e82cb375e991dd}{TerminalAU}};
+\Hypertarget{params_8h_source_l00079}\mbox{\hyperlink{group__energy__parameters_a86f6ae1e5649264f7ad82969a49bb09e}{00079}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a86f6ae1e5649264f7ad82969a49bb09e}{DuplexInit}};
+\Hypertarget{params_8h_source_l00080}\mbox{\hyperlink{group__energy__parameters_a3a853cc7dbad832e377d03c2be09f3a0}{00080}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a3a853cc7dbad832e377d03c2be09f3a0}{Tetraloop\_E}}[200];
+\Hypertarget{params_8h_source_l00081}\mbox{\hyperlink{group__energy__parameters_a2fda2f47699f66eb79becc63481dc7a5}{00081}}   \textcolor{keywordtype}{char}      \mbox{\hyperlink{group__energy__parameters_a2fda2f47699f66eb79becc63481dc7a5}{Tetraloops}}[1401];
+\Hypertarget{params_8h_source_l00082}\mbox{\hyperlink{group__energy__parameters_a779303656223c8f9f12a7bdb877ae4ae}{00082}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a779303656223c8f9f12a7bdb877ae4ae}{Triloop\_E}}[40];
+\Hypertarget{params_8h_source_l00083}\mbox{\hyperlink{group__energy__parameters_a5824325d79edfe569c6023f52a08d7be}{00083}}   \textcolor{keywordtype}{char}      \mbox{\hyperlink{group__energy__parameters_a5824325d79edfe569c6023f52a08d7be}{Triloops}}[241];
+\Hypertarget{params_8h_source_l00084}\mbox{\hyperlink{group__energy__parameters_a9fa7c16fb78efb6e2730b6553282ebf9}{00084}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a9fa7c16fb78efb6e2730b6553282ebf9}{Hexaloop\_E}}[40];
+\Hypertarget{params_8h_source_l00085}\mbox{\hyperlink{group__energy__parameters_a1b32fef887ebf8097da6f5913743794c}{00085}}   \textcolor{keywordtype}{char}      \mbox{\hyperlink{group__energy__parameters_a1b32fef887ebf8097da6f5913743794c}{Hexaloops}}[1801];
+\Hypertarget{params_8h_source_l00086}\mbox{\hyperlink{group__energy__parameters_ac9ca6eda834acca6eee5d00ee3ee69c9}{00086}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_ac9ca6eda834acca6eee5d00ee3ee69c9}{TripleC}};
+\Hypertarget{params_8h_source_l00087}\mbox{\hyperlink{group__energy__parameters_a481323a736818349ec7c66ebf01825c6}{00087}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a481323a736818349ec7c66ebf01825c6}{MultipleCA}};
+\Hypertarget{params_8h_source_l00088}\mbox{\hyperlink{group__energy__parameters_a465b7758e3d105f10a6fa7958024abb4}{00088}}   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_a465b7758e3d105f10a6fa7958024abb4}{MultipleCB}};
+00089   \textcolor{keywordtype}{int}       \mbox{\hyperlink{group__energy__parameters_ae614af2c628faa36c8007bd054be21d9}{gquad}} [\mbox{\hyperlink{group__energy__parameters_gab7b5159125a90babbd3b81319305f35f}{VRNA\_GQUAD\_MAX\_STACK\_SIZE}} + 1]
+\Hypertarget{params_8h_source_l00090}\mbox{\hyperlink{group__energy__parameters_ae614af2c628faa36c8007bd054be21d9}{00090}}   [3 * \mbox{\hyperlink{group__energy__parameters_gaabc251a60f6dbe927dd3a3881a161fb7}{VRNA\_GQUAD\_MAX\_LINKER\_LENGTH}} + 1];
+00091 
+\Hypertarget{params_8h_source_l00092}\mbox{\hyperlink{group__energy__parameters_aeed2cd83713012bcb52e431041e037c8}{00092}}   \textcolor{keywordtype}{double}    \mbox{\hyperlink{group__energy__parameters_aeed2cd83713012bcb52e431041e037c8}{temperature}};      
+\Hypertarget{params_8h_source_l00094}\mbox{\hyperlink{group__energy__parameters_a7b84353eb9075c595bad4ceb871bcae7}{00094}}   \mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}} \mbox{\hyperlink{group__energy__parameters_a7b84353eb9075c595bad4ceb871bcae7}{model\_details}};    
+\Hypertarget{params_8h_source_l00095}\mbox{\hyperlink{group__energy__parameters_ace10aa4aacffcbf6de92349f2ee0d66a}{00095}}   \textcolor{keywordtype}{char}      \mbox{\hyperlink{group__energy__parameters_ace10aa4aacffcbf6de92349f2ee0d66a}{param\_file}}[256];  
+00096 \};
+00097 
+\Hypertarget{params_8h_source_l00101}\mbox{\hyperlink{group__energy__parameters}{00101}} \textcolor{keyword}{struct }\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_s}} \{
+\Hypertarget{params_8h_source_l00102}\mbox{\hyperlink{group__energy__parameters_a378d5bcf2bae1f3ec84c912c7d3908d2}{00102}}   \textcolor{keywordtype}{int}     \mbox{\hyperlink{group__energy__parameters_a378d5bcf2bae1f3ec84c912c7d3908d2}{id}};   
+\Hypertarget{params_8h_source_l00105}\mbox{\hyperlink{group__energy__parameters_a0b288e466e25d1c4f45d138236b5a544}{00105}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a0b288e466e25d1c4f45d138236b5a544}{expstack}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1];
+\Hypertarget{params_8h_source_l00106}\mbox{\hyperlink{group__energy__parameters_a7d770c6dbf7bd37b91f56600d387b0cd}{00106}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a7d770c6dbf7bd37b91f56600d387b0cd}{exphairpin}}[31];
+\Hypertarget{params_8h_source_l00107}\mbox{\hyperlink{group__energy__parameters_a7f2f16246bbfc5b009e4c34113dcacd7}{00107}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a7f2f16246bbfc5b009e4c34113dcacd7}{expbulge}}[\mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}} + 1];
+\Hypertarget{params_8h_source_l00108}\mbox{\hyperlink{group__energy__parameters_aa98c3f4a62b997c9a460876c75d2d1ea}{00108}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_aa98c3f4a62b997c9a460876c75d2d1ea}{expinternal}}[\mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}} + 1];
+\Hypertarget{params_8h_source_l00109}\mbox{\hyperlink{group__energy__parameters_a2fe9cc842350991d96b341804522a0d1}{00109}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a2fe9cc842350991d96b341804522a0d1}{expmismatchExt}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00110}\mbox{\hyperlink{group__energy__parameters_aac2d7b3c327c7125be000e8328fca606}{00110}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_aac2d7b3c327c7125be000e8328fca606}{expmismatchI}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00111}\mbox{\hyperlink{group__energy__parameters_afed2655b9a16a362fc22d270bfe3a5ab}{00111}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_afed2655b9a16a362fc22d270bfe3a5ab}{expmismatch23I}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00112}\mbox{\hyperlink{group__energy__parameters_ae64727c998a64d8a6f958ef364eda821}{00112}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_ae64727c998a64d8a6f958ef364eda821}{expmismatch1nI}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00113}\mbox{\hyperlink{group__energy__parameters_a3638d270ea7979d80a75a7199a19717e}{00113}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a3638d270ea7979d80a75a7199a19717e}{expmismatchH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00114}\mbox{\hyperlink{group__energy__parameters_ac6ed6415250369dd10fe392c7460a5c9}{00114}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_ac6ed6415250369dd10fe392c7460a5c9}{expmismatchM}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00115}\mbox{\hyperlink{group__energy__parameters_ad013274ab70d044e382000eec41fea09}{00115}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_ad013274ab70d044e382000eec41fea09}{expdangle5}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5];
+\Hypertarget{params_8h_source_l00116}\mbox{\hyperlink{group__energy__parameters_a4dd91ccea8929e4779be114b9b76b28f}{00116}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a4dd91ccea8929e4779be114b9b76b28f}{expdangle3}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5];
+\Hypertarget{params_8h_source_l00117}\mbox{\hyperlink{group__energy__parameters_ae58abb197b8bfb624513cb28858a8dab}{00117}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_ae58abb197b8bfb624513cb28858a8dab}{expint11}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5];
+\Hypertarget{params_8h_source_l00118}\mbox{\hyperlink{group__energy__parameters_acb992a6f846f0d1720b111606d819164}{00118}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_acb992a6f846f0d1720b111606d819164}{expint21}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5][5];
+\Hypertarget{params_8h_source_l00119}\mbox{\hyperlink{group__energy__parameters_aa8e5d06b019fb91bf7f1b866e5349fb6}{00119}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_aa8e5d06b019fb91bf7f1b866e5349fb6}{expint22}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1][5][5][5][5];
+\Hypertarget{params_8h_source_l00120}\mbox{\hyperlink{group__energy__parameters_aa02a086c6fce358c984a9685d0c4ece7}{00120}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_aa02a086c6fce358c984a9685d0c4ece7}{expninio}}[5][\mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}} + 1];
+\Hypertarget{params_8h_source_l00121}\mbox{\hyperlink{group__energy__parameters_acbceb6027e4aa73cf216712617d8ab02}{00121}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_acbceb6027e4aa73cf216712617d8ab02}{lxc}};
+\Hypertarget{params_8h_source_l00122}\mbox{\hyperlink{group__energy__parameters_aef32ae2492725def74065fcc0f0a5f04}{00122}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_aef32ae2492725def74065fcc0f0a5f04}{expMLbase}};
+\Hypertarget{params_8h_source_l00123}\mbox{\hyperlink{group__energy__parameters_acb1b64f42c607ada107e05262eb3d3c7}{00123}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_acb1b64f42c607ada107e05262eb3d3c7}{expMLintern}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}} + 1];
+\Hypertarget{params_8h_source_l00124}\mbox{\hyperlink{group__energy__parameters_afdfbc240dc615d45fa5e9f0e8d4f8026}{00124}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_afdfbc240dc615d45fa5e9f0e8d4f8026}{expMLclosing}};
+\Hypertarget{params_8h_source_l00125}\mbox{\hyperlink{group__energy__parameters_a9040df20dfcfeabaef375edb88a15326}{00125}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a9040df20dfcfeabaef375edb88a15326}{expTermAU}};
+\Hypertarget{params_8h_source_l00126}\mbox{\hyperlink{group__energy__parameters_ad6206b8edd6bdb01887c905423e2abb9}{00126}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_ad6206b8edd6bdb01887c905423e2abb9}{expDuplexInit}};
+\Hypertarget{params_8h_source_l00127}\mbox{\hyperlink{group__energy__parameters_ad2751af5816c82fcceacf9d496b1e9c9}{00127}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_ad2751af5816c82fcceacf9d496b1e9c9}{exptetra}}[40];
+\Hypertarget{params_8h_source_l00128}\mbox{\hyperlink{group__energy__parameters_a076792cfccdc10ace2dbe2b7a8d3c5df}{00128}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a076792cfccdc10ace2dbe2b7a8d3c5df}{exptri}}[40];
+\Hypertarget{params_8h_source_l00129}\mbox{\hyperlink{group__energy__parameters_a193c26eb7ea79e91b4dcb89b87e7926e}{00129}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a193c26eb7ea79e91b4dcb89b87e7926e}{exphex}}[40];
+\Hypertarget{params_8h_source_l00130}\mbox{\hyperlink{group__energy__parameters_aff2006d0ead3d1de216a9a7f0680fdc2}{00130}}   \textcolor{keywordtype}{char}    \mbox{\hyperlink{group__energy__parameters_aff2006d0ead3d1de216a9a7f0680fdc2}{Tetraloops}}[1401];
+\Hypertarget{params_8h_source_l00131}\mbox{\hyperlink{group__energy__parameters_a91650cc682967f5914097c9a99e4f693}{00131}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a91650cc682967f5914097c9a99e4f693}{expTriloop}}[40];
+\Hypertarget{params_8h_source_l00132}\mbox{\hyperlink{group__energy__parameters_a309a8d464478a36963c36d91110920b6}{00132}}   \textcolor{keywordtype}{char}    \mbox{\hyperlink{group__energy__parameters_a309a8d464478a36963c36d91110920b6}{Triloops}}[241];
+\Hypertarget{params_8h_source_l00133}\mbox{\hyperlink{group__energy__parameters_a771e437bb84e669d7a561f342ebbed33}{00133}}   \textcolor{keywordtype}{char}    \mbox{\hyperlink{group__energy__parameters_a771e437bb84e669d7a561f342ebbed33}{Hexaloops}}[1801];
+\Hypertarget{params_8h_source_l00134}\mbox{\hyperlink{group__energy__parameters_ab31a5df72a249faea0ce4a8e95c18244}{00134}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_ab31a5df72a249faea0ce4a8e95c18244}{expTripleC}};
+\Hypertarget{params_8h_source_l00135}\mbox{\hyperlink{group__energy__parameters_abf12e9cdf6688361080e70c29bc15133}{00135}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_abf12e9cdf6688361080e70c29bc15133}{expMultipleCA}};
+\Hypertarget{params_8h_source_l00136}\mbox{\hyperlink{group__energy__parameters_a0b5a9b6ce171cd239250b4287f57aa23}{00136}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a0b5a9b6ce171cd239250b4287f57aa23}{expMultipleCB}};
+00137   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a8a230c75cd0fae888aedd45f488b4ff7}{expgquad}}[\mbox{\hyperlink{group__energy__parameters_gab7b5159125a90babbd3b81319305f35f}{VRNA\_GQUAD\_MAX\_STACK\_SIZE}} + 1]
+\Hypertarget{params_8h_source_l00138}\mbox{\hyperlink{group__energy__parameters_a8a230c75cd0fae888aedd45f488b4ff7}{00138}}   [3 * \mbox{\hyperlink{group__energy__parameters_gaabc251a60f6dbe927dd3a3881a161fb7}{VRNA\_GQUAD\_MAX\_LINKER\_LENGTH}} + 1];
+00139 
+\Hypertarget{params_8h_source_l00140}\mbox{\hyperlink{group__energy__parameters_aee22f89eac71caf2bac24cc795de17aa}{00140}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_aee22f89eac71caf2bac24cc795de17aa}{kT}};
+\Hypertarget{params_8h_source_l00141}\mbox{\hyperlink{group__energy__parameters_a53c12f0d74f94ce371e0471a8ab5a377}{00141}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a53c12f0d74f94ce371e0471a8ab5a377}{pf\_scale}};         
+\Hypertarget{params_8h_source_l00143}\mbox{\hyperlink{group__energy__parameters_a674656d65ea957ddbeff8bd146b7fc16}{00143}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a674656d65ea957ddbeff8bd146b7fc16}{temperature}};      
+\Hypertarget{params_8h_source_l00144}\mbox{\hyperlink{group__energy__parameters_a77145830b7bb01b36c3217b363310ef0}{00144}}   \textcolor{keywordtype}{double}  \mbox{\hyperlink{group__energy__parameters_a77145830b7bb01b36c3217b363310ef0}{alpha}};            
+\Hypertarget{params_8h_source_l00151}\mbox{\hyperlink{group__energy__parameters_ac18055127bccc27c1223f1d2f3b01b53}{00151}}   \mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}} \mbox{\hyperlink{group__energy__parameters_ac18055127bccc27c1223f1d2f3b01b53}{model\_details}};  
+\Hypertarget{params_8h_source_l00152}\mbox{\hyperlink{group__energy__parameters_a8e1b02a4753a9b64c3c9ae8529b9d75c}{00152}}   \textcolor{keywordtype}{char}      \mbox{\hyperlink{group__energy__parameters_a8e1b02a4753a9b64c3c9ae8529b9d75c}{param\_file}}[256];  
+00153 \};
+00154 
+00155 
+00167 \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *
+00168 \mbox{\hyperlink{group__energy__parameters_gad0e3e7e74bdc50d1709d40c92993185e}{vrna\_params}}(\mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}} *md);
+00169 
+00170 
+00182 \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *
+00183 \mbox{\hyperlink{group__energy__parameters_ga4bffa39f26e7746148444dd8a8426eca}{vrna\_params\_copy}}(\mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *par);
+00184 
+00185 
+00208 \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *
+00209 \mbox{\hyperlink{group__energy__parameters_gab1f3016f96aa96bff020cdd904605afa}{vrna\_exp\_params}}(\mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}} *md);
+00210 
+00211 
+00225 \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *
+00226 \mbox{\hyperlink{group__energy__parameters_gaf78c09e685e6eef4100b1a41d4042550}{vrna\_exp\_params\_comparative}}(\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}  n\_seq,
+00227                             \mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}}     *md);
+00228 
+00229 
+00241 \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *
+00242 \mbox{\hyperlink{group__energy__parameters_ga70bc46be7cfa5434a71efe241c4f0609}{vrna\_exp\_params\_copy}}(\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *par);
+00243 
+00244 
+00257 \textcolor{keywordtype}{void}
+00258 \mbox{\hyperlink{group__energy__parameters_ga5d1909208f7ea3baa98b75afaa1f62ca}{vrna\_params\_subst}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *vc,
+00259                   \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}}          *par);
+00260 
+00261 
+00279 \textcolor{keywordtype}{void}
+00280 \mbox{\hyperlink{group__energy__parameters_ga8e7ac4fab3b0cc03afbc134eaafb3525}{vrna\_exp\_params\_subst}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *vc,
+00281                       \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}}      *params);
+00282 
+00283 
+00321 \textcolor{keywordtype}{void}
+00322 \mbox{\hyperlink{group__energy__parameters_gad607bc3a5b5da16400e2ca4ea5560233}{vrna\_exp\_params\_rescale}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *vc,
+00323                         \textcolor{keywordtype}{double}                *mfe);
+00324 
+00325 
+00339 \textcolor{keywordtype}{void} \mbox{\hyperlink{group__energy__parameters_gac40dc82e48a72a97cfc58b9da08a7792}{vrna\_params\_reset}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc,
+00340                        \mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}}            *md\_p);
+00341 
+00342 
+00357 \textcolor{keywordtype}{void} \mbox{\hyperlink{group__energy__parameters_gaa5409218068be84d7b50c78fbdaa85a9}{vrna\_exp\_params\_reset}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc,
+00358                            \mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}}            *md\_p);
+00359 
+00360 
+00361 \textcolor{keywordtype}{void} \mbox{\hyperlink{group__energy__parameters_ga881878603a5668e49316d0cd1a10580a}{vrna\_params\_prepare}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc,
+00362                          \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}         options);
+00363 
+00364 
+00365 \textcolor{preprocessor}{#ifndef VRNA\_DISABLE\_BACKWARD\_COMPATIBILITY}
+00366 
+\Hypertarget{params_8h_source_l00371}\mbox{\hyperlink{group__energy__parameters_ga857dde86357d306cc902f0d8b2797659}{00371}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_s}} \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{paramT}};
+00372 
+\Hypertarget{params_8h_source_l00377}\mbox{\hyperlink{group__energy__parameters_ga8bffe1828e2cbec101769f5cc0b1535b}{00377}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_s}} \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{pf\_paramT}};
+00378 
+00379 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_ga1c252a1ef78410efcdcc1998f3c415cb}{get\_parameter\_copy}}(
+      \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *par),
+00380 \textcolor{stringliteral}{"Use vrna\_params\_copy() instead"});
+00381 
+00391 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_gabf3b9271c41dd3fac02d56e0b02b3344}{get\_scaled\_pf\_parameters}}(\textcolor{keywordtype}{
+      void}),
+00392 \textcolor{stringliteral}{"Use vrna\_params() instead"});
+00393 
+00419 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_gaef2b931c7e9d4ffb0a5c33df50ec2068}{get\_boltzmann\_factors}}(\textcolor{keywordtype}{double}   
+        \mbox{\hyperlink{group__model__details_gab4b11c8d9c758430960896bc3fe82ead}{temperature}},
+00420                                                    \textcolor{keywordtype}{double}     betaScale,
+00421                                                    \mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}}  md,
+00422                                                    \textcolor{keywordtype}{double}     \mbox{\hyperlink{group__model__details_gad3b22044065acc6dee0af68931b52cfd}{pf\_scale}}),
+00423 \textcolor{stringliteral}{"Use vrna\_exp\_params() instead"});
+00424 
+00435 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_ga665a446ba8ff211e551297a8fa36ec27}{get\_boltzmann\_factor\_copy}}(
+      \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *parameters),
+00436 \textcolor{stringliteral}{"Use vrna\_exp\_params\_copy() instead"});
+00437 
+00445 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *
+      \mbox{\hyperlink{group__energy__parameters_ga0ccf4e1be085a573533fd6b9da2d8cf9}{get\_scaled\_alipf\_parameters}}(\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int} n\_seq),
+00446 \textcolor{stringliteral}{"Use vrna\_exp\_params\_comparative() instead"});
+00447 
+00456 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_ga2aa1d87c97f35d2e4121634a17556829}{get\_boltzmann\_factors\_ali}}(\textcolor{keywordtype}{
+      unsigned} \textcolor{keywordtype}{int} n\_seq,
+00457                                                        \textcolor{keywordtype}{double}       \mbox{\hyperlink{group__model__details_gab4b11c8d9c758430960896bc3fe82ead}{temperature}},
+00458                                                        \textcolor{keywordtype}{double}       betaScale,
+00459                                                        \mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}}    md,
+00460                                                        \textcolor{keywordtype}{double}       \mbox{\hyperlink{group__model__details_gad3b22044065acc6dee0af68931b52cfd}{pf\_scale}}),
+00461 \textcolor{stringliteral}{"Use vrna\_exp\_params\_comparative() instead"});
+00462 
+00474 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_ga541f2cf7436e9bc939b0a49b24baf987}{scale\_parameters}}(\textcolor{keywordtype}{void}),
+00475 \textcolor{stringliteral}{"Use vrna\_params() instead"});
+00476 
+00493 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_ga7fa6a000d7c16feab939f2c4ee626197}{get\_scaled\_parameters}}(\textcolor{keywordtype}{double}     
+      \mbox{\hyperlink{group__model__details_gab4b11c8d9c758430960896bc3fe82ead}{temperature}},
+00494                                                \mbox{\hyperlink{group__model__details_structvrna__md__s}{vrna\_md\_t}}  md),
+00495 \textcolor{stringliteral}{"Usee vrna\_params() instead"});
+00496 
+00497 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_gac2f6521f9db04ede2f23fc56cc9fa7e5}{copy\_parameters}}(\textcolor{keywordtype}{void}), \textcolor{stringliteral}{"Use
+       vrna\_params\_copy() instead"});
+00498 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_gac5889dd7be0201c76ebdd1c501cdff54}{set\_parameters}}(
+      \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *dest), \textcolor{stringliteral}{"Use vrna\_params\_copy() instead"});
+00499 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_ga32414ddbb3ff0aa35d18ad8e002aad5a}{scale\_pf\_parameters}}(\textcolor{keywordtype}{void}), \textcolor{stringliteral}{"Use
+       vrna\_exp\_params() instead"});
+00500 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_ga00bcbd1e68465def3dabc12c213372cb}{copy\_pf\_param}}(\textcolor{keywordtype}{void}), \textcolor{stringliteral}{"Use
+       vrna\_exp\_params\_copy() instead"});
+00501 \mbox{\hyperlink{params_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *\mbox{\hyperlink{group__energy__parameters_ga106a2beb5026a25bfa90fd59b8b1d5b7}{set\_pf\_param}}(
+      \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *dest), \textcolor{stringliteral}{"Use vrna\_exp\_params\_copy() instead"});
+00502 
+00503 \textcolor{preprocessor}{#endif}
+00504 
+00510 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}

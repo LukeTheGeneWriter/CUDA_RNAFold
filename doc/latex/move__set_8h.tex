@@ -1,0 +1,142 @@
+\hypertarget{move__set_8h}{}\section{Vienna\+R\+N\+A/move\+\_\+set.h File Reference}
+\label{move__set_8h}\index{Vienna\+R\+N\+A/move\+\_\+set.\+h@{Vienna\+R\+N\+A/move\+\_\+set.\+h}}
+\subsection*{Data Structures}
+\begin{DoxyCompactItemize}
+\item 
+struct \mbox{\hyperlink{struct__struct__en}{\+\_\+struct\+\_\+en}}
+\begin{DoxyCompactList}\small\item\em Data structure for \mbox{\hyperlink{group__eval_ga539ecaed89730f7644c202f304d7529b}{energy\+\_\+of\+\_\+move()}} \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef struct \mbox{\hyperlink{struct__struct__en}{\+\_\+struct\+\_\+en}} \mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}}
+\begin{DoxyCompactList}\small\item\em Data structure for \mbox{\hyperlink{group__eval_ga539ecaed89730f7644c202f304d7529b}{energy\+\_\+of\+\_\+move()}} \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{move__set_8h_ae69287964278ca9a447864d392ee2892}{M\+O\+V\+E\+\_\+\+T\+Y\+PE}} \{ \mbox{\hyperlink{move__set_8h_ae69287964278ca9a447864d392ee2892af12f85c0222e6f70a307308793fe473c}{G\+R\+A\+D\+I\+E\+NT}}, 
+\mbox{\hyperlink{move__set_8h_ae69287964278ca9a447864d392ee2892a6a7856cca1833641e731676636b193f1}{F\+I\+R\+ST}}, 
+\mbox{\hyperlink{move__set_8h_ae69287964278ca9a447864d392ee2892ab9a38902726719ccfb53666a37b3357e}{A\+D\+A\+P\+T\+I\+VE}}
+ \}
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{move__set_8h_a3cbc2cdf1aa269793475499f2346ea87}{print\+\_\+stren}} (F\+I\+LE $\ast$out, \mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$str)
+\item 
+void \mbox{\hyperlink{move__set_8h_a27ac38d0d57819e47a0d09f72b2bcfa5}{print\+\_\+str}} (F\+I\+LE $\ast$out, short $\ast$str)
+\item 
+void \mbox{\hyperlink{move__set_8h_a06ff301d5d4b62ab6b6842f37e952235}{copy\+\_\+arr}} (short $\ast$dest, short $\ast$src)
+\item 
+short $\ast$ \mbox{\hyperlink{move__set_8h_ac0f616c021976f6c8bff5dad8a7cf5d4}{allocopy}} (short $\ast$src)
+\item 
+int \mbox{\hyperlink{move__set_8h_a6fbecd725c2d050f7ad9a9693d4bc1c9}{move\+\_\+gradient}} (char $\ast$seq, short $\ast$ptable, short $\ast$s, short $\ast$s1, int verbosity\+\_\+level, int shifts, int no\+LP)
+\item 
+int \mbox{\hyperlink{move__set_8h_abe38e8543fb1f324689598561a1f4a99}{move\+\_\+first}} (char $\ast$seq, short $\ast$ptable, short $\ast$s, short $\ast$s1, int verbosity\+\_\+level, int shifts, int no\+LP)
+\item 
+int \mbox{\hyperlink{move__set_8h_aa6ad9ee21f1c236dc57fcda2c7bbb0b3}{move\+\_\+adaptive}} (char $\ast$seq, short $\ast$ptable, short $\ast$s, short $\ast$s1, int verbosity\+\_\+level)
+\item 
+int \mbox{\hyperlink{move__set_8h_a56459af0f922fa9788050c7f43733d14}{move\+\_\+standard}} (char $\ast$seq, char $\ast$struc, enum \mbox{\hyperlink{move__set_8h_ae69287964278ca9a447864d392ee2892}{M\+O\+V\+E\+\_\+\+T\+Y\+PE}} type, int verbosity\+\_\+level, int shifts, int no\+LP)
+\item 
+int \mbox{\hyperlink{move__set_8h_adc1a5de7aada212c4a53b573d83a9fef}{browse\+\_\+neighs\+\_\+pt}} (char $\ast$seq, short $\ast$ptable, short $\ast$s, short $\ast$s1, int verbosity\+\_\+level, int shifts, int no\+LP, int($\ast$funct)(\mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$, \mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$))
+\item 
+int \mbox{\hyperlink{move__set_8h_adb5e5d038631d03e55b3d199196d90dd}{browse\+\_\+neighs}} (char $\ast$seq, char $\ast$struc, int verbosity\+\_\+level, int shifts, int no\+LP, int($\ast$funct)(\mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$, \mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$))
+\end{DoxyCompactItemize}
+
+
+\subsection{Typedef Documentation}
+\mbox{\Hypertarget{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}\label{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!struct\+\_\+en@{struct\+\_\+en}}
+\index{struct\+\_\+en@{struct\+\_\+en}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{struct\+\_\+en}{struct\_en}}
+{\footnotesize\ttfamily typedef struct \mbox{\hyperlink{struct__struct__en}{\+\_\+struct\+\_\+en}}  \mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}}}
+
+
+
+Data structure for \mbox{\hyperlink{group__eval_ga539ecaed89730f7644c202f304d7529b}{energy\+\_\+of\+\_\+move()}} 
+
+
+
+\subsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{move__set_8h_ae69287964278ca9a447864d392ee2892}\label{move__set_8h_ae69287964278ca9a447864d392ee2892}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!M\+O\+V\+E\+\_\+\+T\+Y\+PE@{M\+O\+V\+E\+\_\+\+T\+Y\+PE}}
+\index{M\+O\+V\+E\+\_\+\+T\+Y\+PE@{M\+O\+V\+E\+\_\+\+T\+Y\+PE}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{M\+O\+V\+E\+\_\+\+T\+Y\+PE}{MOVE\_TYPE}}
+{\footnotesize\ttfamily enum \mbox{\hyperlink{move__set_8h_ae69287964278ca9a447864d392ee2892}{M\+O\+V\+E\+\_\+\+T\+Y\+PE}}}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{G\+R\+A\+D\+I\+E\+NT@{G\+R\+A\+D\+I\+E\+NT}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!G\+R\+A\+D\+I\+E\+NT@{G\+R\+A\+D\+I\+E\+NT}}}\mbox{\Hypertarget{move__set_8h_ae69287964278ca9a447864d392ee2892af12f85c0222e6f70a307308793fe473c}\label{move__set_8h_ae69287964278ca9a447864d392ee2892af12f85c0222e6f70a307308793fe473c}} 
+G\+R\+A\+D\+I\+E\+NT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{F\+I\+R\+ST@{F\+I\+R\+ST}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!F\+I\+R\+ST@{F\+I\+R\+ST}}}\mbox{\Hypertarget{move__set_8h_ae69287964278ca9a447864d392ee2892a6a7856cca1833641e731676636b193f1}\label{move__set_8h_ae69287964278ca9a447864d392ee2892a6a7856cca1833641e731676636b193f1}} 
+F\+I\+R\+ST&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{A\+D\+A\+P\+T\+I\+VE@{A\+D\+A\+P\+T\+I\+VE}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!A\+D\+A\+P\+T\+I\+VE@{A\+D\+A\+P\+T\+I\+VE}}}\mbox{\Hypertarget{move__set_8h_ae69287964278ca9a447864d392ee2892ab9a38902726719ccfb53666a37b3357e}\label{move__set_8h_ae69287964278ca9a447864d392ee2892ab9a38902726719ccfb53666a37b3357e}} 
+A\+D\+A\+P\+T\+I\+VE&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{move__set_8h_a3cbc2cdf1aa269793475499f2346ea87}\label{move__set_8h_a3cbc2cdf1aa269793475499f2346ea87}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!print\+\_\+stren@{print\+\_\+stren}}
+\index{print\+\_\+stren@{print\+\_\+stren}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{print\+\_\+stren()}{print\_stren()}}
+{\footnotesize\ttfamily void print\+\_\+stren (\begin{DoxyParamCaption}\item[{F\+I\+LE $\ast$}]{out,  }\item[{\mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$}]{str }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{move__set_8h_a27ac38d0d57819e47a0d09f72b2bcfa5}\label{move__set_8h_a27ac38d0d57819e47a0d09f72b2bcfa5}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!print\+\_\+str@{print\+\_\+str}}
+\index{print\+\_\+str@{print\+\_\+str}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{print\+\_\+str()}{print\_str()}}
+{\footnotesize\ttfamily void print\+\_\+str (\begin{DoxyParamCaption}\item[{F\+I\+LE $\ast$}]{out,  }\item[{short $\ast$}]{str }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{move__set_8h_a06ff301d5d4b62ab6b6842f37e952235}\label{move__set_8h_a06ff301d5d4b62ab6b6842f37e952235}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!copy\+\_\+arr@{copy\+\_\+arr}}
+\index{copy\+\_\+arr@{copy\+\_\+arr}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{copy\+\_\+arr()}{copy\_arr()}}
+{\footnotesize\ttfamily void copy\+\_\+arr (\begin{DoxyParamCaption}\item[{short $\ast$}]{dest,  }\item[{short $\ast$}]{src }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{move__set_8h_ac0f616c021976f6c8bff5dad8a7cf5d4}\label{move__set_8h_ac0f616c021976f6c8bff5dad8a7cf5d4}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!allocopy@{allocopy}}
+\index{allocopy@{allocopy}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{allocopy()}{allocopy()}}
+{\footnotesize\ttfamily short$\ast$ allocopy (\begin{DoxyParamCaption}\item[{short $\ast$}]{src }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{move__set_8h_a6fbecd725c2d050f7ad9a9693d4bc1c9}\label{move__set_8h_a6fbecd725c2d050f7ad9a9693d4bc1c9}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!move\+\_\+gradient@{move\+\_\+gradient}}
+\index{move\+\_\+gradient@{move\+\_\+gradient}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{move\+\_\+gradient()}{move\_gradient()}}
+{\footnotesize\ttfamily int move\+\_\+gradient (\begin{DoxyParamCaption}\item[{char $\ast$}]{seq,  }\item[{short $\ast$}]{ptable,  }\item[{short $\ast$}]{s,  }\item[{short $\ast$}]{s1,  }\item[{int}]{verbosity\+\_\+level,  }\item[{int}]{shifts,  }\item[{int}]{no\+LP }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{move__set_8h_abe38e8543fb1f324689598561a1f4a99}\label{move__set_8h_abe38e8543fb1f324689598561a1f4a99}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!move\+\_\+first@{move\+\_\+first}}
+\index{move\+\_\+first@{move\+\_\+first}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{move\+\_\+first()}{move\_first()}}
+{\footnotesize\ttfamily int move\+\_\+first (\begin{DoxyParamCaption}\item[{char $\ast$}]{seq,  }\item[{short $\ast$}]{ptable,  }\item[{short $\ast$}]{s,  }\item[{short $\ast$}]{s1,  }\item[{int}]{verbosity\+\_\+level,  }\item[{int}]{shifts,  }\item[{int}]{no\+LP }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{move__set_8h_aa6ad9ee21f1c236dc57fcda2c7bbb0b3}\label{move__set_8h_aa6ad9ee21f1c236dc57fcda2c7bbb0b3}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!move\+\_\+adaptive@{move\+\_\+adaptive}}
+\index{move\+\_\+adaptive@{move\+\_\+adaptive}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{move\+\_\+adaptive()}{move\_adaptive()}}
+{\footnotesize\ttfamily int move\+\_\+adaptive (\begin{DoxyParamCaption}\item[{char $\ast$}]{seq,  }\item[{short $\ast$}]{ptable,  }\item[{short $\ast$}]{s,  }\item[{short $\ast$}]{s1,  }\item[{int}]{verbosity\+\_\+level }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{move__set_8h_a56459af0f922fa9788050c7f43733d14}\label{move__set_8h_a56459af0f922fa9788050c7f43733d14}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!move\+\_\+standard@{move\+\_\+standard}}
+\index{move\+\_\+standard@{move\+\_\+standard}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{move\+\_\+standard()}{move\_standard()}}
+{\footnotesize\ttfamily int move\+\_\+standard (\begin{DoxyParamCaption}\item[{char $\ast$}]{seq,  }\item[{char $\ast$}]{struc,  }\item[{enum \mbox{\hyperlink{move__set_8h_ae69287964278ca9a447864d392ee2892}{M\+O\+V\+E\+\_\+\+T\+Y\+PE}}}]{type,  }\item[{int}]{verbosity\+\_\+level,  }\item[{int}]{shifts,  }\item[{int}]{no\+LP }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{move__set_8h_adc1a5de7aada212c4a53b573d83a9fef}\label{move__set_8h_adc1a5de7aada212c4a53b573d83a9fef}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!browse\+\_\+neighs\+\_\+pt@{browse\+\_\+neighs\+\_\+pt}}
+\index{browse\+\_\+neighs\+\_\+pt@{browse\+\_\+neighs\+\_\+pt}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{browse\+\_\+neighs\+\_\+pt()}{browse\_neighs\_pt()}}
+{\footnotesize\ttfamily int browse\+\_\+neighs\+\_\+pt (\begin{DoxyParamCaption}\item[{char $\ast$}]{seq,  }\item[{short $\ast$}]{ptable,  }\item[{short $\ast$}]{s,  }\item[{short $\ast$}]{s1,  }\item[{int}]{verbosity\+\_\+level,  }\item[{int}]{shifts,  }\item[{int}]{no\+LP,  }\item[{int($\ast$)(\mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$, \mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$)}]{funct }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{move__set_8h_adb5e5d038631d03e55b3d199196d90dd}\label{move__set_8h_adb5e5d038631d03e55b3d199196d90dd}} 
+\index{move\+\_\+set.\+h@{move\+\_\+set.\+h}!browse\+\_\+neighs@{browse\+\_\+neighs}}
+\index{browse\+\_\+neighs@{browse\+\_\+neighs}!move\+\_\+set.\+h@{move\+\_\+set.\+h}}
+\subsubsection{\texorpdfstring{browse\+\_\+neighs()}{browse\_neighs()}}
+{\footnotesize\ttfamily int browse\+\_\+neighs (\begin{DoxyParamCaption}\item[{char $\ast$}]{seq,  }\item[{char $\ast$}]{struc,  }\item[{int}]{verbosity\+\_\+level,  }\item[{int}]{shifts,  }\item[{int}]{no\+LP,  }\item[{int($\ast$)(\mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$, \mbox{\hyperlink{move__set_8h_a1b36f3e84bb338faa4d1f48e8b205d99}{struct\+\_\+en}} $\ast$)}]{funct }\end{DoxyParamCaption})}
+

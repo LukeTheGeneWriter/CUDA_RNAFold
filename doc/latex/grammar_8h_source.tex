@@ -1,0 +1,30 @@
+\hypertarget{grammar_8h_source}{}\section{grammar.\+h}
+\label{grammar_8h_source}\index{Vienna\+R\+N\+A/grammar.\+h@{Vienna\+R\+N\+A/grammar.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_GRAMMAR\_H}
+00002 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_GRAMMAR\_H}
+00003 
+00016 \textcolor{preprocessor}{#include <\mbox{\hyperlink{data__structures_8h}{ViennaRNA/data\_structures.h}}>}
+00017 
+\Hypertarget{grammar_8h_source_l00018}\mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{00018}} \textcolor{keyword}{typedef} void (\mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\_callback\_gr\_rule\_aux}})(
+      \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc, \textcolor{keywordtype}{int} i, \textcolor{keywordtype}{int} j, \textcolor{keywordtype}{void} *data);
+00019 
+\Hypertarget{grammar_8h_source_l00020}\mbox{\hyperlink{group__grammar_gadc8bec7146fda1ee9276df8fc22d8639}{00020}} \textcolor{keyword}{typedef} void (\mbox{\hyperlink{group__grammar_gadc8bec7146fda1ee9276df8fc22d8639}{vrna\_callback\_gr\_free\_auxdata}})(\textcolor{keywordtype}{void} *data);
+00021 
+\Hypertarget{grammar_8h_source_l00022}\mbox{\hyperlink{group__grammar_ga8825fbe6d7de2ff61c232cc7550a82cc}{00022}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\mbox{\hyperlink{group__grammar_structvrna__gr__aux__s}{vrna\_gr\_aux\_s}}  \mbox{\hyperlink{group__grammar_structvrna__gr__aux__s}{vrna\_gr\_aux\_t}};
+00023 
+\Hypertarget{grammar_8h_source_l00024}\mbox{\hyperlink{group__grammar}{00024}} \textcolor{keyword}{struct }\mbox{\hyperlink{group__grammar_structvrna__gr__aux__s}{vrna\_gr\_aux\_s}} \{
+00025 
+\Hypertarget{grammar_8h_source_l00026}\mbox{\hyperlink{group__grammar_a177c06df7c9632acd61e833671e128a4}{00026}}   \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\_callback\_gr\_rule\_aux}}     *\mbox{\hyperlink{group__grammar_a177c06df7c9632acd61e833671e128a4}{cb\_aux\_f}};
+\Hypertarget{grammar_8h_source_l00027}\mbox{\hyperlink{group__grammar_a6437d8207d52503cfeeec87666652faf}{00027}}   \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\_callback\_gr\_rule\_aux}}     *\mbox{\hyperlink{group__grammar_a6437d8207d52503cfeeec87666652faf}{cb\_aux\_c}};
+\Hypertarget{grammar_8h_source_l00028}\mbox{\hyperlink{group__grammar_a56558a56dc06c22667bda4ce2a2ddc57}{00028}}   \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\_callback\_gr\_rule\_aux}}     *\mbox{\hyperlink{group__grammar_a56558a56dc06c22667bda4ce2a2ddc57}{cb\_aux\_m}};
+\Hypertarget{grammar_8h_source_l00029}\mbox{\hyperlink{group__grammar_a2ac5c8adff5f9a69a82b21cd7496eea9}{00029}}   \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\_callback\_gr\_rule\_aux}}     *\mbox{\hyperlink{group__grammar_a2ac5c8adff5f9a69a82b21cd7496eea9}{cb\_aux\_m1}};
+\Hypertarget{grammar_8h_source_l00030}\mbox{\hyperlink{group__grammar_a028eee994dbc35f78e3266d030abed58}{00030}}   \mbox{\hyperlink{group__grammar_ga4872800fb64a0cc6d861f53efb91ee05}{vrna\_callback\_gr\_rule\_aux}}     *\mbox{\hyperlink{group__grammar_a028eee994dbc35f78e3266d030abed58}{cb\_aux}};
+00031 
+\Hypertarget{grammar_8h_source_l00032}\mbox{\hyperlink{group__grammar_af02cce70c1873f975cf6f60fa37751da}{00032}}   \textcolor{keywordtype}{void}                          *\mbox{\hyperlink{group__grammar_af02cce70c1873f975cf6f60fa37751da}{auxdata}};
+\Hypertarget{grammar_8h_source_l00033}\mbox{\hyperlink{group__grammar_ad558dc65d426484476551479c0705326}{00033}}   \mbox{\hyperlink{group__grammar_gadc8bec7146fda1ee9276df8fc22d8639}{vrna\_callback\_gr\_free\_auxdata}} *\mbox{\hyperlink{group__grammar_ad558dc65d426484476551479c0705326}{free\_auxdata}};
+00034 \};
+00035 
+00045 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}
