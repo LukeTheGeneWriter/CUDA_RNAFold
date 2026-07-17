@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Scripting Language interface(s) &#8212; RNAlib 2.4.6 documentation</title>
+    <link rel="stylesheet" href="_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/bootstrap-3.3.4/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="_static/bootstrap-3.3.4/css/bootstrap-theme.min.css" type="text/css" />
+    <link rel="stylesheet" href="_static/bootstrap-sphinx.css" type="text/css" />
+    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <script type="text/javascript" src="_static/js/jquery-1.11.0.min.js"></script>
+    <script type="text/javascript" src="_static/js/jquery-fix.js"></script>
+    <script type="text/javascript" src="_static/bootstrap-3.3.4/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="_static/bootstrap-sphinx.js"></script>
+    <script type="text/javascript" src="_static/rnalib.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Additional Utilities" href="page_utilities.html" />
+    <link rel="prev" title="Callback Functions" href="page_callbacks.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+  </head><body>
+
+  <div id="navbar" class="navbar-inverse navbar-default navbar-fixed-top">
+    <div class="container">
+      <div class="navbar-header">
+        <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".nav-collapse">
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="index.html">
+          RNAlib</a>
+        <span class="navbar-text navbar-version pull-left"><b>2.4.6</b></span>
+      </div>
+
+        <div class="collapse navbar-collapse nav-collapse">
+          <ul class="nav navbar-nav">
+            
+            
+              <li class="dropdown globaltoc-container">
+  <a role="button"
+     id="dLabelGlobalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="index.html">Index <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+      role="menu"
+      aria-labelledby="dLabelGlobalToc"><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="page_getting_started.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_install.html">Installation and Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#installing-the-viennarna-package">Installing the ViennaRNA Package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#quick-start">Quick-start</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#installation-without-root-privileges">Installation without root privileges</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#notes-for-macos-x-users">Notes for MacOS X users</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#configuring-rnalib-features">Configuring RNAlib features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#streaming-simd-extension-sse-support">Streaming SIMD Extension (SSE) support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#scripting-interfaces">Scripting Interfaces</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#cluster-analysis">Cluster Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#kinfold">Kinfold</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#rnaforester">RNAforester</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#kinwalker">Kinwalker</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#link-time-optimization-lto">Link Time Optimization (LTO)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#openmp-support">OpenMP support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#posix-threads-pthread-support">POSIX threads (pthread) support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#stochastic-backtracking-using-boustrophedon-scheme">Stochastic backtracking using Boustrophedon scheme</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#svm-z-score-filter-in-rnalfold">SVM Z-score filter in RNALfold</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#gnu-scientific-library">GNU Scientific Library</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#disable-c11-c-11-feature-support">Disable C11/C++11 feature support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#enable-warnings-for-use-of-deprecated-symbols">Enable warnings for use of deprecated symbols</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#single-precision-partition-function">Single precision partition function</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#help">Help</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#linking-against-rnalib">Linking against RNAlib</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#compiler-and-linker-flags">Compiler and Linker flags</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_install.html#the-pkg-config-tool">The pkg-config tool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_helloworld.html">HelloWorld</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_helloworld_swig.html">HelloWorld (Perl/Python)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_helloworld_swig.html#perl5">Perl5</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_helloworld_swig.html#python">Python</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_concepts.html">Concepts and Algorithms</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_secondary_structures.html">RNA Structure</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#rna-structures">RNA Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#levels-of-structure-abstraction">Levels of Structure Abstraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#primary-structure">Primary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#secondary-structure">Secondary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#tertiary-structure">Tertiary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#quarternary-structure">Quarternary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structures.html#pseudo-knots">Pseudo-Knots</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_distance_measures.html">Distance Measures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_distance_measures.html#functions-for-tree-edit-distances">Functions for Tree Edit Distances</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_distance_measures.html#functions-for-string-alignment">Functions for String Alignment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_distance_measures.html#functions-for-comparison-of-base-pair-probabilities">Functions for Comparison of Base Pair Probabilities</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_energy_evaluation.html">Free Energy of Secondary Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#secondary-structure-loop-decomposition">Secondary Structure Loop Decomposition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#free-energy-evaluation-api">Free Energy Evaluation API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#free-energy-parameters">Free Energy Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#free-energy-parameters-modification-api">Free Energy Parameters Modification API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_energy_evaluation.html#fine-tuning-of-the-energy-evaluation-model">Fine-tuning of the Energy Evaluation Model</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_folding_grammar.html">Secondary Structure Folding Grammar</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#secondary-structure-folding-recurrences">Secondary Structure Folding Recurrences</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#additional-structural-domains">Additional Structural Domains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#structured-domains">Structured Domains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#unstructured-domains">Unstructured Domains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#domain-extension-api">Domain Extension API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#constraints-on-the-folding-grammar">Constraints on the Folding Grammar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#hard-constraints-api">Hard Constraints API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_folding_grammar.html#soft-constraints-api">Soft Constraints API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_secondary_structure_landscape.html">RNA Secondary Structure Landscapes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structure_landscape.html#the-neighborhood-of-a-secondary-structure">The Neighborhood of a Secondary Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_secondary_structure_landscape.html#the-secondary-structure-landscape-api">The Secondary Structure Landscape API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_mfe_algorithm.html">Minimum Free Energy Algorithm(s)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_mfe_algorithm.html#zuker-s-algorithm">Zuker’s Algorithm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_mfe_algorithm.html#mfe-for-circular-rnas">MFE for circular RNAs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_mfe_algorithm.html#mfe-algorithm-api">MFE Algorithm API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_pf_algorithm.html">Partition Function and Equilibrium Probabilitiy Algorithm(s)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_pf_algorithm.html#equilibrium-ensemble-statistics">Equilibrium Ensemble Statistics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_pf_algorithm.html#partition-function-and-equilibrium-probability-api">Partition Function and Equilibrium Probability API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_suboptimal_structures.html">Suboptimals and (other) Representative Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_suboptimal_structures.html#suboptimal-secondary-structures">Suboptimal Secondary Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_suboptimal_structures.html#sampling-secondary-structures-from-the-ensemble">Sampling Secondary Structures from the Ensemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_suboptimal_structures.html#structure-enumeration-and-sampling-api">Structure Enumeration and Sampling API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_rip.html">RNA-RNA Interaction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_rip.html#rip-intro">rip_intro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rip.html#id1">rip_intro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rip.html#rna-rna-interaction-as-a-stepwise-process">RNA-RNA interaction as a Stepwise Process</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rip.html#rna-rna-interaction-api">RNA-RNA Interaction API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_local_vs_global.html">Locally Stable Secondary Structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_local_vs_global.html#local-intro">local_intro</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_local_vs_global.html#local-mfe">local_mfe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_local_vs_global.html#local-pf">local_pf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_local_vs_global.html#locally-stable-secondary-structure-api">Locally Stable Secondary Structure API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_consensus_structures.html">Comparative Structure Prediction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_consensus_structures.html#incorporate-evolutionary-information">Incorporate Evolutionary Information</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_consensus_structures.html#comparative-structure-prediction-api">Comparative Structure Prediction API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_classified_dp.html">Classified DP variations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_classified_dp.html#the-idea-of-classified-dynamic-programming">The Idea of Classified Dynamic Programming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_classified_dp.html#distance-class-partitioning">Distance Class Partitioning</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_classified_dp.html#density-of-states-dos">Density of States (DOS)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_classified_dp.html#classified-dp-api">Classified DP API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_design.html">RNA Sequence Design</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_design.html#generate-sequences-that-fold-into-particular-secondary-structures">Generate Sequences that fold into particular Secondary Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_design.html#rna-sequence-design-api">RNA Sequence Design API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_structure_probing_data.html">Experimental Structure Probing Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_probing_data.html#guide-the-structure-prediction-using-experimental-data">Guide the Structure Prediction using Experimental Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_probing_data.html#shape-reactivities">SHAPE reactivities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_probing_data.html#structure-probing-data-api">Structure Probing Data API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_ligand_binding.html">Ligand Binding</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_ligand_binding.html#small-molecules-and-proteins-that-bind-to-specific-rna-structures">Small Molecules and Proteins that bind to specific RNA Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_ligand_binding.html#ligand-binding-api">ligand_binding_api</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_structure_motifs.html">(Tertiary) Structure Motifs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_motifs.html#incorporating-higher-order-tertiary-structure-motifs">Incorporating Higher-Order (Tertiary) Structure Motifs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_motifs.html#rna-g-quadruplexes">RNA G-Quadruplexes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_structure_motifs.html#tertiary-structure-motif-api">(Tertiary) Structure Motif API</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_io.html">I/O Formats</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_rna_structure_notations.html">RNA Structure Notations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#representations-of-secondary-structures">Representations of Secondary Structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#dot-bracket-notation-a-k-a-dot-parenthesis-notation">Dot-Bracket Notation (a.k.a. Dot-Parenthesis Notation)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#extended-dot-bracket-notation">Extended Dot-Bracket Notation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#washington-university-secondary-structure-wuss-notation">Washington University Secondary Structure (WUSS) notation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#examples-for-structure-parsing-and-conversion">Examples for Structure Parsing and Conversion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_rna_structure_notations.html#structure-parsing-and-conversion-api">Structure Parsing and Conversion API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_file_formats.html">File Formats</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#file-formats-for-multiple-sequence-alignments-msa">File formats for Multiple Sequence Alignments (MSA)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#clustalw-format">ClustalW format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#stockholm-1-0-format">Stockholm 1.0 format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#fasta-pearson-format">FASTA (Pearson) format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#maf-format">MAF format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#file-formats-to-manipulate-the-rna-folding-grammar">File formats to manipulate the RNA folding grammar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#command-files">Command Files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#constraint-commands">Constraint commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#rna-folding-grammar-exensions">RNA folding grammar exensions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#specification-of-the-loop-type-context">Specification of the loop type context</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#controlling-the-orientation-of-base-pairing">Controlling the orientation of base pairing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#sequence-coordinates">Sequence coordinates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#valid-constraint-commands">Valid constraint commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_file_formats.html#valid-domain-extensions-commands">Valid domain extensions commands</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_plots.html">Plotting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_plots.html#producing-secondary-structure-graphs">Producing secondary structure graphs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_plots.html#producing-colored-dot-plots-for-base-pair-probabilities">Producing (colored) dot plots for base pair probabilities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_plots.html#producing-colored-alignments">Producing (colored) alignments</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_data_structures.html">Basic Data Structures</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_sequence_structure_data.html">Sequence and Structure Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_fold_compound_container.html">The ‘Fold Compound’</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_model_settings.html">Model Details</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="page_api_features.html">API Features</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="page_newAPI.html">RNAlib API v3.0</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_newAPI.html#introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_newAPI.html#what-are-the-major-changes">What are the major changes?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_newAPI.html#how-to-port-your-program-to-the-new-api">How to port your program to the new API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_newAPI.html#some-examples-using-rnalib-api-v3-0">Some Examples using RNAlib API v3.0</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_callbacks.html">Callback Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_callbacks.html#the-purpose-of-callback-mechanisms">The purpose of Callback mechanisms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_callbacks.html#list-of-available-callbacks">List of available Callbacks</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Scripting Language interface(s)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#function-renaming-scheme">Function renaming scheme</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#object-oriented-interface-for-data-structures">Object oriented Interface for data structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples">Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#swig-generated-wrapper-notes">SWIG generated Wrapper notes</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_utilities.html">Additional Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_examples.html">Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="page_examples_c.html">C Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#hello-world-examples">Hello World Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#first-steps-with-the-fold-compound">First Steps with the Fold Compound</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#writing-callback-functions">Writing Callback Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#application-of-soft-constraints">Application of Soft Constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#other-examples">Other Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="page_examples_c.html#deprecated-examples">Deprecated Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="page_examples_perl5.html">Perl5 Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_examples_python.html">Python Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_deprecated.html">Deprecated List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_bug.html">Bug List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_citelist.html">Bibliography</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="group_index.html">The RNAlib API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="group_data_structures.html">Data Structures and Preprocessor Macros</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_dp_matrices.html">The Dynamic Programming Matrices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_mx_type_e.html">enum vrna_mx_type_e</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_mx_type_e.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_mx_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="enum_vrna_mx_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_mx_mfe_s.html">struct vrna_mx_mfe_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_mx_mfe_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_mx_mfe_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_mx_mfe_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_mx_pf_s.html">struct vrna_mx_pf_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_dp_matrices.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dp_matrices.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dp_matrices.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dp_matrices.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_fold_compound.html">The Fold Compound</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_fc_type_e.html">enum vrna_fc_type_e</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_fc_type_e.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_fc_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="enum_vrna_fc_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_fc_s.html">struct vrna_fc_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_fc_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_fc_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_fc_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_fold_compound.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_constrain.html">struct constrain</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_dupVar.html">struct dupVar</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_duplexT.html">struct duplexT</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_interact.html">struct interact</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_interact.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_interact.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_interact.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_node.html">struct node</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_pu_contrib.html">struct pu_contrib</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_contrib.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_contrib.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_contrib.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_pu_out.html">struct pu_out</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_out.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_out.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_pu_out.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_snoopT.html">struct snoopT</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_basepair_s.html">struct vrna_basepair_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_bp_stack_s.html">struct vrna_bp_stack_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_color_s.html">struct vrna_color_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_cpair_s.html">struct vrna_cpair_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_data_linear_s.html">struct vrna_data_linear_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_sect_s.html">struct vrna_sect_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_data_structures.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_data_structures.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_data_structures.html#typedefs">Typedefs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_data_structures.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_utils.html">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_aln_utils.html">Utilities for sequence alignments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_pinfo_s.html">struct vrna_pinfo_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_pinfo_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_pinfo_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_pinfo_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_aln_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_aln_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_aln_utils.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_aln_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_aln_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_buffer_utils.html">Functions that provide dynamically buffered stream-like data structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_buffer_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_buffer_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_buffer_utils.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_buffer_utils.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_file_utils.html">Functions to Read/Write several File Formats for RNA Sequences, Structures, and Alignments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_command_e.html">enum vrna_command_e</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_command_s.html">struct vrna_command_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_command_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_command_s.html#detailed-documentation">Detailed Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_file_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_plotting_utils.html">Functions for Creating Secondary Structure Plots, Dot-Plots, and More</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_annotation_utils.html">Functions to generate annotations for Secondary Structure Plots, Dot-Plots, and Others</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="group_annotation_utils.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_annotation_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_annotation_utils.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_COORDINATE.html">struct COORDINATE</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dotplot_auxdata_t.html">struct vrna_dotplot_auxdata_t</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_plotting_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_string_utils.html">Parsing, converting, and comparing sequences</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_string_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_string_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_string_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_string_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_struct_utils.html">Parsing, converting, comparing secondary structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_elem_prob_s.html">struct vrna_elem_prob_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_elem_prob_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_elem_prob_s.html#detailed-documentation">Detailed Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_hx_s.html">struct vrna_hx_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_struct_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_units.html">Functions to convert between various units</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_unit_energy_e.html">enum vrna_unit_energy_e</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_unit_energy_e.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_unit_energy_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="enum_vrna_unit_energy_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_unit_temperature_e.html">enum vrna_unit_temperature_e</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_unit_temperature_e.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_unit_temperature_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="enum_vrna_unit_temperature_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_units.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_units.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_units.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#global-functions">Global Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_utils.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_class_fold.html">Classified Dynamic Programming variants</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_dos.html">Compute the Density of States</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_dos.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dos.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_dos.html#global-variables">Global Variables</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_kl_neighborhood.html">Distance based partitioning of the Secondary Structure Space</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_kl_neighborhood_mfe.html">Calculating MFE representatives of a Distance Based Partitioning</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_TwoDfold_vars.html">struct TwoDfold_vars</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_TwoDfold_vars.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_TwoDfold_vars.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_TwoDfold_vars.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_sol_TwoD_t.html">struct vrna_sol_TwoD_t</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_t.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_t.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_t.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_mfe.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_mfe.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_mfe.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_mfe.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_kl_neighborhood_pf.html">Calculate Partition Functions of a Distance Based Partitioning</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_sol_TwoD_pf_t.html">struct vrna_sol_TwoD_pf_t</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_pf_t.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_pf_t.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sol_TwoD_pf_t.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_pf.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_pf.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_pf.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_pf.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_kl_neighborhood_stochbt.html">Stochastic Backtracking of Structures from Distance Based Partitioning</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_stochbt.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_stochbt.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_kl_neighborhood_stochbt.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_cofold.html">RNA-RNA interaction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_cofold.html">MFE Structures of two hybridized Sequences</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_cofold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_cofold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_cofold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_pf_cofold.html">Partition Function for two hybridized Sequences</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dimer_pf_s.html">struct vrna_dimer_pf_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_dimer_pf_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_dimer_pf_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_dimer_pf_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_pf_cofold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_up_cofold.html">Partition Function for two hybridized Sequences as a stepwise Process</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_up_cofold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_up_cofold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_up_cofold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_grammar.html">The RNA folding grammar</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_constraints.html">Constraining the RNA folding grammar</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_hard_constraints.html">Hard constraints</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_hc_s.html">struct vrna_hc_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_hc_up_s.html">struct vrna_hc_up_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_up_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_up_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_hc_up_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#global-functions">Global Functions</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_hard_constraints.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_soft_constraints.html">Soft constraints</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_sc_s.html">struct vrna_sc_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sc_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sc_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_sc_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_soft_constraints.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_soft_constraints.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_soft_constraints.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_soft_constraints.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_domains.html">Extending the folding grammar with additional domains</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_domains_up.html">Unstructured domains</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_unstructured_domain_s.html">struct vrna_unstructured_domain_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_unstructured_domain_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_unstructured_domain_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_unstructured_domain_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#global-functions">Global Functions</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_domains_up.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_energy_parameters.html">Energy parameters</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters_rw.html">Reading/Writing Energy Parameter Sets from/to File</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="group_energy_parameters_convert.html">Converting Energy Parameter Files</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="group_energy_parameters_convert.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="group_energy_parameters_convert.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="group_energy_parameters_convert.html#global-functions">Global Functions</a></li>
+<li class="toctree-l6"><a class="reference internal" href="group_energy_parameters_convert.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="enum_parset.html">enum parset</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_energy_parameters_rw.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_energy_parameters_rw.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_energy_parameters_rw.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_exp_param_s.html">struct vrna_exp_param_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_exp_param_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_exp_param_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_exp_param_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_param_s.html">struct vrna_param_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_param_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_param_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_param_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_energy_parameters.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_model_details.html">Fine-tuning of the implemented models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_md_s.html">struct vrna_md_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_md_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_md_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_md_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_model_details.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_gr_aux_s.html">struct vrna_gr_aux_s</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_landscape.html">The RNA secondary structure landscape</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_neighbors.html">Neighborhood relation and move sets for secondary structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_move_s.html">struct vrna_move_s</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_move_s.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_move_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_move_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_neighbors.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_neighbors.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_neighbors.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_neighbors.html#macros">Macros</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_paths.html">Refolding paths of secondary structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_direct_paths.html">Direct refolding paths between two secondary structures</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="struct_vrna_path_s.html">struct vrna_path_s</a><ul>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_path_s.html#overview">Overview</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_path_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l6"><a class="reference internal" href="struct_vrna_path_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l5"><a class="reference internal" href="group_direct_paths.html#overview">Overview</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_direct_paths.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_direct_paths.html#typedefs">Typedefs</a></li>
+<li class="toctree-l5"><a class="reference internal" href="group_direct_paths.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="group_paths.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_paths.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_paths.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_paths.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_consensus_fold.html">Comparative structure prediction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_mfe_fold.html">MFE Consensus Structures for Sequence Alignment(s)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_mfe_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_mfe_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_mfe_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_pf_fold.html">Partition Function and Base Pair Probabilities for Sequence Alignment(s)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_pf_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_pf_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_pf_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_stochbt.html">Stochastic Backtracking of Consensus Structures from Sequence Alignment(s)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_stochbt.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_stochbt.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_consensus_stochbt.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_local_consensus_fold.html">Local MFE Consensus Structure Prediction for Sequence Alignments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_local_consensus_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_consensus_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_consensus_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_fold.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_fold.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_consensus_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_subopt_and_representatives.html">Suboptimals and representative structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_centroid_fold.html">Compute the centroid structure</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_centroid_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_centroid_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_centroid_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_mea_fold.html">Compute the structure with maximum expected accuracy (MEA)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_mea_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mea_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mea_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_subopt_stochbt.html">Structure sampling from the ensemble</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_stochbt.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_stochbt.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_stochbt.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_stochbt.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_subopt_wuchty.html">Suboptimal structures within an energy band arround the MFE</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#global-variables">Global Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_wuchty.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_subopt_zuker.html">Suboptimal structures sensu Stiegler et al. 1984 / Zuker et al. 1989</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_zuker.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_zuker.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_subopt_zuker.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_ligand_binding.html">Ligands binding to RNA structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_constraints_ligand.html">Incorporating ligands binding to specific sequence/structure motifs using soft constraints</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints_ligand.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints_ligand.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_constraints_ligand.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_probing_data.html">Experimental structure probing data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_SHAPE_reactivities.html">SHAPE reactivity data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_SHAPE_reactivities.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_SHAPE_reactivities.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_SHAPE_reactivities.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_perturbation.html">Generate soft constraints from data</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_perturbation.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_pf_fold.html">Partition function and equilibrium properties</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_pf_fold.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_pf_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_pf_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_eval.html">Free energy evaluation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_loops.html">Process and evaluate individual loops</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_loops.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_loops.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_loops.html#typedefs">Typedefs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_loops.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_eval.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_eval.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_eval.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_eval.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_mfe_fold.html">Minimum Free Energy (MFE) algorithms</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold_single.html">MFE Structures of single Nucleic Acid Sequences</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_fold_single.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_fold_single.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_mfe_fold_single.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold.html#typedefs">Typedefs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_mfe_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_paired_modules.html">Complex structured modules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_gquads.html">G-quadruplexes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_gquads.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_gquads.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_gquads.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_inverse_fold.html">Inverse Folding (Design)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_inverse_fold.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_inverse_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_inverse_fold.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="group_inverse_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="group_local_fold.html">Locally stable structures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="group_local_mfe_fold.html">Local MFE Structure Prediction and Z-scores</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_local_mfe_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_mfe_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_mfe_fold.html#global-functions">Global Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="group_local_pf_fold.html">Partition Function and Equilibrium Probabilities for Locally Stable Secondary Structures</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="group_local_pf_fold.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_pf_fold.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_pf_fold.html#global-functions">Global Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="group_local_pf_fold.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="global.html">Global Namespace</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="enum_MOVE_TYPE.html">enum MOVE_TYPE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="enum_vrna_hc_type_e.html">enum vrna_hc_type_e</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_hc_type_e.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_hc_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_hc_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="enum_vrna_sc_type_e.html">enum vrna_sc_type_e</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_sc_type_e.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_sc_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_sc_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="enum_vrna_seq_type_e.html">enum vrna_seq_type_e</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_seq_type_e.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="enum_vrna_seq_type_e.html#detailed-documentation">Detailed Documentation</a><ul>
+<li class="toctree-l5"><a class="reference internal" href="enum_vrna_seq_type_e.html#enum-values">Enum Values</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_Postorder_list.html">struct Postorder_list</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_Tree.html">struct Tree</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_TwoDpfold_vars.html">struct TwoDpfold_vars</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_TwoDpfold_vars.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_TwoDpfold_vars.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_TwoDpfold_vars.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct__struct_en.html">struct _struct_en</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_swString.html">struct swString</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_dimer_conc_s.html">struct vrna_dimer_conc_s</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dimer_conc_s.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dimer_conc_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_dimer_conc_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_hc_bp_storage_t.html">struct vrna_hc_bp_storage_t</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_sc_bp_storage_t.html">struct vrna_sc_bp_storage_t</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_sc_motif_s.html">struct vrna_sc_motif_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_sequence_s.html">struct vrna_sequence_s</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_sequence_s.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_sequence_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_sequence_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_structured_domains_s.html">struct vrna_structured_domains_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_subopt_sol_s.html">struct vrna_subopt_sol_s</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_subopt_sol_s.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_subopt_sol_s.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="struct_vrna_subopt_sol_s.html#fields">Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="struct_vrna_unstructured_domain_motif_s.html">struct vrna_unstructured_domain_motif_s</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#detailed-documentation">Detailed Documentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#typedefs">Typedefs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#global-functions">Global Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="global.html#macros">Macros</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</ul>
+</li>
+              
+                <li class="dropdown">
+  <a role="button"
+     id="dLabelLocalToc"
+     data-toggle="dropdown"
+     data-target="#"
+     href="#">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"
+      role="menu"
+      aria-labelledby="dLabelLocalToc"><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="page_getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_concepts.html">Concepts and Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_io.html">I/O Formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_data_structures.html">Basic Data Structures</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="page_api_features.html">API Features</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="page_newAPI.html">RNAlib API v3.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_callbacks.html">Callback Functions</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Scripting Language interface(s)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#function-renaming-scheme">Function renaming scheme</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#object-oriented-interface-for-data-structures">Object oriented Interface for data structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples">Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#swig-generated-wrapper-notes">SWIG generated Wrapper notes</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_utilities.html">Additional Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_deprecated.html">Deprecated List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_bug.html">Bug List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_citelist.html">Bibliography</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="group_index.html">The RNAlib API</a></li>
+</ul>
+</ul>
+</li>
+              
+            
+            
+              
+                
+  <li>
+    <a href="page_callbacks.html" title="Previous Chapter: Callback Functions"><span class="glyphicon glyphicon-chevron-left visible-sm"></span><span class="hidden-sm hidden-tablet">&laquo; Callback Functions</span>
+    </a>
+  </li>
+  <li>
+    <a href="page_utilities.html" title="Next Chapter: Additional Utilities"><span class="glyphicon glyphicon-chevron-right visible-sm"></span><span class="hidden-sm hidden-tablet">Additional Utilities &raquo;</span>
+    </a>
+  </li>
+              
+            
+            
+            
+            
+              <li class="hidden-sm"></li>
+            
+          </ul>
+
+          
+            
+<form class="navbar-form navbar-right" action="search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+          
+        </div>
+    </div>
+  </div>
+
+<div class="container">
+  <div class="row">
+      <div class="col-md-3">
+        <div id="sidebar" class="bs-sidenav" role="complementary">
+<form action="search.html" method="get">
+ <div class="form-group">
+  <input type="text" name="q" class="form-control" placeholder="Search" />
+ </div>
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="page_getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_concepts.html">Concepts and Algorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_io.html">I/O Formats</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_data_structures.html">Basic Data Structures</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="page_api_features.html">API Features</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="page_newAPI.html">RNAlib API v3.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="page_callbacks.html">Callback Functions</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Scripting Language interface(s)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#function-renaming-scheme">Function renaming scheme</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#object-oriented-interface-for-data-structures">Object oriented Interface for data structures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#examples">Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#swig-generated-wrapper-notes">SWIG generated Wrapper notes</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="page_utilities.html">Additional Utilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_changelog.html">Changelog</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_deprecated.html">Deprecated List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_bug.html">Bug List</a></li>
+<li class="toctree-l1"><a class="reference internal" href="page_citelist.html">Bibliography</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="group_index.html">The RNAlib API</a></li>
+</ul>
+
+        </div>
+      </div>
+    <div class="col-md-9 content">
+      
+  <div class="section" id="scripting-language-interface-s">
+<span id="doxid-wrappers"></span><span id="index-0"></span><h1>Scripting Language interface(s)<a class="headerlink" href="#scripting-language-interface-s" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<span id="doxid-wrappers-1scripting-intro"></span><h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>For an easy integration into scripting languages, we provide an automatically generated interface to the RNAlib C-library, generated with SWIG.</p>
+</div>
+<div class="section" id="function-renaming-scheme">
+<span id="doxid-wrappers-1scripting-renaming"></span><h2>Function renaming scheme<a class="headerlink" href="#function-renaming-scheme" title="Permalink to this headline">¶</a></h2>
+<p>The main difference when using a scripting language interface compared to direct calls of RNAlib C functions is, that the prefix ‘<a href="#id395"><span class="problematic" id="id396">vrna_</span></a>’ is dropped. For instance, when calling the <a class="reference internal" href="group_mfe_fold_single.html#doxid-group-mfe-fold-single-1ga29a33b2895f4e67b0480271ff289afdc"><span class="std std-ref">vrna_fold()</span></a> function, corresponding calls in perl or python are RNA::fold(), and RNA.fold(), respectively.</p>
+<p>Functions that are dedicated to work on specific data structures only, e.g. the <a class="reference internal" href="group_fold_compound.html#doxid-group-fold-compound-1ga1b0cef17fd40466cef5968eaeeff6166"><span class="std std-ref">vrna_fold_compound_t</span></a> , are usually not exported at all. Instead, they are attached as object methods of a corresponding class (see <a class="reference internal" href="#doxid-wrappers-1scripting-oo-interface"><span class="std std-ref">Object oriented Interface for data structures</span></a> for detailed information).</p>
+</div>
+<div class="section" id="object-oriented-interface-for-data-structures">
+<span id="doxid-wrappers-1scripting-oo-interface"></span><h2>Object oriented Interface for data structures<a class="headerlink" href="#object-oriented-interface-for-data-structures" title="Permalink to this headline">¶</a></h2>
+<p>For data structures, typedefs, and enumerations the ‘<a href="#id397"><span class="problematic" id="id398">vrna_</span></a>’ prefixes are dropped as well, together with their suffixes ‘_s’, ‘_t’, and ‘_e’, respectively. Furthermore, data structures are usually transformed into classes and relevant functions of the C-library are attached as methods.</p>
+</div>
+<div class="section" id="examples">
+<span id="doxid-wrappers-1scripting-examples"></span><h2>Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h2>
+<p>Examples on the basic usage of the scripting language interfaces can be found in the scripting_perl_examples and scripting_python_examples section.</p>
+</div>
+<div class="section" id="swig-generated-wrapper-notes">
+<span id="doxid-wrappers-1scripting-wrapper-notes"></span><h2>SWIG generated Wrapper notes<a class="headerlink" href="#swig-generated-wrapper-notes" title="Permalink to this headline">¶</a></h2>
+<p>Special notes on how functions, structures, enums, and macro definitions are actually wrapped, can be found below</p>
+<table border="1" class="colwidths-given docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000002"></span> Global <a class="reference internal" href="group_aln_utils.html#doxid-group-aln-utils-1gaa12b481a7e7b965ef2eb1bcc4399e759"><span class="std std-ref">vrna_aln_conservation_col</span></a> (const char <a href="#id1"><span class="problematic" id="id2">**</span></a>alignment, const vrna_md_t <a href="#id3"><span class="problematic" id="id4">*</span></a>md_p, unsigned int options)</td>
+<td>This function is available in an overloaded form where the last two parameters may be omitted, indicating <code class="docutils literal notranslate"><span class="pre">md</span></code> = <em>NULL</em> , and <code class="docutils literal notranslate"><span class="pre">options</span></code> = <a class="reference internal" href="group_aln_utils.html#doxid-group-aln-utils-1ga1e659227c9fc077d29989f576f129000"><span class="std std-ref">VRNA_MEASURE_SHANNON_ENTROPY</span></a> , respectively.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000001"></span> Global <a class="reference internal" href="group_aln_utils.html#doxid-group-aln-utils-1gab6f16a2ea93f3bfd4d089cc8d448bb16"><span class="std std-ref">vrna_aln_conservation_struct</span></a> (const char <a href="#id5"><span class="problematic" id="id6">**</span></a>alignment, const char <a href="#id7"><span class="problematic" id="id8">*</span></a>structure, const vrna_md_t <a href="#id9"><span class="problematic" id="id10">*</span></a>md)</td>
+<td>This function is available in an overloaded form where the last parameter may be omitted, indicating <code class="docutils literal notranslate"><span class="pre">md</span></code> = <em>NULL</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000005"></span> Global <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga5e993fc4b9602af73aaaab4d3b3cd9a9"><span class="std std-ref">vrna_commands_apply</span></a> (vrna_fold_compound_t <a href="#id11"><span class="problematic" id="id12">*</span></a>vc, vrna_cmd_t <a href="#id13"><span class="problematic" id="id14">*</span></a>commands, unsigned int options)</td>
+<td>This function is attached as method <strong>commands_apply()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000088"></span> Global <a class="reference internal" href="group_struct_utils.html#doxid-group-struct-utils-1gae966b9f44168a4f4b39ca42ffb5f37b7"><span class="std std-ref">vrna_db_flatten</span></a> (char <a href="#id15"><span class="problematic" id="id16">*</span></a>structure, unsigned int options)</td>
+<td><p class="first">This function flattens an input structure string in-place! The second parameter is optional and defaults to <a class="reference internal" href="group_struct_utils.html#doxid-group-struct-utils-1ga559ebf76b1b289f85309f4206e99aa1a"><span class="std std-ref">VRNA_BRACKETS_DEFAULT</span></a> .</p>
+<p class="last">An overloaded version of this function exists, where an additional second parameter can be passed to specify the target brackets, i.e. the type of matching pair characters all brackets will be flattened to. Therefore, in the scripting language interface this function is a replacement for <a class="reference internal" href="group_struct_utils.html#doxid-group-struct-utils-1ga690425199c8b71545e7196e3af1436f8"><span class="std std-ref">vrna_db_flatten_to()</span></a> .</p>
+</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000089"></span> Global <a class="reference internal" href="group_struct_utils.html#doxid-group-struct-utils-1ga690425199c8b71545e7196e3af1436f8"><span class="std std-ref">vrna_db_flatten_to</span></a> (char <a href="#id17"><span class="problematic" id="id18">*</span></a>string, const char target[3], unsigned int options)</td>
+<td>This function is available as an overloaded version of <a class="reference internal" href="group_struct_utils.html#doxid-group-struct-utils-1gae966b9f44168a4f4b39ca42ffb5f37b7"><span class="std std-ref">vrna_db_flatten()</span></a></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000003"></span> Global <a class="reference internal" href="group_utils.html#doxid-group-utils-1gae081ac655a76bd5c4b3d86c60b096b75"><span class="std std-ref">vrna_enumerate_necklaces</span></a> (const unsigned int <a href="#id19"><span class="problematic" id="id20">*</span></a>type_counts)</td>
+<td>This function is available as global function <strong>enumerate_necklaces()</strong> which accepts lists input, an produces list of lists output.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000040"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gac96577cf232c71160f762737a994b7c6"><span class="std std-ref">vrna_eval_circ_consensus_structure</span></a> (const char <a href="#id21"><span class="problematic" id="id22">**</span></a>alignment, const char <a href="#id23"><span class="problematic" id="id24">*</span></a>structure)</td>
+<td>This function is available through an overloadeded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga3e05a23ddf9b083f4e69881e440d4866"><span class="std std-ref">vrna_eval_circ_structure()</span></a> . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000050"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gae89240c230e4740b22a703ee953396b9"><span class="std std-ref">vrna_eval_circ_consensus_structure_v</span></a> (const char <a href="#id25"><span class="problematic" id="id26">**</span></a>alignment, const char <a href="#id27"><span class="problematic" id="id28">*</span></a>structure, int verbosity_level, FILE <a href="#id29"><span class="problematic" id="id30">*</span></a>file)</td>
+<td>This function is available through an overloaded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga3e05a23ddf9b083f4e69881e440d4866"><span class="std std-ref">vrna_eval_circ_structure()</span></a> . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument. The last two arguments are optional and default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000042"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gac673ebb9ae2a29f54d201e2ac5b85540"><span class="std std-ref">vrna_eval_circ_gquad_consensus_structure</span></a> (const char <a href="#id31"><span class="problematic" id="id32">**</span></a>alignment, const char <a href="#id33"><span class="problematic" id="id34">*</span></a>structure)</td>
+<td>This function is available through an overloadeded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga9dba2fc5d7e6ad1359a7c2f350589c0e"><span class="std std-ref">vrna_eval_circ_gquad_structure()</span></a> . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000052"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gaecd3e17292a0b3927277434019a5e187"><span class="std std-ref">vrna_eval_circ_gquad_consensus_structure_v</span></a> (const char <a href="#id35"><span class="problematic" id="id36">**</span></a>alignment, const char <a href="#id37"><span class="problematic" id="id38">*</span></a>structure, int verbosity_level, FILE <a href="#id39"><span class="problematic" id="id40">*</span></a>file)</td>
+<td>This function is available through an overloaded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga9dba2fc5d7e6ad1359a7c2f350589c0e"><span class="std std-ref">vrna_eval_circ_gquad_structure()</span></a> . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument. The last two arguments are optional and default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000038"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga9dba2fc5d7e6ad1359a7c2f350589c0e"><span class="std std-ref">vrna_eval_circ_gquad_structure</span></a> (const char <a href="#id41"><span class="problematic" id="id42">*</span></a>string, const char <a href="#id43"><span class="problematic" id="id44">*</span></a>structure)</td>
+<td>In the target scripting language, this function serves as a wrapper for <a class="reference internal" href="group_eval.html#doxid-group-eval-1gab96a6c59923ff06c35f8c2fd2c239727"><span class="std std-ref">vrna_eval_circ_gquad_structure_v()</span></a> and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000048"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gab96a6c59923ff06c35f8c2fd2c239727"><span class="std std-ref">vrna_eval_circ_gquad_structure_v</span></a> (const char <a href="#id45"><span class="problematic" id="id46">*</span></a>string, const char <a href="#id47"><span class="problematic" id="id48">*</span></a>structure, int verbosity_level, FILE <a href="#id49"><span class="problematic" id="id50">*</span></a>file)</td>
+<td>This function is available through an overloaded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga9dba2fc5d7e6ad1359a7c2f350589c0e"><span class="std std-ref">vrna_eval_circ_gquad_structure()</span></a> . The last two arguments for this function are optional and default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000036"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga3e05a23ddf9b083f4e69881e440d4866"><span class="std std-ref">vrna_eval_circ_structure</span></a> (const char <a href="#id51"><span class="problematic" id="id52">*</span></a>string, const char <a href="#id53"><span class="problematic" id="id54">*</span></a>structure)</td>
+<td>In the target scripting language, this function serves as a wrapper for <a class="reference internal" href="group_eval.html#doxid-group-eval-1gac3fb44e0773a51be8efc5f4f595a94a7"><span class="std std-ref">vrna_eval_circ_structure_v()</span></a> and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000046"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gac3fb44e0773a51be8efc5f4f595a94a7"><span class="std std-ref">vrna_eval_circ_structure_v</span></a> (const char <a href="#id55"><span class="problematic" id="id56">*</span></a>string, const char <a href="#id57"><span class="problematic" id="id58">*</span></a>structure, int verbosity_level, FILE <a href="#id59"><span class="problematic" id="id60">*</span></a>file)</td>
+<td>This function is available through an overloaded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga3e05a23ddf9b083f4e69881e440d4866"><span class="std std-ref">vrna_eval_circ_structure()</span></a> . The last two arguments for this function are optional and default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000054"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gabbb4d2a7aa324ec9cce8f47ce61ab8af"><span class="std std-ref">vrna_eval_consensus_structure_pt_simple</span></a> (const char <a href="#id61"><span class="problematic" id="id62">**</span></a>alignment, const short <a href="#id63"><span class="problematic" id="id64">*</span></a>pt)</td>
+<td>This function is available through an overloadeded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga0bba59b4d6e53461088666ff4aece7b0"><span class="std std-ref">vrna_eval_structure_pt_simple()</span></a> . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000039"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga7762c3a7bdcbc3a14ef93259d322c7d6"><span class="std std-ref">vrna_eval_consensus_structure_simple</span></a> (const char <a href="#id65"><span class="problematic" id="id66">**</span></a>alignment, const char <a href="#id67"><span class="problematic" id="id68">*</span></a>structure)</td>
+<td>This function is available through an overloadeded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga7e5273464b775d4130245681312c1369"><span class="std std-ref">vrna_eval_structure_simple()</span></a> . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000049"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gad88927c62ab0a8b534e078e44be1b36e"><span class="std std-ref">vrna_eval_consensus_structure_simple_v</span></a> (const char <a href="#id69"><span class="problematic" id="id70">**</span></a>alignment, const char <a href="#id71"><span class="problematic" id="id72">*</span></a>structure, int verbosity_level, FILE <a href="#id73"><span class="problematic" id="id74">*</span></a>file)</td>
+<td>This function is available through an overloaded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga7e5273464b775d4130245681312c1369"><span class="std std-ref">vrna_eval_structure_simple()</span></a> . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument. The last two arguments are optional and default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000044"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga1c07851f6b665c3461a19e9e4eb33d26"><span class="std std-ref">vrna_eval_consensus_structure_simple_verbose</span></a> (const char <a href="#id75"><span class="problematic" id="id76">**</span></a>alignment, const char <a href="#id77"><span class="problematic" id="id78">*</span></a>structure, FILE <a href="#id79"><span class="problematic" id="id80">*</span></a>file)</td>
+<td>This function is not available. Use <a class="reference internal" href="group_eval.html#doxid-group-eval-1gad88927c62ab0a8b534e078e44be1b36e"><span class="std std-ref">vrna_eval_consensus_structure_simple_v()</span></a> instead!</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000029"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga6cea75c0eb9857fb59172be54cab09e0"><span class="std std-ref">vrna_eval_covar_structure</span></a> (vrna_fold_compound_t <a href="#id81"><span class="problematic" id="id82">*</span></a>vc, const char <a href="#id83"><span class="problematic" id="id84">*</span></a>structure)</td>
+<td>This function is attached as method <strong>eval_covar_structure()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000041"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gaf09a326b3d57a4b30c27bd0e216198ac"><span class="std std-ref">vrna_eval_gquad_consensus_structure</span></a> (const char <a href="#id85"><span class="problematic" id="id86">**</span></a>alignment, const char <a href="#id87"><span class="problematic" id="id88">*</span></a>structure)</td>
+<td>This function is available through an overloadeded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga3263504825ef4b523eba797c99921df4"><span class="std std-ref">vrna_eval_gquad_structure()</span></a> . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000051"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga8abc794fc48d43268ced5e8cde017baa"><span class="std std-ref">vrna_eval_gquad_consensus_structure_v</span></a> (const char <a href="#id89"><span class="problematic" id="id90">**</span></a>alignment, const char <a href="#id91"><span class="problematic" id="id92">*</span></a>structure, int verbosity_level, FILE <a href="#id93"><span class="problematic" id="id94">*</span></a>file)</td>
+<td>This function is available through an overloaded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga3263504825ef4b523eba797c99921df4"><span class="std std-ref">vrna_eval_gquad_structure()</span></a> . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument. The last two arguments are optional and default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000037"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga3263504825ef4b523eba797c99921df4"><span class="std std-ref">vrna_eval_gquad_structure</span></a> (const char <a href="#id95"><span class="problematic" id="id96">*</span></a>string, const char <a href="#id97"><span class="problematic" id="id98">*</span></a>structure)</td>
+<td>In the target scripting language, this function serves as a wrapper for <a class="reference internal" href="group_eval.html#doxid-group-eval-1gaeaa2bdbc1b5d78c667e735fbdff87fff"><span class="std std-ref">vrna_eval_gquad_structure_v()</span></a> and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000047"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gaeaa2bdbc1b5d78c667e735fbdff87fff"><span class="std std-ref">vrna_eval_gquad_structure_v</span></a> (const char <a href="#id99"><span class="problematic" id="id100">*</span></a>string, const char <a href="#id101"><span class="problematic" id="id102">*</span></a>structure, int verbosity_level, FILE <a href="#id103"><span class="problematic" id="id104">*</span></a>file)</td>
+<td>This function is available through an overloaded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga3263504825ef4b523eba797c99921df4"><span class="std std-ref">vrna_eval_gquad_structure()</span></a> . The last two arguments for this function are optional and default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000033"></span> Global <a class="reference internal" href="group_loops.html#doxid-group-loops-1gab3eb4651dc26dc2b653a57dd340d7e68"><span class="std std-ref">vrna_eval_hp_loop</span></a> (vrna_fold_compound_t <a href="#id105"><span class="problematic" id="id106">*</span></a>vc, int i, int j)</td>
+<td>This function is attached as method <strong>eval_hp_loop()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000034"></span> Global <a class="reference internal" href="group_loops.html#doxid-group-loops-1ga018f1314dbbae42fdd27c94670b61721"><span class="std std-ref">vrna_eval_int_loop</span></a> (vrna_fold_compound_t <a href="#id107"><span class="problematic" id="id108">*</span></a>vc, int i, int j, int k, int l)</td>
+<td>This function is attached as method <strong>eval_int_loop()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000030"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga730ba4df55c02fd530a0cddd49faf760"><span class="std std-ref">vrna_eval_loop_pt</span></a> (vrna_fold_compound_t <a href="#id109"><span class="problematic" id="id110">*</span></a>vc, int i, const short <a href="#id111"><span class="problematic" id="id112">*</span></a>pt)</td>
+<td>This function is attached as method <strong>eval_loop_pt()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000031"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gaff1b9e4f4d17b434b0a822fe783672c1"><span class="std std-ref">vrna_eval_move</span></a> (vrna_fold_compound_t <a href="#id113"><span class="problematic" id="id114">*</span></a>vc, const char <a href="#id115"><span class="problematic" id="id116">*</span></a>structure, int m1, int m2)</td>
+<td>This function is attached as method <strong>eval_move()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000032"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga123dabc119ea98c968a5e903cc46f0fb"><span class="std std-ref">vrna_eval_move_pt</span></a> (vrna_fold_compound_t <a href="#id117"><span class="problematic" id="id118">*</span></a>vc, short <a href="#id119"><span class="problematic" id="id120">*</span></a>pt, int m1, int m2)</td>
+<td>This function is attached as method <strong>eval_move_pt()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000025"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga58f199f1438d794a265f3b27fc8ea631"><span class="std std-ref">vrna_eval_structure</span></a> (vrna_fold_compound_t <a href="#id121"><span class="problematic" id="id122">*</span></a>vc, const char <a href="#id123"><span class="problematic" id="id124">*</span></a>structure)</td>
+<td>This function is attached as method <strong>eval_structure()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000026"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gadbd09372ddfd7a450bbd590c96a6bfe4"><span class="std std-ref">vrna_eval_structure_pt</span></a> (vrna_fold_compound_t <a href="#id125"><span class="problematic" id="id126">*</span></a>vc, const short <a href="#id127"><span class="problematic" id="id128">*</span></a>pt)</td>
+<td>This function is attached as method <strong>eval_structure_pt()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000053"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga0bba59b4d6e53461088666ff4aece7b0"><span class="std std-ref">vrna_eval_structure_pt_simple</span></a> (const char <a href="#id129"><span class="problematic" id="id130">*</span></a>string, const short <a href="#id131"><span class="problematic" id="id132">*</span></a>pt)</td>
+<td>In the target scripting language, this function serves as a wrapper for <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga2c6533ba0afe4c88d335d8f1e0e2a48e"><span class="std std-ref">vrna_eval_structure_pt_v()</span></a> and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000028"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga8a517cfeeae8c376ae7b1e0c401d38b4"><span class="std std-ref">vrna_eval_structure_pt_verbose</span></a> (vrna_fold_compound_t <a href="#id133"><span class="problematic" id="id134">*</span></a>vc, const short <a href="#id135"><span class="problematic" id="id136">*</span></a>pt, FILE <a href="#id137"><span class="problematic" id="id138">*</span></a>file)</td>
+<td>This function is attached as method <strong>eval_structure_pt_verbose()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000035"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga7e5273464b775d4130245681312c1369"><span class="std std-ref">vrna_eval_structure_simple</span></a> (const char <a href="#id139"><span class="problematic" id="id140">*</span></a>string, const char <a href="#id141"><span class="problematic" id="id142">*</span></a>structure)</td>
+<td>In the target scripting language, this function serves as a wrapper for <a class="reference internal" href="group_eval.html#doxid-group-eval-1gacd6278343e77d13f1d53588e50d303bc"><span class="std std-ref">vrna_eval_structure_simple_v()</span></a> and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000045"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gacd6278343e77d13f1d53588e50d303bc"><span class="std std-ref">vrna_eval_structure_simple_v</span></a> (const char <a href="#id143"><span class="problematic" id="id144">*</span></a>string, const char <a href="#id145"><span class="problematic" id="id146">*</span></a>structure, int verbosity_level, FILE <a href="#id147"><span class="problematic" id="id148">*</span></a>file)</td>
+<td>This function is available through an overloaded version of <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga7e5273464b775d4130245681312c1369"><span class="std std-ref">vrna_eval_structure_simple()</span></a> . The last two arguments for this function are optional and default to <a class="reference internal" href="global.html#doxid-eval-8h-1af4afe19780b61b4962c613bde324128b"><span class="std std-ref">VRNA_VERBOSITY_QUIET</span></a> and NULL, respectively.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000043"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1gaf928bfd96767e1b8033a95a4cc432e39"><span class="std std-ref">vrna_eval_structure_simple_verbose</span></a> (const char <a href="#id149"><span class="problematic" id="id150">*</span></a>string, const char <a href="#id151"><span class="problematic" id="id152">*</span></a>structure, FILE <a href="#id153"><span class="problematic" id="id154">*</span></a>file)</td>
+<td>This function is not available. Use <a class="reference internal" href="group_eval.html#doxid-group-eval-1gacd6278343e77d13f1d53588e50d303bc"><span class="std std-ref">vrna_eval_structure_simple_v()</span></a> instead!</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000027"></span> Global <a class="reference internal" href="group_eval.html#doxid-group-eval-1ga0928d699d310178f84ee2351034e5cb5"><span class="std std-ref">vrna_eval_structure_verbose</span></a> (vrna_fold_compound_t <a href="#id155"><span class="problematic" id="id156">*</span></a>vc, const char <a href="#id157"><span class="problematic" id="id158">*</span></a>structure, FILE <a href="#id159"><span class="problematic" id="id160">*</span></a>file)</td>
+<td>This function is attached as method <strong>eval_structure_verbose()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000080"></span> Global <a class="reference internal" href="group_energy_parameters.html#doxid-group-energy-parameters-1gad607bc3a5b5da16400e2ca4ea5560233"><span class="std std-ref">vrna_exp_params_rescale</span></a> (vrna_fold_compound_t <a href="#id161"><span class="problematic" id="id162">*</span></a>vc, double <a href="#id163"><span class="problematic" id="id164">*</span></a>mfe)</td>
+<td><p class="first">This function is attached to <a class="reference internal" href="struct_vrna_fc_s.html#doxid-structvrna-fc-s"><span class="std std-ref">vrna_fc_s</span></a> objects as overloaded <strong>exp_params_rescale()</strong> method.</p>
+<p class="last">When no parameter is passed to this method, the resulting action is the same as passing <em>NULL</em> as second parameter to <a class="reference internal" href="group_energy_parameters.html#doxid-group-energy-parameters-1gad607bc3a5b5da16400e2ca4ea5560233"><span class="std std-ref">vrna_exp_params_rescale()</span></a> , i.e. default scaling of the partition function. Passing an energy in kcal/mol, e.g. as retrieved by a previous call to the <em>mfe()</em> method, instructs all subsequent calls to scale the partition function accordingly.</p>
+</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000082"></span> Global <a class="reference internal" href="group_energy_parameters.html#doxid-group-energy-parameters-1gaa5409218068be84d7b50c78fbdaa85a9"><span class="std std-ref">vrna_exp_params_reset</span></a> (vrna_fold_compound_t <a href="#id165"><span class="problematic" id="id166">*</span></a>vc, vrna_md_t <a href="#id167"><span class="problematic" id="id168">*</span></a>md_p)</td>
+<td><p class="first">This function is attached to <a class="reference internal" href="struct_vrna_fc_s.html#doxid-structvrna-fc-s"><span class="std std-ref">vrna_fc_s</span></a> objects as overloaded <strong>exp_params_reset()</strong> method.</p>
+<p class="last">When no parameter is passed to this method, the resulting action is the same as passing <em>NULL</em> as second parameter to <a class="reference internal" href="group_energy_parameters.html#doxid-group-energy-parameters-1gaa5409218068be84d7b50c78fbdaa85a9"><span class="std std-ref">vrna_exp_params_reset()</span></a> , i.e. global default model settings are used. Passing an object of type <a class="reference internal" href="struct_vrna_md_s.html#doxid-structvrna-md-s"><span class="std std-ref">vrna_md_s</span></a> resets the fold compound according to the specifications stored within the <a class="reference internal" href="struct_vrna_md_s.html#doxid-structvrna-md-s"><span class="std std-ref">vrna_md_s</span></a> object.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000067"></span> Class <a class="reference internal" href="group_fold_compound.html#doxid-group-fold-compound"><span class="std std-ref">vrna_fc_s</span></a></td>
+<td><p class="first">This data structure is wrapped as an object <strong>fold_compound</strong> with several related functions attached as methods.</p>
+<p>A new <strong>fold_compound</strong> can be obtained by calling one of its constructors:</p>
+<p class="last">The resulting object has a list of attached methods which in most cases directly correspond to functions that mainly operate on the corresponding <em>C</em> data structure:</p>
+</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000004"></span> Global <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1gadbe8c9622f7bcc6dcbe3448b98df8656"><span class="std std-ref">vrna_file_commands_apply</span></a> (vrna_fold_compound_t <a href="#id169"><span class="problematic" id="id170">*</span></a>vc, const char <a href="#id171"><span class="problematic" id="id172">*</span></a>filename, unsigned int options)</td>
+<td>This function is attached as method <strong>file_commands_apply()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000059"></span> Global <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga627ac281b5f11c63861726e6472626c9"><span class="std std-ref">vrna_file_msa_detect_format</span></a> (const char <a href="#id173"><span class="problematic" id="id174">*</span></a>filename, unsigned int options)</td>
+<td>This function exists as an overloaded version where the <code class="docutils literal notranslate"><span class="pre">options</span></code> parameter may be omitted! In that case, the <code class="docutils literal notranslate"><span class="pre">options</span></code> parameter defaults to <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga4acc255373831856a8417b68de8a94c0"><span class="std std-ref">VRNA_FILE_FORMAT_MSA_DEFAULT</span></a> .</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000060"></span> Global <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga08a01c40ac5f5e0e04e9ae2258c99aa6"><span class="std std-ref">vrna_file_msa_read</span></a> (const char <a href="#id175"><span class="problematic" id="id176">*</span></a>filename, char <a href="#id177"><span class="problematic" id="id178">**</span></a><a href="#id179"><span class="problematic" id="id180">*</span></a>names, char <a href="#id181"><span class="problematic" id="id182">**</span></a><a href="#id183"><span class="problematic" id="id184">*</span></a>aln, char <a href="#id185"><span class="problematic" id="id186">**</span></a>id, char <a href="#id187"><span class="problematic" id="id188">**</span></a>structure, unsigned int options)</td>
+<td><p class="first">In the target scripting language, only the first and last argument, <code class="docutils literal notranslate"><span class="pre">filename</span></code> and <code class="docutils literal notranslate"><span class="pre">options</span></code> , are passed to the corresponding function. The other arguments, which serve as output in the C-library, are available as additional return values. Hence, a function call in python may look like this:</p>
+<pre class="highlight literal-block">
+<span></span><span class="n">num_seq</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">aln</span><span class="p">,</span> <span class="n">id</span><span class="p">,</span> <span class="n">structure</span> <span class="o">=</span> <span class="n">RNA</span><span class="p">.</span><span class="n">file_msa_read</span><span class="p">(</span><span class="s">&quot;msa.stk&quot;</span><span class="p">,</span> <span class="n">RNA</span><span class="p">.</span><span class="n">FILE_FORMAT_MSA_STOCKHOLM</span><span class="p">)</span>
+</pre>
+<p>After successfully reading the first record, the variable <code class="docutils literal notranslate"><span class="pre">num_seq</span></code> contains the number of sequences in the alignment (the actual return value of the C-function), while the variables <code class="docutils literal notranslate"><span class="pre">names</span></code> , <code class="docutils literal notranslate"><span class="pre">aln</span></code> , <code class="docutils literal notranslate"><span class="pre">id</span></code> , and <code class="docutils literal notranslate"><span class="pre">structure</span></code> are lists of the sequence names and aligned sequences, as well as strings holding the alignment ID and the structure as stated in the <code class="docutils literal notranslate"><span class="pre">SS_cons</span></code> line, respectively. Note, the last two return values may be empty strings in case the alignment does not provide the required data.</p>
+<p class="last">This function exists as an overloaded version where the <code class="docutils literal notranslate"><span class="pre">options</span></code> parameter may be omitted! In that case, the <code class="docutils literal notranslate"><span class="pre">options</span></code> parameter defaults to <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga62be992445cd8ab2ad7a8fded944338b"><span class="std std-ref">VRNA_FILE_FORMAT_MSA_STOCKHOLM</span></a> .</p>
+</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000061"></span> Global <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga59204cd1daa4927f5127cc65a2886efd"><span class="std std-ref">vrna_file_msa_read_record</span></a> (FILE <a href="#id189"><span class="problematic" id="id190">*</span></a>fp, char <a href="#id191"><span class="problematic" id="id192">**</span></a><a href="#id193"><span class="problematic" id="id194">*</span></a>names, char <a href="#id195"><span class="problematic" id="id196">**</span></a><a href="#id197"><span class="problematic" id="id198">*</span></a>aln, char <a href="#id199"><span class="problematic" id="id200">**</span></a>id, char <a href="#id201"><span class="problematic" id="id202">**</span></a>structure, unsigned int options)</td>
+<td><p class="first">In the target scripting language, only the first and last argument, <code class="docutils literal notranslate"><span class="pre">fp</span></code> and <code class="docutils literal notranslate"><span class="pre">options</span></code> , are passed to the corresponding function. The other arguments, which serve as output in the C-library, are available as additional return values. Hence, a function call in python may look like this:</p>
+<pre class="highlight literal-block">
+<span></span><span class="n">f</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="sc">&#39;msa.stk&#39;</span><span class="p">,</span> <span class="sc">&#39;r&#39;</span><span class="p">)</span>
+<span class="n">num_seq</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">aln</span><span class="p">,</span> <span class="n">id</span><span class="p">,</span> <span class="n">structure</span> <span class="o">=</span> <span class="n">RNA</span><span class="p">.</span><span class="n">file_msa_read_record</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">RNA</span><span class="p">.</span><span class="n">FILE_FORMAT_MSA_STOCKHOLM</span><span class="p">)</span>
+<span class="n">f</span><span class="p">.</span><span class="n">close</span><span class="p">()</span>
+</pre>
+<p>After successfully reading the first record, the variable <code class="docutils literal notranslate"><span class="pre">num_seq</span></code> contains the number of sequences in the alignment (the actual return value of the C-function), while the variables <code class="docutils literal notranslate"><span class="pre">names</span></code> , <code class="docutils literal notranslate"><span class="pre">aln</span></code> , <code class="docutils literal notranslate"><span class="pre">id</span></code> , and <code class="docutils literal notranslate"><span class="pre">structure</span></code> are lists of the sequence names and aligned sequences, as well as strings holding the alignment ID and the structure as stated in the <code class="docutils literal notranslate"><span class="pre">SS_cons</span></code> line, respectively. Note, the last two return values may be empty strings in case the alignment does not provide the required data.</p>
+<p class="last">This function exists as an overloaded version where the <code class="docutils literal notranslate"><span class="pre">options</span></code> parameter may be omitted! In that case, the <code class="docutils literal notranslate"><span class="pre">options</span></code> parameter defaults to <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga62be992445cd8ab2ad7a8fded944338b"><span class="std std-ref">VRNA_FILE_FORMAT_MSA_STOCKHOLM</span></a> .</p>
+</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000062"></span> Global <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga0c90faf1515ce0b16620036b1055ff1e"><span class="std std-ref">vrna_file_msa_write</span></a> (const char <a href="#id203"><span class="problematic" id="id204">*</span></a>filename, const char <a href="#id205"><span class="problematic" id="id206">**</span></a>names, const char <a href="#id207"><span class="problematic" id="id208">**</span></a>aln, const char <a href="#id209"><span class="problematic" id="id210">*</span></a>id, const char <a href="#id211"><span class="problematic" id="id212">*</span></a>structure, const char <a href="#id213"><span class="problematic" id="id214">*</span></a>source, unsigned int options)</td>
+<td>In the target scripting language, this function exists as a set of overloaded versions, where the last four parameters may be omitted. If the <code class="docutils literal notranslate"><span class="pre">options</span></code> parameter is missing the options default to ( <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga62be992445cd8ab2ad7a8fded944338b"><span class="std std-ref">VRNA_FILE_FORMAT_MSA_STOCKHOLM</span></a> | <a class="reference internal" href="group_file_utils.html#doxid-group-file-utils-1ga1577ea0f497d9c501549c863a4f2c089"><span class="std std-ref">VRNA_FILE_FORMAT_MSA_APPEND</span></a> ).</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000010"></span> Global <a class="reference internal" href="group_hard_constraints.html#doxid-group-hard-constraints-1ga5b4de3247b67358080c176b94591a8e6"><span class="std std-ref">vrna_hc_add_from_db</span></a> (vrna_fold_compound_t <a href="#id215"><span class="problematic" id="id216">*</span></a>vc, const char <a href="#id217"><span class="problematic" id="id218">*</span></a>constraint, unsigned int options)</td>
+<td>This function is attached as method <strong>hc_add_from_db()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000006"></span> Global <a class="reference internal" href="group_hard_constraints.html#doxid-group-hard-constraints-1ga36ff456c43bf920629cee5a236e4f0ff"><span class="std std-ref">vrna_hc_init</span></a> (vrna_fold_compound_t <a href="#id219"><span class="problematic" id="id220">*</span></a>vc)</td>
+<td>This function is attached as method <strong>hc_init()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000077"></span> Class <a class="reference internal" href="group_model_details.html#doxid-group-model-details"><span class="std std-ref">vrna_md_s</span></a></td>
+<td><p class="first">This data structure is wrapped as an object <strong>md</strong> with multiple related functions attached as methods.</p>
+<p>A new set of default parameters can be obtained by calling the constructure of <strong>md:</strong></p>
+<p>The resulting object has a list of attached methods which directly correspond to functions that mainly operate on the corresponding <em>C</em> data structure:</p>
+<p>Note, that default parameters can be modified by directly setting any of the following global variables. Internally, getting/setting default parameters using their global variable representative translates into calls of the following functions, therefore these wrappers for these functions do not exist in the scripting language interface(s):</p>
+<p>global variable</p>
+<p><em>C</em> getter</p>
+<p><em>C</em> setter</p>
+<p>temperature</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga96b24a74437f9ba46c4e06343155bf46"><span class="std std-ref">vrna_md_defaults_temperature_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gaf9e527e9a2f7e6fd6e42bc6e602f5445"><span class="std std-ref">vrna_md_defaults_temperature()</span></a></p>
+<p>dangles</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga67ca06f95ae133778c79a4493c9817b8"><span class="std std-ref">vrna_md_defaults_dangles_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gac76a5374def8e5e4e644ff6e4cc72dee"><span class="std std-ref">vrna_md_defaults_dangles()</span></a></p>
+<p>betaScale</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gabb8780f5410c52f970d75b044059bd09"><span class="std std-ref">vrna_md_defaults_betaScale_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gae984567db36c3f9b8731ecc917abf3a2"><span class="std std-ref">vrna_md_defaults_betaScale()</span></a></p>
+<p>tetra_loop</p>
+<p>this is an alias of <em>special_hp</em></p>
+<p>special_hp</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga1d68a6efdaa1253cc63fd9cd06452559"><span class="std std-ref">vrna_md_defaults_special_hp_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gafff6449a02744add0308e653230c15fc"><span class="std std-ref">vrna_md_defaults_special_hp()</span></a></p>
+<p>noLonelyPairs</p>
+<p>this is an alias of <em>noLP</em></p>
+<p>noLP</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga934344888fbacaed538bbbfe910f2aa6"><span class="std std-ref">vrna_md_defaults_noLP_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga2f88ffc393ac9d7987849c965fd29ea8"><span class="std std-ref">vrna_md_defaults_noLP()</span></a></p>
+<p>noGU</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga5faa7d4e536d7fe36ec25428c0cf2563"><span class="std std-ref">vrna_md_defaults_noGU_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga98218f85c7a957a1d1ddf4627fdf5a39"><span class="std std-ref">vrna_md_defaults_noGU()</span></a></p>
+<p>no_closingGU</p>
+<p>this is an alias of <em>noGUclosure</em></p>
+<p>noGUclosure</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga4f7fdad083243a5348d63320ddaa70f3"><span class="std std-ref">vrna_md_defaults_noGUclosure_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gade5b9951d71ca2fb357a4e6c0c18ccd1"><span class="std std-ref">vrna_md_defaults_noGUclosure()</span></a></p>
+<p>logML</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga93f04e070d529c5d0bb87c9681f6ad29"><span class="std std-ref">vrna_md_defaults_logML_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga3de50a73455d88c3957386933b8e1f90"><span class="std std-ref">vrna_md_defaults_logML()</span></a></p>
+<p>circ</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gad3a7e58de344ad93a08925f58f94f6fb"><span class="std std-ref">vrna_md_defaults_circ_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga4e1deb3e91a8a99e5c6dd905a5eb0186"><span class="std std-ref">vrna_md_defaults_circ()</span></a></p>
+<p>gquad</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gae645b8612f879eb38b45244fa9eddb9e"><span class="std std-ref">vrna_md_defaults_gquad_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga0685ca2aeb39af76f2421fc308163dce"><span class="std std-ref">vrna_md_defaults_gquad()</span></a></p>
+<p>uniq_ML</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gab48e70fd024bf838404bcbcca0c874a0"><span class="std std-ref">vrna_md_defaults_uniq_ML_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga59b944f61c5d2babec2d4c48c820de67"><span class="std std-ref">vrna_md_defaults_uniq_ML()</span></a></p>
+<p>energy_set</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga017ed6afb1cba2b7f242412cab618b53"><span class="std std-ref">vrna_md_defaults_energy_set_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga8dd29c55787a4576277e1907e92d810c"><span class="std std-ref">vrna_md_defaults_energy_set()</span></a></p>
+<p>backtrack</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga90da1156e6883ddd68527c2830706648"><span class="std std-ref">vrna_md_defaults_backtrack_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga978c468b2fe96a70d5191e3dd17d5599"><span class="std std-ref">vrna_md_defaults_backtrack()</span></a></p>
+<p>backtrack_type</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga1425b4ebd0e034dead66d79becd64143"><span class="std std-ref">vrna_md_defaults_backtrack_type_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga68305274de96b56b7799575e222560d8"><span class="std std-ref">vrna_md_defaults_backtrack_type()</span></a></p>
+<p>do_backtrack</p>
+<p>this is an alias of <em>compute_bpp</em></p>
+<p>compute_bpp</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gaa3a537e61fbe0518673bf9f73fd820f3"><span class="std std-ref">vrna_md_defaults_compute_bpp_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gaf1b5db10f1f476767f9a95f8a78e3132"><span class="std std-ref">vrna_md_defaults_compute_bpp()</span></a></p>
+<p>max_bp_span</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gaa60f989e062fecd4d4bac89c1883da85"><span class="std std-ref">vrna_md_defaults_max_bp_span_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga4c4bc962f09b4480cb8499f1cf8ae4ec"><span class="std std-ref">vrna_md_defaults_max_bp_span()</span></a></p>
+<p>min_loop_size</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga5cc691174a75c652807dc361b617632a"><span class="std std-ref">vrna_md_defaults_min_loop_size_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gac152f1e78c1058a10261022c8dfda0f7"><span class="std std-ref">vrna_md_defaults_min_loop_size()</span></a></p>
+<p>window_size</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga670146a9aa3ba77f4d422d60b7c30ac9"><span class="std std-ref">vrna_md_defaults_window_size_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga7b802ce0e8c3181bf5cb580de6d5b26a"><span class="std std-ref">vrna_md_defaults_window_size()</span></a></p>
+<p>oldAliEn</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga2374492b5019df88022fe4c05f0f3630"><span class="std std-ref">vrna_md_defaults_oldAliEn_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga41521d5b9fb7e0f31e7ea73f5792afab"><span class="std std-ref">vrna_md_defaults_oldAliEn()</span></a></p>
+<p>ribo</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga169027f0c0561ea7d87b655e4b336bfc"><span class="std std-ref">vrna_md_defaults_ribo_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga937c45e1d06fd6168730a9b08d130be3"><span class="std std-ref">vrna_md_defaults_ribo()</span></a></p>
+<p>cv_fact</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gae59c68393807217b0a2497adb64d3ee3"><span class="std std-ref">vrna_md_defaults_cv_fact_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gad3a3f40baafd91a6ce80a91a68e20053"><span class="std std-ref">vrna_md_defaults_cv_fact()</span></a></p>
+<p>nc_fact</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga7ac759eaa7159bf5f022745f5da59508"><span class="std std-ref">vrna_md_defaults_nc_fact_get()</span></a></p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gac35e596c850dce3ad55c49119fd7d471"><span class="std std-ref">vrna_md_defaults_nc_fact()</span></a></p>
+<p>sfact</p>
+<p><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1gab2df6aab954b63fd3592d18e90285dae"><span class="std std-ref">vrna_md_defaults_sfact_get()</span></a></p>
+<p class="last"><a class="reference internal" href="group_model_details.html#doxid-group-model-details-1ga3f73d3029d3d0025d4cc311510cd95a3"><span class="std std-ref">vrna_md_defaults_sfact()</span></a></p>
+</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000085"></span> Global <a class="reference internal" href="group_pf_fold.html#doxid-group-pf-fold-1gaa6b8983b559b9ef4b2e1b31113ea317b"><span class="std std-ref">vrna_mean_bp_distance</span></a> (vrna_fold_compound_t <a href="#id221"><span class="problematic" id="id222">*</span></a>vc)</td>
+<td>This function is attached as method <strong><a class="reference internal" href="group_pf_fold.html#doxid-group-pf-fold-1ga79cbc375af65f11609feb6b055269e7d"><span class="std std-ref">mean_bp_distance()</span></a></strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000074"></span> Global <a class="reference internal" href="group_mfe_fold.html#doxid-group-mfe-fold-1gabd3b147371ccf25c577f88bbbaf159fd"><span class="std std-ref">vrna_mfe</span></a> (vrna_fold_compound_t <a href="#id223"><span class="problematic" id="id224">*</span></a>vc, char <a href="#id225"><span class="problematic" id="id226">*</span></a>structure)</td>
+<td>This function is attached as method <strong>mfe()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000075"></span> Global <a class="reference internal" href="group_mfe_cofold.html#doxid-group-mfe-cofold-1gaab22d10c1190f205f16a77cab9d5d3ee"><span class="std std-ref">vrna_mfe_dimer</span></a> (vrna_fold_compound_t <a href="#id227"><span class="problematic" id="id228">*</span></a>vc, char <a href="#id229"><span class="problematic" id="id230">*</span></a>structure)</td>
+<td>This function is attached as method <strong>mfe_dimer()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000076"></span> Global <a class="reference internal" href="group_local_mfe_fold.html#doxid-group-local-mfe-fold-1ga689df235a1915a1ad56e377383c044ce"><span class="std std-ref">vrna_mfe_window</span></a> (vrna_fold_compound_t <a href="#id231"><span class="problematic" id="id232">*</span></a>vc, FILE <a href="#id233"><span class="problematic" id="id234">*</span></a>file)</td>
+<td>This function is attached as method <strong>mfe_window()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000078"></span> Global <a class="reference internal" href="group_neighbors.html#doxid-group-neighbors-1gab1473d856b15da2120fe648977798ad5"><span class="std std-ref">vrna_neighbors</span></a> (vrna_fold_compound_t <a href="#id235"><span class="problematic" id="id236">*</span></a>vc, const short <a href="#id237"><span class="problematic" id="id238">*</span></a>pt, unsigned int options)</td>
+<td>This function is attached as an overloaded method <em>neighbors()</em> to objects of type <em>fold_compound</em> . The optional parameter <code class="docutils literal notranslate"><span class="pre">options</span></code> defaults to <a class="reference internal" href="group_neighbors.html#doxid-group-neighbors-1gaa5ffec4dd0d02df320f123e6888154d1"><span class="std std-ref">VRNA_MOVESET_DEFAULT</span></a> if it is omitted.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000081"></span> Global <a class="reference internal" href="group_energy_parameters.html#doxid-group-energy-parameters-1gac40dc82e48a72a97cfc58b9da08a7792"><span class="std std-ref">vrna_params_reset</span></a> (vrna_fold_compound_t <a href="#id239"><span class="problematic" id="id240">*</span></a>vc, vrna_md_t <a href="#id241"><span class="problematic" id="id242">*</span></a>md_p)</td>
+<td><p class="first">This function is attached to <a class="reference internal" href="struct_vrna_fc_s.html#doxid-structvrna-fc-s"><span class="std std-ref">vrna_fc_s</span></a> objects as overloaded <strong>params_reset()</strong> method.</p>
+<p class="last">When no parameter is passed to this method, the resulting action is the same as passing <em>NULL</em> as second parameter to <a class="reference internal" href="group_energy_parameters.html#doxid-group-energy-parameters-1gac40dc82e48a72a97cfc58b9da08a7792"><span class="std std-ref">vrna_params_reset()</span></a> , i.e. global default model settings are used. Passing an object of type <a class="reference internal" href="struct_vrna_md_s.html#doxid-structvrna-md-s"><span class="std std-ref">vrna_md_s</span></a> resets the fold compound according to the specifications stored within the <a class="reference internal" href="struct_vrna_md_s.html#doxid-structvrna-md-s"><span class="std std-ref">vrna_md_s</span></a> object.</p>
+</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000079"></span> Global <a class="reference internal" href="group_energy_parameters.html#doxid-group-energy-parameters-1ga5d1909208f7ea3baa98b75afaa1f62ca"><span class="std std-ref">vrna_params_subst</span></a> (vrna_fold_compound_t <a href="#id243"><span class="problematic" id="id244">*</span></a>vc, vrna_param_t <a href="#id245"><span class="problematic" id="id246">*</span></a>par)</td>
+<td>This function is attached to <a class="reference internal" href="struct_vrna_fc_s.html#doxid-structvrna-fc-s"><span class="std std-ref">vrna_fc_s</span></a> objects as <strong>params_subst()</strong> method.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000093"></span> Global <a class="reference internal" href="group_paths.html#doxid-group-paths-1gab6aee4143f8b103518d5cbfe6bfe5eae"><span class="std std-ref">vrna_path</span></a> (vrna_fold_compound_t <a href="#id247"><span class="problematic" id="id248">*</span></a>vc, short <a href="#id249"><span class="problematic" id="id250">*</span></a>pt, unsigned int steps, unsigned int options)</td>
+<td>This function is attached as an overloaded method <em>path()</em> to objects of type <em>fold_compound</em> . The optional parameter <code class="docutils literal notranslate"><span class="pre">options</span></code> defaults to <a class="reference internal" href="group_paths.html#doxid-group-paths-1gaf1bb1f8fec8d24e3b821f621b19f77b4"><span class="std std-ref">VRNA_PATH_DEFAULT</span></a> if it is omitted.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000065"></span> Global <a class="reference internal" href="group_direct_paths.html#doxid-group-direct-paths-1ga4b2283c4142cafd99678495585fcc842"><span class="std std-ref">vrna_path_findpath</span></a> (vrna_fold_compound_t <a href="#id251"><span class="problematic" id="id252">*</span></a>vc, const char <a href="#id253"><span class="problematic" id="id254">*</span></a>s1, const char <a href="#id255"><span class="problematic" id="id256">*</span></a>s2, int width)</td>
+<td>This function is attached as an overloaded method <em>path_findpath()</em> to objects of type <em>fold_compound</em> . The optional parameter <code class="docutils literal notranslate"><span class="pre">width</span></code> defaults to 1 if it is omitted.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000063"></span> Global <a class="reference internal" href="group_direct_paths.html#doxid-group-direct-paths-1gad611574a76593e26021f177e7854b6b4"><span class="std std-ref">vrna_path_findpath_saddle</span></a> (vrna_fold_compound_t <a href="#id257"><span class="problematic" id="id258">*</span></a>vc, const char <a href="#id259"><span class="problematic" id="id260">*</span></a>s1, const char <a href="#id261"><span class="problematic" id="id262">*</span></a>s2, int width)</td>
+<td>This function is attached as an overloaded method <em>path_findpath_saddle()</em> to objects of type <em>fold_compound</em> . The optional parameter <code class="docutils literal notranslate"><span class="pre">width</span></code> defaults to 1 if it is omitted.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000064"></span> Global <a class="reference internal" href="group_direct_paths.html#doxid-group-direct-paths-1gada8d722e37401b1aea30128b07555771"><span class="std std-ref">vrna_path_findpath_saddle_ub</span></a> (vrna_fold_compound_t <a href="#id263"><span class="problematic" id="id264">*</span></a>vc, const char <a href="#id265"><span class="problematic" id="id266">*</span></a>s1, const char <a href="#id267"><span class="problematic" id="id268">*</span></a>s2, int width, int maxE)</td>
+<td>This function is attached as an overloaded method <em>path_findpath_saddle()</em> to objects of type <em>fold_compound</em> . The optional parameter <code class="docutils literal notranslate"><span class="pre">width</span></code> defaults to 1 if it is omitted, while the optional parameter <code class="docutils literal notranslate"><span class="pre">maxE</span></code> defaults to <a class="reference internal" href="global.html#doxid-energy-const-8h-1a12c2040f25d8e3a7b9e1c2024c618cb6"><span class="std std-ref">INF</span></a> . In case the function did not find a path with <span class="math notranslate nohighlight">\(E_{saddle} &lt; E_{max}\)</span> the function returns a <em>NULL</em> object, i.e. <em>undef</em> for Perl and <em>None</em> for Python.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000066"></span> Global <a class="reference internal" href="group_direct_paths.html#doxid-group-direct-paths-1ga8d47812616303f40057dfb033869863a"><span class="std std-ref">vrna_path_findpath_ub</span></a> (vrna_fold_compound_t <a href="#id269"><span class="problematic" id="id270">*</span></a>vc, const char <a href="#id271"><span class="problematic" id="id272">*</span></a>s1, const char <a href="#id273"><span class="problematic" id="id274">*</span></a>s2, int width, int maxE)</td>
+<td>This function is attached as an overloaded method <em>path_findpath()</em> to objects of type <em>fold_compound</em> . The optional parameter <code class="docutils literal notranslate"><span class="pre">width</span></code> defaults to 1 if it is omitted, while the optional parameter <code class="docutils literal notranslate"><span class="pre">maxE</span></code> defaults to <a class="reference internal" href="global.html#doxid-energy-const-8h-1a12c2040f25d8e3a7b9e1c2024c618cb6"><span class="std std-ref">INF</span></a> . In case the function did not find a path with <span class="math notranslate nohighlight">\(E_{saddle} &lt; E_{max}\)</span> the function returns an empty list.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000094"></span> Global <a class="reference internal" href="group_paths.html#doxid-group-paths-1gae92cce443a8a64f7b7fb89867b7d6125"><span class="std std-ref">vrna_path_gradient</span></a> (vrna_fold_compound_t <a href="#id275"><span class="problematic" id="id276">*</span></a>vc, short <a href="#id277"><span class="problematic" id="id278">*</span></a>pt, unsigned int options)</td>
+<td>This function is attached as an overloaded method <em>path_gradient()</em> to objects of type <em>fold_compound</em> . The optional parameter <code class="docutils literal notranslate"><span class="pre">options</span></code> defaults to <a class="reference internal" href="group_paths.html#doxid-group-paths-1gaf1bb1f8fec8d24e3b821f621b19f77b4"><span class="std std-ref">VRNA_PATH_DEFAULT</span></a> if it is omitted.</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000095"></span> Global <a class="reference internal" href="group_paths.html#doxid-group-paths-1ga9234756c337078fa599529d3db70d913"><span class="std std-ref">vrna_path_random</span></a> (vrna_fold_compound_t <a href="#id279"><span class="problematic" id="id280">*</span></a>vc, short <a href="#id281"><span class="problematic" id="id282">*</span></a>pt, unsigned int steps, unsigned int options)</td>
+<td>This function is attached as an overloaded method <em>path_gradient()</em> to objects of type <em>fold_compound</em> . The optional parameter <code class="docutils literal notranslate"><span class="pre">options</span></code> defaults to <a class="reference internal" href="group_paths.html#doxid-group-paths-1gaf1bb1f8fec8d24e3b821f621b19f77b4"><span class="std std-ref">VRNA_PATH_DEFAULT</span></a> if it is omitted.</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000087"></span> Global <a class="reference internal" href="group_subopt_stochbt.html#doxid-group-subopt-stochbt-1ga901fe42a33b07be083421741bf7dc610"><span class="std std-ref">vrna_pbacktrack</span></a> (vrna_fold_compound_t <a href="#id283"><span class="problematic" id="id284">*</span></a>vc)</td>
+<td>This function is attached as overloaded method <strong><a class="reference internal" href="group_subopt_stochbt.html#doxid-group-subopt-stochbt-1gac03ca6db186bb3bf0a2a326d7fb3ba03"><span class="std std-ref">pbacktrack()</span></a></strong> to objects of type <em>fold_compound</em> that accepts an optional <code class="docutils literal notranslate"><span class="pre">length</span></code> argument. Hence, it serves as a replacement for <a class="reference internal" href="group_subopt_stochbt.html#doxid-group-subopt-stochbt-1ga901fe42a33b07be083421741bf7dc610"><span class="std std-ref">vrna_pbacktrack()</span></a> .</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000086"></span> Global <a class="reference internal" href="group_subopt_stochbt.html#doxid-group-subopt-stochbt-1ga347375a4da8bdff74639529847f97d4f"><span class="std std-ref">vrna_pbacktrack5</span></a> (vrna_fold_compound_t <a href="#id285"><span class="problematic" id="id286">*</span></a>vc, int length)</td>
+<td>This function is attached as overloaded method <strong><a class="reference internal" href="group_subopt_stochbt.html#doxid-group-subopt-stochbt-1gac03ca6db186bb3bf0a2a326d7fb3ba03"><span class="std std-ref">pbacktrack()</span></a></strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000083"></span> Global <a class="reference internal" href="group_pf_fold.html#doxid-group-pf-fold-1ga29e256d688ad221b78d37f427e0e99bc"><span class="std std-ref">vrna_pf</span></a> (vrna_fold_compound_t <a href="#id287"><span class="problematic" id="id288">*</span></a>vc, char <a href="#id289"><span class="problematic" id="id290">*</span></a>structure)</td>
+<td>This function is attached as method <strong>pf()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000084"></span> Global <a class="reference internal" href="group_pf_cofold.html#doxid-group-pf-cofold-1ga4e5c7d06c302a7c59fc0d64dc142ca63"><span class="std std-ref">vrna_pf_dimer</span></a> (vrna_fold_compound_t <a href="#id291"><span class="problematic" id="id292">*</span></a>vc, char <a href="#id293"><span class="problematic" id="id294">*</span></a>structure)</td>
+<td>This function is attached as method <strong>pf_dimer()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000018"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1gaf162aedac7422f2eb16ea030f47d2f4b"><span class="std std-ref">vrna_sc_add_bp</span></a> (vrna_fold_compound_t <a href="#id295"><span class="problematic" id="id296">*</span></a>vc, int i, int j, FLT_OR_DBL energy, unsigned int options)</td>
+<td><p class="first">This function is attached as an overloaded method <strong>sc_add_bp()</strong> to objects of type <em>fold_compound</em> . The method either takes arguments for a single base pair (i,j) with the corresponding energy value:</p>
+<pre class="highlight literal-block">
+<span></span><span class="n">fold_compound</span><span class="p">.</span><span class="n">sc_add_bp</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">energy</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+</pre>
+<p>or an entire 2-dimensional matrix with dimensions n x n that stores free energy contributions for any base pair (i,j) with :math:` 1 leq i &lt; j leq n ` :</p>
+<pre class="highlight literal-block">
+<span></span><span class="n">fold_compound</span><span class="p">.</span><span class="n">sc_add_bp</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+</pre>
+<p class="last">In both variants, the <code class="docutils literal notranslate"><span class="pre">options</span></code> argument is optional can may be omitted.</p>
+</td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000023"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1gabde7d07a79bb9a8f4721aee247b674ea"><span class="std std-ref">vrna_sc_add_bt</span></a> (vrna_fold_compound_t <a href="#id297"><span class="problematic" id="id298">*</span></a>vc, vrna_callback_sc_backtrack <a href="#id299"><span class="problematic" id="id300">*</span></a>f)</td>
+<td>This function is attached as method <strong>sc_add_bt()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000021"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1ga15c6d52471ec97897e2bb7f964f5deb6"><span class="std std-ref">vrna_sc_add_data</span></a> (vrna_fold_compound_t <a href="#id301"><span class="problematic" id="id302">*</span></a>vc, void <a href="#id303"><span class="problematic" id="id304">*</span></a>data, vrna_callback_free_auxdata <a href="#id305"><span class="problematic" id="id306">*</span></a>free_data)</td>
+<td>This function is attached as method <strong>sc_add_data()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000024"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1ga87e382b5d0c9b7d9ce1b79c0473ff700"><span class="std std-ref">vrna_sc_add_exp_f</span></a> (vrna_fold_compound_t <a href="#id307"><span class="problematic" id="id308">*</span></a>vc, vrna_callback_sc_exp_energy <a href="#id309"><span class="problematic" id="id310">*</span></a>exp_f)</td>
+<td>This function is attached as method <strong>sc_add_exp_f()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000022"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1ga8c7d907ec0125cd61c04e0908010a4e9"><span class="std std-ref">vrna_sc_add_f</span></a> (vrna_fold_compound_t <a href="#id311"><span class="problematic" id="id312">*</span></a>vc, vrna_callback_sc_energy <a href="#id313"><span class="problematic" id="id314">*</span></a>f)</td>
+<td>This function is attached as method <strong>sc_add_f()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000011"></span> Global <a class="reference internal" href="group_constraints_ligand.html#doxid-group-constraints-ligand-1gaa6ff0113a3a76dc0b8d62961f4e1dfa0"><span class="std std-ref">vrna_sc_add_hi_motif</span></a> (vrna_fold_compound_t <a href="#id315"><span class="problematic" id="id316">*</span></a>vc, const char <a href="#id317"><span class="problematic" id="id318">*</span></a>seq, const char <a href="#id319"><span class="problematic" id="id320">*</span></a>structure, FLT_OR_DBL energy, unsigned int options)</td>
+<td>This function is attached as method <strong>sc_add_hi_motif()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000012"></span> Global <a class="reference internal" href="group_SHAPE_reactivities.html#doxid-group-s-h-a-p-e-reactivities-1ga57d612b58e1c61dd6cfcb5a843f8f1b3"><span class="std std-ref">vrna_sc_add_SHAPE_deigan</span></a> (vrna_fold_compound_t <a href="#id321"><span class="problematic" id="id322">*</span></a>vc, const double <a href="#id323"><span class="problematic" id="id324">*</span></a>reactivities, double m, double b, unsigned int options)</td>
+<td>This function is attached as method <strong>sc_add_SHAPE_deigan()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000013"></span> Global <a class="reference internal" href="group_SHAPE_reactivities.html#doxid-group-s-h-a-p-e-reactivities-1ga04ba85da63d8c793bb8001d1e6f800ba"><span class="std std-ref">vrna_sc_add_SHAPE_deigan_ali</span></a> (vrna_fold_compound_t <a href="#id325"><span class="problematic" id="id326">*</span></a>vc, const char <a href="#id327"><span class="problematic" id="id328">**</span></a>shape_files, const int <a href="#id329"><span class="problematic" id="id330">*</span></a>shape_file_association, double m, double b, unsigned int options)</td>
+<td>This function is attached as method <strong>sc_add_SHAPE_deigan_ali()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000014"></span> Global <a class="reference internal" href="group_SHAPE_reactivities.html#doxid-group-s-h-a-p-e-reactivities-1gaf3c65a045060aef5c4e41693d30af58c"><span class="std std-ref">vrna_sc_add_SHAPE_zarringhalam</span></a> (vrna_fold_compound_t <a href="#id331"><span class="problematic" id="id332">*</span></a>vc, const double <a href="#id333"><span class="problematic" id="id334">*</span></a>reactivities, double b, double default_value, const char <a href="#id335"><span class="problematic" id="id336">*</span></a>shape_conversion, unsigned int options)</td>
+<td>This function is attached as method <strong>sc_add_SHAPE_zarringhalam()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000020"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1ga069915fe203a2c8e522dd37847177a09"><span class="std std-ref">vrna_sc_add_up</span></a> (vrna_fold_compound_t <a href="#id337"><span class="problematic" id="id338">*</span></a>vc, int i, FLT_OR_DBL energy, unsigned int options)</td>
+<td><p class="first">This function is attached as an overloaded method <strong>sc_add_up()</strong> to objects of type <em>fold_compound</em> . The method either takes arguments for a single nucleotide :math:<a href="#id339"><span class="problematic" id="id340">`</span></a>i ` with the corresponding energy value:</p>
+<pre class="highlight literal-block">
+<span></span><span class="n">fold_compound</span><span class="p">.</span><span class="n">sc_add_up</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">energy</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+</pre>
+<p>or an entire vector that stores free energy contributions for each nucleotide <span class="math notranslate nohighlight">\(i ` with :math:\)</span> 1 leq i leq n ` :</p>
+<pre class="highlight literal-block">
+<span></span><span class="n">fold_compound</span><span class="p">.</span><span class="n">sc_add_bp</span><span class="p">(</span><span class="n">vector</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+</pre>
+<p class="last">In both variants, the <code class="docutils literal notranslate"><span class="pre">options</span></code> argument is optional can may be omitted.</p>
+</td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000015"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1ga9d977a1681356778cc66dceafbe5b032"><span class="std std-ref">vrna_sc_init</span></a> (vrna_fold_compound_t <a href="#id341"><span class="problematic" id="id342">*</span></a>vc)</td>
+<td>This function is attached as method <strong>sc_init()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000016"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1ga73cdc07b9a199c614367bebef0f2c41a"><span class="std std-ref">vrna_sc_remove</span></a> (vrna_fold_compound_t <a href="#id343"><span class="problematic" id="id344">*</span></a>vc)</td>
+<td>This function is attached as method <strong>sc_remove()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000017"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1ga8e4334b24bc91453fbcda490a4e331af"><span class="std std-ref">vrna_sc_set_bp</span></a> (vrna_fold_compound_t <a href="#id345"><span class="problematic" id="id346">*</span></a>vc, const FLT_OR_DBL <a href="#id347"><span class="problematic" id="id348">**</span></a>constraints, unsigned int options)</td>
+<td>This function is attached as method <strong>sc_set_bp()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000019"></span> Global <a class="reference internal" href="group_soft_constraints.html#doxid-group-soft-constraints-1ga99ed63f3ef9e7fe3997932030487a344"><span class="std std-ref">vrna_sc_set_up</span></a> (vrna_fold_compound_t <a href="#id349"><span class="problematic" id="id350">*</span></a>vc, const FLT_OR_DBL <a href="#id351"><span class="problematic" id="id352">*</span></a>constraints, unsigned int options)</td>
+<td>This function is attached as method <strong>sc_set_up()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000090"></span> Global <a class="reference internal" href="group_subopt_wuchty.html#doxid-group-subopt-wuchty-1ga0f11d738fb8c8b1885a90c11c8931ff6"><span class="std std-ref">vrna_subopt</span></a> (vrna_fold_compound_t <a href="#id353"><span class="problematic" id="id354">*</span></a>vc, int delta, int sorted, FILE <a href="#id355"><span class="problematic" id="id356">*</span></a>fp)</td>
+<td>This function is attached as method <strong><a class="reference internal" href="group_subopt_wuchty.html#doxid-group-subopt-wuchty-1ga700f662506a233e42dd7fda74fafd40e"><span class="std std-ref">subopt()</span></a></strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000091"></span> Global <a class="reference internal" href="group_subopt_wuchty.html#doxid-group-subopt-wuchty-1ga1053837e6b6f158093508f8a70998352"><span class="std std-ref">vrna_subopt_cb</span></a> (vrna_fold_compound_t <a href="#id357"><span class="problematic" id="id358">*</span></a>vc, int delta, vrna_subopt_callback <a href="#id359"><span class="problematic" id="id360">*</span></a>cb, void <a href="#id361"><span class="problematic" id="id362">*</span></a>data)</td>
+<td>This function is attached as method <strong>subopt_cb()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000092"></span> Global <a class="reference internal" href="group_subopt_zuker.html#doxid-group-subopt-zuker-1gababde9d210eb433854f1e71da7815fbb"><span class="std std-ref">vrna_subopt_zuker</span></a> (vrna_fold_compound_t <a href="#id363"><span class="problematic" id="id364">*</span></a>vc)</td>
+<td>This function is attached as method <strong>subopt_zuker()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000068"></span> Global <a class="reference internal" href="group_domains_up.html#doxid-group-domains-up-1gaec0c3313fb2951946614f920d289829a"><span class="std std-ref">vrna_ud_add_motif</span></a> (vrna_fold_compound_t <a href="#id365"><span class="problematic" id="id366">*</span></a>vc, const char <a href="#id367"><span class="problematic" id="id368">*</span></a>motif, double motif_en, unsigned int loop_type)</td>
+<td>This function is attached as method <strong>ud_add_motif()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000069"></span> Global <a class="reference internal" href="group_domains_up.html#doxid-group-domains-up-1gada59cb0c498b812eadd010811af3f2d4"><span class="std std-ref">vrna_ud_remove</span></a> (vrna_fold_compound_t <a href="#id369"><span class="problematic" id="id370">*</span></a>vc)</td>
+<td>This function is attached as method <strong>ud_remove()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000070"></span> Global <a class="reference internal" href="group_domains_up.html#doxid-group-domains-up-1gac1f18c312b91d80089534a87d956e58b"><span class="std std-ref">vrna_ud_set_data</span></a> (vrna_fold_compound_t <a href="#id371"><span class="problematic" id="id372">*</span></a>vc, void <a href="#id373"><span class="problematic" id="id374">*</span></a>data, vrna_callback_free_auxdata <a href="#id375"><span class="problematic" id="id376">*</span></a>free_cb)</td>
+<td>This function is attached as method <strong>ud_set_data()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000072"></span> Global <a class="reference internal" href="group_domains_up.html#doxid-group-domains-up-1ga2fb1db2099da26c76247e1209ad4aa09"><span class="std std-ref">vrna_ud_set_exp_prod_rule_cb</span></a> (vrna_fold_compound_t <a href="#id377"><span class="problematic" id="id378">*</span></a>vc, vrna_callback_ud_exp_production <a href="#id379"><span class="problematic" id="id380">*</span></a>pre_cb, vrna_callback_ud_exp_energy <a href="#id381"><span class="problematic" id="id382">*</span></a>exp_e_cb)</td>
+<td>This function is attached as method <strong>ud_set_exp_prod_rule_cb()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-odd"><td><span class="target" id="doxid-wrappers-1-wrappers000073"></span> Global <a class="reference internal" href="global.html#doxid-unstructured-domains-8h-1a13ac877c9db89a1a5b5d9c0394148595"><span class="std std-ref">vrna_ud_set_prob_cb</span></a> (vrna_fold_compound_t <a href="#id383"><span class="problematic" id="id384">*</span></a>vc, vrna_callback_ud_probs_add <a href="#id385"><span class="problematic" id="id386">*</span></a>setter, vrna_callback_ud_probs_get <a href="#id387"><span class="problematic" id="id388">*</span></a>getter)</td>
+<td>This function is attached as method <strong>ud_set_prob_cb()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+<tr class="row-even"><td><span class="target" id="doxid-wrappers-1-wrappers000071"></span> Global <a class="reference internal" href="group_domains_up.html#doxid-group-domains-up-1ga745a99f0bc72898d54de16f6e538828a"><span class="std std-ref">vrna_ud_set_prod_rule_cb</span></a> (vrna_fold_compound_t <a href="#id389"><span class="problematic" id="id390">*</span></a>vc, vrna_callback_ud_production <a href="#id391"><span class="problematic" id="id392">*</span></a>pre_cb, vrna_callback_ud_energy <a href="#id393"><span class="problematic" id="id394">*</span></a>e_cb)</td>
+<td>This function is attached as method <strong>ud_set_prod_rule_cb()</strong> to objects of type <em>fold_compound</em></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+    </div>
+      
+  </div>
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2017, Ronny Lorenz.<br/>
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.7.3.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>
