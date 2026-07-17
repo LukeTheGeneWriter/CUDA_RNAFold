@@ -1,0 +1,427 @@
+\hypertarget{group__buffer__utils}{}\section{Functions that provide dynamically buffered stream-\/like data structures}
+\label{group__buffer__utils}\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+
+
+\subsection{Detailed Description}
+Collaboration diagram for Functions that provide dynamically buffered stream-\/like data structures\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=302pt]{group__buffer__utils}
+\end{center}
+\end{figure}
+\subsection*{Files}
+\begin{DoxyCompactItemize}
+\item 
+file \mbox{\hyperlink{char__stream_8h}{char\+\_\+stream.\+h}}
+\begin{DoxyCompactList}\small\item\em Implementation of a dynamic, buffered character stream. \end{DoxyCompactList}\item 
+file \mbox{\hyperlink{stream__output_8h}{stream\+\_\+output.\+h}}
+\begin{DoxyCompactList}\small\item\em An implementation of a buffered, ordered stream output data structure. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef struct vrna\+\_\+cstr\+\_\+s $\ast$ \mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}
+\item 
+typedef struct vrna\+\_\+ordered\+\_\+stream\+\_\+s $\ast$ \mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}}
+\begin{DoxyCompactList}\small\item\em An ordered output stream structure with unordered insert capabilities. \end{DoxyCompactList}\item 
+typedef void() \mbox{\hyperlink{group__buffer__utils_ga4adb94338a6f0a1a451e03c1bdac0d9d}{vrna\+\_\+callback\+\_\+stream\+\_\+output}}(void $\ast$auxdata, unsigned int i, void $\ast$data)
+\begin{DoxyCompactList}\small\item\em Ordered stream processing callback. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} \mbox{\hyperlink{group__buffer__utils_gadb2818f368e10a3b60a96bb3c80228d2}{vrna\+\_\+cstr}} (size\+\_\+t size, F\+I\+LE $\ast$output)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga7ec48ec280f699928c70428cc245dc77}{vrna\+\_\+cstr\+\_\+free}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga5a3f6a0a73b3d2d38fe011cdaed0ad28}{vrna\+\_\+cstr\+\_\+close}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gab59ad4781f7de960bdd1af5b1965c94b}{vrna\+\_\+cstr\+\_\+fflush}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf)
+\item 
+const char $\ast$ \mbox{\hyperlink{group__buffer__utils_ga05a1326d7fe8250cb81899f3f875531e}{vrna\+\_\+cstr\+\_\+string}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf)
+\item 
+int \mbox{\hyperlink{group__buffer__utils_ga35fdc69cf004aa57784f1764a31b20a6}{vrna\+\_\+cstr\+\_\+vprintf}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$format, va\+\_\+list args)
+\item 
+int \mbox{\hyperlink{group__buffer__utils_ga3c7eaa46b1e74c4641e4fa5927079462}{vrna\+\_\+cstr\+\_\+printf}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gaa0da077cf03f29808229ab8c0e1e63eb}{vrna\+\_\+cstr\+\_\+message\+\_\+info}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga791a25424f0bc9769ec16a22794c7137}{vrna\+\_\+cstr\+\_\+message\+\_\+vinfo}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$format, va\+\_\+list args)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga0a320b027c942dc85c508788272dd861}{vrna\+\_\+cstr\+\_\+print\+\_\+fasta\+\_\+header}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$head)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga29af50810807da04d6a244f8801728f9}{vrna\+\_\+cstr\+\_\+printf\+\_\+structure}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$structure, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gad4cd97b8943fdb83652cb6b46d91bb44}{vrna\+\_\+cstr\+\_\+vprintf\+\_\+structure}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$structure, const char $\ast$format, va\+\_\+list args)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga31409fdd5c038ee488bdf1ffcc630253}{vrna\+\_\+cstr\+\_\+printf\+\_\+comment}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga9824160bbe620784fcca5f10c4ff247c}{vrna\+\_\+cstr\+\_\+vprintf\+\_\+comment}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format, va\+\_\+list args)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gae5e551ba77b488a728d7e1700ecb0df8}{vrna\+\_\+cstr\+\_\+printf\+\_\+thead}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga6455c968e6190156267d5afdb8f211a0}{vrna\+\_\+cstr\+\_\+vprintf\+\_\+thead}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format, va\+\_\+list args)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga525e2673039eb2967cfcb118281ece3c}{vrna\+\_\+cstr\+\_\+printf\+\_\+tbody}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gab10cb243cdf925c41d6d84a5a1df9760}{vrna\+\_\+cstr\+\_\+vprintf\+\_\+tbody}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format, va\+\_\+list args)
+\item 
+\mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}} \mbox{\hyperlink{group__buffer__utils_gad23113e66a0910ec2341856e2da56bf6}{vrna\+\_\+ostream\+\_\+init}} (\mbox{\hyperlink{group__buffer__utils_ga4adb94338a6f0a1a451e03c1bdac0d9d}{vrna\+\_\+callback\+\_\+stream\+\_\+output}} $\ast$output, void $\ast$auxdata)
+\begin{DoxyCompactList}\small\item\em Get an initialized ordered output stream. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__buffer__utils_gaf813ec90e1446ba82c89f9a39688a3b3}{vrna\+\_\+ostream\+\_\+free}} (\mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}} dat)
+\begin{DoxyCompactList}\small\item\em Free an initialized ordered output stream. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{group__buffer__utils_ga4e60fb5548f6b56003860aa046a74ee2}{vrna\+\_\+ostream\+\_\+threadsafe}} (void)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gaebca91932705d71bcbf00bd8d82bd7c8}{vrna\+\_\+ostream\+\_\+request}} (\mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}} dat, unsigned int num)
+\begin{DoxyCompactList}\small\item\em Request index in ordered output stream. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__buffer__utils_ga6253c42abdeaf3b41a38204865e1f0f7}{vrna\+\_\+ostream\+\_\+provide}} (\mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}} dat, unsigned int i, void $\ast$data)
+\begin{DoxyCompactList}\small\item\em Provide output stream data for a particular index. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Typedef Documentation}
+\mbox{\Hypertarget{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}\label{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+t@{vrna\+\_\+cstr\+\_\+t}}
+\index{vrna\+\_\+cstr\+\_\+t@{vrna\+\_\+cstr\+\_\+t}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+t}{vrna\_cstr\_t}}
+{\footnotesize\ttfamily typedef struct vrna\+\_\+cstr\+\_\+s$\ast$ \mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}\label{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+ostream\+\_\+t@{vrna\+\_\+ostream\+\_\+t}}
+\index{vrna\+\_\+ostream\+\_\+t@{vrna\+\_\+ostream\+\_\+t}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+ostream\+\_\+t}{vrna\_ostream\_t}}
+{\footnotesize\ttfamily typedef struct vrna\+\_\+ordered\+\_\+stream\+\_\+s$\ast$ \mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}}}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{stream__output_8h}{Vienna\+R\+N\+A/stream\+\_\+output.\+h}}$>$}
+
+
+
+An ordered output stream structure with unordered insert capabilities. 
+
+\mbox{\Hypertarget{group__buffer__utils_ga4adb94338a6f0a1a451e03c1bdac0d9d}\label{group__buffer__utils_ga4adb94338a6f0a1a451e03c1bdac0d9d}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+callback\+\_\+stream\+\_\+output@{vrna\+\_\+callback\+\_\+stream\+\_\+output}}
+\index{vrna\+\_\+callback\+\_\+stream\+\_\+output@{vrna\+\_\+callback\+\_\+stream\+\_\+output}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+callback\+\_\+stream\+\_\+output}{vrna\_callback\_stream\_output}}
+{\footnotesize\ttfamily typedef void() vrna\+\_\+callback\+\_\+stream\+\_\+output(void $\ast$auxdata, unsigned int i, void $\ast$data)}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{stream__output_8h}{Vienna\+R\+N\+A/stream\+\_\+output.\+h}}$>$}
+
+
+
+Ordered stream processing callback. 
+
+This callback will be processed in sequential order as soon as sequential data in the output stream becomes available.
+
+\begin{DoxyNote}{Note}
+The callback must also release the memory occupied by the data passed since the stream will lose any reference to it after the callback has been executed.
+\end{DoxyNote}
+
+\begin{DoxyParams}{Parameters}
+{\em auxdata} & A shared pointer for all calls, as provided by the second argument to \mbox{\hyperlink{group__buffer__utils_gad23113e66a0910ec2341856e2da56bf6}{vrna\+\_\+ostream\+\_\+init()}} \\
+\hline
+{\em i} & The index number of the data passed to {\ttfamily data} \\
+\hline
+{\em data} & A block of data ready for processing \\
+\hline
+\end{DoxyParams}
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{group__buffer__utils_gadb2818f368e10a3b60a96bb3c80228d2}\label{group__buffer__utils_gadb2818f368e10a3b60a96bb3c80228d2}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr@{vrna\+\_\+cstr}}
+\index{vrna\+\_\+cstr@{vrna\+\_\+cstr}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr()}{vrna\_cstr()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} vrna\+\_\+cstr (\begin{DoxyParamCaption}\item[{size\+\_\+t}]{size,  }\item[{F\+I\+LE $\ast$}]{output }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga7ec48ec280f699928c70428cc245dc77}\label{group__buffer__utils_ga7ec48ec280f699928c70428cc245dc77}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+free@{vrna\+\_\+cstr\+\_\+free}}
+\index{vrna\+\_\+cstr\+\_\+free@{vrna\+\_\+cstr\+\_\+free}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+free()}{vrna\_cstr\_free()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+free (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}}]{buf }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga5a3f6a0a73b3d2d38fe011cdaed0ad28}\label{group__buffer__utils_ga5a3f6a0a73b3d2d38fe011cdaed0ad28}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+close@{vrna\+\_\+cstr\+\_\+close}}
+\index{vrna\+\_\+cstr\+\_\+close@{vrna\+\_\+cstr\+\_\+close}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+close()}{vrna\_cstr\_close()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+close (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}}]{buf }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_gab59ad4781f7de960bdd1af5b1965c94b}\label{group__buffer__utils_gab59ad4781f7de960bdd1af5b1965c94b}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+fflush@{vrna\+\_\+cstr\+\_\+fflush}}
+\index{vrna\+\_\+cstr\+\_\+fflush@{vrna\+\_\+cstr\+\_\+fflush}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+fflush()}{vrna\_cstr\_fflush()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+fflush (\begin{DoxyParamCaption}\item[{struct vrna\+\_\+cstr\+\_\+s $\ast$}]{buf }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga05a1326d7fe8250cb81899f3f875531e}\label{group__buffer__utils_ga05a1326d7fe8250cb81899f3f875531e}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+string@{vrna\+\_\+cstr\+\_\+string}}
+\index{vrna\+\_\+cstr\+\_\+string@{vrna\+\_\+cstr\+\_\+string}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+string()}{vrna\_cstr\_string()}}
+{\footnotesize\ttfamily const char$\ast$ vrna\+\_\+cstr\+\_\+string (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}}]{buf }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga35fdc69cf004aa57784f1764a31b20a6}\label{group__buffer__utils_ga35fdc69cf004aa57784f1764a31b20a6}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+vprintf@{vrna\+\_\+cstr\+\_\+vprintf}}
+\index{vrna\+\_\+cstr\+\_\+vprintf@{vrna\+\_\+cstr\+\_\+vprintf}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+vprintf()}{vrna\_cstr\_vprintf()}}
+{\footnotesize\ttfamily int vrna\+\_\+cstr\+\_\+vprintf (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{va\+\_\+list}]{args }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga3c7eaa46b1e74c4641e4fa5927079462}\label{group__buffer__utils_ga3c7eaa46b1e74c4641e4fa5927079462}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+printf@{vrna\+\_\+cstr\+\_\+printf}}
+\index{vrna\+\_\+cstr\+\_\+printf@{vrna\+\_\+cstr\+\_\+printf}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+printf()}{vrna\_cstr\_printf()}}
+{\footnotesize\ttfamily int vrna\+\_\+cstr\+\_\+printf (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{}]{... }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_gaa0da077cf03f29808229ab8c0e1e63eb}\label{group__buffer__utils_gaa0da077cf03f29808229ab8c0e1e63eb}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+message\+\_\+info@{vrna\+\_\+cstr\+\_\+message\+\_\+info}}
+\index{vrna\+\_\+cstr\+\_\+message\+\_\+info@{vrna\+\_\+cstr\+\_\+message\+\_\+info}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+message\+\_\+info()}{vrna\_cstr\_message\_info()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+message\+\_\+info (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{}]{... }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga791a25424f0bc9769ec16a22794c7137}\label{group__buffer__utils_ga791a25424f0bc9769ec16a22794c7137}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+message\+\_\+vinfo@{vrna\+\_\+cstr\+\_\+message\+\_\+vinfo}}
+\index{vrna\+\_\+cstr\+\_\+message\+\_\+vinfo@{vrna\+\_\+cstr\+\_\+message\+\_\+vinfo}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+message\+\_\+vinfo()}{vrna\_cstr\_message\_vinfo()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+message\+\_\+vinfo (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{va\+\_\+list}]{args }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga0a320b027c942dc85c508788272dd861}\label{group__buffer__utils_ga0a320b027c942dc85c508788272dd861}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+print\+\_\+fasta\+\_\+header@{vrna\+\_\+cstr\+\_\+print\+\_\+fasta\+\_\+header}}
+\index{vrna\+\_\+cstr\+\_\+print\+\_\+fasta\+\_\+header@{vrna\+\_\+cstr\+\_\+print\+\_\+fasta\+\_\+header}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+print\+\_\+fasta\+\_\+header()}{vrna\_cstr\_print\_fasta\_header()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+print\+\_\+fasta\+\_\+header (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}}]{buf,  }\item[{const char $\ast$}]{head }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga29af50810807da04d6a244f8801728f9}\label{group__buffer__utils_ga29af50810807da04d6a244f8801728f9}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+printf\+\_\+structure@{vrna\+\_\+cstr\+\_\+printf\+\_\+structure}}
+\index{vrna\+\_\+cstr\+\_\+printf\+\_\+structure@{vrna\+\_\+cstr\+\_\+printf\+\_\+structure}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+printf\+\_\+structure()}{vrna\_cstr\_printf\_structure()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+printf\+\_\+structure (\begin{DoxyParamCaption}\item[{struct vrna\+\_\+cstr\+\_\+s $\ast$}]{buf,  }\item[{const char $\ast$}]{structure,  }\item[{const char $\ast$}]{format,  }\item[{}]{... }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_gad4cd97b8943fdb83652cb6b46d91bb44}\label{group__buffer__utils_gad4cd97b8943fdb83652cb6b46d91bb44}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+vprintf\+\_\+structure@{vrna\+\_\+cstr\+\_\+vprintf\+\_\+structure}}
+\index{vrna\+\_\+cstr\+\_\+vprintf\+\_\+structure@{vrna\+\_\+cstr\+\_\+vprintf\+\_\+structure}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+vprintf\+\_\+structure()}{vrna\_cstr\_vprintf\_structure()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+vprintf\+\_\+structure (\begin{DoxyParamCaption}\item[{struct vrna\+\_\+cstr\+\_\+s $\ast$}]{buf,  }\item[{const char $\ast$}]{structure,  }\item[{const char $\ast$}]{format,  }\item[{va\+\_\+list}]{args }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga31409fdd5c038ee488bdf1ffcc630253}\label{group__buffer__utils_ga31409fdd5c038ee488bdf1ffcc630253}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+printf\+\_\+comment@{vrna\+\_\+cstr\+\_\+printf\+\_\+comment}}
+\index{vrna\+\_\+cstr\+\_\+printf\+\_\+comment@{vrna\+\_\+cstr\+\_\+printf\+\_\+comment}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+printf\+\_\+comment()}{vrna\_cstr\_printf\_comment()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+printf\+\_\+comment (\begin{DoxyParamCaption}\item[{struct vrna\+\_\+cstr\+\_\+s $\ast$}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{}]{... }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga9824160bbe620784fcca5f10c4ff247c}\label{group__buffer__utils_ga9824160bbe620784fcca5f10c4ff247c}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+vprintf\+\_\+comment@{vrna\+\_\+cstr\+\_\+vprintf\+\_\+comment}}
+\index{vrna\+\_\+cstr\+\_\+vprintf\+\_\+comment@{vrna\+\_\+cstr\+\_\+vprintf\+\_\+comment}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+vprintf\+\_\+comment()}{vrna\_cstr\_vprintf\_comment()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+vprintf\+\_\+comment (\begin{DoxyParamCaption}\item[{struct vrna\+\_\+cstr\+\_\+s $\ast$}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{va\+\_\+list}]{args }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_gae5e551ba77b488a728d7e1700ecb0df8}\label{group__buffer__utils_gae5e551ba77b488a728d7e1700ecb0df8}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+printf\+\_\+thead@{vrna\+\_\+cstr\+\_\+printf\+\_\+thead}}
+\index{vrna\+\_\+cstr\+\_\+printf\+\_\+thead@{vrna\+\_\+cstr\+\_\+printf\+\_\+thead}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+printf\+\_\+thead()}{vrna\_cstr\_printf\_thead()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+printf\+\_\+thead (\begin{DoxyParamCaption}\item[{struct vrna\+\_\+cstr\+\_\+s $\ast$}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{}]{... }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga6455c968e6190156267d5afdb8f211a0}\label{group__buffer__utils_ga6455c968e6190156267d5afdb8f211a0}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+vprintf\+\_\+thead@{vrna\+\_\+cstr\+\_\+vprintf\+\_\+thead}}
+\index{vrna\+\_\+cstr\+\_\+vprintf\+\_\+thead@{vrna\+\_\+cstr\+\_\+vprintf\+\_\+thead}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+vprintf\+\_\+thead()}{vrna\_cstr\_vprintf\_thead()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+vprintf\+\_\+thead (\begin{DoxyParamCaption}\item[{struct vrna\+\_\+cstr\+\_\+s $\ast$}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{va\+\_\+list}]{args }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_ga525e2673039eb2967cfcb118281ece3c}\label{group__buffer__utils_ga525e2673039eb2967cfcb118281ece3c}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+printf\+\_\+tbody@{vrna\+\_\+cstr\+\_\+printf\+\_\+tbody}}
+\index{vrna\+\_\+cstr\+\_\+printf\+\_\+tbody@{vrna\+\_\+cstr\+\_\+printf\+\_\+tbody}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+printf\+\_\+tbody()}{vrna\_cstr\_printf\_tbody()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+printf\+\_\+tbody (\begin{DoxyParamCaption}\item[{struct vrna\+\_\+cstr\+\_\+s $\ast$}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{}]{... }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_gab10cb243cdf925c41d6d84a5a1df9760}\label{group__buffer__utils_gab10cb243cdf925c41d6d84a5a1df9760}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+cstr\+\_\+vprintf\+\_\+tbody@{vrna\+\_\+cstr\+\_\+vprintf\+\_\+tbody}}
+\index{vrna\+\_\+cstr\+\_\+vprintf\+\_\+tbody@{vrna\+\_\+cstr\+\_\+vprintf\+\_\+tbody}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+cstr\+\_\+vprintf\+\_\+tbody()}{vrna\_cstr\_vprintf\_tbody()}}
+{\footnotesize\ttfamily void vrna\+\_\+cstr\+\_\+vprintf\+\_\+tbody (\begin{DoxyParamCaption}\item[{struct vrna\+\_\+cstr\+\_\+s $\ast$}]{buf,  }\item[{const char $\ast$}]{format,  }\item[{va\+\_\+list}]{args }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{char__stream_8h}{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_gad23113e66a0910ec2341856e2da56bf6}\label{group__buffer__utils_gad23113e66a0910ec2341856e2da56bf6}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+ostream\+\_\+init@{vrna\+\_\+ostream\+\_\+init}}
+\index{vrna\+\_\+ostream\+\_\+init@{vrna\+\_\+ostream\+\_\+init}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+ostream\+\_\+init()}{vrna\_ostream\_init()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}} vrna\+\_\+ostream\+\_\+init (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga4adb94338a6f0a1a451e03c1bdac0d9d}{vrna\+\_\+callback\+\_\+stream\+\_\+output}} $\ast$}]{output,  }\item[{void $\ast$}]{auxdata }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{stream__output_8h}{Vienna\+R\+N\+A/stream\+\_\+output.\+h}}$>$}
+
+
+
+Get an initialized ordered output stream. 
+
+\begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__buffer__utils_gaf813ec90e1446ba82c89f9a39688a3b3}{vrna\+\_\+ostream\+\_\+free()}}, \mbox{\hyperlink{group__buffer__utils_gaebca91932705d71bcbf00bd8d82bd7c8}{vrna\+\_\+ostream\+\_\+request()}}, \mbox{\hyperlink{group__buffer__utils_ga6253c42abdeaf3b41a38204865e1f0f7}{vrna\+\_\+ostream\+\_\+provide()}}
+\end{DoxySeeAlso}
+
+\begin{DoxyParams}{Parameters}
+{\em output} & A callback function that processes and releases data in the stream \\
+\hline
+{\em auxdata} & A pointer to auxiliary data passed as first argument to the {\ttfamily output} callback \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+An initialized ordered output stream 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__buffer__utils_gaf813ec90e1446ba82c89f9a39688a3b3}\label{group__buffer__utils_gaf813ec90e1446ba82c89f9a39688a3b3}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+ostream\+\_\+free@{vrna\+\_\+ostream\+\_\+free}}
+\index{vrna\+\_\+ostream\+\_\+free@{vrna\+\_\+ostream\+\_\+free}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+ostream\+\_\+free()}{vrna\_ostream\_free()}}
+{\footnotesize\ttfamily void vrna\+\_\+ostream\+\_\+free (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}}}]{dat }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{stream__output_8h}{Vienna\+R\+N\+A/stream\+\_\+output.\+h}}$>$}
+
+
+
+Free an initialized ordered output stream. 
+
+\begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__buffer__utils_gad23113e66a0910ec2341856e2da56bf6}{vrna\+\_\+ostream\+\_\+init()}}
+\end{DoxySeeAlso}
+
+\begin{DoxyParams}{Parameters}
+{\em dat} & The output stream for which occupied memory should be free\textquotesingle{}d \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{group__buffer__utils_ga4e60fb5548f6b56003860aa046a74ee2}\label{group__buffer__utils_ga4e60fb5548f6b56003860aa046a74ee2}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+ostream\+\_\+threadsafe@{vrna\+\_\+ostream\+\_\+threadsafe}}
+\index{vrna\+\_\+ostream\+\_\+threadsafe@{vrna\+\_\+ostream\+\_\+threadsafe}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+ostream\+\_\+threadsafe()}{vrna\_ostream\_threadsafe()}}
+{\footnotesize\ttfamily int vrna\+\_\+ostream\+\_\+threadsafe (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{stream__output_8h}{Vienna\+R\+N\+A/stream\+\_\+output.\+h}}$>$}
+
+\mbox{\Hypertarget{group__buffer__utils_gaebca91932705d71bcbf00bd8d82bd7c8}\label{group__buffer__utils_gaebca91932705d71bcbf00bd8d82bd7c8}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+ostream\+\_\+request@{vrna\+\_\+ostream\+\_\+request}}
+\index{vrna\+\_\+ostream\+\_\+request@{vrna\+\_\+ostream\+\_\+request}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+ostream\+\_\+request()}{vrna\_ostream\_request()}}
+{\footnotesize\ttfamily void vrna\+\_\+ostream\+\_\+request (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}}}]{dat,  }\item[{unsigned int}]{num }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{stream__output_8h}{Vienna\+R\+N\+A/stream\+\_\+output.\+h}}$>$}
+
+
+
+Request index in ordered output stream. 
+
+This function must be called prior to \mbox{\hyperlink{group__buffer__utils_ga6253c42abdeaf3b41a38204865e1f0f7}{vrna\+\_\+ostream\+\_\+provide()}} to indicate that data associted with a certain index number is expected to be inserted into the stream in the future.
+
+\begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__buffer__utils_gad23113e66a0910ec2341856e2da56bf6}{vrna\+\_\+ostream\+\_\+init()}}, \mbox{\hyperlink{group__buffer__utils_ga6253c42abdeaf3b41a38204865e1f0f7}{vrna\+\_\+ostream\+\_\+provide()}}, \mbox{\hyperlink{group__buffer__utils_gaf813ec90e1446ba82c89f9a39688a3b3}{vrna\+\_\+ostream\+\_\+free()}}
+\end{DoxySeeAlso}
+dat The output stream for which the index is requested 
+\begin{DoxyParams}{Parameters}
+{\em num} & The index to request data for \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{group__buffer__utils_ga6253c42abdeaf3b41a38204865e1f0f7}\label{group__buffer__utils_ga6253c42abdeaf3b41a38204865e1f0f7}} 
+\index{Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}!vrna\+\_\+ostream\+\_\+provide@{vrna\+\_\+ostream\+\_\+provide}}
+\index{vrna\+\_\+ostream\+\_\+provide@{vrna\+\_\+ostream\+\_\+provide}!Functions that provide dynamically buffered stream-\/like data structures@{Functions that provide dynamically buffered stream-\/like data structures}}
+\subsubsection{\texorpdfstring{vrna\+\_\+ostream\+\_\+provide()}{vrna\_ostream\_provide()}}
+{\footnotesize\ttfamily void vrna\+\_\+ostream\+\_\+provide (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__buffer__utils_ga8da189552af21ab6e4e88bdcc240870c}{vrna\+\_\+ostream\+\_\+t}}}]{dat,  }\item[{unsigned int}]{i,  }\item[{void $\ast$}]{data }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{stream__output_8h}{Vienna\+R\+N\+A/stream\+\_\+output.\+h}}$>$}
+
+
+
+Provide output stream data for a particular index. 
+
+\begin{DoxyPrecond}{Precondition}
+The index data is provided for must have been requested using \mbox{\hyperlink{group__buffer__utils_gaebca91932705d71bcbf00bd8d82bd7c8}{vrna\+\_\+ostream\+\_\+request()}} beforehand.
+\end{DoxyPrecond}
+\begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__buffer__utils_gaebca91932705d71bcbf00bd8d82bd7c8}{vrna\+\_\+ostream\+\_\+request()}}
+\end{DoxySeeAlso}
+
+\begin{DoxyParams}{Parameters}
+{\em dat} & The output stream for which data is provided \\
+\hline
+{\em i} & The index of the provided data \\
+\hline
+{\em data} & The data provided \\
+\hline
+\end{DoxyParams}

@@ -1,0 +1,335 @@
+\hypertarget{group__energy__parameters__rw}{}\section{Reading/\+Writing Energy Parameter Sets from/to File}
+\label{group__energy__parameters__rw}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}
+
+
+Read and Write energy parameter sets from and to text files.  
+
+
+
+
+\subsection{Detailed Description}
+Read and Write energy parameter sets from and to text files. 
+
+A default set of parameters, identical to the one described in \cite{mathews:2004} and \cite{turner:2010}, is compiled into the library. Collaboration diagram for Reading/\+Writing Energy Parameter Sets from/to File\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{group__energy__parameters__rw}
+\end{center}
+\end{figure}
+\subsection*{Modules}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__energy__parameters__convert}{Converting Energy Parameter Files}}
+\begin{DoxyCompactList}\small\item\em Convert energy parameter files into the latest format. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Enumerations}
+\begin{DoxyCompactItemize}
+\item 
+enum \mbox{\hyperlink{group__energy__parameters__rw_ga7bf2bb363bcf5ce50d60255d256e5682}{parset}} \{ \newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a6ce26a62afab55d7606ad4e92428b30c}{U\+N\+K\+N\+O\+WN}} = -\/1, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a76bdc8adfd6c6463ab269ff4c06be9b4}{Q\+U\+IT}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ae1f521d6cb3b00b6c4dbe42ec526926f}{S\+\_\+H}}, 
+\newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a3b47f547ec1200c4854206be912c2c4c}{HP}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a511a3fcf662ed1bedd6e50bbf9693041}{H\+P\+\_\+H}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a3f2a77ecd272aa6d6b5902faa5e5fc68}{B}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a019826668fa75e445746726aace50b96}{B\+\_\+H}}, 
+\newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682aa4c436132f18c991292ad07fe2fbbd46}{IL}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9f2a1b5f221520d546698d957e653080}{I\+L\+\_\+H}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a6fa7436f35d08e2fa94d414f8be36145}{M\+MH}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682aa48db87a064cfdd22bde4ee4320a2a72}{M\+M\+H\+\_\+H}}, 
+\newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a24d12acc0725d15ccecb34f0f0b25df7}{M\+MI}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ac1325a6137ab07244106df6477b146cb}{M\+M\+I\+\_\+H}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a2a87595b7bc9c421a92d2335a38921be}{M\+M\+I1N}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ae0e3bfa002ade2b8f909b52598dfa4af}{M\+M\+I1\+N\+\_\+H}}, 
+\newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a15bcd1ce5d91ad0209d3947205c9cd37}{M\+M\+I23}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a4f57a2f9b66ed6524a629d91841e8d66}{M\+M\+I23\+\_\+H}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a94238d66fd2dc72950407a908db0c3c1}{M\+MM}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a8547b16d4ea4f460c3ad3444c7326887}{M\+M\+M\+\_\+H}}, 
+\newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a104b87bd084bcabeb666af63ca609c9f}{M\+ME}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af2afcec538843f0877ec5ce9720bc1e9}{M\+M\+E\+\_\+H}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9bfc9615ce2836fe43fe37e0eda2a68a}{D5}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9107c311da59f65e04053ae3a8b9b443}{D5\+\_\+H}}, 
+\newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ade8ef7573c5fa770f07ac7616cbf5d34}{D3}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a74fd1bb58d8b533e0a70f1609d59b8cf}{D3\+\_\+H}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ad852245f105685db67b11f2d8ee36dee}{I\+N\+T11}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9db2fd49a2484e406757005de60c0155}{I\+N\+T11\+\_\+H}}, 
+\newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af056796af7b26c9a40101915d03e23ad}{I\+N\+T21}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682abc2cc90fb7f664817def63b07a9f1b95}{I\+N\+T21\+\_\+H}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a6f7a79af5633b0ef773730b3c78b7920}{I\+N\+T22}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a8a370d06c036da9da38797c119326b1a}{I\+N\+T22\+\_\+H}}, 
+\newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a96795f73b23b0c8607ad96746efc6540}{ML}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682aca301a4c4fa25b27fff84becdd631048}{TL}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682acde3f260abb10fb9633e1ca01de9e78d}{T\+RI}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ad3c20094c5fe3327350484d01c44c137}{H\+EX}}, 
+\newline
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682acd3f0e23689c384d9c43644a9c2eccc0}{N\+IN}}, 
+\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ac598b9c49caca3da6b36b030315b7ce9}{M\+I\+SC}}
+ \}
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+const char $\ast$ \mbox{\hyperlink{group__energy__parameters__rw_ga5abafd7bad6d506e18bed13b18123cfe}{last\+\_\+parameter\+\_\+file}} (void)
+\begin{DoxyCompactList}\small\item\em Get the file name of the parameter file that was most recently loaded. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__energy__parameters__rw_ga165a142a3c68fb6655c69ef4ab7cd749}{read\+\_\+parameter\+\_\+file}} (const char fname\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Read energy parameters from a file. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__energy__parameters__rw_ga8a43459be386a7489feeab68dc2c6c76}{write\+\_\+parameter\+\_\+file}} (const char fname\mbox{[}$\,$\mbox{]})
+\begin{DoxyCompactList}\small\item\em Write energy parameters to a file. \end{DoxyCompactList}\item 
+enum \mbox{\hyperlink{group__energy__parameters__rw_ga7bf2bb363bcf5ce50d60255d256e5682}{parset}} \mbox{\hyperlink{group__energy__parameters__rw_gaaab17a97b765b302b16f7b9eb4004801}{gettype}} (const char $\ast$ident)
+\item 
+char $\ast$ \mbox{\hyperlink{group__energy__parameters__rw_ga0f228d51ba3fcd7dca0c991f37b2ed2a}{settype}} (enum \mbox{\hyperlink{group__energy__parameters__rw_ga7bf2bb363bcf5ce50d60255d256e5682}{parset}} s)
+\end{DoxyCompactItemize}
+
+
+\subsection{Enumeration Type Documentation}
+\mbox{\Hypertarget{group__energy__parameters__rw_ga7bf2bb363bcf5ce50d60255d256e5682}\label{group__energy__parameters__rw_ga7bf2bb363bcf5ce50d60255d256e5682}} 
+\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!parset@{parset}}
+\index{parset@{parset}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}
+\subsubsection{\texorpdfstring{parset}{parset}}
+{\footnotesize\ttfamily enum \mbox{\hyperlink{group__energy__parameters__rw_ga7bf2bb363bcf5ce50d60255d256e5682}{parset}}}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{read__epars_8h}{Vienna\+R\+N\+A/read\+\_\+epars.\+h}}$>$}
+
+\begin{DoxyEnumFields}{Enumerator}
+\raisebox{\heightof{T}}[0pt][0pt]{\index{U\+N\+K\+N\+O\+WN@{U\+N\+K\+N\+O\+WN}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!U\+N\+K\+N\+O\+WN@{U\+N\+K\+N\+O\+WN}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a6ce26a62afab55d7606ad4e92428b30c}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a6ce26a62afab55d7606ad4e92428b30c}} 
+U\+N\+K\+N\+O\+WN&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{Q\+U\+IT@{Q\+U\+IT}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!Q\+U\+IT@{Q\+U\+IT}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a76bdc8adfd6c6463ab269ff4c06be9b4}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a76bdc8adfd6c6463ab269ff4c06be9b4}} 
+Q\+U\+IT&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{S@{S}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!S@{S}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}} 
+S&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{S\+\_\+H@{S\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!S\+\_\+H@{S\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ae1f521d6cb3b00b6c4dbe42ec526926f}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ae1f521d6cb3b00b6c4dbe42ec526926f}} 
+S\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{HP@{HP}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!HP@{HP}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a3b47f547ec1200c4854206be912c2c4c}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a3b47f547ec1200c4854206be912c2c4c}} 
+HP&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{H\+P\+\_\+H@{H\+P\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!H\+P\+\_\+H@{H\+P\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a511a3fcf662ed1bedd6e50bbf9693041}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a511a3fcf662ed1bedd6e50bbf9693041}} 
+H\+P\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{B@{B}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!B@{B}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a3f2a77ecd272aa6d6b5902faa5e5fc68}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a3f2a77ecd272aa6d6b5902faa5e5fc68}} 
+B&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{B\+\_\+H@{B\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!B\+\_\+H@{B\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a019826668fa75e445746726aace50b96}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a019826668fa75e445746726aace50b96}} 
+B\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{IL@{IL}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!IL@{IL}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682aa4c436132f18c991292ad07fe2fbbd46}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682aa4c436132f18c991292ad07fe2fbbd46}} 
+IL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{I\+L\+\_\+H@{I\+L\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!I\+L\+\_\+H@{I\+L\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9f2a1b5f221520d546698d957e653080}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9f2a1b5f221520d546698d957e653080}} 
+I\+L\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+MH@{M\+MH}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+MH@{M\+MH}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a6fa7436f35d08e2fa94d414f8be36145}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a6fa7436f35d08e2fa94d414f8be36145}} 
+M\+MH&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+M\+H\+\_\+H@{M\+M\+H\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+M\+H\+\_\+H@{M\+M\+H\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682aa48db87a064cfdd22bde4ee4320a2a72}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682aa48db87a064cfdd22bde4ee4320a2a72}} 
+M\+M\+H\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+MI@{M\+MI}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+MI@{M\+MI}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a24d12acc0725d15ccecb34f0f0b25df7}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a24d12acc0725d15ccecb34f0f0b25df7}} 
+M\+MI&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+M\+I\+\_\+H@{M\+M\+I\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+M\+I\+\_\+H@{M\+M\+I\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ac1325a6137ab07244106df6477b146cb}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ac1325a6137ab07244106df6477b146cb}} 
+M\+M\+I\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+M\+I1N@{M\+M\+I1N}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+M\+I1N@{M\+M\+I1N}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a2a87595b7bc9c421a92d2335a38921be}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a2a87595b7bc9c421a92d2335a38921be}} 
+M\+M\+I1N&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+M\+I1\+N\+\_\+H@{M\+M\+I1\+N\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+M\+I1\+N\+\_\+H@{M\+M\+I1\+N\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ae0e3bfa002ade2b8f909b52598dfa4af}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ae0e3bfa002ade2b8f909b52598dfa4af}} 
+M\+M\+I1\+N\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+M\+I23@{M\+M\+I23}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+M\+I23@{M\+M\+I23}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a15bcd1ce5d91ad0209d3947205c9cd37}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a15bcd1ce5d91ad0209d3947205c9cd37}} 
+M\+M\+I23&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+M\+I23\+\_\+H@{M\+M\+I23\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+M\+I23\+\_\+H@{M\+M\+I23\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a4f57a2f9b66ed6524a629d91841e8d66}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a4f57a2f9b66ed6524a629d91841e8d66}} 
+M\+M\+I23\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+MM@{M\+MM}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+MM@{M\+MM}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a94238d66fd2dc72950407a908db0c3c1}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a94238d66fd2dc72950407a908db0c3c1}} 
+M\+MM&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+M\+M\+\_\+H@{M\+M\+M\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+M\+M\+\_\+H@{M\+M\+M\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a8547b16d4ea4f460c3ad3444c7326887}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a8547b16d4ea4f460c3ad3444c7326887}} 
+M\+M\+M\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+ME@{M\+ME}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+ME@{M\+ME}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a104b87bd084bcabeb666af63ca609c9f}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a104b87bd084bcabeb666af63ca609c9f}} 
+M\+ME&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+M\+E\+\_\+H@{M\+M\+E\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+M\+E\+\_\+H@{M\+M\+E\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af2afcec538843f0877ec5ce9720bc1e9}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af2afcec538843f0877ec5ce9720bc1e9}} 
+M\+M\+E\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{D5@{D5}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!D5@{D5}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9bfc9615ce2836fe43fe37e0eda2a68a}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9bfc9615ce2836fe43fe37e0eda2a68a}} 
+D5&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{D5\+\_\+H@{D5\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!D5\+\_\+H@{D5\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9107c311da59f65e04053ae3a8b9b443}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9107c311da59f65e04053ae3a8b9b443}} 
+D5\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{D3@{D3}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!D3@{D3}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ade8ef7573c5fa770f07ac7616cbf5d34}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ade8ef7573c5fa770f07ac7616cbf5d34}} 
+D3&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{D3\+\_\+H@{D3\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!D3\+\_\+H@{D3\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a74fd1bb58d8b533e0a70f1609d59b8cf}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a74fd1bb58d8b533e0a70f1609d59b8cf}} 
+D3\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{I\+N\+T11@{I\+N\+T11}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!I\+N\+T11@{I\+N\+T11}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ad852245f105685db67b11f2d8ee36dee}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ad852245f105685db67b11f2d8ee36dee}} 
+I\+N\+T11&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{I\+N\+T11\+\_\+H@{I\+N\+T11\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!I\+N\+T11\+\_\+H@{I\+N\+T11\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9db2fd49a2484e406757005de60c0155}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a9db2fd49a2484e406757005de60c0155}} 
+I\+N\+T11\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{I\+N\+T21@{I\+N\+T21}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!I\+N\+T21@{I\+N\+T21}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af056796af7b26c9a40101915d03e23ad}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af056796af7b26c9a40101915d03e23ad}} 
+I\+N\+T21&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{I\+N\+T21\+\_\+H@{I\+N\+T21\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!I\+N\+T21\+\_\+H@{I\+N\+T21\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682abc2cc90fb7f664817def63b07a9f1b95}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682abc2cc90fb7f664817def63b07a9f1b95}} 
+I\+N\+T21\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{I\+N\+T22@{I\+N\+T22}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!I\+N\+T22@{I\+N\+T22}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a6f7a79af5633b0ef773730b3c78b7920}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a6f7a79af5633b0ef773730b3c78b7920}} 
+I\+N\+T22&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{I\+N\+T22\+\_\+H@{I\+N\+T22\+\_\+H}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!I\+N\+T22\+\_\+H@{I\+N\+T22\+\_\+H}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a8a370d06c036da9da38797c119326b1a}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a8a370d06c036da9da38797c119326b1a}} 
+I\+N\+T22\+\_\+H&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{ML@{ML}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!ML@{ML}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a96795f73b23b0c8607ad96746efc6540}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682a96795f73b23b0c8607ad96746efc6540}} 
+ML&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{TL@{TL}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!TL@{TL}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682aca301a4c4fa25b27fff84becdd631048}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682aca301a4c4fa25b27fff84becdd631048}} 
+TL&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{T\+RI@{T\+RI}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!T\+RI@{T\+RI}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682acde3f260abb10fb9633e1ca01de9e78d}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682acde3f260abb10fb9633e1ca01de9e78d}} 
+T\+RI&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{H\+EX@{H\+EX}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!H\+EX@{H\+EX}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ad3c20094c5fe3327350484d01c44c137}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ad3c20094c5fe3327350484d01c44c137}} 
+H\+EX&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{N\+IN@{N\+IN}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!N\+IN@{N\+IN}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682acd3f0e23689c384d9c43644a9c2eccc0}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682acd3f0e23689c384d9c43644a9c2eccc0}} 
+N\+IN&\\
+\hline
+
+\raisebox{\heightof{T}}[0pt][0pt]{\index{M\+I\+SC@{M\+I\+SC}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!M\+I\+SC@{M\+I\+SC}}}\mbox{\Hypertarget{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ac598b9c49caca3da6b36b030315b7ce9}\label{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682ac598b9c49caca3da6b36b030315b7ce9}} 
+M\+I\+SC&\\
+\hline
+
+\end{DoxyEnumFields}
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{group__energy__parameters__rw_ga5abafd7bad6d506e18bed13b18123cfe}\label{group__energy__parameters__rw_ga5abafd7bad6d506e18bed13b18123cfe}} 
+\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!last\+\_\+parameter\+\_\+file@{last\+\_\+parameter\+\_\+file}}
+\index{last\+\_\+parameter\+\_\+file@{last\+\_\+parameter\+\_\+file}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}
+\subsubsection{\texorpdfstring{last\+\_\+parameter\+\_\+file()}{last\_parameter\_file()}}
+{\footnotesize\ttfamily const char$\ast$ last\+\_\+parameter\+\_\+file (\begin{DoxyParamCaption}\item[{void}]{ }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{read__epars_8h}{Vienna\+R\+N\+A/read\+\_\+epars.\+h}}$>$}
+
+
+
+Get the file name of the parameter file that was most recently loaded. 
+
+\begin{DoxyReturn}{Returns}
+The file name of the last parameter file, or N\+U\+LL if parameters are still at defaults 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__energy__parameters__rw_ga165a142a3c68fb6655c69ef4ab7cd749}\label{group__energy__parameters__rw_ga165a142a3c68fb6655c69ef4ab7cd749}} 
+\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!read\+\_\+parameter\+\_\+file@{read\+\_\+parameter\+\_\+file}}
+\index{read\+\_\+parameter\+\_\+file@{read\+\_\+parameter\+\_\+file}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}
+\subsubsection{\texorpdfstring{read\+\_\+parameter\+\_\+file()}{read\_parameter\_file()}}
+{\footnotesize\ttfamily void read\+\_\+parameter\+\_\+file (\begin{DoxyParamCaption}\item[{const char}]{fname\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{read__epars_8h}{Vienna\+R\+N\+A/read\+\_\+epars.\+h}}$>$}
+
+
+
+Read energy parameters from a file. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em fname} & The path to the file containing the energy parameters \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{group__energy__parameters__rw_ga8a43459be386a7489feeab68dc2c6c76}\label{group__energy__parameters__rw_ga8a43459be386a7489feeab68dc2c6c76}} 
+\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!write\+\_\+parameter\+\_\+file@{write\+\_\+parameter\+\_\+file}}
+\index{write\+\_\+parameter\+\_\+file@{write\+\_\+parameter\+\_\+file}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}
+\subsubsection{\texorpdfstring{write\+\_\+parameter\+\_\+file()}{write\_parameter\_file()}}
+{\footnotesize\ttfamily void write\+\_\+parameter\+\_\+file (\begin{DoxyParamCaption}\item[{const char}]{fname\mbox{[}$\,$\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{read__epars_8h}{Vienna\+R\+N\+A/read\+\_\+epars.\+h}}$>$}
+
+
+
+Write energy parameters to a file. 
+
+
+\begin{DoxyParams}{Parameters}
+{\em fname} & A filename (path) for the file where the current energy parameters will be written to \\
+\hline
+\end{DoxyParams}
+\mbox{\Hypertarget{group__energy__parameters__rw_gaaab17a97b765b302b16f7b9eb4004801}\label{group__energy__parameters__rw_gaaab17a97b765b302b16f7b9eb4004801}} 
+\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!gettype@{gettype}}
+\index{gettype@{gettype}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}
+\subsubsection{\texorpdfstring{gettype()}{gettype()}}
+{\footnotesize\ttfamily enum \mbox{\hyperlink{group__energy__parameters__rw_ga7bf2bb363bcf5ce50d60255d256e5682}{parset}} gettype (\begin{DoxyParamCaption}\item[{const char $\ast$}]{ident }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{read__epars_8h}{Vienna\+R\+N\+A/read\+\_\+epars.\+h}}$>$}
+
+\mbox{\Hypertarget{group__energy__parameters__rw_ga0f228d51ba3fcd7dca0c991f37b2ed2a}\label{group__energy__parameters__rw_ga0f228d51ba3fcd7dca0c991f37b2ed2a}} 
+\index{Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}!settype@{settype}}
+\index{settype@{settype}!Reading/\+Writing Energy Parameter Sets from/to File@{Reading/\+Writing Energy Parameter Sets from/to File}}
+\subsubsection{\texorpdfstring{settype()}{settype()}}
+{\footnotesize\ttfamily char$\ast$ settype (\begin{DoxyParamCaption}\item[{enum \mbox{\hyperlink{group__energy__parameters__rw_ga7bf2bb363bcf5ce50d60255d256e5682}{parset}}}]{s }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{read__epars_8h}{Vienna\+R\+N\+A/read\+\_\+epars.\+h}}$>$}
+

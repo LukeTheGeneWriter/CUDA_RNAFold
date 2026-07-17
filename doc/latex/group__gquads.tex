@@ -1,0 +1,446 @@
+\hypertarget{group__gquads}{}\section{G-\/quadruplexes}
+\label{group__gquads}\index{G-\/quadruplexes@{G-\/quadruplexes}}
+
+
+Various functions related to G-\/quadruplex computations.  
+
+
+
+
+\subsection{Detailed Description}
+Various functions related to G-\/quadruplex computations. 
+
+Collaboration diagram for G-\/quadruplexes\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=303pt]{group__gquads}
+\end{center}
+\end{figure}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{group__gquads_gaa6c187f30e29d3aa29c5b537d0f7293f}{E\+\_\+gquad}} (int L, int l\mbox{[}3\mbox{]}, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{group__gquads_ga4dbda5faf903ca987b296a7629764221}{exp\+\_\+\+E\+\_\+gquad}} (int L, int l\mbox{[}3\mbox{]}, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$pf)
+\item 
+int \mbox{\hyperlink{group__gquads_gad6cd438e9e9bd37b57b361b8ce2fd51a}{E\+\_\+gquad\+\_\+ali}} (int i, int L, int l\mbox{[}3\mbox{]}, const short $\ast$$\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int n\+\_\+seq, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+void \mbox{\hyperlink{group__gquads_ga106bfd11a4c7a12c4ded9b32d31e78e9}{E\+\_\+gquad\+\_\+ali\+\_\+en}} (int i, int L, int l\mbox{[}3\mbox{]}, const short $\ast$$\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int n\+\_\+seq, int en\mbox{[}2\mbox{]}, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+int $\ast$ \mbox{\hyperlink{group__gquads_ga392e45c9615aa123737671603fa4203c}{get\+\_\+gquad\+\_\+matrix}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\begin{DoxyCompactList}\small\item\em Get a triangular matrix prefilled with minimum free energy contributions of G-\/quadruplexes. \end{DoxyCompactList}\item 
+int $\ast$ \mbox{\hyperlink{group__gquads_gab30685e61b49bbb2c6b5a4b8e87749fe}{get\+\_\+gquad\+\_\+ali\+\_\+matrix}} (short $\ast$S\+\_\+cons, short $\ast$$\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int n\+\_\+seq, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$ \mbox{\hyperlink{group__gquads_ga286fa5dfce69c0f383c469d4147d9634}{get\+\_\+gquad\+\_\+pf\+\_\+matrix}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$scale, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$pf)
+\item 
+int $\ast$$\ast$ \mbox{\hyperlink{group__gquads_gaed52d05fbe10e771daa2593d2d935937}{get\+\_\+gquad\+\_\+\+L\+\_\+matrix}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int \mbox{\hyperlink{special__const_8h_ab53016e6941484f46238d59e2549decb}{start}}, int maxdist, int n, int $\ast$$\ast$g, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+void \mbox{\hyperlink{group__gquads_gad09a24800f11f53c2dbc65b945ec956e}{vrna\+\_\+gquad\+\_\+mx\+\_\+local\+\_\+update}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int \mbox{\hyperlink{special__const_8h_ab53016e6941484f46238d59e2549decb}{start}})
+\item 
+void \mbox{\hyperlink{group__gquads_ga4be64833bd2692a91c7454bb8f17c622}{get\+\_\+gquad\+\_\+pattern\+\_\+mfe}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int i, int j, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P, int $\ast$L, int l\mbox{[}3\mbox{]})
+\item 
+void \mbox{\hyperlink{group__gquads_gae72088f0c674df7ac1c650c8bf02fad8}{get\+\_\+gquad\+\_\+pattern\+\_\+exhaustive}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int i, int j, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P, int $\ast$L, int $\ast$l, int threshold)
+\item 
+void \mbox{\hyperlink{group__gquads_gaafaf18c4a262d12f6698df72c071f641}{get\+\_\+gquad\+\_\+pattern\+\_\+pf}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int i, int j, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$pf, int $\ast$L, int l\mbox{[}3\mbox{]})
+\item 
+\mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}} $\ast$ \mbox{\hyperlink{group__gquads_ga098bdc8057dbcef81f9e6390450d4d88}{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int gi, int gj, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$G, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$probs, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$scale, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$pf)
+\item 
+\mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}} $\ast$ \mbox{\hyperlink{group__gquads_ga226ba34fb481728d243af13b8d17fbd9}{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr\+\_\+max}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int gi, int gj, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$G, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$probs, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$scale, int $\ast$L, int l\mbox{[}3\mbox{]}, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$pf)
+\item 
+\mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}} $\ast$ \mbox{\hyperlink{group__gquads_ga0fc4f48d749837ca7d5495d34a280c32}{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+db}} (const char $\ast$structure, float \mbox{\hyperlink{fold__vars_8h_ac98ec419070aee6831b44e5c700f090f}{pr}})
+\item 
+int \mbox{\hyperlink{group__gquads_ga7042e25be580f7d6e5a300ccec7e8e70}{get\+\_\+gquad\+\_\+count}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int i, int j)
+\item 
+int \mbox{\hyperlink{group__gquads_gad6b113887b9aca729f7c9a35a954b0f6}{get\+\_\+gquad\+\_\+layer\+\_\+count}} (short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int i, int j)
+\item 
+void \mbox{\hyperlink{group__gquads_gae3904ba679df6cb7284cb3153410dac2}{get\+\_\+gquad\+\_\+pattern\+\_\+mfe\+\_\+ali}} (short $\ast$$\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, short $\ast$S\+\_\+cons, int n\+\_\+seq, int i, int j, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P, int $\ast$L, int l\mbox{[}3\mbox{]})
+\item 
+int \mbox{\hyperlink{group__gquads_gae41763215b9c64d2a7b67f0df8a28078}{parse\+\_\+gquad}} (const char $\ast$struc, int $\ast$L, int l\mbox{[}3\mbox{]})
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__gquads_ga220c41e8dbcee940ac975b8ce88e55c5}{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop}} (int c, int i, int j, int type, short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int $\ast$ggg, int $\ast$index, int $\ast$p, int $\ast$q, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__gquads_ga6665a4196ea41a8d08c3c309c1262384}{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+comparative}} (int c, int i, int j, unsigned int $\ast$type, short $\ast$S\+\_\+cons, short $\ast$$\ast$S5, short $\ast$$\ast$S3, int $\ast$ggg, int $\ast$index, int $\ast$p, int $\ast$q, int n\+\_\+seq, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__gquads_ga7b371308fa5a45c7ac353ef6ed1014de}{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L}} (int c, int i, int j, int type, short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int $\ast$$\ast$ggg, int maxdist, int $\ast$p, int $\ast$q, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__gquads_ga186573840ad56e95029b9ab772e4c040}{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+int}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j, int en, \mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$bp\+\_\+stack, int $\ast$stack\+\_\+count)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__gquads_gad10fb8ad7ce3ba46d7d53ca7fefbcd80}{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+mfe}} (\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$vc, int i, int j, \mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$bp\+\_\+stack, int $\ast$stack\+\_\+count)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__gquads_ga72bb580a045d7319effc78c1ae3a0e7b}{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+\+L\+\_\+comparative}} (int c, int i, int j, unsigned int $\ast$type, short $\ast$S\+\_\+cons, short $\ast$$\ast$S5, short $\ast$$\ast$S3, int $\ast$$\ast$ggg, int $\ast$p, int $\ast$q, int n\+\_\+seq, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__gquads_gab0120fbc587102aee41a22d53c8ba6d3}{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop}} (int i, int j, int type, short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int $\ast$ggg, int $\ast$index, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int $\ast$ \mbox{\hyperlink{group__gquads_ga27fc69fa7832e2ddf910696958f729a0}{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+exhaustive}} (int i, int j, int $\ast$$\ast$p\+\_\+p, int $\ast$$\ast$q\+\_\+p, int type, short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int $\ast$ggg, int threshold, int $\ast$index, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int \mbox{\hyperlink{group__gquads_ga5a213ee0c675b416666691f19d430610}{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L}} (int i, int j, int type, short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, int $\ast$$\ast$ggg, int maxdist, \mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$P)
+\item 
+\mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} \mbox{\hyperlink{group__gquads_ga6b9e82d893f4111654f7c640950d7ced}{exp\+\_\+\+E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop}} (int i, int j, int type, short $\ast$\mbox{\hyperlink{group__energy__parameters__rw_gga7bf2bb363bcf5ce50d60255d256e5682af1ce01387d2348f8b858721a7db81670}{S}}, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$G, \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$scale, int $\ast$index, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$pf)
+\end{DoxyCompactItemize}
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{group__gquads_gaa6c187f30e29d3aa29c5b537d0f7293f}\label{group__gquads_gaa6c187f30e29d3aa29c5b537d0f7293f}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!E\+\_\+gquad@{E\+\_\+gquad}}
+\index{E\+\_\+gquad@{E\+\_\+gquad}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{E\+\_\+gquad()}{E\_gquad()}}
+{\footnotesize\ttfamily int E\+\_\+gquad (\begin{DoxyParamCaption}\item[{int}]{L,  }\item[{int}]{l\mbox{[}3\mbox{]},  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga4dbda5faf903ca987b296a7629764221}\label{group__gquads_ga4dbda5faf903ca987b296a7629764221}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!exp\+\_\+\+E\+\_\+gquad@{exp\+\_\+\+E\+\_\+gquad}}
+\index{exp\+\_\+\+E\+\_\+gquad@{exp\+\_\+\+E\+\_\+gquad}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{exp\+\_\+\+E\+\_\+gquad()}{exp\_E\_gquad()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} exp\+\_\+\+E\+\_\+gquad (\begin{DoxyParamCaption}\item[{int}]{L,  }\item[{int}]{l\mbox{[}3\mbox{]},  }\item[{\mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$}]{pf }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gad6cd438e9e9bd37b57b361b8ce2fd51a}\label{group__gquads_gad6cd438e9e9bd37b57b361b8ce2fd51a}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!E\+\_\+gquad\+\_\+ali@{E\+\_\+gquad\+\_\+ali}}
+\index{E\+\_\+gquad\+\_\+ali@{E\+\_\+gquad\+\_\+ali}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{E\+\_\+gquad\+\_\+ali()}{E\_gquad\_ali()}}
+{\footnotesize\ttfamily int E\+\_\+gquad\+\_\+ali (\begin{DoxyParamCaption}\item[{int}]{i,  }\item[{int}]{L,  }\item[{int}]{l\mbox{[}3\mbox{]},  }\item[{const short $\ast$$\ast$}]{S,  }\item[{int}]{n\+\_\+seq,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga106bfd11a4c7a12c4ded9b32d31e78e9}\label{group__gquads_ga106bfd11a4c7a12c4ded9b32d31e78e9}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!E\+\_\+gquad\+\_\+ali\+\_\+en@{E\+\_\+gquad\+\_\+ali\+\_\+en}}
+\index{E\+\_\+gquad\+\_\+ali\+\_\+en@{E\+\_\+gquad\+\_\+ali\+\_\+en}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{E\+\_\+gquad\+\_\+ali\+\_\+en()}{E\_gquad\_ali\_en()}}
+{\footnotesize\ttfamily void E\+\_\+gquad\+\_\+ali\+\_\+en (\begin{DoxyParamCaption}\item[{int}]{i,  }\item[{int}]{L,  }\item[{int}]{l\mbox{[}3\mbox{]},  }\item[{const short $\ast$$\ast$}]{S,  }\item[{int}]{n\+\_\+seq,  }\item[{int}]{en\mbox{[}2\mbox{]},  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga392e45c9615aa123737671603fa4203c}\label{group__gquads_ga392e45c9615aa123737671603fa4203c}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+matrix@{get\+\_\+gquad\+\_\+matrix}}
+\index{get\+\_\+gquad\+\_\+matrix@{get\+\_\+gquad\+\_\+matrix}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+matrix()}{get\_gquad\_matrix()}}
+{\footnotesize\ttfamily int$\ast$ get\+\_\+gquad\+\_\+matrix (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+
+
+Get a triangular matrix prefilled with minimum free energy contributions of G-\/quadruplexes. 
+
+At each position ij in the matrix, the minimum free energy of any G-\/quadruplex delimited by i and j is stored. If no G-\/quadruplex formation is possible, the matrix element is set to I\+NF. Access the elements in the matrix via matrix\mbox{[}indx\mbox{[}j\mbox{]}+i\mbox{]}. To get the integer array indx see get\+\_\+jindx().
+
+\begin{DoxySeeAlso}{See also}
+get\+\_\+jindx(), encode\+\_\+sequence()
+\end{DoxySeeAlso}
+
+\begin{DoxyParams}{Parameters}
+{\em S} & The encoded sequence \\
+\hline
+{\em P} & A pointer to the data structure containing the precomputed energy contributions \\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+A pointer to the G-\/quadruplex contribution matrix 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__gquads_gab30685e61b49bbb2c6b5a4b8e87749fe}\label{group__gquads_gab30685e61b49bbb2c6b5a4b8e87749fe}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+ali\+\_\+matrix@{get\+\_\+gquad\+\_\+ali\+\_\+matrix}}
+\index{get\+\_\+gquad\+\_\+ali\+\_\+matrix@{get\+\_\+gquad\+\_\+ali\+\_\+matrix}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+ali\+\_\+matrix()}{get\_gquad\_ali\_matrix()}}
+{\footnotesize\ttfamily int$\ast$ get\+\_\+gquad\+\_\+ali\+\_\+matrix (\begin{DoxyParamCaption}\item[{short $\ast$}]{S\+\_\+cons,  }\item[{short $\ast$$\ast$}]{S,  }\item[{int}]{n\+\_\+seq,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga286fa5dfce69c0f383c469d4147d9634}\label{group__gquads_ga286fa5dfce69c0f383c469d4147d9634}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+pf\+\_\+matrix@{get\+\_\+gquad\+\_\+pf\+\_\+matrix}}
+\index{get\+\_\+gquad\+\_\+pf\+\_\+matrix@{get\+\_\+gquad\+\_\+pf\+\_\+matrix}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+pf\+\_\+matrix()}{get\_gquad\_pf\_matrix()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}}$\ast$ get\+\_\+gquad\+\_\+pf\+\_\+matrix (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$}]{scale,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$}]{pf }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gaed52d05fbe10e771daa2593d2d935937}\label{group__gquads_gaed52d05fbe10e771daa2593d2d935937}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+\+L\+\_\+matrix@{get\+\_\+gquad\+\_\+\+L\+\_\+matrix}}
+\index{get\+\_\+gquad\+\_\+\+L\+\_\+matrix@{get\+\_\+gquad\+\_\+\+L\+\_\+matrix}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+\+L\+\_\+matrix()}{get\_gquad\_L\_matrix()}}
+{\footnotesize\ttfamily int$\ast$$\ast$ get\+\_\+gquad\+\_\+\+L\+\_\+matrix (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{int}]{start,  }\item[{int}]{maxdist,  }\item[{int}]{n,  }\item[{int $\ast$$\ast$}]{g,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gad09a24800f11f53c2dbc65b945ec956e}\label{group__gquads_gad09a24800f11f53c2dbc65b945ec956e}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!vrna\+\_\+gquad\+\_\+mx\+\_\+local\+\_\+update@{vrna\+\_\+gquad\+\_\+mx\+\_\+local\+\_\+update}}
+\index{vrna\+\_\+gquad\+\_\+mx\+\_\+local\+\_\+update@{vrna\+\_\+gquad\+\_\+mx\+\_\+local\+\_\+update}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{vrna\+\_\+gquad\+\_\+mx\+\_\+local\+\_\+update()}{vrna\_gquad\_mx\_local\_update()}}
+{\footnotesize\ttfamily void vrna\+\_\+gquad\+\_\+mx\+\_\+local\+\_\+update (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{int}]{start }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga4be64833bd2692a91c7454bb8f17c622}\label{group__gquads_ga4be64833bd2692a91c7454bb8f17c622}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+pattern\+\_\+mfe@{get\+\_\+gquad\+\_\+pattern\+\_\+mfe}}
+\index{get\+\_\+gquad\+\_\+pattern\+\_\+mfe@{get\+\_\+gquad\+\_\+pattern\+\_\+mfe}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+pattern\+\_\+mfe()}{get\_gquad\_pattern\_mfe()}}
+{\footnotesize\ttfamily void get\+\_\+gquad\+\_\+pattern\+\_\+mfe (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P,  }\item[{int $\ast$}]{L,  }\item[{int}]{l\mbox{[}3\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gae72088f0c674df7ac1c650c8bf02fad8}\label{group__gquads_gae72088f0c674df7ac1c650c8bf02fad8}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+pattern\+\_\+exhaustive@{get\+\_\+gquad\+\_\+pattern\+\_\+exhaustive}}
+\index{get\+\_\+gquad\+\_\+pattern\+\_\+exhaustive@{get\+\_\+gquad\+\_\+pattern\+\_\+exhaustive}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+pattern\+\_\+exhaustive()}{get\_gquad\_pattern\_exhaustive()}}
+{\footnotesize\ttfamily void get\+\_\+gquad\+\_\+pattern\+\_\+exhaustive (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P,  }\item[{int $\ast$}]{L,  }\item[{int $\ast$}]{l,  }\item[{int}]{threshold }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gaafaf18c4a262d12f6698df72c071f641}\label{group__gquads_gaafaf18c4a262d12f6698df72c071f641}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+pattern\+\_\+pf@{get\+\_\+gquad\+\_\+pattern\+\_\+pf}}
+\index{get\+\_\+gquad\+\_\+pattern\+\_\+pf@{get\+\_\+gquad\+\_\+pattern\+\_\+pf}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+pattern\+\_\+pf()}{get\_gquad\_pattern\_pf()}}
+{\footnotesize\ttfamily void get\+\_\+gquad\+\_\+pattern\+\_\+pf (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$}]{pf,  }\item[{int $\ast$}]{L,  }\item[{int}]{l\mbox{[}3\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga098bdc8057dbcef81f9e6390450d4d88}\label{group__gquads_ga098bdc8057dbcef81f9e6390450d4d88}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr@{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr}}
+\index{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr@{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr()}{get\_plist\_gquad\_from\_pr()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}}$\ast$ get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{int}]{gi,  }\item[{int}]{gj,  }\item[{\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$}]{G,  }\item[{\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$}]{probs,  }\item[{\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$}]{scale,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$}]{pf }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga226ba34fb481728d243af13b8d17fbd9}\label{group__gquads_ga226ba34fb481728d243af13b8d17fbd9}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr\+\_\+max@{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr\+\_\+max}}
+\index{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr\+\_\+max@{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr\+\_\+max}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr\+\_\+max()}{get\_plist\_gquad\_from\_pr\_max()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}}$\ast$ get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+pr\+\_\+max (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{int}]{gi,  }\item[{int}]{gj,  }\item[{\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$}]{G,  }\item[{\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$}]{probs,  }\item[{\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$}]{scale,  }\item[{int $\ast$}]{L,  }\item[{int}]{l\mbox{[}3\mbox{]},  }\item[{\mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$}]{pf }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga0fc4f48d749837ca7d5495d34a280c32}\label{group__gquads_ga0fc4f48d749837ca7d5495d34a280c32}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+db@{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+db}}
+\index{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+db@{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+db}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+db()}{get\_plist\_gquad\_from\_db()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__data__structures_ga9608eed021ebfbdd7a901cfdc446c8e9}{plist}}$\ast$ get\+\_\+plist\+\_\+gquad\+\_\+from\+\_\+db (\begin{DoxyParamCaption}\item[{const char $\ast$}]{structure,  }\item[{float}]{pr }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga7042e25be580f7d6e5a300ccec7e8e70}\label{group__gquads_ga7042e25be580f7d6e5a300ccec7e8e70}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+count@{get\+\_\+gquad\+\_\+count}}
+\index{get\+\_\+gquad\+\_\+count@{get\+\_\+gquad\+\_\+count}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+count()}{get\_gquad\_count()}}
+{\footnotesize\ttfamily int get\+\_\+gquad\+\_\+count (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{int}]{i,  }\item[{int}]{j }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gad6b113887b9aca729f7c9a35a954b0f6}\label{group__gquads_gad6b113887b9aca729f7c9a35a954b0f6}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+layer\+\_\+count@{get\+\_\+gquad\+\_\+layer\+\_\+count}}
+\index{get\+\_\+gquad\+\_\+layer\+\_\+count@{get\+\_\+gquad\+\_\+layer\+\_\+count}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+layer\+\_\+count()}{get\_gquad\_layer\_count()}}
+{\footnotesize\ttfamily int get\+\_\+gquad\+\_\+layer\+\_\+count (\begin{DoxyParamCaption}\item[{short $\ast$}]{S,  }\item[{int}]{i,  }\item[{int}]{j }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gae3904ba679df6cb7284cb3153410dac2}\label{group__gquads_gae3904ba679df6cb7284cb3153410dac2}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!get\+\_\+gquad\+\_\+pattern\+\_\+mfe\+\_\+ali@{get\+\_\+gquad\+\_\+pattern\+\_\+mfe\+\_\+ali}}
+\index{get\+\_\+gquad\+\_\+pattern\+\_\+mfe\+\_\+ali@{get\+\_\+gquad\+\_\+pattern\+\_\+mfe\+\_\+ali}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{get\+\_\+gquad\+\_\+pattern\+\_\+mfe\+\_\+ali()}{get\_gquad\_pattern\_mfe\_ali()}}
+{\footnotesize\ttfamily void get\+\_\+gquad\+\_\+pattern\+\_\+mfe\+\_\+ali (\begin{DoxyParamCaption}\item[{short $\ast$$\ast$}]{S,  }\item[{short $\ast$}]{S\+\_\+cons,  }\item[{int}]{n\+\_\+seq,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P,  }\item[{int $\ast$}]{L,  }\item[{int}]{l\mbox{[}3\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gae41763215b9c64d2a7b67f0df8a28078}\label{group__gquads_gae41763215b9c64d2a7b67f0df8a28078}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!parse\+\_\+gquad@{parse\+\_\+gquad}}
+\index{parse\+\_\+gquad@{parse\+\_\+gquad}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{parse\+\_\+gquad()}{parse\_gquad()}}
+{\footnotesize\ttfamily int parse\+\_\+gquad (\begin{DoxyParamCaption}\item[{const char $\ast$}]{struc,  }\item[{int $\ast$}]{L,  }\item[{int}]{l\mbox{[}3\mbox{]} }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+given a dot-\/bracket structure (possibly) containing gquads encoded by \textquotesingle{}+\textquotesingle{} signs, find first gquad, return end position or 0 if none found Upon return L and l\mbox{[}\mbox{]} contain the number of stacked layers, as well as the lengths of the linker regions. To parse a string with many gquads, call parse\+\_\+gquad repeatedly e.\+g. end1 = parse\+\_\+gquad(struc, \&\+L, l); ... ; end2 = parse\+\_\+gquad(struc+end1, \&L, l); end2+=end1; ... ; end3 = parse\+\_\+gquad(struc+end2, \&L, l); end3+=end2; ... ; \mbox{\Hypertarget{group__gquads_ga220c41e8dbcee940ac975b8ce88e55c5}\label{group__gquads_ga220c41e8dbcee940ac975b8ce88e55c5}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop@{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop}}
+\index{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop@{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop()}{backtrack\_GQuad\_IntLoop()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop (\begin{DoxyParamCaption}\item[{int}]{c,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{int}]{type,  }\item[{short $\ast$}]{S,  }\item[{int $\ast$}]{ggg,  }\item[{int $\ast$}]{index,  }\item[{int $\ast$}]{p,  }\item[{int $\ast$}]{q,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+backtrack an interior loop like enclosed g-\/quadruplex with closing pair (i,j)
+
+
+\begin{DoxyParams}{Parameters}
+{\em c} & The total contribution the loop should resemble \\
+\hline
+{\em i} & position i of enclosing pair \\
+\hline
+{\em j} & position j of enclosing pair \\
+\hline
+{\em type} & base pair type of enclosing pair (must be reverse type) \\
+\hline
+{\em S} & integer encoded sequence \\
+\hline
+{\em ggg} & triangular matrix containing g-\/quadruplex contributions \\
+\hline
+{\em index} & the index for accessing the triangular matrix \\
+\hline
+{\em p} & here the 5\textquotesingle{} position of the gquad is stored \\
+\hline
+{\em q} & here the 3\textquotesingle{} position of the gquad is stored \\
+\hline
+{\em P} & the datastructure containing the precalculated contibutions\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+1 on success, 0 if no gquad found 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__gquads_ga6665a4196ea41a8d08c3c309c1262384}\label{group__gquads_ga6665a4196ea41a8d08c3c309c1262384}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+comparative@{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+comparative}}
+\index{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+comparative@{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+comparative}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+comparative()}{backtrack\_GQuad\_IntLoop\_comparative()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+comparative (\begin{DoxyParamCaption}\item[{int}]{c,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{unsigned int $\ast$}]{type,  }\item[{short $\ast$}]{S\+\_\+cons,  }\item[{short $\ast$$\ast$}]{S5,  }\item[{short $\ast$$\ast$}]{S3,  }\item[{int $\ast$}]{ggg,  }\item[{int $\ast$}]{index,  }\item[{int $\ast$}]{p,  }\item[{int $\ast$}]{q,  }\item[{int}]{n\+\_\+seq,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga7b371308fa5a45c7ac353ef6ed1014de}\label{group__gquads_ga7b371308fa5a45c7ac353ef6ed1014de}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L@{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L}}
+\index{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L@{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+\+L()}{backtrack\_GQuad\_IntLoop\_L()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L (\begin{DoxyParamCaption}\item[{int}]{c,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{int}]{type,  }\item[{short $\ast$}]{S,  }\item[{int $\ast$$\ast$}]{ggg,  }\item[{int}]{maxdist,  }\item[{int $\ast$}]{p,  }\item[{int $\ast$}]{q,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+backtrack an interior loop like enclosed g-\/quadruplex with closing pair (i,j) with underlying Lfold matrix
+
+
+\begin{DoxyParams}{Parameters}
+{\em c} & The total contribution the loop should resemble \\
+\hline
+{\em i} & position i of enclosing pair \\
+\hline
+{\em j} & position j of enclosing pair \\
+\hline
+{\em type} & base pair type of enclosing pair (must be reverse type) \\
+\hline
+{\em S} & integer encoded sequence \\
+\hline
+{\em ggg} & triangular matrix containing g-\/quadruplex contributions \\
+\hline
+{\em p} & here the 5\textquotesingle{} position of the gquad is stored \\
+\hline
+{\em q} & here the 3\textquotesingle{} position of the gquad is stored \\
+\hline
+{\em P} & the datastructure containing the precalculated contibutions\\
+\hline
+\end{DoxyParams}
+\begin{DoxyReturn}{Returns}
+1 on success, 0 if no gquad found 
+\end{DoxyReturn}
+\mbox{\Hypertarget{group__gquads_ga186573840ad56e95029b9ab772e4c040}\label{group__gquads_ga186573840ad56e95029b9ab772e4c040}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+int@{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+int}}
+\index{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+int@{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+int}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+int()}{vrna\_BT\_gquad\_int()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+int (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{int}]{en,  }\item[{\mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$}]{bp\+\_\+stack,  }\item[{int $\ast$}]{stack\+\_\+count }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gad10fb8ad7ce3ba46d7d53ca7fefbcd80}\label{group__gquads_gad10fb8ad7ce3ba46d7d53ca7fefbcd80}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+mfe@{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+mfe}}
+\index{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+mfe@{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+mfe}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+mfe()}{vrna\_BT\_gquad\_mfe()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int vrna\+\_\+\+B\+T\+\_\+gquad\+\_\+mfe (\begin{DoxyParamCaption}\item[{\mbox{\hyperlink{group__fold__compound_ga1b0cef17fd40466cef5968eaeeff6166}{vrna\+\_\+fold\+\_\+compound\+\_\+t}} $\ast$}]{vc,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{\mbox{\hyperlink{group__data__structures_gaa651bda42e7692f08cb603cd6834b0ee}{vrna\+\_\+bp\+\_\+stack\+\_\+t}} $\ast$}]{bp\+\_\+stack,  }\item[{int $\ast$}]{stack\+\_\+count }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga72bb580a045d7319effc78c1ae3a0e7b}\label{group__gquads_ga72bb580a045d7319effc78c1ae3a0e7b}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+\+L\+\_\+comparative@{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+\+L\+\_\+comparative}}
+\index{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+\+L\+\_\+comparative@{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+\+L\+\_\+comparative}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+\+L\+\_\+comparative()}{backtrack\_GQuad\_IntLoop\_L\_comparative()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int backtrack\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+\+L\+\_\+comparative (\begin{DoxyParamCaption}\item[{int}]{c,  }\item[{int}]{i,  }\item[{int}]{j,  }\item[{unsigned int $\ast$}]{type,  }\item[{short $\ast$}]{S\+\_\+cons,  }\item[{short $\ast$$\ast$}]{S5,  }\item[{short $\ast$$\ast$}]{S3,  }\item[{int $\ast$$\ast$}]{ggg,  }\item[{int $\ast$}]{p,  }\item[{int $\ast$}]{q,  }\item[{int}]{n\+\_\+seq,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_gab0120fbc587102aee41a22d53c8ba6d3}\label{group__gquads_gab0120fbc587102aee41a22d53c8ba6d3}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop@{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop}}
+\index{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop@{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop()}{E\_GQuad\_IntLoop()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop (\begin{DoxyParamCaption}\item[{int}]{i,  }\item[{int}]{j,  }\item[{int}]{type,  }\item[{short $\ast$}]{S,  }\item[{int $\ast$}]{ggg,  }\item[{int $\ast$}]{index,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga27fc69fa7832e2ddf910696958f729a0}\label{group__gquads_ga27fc69fa7832e2ddf910696958f729a0}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+exhaustive@{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+exhaustive}}
+\index{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+exhaustive@{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+exhaustive}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+exhaustive()}{E\_GQuad\_IntLoop\_exhaustive()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int$\ast$ E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+exhaustive (\begin{DoxyParamCaption}\item[{int}]{i,  }\item[{int}]{j,  }\item[{int $\ast$$\ast$}]{p\+\_\+p,  }\item[{int $\ast$$\ast$}]{q\+\_\+p,  }\item[{int}]{type,  }\item[{short $\ast$}]{S,  }\item[{int $\ast$}]{ggg,  }\item[{int}]{threshold,  }\item[{int $\ast$}]{index,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga5a213ee0c675b416666691f19d430610}\label{group__gquads_ga5a213ee0c675b416666691f19d430610}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L@{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L}}
+\index{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L@{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+\+L()}{E\_GQuad\_IntLoop\_L()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} int E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop\+\_\+L (\begin{DoxyParamCaption}\item[{int}]{i,  }\item[{int}]{j,  }\item[{int}]{type,  }\item[{short $\ast$}]{S,  }\item[{int $\ast$$\ast$}]{ggg,  }\item[{int}]{maxdist,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga8a69ca7d787e4fd6079914f5343a1f35}{vrna\+\_\+param\+\_\+t}} $\ast$}]{P }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
+\mbox{\Hypertarget{group__gquads_ga6b9e82d893f4111654f7c640950d7ced}\label{group__gquads_ga6b9e82d893f4111654f7c640950d7ced}} 
+\index{G-\/quadruplexes@{G-\/quadruplexes}!exp\+\_\+\+E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop@{exp\+\_\+\+E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop}}
+\index{exp\+\_\+\+E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop@{exp\+\_\+\+E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop}!G-\/quadruplexes@{G-\/quadruplexes}}
+\subsubsection{\texorpdfstring{exp\+\_\+\+E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop()}{exp\_E\_GQuad\_IntLoop()}}
+{\footnotesize\ttfamily \mbox{\hyperlink{group__utils_ga5e151c615eda34903514212f05a5ccf8}{P\+R\+I\+V\+A\+TE}} \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} exp\+\_\+\+E\+\_\+\+G\+Quad\+\_\+\+Int\+Loop (\begin{DoxyParamCaption}\item[{int}]{i,  }\item[{int}]{j,  }\item[{int}]{type,  }\item[{short $\ast$}]{S,  }\item[{\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$}]{G,  }\item[{\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{F\+L\+T\+\_\+\+O\+R\+\_\+\+D\+BL}} $\ast$}]{scale,  }\item[{int $\ast$}]{index,  }\item[{\mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$}]{pf }\end{DoxyParamCaption})}
+
+
+
+{\ttfamily \#include $<$\mbox{\hyperlink{gquad_8h}{Vienna\+R\+N\+A/gquad.\+h}}$>$}
+
