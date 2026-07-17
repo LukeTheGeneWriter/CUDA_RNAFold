@@ -1,0 +1,1688 @@
+.. index:: pair: group; Process and evaluate individual loops
+.. _doxid-group__loops:
+.. _cid-loops-2:
+
+Process and evaluate individual loops
+=====================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. _doxid-group__loops_1ga5dfb0f165d3a69a1a1ba82ace3002f0d:
+.. _cid-vrna_e_ext_loop_5:
+.. _doxid-group__loops_1ga6e57363a8ff3597cc69181c33fbb8196:
+.. _cid-vrna_e_ext_loop_3:
+.. _doxid-group__loops_1ga55074e49f49ac4cd71395b1bb7a35f5b:
+.. _cid-vrna_bt_ext_loop_f5:
+.. _doxid-group__loops_1gaf80500114aa4eed8f9dba1e98a1056a7:
+.. _cid-vrna_bt_ext_loop_f3:
+.. _doxid-group__loops_1gaf5360c7f7f85f5d557592a3336bef945:
+.. _cid-vrna_bt_ext_loop_f3_pp:
+.. _doxid-group__loops_1ga3da479a5c627d50530d81f028c181731:
+.. _cid-vrna_exp_e_ext_fast_init:
+.. _doxid-group__loops_1gabe4ed7e3d6152a3b9db4e4ed762aa1ba:
+.. _cid-vrna_exp_e_ext_fast_rotate:
+.. _doxid-group__loops_1ga4357b7937f1b840f063e44b859332f98:
+.. _cid-vrna_exp_e_ext_fast_free:
+.. _doxid-group__loops_1ga1c40acdc5e007f72d37a404127e9bcfb:
+.. _cid-vrna_exp_e_ext_fast:
+.. _doxid-group__loops_1gaceb115e3d8855129797620b3b26882d5:
+.. _cid-vrna_exp_e_ext_fast_update:
+.. _doxid-group__loops_1ga05c6288c5a79d3bd5ad6d33c1bb34bd0:
+.. _cid-e_extloop:
+.. _doxid-group__loops_1ga2d2e4f3f3448c9060763dac6c0c489f0:
+.. _cid-e_intloop_co:
+.. _doxid-group__loops_1ga7023a0172febe830dfca95499d8d1bbb:
+.. _cid-ubf_eval_int_loop:
+.. _doxid-group__loops_1gae85ec93c39058ce80d67b64239f64c71:
+.. _cid-ubf_eval_int_loop2:
+.. _doxid-group__loops_1ga0f0ba96735be7e218bed5db4746012fd:
+.. _cid-ubf_eval_ext_int_loop:
+.. _doxid-group__loops_1ga8aab34f532276b7e38837d78ef591847:
+.. _cid-vrna_e_int_loop:
+.. _doxid-group__loops_1ga516749f1374dccb079ea75c9711c31e6:
+.. _cid-vrna_exp_e_int_loop:
+.. _doxid-group__loops_1gae27361b54e40da510011988326fcdfe1:
+.. _cid-vrna_exp_e_interior_loop:
+.. _doxid-group__loops_1ga821f83d41e68dd5e8e3c182c989b1fbf:
+.. _cid-vrna_e_ext_int_loop:
+.. _doxid-group__loops_1gac1e873bc12317fa9318a8185018a6f60:
+.. _cid-vrna_e_stack:
+.. _doxid-group__loops_1gace56cf9c68e22ebfbeb4c04add4b03ca:
+.. _cid-vrna_e_mb_loop_fast:
+.. _doxid-group__loops_1gabe85e055e1e3245eaf108901473114ed:
+.. _cid-e_ml_rightmost_stem:
+.. _doxid-group__loops_1ga806a455bf00a155dea7b0aa93d85c51b:
+.. _cid-vrna_e_ml_stems_fast:
+.. _doxid-group__loops_1ga604313896e5f0ec91b6c44460707d036:
+.. _cid-vrna_exp_e_mb_loop_fast:
+.. _doxid-group__loops_1gace7640e156900ba8b01edc1a7136b2b7:
+.. _cid-vrna_exp_e_ml_fast_init:
+.. _doxid-group__loops_1gabc73c029027ba09bfe70e2318052f0ae:
+.. _cid-vrna_exp_e_ml_fast_rotate:
+.. _doxid-group__loops_1ga3bbc24b3950867b039104ce8b4f39346:
+.. _cid-vrna_exp_e_ml_fast_free:
+.. _doxid-group__loops_1gadb5ec8ebfe72254dace68f3693376643:
+.. _cid-vrna_exp_e_ml_fast_qqm:
+.. _doxid-group__loops_1ga38ecb773ebbc084d563339919152bcf7:
+.. _cid-vrna_exp_e_ml_fast_qqm1:
+.. _doxid-group__loops_1ga567d730fc5389b94d6ee545e42412d6c:
+.. _cid-vrna_exp_e_ml_fast:
+.. _doxid-group__loops_1ga0272e774406ec70a97c231d03bef330b:
+.. _cid-vrna_bt_mb_loop_fake:
+.. _doxid-group__loops_1ga08245ee149f137d6665ef2bdfcc066a7:
+.. _cid-vrna_bt_mb_loop_split:
+.. _doxid-group__loops_1ga24f7234dbe63dab516e7ea993a3e9f2c:
+.. _cid-e_mlstem:
+.. _doxid-group__loops_1gaeb3cb71cfa2fcc27f9f3da1d51e093ec:
+.. _cid-exp_e_mlstem:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct vrna_mx_pf_aux_el_s* :ref:`vrna_mx_pf_aux_el_t<doxid-group__loops_1gaf9d5160c11ffad3ec258124a77fee13c>`
+	typedef struct vrna_mx_pf_aux_ml_s* :ref:`vrna_mx_pf_aux_ml_t<doxid-group__loops_1ga39a8cc1385dcb542a60a9393cde6a1e3>`
+
+	// global functions
+
+	int :ref:`vrna_E_ext_stem<doxid-group__loops_1gaa0c313c90da11aa741dcd62746d85337>` (
+	    unsigned int type,
+	    int n5d,
+	    int n3d,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* p
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` :ref:`vrna_exp_E_ext_stem<doxid-group__loops_1ga357484958d3cd677f88f16c75c8a5730>` (
+	    unsigned int type,
+	    int n5d,
+	    int n3d,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* p
+	    )
+
+	int :ref:`vrna_E_ext_loop<doxid-group__loops_1gafe7e94269aaae793a09427364ebb1ec0>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	int vrna_E_ext_loop_5 (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+	int vrna_E_ext_loop_3 (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* fc,
+	    int i
+	    )
+
+	int vrna_BT_ext_loop_f5 (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* k,
+	    int* i,
+	    int* j,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+	int vrna_BT_ext_loop_f3 (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* k,
+	    int maxdist,
+	    int* i,
+	    int* j,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+	int vrna_BT_ext_loop_f3_pp (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* fc,
+	    int* i,
+	    int maxdist
+	    )
+
+	struct vrna_mx_pf_aux_el_s* vrna_exp_E_ext_fast_init (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+	void vrna_exp_E_ext_fast_rotate (struct vrna_mx_pf_aux_el_s* aux_mx)
+	void vrna_exp_E_ext_fast_free (struct vrna_mx_pf_aux_el_s* aux_mx)
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` vrna_exp_E_ext_fast (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    struct vrna_mx_pf_aux_el_s* aux_mx
+	    )
+
+	void vrna_exp_E_ext_fast_update (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* fc,
+	    int j,
+	    struct vrna_mx_pf_aux_el_s* aux_mx
+	    )
+
+	int :ref:`E_Stem<doxid-group__loops_1ga51f9851f3500c2aae66674142a6a2dd5>` (
+	    int type,
+	    int si1,
+	    int sj1,
+	    int extLoop,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	int E_ExtLoop (
+	    int type,
+	    int si1,
+	    int sj1,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` :ref:`exp_E_ExtLoop<doxid-group__loops_1ga446828a191c127861e76e2c84055f672>` (
+	    int type,
+	    int si1,
+	    int sj1,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* P
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` :ref:`exp_E_Stem<doxid-group__loops_1gab0aa9833ab41875a91a9be8a5ffd7092>` (
+	    int type,
+	    int si1,
+	    int sj1,
+	    int extLoop,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int :ref:`E_Hairpin<doxid-group__loops_1gadf943ee9a45b7f4cee9192c06210dace>` (
+	    int size,
+	    int type,
+	    int si1,
+	    int sj1,
+	    const char* string,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` :ref:`exp_E_Hairpin<doxid-group__loops_1ga51fb555974f180b78d76142b2894851c>` (
+	    int u,
+	    int type,
+	    short si1,
+	    short sj1,
+	    const char* string,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* P
+	    )
+
+	int :ref:`vrna_E_hp_loop<doxid-group__loops_1ga999ba163a8148d72fd5f22819a681df7>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	int :ref:`vrna_E_ext_hp_loop<doxid-group__loops_1gac3393ee309372eccae944e3a07f455f9>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	int :ref:`vrna_eval_ext_hp_loop<doxid-group__loops_1gad3b92453a6b501856eec8fae39f3235d>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	int :ref:`vrna_eval_hp_loop<doxid-group__loops_1gab3eb4651dc26dc2b653a57dd340d7e68>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` :ref:`vrna_exp_E_hp_loop<doxid-group__loops_1gac9f49b31d3ec1d9040798b05506c71da>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	int :ref:`vrna_BT_hp_loop<doxid-group__loops_1ga6c4ba14d24f716d0ca9021771357e903>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    int en,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int :ref:`E_IntLoop<doxid-group__loops_1gaafbc187b7f78e8e82afb77dd6f3b8fc5>` (
+	    int n1,
+	    int n2,
+	    int type,
+	    int type_2,
+	    int si1,
+	    int sj1,
+	    int sp1,
+	    int sq1,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` :ref:`exp_E_IntLoop<doxid-group__loops_1ga95de54d8a2a17645a95e0f34e189d9c9>` (
+	    int u1,
+	    int u2,
+	    int type,
+	    int type2,
+	    short si1,
+	    short sj1,
+	    short sp1,
+	    short sq1,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int E_IntLoop_Co (
+	    int type,
+	    int type_2,
+	    int i,
+	    int j,
+	    int p,
+	    int q,
+	    int cutpoint,
+	    short si1,
+	    short sj1,
+	    short sp1,
+	    short sq1,
+	    int dangles,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int ubf_eval_int_loop (
+	    int i,
+	    int j,
+	    int p,
+	    int q,
+	    int i1,
+	    int j1,
+	    int p1,
+	    int q1,
+	    short si,
+	    short sj,
+	    short sp,
+	    short sq,
+	    unsigned char type,
+	    unsigned char type_2,
+	    int* rtype,
+	    int ij,
+	    int cp,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P,
+	    :ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`* sc
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int ubf_eval_int_loop2 (
+	    int i,
+	    int j,
+	    int p,
+	    int q,
+	    int i1,
+	    int j1,
+	    int p1,
+	    int q1,
+	    short si,
+	    short sj,
+	    short sp,
+	    short sq,
+	    unsigned char type,
+	    unsigned char type_2,
+	    int* rtype,
+	    int ij,
+	    unsigned int* sn,
+	    unsigned int* ss,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P,
+	    :ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`* sc
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int ubf_eval_ext_int_loop (
+	    int i,
+	    int j,
+	    int p,
+	    int q,
+	    int i1,
+	    int j1,
+	    int p1,
+	    int q1,
+	    short si,
+	    short sj,
+	    short sp,
+	    short sq,
+	    unsigned char type,
+	    unsigned char type_2,
+	    int length,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P,
+	    :ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`* sc
+	    )
+
+	int vrna_E_int_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	int :ref:`vrna_eval_int_loop<doxid-group__loops_1ga018f1314dbbae42fdd27c94670b61721>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    int k,
+	    int l
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` vrna_exp_E_int_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` vrna_exp_E_interior_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    int k,
+	    int l
+	    )
+
+	int vrna_E_ext_int_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    int* ip,
+	    int* iq
+	    )
+
+	int vrna_E_stack (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	int :ref:`vrna_BT_stack<doxid-group__loops_1gad320d5d721e33bed120168213d8f45e5>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* i,
+	    int* j,
+	    int* en,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+	int :ref:`vrna_BT_int_loop<doxid-group__loops_1ga849b7dc373b6c0b029672e16a7e52053>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* i,
+	    int* j,
+	    int en,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+	int :ref:`vrna_E_mb_loop_stack<doxid-group__loops_1ga73f048d35475e1d8f50b7d4ac6a2aeb6>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+	int :ref:`vrna_BT_mb_loop<doxid-group__loops_1ga9cb520ddfd8b3a48089a7910b045d06b>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* i,
+	    int* j,
+	    int* k,
+	    int en,
+	    int* component1,
+	    int* component2
+	    )
+
+	int vrna_E_mb_loop_fast (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    int* dmli1,
+	    int* dmli2
+	    )
+
+	int E_ml_rightmost_stem (
+	    int i,
+	    int j,
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc
+	    )
+
+	int vrna_E_ml_stems_fast (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    int* fmi,
+	    int* dmli
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` vrna_exp_E_mb_loop_fast (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    :ref:`vrna_mx_pf_aux_ml_t<doxid-group__loops_1ga39a8cc1385dcb542a60a9393cde6a1e3>` aux_mx
+	    )
+
+	:ref:`vrna_mx_pf_aux_ml_t<doxid-group__loops_1ga39a8cc1385dcb542a60a9393cde6a1e3>` vrna_exp_E_ml_fast_init (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+	void vrna_exp_E_ml_fast_rotate (:ref:`vrna_mx_pf_aux_ml_t<doxid-group__loops_1ga39a8cc1385dcb542a60a9393cde6a1e3>` aux_mx)
+	void vrna_exp_E_ml_fast_free (:ref:`vrna_mx_pf_aux_ml_t<doxid-group__loops_1ga39a8cc1385dcb542a60a9393cde6a1e3>` aux_mx)
+	const :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* vrna_exp_E_ml_fast_qqm (struct vrna_mx_pf_aux_ml_s* aux_mx)
+	const :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* vrna_exp_E_ml_fast_qqm1 (struct vrna_mx_pf_aux_ml_s* aux_mx)
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` vrna_exp_E_ml_fast (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    :ref:`vrna_mx_pf_aux_ml_t<doxid-group__loops_1ga39a8cc1385dcb542a60a9393cde6a1e3>` aux_mx
+	    )
+
+	int vrna_BT_mb_loop_fake (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* u,
+	    int* i,
+	    int* j,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+	int vrna_BT_mb_loop_split (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* i,
+	    int* j,
+	    int* k,
+	    int* l,
+	    int* component1,
+	    int* component2,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int E_MLstem (
+	    int type,
+	    int si1,
+	    int sj1,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` exp_E_MLstem (
+	    int type,
+	    int si1,
+	    int sj1,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* P
+	    )
+
+.. _details-doxid-group__loops:
+
+Detailed Documentation
+----------------------
+
+
+
+Typedefs
+--------
+
+.. _doxid-group__loops_1gaf9d5160c11ffad3ec258124a77fee13c:
+.. _cid-vrna_mx_pf_aux_el_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct vrna_mx_pf_aux_el_s* vrna_mx_pf_aux_el_t
+
+    .. container:: brief-description
+
+        Auxiliary helper arrays for fast exterior loop computations.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_exp_E_ext_fast_init() <doxid-group__loops_1ga3da479a5c627d50530d81f028c181731>` , :ref:`vrna_exp_E_ext_fast_rotate() <doxid-group__loops_1gabe4ed7e3d6152a3b9db4e4ed762aa1ba>` , :ref:`vrna_exp_E_ext_fast_free() <doxid-group__loops_1ga4357b7937f1b840f063e44b859332f98>` , :ref:`vrna_exp_E_ext_fast() <doxid-group__loops_1ga1c40acdc5e007f72d37a404127e9bcfb>`
+
+.. _doxid-group__loops_1ga39a8cc1385dcb542a60a9393cde6a1e3:
+.. _cid-vrna_mx_pf_aux_ml_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct vrna_mx_pf_aux_ml_s* vrna_mx_pf_aux_ml_t
+
+    .. container:: brief-description
+
+        Auxiliary helper arrays for fast exterior loop computations.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_exp_E_ml_fast_init() <doxid-group__loops_1gace7640e156900ba8b01edc1a7136b2b7>` , :ref:`vrna_exp_E_ml_fast_rotate() <doxid-group__loops_1gabc73c029027ba09bfe70e2318052f0ae>` , :ref:`vrna_exp_E_ml_fast_free() <doxid-group__loops_1ga3bbc24b3950867b039104ce8b4f39346>` , :ref:`vrna_exp_E_ml_fast() <doxid-group__loops_1ga567d730fc5389b94d6ee545e42412d6c>`
+
+Global Functions
+----------------
+
+.. _doxid-group__loops_1gaa0c313c90da11aa741dcd62746d85337:
+.. _cid-vrna_e_ext_stem:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_E_ext_stem (
+	    unsigned int type,
+	    int n5d,
+	    int n3d,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* p
+	    )
+
+    .. container:: brief-description
+
+        Evaluate a stem branching off the exterior loop.
+
+    .. container:: detailed-description
+
+        Given a base pair :math:`(i,j)` encoded by *type* , compute the energy contribution including dangling-end/terminal-mismatch contributions. Instead of returning the energy contribution per-se, this function returns the corresponding Boltzmann factor. If either of the adjacent nucleotides :math:`(i - 1)` and :math:`(j+1)` must not contribute stacking energy, the corresponding encoding must be :math:`-1` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - type
+        
+                - The base pair encoding
+        
+            *
+                - n5d
+        
+                - The encoded nucleotide directly adjacent at the 5' side of the base pair (may be -1)
+        
+            *
+                - n3d
+        
+                - The encoded nucleotide directly adjacent at the 3' side of the base pair (may be -1)
+        
+            *
+                - p
+        
+                - The pre-computed energy parameters
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The energy contribution of the introduced exterior-loop stem
+        
+        
+        
+        .. admonition:: See also:
+        
+            vrna_E_exp_stem()
+
+.. _doxid-group__loops_1ga357484958d3cd677f88f16c75c8a5730:
+.. _cid-vrna_exp_e_ext_stem:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` vrna_exp_E_ext_stem (
+	    unsigned int type,
+	    int n5d,
+	    int n3d,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* p
+	    )
+
+    .. container:: brief-description
+
+        Evaluate a stem branching off the exterior loop (Boltzmann factor version)
+
+    .. container:: detailed-description
+
+        Given a base pair :math:`(i,j)` encoded by *type* , compute the energy contribution including dangling-end/terminal-mismatch contributions. Instead of returning the energy contribution per-se, this function returns the corresponding Boltzmann factor. If either of the adjacent nucleotides :math:`(i - 1)` and :math:`(j+1)` must not contribute stacking energy, the corresponding encoding must be :math:`-1` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - type
+        
+                - The base pair encoding
+        
+            *
+                - n5d
+        
+                - The encoded nucleotide directly adjacent at the 5' side of the base pair (may be -1)
+        
+            *
+                - n3d
+        
+                - The encoded nucleotide directly adjacent at the 3' side of the base pair (may be -1)
+        
+            *
+                - p
+        
+                - The pre-computed energy parameters (Boltzmann factor version)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Boltzmann weighted energy contribution of the introduced exterior-loop stem
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_E_ext_stem() <doxid-group__loops_1gaa0c313c90da11aa741dcd62746d85337>`
+
+.. _doxid-group__loops_1gafe7e94269aaae793a09427364ebb1ec0:
+.. _cid-vrna_e_ext_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_E_ext_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+    .. container:: brief-description
+
+        Evaluate the free energy of a base pair in the exterior loop.
+
+    .. container:: detailed-description
+
+        Evalue the free energy of a base pair connecting two nucleotides in the exterior loop and take hard constraints into account.
+        
+        Typically, this is simply dangling end contributions of the adjacent nucleotides, potentially a terminal A-U mismatch penalty, and maybe some generic soft constraint contribution for that decomposition.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - fc
+        
+                - Fold compound to work on (defines the model and parameters)
+        
+            *
+                - i
+        
+                - 5' position of the base pair
+        
+            *
+                - j
+        
+                - 3' position of the base pair
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Free energy contribution that arises when this pair is formed in the exterior loop
+        
+        
+        
+        .. note::
+        
+            For dangles == 1 || 3 this function also evaluates the three additional pairs (i + 1, j), (i, j - 1), and (i + 1, j - 1) and returns the minimum for all four possibilities in total.
+
+.. _doxid-group__loops_1ga51f9851f3500c2aae66674142a6a2dd5:
+.. _cid-e_stem:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int E_Stem (
+	    int type,
+	    int si1,
+	    int sj1,
+	    int extLoop,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+    .. container:: brief-description
+
+        Compute the energy contribution of a stem branching off a loop-region.
+
+    .. container:: detailed-description
+
+        This function computes the energy contribution of a stem that branches off a loop region. This can be the case in multiloops, when a stem branching off increases the degree of the loop but also *immediately interior base pairs* of an exterior loop contribute free energy. To switch the behavior of the function according to the evaluation of a multiloop- or exterior-loop-stem, you pass the flag 'extLoop'. The returned energy contribution consists of a TerminalAU penalty if the pair type is greater than 2, dangling end contributions of mismatching nucleotides adjacent to the stem if only one of the si1, sj1 parameters is greater than 0 and mismatch energies if both mismatching nucleotides are positive values. Thus, to avoid incorporating dangling end or mismatch energies just pass a negative number, e.g. -1 to the mismatch argument.
+        
+        This is an illustration of how the energy contribution is assembled:
+        
+        .. code-block:: none
+        
+            
+                  3'  5'
+                  |   |
+                  X - Y
+            5'-si1     sj1-3'
+        
+        Here, (X,Y) is the base pair that closes the stem that branches off a loop region. The nucleotides si1 and sj1 are the 5'- and 3'- mismatches, respectively. If the base pair type of (X,Y) is greater than 2 (i.e. an A-U or G-U pair, the TerminalAU penalty will be included in the energy contribution returned. If si1 and sj1 are both nonnegative numbers, mismatch energies will also be included. If one of si1 or sj1 is a negative value, only 5' or 3' dangling end contributions are taken into account. To prohibit any of these mismatch contributions to be incorporated, just pass a negative number to both, si1 and sj1. In case the argument extLoop is 0, the returned energy contribution also includes the *internal-loop-penalty* of a multiloop stem with closing pair type.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - type
+        
+                - The pair type of the first base pair un the stem
+        
+            *
+                - si1
+        
+                - The 5'-mismatching nucleotide
+        
+            *
+                - sj1
+        
+                - The 3'-mismatching nucleotide
+        
+            *
+                - extLoop
+        
+                - A flag that indicates whether the contribution reflects the one of an exterior loop or not
+        
+            *
+                - P
+        
+                - The data structure containing scaled energy parameters
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Free energy of the branch off the loop in dcal/mol
+        
+        
+        
+        .. note::
+        
+            This function is threadsafe
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`E_MLstem() <doxid-group__loops_1ga24f7234dbe63dab516e7ea993a3e9f2c>`
+        
+            :ref:`E_ExtLoop() <doxid-group__loops_1ga05c6288c5a79d3bd5ad6d33c1bb34bd0>`
+
+.. _doxid-group__loops_1ga446828a191c127861e76e2c84055f672:
+.. _cid-exp_e_extloop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` exp_E_ExtLoop (
+	    int type,
+	    int si1,
+	    int sj1,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* P
+	    )
+
+    .. container:: detailed-description
+
+        This is the partition function variant of :ref:`E_ExtLoop() <doxid-group__loops_1ga05c6288c5a79d3bd5ad6d33c1bb34bd0>` Deprecated Use :ref:`vrna_exp_E_ext_stem() <doxid-group__loops_1ga357484958d3cd677f88f16c75c8a5730>` instead!
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Boltzmann weighted energy contribution of the introduced exterior-loop stem
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`E_ExtLoop() <doxid-group__loops_1ga05c6288c5a79d3bd5ad6d33c1bb34bd0>`
+
+.. _doxid-group__loops_1gab0aa9833ab41875a91a9be8a5ffd7092:
+.. _cid-exp_e_stem:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` exp_E_Stem (
+	    int type,
+	    int si1,
+	    int sj1,
+	    int extLoop,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* P
+	    )
+
+    .. container:: detailed-description
+
+        .. rubric:: Compute the Boltzmann weighted energy contribution of a stem branching off a loop-region
+        
+        This is the partition function variant of :ref:`E_Stem() <doxid-group__loops_1ga51f9851f3500c2aae66674142a6a2dd5>`
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Boltzmann weighted energy contribution of the branch off the loop
+        
+        
+        
+        .. note::
+        
+            This function is threadsafe
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`E_Stem() <doxid-group__loops_1ga51f9851f3500c2aae66674142a6a2dd5>`
+
+.. _doxid-group__loops_1gadf943ee9a45b7f4cee9192c06210dace:
+.. _cid-e_hairpin:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int E_Hairpin (
+	    int size,
+	    int type,
+	    int si1,
+	    int sj1,
+	    const char* string,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+    .. container:: brief-description
+
+        Compute the Energy of a hairpin-loop.
+
+    .. container:: detailed-description
+
+        To evaluate the free energy of a hairpin-loop, several parameters have to be known. A general hairpin-loop has this structure:
+        
+        
+        
+        .. code-block:: none
+        
+        
+              a3 a4
+            a2     a5
+            a1     a6
+              X - Y
+              |   |
+              5'  3'
+        
+        where X-Y marks the closing pair [e.g. a **(G,C)** pair]. The length of this loop is 6 as there are six unpaired nucleotides (a1-a6) enclosed by (X,Y). The 5' mismatching nucleotide is a1 while the 3' mismatch is a6. The nucleotide sequence of this loop is "a1.a2.a3.a4.a5.a6"
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - size
+        
+                - The size of the loop (number of unpaired nucleotides)
+        
+            *
+                - type
+        
+                - The pair type of the base pair closing the hairpin
+        
+            *
+                - si1
+        
+                - The 5'-mismatching nucleotide
+        
+            *
+                - sj1
+        
+                - The 3'-mismatching nucleotide
+        
+            *
+                - string
+        
+                - The sequence of the loop
+        
+            *
+                - P
+        
+                - The datastructure containing scaled energy parameters
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Free energy of the Hairpin-loop in dcal/mol
+        
+        
+        
+        .. note::
+        
+            The parameter sequence should contain the sequence of the loop in capital letters of the nucleic acid alphabet if the loop size is below 7. This is useful for unusually stable tri-, tetra- and hexa-loops which are treated differently (based on experimental data) if they are tabulated.
+        
+        
+        
+        .. warning::
+        
+            Not (really) thread safe! A threadsafe implementation will replace this function in a future release!
+        
+        Energy evaluation may change due to updates in global variable "tetra_loop"
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`scale_parameters() <doxid-group__energy__parameters_1ga541f2cf7436e9bc939b0a49b24baf987>`
+        
+            :ref:`vrna_param_t <doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`
+
+.. _doxid-group__loops_1ga51fb555974f180b78d76142b2894851c:
+.. _cid-exp_e_hairpin:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` exp_E_Hairpin (
+	    int u,
+	    int type,
+	    short si1,
+	    short sj1,
+	    const char* string,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* P
+	    )
+
+    .. container:: brief-description
+
+        Compute Boltzmann weight :math:`e^{-\Delta G/kT} ` of a hairpin loop.
+
+    .. container:: detailed-description
+
+        multiply by scale[u+2]
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - u
+        
+                - The size of the loop (number of unpaired nucleotides)
+        
+            *
+                - type
+        
+                - The pair type of the base pair closing the hairpin
+        
+            *
+                - si1
+        
+                - The 5'-mismatching nucleotide
+        
+            *
+                - sj1
+        
+                - The 3'-mismatching nucleotide
+        
+            *
+                - string
+        
+                - The sequence of the loop
+        
+            *
+                - P
+        
+                - The datastructure containing scaled Boltzmann weights of the energy parameters
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Boltzmann weight of the Hairpin-loop
+        
+        
+        
+        .. warning::
+        
+            Not (really) thread safe! A threadsafe implementation will replace this function in a future release!
+        
+        Energy evaluation may change due to updates in global variable "tetra_loop"
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`get_scaled_pf_parameters() <doxid-group__energy__parameters_1gabf3b9271c41dd3fac02d56e0b02b3344>`
+        
+            :ref:`vrna_exp_param_t <doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`
+        
+            :ref:`E_Hairpin() <doxid-group__loops_1gadf943ee9a45b7f4cee9192c06210dace>`
+
+.. _doxid-group__loops_1ga999ba163a8148d72fd5f22819a681df7:
+.. _cid-vrna_e_hp_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_E_hp_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+    .. container:: brief-description
+
+        Evaluate the free energy of a hairpin loop and consider hard constraints if they apply.
+
+    .. container:: detailed-description
+
+        This function evaluates the free energy of a hairpin loop
+        
+        In case the base pair is not allowed due to a constraint conflict, this function returns :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` that stores all relevant model settings
+        
+            *
+                - i
+        
+                - The 5' nucleotide of the base pair (3' to evaluate the pair as exterior hairpin loop)
+        
+            *
+                - j
+        
+                - The 3' nucleotide of the base pair (5' to evaluate the pair as exterior hairpin loop)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The free energy of the hairpin loop in 10cal/mol
+        
+        
+        
+        .. note::
+        
+            This function is polymorphic! The provided :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` may be of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` or :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+
+.. _doxid-group__loops_1gac3393ee309372eccae944e3a07f455f9:
+.. _cid-vrna_e_ext_hp_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_E_ext_hp_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+    .. container:: brief-description
+
+        Evaluate the free energy of an exterior hairpin loop and consider possible hard constraints.
+
+    .. container:: detailed-description
+
+        
+        
+        .. note::
+        
+            This function is polymorphic! The provided :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` may be of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` or :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+
+.. _doxid-group__loops_1gad3b92453a6b501856eec8fae39f3235d:
+.. _cid-vrna_eval_ext_hp_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_eval_ext_hp_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+    .. container:: brief-description
+
+        Evaluate free energy of an exterior hairpin loop.
+
+.. _doxid-group__loops_1gab3eb4651dc26dc2b653a57dd340d7e68:
+.. _cid-vrna_eval_hp_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_eval_hp_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+    .. container:: brief-description
+
+        Evaluate free energy of a hairpin loop.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as method **eval_hp_loop()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` for the particular energy evaluation
+        
+            *
+                - i
+        
+                - 5'-position of the base pair
+        
+            *
+                - j
+        
+                - 3'-position of the base pair
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Free energy of the hairpin loop closed by :math:` (i,j) ` in deka-kal/mol
+        
+        
+        
+        .. note::
+        
+            This function is polymorphic! The provided :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` may be of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` or :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+
+.. _doxid-group__loops_1gac9f49b31d3ec1d9040798b05506c71da:
+.. _cid-vrna_exp_e_hp_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` vrna_exp_E_hp_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+    .. container:: brief-description
+
+        High-Level function for hairpin loop energy evaluation (partition function variant)
+
+    .. container:: detailed-description
+
+        
+        
+        .. note::
+        
+            This function is polymorphic! The provided :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` may be of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` or :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_E_hp_loop() <doxid-group__loops_1ga999ba163a8148d72fd5f22819a681df7>` for it's free energy counterpart
+
+.. _doxid-group__loops_1ga6c4ba14d24f716d0ca9021771357e903:
+.. _cid-vrna_bt_hp_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_BT_hp_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    int en,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+    .. container:: brief-description
+
+        Backtrack a hairpin loop closed by :math:` (i,j) ` .
+
+    .. container:: detailed-description
+
+        
+        
+        .. note::
+        
+            This function is polymorphic! The provided :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` may be of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` or :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+
+.. _doxid-group__loops_1gaafbc187b7f78e8e82afb77dd6f3b8fc5:
+.. _cid-e_intloop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int E_IntLoop (
+	    int n1,
+	    int n2,
+	    int type,
+	    int type_2,
+	    int si1,
+	    int sj1,
+	    int sp1,
+	    int sq1,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+    .. container:: detailed-description
+
+        .. rubric:: Compute the Energy of an interior-loop
+        
+        This function computes the free energy :math:`\Delta G` of an interior-loop with the following structure:
+        
+        
+        
+        .. code-block:: none
+        
+        
+                3'  5'
+                |   |
+                U - V
+            a_n       b_1
+             .        .
+             .        .
+             .        .
+            a_1       b_m
+                X - Y
+                |   |
+                5'  3'
+        
+        This general structure depicts an interior-loop that is closed by the base pair (X,Y). The enclosed base pair is (V,U) which leaves the unpaired bases a_1-a_n and b_1-b_n that constitute the loop. In this example, the length of the interior-loop is :math:`(n+m)` where n or m may be 0 resulting in a bulge-loop or base pair stack. The mismatching nucleotides for the closing pair (X,Y) are:
+        
+        5'-mismatch: a_1
+        
+        3'-mismatch: b_m
+        
+        and for the enclosed base pair (V,U):
+        
+        5'-mismatch: b_1
+        
+        3'-mismatch: a_n
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - n1
+        
+                - The size of the 'left'-loop (number of unpaired nucleotides)
+        
+            *
+                - n2
+        
+                - The size of the 'right'-loop (number of unpaired nucleotides)
+        
+            *
+                - type
+        
+                - The pair type of the base pair closing the interior loop
+        
+            *
+                - type_2
+        
+                - The pair type of the enclosed base pair
+        
+            *
+                - si1
+        
+                - The 5'-mismatching nucleotide of the closing pair
+        
+            *
+                - sj1
+        
+                - The 3'-mismatching nucleotide of the closing pair
+        
+            *
+                - sp1
+        
+                - The 3'-mismatching nucleotide of the enclosed pair
+        
+            *
+                - sq1
+        
+                - The 5'-mismatching nucleotide of the enclosed pair
+        
+            *
+                - P
+        
+                - The datastructure containing scaled energy parameters
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Free energy of the Interior-loop in dcal/mol
+        
+        
+        
+        .. note::
+        
+            Base pairs are always denoted in 5'->3' direction. Thus the enclosed base pair must be 'turned arround' when evaluating the free energy of the interior-loop
+        
+            This function is threadsafe
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`scale_parameters() <doxid-group__energy__parameters_1ga541f2cf7436e9bc939b0a49b24baf987>`
+        
+            :ref:`vrna_param_t <doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`
+
+.. _doxid-group__loops_1ga95de54d8a2a17645a95e0f34e189d9c9:
+.. _cid-exp_e_intloop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` exp_E_IntLoop (
+	    int u1,
+	    int u2,
+	    int type,
+	    int type2,
+	    short si1,
+	    short sj1,
+	    short sp1,
+	    short sq1,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* P
+	    )
+
+    .. container:: detailed-description
+
+        .. rubric:: Compute Boltzmann weight :math:`e^{-\Delta G/kT} ` of interior loop
+        
+        multiply by scale[u1+u2+2] for scaling
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - u1
+        
+                - The size of the 'left'-loop (number of unpaired nucleotides)
+        
+            *
+                - u2
+        
+                - The size of the 'right'-loop (number of unpaired nucleotides)
+        
+            *
+                - type
+        
+                - The pair type of the base pair closing the interior loop
+        
+            *
+                - type2
+        
+                - The pair type of the enclosed base pair
+        
+            *
+                - si1
+        
+                - The 5'-mismatching nucleotide of the closing pair
+        
+            *
+                - sj1
+        
+                - The 3'-mismatching nucleotide of the closing pair
+        
+            *
+                - sp1
+        
+                - The 3'-mismatching nucleotide of the enclosed pair
+        
+            *
+                - sq1
+        
+                - The 5'-mismatching nucleotide of the enclosed pair
+        
+            *
+                - P
+        
+                - The datastructure containing scaled Boltzmann weights of the energy parameters
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Boltzmann weight of the Interior-loop
+        
+        
+        
+        .. note::
+        
+            This function is threadsafe
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`get_scaled_pf_parameters() <doxid-group__energy__parameters_1gabf3b9271c41dd3fac02d56e0b02b3344>`
+        
+            :ref:`vrna_exp_param_t <doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`
+        
+            :ref:`E_IntLoop() <doxid-group__loops_1gaafbc187b7f78e8e82afb77dd6f3b8fc5>`
+
+.. _doxid-group__loops_1ga018f1314dbbae42fdd27c94670b61721:
+.. _cid-vrna_eval_int_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_eval_int_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    int k,
+	    int l
+	    )
+
+    .. container:: brief-description
+
+        Evaluate the free energy contribution of an interior loop with delimiting base pairs :math:`(i,j)` and :math:`(k,l)` .
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as method **eval_int_loop()** to objects of type *fold_compound*
+        
+        
+        
+        .. note::
+        
+            This function is polymorphic, i.e. it accepts :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` as well as :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+
+.. _doxid-group__loops_1gad320d5d721e33bed120168213d8f45e5:
+.. _cid-vrna_bt_stack:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_BT_stack (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* i,
+	    int* j,
+	    int* en,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+    .. container:: brief-description
+
+        Backtrack a stacked pair closed by :math:` (i,j) ` .
+
+.. _doxid-group__loops_1ga849b7dc373b6c0b029672e16a7e52053:
+.. _cid-vrna_bt_int_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_BT_int_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* i,
+	    int* j,
+	    int en,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+    .. container:: brief-description
+
+        Backtrack an interior loop closed by :math:` (i,j) ` .
+
+.. _doxid-group__loops_1ga73f048d35475e1d8f50b7d4ac6a2aeb6:
+.. _cid-vrna_e_mb_loop_stack:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_E_mb_loop_stack (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j
+	    )
+
+    .. container:: brief-description
+
+        Evaluate energy of a multi branch helices stacking onto closing pair (i,j)
+
+    .. container:: detailed-description
+
+        Computes total free energy for coaxial stacking of (i.j) with (i+1.k) or (k+1.j-1)
+
+.. _doxid-group__loops_1ga9cb520ddfd8b3a48089a7910b045d06b:
+.. _cid-vrna_bt_mb_loop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_BT_mb_loop (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int* i,
+	    int* j,
+	    int* k,
+	    int en,
+	    int* component1,
+	    int* component2
+	    )
+
+    .. container:: brief-description
+
+        Backtrack the decomposition of a multi branch loop closed by :math:` (i,j) ` .
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` filled with all relevant data for backtracking
+        
+            *
+                - i
+        
+                - 5' position of base pair closing the loop (will be set to 5' position of leftmost decomposed block upon successful backtracking)
+        
+            *
+                - j
+        
+                - 3' position of base pair closing the loop (will be set to 3' position of rightmost decomposed block upon successful backtracking)
+        
+            *
+                - k
+        
+                - Split position that delimits leftmost from rightmost block, [i,k] and [k+1, j], respectively. (Will be set upon successful backtracking)
+        
+            *
+                - en
+        
+                - The energy contribution of the substructure enclosed by :math:` (i,j) `
+        
+            *
+                - component1
+        
+                - Type of leftmost block (1 = ML, 2 = C)
+        
+            *
+                - component2
+        
+                - Type of rightmost block (1 = ML, 2 = C)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        1, if backtracking succeeded, 0 otherwise.
+

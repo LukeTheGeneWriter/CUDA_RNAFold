@@ -1,0 +1,33 @@
+.. index:: pair: struct; vrna_color_s
+.. _doxid-structvrna__color__s:
+.. _cid-vrna_color_s:
+
+struct vrna_color_s
+===================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+
+
+.. _doxid-structvrna__color__s_1aab217f6758ec24b8e0c4d090e2c2b4e1:
+.. _cid-vrna_color_s::hue:
+.. _doxid-structvrna__color__s_1aead60f76303402112139abf5adfb4399:
+.. _cid-vrna_color_s::sat:
+.. _doxid-structvrna__color__s_1a6ba545d33579e0b05d68121b5d66dceb:
+.. _cid-vrna_color_s::bri:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	float hue
+	float sat
+	float bri
+

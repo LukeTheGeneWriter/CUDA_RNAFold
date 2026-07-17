@@ -1,0 +1,32 @@
+.. index:: pair: struct; constrain
+.. _doxid-structconstrain:
+.. _cid-constrain:
+
+struct constrain
+================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+.. container:: brief-description
+
+    constraints for cofolding
+
+.. _doxid-structconstrain_1a7b5c9ee296f446882c12fb49b4b70f8a:
+.. _cid-constrain::indx:
+.. _doxid-structconstrain_1aa45a199810da246b6a23f93f49740595:
+.. _cid-constrain::ptype:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int* indx
+	char* ptype
+

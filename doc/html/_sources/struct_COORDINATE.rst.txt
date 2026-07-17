@@ -1,0 +1,32 @@
+.. index:: pair: struct; COORDINATE
+.. _doxid-struct_c_o_o_r_d_i_n_a_t_e:
+.. _cid-coordinate:
+
+struct COORDINATE
+=================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/plot_layouts.h>
+
+
+.. container:: brief-description
+
+    this is a workarround for the SWIG Perl Wrapper RNA plot function that returns an array of type :ref:`COORDINATE <doxid-struct_c_o_o_r_d_i_n_a_t_e>`
+
+.. _doxid-struct_c_o_o_r_d_i_n_a_t_e_1a1650ff457f1fcf1b29dfccf1cbe4c3e9:
+.. _cid-coordinate::x:
+.. _doxid-struct_c_o_o_r_d_i_n_a_t_e_1a827df1c548f95486abf6c6a94d6ce6b2:
+.. _cid-coordinate::y:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	float X
+	float Y
+

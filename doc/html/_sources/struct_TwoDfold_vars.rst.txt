@@ -1,0 +1,429 @@
+.. index:: pair: struct; TwoDfold_vars
+.. _doxid-struct_two_dfold__vars:
+.. _cid-twodfold_vars:
+
+struct TwoDfold_vars
+====================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/2Dfold.h>
+
+
+Overview
+--------
+
+Variables compound for 2Dfold MFE folding. :ref:`More...<details-doxid-struct_two_dfold__vars>`
+
+.. _doxid-struct_two_dfold__vars_1adcf49c88c890de55d2215532bf22006c:
+.. _cid-twodfold_vars::s:
+.. _doxid-struct_two_dfold__vars_1aaaecad48586cf29db9cfe78ba0d03e64:
+.. _cid-twodfold_vars::temperature:
+.. _doxid-struct_two_dfold__vars_1ac3d9b7ee368f1cd0be1bd06dbfb8afe7:
+.. _cid-twodfold_vars::reference_pt1:
+.. _doxid-struct_two_dfold__vars_1a1cfef43ced426d71c2c4ffe32e82343b:
+.. _cid-twodfold_vars::reference_pt2:
+.. _doxid-struct_two_dfold__vars_1ae3a4308de89bdaa394375718c894c977:
+.. _cid-twodfold_vars::circ:
+.. _doxid-struct_two_dfold__vars_1a2344e233bfc046e7261d8c5bea534153:
+.. _cid-twodfold_vars::dangles:
+.. _doxid-struct_two_dfold__vars_1a4016860ccba7e21fdccd500446731696:
+.. _cid-twodfold_vars::seq_length:
+.. _doxid-struct_two_dfold__vars_1a0962f20b286965412ded96cf24db8024:
+.. _cid-twodfold_vars::e_f5:
+.. _doxid-struct_two_dfold__vars_1a11b9d64797932fc1994b5b0064f13468:
+.. _cid-twodfold_vars::e_f3:
+.. _doxid-struct_two_dfold__vars_1a93d2182608ed62830adfc456b0ce5681:
+.. _cid-twodfold_vars::e_c:
+.. _doxid-struct_two_dfold__vars_1aa6964c9af06773c3026a0f5d682f9fd8:
+.. _cid-twodfold_vars::e_m:
+.. _doxid-struct_two_dfold__vars_1af52b99762db1c3bf20a3284c5f3ed6c3:
+.. _cid-twodfold_vars::e_m1:
+.. _doxid-struct_two_dfold__vars_1a6a5669cfcd3565d339f57a125dcb5e06:
+.. _cid-twodfold_vars::e_m2:
+.. _doxid-struct_two_dfold__vars_1a4eb4d9478bceacf9ad8bd38e41c943f9:
+.. _cid-twodfold_vars::e_fc:
+.. _doxid-struct_two_dfold__vars_1a8becf4cbe447676dd299b2232337cd3e:
+.. _cid-twodfold_vars::e_fch:
+.. _doxid-struct_two_dfold__vars_1abaf57df415bd53e0189d4430c59eb22c:
+.. _cid-twodfold_vars::e_fci:
+.. _doxid-struct_two_dfold__vars_1aa64e1390f197b238f49c6ffb37992eb2:
+.. _cid-twodfold_vars::e_fcm:
+.. _doxid-struct_two_dfold__vars_1aa2f2e9bd13105d15a657e71f5261256b:
+.. _cid-twodfold_vars::l_min_values:
+.. _doxid-struct_two_dfold__vars_1a6df00730e6359d27b26290c95e3cf0fd:
+.. _cid-twodfold_vars::l_max_values:
+.. _doxid-struct_two_dfold__vars_1aed74c3f883cab18bac7d9c66d8cff110:
+.. _cid-twodfold_vars::k_min_values:
+.. _doxid-struct_two_dfold__vars_1adf0b5de14ba5fc0ab3788bc0ff4f9d88:
+.. _cid-twodfold_vars::k_max_values:
+.. _doxid-struct_two_dfold__vars_1a0c688cbbb88902a6642dad7fb41ca9f3:
+.. _cid-twodfold_vars::l_min_values_m:
+.. _doxid-struct_two_dfold__vars_1a3bf30e9fb08b16e7c6a2706581a2e5cb:
+.. _cid-twodfold_vars::l_max_values_m:
+.. _doxid-struct_two_dfold__vars_1a9e942b87356975775dea195841fcf847:
+.. _cid-twodfold_vars::k_min_values_m:
+.. _doxid-struct_two_dfold__vars_1a85df676ac4b99098d72f6e8e48d6afc5:
+.. _cid-twodfold_vars::k_max_values_m:
+.. _doxid-struct_two_dfold__vars_1a80f9152af7100a3c24d48cdf7639378b:
+.. _cid-twodfold_vars::l_min_values_m1:
+.. _doxid-struct_two_dfold__vars_1afd0de56d6593a46ae805d0ec8d3651a2:
+.. _cid-twodfold_vars::l_max_values_m1:
+.. _doxid-struct_two_dfold__vars_1a5cc247c342c307157d972103602b011f:
+.. _cid-twodfold_vars::k_min_values_m1:
+.. _doxid-struct_two_dfold__vars_1a252a584f7f74c8b2787a128f05c9113d:
+.. _cid-twodfold_vars::k_max_values_m1:
+.. _doxid-struct_two_dfold__vars_1a4a39ccf97d767d6bb62f34d6b1d10717:
+.. _cid-twodfold_vars::l_min_values_f:
+.. _doxid-struct_two_dfold__vars_1a8a566aec285da022ff58f128044fd560:
+.. _cid-twodfold_vars::l_max_values_f:
+.. _doxid-struct_two_dfold__vars_1a01d07ecba1cfdf7f0c06d870368ebbab:
+.. _cid-twodfold_vars::k_min_values_f:
+.. _doxid-struct_two_dfold__vars_1a88bee3289b67c7d86f421670a43bf3af:
+.. _cid-twodfold_vars::k_max_values_f:
+.. _doxid-struct_two_dfold__vars_1a8d646363b251672235b7c4169b71c4b0:
+.. _cid-twodfold_vars::l_min_values_f3:
+.. _doxid-struct_two_dfold__vars_1a361ec8bdefe30a1046f383a5eeac4968:
+.. _cid-twodfold_vars::l_max_values_f3:
+.. _doxid-struct_two_dfold__vars_1ab25721e4aefc57087242f587de8e80ab:
+.. _cid-twodfold_vars::k_min_values_f3:
+.. _doxid-struct_two_dfold__vars_1a799795b75fefc94c7d88a04cf32dab72:
+.. _cid-twodfold_vars::k_max_values_f3:
+.. _doxid-struct_two_dfold__vars_1a4253d7631384345b004bc82b8403eb77:
+.. _cid-twodfold_vars::l_min_values_m2:
+.. _doxid-struct_two_dfold__vars_1a1915aa04bfdea4692bd5c3aceab74e45:
+.. _cid-twodfold_vars::l_max_values_m2:
+.. _doxid-struct_two_dfold__vars_1a78592d73ab65ca433ecb773a83c9b582:
+.. _cid-twodfold_vars::k_min_values_m2:
+.. _doxid-struct_two_dfold__vars_1ad80cc03831c345b789dad446d5e260fe:
+.. _cid-twodfold_vars::k_max_values_m2:
+.. _doxid-struct_two_dfold__vars_1a2852dd3d4f444b08dfebbc053cac983d:
+.. _cid-twodfold_vars::l_min_values_fc:
+.. _doxid-struct_two_dfold__vars_1a6debaf91b138e5e086ac6863dad01919:
+.. _cid-twodfold_vars::l_max_values_fc:
+.. _doxid-struct_two_dfold__vars_1a39ee4a1728c0d80e11c8a4694c8629d5:
+.. _cid-twodfold_vars::k_min_values_fc:
+.. _doxid-struct_two_dfold__vars_1aed3b5efc50bb9453942277f96626665f:
+.. _cid-twodfold_vars::k_max_values_fc:
+.. _doxid-struct_two_dfold__vars_1ac13b16138da81ff2b0c69fc4e6ab6dd4:
+.. _cid-twodfold_vars::l_min_values_fch:
+.. _doxid-struct_two_dfold__vars_1a8588fe680089b986a90913bc72a7c6c8:
+.. _cid-twodfold_vars::l_max_values_fch:
+.. _doxid-struct_two_dfold__vars_1a125e8cde969ce3347f19e825dbcec07b:
+.. _cid-twodfold_vars::k_min_values_fch:
+.. _doxid-struct_two_dfold__vars_1a8f1fade15528029e22fd3efc1d0a871b:
+.. _cid-twodfold_vars::k_max_values_fch:
+.. _doxid-struct_two_dfold__vars_1ab08a49838984eb8fe427730bc8154b43:
+.. _cid-twodfold_vars::l_min_values_fci:
+.. _doxid-struct_two_dfold__vars_1a98cd89c6459c18bd647a18a9b17bfb93:
+.. _cid-twodfold_vars::l_max_values_fci:
+.. _doxid-struct_two_dfold__vars_1aceb32df051435d3ecc25910688585e7b:
+.. _cid-twodfold_vars::k_min_values_fci:
+.. _doxid-struct_two_dfold__vars_1a860e9a6784233960a1d45e711de381d8:
+.. _cid-twodfold_vars::k_max_values_fci:
+.. _doxid-struct_two_dfold__vars_1a2073680dc7da5be8a404fd4036687973:
+.. _cid-twodfold_vars::l_min_values_fcm:
+.. _doxid-struct_two_dfold__vars_1a80385035862e790db8ffb1e81438ec2a:
+.. _cid-twodfold_vars::l_max_values_fcm:
+.. _doxid-struct_two_dfold__vars_1a482a03df6cd5ef76ae591d4686a051d7:
+.. _cid-twodfold_vars::k_min_values_fcm:
+.. _doxid-struct_two_dfold__vars_1a89e4d533071054720a83ea70a97a4105:
+.. _cid-twodfold_vars::k_max_values_fcm:
+.. _doxid-struct_two_dfold__vars_1af414b6e4fc8a32e323998504cbdf3db8:
+.. _cid-twodfold_vars::e_f5_rem:
+.. _doxid-struct_two_dfold__vars_1ae4b7da33649295a9c835a6f29c3f2fab:
+.. _cid-twodfold_vars::e_f3_rem:
+.. _doxid-struct_two_dfold__vars_1a5da3f78defa76f754b726aac74104b9d:
+.. _cid-twodfold_vars::e_c_rem:
+.. _doxid-struct_two_dfold__vars_1a14c12c19248fd07a78e0e1d15c9ead83:
+.. _cid-twodfold_vars::e_m_rem:
+.. _doxid-struct_two_dfold__vars_1a18476d051e6bb22c3339cc1c6fedbb2c:
+.. _cid-twodfold_vars::e_m1_rem:
+.. _doxid-struct_two_dfold__vars_1af68fca5278bdefe01539e4e59816554d:
+.. _cid-twodfold_vars::e_m2_rem:
+.. _doxid-struct_two_dfold__vars_1a8f69e0e4572dae4bf862eb0d5f25b95f:
+.. _cid-twodfold_vars::e_fc_rem:
+.. _doxid-struct_two_dfold__vars_1aa0e78a2b1e48a2545abb5e008f4d92c9:
+.. _cid-twodfold_vars::e_fch_rem:
+.. _doxid-struct_two_dfold__vars_1ace876be5e864db1f26967dc8f05a2b89:
+.. _cid-twodfold_vars::e_fci_rem:
+.. _doxid-struct_two_dfold__vars_1a2ea4f8e3d9f3047c4983ed0e299a4f8d:
+.. _cid-twodfold_vars::e_fcm_rem:
+.. _doxid-struct_two_dfold__vars_1a2f12b3838cfdb8d3c769d36cb517459d:
+.. _cid-twodfold_vars::compatibility:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* :ref:`P<doxid-struct_two_dfold__vars_1a70da9e83ad87c37013b4bf0b265dd307>`
+	int :ref:`do_backtrack<doxid-struct_two_dfold__vars_1ade5c7e9337a458ae20bac75abdc52d64>`
+	char* :ref:`ptype<doxid-struct_two_dfold__vars_1aedf60b8b26dae05ad266d3e098d18208>`
+	char* :ref:`sequence<doxid-struct_two_dfold__vars_1a3596f3d4d320318c4b8428e2abc7ab56>`
+	short* S
+	short* :ref:`S1<doxid-struct_two_dfold__vars_1ab9ee459ffbfb5d2c138a033516056cdc>`
+	unsigned int :ref:`maxD1<doxid-struct_two_dfold__vars_1a621ed2ab02116f3f8f5e7120dec429eb>`
+	unsigned int :ref:`maxD2<doxid-struct_two_dfold__vars_1a03f198a4abdb3b784486d2ba5c533aa4>`
+	unsigned int* :ref:`mm1<doxid-struct_two_dfold__vars_1aa11f5bcd8c4fe70a91c155c877c855d5>`
+	unsigned int* :ref:`mm2<doxid-struct_two_dfold__vars_1a2eaa93316b6beb17531f0c078806036c>`
+	int* :ref:`my_iindx<doxid-struct_two_dfold__vars_1a1a20cb06b58b75d1a3dbdbc8bc60d0a7>`
+	double temperature
+	unsigned int* :ref:`referenceBPs1<doxid-struct_two_dfold__vars_1a536525b98c1b633d4c5f2da4f8d78c18>`
+	unsigned int* :ref:`referenceBPs2<doxid-struct_two_dfold__vars_1aa7abf73c3114cb5f0dc90e702fa9dd0f>`
+	unsigned int* :ref:`bpdist<doxid-struct_two_dfold__vars_1af1106e1a592e2dccc92b3452340549e0>`
+	short* reference_pt1
+	short* reference_pt2
+	int circ
+	int dangles
+	unsigned int seq_length
+	int*** E_F5
+	int*** E_F3
+	int*** E_C
+	int*** E_M
+	int*** E_M1
+	int*** E_M2
+	int** E_Fc
+	int** E_FcH
+	int** E_FcI
+	int** E_FcM
+	int** l_min_values
+	int** l_max_values
+	int* k_min_values
+	int* k_max_values
+	int** l_min_values_m
+	int** l_max_values_m
+	int* k_min_values_m
+	int* k_max_values_m
+	int** l_min_values_m1
+	int** l_max_values_m1
+	int* k_min_values_m1
+	int* k_max_values_m1
+	int** l_min_values_f
+	int** l_max_values_f
+	int* k_min_values_f
+	int* k_max_values_f
+	int** l_min_values_f3
+	int** l_max_values_f3
+	int* k_min_values_f3
+	int* k_max_values_f3
+	int** l_min_values_m2
+	int** l_max_values_m2
+	int* k_min_values_m2
+	int* k_max_values_m2
+	int* l_min_values_fc
+	int* l_max_values_fc
+	int k_min_values_fc
+	int k_max_values_fc
+	int* l_min_values_fcH
+	int* l_max_values_fcH
+	int k_min_values_fcH
+	int k_max_values_fcH
+	int* l_min_values_fcI
+	int* l_max_values_fcI
+	int k_min_values_fcI
+	int k_max_values_fcI
+	int* l_min_values_fcM
+	int* l_max_values_fcM
+	int k_min_values_fcM
+	int k_max_values_fcM
+	int* E_F5_rem
+	int* E_F3_rem
+	int* E_C_rem
+	int* E_M_rem
+	int* E_M1_rem
+	int* E_M2_rem
+	int E_Fc_rem
+	int E_FcH_rem
+	int E_FcI_rem
+	int E_FcM_rem
+	:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* compatibility
+
+.. _details-doxid-struct_two_dfold__vars:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Variables compound for 2Dfold MFE folding.
+
+.. container:: detailed-description
+
+    Deprecated This data structure will be removed from the library soon! Use :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` and the corresponding functions :ref:`vrna_fold_compound_TwoD() <doxid-group__fold__compound_1ga9d24b196753b4f9f03774f11661510f5>` , :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` , and :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` instead!
+
+Fields
+------
+
+.. _doxid-struct_two_dfold__vars_1a70da9e83ad87c37013b4bf0b265dd307:
+.. _cid-twodfold_vars::p:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+
+    .. container:: brief-description
+
+        Precomputed energy parameters and model details.
+
+.. _doxid-struct_two_dfold__vars_1ade5c7e9337a458ae20bac75abdc52d64:
+.. _cid-twodfold_vars::do_backtrack:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int do_backtrack
+
+    .. container:: brief-description
+
+        Flag whether to do backtracing of the structure(s) or not.
+
+.. _doxid-struct_two_dfold__vars_1aedf60b8b26dae05ad266d3e098d18208:
+.. _cid-twodfold_vars::ptype:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* ptype
+
+    .. container:: brief-description
+
+        Precomputed array of pair types.
+
+.. _doxid-struct_two_dfold__vars_1a3596f3d4d320318c4b8428e2abc7ab56:
+.. _cid-twodfold_vars::sequence:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* sequence
+
+    .. container:: brief-description
+
+        The input sequence.
+
+.. _doxid-struct_two_dfold__vars_1ab9ee459ffbfb5d2c138a033516056cdc:
+.. _cid-twodfold_vars::s1:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* S1
+
+    .. container:: brief-description
+
+        The input sequences in numeric form.
+
+.. _doxid-struct_two_dfold__vars_1a621ed2ab02116f3f8f5e7120dec429eb:
+.. _cid-twodfold_vars::maxd1:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int maxD1
+
+    .. container:: brief-description
+
+        Maximum allowed base pair distance to first reference.
+
+.. _doxid-struct_two_dfold__vars_1a03f198a4abdb3b784486d2ba5c533aa4:
+.. _cid-twodfold_vars::maxd2:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int maxD2
+
+    .. container:: brief-description
+
+        Maximum allowed base pair distance to second reference.
+
+.. _doxid-struct_two_dfold__vars_1aa11f5bcd8c4fe70a91c155c877c855d5:
+.. _cid-twodfold_vars::mm1:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* mm1
+
+    .. container:: brief-description
+
+        Maximum matching matrix, reference struct 1 disallowed.
+
+.. _doxid-struct_two_dfold__vars_1a2eaa93316b6beb17531f0c078806036c:
+.. _cid-twodfold_vars::mm2:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* mm2
+
+    .. container:: brief-description
+
+        Maximum matching matrix, reference struct 2 disallowed.
+
+.. _doxid-struct_two_dfold__vars_1a1a20cb06b58b75d1a3dbdbc8bc60d0a7:
+.. _cid-twodfold_vars::my_iindx:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* my_iindx
+
+    .. container:: brief-description
+
+        Index for moving in quadratic distancy dimensions.
+
+.. _doxid-struct_two_dfold__vars_1a536525b98c1b633d4c5f2da4f8d78c18:
+.. _cid-twodfold_vars::referencebps1:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* referenceBPs1
+
+    .. container:: brief-description
+
+        Matrix containing number of basepairs of reference structure1 in interval [i,j].
+
+.. _doxid-struct_two_dfold__vars_1aa7abf73c3114cb5f0dc90e702fa9dd0f:
+.. _cid-twodfold_vars::referencebps2:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* referenceBPs2
+
+    .. container:: brief-description
+
+        Matrix containing number of basepairs of reference structure2 in interval [i,j].
+
+.. _doxid-struct_two_dfold__vars_1af1106e1a592e2dccc92b3452340549e0:
+.. _cid-twodfold_vars::bpdist:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* bpdist
+
+    .. container:: brief-description
+
+        Matrix containing base pair distance of reference structure 1 and 2 on interval [i,j].
+

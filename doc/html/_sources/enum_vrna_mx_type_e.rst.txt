@@ -1,0 +1,98 @@
+.. index:: pair: enum; vrna_mx_type_e
+.. _doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343:
+.. _cid-vrna_mx_type_e:
+
+enum vrna_mx_type_e
+===================
+
+
+
+Overview
+~~~~~~~~
+
+An enumerator that is used to specify the type of a polymorphic Dynamic Programming (DP) matrix data structure. :ref:`More...<details-doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enum values
+
+	:ref:`VRNA_MX_DEFAULT<doxid-group__dp__matrices_1gga6042ea1d58d01931e959791be6d89343aafa2568956dab79595521e20c49a5f75>` 
+	:ref:`VRNA_MX_WINDOW<doxid-group__dp__matrices_1gga6042ea1d58d01931e959791be6d89343a2ea5d5947f6ec02544934b0ff2785e99>` 
+	:ref:`VRNA_MX_2DFOLD<doxid-group__dp__matrices_1gga6042ea1d58d01931e959791be6d89343ae656f8391445ff71bed8a597a0a19417>` 
+
+.. _details-doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343:
+
+Detailed Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. container:: brief-description
+
+    An enumerator that is used to specify the type of a polymorphic Dynamic Programming (DP) matrix data structure.
+
+.. container:: detailed-description
+
+    
+    
+    .. admonition:: See also:
+    
+        :ref:`vrna_mx_mfe_t <doxid-group__dp__matrices_1gae5aef35d016475e758f619b7bcb534f9>` , :ref:`vrna_mx_pf_t <doxid-group__dp__matrices_1ga68729ab3fed26bdd1806fa814f172fc1>`
+
+Enum Values
+-----------
+
+.. _doxid-group__dp__matrices_1gga6042ea1d58d01931e959791be6d89343aafa2568956dab79595521e20c49a5f75:
+.. _cid-vrna_mx_type_e::vrna_mx_default:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_MX_DEFAULT
+
+    .. container:: brief-description
+
+        Default DP matrices.
+
+.. _doxid-group__dp__matrices_1gga6042ea1d58d01931e959791be6d89343a2ea5d5947f6ec02544934b0ff2785e99:
+.. _cid-vrna_mx_type_e::vrna_mx_window:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_MX_WINDOW
+
+    .. container:: brief-description
+
+        DP matrices suitable for local structure prediction using window approach.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` , :ref:`vrna_mfe_window_zscore() <doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` , :ref:`pfl_fold() <doxid-group__local__pf__fold_1ga7cdf690583871f9c158a0f91d4785cb6>`
+
+.. _doxid-group__dp__matrices_1gga6042ea1d58d01931e959791be6d89343ae656f8391445ff71bed8a597a0a19417:
+.. _cid-vrna_mx_type_e::vrna_mx_2dfold:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_MX_2DFOLD
+
+    .. container:: brief-description
+
+        DP matrices suitable for distance class partitioned structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` , :ref:`vrna_pf_TwoD() <doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836>`
+

@@ -1,0 +1,148 @@
+.. index:: pair: group; Suboptimal structures sensu Stiegler et al. 1984 / Zuker et al. 1989
+.. _doxid-group__subopt__zuker:
+.. _cid-subopt_zuker:
+
+Suboptimal structures sensu Stiegler et al. 1984 / Zuker et al. 1989
+====================================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	:ref:`vrna_subopt_solution_t<doxid-subopt_8h_1a01ae9a0f27d245d89f705afd843fc457>`* :ref:`vrna_subopt_zuker<doxid-group__subopt__zuker_1gababde9d210eb433854f1e71da7815fbb>` (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+	:ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* :ref:`zukersubopt<doxid-group__subopt__zuker_1ga0d5104e3ecf119d8eabd40aa5fe47f90>` (const char* string)
+
+	:ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* :ref:`zukersubopt_par<doxid-group__subopt__zuker_1gab6d0ea8cc1d02f6dd831ca81043c9eb8>` (
+	    const char* string,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* parameters
+	    )
+
+.. _details-doxid-group__subopt__zuker:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__subopt__zuker_1gababde9d210eb433854f1e71da7815fbb:
+.. _cid-vrna_subopt_zuker:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_subopt_solution_t<doxid-subopt_8h_1a01ae9a0f27d245d89f705afd843fc457>`* vrna_subopt_zuker (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+    .. container:: brief-description
+
+        Compute Zuker type suboptimal structures.
+
+    .. container:: detailed-description
+
+        Compute Suboptimal structures according to M. Zuker :ref:`[24] <doxid-citelist_1CITEREF_zuker:1989>` , i.e. for every possible base pair the minimum energy structure containing the resp. base pair. Returns a list of these structures and their energies.
+        
+        Bug Due to resizing, any pre-existing constraints will be lost!
+        
+        SWIG Wrapper Notes This function is attached as method **subopt_zuker()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - fold compound
+        
+        
+        
+        .. rubric:: Returns:
+        
+        List of zuker suboptimal structures
+        
+        
+        
+        .. note::
+        
+            This function internally uses the cofold implementation to compute the suboptimal structures. For that purpose, the function doubles the sequence and enlarges the DP matrices, which in fact will grow by a factor of 4 during the computation! At the end of the structure prediction, everything will be re-set to its original requriements, i.e. normal sequence, normal (empty) DP matrices.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_subopt() <doxid-group__subopt__wuchty_1ga0f11d738fb8c8b1885a90c11c8931ff6>` , :ref:`zukersubopt() <doxid-group__subopt__zuker_1ga0d5104e3ecf119d8eabd40aa5fe47f90>` , :ref:`zukersubopt_par() <doxid-group__subopt__zuker_1gab6d0ea8cc1d02f6dd831ca81043c9eb8>`
+
+.. _doxid-group__subopt__zuker_1ga0d5104e3ecf119d8eabd40aa5fe47f90:
+.. _cid-zukersubopt:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* zukersubopt (const char* string)
+
+    .. container:: brief-description
+
+        Compute Zuker type suboptimal structures.
+
+    .. container:: detailed-description
+
+        Compute Suboptimal structures according to M. Zuker, i.e. for every possible base pair the minimum energy structure containing the resp. base pair. Returns a list of these structures and their energies.
+        
+        Deprecated use vrna_zukersubopt() instead
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - string
+        
+                - RNA sequence
+        
+        
+        
+        .. rubric:: Returns:
+        
+        List of zuker suboptimal structures
+
+.. _doxid-group__subopt__zuker_1gab6d0ea8cc1d02f6dd831ca81043c9eb8:
+.. _cid-zukersubopt_par:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* zukersubopt_par (
+	    const char* string,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* parameters
+	    )
+
+    .. container:: brief-description
+
+        Compute Zuker type suboptimal structures.
+
+    .. container:: detailed-description
+
+        Deprecated use vrna_zukersubopt() instead
+

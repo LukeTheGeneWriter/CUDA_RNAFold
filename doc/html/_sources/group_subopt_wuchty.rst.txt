@@ -1,0 +1,437 @@
+.. index:: pair: group; Suboptimal structures within an energy band arround the MFE
+.. _doxid-group__subopt__wuchty:
+.. _cid-subopt_wuchty:
+
+Suboptimal structures within an energy band arround the MFE
+===========================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef void () :ref:`vrna_subopt_callback<doxid-group__subopt__wuchty_1gaa0270c66d04f59e750401695b8282e04>` (
+	    const char *stucture,
+	    float energy,
+	    void *data
+	    )
+
+	// global variables
+
+	double :ref:`print_energy<doxid-group__subopt__wuchty_1ga5e57d914bcb5feeecdf520e25313fcfe>`
+	int :ref:`subopt_sorted<doxid-group__subopt__wuchty_1ga873cf8ed69e0437f8efa8b1fec854a0e>`
+
+	// global functions
+
+	:ref:`vrna_subopt_solution_t<doxid-subopt_8h_1a01ae9a0f27d245d89f705afd843fc457>`* :ref:`vrna_subopt<doxid-group__subopt__wuchty_1ga0f11d738fb8c8b1885a90c11c8931ff6>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int delta,
+	    int sorted,
+	    FILE* fp
+	    )
+
+	void :ref:`vrna_subopt_cb<doxid-group__subopt__wuchty_1ga1053837e6b6f158093508f8a70998352>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int delta,
+	    :ref:`vrna_subopt_callback<doxid-group__subopt__wuchty_1gaa0270c66d04f59e750401695b8282e04>`* cb,
+	    void* data
+	    )
+
+	:ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* :ref:`subopt<doxid-group__subopt__wuchty_1ga700f662506a233e42dd7fda74fafd40e>` (
+	    char* seq,
+	    char* structure,
+	    int delta,
+	    FILE* fp
+	    )
+
+	:ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* :ref:`subopt_par<doxid-group__subopt__wuchty_1gaa1e1e7031a948ebcb39a9d58d1e9842c>` (
+	    char* seq,
+	    char* structure,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* parameters,
+	    int delta,
+	    int is_constrained,
+	    int is_circular,
+	    FILE* fp
+	    )
+
+	:ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* :ref:`subopt_circ<doxid-group__subopt__wuchty_1ga8634516e4740e0b6c9a46d2bae940340>` (
+	    char* seq,
+	    char* sequence,
+	    int delta,
+	    FILE* fp
+	    )
+
+.. _details-doxid-group__subopt__wuchty:
+
+Detailed Documentation
+----------------------
+
+
+
+Typedefs
+--------
+
+.. _doxid-group__subopt__wuchty_1gaa0270c66d04f59e750401695b8282e04:
+.. _cid-vrna_subopt_callback:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef void () vrna_subopt_callback (
+	    const char *stucture,
+	    float energy,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback for :ref:`vrna_subopt_cb() <doxid-group__subopt__wuchty_1ga1053837e6b6f158093508f8a70998352>`
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions This function will be called for each suboptimal secondary structure that is successfully backtraced.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - The suboptimal secondary structure in dot-bracket notation
+        
+            *
+                - energy
+        
+                - The free energy of the secondary structure in kcal/mol
+        
+            *
+                - data
+        
+                - Some arbitrary, auxiliary data address as passed to :ref:`vrna_subopt_cb() <doxid-group__subopt__wuchty_1ga1053837e6b6f158093508f8a70998352>`
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_subopt_cb() <doxid-group__subopt__wuchty_1ga1053837e6b6f158093508f8a70998352>`
+
+Global Variables
+----------------
+
+.. _doxid-group__subopt__wuchty_1ga5e57d914bcb5feeecdf520e25313fcfe:
+.. _cid-print_energy:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double print_energy
+
+    .. container:: brief-description
+
+        printing threshold for use with logML
+
+.. _doxid-group__subopt__wuchty_1ga873cf8ed69e0437f8efa8b1fec854a0e:
+.. _cid-subopt_sorted:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int subopt_sorted
+
+    .. container:: brief-description
+
+        Sort output by energy.
+
+Global Functions
+----------------
+
+.. _doxid-group__subopt__wuchty_1ga0f11d738fb8c8b1885a90c11c8931ff6:
+.. _cid-vrna_subopt:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_subopt_solution_t<doxid-subopt_8h_1a01ae9a0f27d245d89f705afd843fc457>`* vrna_subopt (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int delta,
+	    int sorted,
+	    FILE* fp
+	    )
+
+    .. container:: brief-description
+
+        Returns list of subopt structures or writes to fp.
+
+    .. container:: detailed-description
+
+        This function produces **all** suboptimal secondary structures within 'delta' * 0.01 kcal/mol of the optimum, see :ref:`[21] <doxid-citelist_1CITEREF_wuchty:1999>` . The results are either directly written to a 'fp' (if 'fp' is not NULL), or (fp==NULL) returned in a :ref:`vrna_subopt_solution_t <doxid-subopt_8h_1a01ae9a0f27d245d89f705afd843fc457>` * list terminated by an entry were the 'structure' member is NULL.
+        
+        SWIG Wrapper Notes This function is attached as method **:ref:`subopt() <doxid-group__subopt__wuchty_1ga700f662506a233e42dd7fda74fafd40e>`** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - 
+        
+            *
+                - delta
+        
+                - 
+        
+            *
+                - sorted
+        
+                - Sort results by energy in ascending order
+        
+            *
+                - fp
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+        
+        
+        
+        .. note::
+        
+            This function requires all multibranch loop DP matrices for unique multibranch loop backtracing. Therefore, the supplied :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` ``vc`` (argument 1) must be initialized with :ref:`vrna_md_t.uniq_ML <doxid-structvrna__md__s_1ade065b814a4e2e72ead93ab502613ed2>` = 1, for instance like this:
+        
+        .. ref-code-block:: cpp
+        
+            vrna_md_t md;
+            vrna_md_set_default(&md);
+            md.uniq_ML = 1;
+            
+            vrna_fold_compound_t *vc=vrna_fold_compound("GGGGGGAAAAAACCCCCC", &md, VRNA_OPTION_DEFAULT);
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_subopt_cb() <doxid-group__subopt__wuchty_1ga1053837e6b6f158093508f8a70998352>` , :ref:`vrna_subopt_zuker() <doxid-group__subopt__zuker_1gababde9d210eb433854f1e71da7815fbb>`
+
+.. _doxid-group__subopt__wuchty_1ga1053837e6b6f158093508f8a70998352:
+.. _cid-vrna_subopt_cb:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_subopt_cb (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int delta,
+	    :ref:`vrna_subopt_callback<doxid-group__subopt__wuchty_1gaa0270c66d04f59e750401695b8282e04>`* cb,
+	    void* data
+	    )
+
+    .. container:: brief-description
+
+        Generate suboptimal structures within an energy band arround the MFE.
+
+    .. container:: detailed-description
+
+        This is the most generic implementation of the suboptimal structure generator according to Wuchty et al. 1999 :ref:`[21] <doxid-citelist_1CITEREF_wuchty:1999>` . Identical to :ref:`vrna_subopt() <doxid-group__subopt__wuchty_1ga0f11d738fb8c8b1885a90c11c8931ff6>` , it computes all secondary structures within an energy band ``delta`` arround the MFE. However, this function does not print the resulting structures and their corresponding free energies to a file pointer, or returns them as a list. Instead, it calls a user-provided callback function which it passes the structure in dot-bracket format, the corresponding free energy in kcal/mol, and a user-provided data structure each time a structure was backtracked successfully. This function indicates the final output, i.e. the end of the backtracking procedure by passing NULL instead of an actual dot-bracket string to the callback.
+        
+        SWIG Wrapper Notes This function is attached as method **subopt_cb()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - fold compount with the sequence data
+        
+            *
+                - delta
+        
+                - Energy band arround the MFE in 10cal/mol, i.e. deka-calories
+        
+            *
+                - cb
+        
+                - Pointer to a callback function that handles the backtracked structure and its free energy in kcal/mol
+        
+            *
+                - data
+        
+                - Pointer to some data structure that is passed along to the callback
+        
+        
+        
+        .. note::
+        
+            This function requires all multibranch loop DP matrices for unique multibranch loop backtracing. Therefore, the supplied :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` ``vc`` (argument 1) must be initialized with :ref:`vrna_md_t.uniq_ML <doxid-structvrna__md__s_1ade065b814a4e2e72ead93ab502613ed2>` = 1, for instance like this:
+        
+        .. ref-code-block:: cpp
+        
+            vrna_md_t md;
+            vrna_md_set_default(&md);
+            md.uniq_ML = 1;
+            
+            vrna_fold_compound_t *vc=vrna_fold_compound("GGGGGGAAAAAACCCCCC", &md, VRNA_OPTION_DEFAULT);
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_subopt_callback <doxid-group__subopt__wuchty_1gaa0270c66d04f59e750401695b8282e04>` , :ref:`vrna_subopt() <doxid-group__subopt__wuchty_1ga0f11d738fb8c8b1885a90c11c8931ff6>` , :ref:`vrna_subopt_zuker() <doxid-group__subopt__zuker_1gababde9d210eb433854f1e71da7815fbb>`
+
+.. _doxid-group__subopt__wuchty_1ga700f662506a233e42dd7fda74fafd40e:
+.. _cid-subopt:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* subopt (
+	    char* seq,
+	    char* structure,
+	    int delta,
+	    FILE* fp
+	    )
+
+    .. container:: brief-description
+
+        Returns list of subopt structures or writes to fp.
+
+    .. container:: detailed-description
+
+        This function produces **all** suboptimal secondary structures within 'delta' * 0.01 kcal/mol of the optimum. The results are either directly written to a 'fp' (if 'fp' is not NULL), or (fp==NULL) returned in a :ref:`SOLUTION <doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>` * list terminated by an entry were the 'structure' pointer is NULL.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - 
+        
+            *
+                - structure
+        
+                - 
+        
+            *
+                - delta
+        
+                - 
+        
+            *
+                - fp
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__subopt__wuchty_1gaa1e1e7031a948ebcb39a9d58d1e9842c:
+.. _cid-subopt_par:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* subopt_par (
+	    char* seq,
+	    char* structure,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* parameters,
+	    int delta,
+	    int is_constrained,
+	    int is_circular,
+	    FILE* fp
+	    )
+
+    .. container:: brief-description
+
+        Returns list of subopt structures or writes to fp.
+
+.. _doxid-group__subopt__wuchty_1ga8634516e4740e0b6c9a46d2bae940340:
+.. _cid-subopt_circ:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`SOLUTION<doxid-subopt_8h_1aa0f46ff02e1017469cf902d02ecd7f9a>`* subopt_circ (
+	    char* seq,
+	    char* sequence,
+	    int delta,
+	    FILE* fp
+	    )
+
+    .. container:: brief-description
+
+        Returns list of circular subopt structures or writes to fp.
+
+    .. container:: detailed-description
+
+        This function is similar to :ref:`subopt() <doxid-group__subopt__wuchty_1ga700f662506a233e42dd7fda74fafd40e>` but calculates secondary structures assuming the RNA sequence to be circular instead of linear
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - 
+        
+            *
+                - sequence
+        
+                - 
+        
+            *
+                - delta
+        
+                - 
+        
+            *
+                - fp
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+

@@ -1,0 +1,584 @@
+.. index:: pair: group; G-quadruplexes
+.. _doxid-group__gquads:
+.. _cid-gquads:
+
+G-quadruplexes
+==============
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+Various functions related to G-quadruplex computations. :ref:`More...<details-doxid-group__gquads>`
+
+.. _doxid-group__gquads_1gaa6c187f30e29d3aa29c5b537d0f7293f:
+.. _cid-e_gquad:
+.. _doxid-group__gquads_1ga4dbda5faf903ca987b296a7629764221:
+.. _cid-exp_e_gquad:
+.. _doxid-group__gquads_1gad6cd438e9e9bd37b57b361b8ce2fd51a:
+.. _cid-e_gquad_ali:
+.. _doxid-group__gquads_1ga106bfd11a4c7a12c4ded9b32d31e78e9:
+.. _cid-e_gquad_ali_en:
+.. _doxid-group__gquads_1gab30685e61b49bbb2c6b5a4b8e87749fe:
+.. _cid-get_gquad_ali_matrix:
+.. _doxid-group__gquads_1ga286fa5dfce69c0f383c469d4147d9634:
+.. _cid-get_gquad_pf_matrix:
+.. _doxid-group__gquads_1gaed52d05fbe10e771daa2593d2d935937:
+.. _cid-get_gquad_l_matrix:
+.. _doxid-group__gquads_1gad09a24800f11f53c2dbc65b945ec956e:
+.. _cid-vrna_gquad_mx_local_update:
+.. _doxid-group__gquads_1ga4be64833bd2692a91c7454bb8f17c622:
+.. _cid-get_gquad_pattern_mfe:
+.. _doxid-group__gquads_1gae72088f0c674df7ac1c650c8bf02fad8:
+.. _cid-get_gquad_pattern_exhaustive:
+.. _doxid-group__gquads_1gaafaf18c4a262d12f6698df72c071f641:
+.. _cid-get_gquad_pattern_pf:
+.. _doxid-group__gquads_1ga098bdc8057dbcef81f9e6390450d4d88:
+.. _cid-get_plist_gquad_from_pr:
+.. _doxid-group__gquads_1ga226ba34fb481728d243af13b8d17fbd9:
+.. _cid-get_plist_gquad_from_pr_max:
+.. _doxid-group__gquads_1ga0fc4f48d749837ca7d5495d34a280c32:
+.. _cid-get_plist_gquad_from_db:
+.. _doxid-group__gquads_1ga7042e25be580f7d6e5a300ccec7e8e70:
+.. _cid-get_gquad_count:
+.. _doxid-group__gquads_1gad6b113887b9aca729f7c9a35a954b0f6:
+.. _cid-get_gquad_layer_count:
+.. _doxid-group__gquads_1gae3904ba679df6cb7284cb3153410dac2:
+.. _cid-get_gquad_pattern_mfe_ali:
+.. _doxid-group__gquads_1ga6665a4196ea41a8d08c3c309c1262384:
+.. _cid-backtrack_gquad_intloop_comparative:
+.. _doxid-group__gquads_1ga186573840ad56e95029b9ab772e4c040:
+.. _cid-vrna_bt_gquad_int:
+.. _doxid-group__gquads_1gad10fb8ad7ce3ba46d7d53ca7fefbcd80:
+.. _cid-vrna_bt_gquad_mfe:
+.. _doxid-group__gquads_1ga72bb580a045d7319effc78c1ae3a0e7b:
+.. _cid-backtrack_gquad_intloop_l_comparative:
+.. _doxid-group__gquads_1gab0120fbc587102aee41a22d53c8ba6d3:
+.. _cid-e_gquad_intloop:
+.. _doxid-group__gquads_1ga27fc69fa7832e2ddf910696958f729a0:
+.. _cid-e_gquad_intloop_exhaustive:
+.. _doxid-group__gquads_1ga5a213ee0c675b416666691f19d430610:
+.. _cid-e_gquad_intloop_l:
+.. _doxid-group__gquads_1ga6b9e82d893f4111654f7c640950d7ced:
+.. _cid-exp_e_gquad_intloop:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	int E_gquad (
+	    int L,
+	    int l [3],
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` exp_E_gquad (
+	    int L,
+	    int l [3],
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* pf
+	    )
+
+	int E_gquad_ali (
+	    int i,
+	    int L,
+	    int l [3],
+	    const short** S,
+	    int n_seq,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	void E_gquad_ali_en (
+	    int i,
+	    int L,
+	    int l [3],
+	    const short** S,
+	    int n_seq,
+	    int en [2],
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	int* :ref:`get_gquad_matrix<doxid-group__gquads_1ga392e45c9615aa123737671603fa4203c>` (
+	    short* S,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	int* get_gquad_ali_matrix (
+	    short* S_cons,
+	    short** S,
+	    int n_seq,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* get_gquad_pf_matrix (
+	    short* S,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* scale,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* pf
+	    )
+
+	int** get_gquad_L_matrix (
+	    short* S,
+	    int start,
+	    int maxdist,
+	    int n,
+	    int** g,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	void vrna_gquad_mx_local_update (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int start
+	    )
+
+	void get_gquad_pattern_mfe (
+	    short* S,
+	    int i,
+	    int j,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P,
+	    int* L,
+	    int l [3]
+	    )
+
+	void get_gquad_pattern_exhaustive (
+	    short* S,
+	    int i,
+	    int j,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P,
+	    int* L,
+	    int* l,
+	    int threshold
+	    )
+
+	void get_gquad_pattern_pf (
+	    short* S,
+	    int i,
+	    int j,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* pf,
+	    int* L,
+	    int l [3]
+	    )
+
+	:ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* get_plist_gquad_from_pr (
+	    short* S,
+	    int gi,
+	    int gj,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* G,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* probs,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* scale,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* pf
+	    )
+
+	:ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* get_plist_gquad_from_pr_max (
+	    short* S,
+	    int gi,
+	    int gj,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* G,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* probs,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* scale,
+	    int* L,
+	    int l [3],
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* pf
+	    )
+
+	:ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* get_plist_gquad_from_db (
+	    const char* structure,
+	    float pr
+	    )
+
+	int get_gquad_count (
+	    short* S,
+	    int i,
+	    int j
+	    )
+
+	int get_gquad_layer_count (
+	    short* S,
+	    int i,
+	    int j
+	    )
+
+	void get_gquad_pattern_mfe_ali (
+	    short** S,
+	    short* S_cons,
+	    int n_seq,
+	    int i,
+	    int j,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P,
+	    int* L,
+	    int l [3]
+	    )
+
+	int :ref:`parse_gquad<doxid-group__gquads_1gae41763215b9c64d2a7b67f0df8a28078>` (
+	    const char* struc,
+	    int* L,
+	    int l [3]
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int :ref:`backtrack_GQuad_IntLoop<doxid-group__gquads_1ga220c41e8dbcee940ac975b8ce88e55c5>` (
+	    int c,
+	    int i,
+	    int j,
+	    int type,
+	    short* S,
+	    int* ggg,
+	    int* index,
+	    int* p,
+	    int* q,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int backtrack_GQuad_IntLoop_comparative (
+	    int c,
+	    int i,
+	    int j,
+	    unsigned int* type,
+	    short* S_cons,
+	    short** S5,
+	    short** S3,
+	    int* ggg,
+	    int* index,
+	    int* p,
+	    int* q,
+	    int n_seq,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int :ref:`backtrack_GQuad_IntLoop_L<doxid-group__gquads_1ga7b371308fa5a45c7ac353ef6ed1014de>` (
+	    int c,
+	    int i,
+	    int j,
+	    int type,
+	    short* S,
+	    int** ggg,
+	    int maxdist,
+	    int* p,
+	    int* q,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int vrna_BT_gquad_int (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    int en,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int vrna_BT_gquad_mfe (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp_stack,
+	    int* stack_count
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int backtrack_GQuad_IntLoop_L_comparative (
+	    int c,
+	    int i,
+	    int j,
+	    unsigned int* type,
+	    short* S_cons,
+	    short** S5,
+	    short** S3,
+	    int** ggg,
+	    int* p,
+	    int* q,
+	    int n_seq,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int E_GQuad_IntLoop (
+	    int i,
+	    int j,
+	    int type,
+	    short* S,
+	    int* ggg,
+	    int* index,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int* E_GQuad_IntLoop_exhaustive (
+	    int i,
+	    int j,
+	    int** p_p,
+	    int** q_p,
+	    int type,
+	    short* S,
+	    int* ggg,
+	    int threshold,
+	    int* index,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int E_GQuad_IntLoop_L (
+	    int i,
+	    int j,
+	    int type,
+	    short* S,
+	    int** ggg,
+	    int maxdist,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+	:ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` exp_E_GQuad_IntLoop (
+	    int i,
+	    int j,
+	    int type,
+	    short* S,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* G,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* scale,
+	    int* index,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* pf
+	    )
+
+.. _details-doxid-group__gquads:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Various functions related to G-quadruplex computations.
+
+Global Functions
+----------------
+
+.. _doxid-group__gquads_1ga392e45c9615aa123737671603fa4203c:
+.. _cid-get_gquad_matrix:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* get_gquad_matrix (
+	    short* S,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+    .. container:: brief-description
+
+        Get a triangular matrix prefilled with minimum free energy contributions of G-quadruplexes.
+
+    .. container:: detailed-description
+
+        At each position ij in the matrix, the minimum free energy of any G-quadruplex delimited by i and j is stored. If no G-quadruplex formation is possible, the matrix element is set to INF. Access the elements in the matrix via matrix[indx[j]+i]. To get the integer array indx see get_jindx().
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - S
+        
+                - The encoded sequence
+        
+            *
+                - P
+        
+                - A pointer to the data structure containing the precomputed energy contributions
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the G-quadruplex contribution matrix
+        
+        
+        
+        .. admonition:: See also:
+        
+            get_jindx(), encode_sequence()
+
+.. _doxid-group__gquads_1gae41763215b9c64d2a7b67f0df8a28078:
+.. _cid-parse_gquad:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int parse_gquad (
+	    const char* struc,
+	    int* L,
+	    int l [3]
+	    )
+
+    .. container:: detailed-description
+
+        given a dot-bracket structure (possibly) containing gquads encoded by '+' signs, find first gquad, return end position or 0 if none found Upon return L and l[] contain the number of stacked layers, as well as the lengths of the linker regions. To parse a string with many gquads, call parse_gquad repeatedly e.g. end1 = parse_gquad(struc, &L, l); ... ; end2 = parse_gquad(struc+end1, &L, l); end2+=end1; ... ; end3 = parse_gquad(struc+end2, &L, l); end3+=end2; ... ;
+
+.. _doxid-group__gquads_1ga220c41e8dbcee940ac975b8ce88e55c5:
+.. _cid-backtrack_gquad_intloop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int backtrack_GQuad_IntLoop (
+	    int c,
+	    int i,
+	    int j,
+	    int type,
+	    short* S,
+	    int* ggg,
+	    int* index,
+	    int* p,
+	    int* q,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+    .. container:: detailed-description
+
+        backtrack an interior loop like enclosed g-quadruplex with closing pair (i,j)
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - c
+        
+                - The total contribution the loop should resemble
+        
+            *
+                - i
+        
+                - position i of enclosing pair
+        
+            *
+                - j
+        
+                - position j of enclosing pair
+        
+            *
+                - type
+        
+                - base pair type of enclosing pair (must be reverse type)
+        
+            *
+                - S
+        
+                - integer encoded sequence
+        
+            *
+                - ggg
+        
+                - triangular matrix containing g-quadruplex contributions
+        
+            *
+                - index
+        
+                - the index for accessing the triangular matrix
+        
+            *
+                - p
+        
+                - here the 5' position of the gquad is stored
+        
+            *
+                - q
+        
+                - here the 3' position of the gquad is stored
+        
+            *
+                - P
+        
+                - the datastructure containing the precalculated contibutions
+        
+        
+        
+        .. rubric:: Returns:
+        
+        1 on success, 0 if no gquad found
+
+.. _doxid-group__gquads_1ga7b371308fa5a45c7ac353ef6ed1014de:
+.. _cid-backtrack_gquad_intloop_l:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`PRIVATE<doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8>` int backtrack_GQuad_IntLoop_L (
+	    int c,
+	    int i,
+	    int j,
+	    int type,
+	    short* S,
+	    int** ggg,
+	    int maxdist,
+	    int* p,
+	    int* q,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* P
+	    )
+
+    .. container:: detailed-description
+
+        backtrack an interior loop like enclosed g-quadruplex with closing pair (i,j) with underlying Lfold matrix
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - c
+        
+                - The total contribution the loop should resemble
+        
+            *
+                - i
+        
+                - position i of enclosing pair
+        
+            *
+                - j
+        
+                - position j of enclosing pair
+        
+            *
+                - type
+        
+                - base pair type of enclosing pair (must be reverse type)
+        
+            *
+                - S
+        
+                - integer encoded sequence
+        
+            *
+                - ggg
+        
+                - triangular matrix containing g-quadruplex contributions
+        
+            *
+                - p
+        
+                - here the 5' position of the gquad is stored
+        
+            *
+                - q
+        
+                - here the 3' position of the gquad is stored
+        
+            *
+                - P
+        
+                - the datastructure containing the precalculated contibutions
+        
+        
+        
+        .. rubric:: Returns:
+        
+        1 on success, 0 if no gquad found
+

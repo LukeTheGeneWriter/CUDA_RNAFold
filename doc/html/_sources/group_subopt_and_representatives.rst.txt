@@ -1,0 +1,29 @@
+.. index:: pair: group; Suboptimals and representative structures
+.. _doxid-group__subopt__and__representatives:
+.. _cid-subopt_and_representatives:
+
+Suboptimals and representative structures
+=========================================
+
+.. toctree::
+	:hidden:
+
+	group_centroid_fold.rst
+	group_mea_fold.rst
+	group_subopt_stochbt.rst
+	group_subopt_wuchty.rst
+	group_subopt_zuker.rst
+
+
+
+.. container:: brief-description
+
+    Sample and enumerate suboptimal secondary structures from RNA sequence data.
+
+|	:ref:`Compute the centroid structure<doxid-group__centroid__fold>`
+|	:ref:`Compute the structure with maximum expected accuracy (MEA)<doxid-group__mea__fold>`
+|	:ref:`Structure sampling from the ensemble<doxid-group__subopt__stochbt>`
+|	:ref:`Suboptimal structures within an energy band arround the MFE<doxid-group__subopt__wuchty>`
+|	:ref:`Suboptimal structures sensu Stiegler et al. 1984 / Zuker et al. 1989<doxid-group__subopt__zuker>`
+
+

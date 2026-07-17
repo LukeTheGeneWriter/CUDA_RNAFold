@@ -1,0 +1,463 @@
+.. index:: pair: group; Calculating MFE representatives of a Distance Based Partitioning
+.. _doxid-group__kl__neighborhood__mfe:
+.. _cid-kl_neighborhood_mfe:
+
+Calculating MFE representatives of a Distance Based Partitioning
+================================================================
+
+.. toctree::
+	:hidden:
+
+	struct_TwoDfold_vars.rst
+	struct_vrna_sol_TwoD_t.rst
+
+
+
+Overview
+--------
+
+Compute the minimum free energy (MFE) and secondary structures for a partitioning of the secondary structure space according to the base pair distance to two fixed reference structures basepair distance to two fixed reference structures. :ref:`More...<details-doxid-group__kl__neighborhood__mfe>`
+
+.. _doxid-group__kl__neighborhood__mfe_1ga9827e1deba983a95d0509d36b61fb0e2:
+.. _cid-twodfold:
+.. _doxid-group__kl__neighborhood__mfe_1ga09e71024abb1a2bd19d9137596376e15:
+.. _cid-twodfold_solution:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_sol_TwoD_t<doxid-structvrna__sol___two_d__t>` :ref:`vrna_sol_TwoD_t<doxid-group__kl__neighborhood__mfe_1ga6a81a58268d250309712549a3fa0aab2>`
+	typedef struct :ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>` :ref:`TwoDfold_vars<doxid-group__kl__neighborhood__mfe_1gaf4f514010a14f9d59d850742b3e96954>`
+
+	// structs
+
+	struct :ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>` 
+	struct :ref:`vrna_sol_TwoD_t<doxid-structvrna__sol___two_d__t>` 
+
+	// global functions
+
+	:ref:`vrna_sol_TwoD_t<doxid-structvrna__sol___two_d__t>`* :ref:`vrna_mfe_TwoD<doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int distance1,
+	    int distance2
+	    )
+
+	char* :ref:`vrna_backtrack5_TwoD<doxid-group__kl__neighborhood__mfe_1ga15a96fc96f4f4c2e01a11b3e17d1ef43>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int k,
+	    int l,
+	    unsigned int j
+	    )
+
+	:ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>`* :ref:`get_TwoDfold_variables<doxid-group__kl__neighborhood__mfe_1gac9284f132cf0eaa0a2f43590eda05488>` (
+	    const char* seq,
+	    const char* structure1,
+	    const char* structure2,
+	    int circ
+	    )
+
+	void :ref:`destroy_TwoDfold_variables<doxid-group__kl__neighborhood__mfe_1ga05bf4f31d216b1b160fd2d3d68e9b487>` (:ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>`* our_variables)
+
+	:ref:`vrna_sol_TwoD_t<doxid-structvrna__sol___two_d__t>`* :ref:`TwoDfoldList<doxid-group__kl__neighborhood__mfe_1ga7fc5e3e92fe97914ca4eccd33c01c2a7>` (
+	    :ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>`* vars,
+	    int distance1,
+	    int distance2
+	    )
+
+	char* :ref:`TwoDfold_backtrack_f5<doxid-group__kl__neighborhood__mfe_1gaf4dc05bf8fc1ea53acd7aeb798ba80c2>` (
+	    unsigned int j,
+	    int k,
+	    int l,
+	    :ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>`* vars
+	    )
+
+	:ref:`vrna_sol_TwoD_t<doxid-structvrna__sol___two_d__t>`** TwoDfold (
+	    :ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>`* our_variables,
+	    int distance1,
+	    int distance2
+	    )
+
+	// macros
+
+	#define TwoDfold_solution
+
+.. _details-doxid-group__kl__neighborhood__mfe:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Compute the minimum free energy (MFE) and secondary structures for a partitioning of the secondary structure space according to the base pair distance to two fixed reference structures basepair distance to two fixed reference structures.
+
+.. container:: detailed-description
+
+    
+    
+    .. admonition:: See also:
+    
+        For further details, we refer to Lorenz et al. 2009 :ref:`[10] <doxid-citelist_1CITEREF_lorenz:2009>`
+
+Typedefs
+--------
+
+.. _doxid-group__kl__neighborhood__mfe_1ga6a81a58268d250309712549a3fa0aab2:
+.. _cid-vrna_sol_twod_t-2:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_sol_TwoD_t<doxid-structvrna__sol___two_d__t>` vrna_sol_TwoD_t
+
+    .. container:: brief-description
+
+        Solution element returned from :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>`
+
+    .. container:: detailed-description
+
+        This element contains free energy and structure for the appropriate kappa (k), lambda (l) neighborhood The datastructure contains two integer attributes 'k' and 'l' as well as an attribute 'en' of type float representing the free energy in kcal/mol and an attribute 's' of type char* containg the secondary structure representative,
+        
+        A value of :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` in k denotes the end of a list
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>`
+
+.. _doxid-group__kl__neighborhood__mfe_1gaf4f514010a14f9d59d850742b3e96954:
+.. _cid-twodfold_vars-2:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>` TwoDfold_vars
+
+    .. container:: brief-description
+
+        Variables compound for 2Dfold MFE folding.
+
+    .. container:: detailed-description
+
+        Deprecated This data structure will be removed from the library soon! Use :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` and the corresponding functions :ref:`vrna_fold_compound_TwoD() <doxid-group__fold__compound_1ga9d24b196753b4f9f03774f11661510f5>` , :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` , and :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` instead!
+
+Global Functions
+----------------
+
+.. _doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77:
+.. _cid-vrna_mfe_twod:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_sol_TwoD_t<doxid-structvrna__sol___two_d__t>`* vrna_mfe_TwoD (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int distance1,
+	    int distance2
+	    )
+
+    .. container:: brief-description
+
+        Compute MFE's and representative for distance partitioning.
+
+    .. container:: detailed-description
+
+        This function computes the minimum free energies and a representative secondary structure for each distance class according to the two references specified in the datastructure 'vars'. The maximum basepair distance to each of both references may be set by the arguments 'distance1' and 'distance2', respectively. If both distance arguments are set to '-1', no restriction is assumed and the calculation is performed for each distance class possible.
+        
+        The returned list contains an entry for each distance class. If a maximum basepair distance to either of the references was passed, an entry with k=l=-1 will be appended in the list, denoting the class where all structures exceeding the maximum will be thrown into. The end of the list is denoted by an attribute value of :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` in the k-attribute of the list entry.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The datastructure containing all precomputed folding attributes
+        
+            *
+                - distance1
+        
+                - maximum distance to reference1 (-1 means no restriction)
+        
+            *
+                - distance2
+        
+                - maximum distance to reference2 (-1 means no restriction)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A list of minimum free energies (and corresponding structures) for each distance class
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_TwoD() <doxid-group__fold__compound_1ga9d24b196753b4f9f03774f11661510f5>` , :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` , :ref:`vrna_pf_TwoD() <doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836>` :ref:`vrna_backtrack5_TwoD() <doxid-group__kl__neighborhood__mfe_1ga15a96fc96f4f4c2e01a11b3e17d1ef43>` , :ref:`vrna_sol_TwoD_t <doxid-structvrna__sol___two_d__t>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+
+.. _doxid-group__kl__neighborhood__mfe_1ga15a96fc96f4f4c2e01a11b3e17d1ef43:
+.. _cid-vrna_backtrack5_twod:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_backtrack5_TwoD (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int k,
+	    int l,
+	    unsigned int j
+	    )
+
+    .. container:: brief-description
+
+        Backtrack a minimum free energy structure from a 5' section of specified length.
+
+    .. container:: detailed-description
+
+        This function allows one to backtrack a secondary structure beginning at the 5' end, a specified length and residing in a specific distance class. If the argument 'k' gets a value of -1, the structure that is backtracked is assumed to reside in the distance class where all structures exceeding the maximum basepair distance specified in :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` belong to.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The datastructure containing all precomputed folding attributes
+        
+            *
+                - j
+        
+                - The length in nucleotides beginning from the 5' end
+        
+            *
+                - k
+        
+                - distance to reference1 (may be -1)
+        
+            *
+                - l
+        
+                - distance to reference2
+        
+        
+        
+        .. note::
+        
+            The argument 'vars' must contain precalculated energy values in the energy matrices, i.e. a call to :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` preceding this function is mandatory!
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>`
+
+.. _doxid-group__kl__neighborhood__mfe_1gac9284f132cf0eaa0a2f43590eda05488:
+.. _cid-get_twodfold_variables:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>`* get_TwoDfold_variables (
+	    const char* seq,
+	    const char* structure1,
+	    const char* structure2,
+	    int circ
+	    )
+
+    .. container:: brief-description
+
+        Get a structure of type :ref:`TwoDfold_vars <doxid-struct_two_dfold__vars>` prefilled with current global settings.
+
+    .. container:: detailed-description
+
+        This function returns a datastructure of type :ref:`TwoDfold_vars <doxid-struct_two_dfold__vars>` . The data fields inside the :ref:`TwoDfold_vars <doxid-struct_two_dfold__vars>` are prefilled by global settings and all memory allocations necessary to start a computation are already done for the convenience of the user
+        
+        Deprecated Use the new API that relies on :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` and the corresponding functions :ref:`vrna_fold_compound_TwoD() <doxid-group__fold__compound_1ga9d24b196753b4f9f03774f11661510f5>` , :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` , and :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - The RNA sequence
+        
+            *
+                - structure1
+        
+                - The first reference structure in dot-bracket notation
+        
+            *
+                - structure2
+        
+                - The second reference structure in dot-bracket notation
+        
+            *
+                - circ
+        
+                - A switch to indicate the assumption to fold a circular instead of linear RNA (0=OFF, 1=ON)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A datastructure prefilled with folding options and allocated memory
+        
+        
+        
+        .. note::
+        
+            Make sure that the reference structures are compatible with the sequence according to Watson-Crick- and Wobble-base pairing
+
+.. _doxid-group__kl__neighborhood__mfe_1ga05bf4f31d216b1b160fd2d3d68e9b487:
+.. _cid-destroy_twodfold_variables:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void destroy_TwoDfold_variables (:ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>`* our_variables)
+
+    .. container:: brief-description
+
+        Destroy a :ref:`TwoDfold_vars <doxid-struct_two_dfold__vars>` datastructure without memory loss.
+
+    .. container:: detailed-description
+
+        This function free's all allocated memory that depends on the datastructure given.
+        
+        Deprecated Use the new API that relies on :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` and the corresponding functions :ref:`vrna_fold_compound_TwoD() <doxid-group__fold__compound_1ga9d24b196753b4f9f03774f11661510f5>` , :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` , and :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - our_variables
+        
+                - A pointer to the datastructure to be destroyed
+
+.. _doxid-group__kl__neighborhood__mfe_1ga7fc5e3e92fe97914ca4eccd33c01c2a7:
+.. _cid-twodfoldlist:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_sol_TwoD_t<doxid-structvrna__sol___two_d__t>`* TwoDfoldList (
+	    :ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>`* vars,
+	    int distance1,
+	    int distance2
+	    )
+
+    .. container:: brief-description
+
+        Compute MFE's and representative for distance partitioning.
+
+    .. container:: detailed-description
+
+        This function computes the minimum free energies and a representative secondary structure for each distance class according to the two references specified in the datastructure 'vars'. The maximum basepair distance to each of both references may be set by the arguments 'distance1' and 'distance2', respectively. If both distance arguments are set to '-1', no restriction is assumed and the calculation is performed for each distance class possible.
+        
+        The returned list contains an entry for each distance class. If a maximum basepair distance to either of the references was passed, an entry with k=l=-1 will be appended in the list, denoting the class where all structures exceeding the maximum will be thrown into. The end of the list is denoted by an attribute value of :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` in the k-attribute of the list entry.
+        
+        Deprecated Use the new API that relies on :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` and the corresponding functions :ref:`vrna_fold_compound_TwoD() <doxid-group__fold__compound_1ga9d24b196753b4f9f03774f11661510f5>` , :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` , and :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vars
+        
+                - the datastructure containing all predefined folding attributes
+        
+            *
+                - distance1
+        
+                - maximum distance to reference1 (-1 means no restriction)
+        
+            *
+                - distance2
+        
+                - maximum distance to reference2 (-1 means no restriction)
+
+.. _doxid-group__kl__neighborhood__mfe_1gaf4dc05bf8fc1ea53acd7aeb798ba80c2:
+.. _cid-twodfold_backtrack_f5:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* TwoDfold_backtrack_f5 (
+	    unsigned int j,
+	    int k,
+	    int l,
+	    :ref:`TwoDfold_vars<doxid-struct_two_dfold__vars>`* vars
+	    )
+
+    .. container:: brief-description
+
+        Backtrack a minimum free energy structure from a 5' section of specified length.
+
+    .. container:: detailed-description
+
+        This function allows one to backtrack a secondary structure beginning at the 5' end, a specified length and residing in a specific distance class. If the argument 'k' gets a value of -1, the structure that is backtracked is assumed to reside in the distance class where all structures exceeding the maximum basepair distance specified in :ref:`TwoDfold() <doxid-group__kl__neighborhood__mfe_1ga9827e1deba983a95d0509d36b61fb0e2>` belong to. Deprecated Use the new API that relies on :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` and the corresponding functions :ref:`vrna_fold_compound_TwoD() <doxid-group__fold__compound_1ga9d24b196753b4f9f03774f11661510f5>` , :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` , :ref:`vrna_backtrack5_TwoD() <doxid-group__kl__neighborhood__mfe_1ga15a96fc96f4f4c2e01a11b3e17d1ef43>` , and :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - j
+        
+                - The length in nucleotides beginning from the 5' end
+        
+            *
+                - k
+        
+                - distance to reference1 (may be -1)
+        
+            *
+                - l
+        
+                - distance to reference2
+        
+            *
+                - vars
+        
+                - the datastructure containing all predefined folding attributes
+        
+        
+        
+        .. note::
+        
+            The argument 'vars' must contain precalculated energy values in the energy matrices, i.e. a call to :ref:`TwoDfold() <doxid-group__kl__neighborhood__mfe_1ga9827e1deba983a95d0509d36b61fb0e2>` preceding this function is mandatory!
+

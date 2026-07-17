@@ -1,0 +1,206 @@
+.. index:: pair: group; Compute the centroid structure
+.. _doxid-group__centroid__fold:
+.. _cid-centroid_fold:
+
+Compute the centroid structure
+==============================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	char* :ref:`vrna_centroid<doxid-group__centroid__fold_1ga0e64bb67e51963dc71cbd4d30b80a018>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double* dist
+	    )
+
+	char* :ref:`vrna_centroid_from_plist<doxid-group__centroid__fold_1ga13881673a0b214d42a59140ef5764dbb>` (
+	    int length,
+	    double* dist,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* pl
+	    )
+
+	char* :ref:`vrna_centroid_from_probs<doxid-group__centroid__fold_1ga98193ede06778a9ea966cc8fc43d0804>` (
+	    int length,
+	    double* dist,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* probs
+	    )
+
+.. _details-doxid-group__centroid__fold:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__centroid__fold_1ga0e64bb67e51963dc71cbd4d30b80a018:
+.. _cid-vrna_centroid:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_centroid (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double* dist
+	    )
+
+    .. container:: brief-description
+
+        Get the centroid structure of the ensemble.
+
+    .. container:: detailed-description
+
+        The centroid is the structure with the minimal average distance to all other structures
+        
+        :math:` <d(S)> = \sum_{(i,j) \in S} (1-p_{ij}) + \sum_{(i,j) \notin S} p_{ij} `
+        
+        Thus, the centroid is simply the structure containing all pairs with :math:`p_ij>0.5` The distance of the centroid to the ensemble is written to the memory adressed by *dist* .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure
+        
+            *
+                - dist
+        
+                - A pointer to the distance variable where the centroid distance will be written to
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The centroid structure of the ensemble in dot-bracket notation
+
+.. _doxid-group__centroid__fold_1ga13881673a0b214d42a59140ef5764dbb:
+.. _cid-vrna_centroid_from_plist:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_centroid_from_plist (
+	    int length,
+	    double* dist,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* pl
+	    )
+
+    .. container:: brief-description
+
+        Get the centroid structure of the ensemble.
+
+    .. container:: detailed-description
+
+        This function is a threadsafe replacement for :ref:`centroid() <doxid-part__func_8h_1ae89a63bd83e75a80b2ba36d20b31ce81>` with a :ref:`vrna_ep_t <doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>` input
+        
+        The centroid is the structure with the minimal average distance to all other structures
+        
+        :math:` <d(S)> = \sum_{(i,j) \in S} (1-p_{ij}) + \sum_{(i,j) \notin S} p_{ij} `
+        
+        Thus, the centroid is simply the structure containing all pairs with :math:`p_ij>0.5` The distance of the centroid to the ensemble is written to the memory adressed by *dist* .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - length
+        
+                - The length of the sequence
+        
+            *
+                - dist
+        
+                - A pointer to the distance variable where the centroid distance will be written to
+        
+            *
+                - pl
+        
+                - A pair list containing base pair probability information about the ensemble
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The centroid structure of the ensemble in dot-bracket notation
+
+.. _doxid-group__centroid__fold_1ga98193ede06778a9ea966cc8fc43d0804:
+.. _cid-vrna_centroid_from_probs:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_centroid_from_probs (
+	    int length,
+	    double* dist,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* probs
+	    )
+
+    .. container:: brief-description
+
+        Get the centroid structure of the ensemble.
+
+    .. container:: detailed-description
+
+        This function is a threadsafe replacement for :ref:`centroid() <doxid-part__func_8h_1ae89a63bd83e75a80b2ba36d20b31ce81>` with a probability array input
+        
+        The centroid is the structure with the minimal average distance to all other structures
+        
+        :math:` <d(S)> = \sum_{(i,j) \in S} (1-p_{ij}) + \sum_{(i,j) \notin S} p_{ij} `
+        
+        Thus, the centroid is simply the structure containing all pairs with :math:`p_ij>0.5` The distance of the centroid to the ensemble is written to the memory adressed by *dist* .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - length
+        
+                - The length of the sequence
+        
+            *
+                - dist
+        
+                - A pointer to the distance variable where the centroid distance will be written to
+        
+            *
+                - probs
+        
+                - An upper triangular matrix containing base pair probabilities (access via iindx :ref:`vrna_idx_row_wise() <doxid-group__utils_1ga70b180e9ea764218a82647a1cd347445>` )
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The centroid structure of the ensemble in dot-bracket notation
+

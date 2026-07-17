@@ -1,0 +1,26 @@
+.. index:: pair: enum; MOVE_TYPE
+.. _doxid-move__set_8h_1ae69287964278ca9a447864d392ee2892:
+.. _cid-move_type:
+
+enum MOVE_TYPE
+==============
+
+
+
+
+
+.. _doxid-move__set_8h_1ae69287964278ca9a447864d392ee2892af12f85c0222e6f70a307308793fe473c:
+.. _cid-move_type::gradient:
+.. _doxid-move__set_8h_1ae69287964278ca9a447864d392ee2892a6a7856cca1833641e731676636b193f1:
+.. _cid-move_type::first:
+.. _doxid-move__set_8h_1ae69287964278ca9a447864d392ee2892ab9a38902726719ccfb53666a37b3357e:
+.. _cid-move_type::adaptive:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enum values
+
+	GRADIENT 
+	FIRST 
+	ADAPTIVE 
+

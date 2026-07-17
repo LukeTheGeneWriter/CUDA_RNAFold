@@ -1,0 +1,240 @@
+.. index:: pair: group; The Dynamic Programming Matrices
+.. _doxid-group__dp__matrices:
+.. _cid-dp_matrices:
+
+The Dynamic Programming Matrices
+================================
+
+.. toctree::
+	:hidden:
+
+	enum_vrna_mx_type_e.rst
+	struct_vrna_mx_mfe_s.rst
+	struct_vrna_mx_pf_s.rst
+
+
+
+Overview
+--------
+
+This module provides interfaces that deal with creation and destruction of dynamic programming matrices used within the RNAlib. :ref:`More...<details-doxid-group__dp__matrices>`
+
+.. _doxid-group__dp__matrices_1ga0b29f2a8a5632879014a80d51b334374:
+.. _cid-vrna_mx_mfe_add:
+.. _doxid-group__dp__matrices_1gaf80ade1ec97fc158875736e69eff999f:
+.. _cid-vrna_mx_pf_add:
+.. _doxid-group__dp__matrices_1ga35e1fa4fdab869abb14f06ba5a3ba5b4:
+.. _cid-vrna_mx_prepare:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_mx_mfe_s<doxid-structvrna__mx__mfe__s>` :ref:`vrna_mx_mfe_t<doxid-group__dp__matrices_1gae5aef35d016475e758f619b7bcb534f9>`
+	typedef struct :ref:`vrna_mx_pf_s<doxid-structvrna__mx__pf__s>` :ref:`vrna_mx_pf_t<doxid-group__dp__matrices_1ga68729ab3fed26bdd1806fa814f172fc1>`
+
+	// enums
+
+	enum :ref:`vrna_mx_type_e<doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>`
+
+	// structs
+
+	struct :ref:`vrna_mx_mfe_s<doxid-structvrna__mx__mfe__s>` 
+	struct :ref:`vrna_mx_pf_s<doxid-structvrna__mx__pf__s>` 
+
+	// global functions
+
+	int :ref:`vrna_mx_add<doxid-group__dp__matrices_1ga08661f098008961dab0023bf300f0c33>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_mx_type_e<doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>` type,
+	    unsigned int options
+	    )
+
+	int vrna_mx_mfe_add (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_mx_type_e<doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>` mx_type,
+	    unsigned int options
+	    )
+
+	int vrna_mx_pf_add (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_mx_type_e<doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>` mx_type,
+	    unsigned int options
+	    )
+
+	int vrna_mx_prepare (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_mx_mfe_free<doxid-group__dp__matrices_1ga6a9422feb5dfe5c64050cebf447672d0>` (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+	void :ref:`vrna_mx_pf_free<doxid-group__dp__matrices_1ga2283e69fd139fb8e58d7ade3b5773f9c>` (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+.. _details-doxid-group__dp__matrices:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    This module provides interfaces that deal with creation and destruction of dynamic programming matrices used within the RNAlib.
+
+Typedefs
+--------
+
+.. _doxid-group__dp__matrices_1gae5aef35d016475e758f619b7bcb534f9:
+.. _cid-vrna_mx_mfe_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_mx_mfe_s<doxid-structvrna__mx__mfe__s>` vrna_mx_mfe_t
+
+    .. container:: brief-description
+
+        Typename for the Minimum Free Energy (MFE) DP matrices data structure :ref:`vrna_mx_mfe_s <doxid-structvrna__mx__mfe__s>` .
+
+.. _doxid-group__dp__matrices_1ga68729ab3fed26bdd1806fa814f172fc1:
+.. _cid-vrna_mx_pf_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_mx_pf_s<doxid-structvrna__mx__pf__s>` vrna_mx_pf_t
+
+    .. container:: brief-description
+
+        Typename for the Partition Function (PF) DP matrices data structure :ref:`vrna_mx_pf_s <doxid-structvrna__mx__pf__s>` .
+
+Global Functions
+----------------
+
+.. _doxid-group__dp__matrices_1ga08661f098008961dab0023bf300f0c33:
+.. _cid-vrna_mx_add:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_mx_add (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_mx_type_e<doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>` type,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Add Dynamic Programming (DP) matrices (allocate memory)
+
+    .. container:: detailed-description
+
+        This function adds DP matrices of a specific type to the provided :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , such that successive DP recursion can be applied. The function caller has to specify which type of DP matrix is requested, see :ref:`vrna_mx_type_e <doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>` , and what kind of recursive algorithm will be applied later on, using the parameters type, and options, respectively. For the latter, Minimum free energy (MFE), and Partition function (PF) computations are distinguished. A third option that may be passed is :ref:`VRNA_OPTION_HYBRID <doxid-group__fold__compound_1ga8f681fa12b8d4b348bf58415fd1fc82f>` , indicating that auxiliary DP arrays are required for RNA-RNA interaction prediction.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` that holds pointers to the DP matrices
+        
+            *
+                - type
+        
+                - The type of DP matrices requested
+        
+            *
+                - options
+        
+                - Option flags that specify the kind of DP matrices, such as MFE or PF arrays, and auxiliary requirements
+        
+        
+        
+        .. rubric:: Returns:
+        
+        1 if DP matrices were properly allocated and attached, 0 otherwise
+        
+        
+        
+        .. note::
+        
+            Usually, there is no need to call this function, since the constructors of :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` are handling all the DP matrix memory allocation.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mx_mfe_add() <doxid-group__dp__matrices_1ga0b29f2a8a5632879014a80d51b334374>` , :ref:`vrna_mx_pf_add() <doxid-group__dp__matrices_1gaf80ade1ec97fc158875736e69eff999f>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` , :ref:`vrna_mx_pf_free() <doxid-group__dp__matrices_1ga2283e69fd139fb8e58d7ade3b5773f9c>` , :ref:`vrna_mx_mfe_free() <doxid-group__dp__matrices_1ga6a9422feb5dfe5c64050cebf447672d0>` , :ref:`vrna_mx_type_e <doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>` , :ref:`VRNA_OPTION_MFE <doxid-group__fold__compound_1gae63be9127fe7dcc1f9bb14f5bb1064ee>` , :ref:`VRNA_OPTION_PF <doxid-group__fold__compound_1gabfbadcddda3e74ce7f49035ef8f058f7>` , :ref:`VRNA_OPTION_HYBRID <doxid-group__fold__compound_1ga8f681fa12b8d4b348bf58415fd1fc82f>` , :ref:`VRNA_OPTION_EVAL_ONLY <doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>`
+
+.. _doxid-group__dp__matrices_1ga6a9422feb5dfe5c64050cebf447672d0:
+.. _cid-vrna_mx_mfe_free:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_mx_mfe_free (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+    .. container:: brief-description
+
+        Free memory occupied by the Minimum Free Energy (MFE) Dynamic Programming (DP) matrices.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` storing the MFE DP matrices that are to be erased from memory
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` , :ref:`vrna_mx_pf_free() <doxid-group__dp__matrices_1ga2283e69fd139fb8e58d7ade3b5773f9c>`
+
+.. _doxid-group__dp__matrices_1ga2283e69fd139fb8e58d7ade3b5773f9c:
+.. _cid-vrna_mx_pf_free:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_mx_pf_free (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+    .. container:: brief-description
+
+        Free memory occupied by the Partition Function (PF) Dynamic Programming (DP) matrices.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` storing the PF DP matrices that are to be erased from memory
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` , :ref:`vrna_mx_mfe_free() <doxid-group__dp__matrices_1ga6a9422feb5dfe5c64050cebf447672d0>`
+

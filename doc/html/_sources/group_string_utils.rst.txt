@@ -1,0 +1,722 @@
+.. index:: pair: group; Parsing, converting, and comparing sequences
+.. _doxid-group__string__utils:
+.. _cid-string_utils:
+
+Parsing, converting, and comparing sequences
+============================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	char* :ref:`vrna_strdup_printf<doxid-group__string__utils_1ga33cc0190a326ec368277caa777b8bf18>` (
+	    const char* format,
+	    ...
+	    )
+
+	char* :ref:`vrna_strdup_vprintf<doxid-group__string__utils_1ga459fdee190ed81bb7773cbaf671748a9>` (
+	    const char* format,
+	    va_list argp
+	    )
+
+	int :ref:`vrna_strcat_printf<doxid-group__string__utils_1gac0771ec71316023067f2aae61a5aa0fb>` (
+	    char** dest,
+	    const char* format,
+	    ...
+	    )
+
+	int :ref:`vrna_strcat_vprintf<doxid-group__string__utils_1ga122df216996ba62fd5056b7743e3131a>` (
+	    char** dest,
+	    const char* format,
+	    va_list args
+	    )
+
+	char** :ref:`vrna_strsplit<doxid-group__string__utils_1gac632775617f4b2df096bfe8efb53d07f>` (
+	    const char* string,
+	    const char* delimiter
+	    )
+
+	char* :ref:`vrna_random_string<doxid-group__string__utils_1ga4eeb3750dcf860b9f3158249f95dbd7f>` (
+	    int l,
+	    const char symbols []
+	    )
+
+	int :ref:`vrna_hamming_distance<doxid-group__string__utils_1ga301798b43b6f66687985c725efd14f32>` (
+	    const char* s1,
+	    const char* s2
+	    )
+
+	int :ref:`vrna_hamming_distance_bound<doxid-group__string__utils_1ga5d1c2271e79d9bcb52d4e68360763fb9>` (
+	    const char* s1,
+	    const char* s2,
+	    int n
+	    )
+
+	void :ref:`vrna_seq_toRNA<doxid-group__string__utils_1gacfed92cba77064f6c743f9118d079bfc>` (char* sequence)
+	void :ref:`vrna_seq_toupper<doxid-group__string__utils_1ga4f44dca03c9d708d68e64c0610bb9091>` (char* sequence)
+
+	char* :ref:`vrna_cut_point_insert<doxid-group__string__utils_1ga74f05ece32ea73b59f84a7452afd5fae>` (
+	    const char* string,
+	    int cp
+	    )
+
+	char* :ref:`vrna_cut_point_remove<doxid-group__string__utils_1ga1fbd821d4408cc5f1dd9d12c15e092cb>` (
+	    const char* string,
+	    int* cp
+	    )
+
+	// macros
+
+	#define :ref:`FILENAME_ID_LENGTH<doxid-group__string__utils_1ga33c3b1826b8e2739f09f111ec719ded5>`
+	#define :ref:`FILENAME_MAX_LENGTH<doxid-group__string__utils_1gafb228174279df9486a5cb56ac0bc79a3>`
+	#define :ref:`STR<doxid-group__string__utils_1ga6388870e639eee9c0a69446876f1f8cc>`(s)
+	#define :ref:`XSTR<doxid-group__string__utils_1ga03943706e48069237cd57f2d35ca987e>`(s)
+
+.. _details-doxid-group__string__utils:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__string__utils_1ga33cc0190a326ec368277caa777b8bf18:
+.. _cid-vrna_strdup_printf:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_strdup_printf (
+	    const char* format,
+	    ...
+	    )
+
+    .. container:: brief-description
+
+        Safely create a formatted string.
+
+    .. container:: detailed-description
+
+        This function is a safe implementation for creating a formatted character array, similar to *sprintf* . Internally, it uses the *asprintf* function if available to dynamically allocate a large enough character array to store the supplied content. If *asprintf* is not available, mimic it's behavior using *vsnprintf* .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - format
+        
+                - The format string (See also asprintf)
+        
+            *
+                - ...
+        
+                - The list of variables used to fill the format string
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The formatted, null-terminated string, or NULL if something has gone wrong
+        
+        
+        
+        .. note::
+        
+            The returned pointer of this function should always be passed to *free()* to release the allocated memory
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_strdup_vprintf() <doxid-group__string__utils_1ga459fdee190ed81bb7773cbaf671748a9>` , :ref:`vrna_strcat_printf() <doxid-group__string__utils_1gac0771ec71316023067f2aae61a5aa0fb>`
+
+.. _doxid-group__string__utils_1ga459fdee190ed81bb7773cbaf671748a9:
+.. _cid-vrna_strdup_vprintf:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_strdup_vprintf (
+	    const char* format,
+	    va_list argp
+	    )
+
+    .. container:: brief-description
+
+        Safely create a formatted string.
+
+    .. container:: detailed-description
+
+        This function is the *va_list* version of :ref:`vrna_strdup_printf() <doxid-group__string__utils_1ga33cc0190a326ec368277caa777b8bf18>`
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - format
+        
+                - The format string (See also asprintf)
+        
+            *
+                - ...
+        
+                - The list of variables used to fill the format string
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The formatted, null-terminated string, or NULL if something has gone wrong
+        
+        
+        
+        .. note::
+        
+            The returned pointer of this function should always be passed to *free()* to release the allocated memory
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_strdup_printf() <doxid-group__string__utils_1ga33cc0190a326ec368277caa777b8bf18>` , :ref:`vrna_strcat_printf() <doxid-group__string__utils_1gac0771ec71316023067f2aae61a5aa0fb>` , :ref:`vrna_strcat_vprintf() <doxid-group__string__utils_1ga122df216996ba62fd5056b7743e3131a>`
+
+.. _doxid-group__string__utils_1gac0771ec71316023067f2aae61a5aa0fb:
+.. _cid-vrna_strcat_printf:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_strcat_printf (
+	    char** dest,
+	    const char* format,
+	    ...
+	    )
+
+    .. container:: brief-description
+
+        Safely append a formatted string to another string.
+
+    .. container:: detailed-description
+
+        This function is a safe implementation for appending a formatted character array, similar to a cobination of *strcat* and *sprintf* . The function automatically allocates enough memory to store both, the previous content stored at ``dest`` and the appended format string. If the ``dest`` pointer is NULL, the function allocate memory only for the format string. The function returns the number of characters in the resulting string or -1 in case of an error.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - dest
+        
+                - The address of a char *pointer where the formatted string is to be appended
+        
+            *
+                - format
+        
+                - The format string (See also sprintf)
+        
+            *
+                - ...
+        
+                - The list of variables used to fill the format string
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The number of characters in the final string, or -1 on error
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_strcat_vprintf() <doxid-group__string__utils_1ga122df216996ba62fd5056b7743e3131a>` , :ref:`vrna_strdup_printf() <doxid-group__string__utils_1ga33cc0190a326ec368277caa777b8bf18>` , :ref:`vrna_strdup_vprintf() <doxid-group__string__utils_1ga459fdee190ed81bb7773cbaf671748a9>`
+
+.. _doxid-group__string__utils_1ga122df216996ba62fd5056b7743e3131a:
+.. _cid-vrna_strcat_vprintf:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_strcat_vprintf (
+	    char** dest,
+	    const char* format,
+	    va_list args
+	    )
+
+    .. container:: brief-description
+
+        Safely append a formatted string to another string.
+
+    .. container:: detailed-description
+
+        This function is the *va_list* version of :ref:`vrna_strcat_printf() <doxid-group__string__utils_1gac0771ec71316023067f2aae61a5aa0fb>`
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - dest
+        
+                - The address of a char *pointer where the formatted string is to be appended
+        
+            *
+                - format
+        
+                - The format string (See also sprintf)
+        
+            *
+                - ...
+        
+                - The list of variables used to fill the format string
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The number of characters in the final string, or -1 on error
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_strcat_printf() <doxid-group__string__utils_1gac0771ec71316023067f2aae61a5aa0fb>` , :ref:`vrna_strdup_printf() <doxid-group__string__utils_1ga33cc0190a326ec368277caa777b8bf18>` , :ref:`vrna_strdup_vprintf() <doxid-group__string__utils_1ga459fdee190ed81bb7773cbaf671748a9>`
+
+.. _doxid-group__string__utils_1gac632775617f4b2df096bfe8efb53d07f:
+.. _cid-vrna_strsplit:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char** vrna_strsplit (
+	    const char* string,
+	    const char* delimiter
+	    )
+
+    .. container:: brief-description
+
+        Split a string into tokens using a delimiting character.
+
+    .. container:: detailed-description
+
+        This function splits a string into an array of strings using a single character that delimits the elements within the string. The default delimiter is the ampersand ``'&'`` and will be used when ``NULL`` is passed as a second argument. The returned list is NULL terminated, i.e. the last element is ``NULL`` . If the delimiter is not found, the returned list contains exactly one element: the input string.
+        
+        For instance, the following code:
+        
+        .. ref-code-block:: cpp
+        
+            char **tok = :ref:`vrna_strsplit <doxid-group__string__utils_1gac632775617f4b2df096bfe8efb53d07f>`("GGGG&CCCC&AAAAA", NULL);
+            
+            for (char **ptr = tok; *ptr; ptr++) {
+             printf("%s\n", *ptr);
+             free(*ptr);
+            }
+            free(tok);
+        
+        produces this output:
+        
+        .. code-block:: none
+        
+            GGGG
+            CCCC
+            AAAAA
+        
+        and properly free's the memory occupied by the returned element array.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - string
+        
+                - The input string that should be split into elements
+        
+            *
+                - delimiter
+        
+                - The delimiting character. If ``NULL`` , the delimiter is ``"&"``
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A ``NULL`` terminated list of the elements in the string
+        
+        
+        
+        .. note::
+        
+            This function internally uses *strtok_r()* and is therefore considered to be thread-safe. Also note, that it is the users responsibility to free the memory of the array and that of the individual element strings!
+
+.. _doxid-group__string__utils_1ga4eeb3750dcf860b9f3158249f95dbd7f:
+.. _cid-vrna_random_string:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_random_string (
+	    int l,
+	    const char symbols []
+	    )
+
+    .. container:: brief-description
+
+        Create a random string using characters from a specified symbol set.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - l
+        
+                - The length of the sequence
+        
+            *
+                - symbols
+        
+                - The symbol set
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A random string of length 'l' containing characters from the symbolset
+
+.. _doxid-group__string__utils_1ga301798b43b6f66687985c725efd14f32:
+.. _cid-vrna_hamming_distance:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_hamming_distance (
+	    const char* s1,
+	    const char* s2
+	    )
+
+    .. container:: brief-description
+
+        Calculate hamming distance between two sequences.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - s1
+        
+                - The first sequence
+        
+            *
+                - s2
+        
+                - The second sequence
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The hamming distance between s1 and s2
+
+.. _doxid-group__string__utils_1ga5d1c2271e79d9bcb52d4e68360763fb9:
+.. _cid-vrna_hamming_distance_bound:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_hamming_distance_bound (
+	    const char* s1,
+	    const char* s2,
+	    int n
+	    )
+
+    .. container:: brief-description
+
+        Calculate hamming distance between two sequences up to a specified length.
+
+    .. container:: detailed-description
+
+        This function is similar to :ref:`vrna_hamming_distance() <doxid-group__string__utils_1ga301798b43b6f66687985c725efd14f32>` but instead of comparing both sequences up to their actual length only the first 'n' characters are taken into account
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - s1
+        
+                - The first sequence
+        
+            *
+                - s2
+        
+                - The second sequence
+        
+            *
+                - n
+        
+                - The length of the subsequences to consider (starting from the 5' end)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The hamming distance between s1 and s2
+
+.. _doxid-group__string__utils_1gacfed92cba77064f6c743f9118d079bfc:
+.. _cid-vrna_seq_torna:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_seq_toRNA (char* sequence)
+
+    .. container:: brief-description
+
+        Convert an input sequence (possibly containing DNA alphabet characters) to RNA alphabet.
+
+    .. container:: detailed-description
+
+        This function substitudes *T* and *t* with *U* and *u* , respectively
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The sequence to be converted
+
+.. _doxid-group__string__utils_1ga4f44dca03c9d708d68e64c0610bb9091:
+.. _cid-vrna_seq_toupper:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_seq_toupper (char* sequence)
+
+    .. container:: brief-description
+
+        Convert an input sequence to uppercase.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The sequence to be converted
+
+.. _doxid-group__string__utils_1ga74f05ece32ea73b59f84a7452afd5fae:
+.. _cid-vrna_cut_point_insert:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_cut_point_insert (
+	    const char* string,
+	    int cp
+	    )
+
+    .. container:: brief-description
+
+        Add a separating '&' character into a string according to cut-point position.
+
+    .. container:: detailed-description
+
+        If the cut-point position is less or equal to zero, this function just returns a copy of the provided string. Otherwise, the cut-point character is set at the corresponding position
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - string
+        
+                - The original string
+        
+            *
+                - cp
+        
+                - The cut-point position
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A copy of the provided string including the cut-point character
+
+.. _doxid-group__string__utils_1ga1fbd821d4408cc5f1dd9d12c15e092cb:
+.. _cid-vrna_cut_point_remove:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_cut_point_remove (
+	    const char* string,
+	    int* cp
+	    )
+
+    .. container:: brief-description
+
+        Remove a separating '&' character from a string.
+
+    .. container:: detailed-description
+
+        This function removes the cut-point indicating '&' character from a string and memorizes its position in a provided integer variable. If not '&' is found in the input, the integer variable is set to -1. The function returns a copy of the input string with the '&' being sliced out.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - string
+        
+                - The original string
+        
+            *
+                - cp
+        
+                - The cut-point position
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A copy of the input string with the '&' being sliced out
+
+Macros
+------
+
+.. _doxid-group__string__utils_1ga33c3b1826b8e2739f09f111ec719ded5:
+.. _cid-filename_id_length:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define FILENAME_ID_LENGTH
+
+    .. container:: brief-description
+
+        Maximum length of id taken from fasta header for filename generation.
+
+    .. container:: detailed-description
+
+        this has to be smaller than FILENAME_MAX_LENGTH since in most cases, some suffix will be appended to the ID
+
+.. _doxid-group__string__utils_1gafb228174279df9486a5cb56ac0bc79a3:
+.. _cid-filename_max_length:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define FILENAME_MAX_LENGTH
+
+    .. container:: brief-description
+
+        Maximum length of filenames that are generated by our programs.
+
+    .. container:: detailed-description
+
+        This definition should be used throughout the complete ViennaRNA package wherever a static array holding filenames of output files is declared.
+
+.. _doxid-group__string__utils_1ga6388870e639eee9c0a69446876f1f8cc:
+.. _cid-str:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define STR(s)
+
+    .. container:: brief-description
+
+        Stringify a macro argument.
+
+.. _doxid-group__string__utils_1ga03943706e48069237cd57f2d35ca987e:
+.. _cid-xstr:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define XSTR(s)
+
+    .. container:: brief-description
+
+        Stringify a macro after expansion.
+

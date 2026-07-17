@@ -1,0 +1,32 @@
+.. index:: pair: struct; vrna_bp_stack_s
+.. _doxid-structvrna__bp__stack__s:
+.. _cid-vrna_bp_stack_s:
+
+struct vrna_bp_stack_s
+======================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+.. container:: brief-description
+
+    Base pair stack element.
+
+.. _doxid-structvrna__bp__stack__s_1a34d7d05bb7cc48d60823a8cc50a3959f:
+.. _cid-vrna_bp_stack_s::i:
+.. _doxid-structvrna__bp__stack__s_1a95abd1d1b08d6d242c77bc069782e8c9:
+.. _cid-vrna_bp_stack_s::j:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	unsigned int i
+	unsigned int j
+

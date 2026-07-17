@@ -1,0 +1,24 @@
+.. index:: pair: group; Classified Dynamic Programming variants
+.. _doxid-group__class__fold:
+.. _cid-class_fold:
+
+Classified Dynamic Programming variants
+=======================================
+
+.. toctree::
+	:hidden:
+
+	group_dos.rst
+	group_kl_neighborhood.rst
+
+
+
+
+
+|	:ref:`Compute the Density of States<doxid-group__dos>`
+|	:ref:`Distance based partitioning of the Secondary Structure Space<doxid-group__kl__neighborhood>`
+|		:ref:`Calculating MFE representatives of a Distance Based Partitioning<doxid-group__kl__neighborhood__mfe>`
+|		:ref:`Calculate Partition Functions of a Distance Based Partitioning<doxid-group__kl__neighborhood__pf>`
+|		:ref:`Stochastic Backtracking of Structures from Distance Based Partitioning<doxid-group__kl__neighborhood__stochbt>`
+
+

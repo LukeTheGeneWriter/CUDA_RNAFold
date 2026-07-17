@@ -1,0 +1,429 @@
+.. index:: pair: group; Functions that provide dynamically buffered stream-like data structures
+.. _doxid-group__buffer__utils:
+.. _cid-buffer_utils:
+
+Functions that provide dynamically buffered stream-like data structures
+=======================================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. _doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8:
+.. _cid-vrna_cstr_t:
+.. _doxid-group__buffer__utils_1gadb2818f368e10a3b60a96bb3c80228d2:
+.. _cid-vrna_cstr:
+.. _doxid-group__buffer__utils_1ga7ec48ec280f699928c70428cc245dc77:
+.. _cid-vrna_cstr_free:
+.. _doxid-group__buffer__utils_1ga5a3f6a0a73b3d2d38fe011cdaed0ad28:
+.. _cid-vrna_cstr_close:
+.. _doxid-group__buffer__utils_1gab59ad4781f7de960bdd1af5b1965c94b:
+.. _cid-vrna_cstr_fflush:
+.. _doxid-group__buffer__utils_1ga05a1326d7fe8250cb81899f3f875531e:
+.. _cid-vrna_cstr_string:
+.. _doxid-group__buffer__utils_1ga35fdc69cf004aa57784f1764a31b20a6:
+.. _cid-vrna_cstr_vprintf:
+.. _doxid-group__buffer__utils_1ga3c7eaa46b1e74c4641e4fa5927079462:
+.. _cid-vrna_cstr_printf:
+.. _doxid-group__buffer__utils_1gaa0da077cf03f29808229ab8c0e1e63eb:
+.. _cid-vrna_cstr_message_info:
+.. _doxid-group__buffer__utils_1ga791a25424f0bc9769ec16a22794c7137:
+.. _cid-vrna_cstr_message_vinfo:
+.. _doxid-group__buffer__utils_1ga0a320b027c942dc85c508788272dd861:
+.. _cid-vrna_cstr_print_fasta_header:
+.. _doxid-group__buffer__utils_1ga29af50810807da04d6a244f8801728f9:
+.. _cid-vrna_cstr_printf_structure:
+.. _doxid-group__buffer__utils_1gad4cd97b8943fdb83652cb6b46d91bb44:
+.. _cid-vrna_cstr_vprintf_structure:
+.. _doxid-group__buffer__utils_1ga31409fdd5c038ee488bdf1ffcc630253:
+.. _cid-vrna_cstr_printf_comment:
+.. _doxid-group__buffer__utils_1ga9824160bbe620784fcca5f10c4ff247c:
+.. _cid-vrna_cstr_vprintf_comment:
+.. _doxid-group__buffer__utils_1gae5e551ba77b488a728d7e1700ecb0df8:
+.. _cid-vrna_cstr_printf_thead:
+.. _doxid-group__buffer__utils_1ga6455c968e6190156267d5afdb8f211a0:
+.. _cid-vrna_cstr_vprintf_thead:
+.. _doxid-group__buffer__utils_1ga525e2673039eb2967cfcb118281ece3c:
+.. _cid-vrna_cstr_printf_tbody:
+.. _doxid-group__buffer__utils_1gab10cb243cdf925c41d6d84a5a1df9760:
+.. _cid-vrna_cstr_vprintf_tbody:
+.. _doxid-group__buffer__utils_1ga4e60fb5548f6b56003860aa046a74ee2:
+.. _cid-vrna_ostream_threadsafe:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct vrna_cstr_s* vrna_cstr_t
+	typedef struct vrna_ordered_stream_s* :ref:`vrna_ostream_t<doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c>`
+
+	typedef void () :ref:`vrna_callback_stream_output<doxid-group__buffer__utils_1ga4adb94338a6f0a1a451e03c1bdac0d9d>` (
+	    void *auxdata,
+	    unsigned int i,
+	    void *data
+	    )
+
+	// global functions
+
+	:ref:`vrna_cstr_t<doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8>` vrna_cstr (
+	    size_t size,
+	    FILE* output
+	    )
+
+	void vrna_cstr_free (:ref:`vrna_cstr_t<doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8>` buf)
+	void vrna_cstr_close (:ref:`vrna_cstr_t<doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8>` buf)
+	void vrna_cstr_fflush (struct vrna_cstr_s* buf)
+	const char* vrna_cstr_string (:ref:`vrna_cstr_t<doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8>` buf)
+
+	int vrna_cstr_vprintf (
+	    :ref:`vrna_cstr_t<doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8>` buf,
+	    const char* format,
+	    va_list args
+	    )
+
+	int vrna_cstr_printf (
+	    :ref:`vrna_cstr_t<doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8>` buf,
+	    const char* format,
+	    ...
+	    )
+
+	void vrna_cstr_message_info (
+	    :ref:`vrna_cstr_t<doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8>` buf,
+	    const char* format,
+	    ...
+	    )
+
+	void vrna_cstr_message_vinfo (
+	    :ref:`vrna_cstr_t<doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8>` buf,
+	    const char* format,
+	    va_list args
+	    )
+
+	void vrna_cstr_print_fasta_header (
+	    :ref:`vrna_cstr_t<doxid-group__buffer__utils_1ga445bbbcfca238a956bbc11862892adc8>` buf,
+	    const char* head
+	    )
+
+	void vrna_cstr_printf_structure (
+	    struct vrna_cstr_s* buf,
+	    const char* structure,
+	    const char* format,
+	    ...
+	    )
+
+	void vrna_cstr_vprintf_structure (
+	    struct vrna_cstr_s* buf,
+	    const char* structure,
+	    const char* format,
+	    va_list args
+	    )
+
+	void vrna_cstr_printf_comment (
+	    struct vrna_cstr_s* buf,
+	    const char* format,
+	    ...
+	    )
+
+	void vrna_cstr_vprintf_comment (
+	    struct vrna_cstr_s* buf,
+	    const char* format,
+	    va_list args
+	    )
+
+	void vrna_cstr_printf_thead (
+	    struct vrna_cstr_s* buf,
+	    const char* format,
+	    ...
+	    )
+
+	void vrna_cstr_vprintf_thead (
+	    struct vrna_cstr_s* buf,
+	    const char* format,
+	    va_list args
+	    )
+
+	void vrna_cstr_printf_tbody (
+	    struct vrna_cstr_s* buf,
+	    const char* format,
+	    ...
+	    )
+
+	void vrna_cstr_vprintf_tbody (
+	    struct vrna_cstr_s* buf,
+	    const char* format,
+	    va_list args
+	    )
+
+	:ref:`vrna_ostream_t<doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c>` :ref:`vrna_ostream_init<doxid-group__buffer__utils_1gad23113e66a0910ec2341856e2da56bf6>` (
+	    :ref:`vrna_callback_stream_output<doxid-group__buffer__utils_1ga4adb94338a6f0a1a451e03c1bdac0d9d>`* output,
+	    void* auxdata
+	    )
+
+	void :ref:`vrna_ostream_free<doxid-group__buffer__utils_1gaf813ec90e1446ba82c89f9a39688a3b3>` (:ref:`vrna_ostream_t<doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c>` dat)
+	int vrna_ostream_threadsafe (void)
+
+	void :ref:`vrna_ostream_request<doxid-group__buffer__utils_1gaebca91932705d71bcbf00bd8d82bd7c8>` (
+	    :ref:`vrna_ostream_t<doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c>` dat,
+	    unsigned int num
+	    )
+
+	void :ref:`vrna_ostream_provide<doxid-group__buffer__utils_1ga6253c42abdeaf3b41a38204865e1f0f7>` (
+	    :ref:`vrna_ostream_t<doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c>` dat,
+	    unsigned int i,
+	    void* data
+	    )
+
+.. _details-doxid-group__buffer__utils:
+
+Detailed Documentation
+----------------------
+
+
+
+Typedefs
+--------
+
+.. _doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c:
+.. _cid-vrna_ostream_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct vrna_ordered_stream_s* vrna_ostream_t
+
+    .. container:: brief-description
+
+        An ordered output stream structure with unordered insert capabilities.
+
+.. _doxid-group__buffer__utils_1ga4adb94338a6f0a1a451e03c1bdac0d9d:
+.. _cid-vrna_callback_stream_output:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef void () vrna_callback_stream_output (
+	    void *auxdata,
+	    unsigned int i,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Ordered stream processing callback.
+
+    .. container:: detailed-description
+
+        This callback will be processed in sequential order as soon as sequential data in the output stream becomes available.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - auxdata
+        
+                - A shared pointer for all calls, as provided by the second argument to :ref:`vrna_ostream_init() <doxid-group__buffer__utils_1gad23113e66a0910ec2341856e2da56bf6>`
+        
+            *
+                - i
+        
+                - The index number of the data passed to ``data``
+        
+            *
+                - data
+        
+                - A block of data ready for processing
+        
+        
+        
+        .. note::
+        
+            The callback must also release the memory occupied by the data passed since the stream will lose any reference to it after the callback has been executed.
+
+Global Functions
+----------------
+
+.. _doxid-group__buffer__utils_1gad23113e66a0910ec2341856e2da56bf6:
+.. _cid-vrna_ostream_init:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_ostream_t<doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c>` vrna_ostream_init (
+	    :ref:`vrna_callback_stream_output<doxid-group__buffer__utils_1ga4adb94338a6f0a1a451e03c1bdac0d9d>`* output,
+	    void* auxdata
+	    )
+
+    .. container:: brief-description
+
+        Get an initialized ordered output stream.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - output
+        
+                - A callback function that processes and releases data in the stream
+        
+            *
+                - auxdata
+        
+                - A pointer to auxiliary data passed as first argument to the ``output`` callback
+        
+        
+        
+        .. rubric:: Returns:
+        
+        An initialized ordered output stream
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ostream_free() <doxid-group__buffer__utils_1gaf813ec90e1446ba82c89f9a39688a3b3>` , :ref:`vrna_ostream_request() <doxid-group__buffer__utils_1gaebca91932705d71bcbf00bd8d82bd7c8>` , :ref:`vrna_ostream_provide() <doxid-group__buffer__utils_1ga6253c42abdeaf3b41a38204865e1f0f7>`
+
+.. _doxid-group__buffer__utils_1gaf813ec90e1446ba82c89f9a39688a3b3:
+.. _cid-vrna_ostream_free:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_ostream_free (:ref:`vrna_ostream_t<doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c>` dat)
+
+    .. container:: brief-description
+
+        Free an initialized ordered output stream.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - dat
+        
+                - The output stream for which occupied memory should be free'd
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ostream_init() <doxid-group__buffer__utils_1gad23113e66a0910ec2341856e2da56bf6>`
+
+.. _doxid-group__buffer__utils_1gaebca91932705d71bcbf00bd8d82bd7c8:
+.. _cid-vrna_ostream_request:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_ostream_request (
+	    :ref:`vrna_ostream_t<doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c>` dat,
+	    unsigned int num
+	    )
+
+    .. container:: brief-description
+
+        Request index in ordered output stream.
+
+    .. container:: detailed-description
+
+        This function must be called prior to :ref:`vrna_ostream_provide() <doxid-group__buffer__utils_1ga6253c42abdeaf3b41a38204865e1f0f7>` to indicate that data associted with a certain index number is expected to be inserted into the stream in the future.
+        
+        dat The output stream for which the index is requested
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - num
+        
+                - The index to request data for
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ostream_init() <doxid-group__buffer__utils_1gad23113e66a0910ec2341856e2da56bf6>` , :ref:`vrna_ostream_provide() <doxid-group__buffer__utils_1ga6253c42abdeaf3b41a38204865e1f0f7>` , :ref:`vrna_ostream_free() <doxid-group__buffer__utils_1gaf813ec90e1446ba82c89f9a39688a3b3>`
+
+.. _doxid-group__buffer__utils_1ga6253c42abdeaf3b41a38204865e1f0f7:
+.. _cid-vrna_ostream_provide:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_ostream_provide (
+	    :ref:`vrna_ostream_t<doxid-group__buffer__utils_1ga8da189552af21ab6e4e88bdcc240870c>` dat,
+	    unsigned int i,
+	    void* data
+	    )
+
+    .. container:: brief-description
+
+        Provide output stream data for a particular index.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - dat
+        
+                - The output stream for which data is provided
+        
+            *
+                - i
+        
+                - The index of the provided data
+        
+            *
+                - data
+        
+                - The data provided
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            The index data is provided for must have been requested using :ref:`vrna_ostream_request() <doxid-group__buffer__utils_1gaebca91932705d71bcbf00bd8d82bd7c8>` beforehand.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ostream_request() <doxid-group__buffer__utils_1gaebca91932705d71bcbf00bd8d82bd7c8>`
+

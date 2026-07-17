@@ -1,0 +1,19 @@
+.. index:: pair: group; Complex structured modules
+.. _doxid-group__paired__modules:
+.. _cid-paired_modules:
+
+Complex structured modules
+==========================
+
+.. toctree::
+	:hidden:
+
+	group_gquads.rst
+
+
+
+
+
+|	:ref:`G-quadruplexes<doxid-group__gquads>`
+
+

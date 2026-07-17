@@ -1,0 +1,22 @@
+.. index:: pair: group; The RNA secondary structure landscape
+.. _doxid-group__landscape:
+.. _cid-landscape:
+
+The RNA secondary structure landscape
+=====================================
+
+.. toctree::
+	:hidden:
+
+	group_neighbors.rst
+	group_paths.rst
+
+
+
+
+
+|	:ref:`Neighborhood relation and move sets for secondary structures<doxid-group__neighbors>`
+|	:ref:`Refolding paths of secondary structures<doxid-group__paths>`
+|		:ref:`Direct refolding paths between two secondary structures<doxid-group__direct__paths>`
+
+

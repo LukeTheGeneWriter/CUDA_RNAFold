@@ -1,0 +1,32 @@
+.. index:: pair: struct; vrna_basepair_s
+.. _doxid-structvrna__basepair__s:
+.. _cid-vrna_basepair_s:
+
+struct vrna_basepair_s
+======================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+.. container:: brief-description
+
+    Base pair data structure used in subopt.c.
+
+.. _doxid-structvrna__basepair__s_1a82125b82685ad70eb6a30702a401eaa6:
+.. _cid-vrna_basepair_s::i:
+.. _doxid-structvrna__basepair__s_1af4cfcd99d33a7bd331af05163261495a:
+.. _cid-vrna_basepair_s::j:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int i
+	int j
+

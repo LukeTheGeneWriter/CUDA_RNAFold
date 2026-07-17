@@ -1,0 +1,181 @@
+.. index:: pair: group; Stochastic Backtracking of Structures from Distance Based Partitioning
+.. _doxid-group__kl__neighborhood__stochbt:
+.. _cid-kl_neighborhood_stochbt:
+
+Stochastic Backtracking of Structures from Distance Based Partitioning
+======================================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+Contains functions related to stochastic backtracking from a specified distance class. :ref:`More...<details-doxid-group__kl__neighborhood__stochbt>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	char* :ref:`vrna_pbacktrack_TwoD<doxid-group__kl__neighborhood__stochbt_1ga14aceef73f83bbde77bb3a0ca06c9d13>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int d1,
+	    int d2
+	    )
+
+	char* :ref:`vrna_pbacktrack5_TwoD<doxid-group__kl__neighborhood__stochbt_1ga6504913303bc325659c365d5f59b41e0>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int d1,
+	    int d2,
+	    unsigned int length
+	    )
+
+.. _details-doxid-group__kl__neighborhood__stochbt:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Contains functions related to stochastic backtracking from a specified distance class.
+
+Global Functions
+----------------
+
+.. _doxid-group__kl__neighborhood__stochbt_1ga14aceef73f83bbde77bb3a0ca06c9d13:
+.. _cid-vrna_pbacktrack_twod:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_pbacktrack_TwoD (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int d1,
+	    int d2
+	    )
+
+    .. container:: brief-description
+
+        Sample secondary structure representatives from a set of distance classes according to their Boltzmann probability.
+
+    .. container:: detailed-description
+
+        If the argument 'd1' is set to '-1', the structure will be backtracked in the distance class where all structures exceeding the maximum basepair distance to either of the references reside.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` datastructure containing all necessary folding attributes and matrices
+        
+            *
+                - d1
+        
+                - The distance to reference1 (may be -1)
+        
+            *
+                - d2
+        
+                - The distance to reference2
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A sampled secondary structure in dot-bracket notation
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            The argument 'vars' must contain precalculated partition function matrices, i.e. a call to :ref:`vrna_pf_TwoD() <doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836>` preceding this function is mandatory!
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_pf_TwoD() <doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836>`
+
+.. _doxid-group__kl__neighborhood__stochbt_1ga6504913303bc325659c365d5f59b41e0:
+.. _cid-vrna_pbacktrack5_twod:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_pbacktrack5_TwoD (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int d1,
+	    int d2,
+	    unsigned int length
+	    )
+
+    .. container:: brief-description
+
+        Sample secondary structure representatives with a specified length from a set of distance classes according to their Boltzmann probability.
+
+    .. container:: detailed-description
+
+        This function does essentially the same as :ref:`vrna_pbacktrack_TwoD() <doxid-group__kl__neighborhood__stochbt_1ga14aceef73f83bbde77bb3a0ca06c9d13>` with the only difference that partial structures, i.e. structures beginning from the 5' end with a specified length of the sequence, are backtracked
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` datastructure containing all necessary folding attributes and matrices
+        
+            *
+                - d1
+        
+                - The distance to reference1 (may be -1)
+        
+            *
+                - d2
+        
+                - The distance to reference2
+        
+            *
+                - length
+        
+                - The length of the structure beginning from the 5' end
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A sampled secondary structure in dot-bracket notation
+        
+        
+        
+        .. note::
+        
+            This function does not work (since it makes no sense) for circular RNA sequences!
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            The argument 'vars' must contain precalculated partition function matrices, i.e. a call to :ref:`vrna_pf_TwoD() <doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836>` preceding this function is mandatory!
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_pbacktrack_TwoD() <doxid-group__kl__neighborhood__stochbt_1ga14aceef73f83bbde77bb3a0ca06c9d13>` , :ref:`vrna_pf_TwoD() <doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836>`
+

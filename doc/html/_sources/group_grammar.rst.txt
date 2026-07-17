@@ -1,0 +1,58 @@
+.. index:: pair: group; The RNA folding grammar
+.. _doxid-group__grammar:
+.. _cid-grammar:
+
+The RNA folding grammar
+=======================
+
+.. toctree::
+	:hidden:
+
+	group_constraints.rst
+	group_domains.rst
+	group_energy_parameters.rst
+	group_model_details.rst
+	struct_vrna_gr_aux_s.rst
+
+
+
+.. container:: brief-description
+
+    The RNA folding grammar as implemented in RNAlib.
+
+|	:ref:`Constraining the RNA folding grammar<doxid-group__constraints>`
+|		:ref:`Hard constraints<doxid-group__hard__constraints>`
+|		:ref:`Soft constraints<doxid-group__soft__constraints>`
+|	:ref:`Extending the folding grammar with additional domains<doxid-group__domains>`
+|		:ref:`Unstructured domains<doxid-group__domains__up>`
+|	:ref:`Energy parameters<doxid-group__energy__parameters>`
+|		:ref:`Reading/Writing Energy Parameter Sets from/to File<doxid-group__energy__parameters__rw>`
+|			:ref:`Converting Energy Parameter Files<doxid-group__energy__parameters__convert>`
+|	:ref:`Fine-tuning of the implemented models<doxid-group__model__details>`
+
+
+.. _doxid-group__grammar_1ga4872800fb64a0cc6d861f53efb91ee05:
+.. _cid-vrna_callback_gr_rule_aux:
+.. _doxid-group__grammar_1gadc8bec7146fda1ee9276df8fc22d8639:
+.. _cid-vrna_callback_gr_free_auxdata:
+.. _doxid-group__grammar_1ga8825fbe6d7de2ff61c232cc7550a82cc:
+.. _cid-vrna_gr_aux_t:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef void () vrna_callback_gr_rule_aux (
+	    vrna_fold_compound_t *vc,
+	    int i,
+	    int j,
+	    void *data
+	    )
+
+	typedef void () vrna_callback_gr_free_auxdata (void *data)
+	typedef struct :ref:`vrna_gr_aux_s<doxid-structvrna__gr__aux__s>` vrna_gr_aux_t
+
+	// structs
+
+	struct :ref:`vrna_gr_aux_s<doxid-structvrna__gr__aux__s>` 
+

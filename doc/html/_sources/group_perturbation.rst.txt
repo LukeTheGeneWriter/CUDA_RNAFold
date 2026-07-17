@@ -1,0 +1,343 @@
+.. index:: pair: group; Generate soft constraints from data
+.. _doxid-group__perturbation:
+.. _cid-perturbation:
+
+Generate soft constraints from data
+===================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+Find a vector of perturbation energies that minimizes the discripancies between predicted and observed pairing probabilities and the amount of neccessary adjustments. :ref:`More...<details-doxid-group__perturbation>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef void (* :ref:`progress_callback<doxid-group__perturbation_1gaa715397c7afd2d2955c315512a3d571a>`)(
+	    int iteration,
+	    double score,
+	    double *epsilon
+	    )
+
+	// global functions
+
+	void :ref:`vrna_sc_minimize_pertubation<doxid-group__perturbation_1gaa124bdc20d88001c38ade590c4bcc3c4>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const double* q_prob_unpaired,
+	    int objective_function,
+	    double sigma_squared,
+	    double tau_squared,
+	    int algorithm,
+	    int sample_size,
+	    double* epsilon,
+	    double initialStepSize,
+	    double minStepSize,
+	    double minImprovement,
+	    double minimizerTolerance,
+	    :ref:`progress_callback<doxid-group__perturbation_1gaa715397c7afd2d2955c315512a3d571a>` callback
+	    )
+
+	// macros
+
+	#define :ref:`VRNA_MINIMIZER_CONJUGATE_FR<doxid-group__perturbation_1gab1d89db58e8c497795a5005f5dbc8c4a>`
+	#define :ref:`VRNA_MINIMIZER_CONJUGATE_PR<doxid-group__perturbation_1ga5aaeafe1b0aa77a5cda18943ff94b02f>`
+	#define :ref:`VRNA_MINIMIZER_DEFAULT<doxid-group__perturbation_1gae5126200d80dbb282f46083fffc606bf>`
+	#define :ref:`VRNA_MINIMIZER_STEEPEST_DESCENT<doxid-group__perturbation_1ga9ecd2144c2ebed7533233da3986521b0>`
+	#define :ref:`VRNA_MINIMIZER_VECTOR_BFGS<doxid-group__perturbation_1ga9be8a702cddf58235571ace11cc41b22>`
+	#define :ref:`VRNA_MINIMIZER_VECTOR_BFGS2<doxid-group__perturbation_1ga7b0a65c6c92fa1d8012383ba9d3dcb4f>`
+	#define :ref:`VRNA_OBJECTIVE_FUNCTION_ABSOLUTE<doxid-group__perturbation_1gac070dfb9cafaeb14d5652bd9adf0f6b1>`
+	#define :ref:`VRNA_OBJECTIVE_FUNCTION_QUADRATIC<doxid-group__perturbation_1ga81e10993d1ae728e4e02022b33155a12>`
+
+.. _details-doxid-group__perturbation:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Find a vector of perturbation energies that minimizes the discripancies between predicted and observed pairing probabilities and the amount of neccessary adjustments.
+
+Typedefs
+--------
+
+.. _doxid-group__perturbation_1gaa715397c7afd2d2955c315512a3d571a:
+.. _cid-progress_callback:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef void (* progress_callback)(
+	    int iteration,
+	    double score,
+	    double *epsilon
+	    )
+
+    .. container:: brief-description
+
+        Callback for following the progress of the minimization process.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - iteration
+        
+                - The number of the current iteration
+        
+            *
+                - score
+        
+                - The score of the objective function
+        
+            *
+                - epsilon
+        
+                - The perturbation vector yielding the reported score
+
+Global Functions
+----------------
+
+.. _doxid-group__perturbation_1gaa124bdc20d88001c38ade590c4bcc3c4:
+.. _cid-vrna_sc_minimize_pertubation:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_minimize_pertubation (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const double* q_prob_unpaired,
+	    int objective_function,
+	    double sigma_squared,
+	    double tau_squared,
+	    int algorithm,
+	    int sample_size,
+	    double* epsilon,
+	    double initialStepSize,
+	    double minStepSize,
+	    double minImprovement,
+	    double minimizerTolerance,
+	    :ref:`progress_callback<doxid-group__perturbation_1gaa715397c7afd2d2955c315512a3d571a>` callback
+	    )
+
+    .. container:: brief-description
+
+        Find a vector of perturbation energies that minimizes the discripancies between predicted and observed pairing probabilities and the amount of neccessary adjustments.
+
+    .. container:: detailed-description
+
+        Use an iterative minimization algorithm to find a vector of perturbation energies whose incorporation as soft constraints shifts the predicted pairing probabilities closer to the experimentally observed probabilities. The algorithm aims to minimize an objective function that penalizes discripancies between predicted and observed pairing probabilities and energy model adjustments, i.e. an appropriate vector of perturbation energies satisfies
+        
+        .. math::
+        
+            F(\vec\epsilon) = \sum_{\mu}{ \frac{\epsilon_{\mu}^2}{\tau^2} } + \sum_{i = 1}^n{ \frac{(p_i(\vec\epsilon) - q_i)^2}{\sigma^2} } \to \min.
+        
+        An initialized fold compound and an array containing the observed probability for each nucleotide to be unbound are required as input data. The parameters objective_function, sigma_squared and tau_squared are responsible for adjusting the aim of the objective function. Dependend on which type of objective function is selected, either squared or absolute aberrations are contributing to the objective function. The ratio of the parameters sigma_squared and tau_squared can be used to adjust the algorithm to find a solution either close to the thermodynamic prediction (sigma_squared >> tau_squared) or close to the experimental data (tau_squared >> sigma_squared). The minimization can be performed by makeing use of a custom gradient descent implementation or using one of the minimizing algorithms provided by the GNU Scientific Library. All algorithms require the evaluation of the gradient of the objective function, which includes the evaluation of conditional pairing probabilites. Since an exact evaluation is expensive, the probabilities can also be estimated from sampling by setting an appropriate sample size. The found vector of perturbation energies will be stored in the array epsilon. The progress of the minimization process can be tracked by implementing and passing a callback function.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - Pointer to a fold compound
+        
+            *
+                - q_prob_unpaired
+        
+                - Pointer to an array containing the probability to be unpaired for each nucleotide
+        
+            *
+                - objective_function
+        
+                - The type of objective function to be used (VRNA_OBJECTIVE_FUNCTION_QUADRATIC / VRNA_OBJECTIVE_FUNCTION_LINEAR)
+        
+            *
+                - sigma_squared
+        
+                - A factor used for weighting the objective function. More weight on this factor will lead to a solution close to the null vector.
+        
+            *
+                - tau_squared
+        
+                - A factor used for weighting the objective function. More weight on this factor will lead to a solution close to the data provided in q_prob_unpaired.
+        
+            *
+                - algorithm
+        
+                - The minimization algorithm (VRNA_MINIMIZER_*)
+        
+            *
+                - sample_size
+        
+                - The number of sampled sequences used for estimating the pairing probabilities. A value <= 0 will lead to an exact evaluation.
+        
+            *
+                - epsilon
+        
+                - A pointer to an array used for storing the calculated vector of perturbation energies
+        
+            *
+                - callback
+        
+                - A pointer to a callback function used for reporting the current minimization progress
+        
+        
+        
+        .. admonition:: See also:
+        
+            For further details we refere to :ref:`[20] <doxid-citelist_1CITEREF_washietl:2012>` .
+
+Macros
+------
+
+.. _doxid-group__perturbation_1gab1d89db58e8c497795a5005f5dbc8c4a:
+.. _cid-vrna_minimizer_conjugate_fr:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MINIMIZER_CONJUGATE_FR
+
+    .. container:: brief-description
+
+        Use the GNU Scientific Library implementation of the Fletcher-Reeves conjugate gradient algorithm to minimize the objective function.
+
+    .. container:: detailed-description
+
+        Please note that this algorithm can only be used when the GNU Scientific Library is available on your system
+
+.. _doxid-group__perturbation_1ga5aaeafe1b0aa77a5cda18943ff94b02f:
+.. _cid-vrna_minimizer_conjugate_pr:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MINIMIZER_CONJUGATE_PR
+
+    .. container:: brief-description
+
+        Use the GNU Scientific Library implementation of the Polak-Ribiere conjugate gradient algorithm to minimize the objective function.
+
+    .. container:: detailed-description
+
+        Please note that this algorithm can only be used when the GNU Scientific Library is available on your system
+
+.. _doxid-group__perturbation_1gae5126200d80dbb282f46083fffc606bf:
+.. _cid-vrna_minimizer_default:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MINIMIZER_DEFAULT
+
+    .. container:: brief-description
+
+        Use a custom implementation of the gradient descent algorithm to minimize the objective function.
+
+.. _doxid-group__perturbation_1ga9ecd2144c2ebed7533233da3986521b0:
+.. _cid-vrna_minimizer_steepest_descent:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MINIMIZER_STEEPEST_DESCENT
+
+    .. container:: brief-description
+
+        Use the GNU Scientific Library implementation of the steepest descent algorithm to minimize the objective function.
+
+    .. container:: detailed-description
+
+        Please note that this algorithm can only be used when the GNU Scientific Library is available on your system
+
+.. _doxid-group__perturbation_1ga9be8a702cddf58235571ace11cc41b22:
+.. _cid-vrna_minimizer_vector_bfgs:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MINIMIZER_VECTOR_BFGS
+
+    .. container:: brief-description
+
+        Use the GNU Scientific Library implementation of the vector Broyden-Fletcher-Goldfarb-Shanno algorithm to minimize the objective function.
+
+    .. container:: detailed-description
+
+        Please note that this algorithm can only be used when the GNU Scientific Library is available on your system
+
+.. _doxid-group__perturbation_1ga7b0a65c6c92fa1d8012383ba9d3dcb4f:
+.. _cid-vrna_minimizer_vector_bfgs2:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MINIMIZER_VECTOR_BFGS2
+
+    .. container:: brief-description
+
+        Use the GNU Scientific Library implementation of the vector Broyden-Fletcher-Goldfarb-Shanno algorithm to minimize the objective function.
+
+    .. container:: detailed-description
+
+        Please note that this algorithm can only be used when the GNU Scientific Library is available on your system
+
+.. _doxid-group__perturbation_1gac070dfb9cafaeb14d5652bd9adf0f6b1:
+.. _cid-vrna_objective_function_absolute:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_OBJECTIVE_FUNCTION_ABSOLUTE
+
+    .. container:: brief-description
+
+        Use the sum of absolute aberrations as objective function.
+
+    .. container:: detailed-description
+
+        :math:` F(\vec\epsilon) = \sum_{i = 1}^n{ \frac{|\epsilon_i|}{\tau^2} } + \sum_{i = 1}^n{ \frac{|p_i(\vec\epsilon) - q_i|}{\sigma^2} } \to min `
+
+.. _doxid-group__perturbation_1ga81e10993d1ae728e4e02022b33155a12:
+.. _cid-vrna_objective_function_quadratic:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_OBJECTIVE_FUNCTION_QUADRATIC
+
+    .. container:: brief-description
+
+        Use the sum of squared aberrations as objective function.
+
+    .. container:: detailed-description
+
+        :math:` F(\vec\epsilon) = \sum_{i = 1}^n{ \frac{\epsilon_i^2}{\tau^2} } + \sum_{i = 1}^n{ \frac{(p_i(\vec\epsilon) - q_i)^2}{\sigma^2} } \to min `
+

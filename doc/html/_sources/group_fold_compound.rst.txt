@@ -1,0 +1,693 @@
+.. index:: pair: group; The Fold Compound
+.. _doxid-group__fold__compound:
+.. _cid-fold_compound:
+
+The Fold Compound
+=================
+
+.. toctree::
+	:hidden:
+
+	enum_vrna_fc_type_e.rst
+	struct_vrna_fc_s.rst
+
+
+
+Overview
+--------
+
+This module provides interfaces that deal with the most basic data structure used in structure predicting and energy evaluating function of the RNAlib. :ref:`More...<details-doxid-group__fold__compound>`
+
+.. _doxid-group__fold__compound_1ga9d24b196753b4f9f03774f11661510f5:
+.. _cid-vrna_fold_compound_twod:
+.. _doxid-group__fold__compound_1ga3cd3a6a54a40e6d6eeb7b80c9ebdf977:
+.. _cid-vrna_fold_compound_prepare:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_fc_s<doxid-structvrna__fc__s>` :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+	typedef void () :ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>` (void *data)
+
+	typedef void () :ref:`vrna_callback_recursion_status<doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>` (
+	    unsigned char status,
+	    void *data
+	    )
+
+	// enums
+
+	enum :ref:`vrna_fc_type_e<doxid-group__fold__compound_1ga01a4ff86fa71deaaa5d1abbd95a1447d>`
+
+	// structs
+
+	struct :ref:`vrna_fc_s<doxid-structvrna__fc__s>` 
+
+	// global functions
+
+	:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* :ref:`vrna_fold_compound<doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` (
+	    const char* sequence,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p,
+	    unsigned int options
+	    )
+
+	:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* :ref:`vrna_fold_compound_comparative<doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` (
+	    const char** sequences,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p,
+	    unsigned int options
+	    )
+
+	:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vrna_fold_compound_TwoD (
+	    const char* sequence,
+	    const char* s1,
+	    const char* s2,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p,
+	    unsigned int options
+	    )
+
+	int vrna_fold_compound_prepare (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_fold_compound_free<doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+	void :ref:`vrna_fold_compound_add_auxdata<doxid-group__fold__compound_1ga6316a9426bea2f742375e8df6febd3f6>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    void* data,
+	    :ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* f
+	    )
+
+	void :ref:`vrna_fold_compound_add_callback<doxid-group__fold__compound_1ga097ed6133055624667cbce8cfdebf82d>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_recursion_status<doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>`* f
+	    )
+
+	// macros
+
+	#define :ref:`VRNA_OPTION_DEFAULT<doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`
+	#define :ref:`VRNA_OPTION_EVAL_ONLY<doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>`
+	#define :ref:`VRNA_OPTION_HYBRID<doxid-group__fold__compound_1ga8f681fa12b8d4b348bf58415fd1fc82f>`
+	#define :ref:`VRNA_OPTION_MFE<doxid-group__fold__compound_1gae63be9127fe7dcc1f9bb14f5bb1064ee>`
+	#define :ref:`VRNA_OPTION_PF<doxid-group__fold__compound_1gabfbadcddda3e74ce7f49035ef8f058f7>`
+	#define :ref:`VRNA_OPTION_WINDOW<doxid-group__fold__compound_1ga2b2a8009ccdccc3eb1571556261aee8e>`
+	#define :ref:`VRNA_STATUS_MFE_POST<doxid-group__fold__compound_1ga47c900ca76e56e59e2e83a06e0bde641>`
+	#define :ref:`VRNA_STATUS_MFE_PRE<doxid-group__fold__compound_1ga1a5053dc8acbb0111e852988726f07d6>`
+	#define :ref:`VRNA_STATUS_PF_POST<doxid-group__fold__compound_1ga1c6fa243533fd026e50f7d595eaaa565>`
+	#define :ref:`VRNA_STATUS_PF_PRE<doxid-group__fold__compound_1ga91795d35ebdb6f32be50459f24b3d114>`
+
+.. _details-doxid-group__fold__compound:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    This module provides interfaces that deal with the most basic data structure used in structure predicting and energy evaluating function of the RNAlib.
+
+.. container:: detailed-description
+
+    Throughout the entire RNAlib, the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , is used to group information and data that is required for structure prediction and energy evaluation. Here, you'll find interface functions to create, modify, and delete :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structures.
+
+Typedefs
+--------
+
+.. _doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166:
+.. _cid-vrna_fold_compound_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_fc_s<doxid-structvrna__fc__s>` vrna_fold_compound_t
+
+    .. container:: brief-description
+
+        Typename for the fold_compound data structure :ref:`vrna_fc_s <doxid-structvrna__fc__s>` .
+
+.. _doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3:
+.. _cid-vrna_callback_free_auxdata:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef void () vrna_callback_free_auxdata (void *data)
+
+    .. container:: brief-description
+
+        Callback to free memory allocated for auxiliary user-provided data.
+
+    .. container:: detailed-description
+
+        This type of user-implemented function usually deletes auxiliary data structures. The user must take care to free all the memory occupied by the data structure passed.
+        
+        Notes on Callback Functions This callback is supposed to free memory occupied by an auxiliary data structure. It will be called when the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` is erased from memory through a call to :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` and will be passed the address of memory previously bound to the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` via :ref:`vrna_fold_compound_add_auxdata() <doxid-group__fold__compound_1ga6316a9426bea2f742375e8df6febd3f6>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - data
+        
+                - The data that needs to be free'd
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_add_auxdata() <doxid-group__fold__compound_1ga6316a9426bea2f742375e8df6febd3f6>` , :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` , :ref:`vrna_fold_compound_add_callback() <doxid-group__fold__compound_1ga097ed6133055624667cbce8cfdebf82d>`
+
+.. _doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8:
+.. _cid-vrna_callback_recursion_status:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef void () vrna_callback_recursion_status (
+	    unsigned char status,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback to perform specific user-defined actions before, or after recursive computations.
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions This function will be called to notify a third-party implementation about the status of a currently ongoing recursion. The purpose of this callback mechanism is to provide users with a simple way to ensure pre- and post conditions for auxiliary mechanisms attached to our implementations.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - status
+        
+                - The status indicator
+        
+            *
+                - data
+        
+                - The data structure that was assigned with :ref:`vrna_fold_compound_add_auxdata() <doxid-group__fold__compound_1ga6316a9426bea2f742375e8df6febd3f6>`
+        
+            *
+                - status
+        
+                - The status indicator
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_add_auxdata() <doxid-group__fold__compound_1ga6316a9426bea2f742375e8df6febd3f6>` , :ref:`vrna_fold_compound_add_callback() <doxid-group__fold__compound_1ga097ed6133055624667cbce8cfdebf82d>` , :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` , :ref:`VRNA_STATUS_MFE_PRE <doxid-group__fold__compound_1ga1a5053dc8acbb0111e852988726f07d6>` , :ref:`VRNA_STATUS_MFE_POST <doxid-group__fold__compound_1ga47c900ca76e56e59e2e83a06e0bde641>` , :ref:`VRNA_STATUS_PF_PRE <doxid-group__fold__compound_1ga91795d35ebdb6f32be50459f24b3d114>` , :ref:`VRNA_STATUS_PF_POST <doxid-group__fold__compound_1ga1c6fa243533fd026e50f7d595eaaa565>`
+
+Global Functions
+----------------
+
+.. _doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be:
+.. _cid-vrna_fold_compound:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vrna_fold_compound (
+	    const char* sequence,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Retrieve a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structure for single sequences and hybridizing sequences.
+
+    .. container:: detailed-description
+
+        This function provides an easy interface to obtain a prefilled :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` by passing a single sequence, or two contatenated sequences as input. For the latter, sequences need to be seperated by an '&' character like this:
+        
+        .. code-block:: none
+        
+            char *sequence = "GGGG&CCCC";
+        
+        The optional parameter ``md_p`` can be used to specify the model details for successive computations based on the content of the generated :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . Passing NULL will instruct the function to use default model details. The third parameter ``options`` may be used to specify dynamic programming (DP) matrix requirements. Use the macros:
+        
+        * :ref:`VRNA_OPTION_MFE <doxid-group__fold__compound_1gae63be9127fe7dcc1f9bb14f5bb1064ee>`
+        
+        * :ref:`VRNA_OPTION_PF <doxid-group__fold__compound_1gabfbadcddda3e74ce7f49035ef8f058f7>`
+        
+        * :ref:`VRNA_OPTION_WINDOW <doxid-group__fold__compound_1ga2b2a8009ccdccc3eb1571556261aee8e>`
+        
+        * :ref:`VRNA_OPTION_EVAL_ONLY <doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>`
+        
+        * :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`
+        
+        to specify the required type of computations that will be performed with the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+        
+        If you just need the folding compound serving as a container for your data, you can simply pass :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>` to the ``option`` parameter. This creates a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` without DP matrices, thus saving memory. Subsequent calls of any structure prediction function will then take care of allocating the memory required for the DP matrices. If you only intend to evaluate structures instead of actually predicting them, you may use the :ref:`VRNA_OPTION_EVAL_ONLY <doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>` macro. This will seriously speedup the creation of the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - A single sequence, or two concatenated sequences seperated by an '&' character
+        
+            *
+                - md_p
+        
+                - An optional set of model details
+        
+            *
+                - options
+        
+                - The options for DP matrices memory allocation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A prefilled vrna_fold_compound_t that can be readily used for computations
+        
+        
+        
+        .. note::
+        
+            The sequence string must be uppercase, and should contain only RNA (resp. DNA) alphabet depending on what energy parameter set is used
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_OPTION_MFE <doxid-group__fold__compound_1gae63be9127fe7dcc1f9bb14f5bb1064ee>` , :ref:`VRNA_OPTION_PF <doxid-group__fold__compound_1gabfbadcddda3e74ce7f49035ef8f058f7>` , :ref:`VRNA_OPTION_EVAL_ONLY <doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>` , :ref:`VRNA_OPTION_WINDOW <doxid-group__fold__compound_1ga2b2a8009ccdccc3eb1571556261aee8e>`
+
+.. _doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c:
+.. _cid-vrna_fold_compound_comparative:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vrna_fold_compound_comparative (
+	    const char** sequences,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Retrieve a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structure for sequence alignments.
+
+    .. container:: detailed-description
+
+        This function provides an easy interface to obtain a prefilled :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` by passing an alignment of sequences.
+        
+        The optional parameter ``md_p`` can be used to specify the model details for successive computations based on the content of the generated :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . Passing NULL will instruct the function to use default model details. The third parameter ``options`` may be used to specify dynamic programming (DP) matrix requirements. Use the macros:
+        
+        * :ref:`VRNA_OPTION_MFE <doxid-group__fold__compound_1gae63be9127fe7dcc1f9bb14f5bb1064ee>`
+        
+        * :ref:`VRNA_OPTION_PF <doxid-group__fold__compound_1gabfbadcddda3e74ce7f49035ef8f058f7>`
+        
+        * :ref:`VRNA_OPTION_EVAL_ONLY <doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>`
+        
+        * :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`
+        
+        to specify the required type of computations that will be performed with the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+        
+        If you just need the folding compound serving as a container for your data, you can simply pass :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>` to the ``option`` parameter. This creates a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` without DP matrices, thus saving memory. Subsequent calls of any structure prediction function will then take care of allocating the memory required for the DP matrices. If you only intend to evaluate structures instead of actually predicting them, you may use the :ref:`VRNA_OPTION_EVAL_ONLY <doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>` macro. This will seriously speedup the creation of the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequences
+        
+                - A sequence alignment including 'gap' characters
+        
+            *
+                - md_p
+        
+                - An optional set of model details
+        
+            *
+                - options
+        
+                - The options for DP matrices memory allocation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A prefilled vrna_fold_compound_t that can be readily used for computations
+        
+        
+        
+        .. note::
+        
+            The sequence strings must be uppercase, and should contain only RNA (resp. DNA) alphabet including gap characters depending on what energy parameter set is used.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_OPTION_MFE <doxid-group__fold__compound_1gae63be9127fe7dcc1f9bb14f5bb1064ee>` , :ref:`VRNA_OPTION_PF <doxid-group__fold__compound_1gabfbadcddda3e74ce7f49035ef8f058f7>` , :ref:`VRNA_OPTION_EVAL_ONLY <doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>` , :ref:`read_clustal() <doxid-group__aln__utils_1ga1cc88b4df842ca73b4ac0cb5e71c696a>`
+
+.. _doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad:
+.. _cid-vrna_fold_compound_free:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_fold_compound_free (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+    .. container:: brief-description
+
+        Free memory occupied by a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` that is to be erased from memory
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_mx_mfe_free() <doxid-group__dp__matrices_1ga6a9422feb5dfe5c64050cebf447672d0>` , :ref:`vrna_mx_pf_free() <doxid-group__dp__matrices_1ga2283e69fd139fb8e58d7ade3b5773f9c>`
+
+.. _doxid-group__fold__compound_1ga6316a9426bea2f742375e8df6febd3f6:
+.. _cid-vrna_fold_compound_add_auxdata:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_fold_compound_add_auxdata (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    void* data,
+	    :ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* f
+	    )
+
+    .. container:: brief-description
+
+        Add auxiliary data to the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+    .. container:: detailed-description
+
+        This function allows one to bind arbitrary data to a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` which may later on be used by one of the callback functions, e.g. :ref:`vrna_callback_recursion_status() <doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>` . To allow for proper cleanup of the memory occupied by this auxiliary data, the user may also provide a pointer to a cleanup function that free's the corresponding memory. This function will be called automatically when the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` is free'd with :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold_compound the arbitrary data pointer should be associated with
+        
+            *
+                - data
+        
+                - A pointer to an arbitrary data structure
+        
+            *
+                - f
+        
+                - A pointer to function that free's memory occupied by the arbitrary data (May be NULL)
+        
+        
+        
+        .. note::
+        
+            Before attaching the arbitrary data pointer, this function will call the :ref:`vrna_callback_free_auxdata() <doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>` on any pre-existing data that is already attached.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_callback_free_auxdata() <doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`
+
+.. _doxid-group__fold__compound_1ga097ed6133055624667cbce8cfdebf82d:
+.. _cid-vrna_fold_compound_add_callback:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_fold_compound_add_callback (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_recursion_status<doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>`* f
+	    )
+
+    .. container:: brief-description
+
+        Add a recursion status callback to the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+    .. container:: detailed-description
+
+        Binding a recursion status callback function to a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` allows one to perform arbitrary operations just before, or after an actual recursive computations, e.g. MFE prediction, is performed by the RNAlib. The callback function will be provided with a pointer to its :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , and a status message. Hence, it has complete access to all variables that incluence the recursive computations.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold_compound the callback function should be attached to
+        
+            *
+                - f
+        
+                - The pointer to the recursion status callback function
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_callback_recursion_status() <doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , :ref:`VRNA_STATUS_MFE_PRE <doxid-group__fold__compound_1ga1a5053dc8acbb0111e852988726f07d6>` , :ref:`VRNA_STATUS_MFE_POST <doxid-group__fold__compound_1ga47c900ca76e56e59e2e83a06e0bde641>` , :ref:`VRNA_STATUS_PF_PRE <doxid-group__fold__compound_1ga91795d35ebdb6f32be50459f24b3d114>` , :ref:`VRNA_STATUS_PF_POST <doxid-group__fold__compound_1ga1c6fa243533fd026e50f7d595eaaa565>`
+
+Macros
+------
+
+.. _doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4:
+.. _cid-vrna_option_default:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_OPTION_DEFAULT
+
+    .. container:: brief-description
+
+        Option flag to specify default settings/requirements.
+
+.. _doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e:
+.. _cid-vrna_option_eval_only:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_OPTION_EVAL_ONLY
+
+    .. container:: brief-description
+
+        Option flag to specify that neither MFE, nor PF DP matrices are required.
+
+    .. container:: detailed-description
+
+        Use this flag in conjuntion with :ref:`VRNA_OPTION_MFE <doxid-group__fold__compound_1gae63be9127fe7dcc1f9bb14f5bb1064ee>` , and :ref:`VRNA_OPTION_PF <doxid-group__fold__compound_1gabfbadcddda3e74ce7f49035ef8f058f7>` to save memory for a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` obtained from :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , or :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` in cases where only energy evaluation but no structure prediction is required.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_eval_structure() <doxid-group__eval_1ga58f199f1438d794a265f3b27fc8ea631>`
+
+.. _doxid-group__fold__compound_1ga8f681fa12b8d4b348bf58415fd1fc82f:
+.. _cid-vrna_option_hybrid:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_OPTION_HYBRID
+
+    .. container:: brief-description
+
+        Option flag to specify requirement of dimer DP matrices.
+
+.. _doxid-group__fold__compound_1gae63be9127fe7dcc1f9bb14f5bb1064ee:
+.. _cid-vrna_option_mfe:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_OPTION_MFE
+
+    .. container:: brief-description
+
+        Option flag to specify requirement of Minimum Free Energy (MFE) DP matrices and corresponding set of energy parameters.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`VRNA_OPTION_EVAL_ONLY <doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>`
+
+.. _doxid-group__fold__compound_1gabfbadcddda3e74ce7f49035ef8f058f7:
+.. _cid-vrna_option_pf:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_OPTION_PF
+
+    .. container:: brief-description
+
+        Option flag to specify requirement of Partition Function (PF) DP matrices and corresponding set of Boltzmann factors.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`VRNA_OPTION_EVAL_ONLY <doxid-group__fold__compound_1ga61469c423131552c8483229f8b6c7e0e>`
+
+.. _doxid-group__fold__compound_1ga2b2a8009ccdccc3eb1571556261aee8e:
+.. _cid-vrna_option_window:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_OPTION_WINDOW
+
+    .. container:: brief-description
+
+        Option flag to specify requirement of DP matrices for local folding approaches.
+
+.. _doxid-group__fold__compound_1ga47c900ca76e56e59e2e83a06e0bde641:
+.. _cid-vrna_status_mfe_post:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_STATUS_MFE_POST
+
+    .. container:: brief-description
+
+        Status message indicating that MFE computations are finished.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_t.stat_cb <doxid-structvrna__fc__s_1a87a83f6795b569000efcbe65acc3dd81>` , :ref:`vrna_callback_recursion_status() <doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>` , :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , :ref:`vrna_fold() <doxid-group__mfe__fold__single_1ga29a33b2895f4e67b0480271ff289afdc>` , :ref:`vrna_circfold() <doxid-group__mfe__fold__single_1gaf973483d8acbc8cc9aacfc8a9b7f0074>` , :ref:`vrna_alifold() <doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1>` , :ref:`vrna_circalifold() <doxid-group__consensus__mfe__fold_1ga17a1be7490468c29c335ba9bffacba53>` , :ref:`vrna_cofold() <doxid-group__mfe__cofold_1ga9ef3a297201dbf838a8daff2b45c0c82>`
+
+.. _doxid-group__fold__compound_1ga1a5053dc8acbb0111e852988726f07d6:
+.. _cid-vrna_status_mfe_pre:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_STATUS_MFE_PRE
+
+    .. container:: brief-description
+
+        Status message indicating that MFE computations are about to begin.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_t.stat_cb <doxid-structvrna__fc__s_1a87a83f6795b569000efcbe65acc3dd81>` , :ref:`vrna_callback_recursion_status() <doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>` , :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , :ref:`vrna_fold() <doxid-group__mfe__fold__single_1ga29a33b2895f4e67b0480271ff289afdc>` , :ref:`vrna_circfold() <doxid-group__mfe__fold__single_1gaf973483d8acbc8cc9aacfc8a9b7f0074>` , :ref:`vrna_alifold() <doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1>` , :ref:`vrna_circalifold() <doxid-group__consensus__mfe__fold_1ga17a1be7490468c29c335ba9bffacba53>` , :ref:`vrna_cofold() <doxid-group__mfe__cofold_1ga9ef3a297201dbf838a8daff2b45c0c82>`
+
+.. _doxid-group__fold__compound_1ga1c6fa243533fd026e50f7d595eaaa565:
+.. _cid-vrna_status_pf_post:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_STATUS_PF_POST
+
+    .. container:: brief-description
+
+        Status message indicating that Partition function computations are finished.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_t.stat_cb <doxid-structvrna__fc__s_1a87a83f6795b569000efcbe65acc3dd81>` , :ref:`vrna_callback_recursion_status() <doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>` , :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>`
+
+.. _doxid-group__fold__compound_1ga91795d35ebdb6f32be50459f24b3d114:
+.. _cid-vrna_status_pf_pre:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_STATUS_PF_PRE
+
+    .. container:: brief-description
+
+        Status message indicating that Partition function computations are about to begin.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_t.stat_cb <doxid-structvrna__fc__s_1a87a83f6795b569000efcbe65acc3dd81>` , :ref:`vrna_callback_recursion_status() <doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>` , :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>`
+

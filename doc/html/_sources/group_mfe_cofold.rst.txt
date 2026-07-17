@@ -1,0 +1,524 @@
+.. index:: pair: group; MFE Structures of two hybridized Sequences
+.. _doxid-group__mfe__cofold:
+.. _cid-mfe_cofold:
+
+MFE Structures of two hybridized Sequences
+==========================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+MFE version of cofolding routines This file includes (almost) all function declarations within the **RNAlib** that are related to MFE Cofolding... This also includes the Zuker suboptimals calculations, since they are implemented using the cofold routines. :ref:`More...<details-doxid-group__mfe__cofold>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	float :ref:`vrna_cofold<doxid-group__mfe__cofold_1ga9ef3a297201dbf838a8daff2b45c0c82>` (
+	    const char* sequence,
+	    char* structure
+	    )
+
+	float :ref:`cofold<doxid-group__mfe__cofold_1gabc8517f22cfe70595ee81fc837910d52>` (
+	    const char* sequence,
+	    char* structure
+	    )
+
+	float :ref:`cofold_par<doxid-group__mfe__cofold_1ga7612cfeeb1b793f1e4179b1eb53df1f3>` (
+	    const char* string,
+	    char* structure,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* parameters,
+	    int is_constrained
+	    )
+
+	void :ref:`free_co_arrays<doxid-group__mfe__cofold_1gaafb33d7473eb9af9d1b168ca8761c41a>` (void)
+	void :ref:`update_cofold_params<doxid-group__mfe__cofold_1ga4fcbf34e77b99bfbb2333d2ab0c41a57>` (void)
+	void :ref:`update_cofold_params_par<doxid-group__mfe__cofold_1gaaadbd28b4e428710529ab4098fdacad3>` (:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* parameters)
+
+	void :ref:`export_cofold_arrays_gq<doxid-group__mfe__cofold_1ga5f5bf4df35d0554f6ace9579f8744c48>` (
+	    int** f5_p,
+	    int** c_p,
+	    int** fML_p,
+	    int** fM1_p,
+	    int** fc_p,
+	    int** ggg_p,
+	    int** indx_p,
+	    char** ptype_p
+	    )
+
+	void :ref:`export_cofold_arrays<doxid-group__mfe__cofold_1ga5cb6b59983f1f74ccc00b9b9c4e84482>` (
+	    int** f5_p,
+	    int** c_p,
+	    int** fML_p,
+	    int** fM1_p,
+	    int** fc_p,
+	    int** indx_p,
+	    char** ptype_p
+	    )
+
+	void :ref:`get_monomere_mfes<doxid-group__mfe__cofold_1ga4958b517c613e4d2afd5bce6c1060a79>` (
+	    float* e1,
+	    float* e2
+	    )
+
+	void :ref:`initialize_cofold<doxid-group__mfe__cofold_1gafee0c32208aa2ac97338b6e3fbad7fa5>` (int length)
+
+	float :ref:`vrna_mfe_dimer<doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    char* structure
+	    )
+
+.. _details-doxid-group__mfe__cofold:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    MFE version of cofolding routines This file includes (almost) all function declarations within the **RNAlib** that are related to MFE Cofolding... This also includes the Zuker suboptimals calculations, since they are implemented using the cofold routines.
+
+Global Functions
+----------------
+
+.. _doxid-group__mfe__cofold_1ga9ef3a297201dbf838a8daff2b45c0c82:
+.. _cid-vrna_cofold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_cofold (
+	    const char* sequence,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute Minimum Free Energy (MFE), and a corresponding secondary structure for two dimerized RNA sequences.
+
+    .. container:: detailed-description
+
+        This simplified interface to :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` computes the MFE and, if required, a secondary structure for two RNA sequences upon dimerization using default options. Memory required for dynamic programming (DP) matrices will be allocated and free'd on-the-fly. Hence, after return of this function, the recursively filled matrices are not available any more for any post-processing, e.g. suboptimal backtracking, etc.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - two RNA sequences separated by the '&' character
+        
+            *
+                - structure
+        
+                - A pointer to the character array where the secondary structure in dot-bracket notation will be written to
+        
+        
+        
+        .. rubric:: Returns:
+        
+        the minimum free energy (MFE) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            In case you want to use the filled DP matrices for any subsequent post-processing step, or you require other conditions than specified by the default model details, use :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , and the data structure :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` instead.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_dimer() <doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , :ref:`vrna_cut_point_insert() <doxid-group__string__utils_1ga74f05ece32ea73b59f84a7452afd5fae>`
+
+.. _doxid-group__mfe__cofold_1gabc8517f22cfe70595ee81fc837910d52:
+.. _cid-cofold-2:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float cofold (
+	    const char* sequence,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute the minimum free energy of two interacting RNA molecules.
+
+    .. container:: detailed-description
+
+        The code is analog to the :ref:`fold() <doxid-group__mfe__fold__single_1gaadafcb0f140795ae62e5ca027e335a9b>` function. If :ref:`cut_point <doxid-fold__vars_8h_1ab9b2c3a37a5516614c06d0ab54b97cda>` ==-1 results should be the same as with :ref:`fold() <doxid-group__mfe__fold__single_1gaadafcb0f140795ae62e5ca027e335a9b>` .
+        
+        Deprecated use :ref:`vrna_mfe_dimer() <doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee>` instead
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The two sequences concatenated
+        
+            *
+                - structure
+        
+                - Will hold the barcket dot structure of the dimer molecule
+        
+        
+        
+        .. rubric:: Returns:
+        
+        minimum free energy of the structure
+
+.. _doxid-group__mfe__cofold_1ga7612cfeeb1b793f1e4179b1eb53df1f3:
+.. _cid-cofold_par:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float cofold_par (
+	    const char* string,
+	    char* structure,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* parameters,
+	    int is_constrained
+	    )
+
+    .. container:: brief-description
+
+        Compute the minimum free energy of two interacting RNA molecules.
+
+    .. container:: detailed-description
+
+        Deprecated use :ref:`vrna_mfe_dimer() <doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee>` instead
+
+.. _doxid-group__mfe__cofold_1gaafb33d7473eb9af9d1b168ca8761c41a:
+.. _cid-free_co_arrays:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void free_co_arrays (void)
+
+    .. container:: brief-description
+
+        Free memory occupied by :ref:`cofold() <doxid-group__mfe__cofold_1gabc8517f22cfe70595ee81fc837910d52>`
+
+    .. container:: detailed-description
+
+        Deprecated This function will only free memory allocated by a prior call of :ref:`cofold() <doxid-group__mfe__cofold_1gabc8517f22cfe70595ee81fc837910d52>` or :ref:`cofold_par() <doxid-group__mfe__cofold_1ga7612cfeeb1b793f1e4179b1eb53df1f3>` . See :ref:`vrna_mfe_dimer() <doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee>` for how to use the new API
+        
+        
+        
+        .. note::
+        
+            folding matrices now reside in the fold compound, and should be free'd there
+        
+        
+        
+        .. admonition:: See also:
+        
+            vrna_fc_destroy(), :ref:`vrna_mfe_dimer() <doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee>`
+
+.. _doxid-group__mfe__cofold_1ga4fcbf34e77b99bfbb2333d2ab0c41a57:
+.. _cid-update_cofold_params:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void update_cofold_params (void)
+
+    .. container:: brief-description
+
+        Recalculate parameters.
+
+    .. container:: detailed-description
+
+        Deprecated See :ref:`vrna_params_subst() <doxid-group__energy__parameters_1ga5d1909208f7ea3baa98b75afaa1f62ca>` for an alternative using the new API
+
+.. _doxid-group__mfe__cofold_1gaaadbd28b4e428710529ab4098fdacad3:
+.. _cid-update_cofold_params_par:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void update_cofold_params_par (:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* parameters)
+
+    .. container:: brief-description
+
+        Recalculate parameters.
+
+    .. container:: detailed-description
+
+        Deprecated See :ref:`vrna_params_subst() <doxid-group__energy__parameters_1ga5d1909208f7ea3baa98b75afaa1f62ca>` for an alternative using the new API
+
+.. _doxid-group__mfe__cofold_1ga5f5bf4df35d0554f6ace9579f8744c48:
+.. _cid-export_cofold_arrays_gq:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void export_cofold_arrays_gq (
+	    int** f5_p,
+	    int** c_p,
+	    int** fML_p,
+	    int** fM1_p,
+	    int** fc_p,
+	    int** ggg_p,
+	    int** indx_p,
+	    char** ptype_p
+	    )
+
+    .. container:: brief-description
+
+        Export the arrays of partition function cofold (with gquadruplex support)
+
+    .. container:: detailed-description
+
+        Export the cofold arrays for use e.g. in the concentration Computations or suboptimal secondary structure backtracking
+        
+        Deprecated folding matrices now reside within the fold compound. Thus, this function will only work in conjunction with a prior call to :ref:`cofold() <doxid-group__mfe__cofold_1gabc8517f22cfe70595ee81fc837910d52>` or :ref:`cofold_par() <doxid-group__mfe__cofold_1ga7612cfeeb1b793f1e4179b1eb53df1f3>`
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - f5_p
+        
+                - A pointer to the 'f5' array, i.e. array conatining best free energy in interval [1,j]
+        
+            *
+                - c_p
+        
+                - A pointer to the 'c' array, i.e. array containing best free energy in interval [i,j] given that i pairs with j
+        
+            *
+                - fML_p
+        
+                - A pointer to the 'M' array, i.e. array containing best free energy in interval [i,j] for any multiloop segment with at least one stem
+        
+            *
+                - fM1_p
+        
+                - A pointer to the 'M1' array, i.e. array containing best free energy in interval [i,j] for multiloop segment with exactly one stem
+        
+            *
+                - fc_p
+        
+                - A pointer to the 'fc' array, i.e. array ...
+        
+            *
+                - ggg_p
+        
+                - A pointer to the 'ggg' array, i.e. array containing best free energy of a gquadruplex delimited by [i,j]
+        
+            *
+                - indx_p
+        
+                - A pointer to the indexing array used for accessing the energy matrices
+        
+            *
+                - ptype_p
+        
+                - A pointer to the ptype array containing the base pair types for each possibility (i,j)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_dimer() <doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee>` for the new API
+
+.. _doxid-group__mfe__cofold_1ga5cb6b59983f1f74ccc00b9b9c4e84482:
+.. _cid-export_cofold_arrays:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void export_cofold_arrays (
+	    int** f5_p,
+	    int** c_p,
+	    int** fML_p,
+	    int** fM1_p,
+	    int** fc_p,
+	    int** indx_p,
+	    char** ptype_p
+	    )
+
+    .. container:: brief-description
+
+        Export the arrays of partition function cofold.
+
+    .. container:: detailed-description
+
+        Export the cofold arrays for use e.g. in the concentration Computations or suboptimal secondary structure backtracking
+        
+        Deprecated folding matrices now reside within the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . Thus, this function will only work in conjunction with a prior call to the deprecated functions :ref:`cofold() <doxid-group__mfe__cofold_1gabc8517f22cfe70595ee81fc837910d52>` or :ref:`cofold_par() <doxid-group__mfe__cofold_1ga7612cfeeb1b793f1e4179b1eb53df1f3>`
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - f5_p
+        
+                - A pointer to the 'f5' array, i.e. array conatining best free energy in interval [1,j]
+        
+            *
+                - c_p
+        
+                - A pointer to the 'c' array, i.e. array containing best free energy in interval [i,j] given that i pairs with j
+        
+            *
+                - fML_p
+        
+                - A pointer to the 'M' array, i.e. array containing best free energy in interval [i,j] for any multiloop segment with at least one stem
+        
+            *
+                - fM1_p
+        
+                - A pointer to the 'M1' array, i.e. array containing best free energy in interval [i,j] for multiloop segment with exactly one stem
+        
+            *
+                - fc_p
+        
+                - A pointer to the 'fc' array, i.e. array ...
+        
+            *
+                - indx_p
+        
+                - A pointer to the indexing array used for accessing the energy matrices
+        
+            *
+                - ptype_p
+        
+                - A pointer to the ptype array containing the base pair types for each possibility (i,j)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_dimer() <doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee>` for the new API
+
+.. _doxid-group__mfe__cofold_1ga4958b517c613e4d2afd5bce6c1060a79:
+.. _cid-get_monomere_mfes:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void get_monomere_mfes (
+	    float* e1,
+	    float* e2
+	    )
+
+    .. container:: brief-description
+
+        get_monomer_free_energies
+
+    .. container:: detailed-description
+
+        Export monomer free energies out of cofold arrays Deprecated {This function is obsolete and will be removed soon!}
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - e1
+        
+                - A pointer to a variable where the energy of molecule A will be written to
+        
+            *
+                - e2
+        
+                - A pointer to a variable where the energy of molecule B will be written to
+
+.. _doxid-group__mfe__cofold_1gafee0c32208aa2ac97338b6e3fbad7fa5:
+.. _cid-initialize_cofold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void initialize_cofold (int length)
+
+    .. container:: detailed-description
+
+        allocate arrays for folding Deprecated {This function is obsolete and will be removed soon!}
+
+.. _doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee:
+.. _cid-vrna_mfe_dimer:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_mfe_dimer (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute the minimum free energy of two interacting RNA molecules.
+
+    .. container:: detailed-description
+
+        The code is analog to the :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` function.
+        
+        SWIG Wrapper Notes This function is attached as method **mfe_dimer()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - fold compound
+        
+            *
+                - structure
+        
+                - Will hold the barcket dot structure of the dimer molecule
+        
+        
+        
+        .. rubric:: Returns:
+        
+        minimum free energy of the structure
+

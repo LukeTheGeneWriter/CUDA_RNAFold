@@ -1,0 +1,377 @@
+.. index:: pair: group; Data Structures and Preprocessor Macros
+.. _doxid-group__data__structures:
+.. _cid-data_structures:
+
+Data Structures and Preprocessor Macros
+=======================================
+
+.. toctree::
+	:hidden:
+
+	group_dp_matrices.rst
+	group_fold_compound.rst
+	struct_constrain.rst
+	struct_dupVar.rst
+	struct_duplexT.rst
+	struct_interact.rst
+	struct_node.rst
+	struct_pu_contrib.rst
+	struct_pu_out.rst
+	struct_snoopT.rst
+	struct_vrna_basepair_s.rst
+	struct_vrna_bp_stack_s.rst
+	struct_vrna_color_s.rst
+	struct_vrna_cpair_s.rst
+	struct_vrna_data_linear_s.rst
+	struct_vrna_sect_s.rst
+
+
+
+Overview
+--------
+
+All datastructures and typedefs shared among the ViennaRNA Package can be found here. :ref:`More...<details-doxid-group__data__structures>`
+
+|	:ref:`The Dynamic Programming Matrices<doxid-group__dp__matrices>`
+|	:ref:`The Fold Compound<doxid-group__fold__compound>`
+
+
+.. _doxid-group__data__structures_1gaab843d6cdafd5433e3f6fa3b834d12f9:
+.. _cid-vrna_data_lin_t:
+.. _doxid-group__data__structures_1gaed93ddf2ef6b26141a89f9a65b9426b9:
+.. _cid-vrna_color_t:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_basepair_s<doxid-structvrna__basepair__s>` :ref:`vrna_basepair_t<doxid-group__data__structures_1gac8c5669d3fb813cacf506489689305ce>`
+	typedef struct :ref:`vrna_elem_prob_s<doxid-structvrna__elem__prob__s>` :ref:`vrna_plist_t<doxid-group__data__structures_1ga5bd6f0d16685b1249b7c3b73049dd5dc>`
+	typedef struct :ref:`vrna_bp_stack_s<doxid-structvrna__bp__stack__s>` :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`
+	typedef struct :ref:`vrna_cpair_s<doxid-structvrna__cpair__s>` :ref:`vrna_cpair_t<doxid-group__data__structures_1gae4fc91141cc69c6d8eaf1332cb991ecc>`
+	typedef struct :ref:`vrna_sect_s<doxid-structvrna__sect__s>` :ref:`vrna_sect_t<doxid-group__data__structures_1gacc9cdae790dac75a7024e7069c0d4400>`
+	typedef struct :ref:`vrna_data_linear_s<doxid-structvrna__data__linear__s>` vrna_data_lin_t
+	typedef struct :ref:`vrna_color_s<doxid-structvrna__color__s>` vrna_color_t
+	typedef double :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`
+	typedef struct :ref:`vrna_basepair_s<doxid-structvrna__basepair__s>` :ref:`PAIR<doxid-group__data__structures_1ga4381025ffbd692e54189b2c679c79c99>`
+	typedef struct :ref:`vrna_elem_prob_s<doxid-structvrna__elem__prob__s>` :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`
+	typedef struct :ref:`vrna_cpair_s<doxid-structvrna__cpair__s>` :ref:`cpair<doxid-group__data__structures_1ga8412f116a2eb07b59ade9e14ca7c5ef1>`
+	typedef struct :ref:`vrna_sect_s<doxid-structvrna__sect__s>` :ref:`sect<doxid-group__data__structures_1gaaacedee1f05d3d45aa6764eca51a8876>`
+	typedef struct :ref:`vrna_bp_stack_s<doxid-structvrna__bp__stack__s>` :ref:`bondT<doxid-group__data__structures_1gaaeed53a7508c6ce549a98223e94b25df>`
+	typedef struct :ref:`pu_contrib<doxid-structpu__contrib>` :ref:`pu_contrib<doxid-group__data__structures_1ga20881ac02e5932356c09b070efedb560>`
+	typedef struct :ref:`interact<doxid-structinteract>` :ref:`interact<doxid-group__data__structures_1ga5a052dbe39d3ca1b13932934b13f5263>`
+	typedef struct :ref:`pu_out<doxid-structpu__out>` :ref:`pu_out<doxid-group__data__structures_1ga501763bd204b60f40e3ab68b40023023>`
+	typedef struct :ref:`constrain<doxid-structconstrain>` :ref:`constrain<doxid-group__data__structures_1ga212e3afb0cc299acdfb1ec976435686e>`
+	typedef struct :ref:`node<doxid-structnode>` :ref:`folden<doxid-group__data__structures_1gaaf402058651c8218fa72788d591cda05>`
+	typedef struct :ref:`dupVar<doxid-structdup_var>` :ref:`dupVar<doxid-group__data__structures_1gabd3b93f9aaa9f3acce2d148bae97d24e>`
+
+	// structs
+
+	struct :ref:`constrain<doxid-structconstrain>` 
+	struct :ref:`dupVar<doxid-structdup_var>` 
+	struct :ref:`duplexT<doxid-structduplex_t>` 
+	struct :ref:`interact<doxid-structinteract>` 
+	struct :ref:`node<doxid-structnode>` 
+	struct :ref:`pu_contrib<doxid-structpu__contrib>` 
+	struct :ref:`pu_out<doxid-structpu__out>` 
+	struct :ref:`snoopT<doxid-structsnoop_t>` 
+	struct :ref:`vrna_basepair_s<doxid-structvrna__basepair__s>` 
+	struct :ref:`vrna_bp_stack_s<doxid-structvrna__bp__stack__s>` 
+	struct :ref:`vrna_color_s<doxid-structvrna__color__s>` 
+	struct :ref:`vrna_cpair_s<doxid-structvrna__cpair__s>` 
+	struct :ref:`vrna_data_linear_s<doxid-structvrna__data__linear__s>` 
+	struct :ref:`vrna_sect_s<doxid-structvrna__sect__s>` 
+
+	// global functions
+
+	void :ref:`vrna_C11_features<doxid-group__data__structures_1ga21744ae2d6a17309f9327d3547cef0cb>` (void)
+
+.. _details-doxid-group__data__structures:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    All datastructures and typedefs shared among the ViennaRNA Package can be found here.
+
+Typedefs
+--------
+
+.. _doxid-group__data__structures_1gac8c5669d3fb813cacf506489689305ce:
+.. _cid-vrna_basepair_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_basepair_s<doxid-structvrna__basepair__s>` vrna_basepair_t
+
+    .. container:: brief-description
+
+        Typename for the base pair repesenting data structure :ref:`vrna_basepair_s <doxid-structvrna__basepair__s>` .
+
+.. _doxid-group__data__structures_1ga5bd6f0d16685b1249b7c3b73049dd5dc:
+.. _cid-vrna_plist_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_elem_prob_s<doxid-structvrna__elem__prob__s>` vrna_plist_t
+
+    .. container:: brief-description
+
+        Typename for the base pair list repesenting data structure :ref:`vrna_elem_prob_s <doxid-structvrna__elem__prob__s>` .
+
+.. _doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee:
+.. _cid-vrna_bp_stack_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_bp_stack_s<doxid-structvrna__bp__stack__s>` vrna_bp_stack_t
+
+    .. container:: brief-description
+
+        Typename for the base pair stack repesenting data structure :ref:`vrna_bp_stack_s <doxid-structvrna__bp__stack__s>` .
+
+.. _doxid-group__data__structures_1gae4fc91141cc69c6d8eaf1332cb991ecc:
+.. _cid-vrna_cpair_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_cpair_s<doxid-structvrna__cpair__s>` vrna_cpair_t
+
+    .. container:: brief-description
+
+        Typename for data structure :ref:`vrna_cpair_s <doxid-structvrna__cpair__s>` .
+
+.. _doxid-group__data__structures_1gacc9cdae790dac75a7024e7069c0d4400:
+.. _cid-vrna_sect_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_sect_s<doxid-structvrna__sect__s>` vrna_sect_t
+
+    .. container:: brief-description
+
+        Typename for stack of partial structures :ref:`vrna_sect_s <doxid-structvrna__sect__s>` .
+
+.. _doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126:
+.. _cid-flt_or_dbl:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef double FLT_OR_DBL
+
+    .. container:: brief-description
+
+        Typename for floating point number in partition function computations.
+
+.. _doxid-group__data__structures_1ga4381025ffbd692e54189b2c679c79c99:
+.. _cid-pair:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_basepair_s<doxid-structvrna__basepair__s>` PAIR
+
+    .. container:: brief-description
+
+        Old typename of :ref:`vrna_basepair_s <doxid-structvrna__basepair__s>` .
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_basepair_t <doxid-group__data__structures_1gac8c5669d3fb813cacf506489689305ce>` instead!
+
+.. _doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9:
+.. _cid-plist:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_elem_prob_s<doxid-structvrna__elem__prob__s>` plist
+
+    .. container:: brief-description
+
+        Old typename of :ref:`vrna_elem_prob_s <doxid-structvrna__elem__prob__s>` .
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_ep_t <doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>` or :ref:`vrna_elem_prob_s <doxid-structvrna__elem__prob__s>` instead!
+
+.. _doxid-group__data__structures_1ga8412f116a2eb07b59ade9e14ca7c5ef1:
+.. _cid-cpair:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_cpair_s<doxid-structvrna__cpair__s>` cpair
+
+    .. container:: brief-description
+
+        Old typename of :ref:`vrna_cpair_s <doxid-structvrna__cpair__s>` .
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_cpair_t <doxid-group__data__structures_1gae4fc91141cc69c6d8eaf1332cb991ecc>` instead!
+
+.. _doxid-group__data__structures_1gaaacedee1f05d3d45aa6764eca51a8876:
+.. _cid-sect:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_sect_s<doxid-structvrna__sect__s>` sect
+
+    .. container:: brief-description
+
+        Old typename of :ref:`vrna_sect_s <doxid-structvrna__sect__s>` .
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_sect_t <doxid-group__data__structures_1gacc9cdae790dac75a7024e7069c0d4400>` instead!
+
+.. _doxid-group__data__structures_1gaaeed53a7508c6ce549a98223e94b25df:
+.. _cid-bondt:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_bp_stack_s<doxid-structvrna__bp__stack__s>` bondT
+
+    .. container:: brief-description
+
+        Old typename of :ref:`vrna_bp_stack_s <doxid-structvrna__bp__stack__s>` .
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_bp_stack_t <doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>` instead!
+
+.. _doxid-group__data__structures_1ga20881ac02e5932356c09b070efedb560:
+.. _cid-pu_contrib-2:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`pu_contrib<doxid-structpu__contrib>` pu_contrib
+
+    .. container:: brief-description
+
+        contributions to p_u
+
+.. _doxid-group__data__structures_1ga5a052dbe39d3ca1b13932934b13f5263:
+.. _cid-interact-2:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`interact<doxid-structinteract>` interact
+
+    .. container:: brief-description
+
+        interaction data structure for RNAup
+
+.. _doxid-group__data__structures_1ga501763bd204b60f40e3ab68b40023023:
+.. _cid-pu_out-2:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`pu_out<doxid-structpu__out>` pu_out
+
+    .. container:: brief-description
+
+        Collection of all free_energy of beeing unpaired values for output.
+
+.. _doxid-group__data__structures_1ga212e3afb0cc299acdfb1ec976435686e:
+.. _cid-constrain-2:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`constrain<doxid-structconstrain>` constrain
+
+    .. container:: brief-description
+
+        constraints for cofolding
+
+.. _doxid-group__data__structures_1gaaf402058651c8218fa72788d591cda05:
+.. _cid-folden:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`node<doxid-structnode>` folden
+
+    .. container:: brief-description
+
+        Data structure for RNAsnoop (fold energy list)
+
+.. _doxid-group__data__structures_1gabd3b93f9aaa9f3acce2d148bae97d24e:
+.. _cid-dupvar-2:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`dupVar<doxid-structdup_var>` dupVar
+
+    .. container:: brief-description
+
+        Data structure used in RNApkplex.
+
+Global Functions
+----------------
+
+.. _doxid-group__data__structures_1ga21744ae2d6a17309f9327d3547cef0cb:
+.. _cid-vrna_c11_features:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_C11_features (void)
+
+    .. container:: brief-description
+
+        Dummy symbol to check whether the library was build using C11/C++11 features.
+
+    .. container:: detailed-description
+
+        By default, several data structures of our new v3.0 API use C11/C++11 features, such as unnamed unions, unnamed structs. However, these features can be deactivated at compile time to allow building the library and executables with compilers that do not support these features.
+        
+        Now, the problem arises that once our static library is compiled and a third-party application is supposed to link against it, it needs to know, at compile time, how to correctly address particular data structures. This is usually implicitely taken care of through the API exposed in our header files. Unfortunately, we had some preprocessor directives in our header files that changed the API depending on the capabilities of the compiler the third-party application is build with. This in turn prohibited the use of an RNAlib compiled without C11/C++11 support in a program that compiles/links with enabled C11/C++11 support and vice-versa.
+        
+        Therefore, we introduce this dummy symbol which can be used to check, whether the static library was build with C11/C++11 features.
+        
+        v2.2.9
+        
+        
+        
+        .. note::
+        
+            If the symbol is present, the library was build with enabled C11/C++11 features support and no action is required. However, if the symbol is missing in RNAlib >= 2.2.9, programs that link to RNAlib must define a pre-processor identifier *VRNA_DISABLE_C11_FEATURES* before including any ViennaRNA Package header file, for instance by adding a *CPPFLAG*
+        
+        .. ref-code-block:: cpp
+        
+            CPPFLAGS+=-DVRNA_DISABLE_C11_FEATURES
+

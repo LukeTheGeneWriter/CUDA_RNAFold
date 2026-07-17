@@ -1,0 +1,21 @@
+.. index:: pair: group; Ligands binding to RNA structures
+.. _doxid-group__ligand__binding:
+.. _cid-ligand_binding:
+
+Ligands binding to RNA structures
+=================================
+
+.. toctree::
+	:hidden:
+
+	group_constraints_ligand.rst
+
+
+
+.. container:: brief-description
+
+    Simple extensions to model ligand binding to RNA structures.
+
+|	:ref:`Incorporating ligands binding to specific sequence/structure motifs using soft constraints<doxid-group__constraints__ligand>`
+
+

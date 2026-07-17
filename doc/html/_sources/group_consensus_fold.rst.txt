@@ -1,0 +1,313 @@
+.. index:: pair: group; Comparative structure prediction
+.. _doxid-group__consensus__fold:
+.. _cid-consensus_fold:
+
+Comparative structure prediction
+================================
+
+.. toctree::
+	:hidden:
+
+	group_consensus_mfe_fold.rst
+	group_consensus_pf_fold.rst
+	group_consensus_stochbt.rst
+	group_local_consensus_fold.rst
+
+
+
+Overview
+--------
+
+
+
+|	:ref:`MFE Consensus Structures for Sequence Alignment(s)<doxid-group__consensus__mfe__fold>`
+|	:ref:`Partition Function and Base Pair Probabilities for Sequence Alignment(s)<doxid-group__consensus__pf__fold>`
+|	:ref:`Stochastic Backtracking of Consensus Structures from Sequence Alignment(s)<doxid-group__consensus__stochbt>`
+|	:ref:`Local MFE Consensus Structure Prediction for Sequence Alignments<doxid-group__local__consensus__fold>`
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global variables
+
+	double :ref:`cv_fact<doxid-group__consensus__fold_1gaf3cbac6ff5d706d6e414677841ddf94c>`
+	double :ref:`nc_fact<doxid-group__consensus__fold_1ga502948a122a2af5b914355b1f3ea2f61>`
+
+	// global functions
+
+	float :ref:`energy_of_alistruct<doxid-group__consensus__fold_1ga1c48869c03b49a342bf4cbdd61900081>` (
+	    const char** sequences,
+	    const char* structure,
+	    int n_seq,
+	    float* energy
+	    )
+
+	int :ref:`get_alipf_arrays<doxid-group__consensus__fold_1ga5349960075b1847720a2e9df021e2675>` (
+	    short*** S_p,
+	    short*** S5_p,
+	    short*** S3_p,
+	    unsigned short*** a2s_p,
+	    char*** Ss_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qb_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qm_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** q1k_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qln_p,
+	    short** pscore
+	    )
+
+	void :ref:`update_alifold_params<doxid-group__consensus__fold_1gac484c6bd429bafbd353b91044508d8e9>` (void)
+
+	float** :ref:`get_ribosum<doxid-group__consensus__fold_1ga1116aed4b2dab5252cd23946d47d52c3>` (
+	    const char** Alseq,
+	    int n_seq,
+	    int length
+	    )
+
+.. _details-doxid-group__consensus__fold:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Variables
+----------------
+
+.. _doxid-group__consensus__fold_1gaf3cbac6ff5d706d6e414677841ddf94c:
+.. _cid-cv_fact-2:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double cv_fact
+
+    .. container:: brief-description
+
+        This variable controls the weight of the covariance term in the energy function of alignment folding algorithms.
+
+    .. container:: detailed-description
+
+        Deprecated See :ref:`vrna_md_t.cv_fact <doxid-structvrna__md__s_1a62ebefb9d0643e5c4c8a2ec84a105ce6>` , and :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` to avoid using global variables
+        
+        Default is 1.
+
+.. _doxid-group__consensus__fold_1ga502948a122a2af5b914355b1f3ea2f61:
+.. _cid-nc_fact-2:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double nc_fact
+
+    .. container:: brief-description
+
+        This variable controls the magnitude of the penalty for non-compatible sequences in the covariance term of alignment folding algorithms.
+
+    .. container:: detailed-description
+
+        Deprecated See :ref:`vrna_md_t.nc_fact <doxid-structvrna__md__s_1abcf568e6124bfcb2f847ff4eb0dfded6>` , and :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` to avoid using global variables
+        
+        Default is 1.
+
+Global Functions
+----------------
+
+.. _doxid-group__consensus__fold_1ga1c48869c03b49a342bf4cbdd61900081:
+.. _cid-energy_of_alistruct:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float energy_of_alistruct (
+	    const char** sequences,
+	    const char* structure,
+	    int n_seq,
+	    float* energy
+	    )
+
+    .. container:: brief-description
+
+        Calculate the free energy of a consensus structure given a set of aligned sequences.
+
+    .. container:: detailed-description
+
+        Deprecated Usage of this function is discouraged! Use :ref:`vrna_eval_structure() <doxid-group__eval_1ga58f199f1438d794a265f3b27fc8ea631>` , and :ref:`vrna_eval_covar_structure() <doxid-group__eval_1ga6cea75c0eb9857fb59172be54cab09e0>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequences
+        
+                - The NULL terminated array of sequences
+        
+            *
+                - structure
+        
+                - The consensus structure
+        
+            *
+                - n_seq
+        
+                - The number of sequences in the alignment
+        
+            *
+                - energy
+        
+                - A pointer to an array of at least two floats that will hold the free energies (energy[0] will contain the free energy, energy[1] will be filled with the covariance energy term)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        free energy in kcal/mol
+
+.. _doxid-group__consensus__fold_1ga5349960075b1847720a2e9df021e2675:
+.. _cid-get_alipf_arrays:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int get_alipf_arrays (
+	    short*** S_p,
+	    short*** S5_p,
+	    short*** S3_p,
+	    unsigned short*** a2s_p,
+	    char*** Ss_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qb_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qm_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** q1k_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qln_p,
+	    short** pscore
+	    )
+
+    .. container:: brief-description
+
+        Get pointers to (almost) all relavant arrays used in alifold's partition function computation.
+
+    .. container:: detailed-description
+
+        Deprecated It is discouraged to use this function! The new :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` allows direct access to all necessary consensus structure prediction related variables!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - S_p
+        
+                - A pointer to the 'S' array (integer representation of nucleotides)
+        
+            *
+                - S5_p
+        
+                - A pointer to the 'S5' array
+        
+            *
+                - S3_p
+        
+                - A pointer to the 'S3' array
+        
+            *
+                - a2s_p
+        
+                - A pointer to the alignment-column to sequence position mapping array
+        
+            *
+                - Ss_p
+        
+                - A pointer to the 'Ss' array
+        
+            *
+                - qb_p
+        
+                - A pointer to the Q B matrix
+        
+            *
+                - qm_p
+        
+                - A pointer to the Q M matrix
+        
+            *
+                - q1k_p
+        
+                - A pointer to the 5' slice of the Q matrix ( :math:`q1k(k) = Q(1, k)` )
+        
+            *
+                - qln_p
+        
+                - A pointer to the 3' slice of the Q matrix ( :math:`qln(l) = Q(l, n)` )
+        
+            *
+                - pscore
+        
+                - A pointer to the start of a pscore list
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Non Zero if everything went fine, 0 otherwise
+        
+        
+        
+        .. note::
+        
+            To obtain meaningful pointers, call alipf_fold first!
+        
+        
+        
+        .. admonition:: See also:
+        
+            pf_alifold(), :ref:`alipf_circ_fold() <doxid-group__consensus__pf__fold_1ga604a42ad64178279551ad3e4def3d603>`
+        
+            :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>`
+
+.. _doxid-group__consensus__fold_1gac484c6bd429bafbd353b91044508d8e9:
+.. _cid-update_alifold_params:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void update_alifold_params (void)
+
+    .. container:: brief-description
+
+        Update the energy parameters for alifold function.
+
+    .. container:: detailed-description
+
+        Call this to recalculate the pair matrix and energy parameters after a change in folding parameters like :ref:`temperature <doxid-group__model__details_1gab4b11c8d9c758430960896bc3fe82ead>`
+        
+        Deprecated Usage of this function is discouraged! The new API uses :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` to lump all folding related necessities together, including the energy parameters. Use vrna_update_fold_params() to update the energy parameters within a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+.. _doxid-group__consensus__fold_1ga1116aed4b2dab5252cd23946d47d52c3:
+.. _cid-get_ribosum:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float** get_ribosum (
+	    const char** Alseq,
+	    int n_seq,
+	    int length
+	    )
+
+    .. container:: brief-description
+
+        Retrieve a RiboSum Scoring Matrix for a given Alignment.
+

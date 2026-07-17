@@ -1,0 +1,21 @@
+.. index:: pair: group; Extending the folding grammar with additional domains
+.. _doxid-group__domains:
+.. _cid-domains:
+
+Extending the folding grammar with additional domains
+=====================================================
+
+.. toctree::
+	:hidden:
+
+	group_domains_up.rst
+
+
+
+.. container:: brief-description
+
+    This module covers simple and straight-forward extensions to the RNA folding grammar.
+
+|	:ref:`Unstructured domains<doxid-group__domains__up>`
+
+

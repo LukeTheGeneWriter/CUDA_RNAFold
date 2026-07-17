@@ -1,0 +1,888 @@
+.. index:: pair: group; Utilities for sequence alignments
+.. _doxid-group__aln__utils:
+.. _cid-aln_utils:
+
+Utilities for sequence alignments
+=================================
+
+.. toctree::
+	:hidden:
+
+	struct_vrna_pinfo_s.rst
+
+
+
+Overview
+--------
+
+
+
+.. _doxid-group__aln__utils_1ga36343f89b733b21697c981652248abca:
+.. _cid-vrna_aln_pscore:
+.. _doxid-group__aln__utils_1ga1cc88b4df842ca73b4ac0cb5e71c696a:
+.. _cid-read_clustal:
+.. _doxid-group__aln__utils_1ga8e8b805faaf6dee2feb4cbc38ba48e71:
+.. _cid-consensus:
+.. _doxid-group__aln__utils_1gab8c6d748a1b44e516759233879dadcc7:
+.. _cid-consens_mis:
+.. _doxid-group__aln__utils_1ga4a17a26c6cfc1ad5bf4c3d035292a275:
+.. _cid-get_ungapped_sequence:
+.. _doxid-group__aln__utils_1ga7437bcbc3142b266f1f3b086eb669092:
+.. _cid-vrna_aln_default:
+.. _doxid-group__aln__utils_1ga36affc310a5adedf1bdbf9669dd4bf85:
+.. _cid-vrna_aln_dna:
+.. _doxid-group__aln__utils_1ga27eb303be3c8368c9e8be76a4d6ca35e:
+.. _cid-vrna_aln_lowercase:
+.. _doxid-group__aln__utils_1ga1a2aa60bcc51dc8e48c07bf146bd28c1:
+.. _cid-vrna_aln_rna:
+.. _doxid-group__aln__utils_1ga0de72fc917d72acafe862750a3a5e0bc:
+.. _cid-vrna_aln_uppercase:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_pinfo_s<doxid-structvrna__pinfo__s>` :ref:`vrna_pinfo_t<doxid-group__aln__utils_1ga6660dfca23debee7306e0cd53341263f>`
+	typedef struct :ref:`vrna_pinfo_s<doxid-structvrna__pinfo__s>` :ref:`pair_info<doxid-group__aln__utils_1ga7b61662a793ad0aa1ea38efc3a5baacc>`
+
+	// structs
+
+	struct :ref:`vrna_pinfo_s<doxid-structvrna__pinfo__s>` 
+
+	// global functions
+
+	int :ref:`vrna_aln_mpi<doxid-group__aln__utils_1gade5a1f2d16e7fd9a57b37d8514f08e8e>` (const char** alignment)
+
+	:ref:`vrna_pinfo_t<doxid-group__aln__utils_1ga6660dfca23debee7306e0cd53341263f>`* :ref:`vrna_aln_pinfo<doxid-group__aln__utils_1gaf6421a1318586c59fea6a127ed9f65f3>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* structure,
+	    double threshold
+	    )
+
+	int* vrna_aln_pscore (
+	    const char** alignment,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	char** :ref:`vrna_aln_slice<doxid-group__aln__utils_1gac801b0a72eac4ab9d5b2ef7533db9193>` (
+	    const char** alignment,
+	    unsigned int i,
+	    unsigned int j
+	    )
+
+	void :ref:`vrna_aln_free<doxid-group__aln__utils_1gac00dc80b8a324f151f92f11ab6850ecf>` (char** alignment)
+	char** :ref:`vrna_aln_uppercase<doxid-group__aln__utils_1ga3a0476a71c4bae3d302790de58055704>` (const char** alignment)
+	char** :ref:`vrna_aln_toRNA<doxid-group__aln__utils_1ga7886fc678553c06472a712a335cde9cf>` (const char** alignment)
+
+	char** :ref:`vrna_aln_copy<doxid-group__aln__utils_1ga08cdca592461436860daf9738279ce17>` (
+	    const char** alignment,
+	    unsigned int options
+	    )
+
+	float* :ref:`vrna_aln_conservation_struct<doxid-group__aln__utils_1gab6f16a2ea93f3bfd4d089cc8d448bb16>` (
+	    const char** alignment,
+	    const char* structure,
+	    const :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	float* :ref:`vrna_aln_conservation_col<doxid-group__aln__utils_1gaa12b481a7e7b965ef2eb1bcc4399e759>` (
+	    const char** alignment,
+	    const :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p,
+	    unsigned int options
+	    )
+
+	int read_clustal (
+	    FILE* clust,
+	    char* AlignedSeqs [],
+	    char* names []
+	    )
+
+	char* consensus (const char* AS [])
+	char* consens_mis (const char* AS [])
+	char* get_ungapped_sequence (const char* seq)
+
+	int :ref:`get_mpi<doxid-group__aln__utils_1gaa2d600be90844094ec145ea14a314d2f>` (
+	    char* Alseq [],
+	    int n_seq,
+	    int length,
+	    int* mini
+	    )
+
+	void :ref:`encode_ali_sequence<doxid-group__aln__utils_1gaa3e40277c837d6f7603afe319884c786>` (
+	    const char* sequence,
+	    short* S,
+	    short* s5,
+	    short* s3,
+	    char* ss,
+	    unsigned short* as,
+	    int circ
+	    )
+
+	void :ref:`alloc_sequence_arrays<doxid-group__aln__utils_1ga8a560930f7f2582cc3967723a86cfdfa>` (
+	    const char** sequences,
+	    short*** S,
+	    short*** S5,
+	    short*** S3,
+	    unsigned short*** a2s,
+	    char*** Ss,
+	    int circ
+	    )
+
+	void :ref:`free_sequence_arrays<doxid-group__aln__utils_1ga298a420a8c879202e2617b3f724fde38>` (
+	    unsigned int n_seq,
+	    short*** S,
+	    short*** S5,
+	    short*** S3,
+	    unsigned short*** a2s,
+	    char*** Ss
+	    )
+
+	// macros
+
+	#define VRNA_ALN_DEFAULT
+	#define VRNA_ALN_DNA
+	#define VRNA_ALN_LOWERCASE
+	#define VRNA_ALN_RNA
+	#define VRNA_ALN_UPPERCASE
+	#define :ref:`VRNA_MEASURE_SHANNON_ENTROPY<doxid-group__aln__utils_1ga1e659227c9fc077d29989f576f129000>`
+
+.. _details-doxid-group__aln__utils:
+
+Detailed Documentation
+----------------------
+
+
+
+Typedefs
+--------
+
+.. _doxid-group__aln__utils_1ga6660dfca23debee7306e0cd53341263f:
+.. _cid-vrna_pinfo_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_pinfo_s<doxid-structvrna__pinfo__s>` vrna_pinfo_t
+
+    .. container:: brief-description
+
+        Typename for the base pair info repesenting data structure :ref:`vrna_pinfo_s <doxid-structvrna__pinfo__s>` .
+
+.. _doxid-group__aln__utils_1ga7b61662a793ad0aa1ea38efc3a5baacc:
+.. _cid-pair_info:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_pinfo_s<doxid-structvrna__pinfo__s>` pair_info
+
+    .. container:: brief-description
+
+        Old typename of :ref:`vrna_pinfo_s <doxid-structvrna__pinfo__s>` .
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_pinfo_t <doxid-group__aln__utils_1ga6660dfca23debee7306e0cd53341263f>` instead!
+
+Global Functions
+----------------
+
+.. _doxid-group__aln__utils_1gade5a1f2d16e7fd9a57b37d8514f08e8e:
+.. _cid-vrna_aln_mpi:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_aln_mpi (const char** alignment)
+
+    .. container:: brief-description
+
+        Get the mean pairwise identity in steps from ?to?(ident)
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - alignment
+        
+                - Aligned sequences
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The mean pairwise identity
+
+.. _doxid-group__aln__utils_1gaf6421a1318586c59fea6a127ed9f65f3:
+.. _cid-vrna_aln_pinfo:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_pinfo_t<doxid-group__aln__utils_1ga6660dfca23debee7306e0cd53341263f>`* vrna_aln_pinfo (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* structure,
+	    double threshold
+	    )
+
+    .. container:: brief-description
+
+        Retrieve an array of :ref:`vrna_pinfo_t <doxid-group__aln__utils_1ga6660dfca23debee7306e0cd53341263f>` structures from precomputed pair probabilities.
+
+    .. container:: detailed-description
+
+        This array of structures contains information about positionwise pair probabilies, base pair entropy and more
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` of type :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>` with precomputed partition function matrices
+        
+            *
+                - structure
+        
+                - An optional structure in dot-bracket notation (Maybe NULL)
+        
+            *
+                - threshold
+        
+                - Do not include results with pair probabilities below threshold
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The :ref:`vrna_pinfo_t <doxid-group__aln__utils_1ga6660dfca23debee7306e0cd53341263f>` array
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_pinfo_t <doxid-group__aln__utils_1ga6660dfca23debee7306e0cd53341263f>` , and :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>`
+
+.. _doxid-group__aln__utils_1gac801b0a72eac4ab9d5b2ef7533db9193:
+.. _cid-vrna_aln_slice:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char** vrna_aln_slice (
+	    const char** alignment,
+	    unsigned int i,
+	    unsigned int j
+	    )
+
+    .. container:: brief-description
+
+        Slice out a subalignment from a larger alignment.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - alignment
+        
+                - The input alignment
+        
+            *
+                - i
+        
+                - The first column of the subalignment (1-based)
+        
+            *
+                - j
+        
+                - The last column of the subalignment (1-based)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The subalignment between column :math:`i` and :math:`j`
+        
+        
+        
+        .. note::
+        
+            The user is responsible to free the memory occupied by the returned subalignment
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_aln_free() <doxid-group__aln__utils_1gac00dc80b8a324f151f92f11ab6850ecf>`
+
+.. _doxid-group__aln__utils_1gac00dc80b8a324f151f92f11ab6850ecf:
+.. _cid-vrna_aln_free:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_aln_free (char** alignment)
+
+    .. container:: brief-description
+
+        Free memory occupied by a set of aligned sequences.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - alignment
+        
+                - The input alignment
+
+.. _doxid-group__aln__utils_1ga3a0476a71c4bae3d302790de58055704:
+.. _cid-vrna_aln_uppercase-2:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char** vrna_aln_uppercase (const char** alignment)
+
+    .. container:: brief-description
+
+        Create a copy of an alignment with only uppercase letters in the sequences.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - alignment
+        
+                - The input sequence alignment (last entry must be *NULL* terminated)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A copy of the input alignment where lowercase sequence letters are replaced by uppercase letters
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_aln_copy <doxid-group__aln__utils_1ga08cdca592461436860daf9738279ce17>`
+
+.. _doxid-group__aln__utils_1ga7886fc678553c06472a712a335cde9cf:
+.. _cid-vrna_aln_torna:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char** vrna_aln_toRNA (const char** alignment)
+
+    .. container:: brief-description
+
+        Create a copy of an alignment where DNA alphabet is replaced by RNA alphabet.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - alignment
+        
+                - The input sequence alignment (last entry must be *NULL* terminated)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A copy of the input alignment where DNA alphabet is replaced by RNA alphabet (T -> U)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_aln_copy <doxid-group__aln__utils_1ga08cdca592461436860daf9738279ce17>`
+
+.. _doxid-group__aln__utils_1ga08cdca592461436860daf9738279ce17:
+.. _cid-vrna_aln_copy:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char** vrna_aln_copy (
+	    const char** alignment,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Make a copy of a multiple sequence alignment.
+
+    .. container:: detailed-description
+
+        This function allows one to create a copy of a multiple sequence alignment. The ``options`` parameter additionally allows for sequence manipulation, such as converting DNA to RNA alphabet, and conversion to uppercase letters.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - alignment
+        
+                - The input sequence alignment (last entry must be *NULL* terminated)
+        
+            *
+                - options
+        
+                - Option flags indicating whether the aligned sequences should be converted
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A (manipulated) copy of the input alignment
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_aln_copy() <doxid-group__aln__utils_1ga08cdca592461436860daf9738279ce17>` , :ref:`VRNA_ALN_RNA <doxid-group__aln__utils_1ga1a2aa60bcc51dc8e48c07bf146bd28c1>` , :ref:`VRNA_ALN_UPPERCASE <doxid-group__aln__utils_1ga0de72fc917d72acafe862750a3a5e0bc>` , :ref:`VRNA_ALN_DEFAULT <doxid-group__aln__utils_1ga7437bcbc3142b266f1f3b086eb669092>`
+
+.. _doxid-group__aln__utils_1gab6f16a2ea93f3bfd4d089cc8d448bb16:
+.. _cid-vrna_aln_conservation_struct:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float* vrna_aln_conservation_struct (
+	    const char** alignment,
+	    const char* structure,
+	    const :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+    .. container:: brief-description
+
+        Compute base pair conservation of a consensus structure.
+
+    .. container:: detailed-description
+
+        This function computes the base pair conservation (fraction of canonical base pairs) of a consensus structure given a multiple sequence alignment. The base pair types that are considered canonical may be specified using the #vrna_md_t.pairs array. Passing *NULL* as parameter ``md`` results in default pairing rules, i.e. canonical Watson-Crick and GU Wobble pairs.
+        
+        SWIG Wrapper Notes This function is available in an overloaded form where the last parameter may be omitted, indicating ``md`` = *NULL*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - alignment
+        
+                - The input sequence alignment (last entry must be *NULL* terminated)
+        
+            *
+                - structure
+        
+                - The consensus structure in dot-bracket notation
+        
+            *
+                - md
+        
+                - Model details that specify compatible base pairs (Maybe *NULL* )
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A 1-based vector of base pair conservations
+
+.. _doxid-group__aln__utils_1gaa12b481a7e7b965ef2eb1bcc4399e759:
+.. _cid-vrna_aln_conservation_col:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float* vrna_aln_conservation_col (
+	    const char** alignment,
+	    const :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Compute nucleotide conservation in an alignment.
+
+    .. container:: detailed-description
+
+        This function computes the conservation of nucleotides in alignment columns. The simples measure is Shannon Entropy and can be selected by passing the :ref:`VRNA_MEASURE_SHANNON_ENTROPY <doxid-group__aln__utils_1ga1e659227c9fc077d29989f576f129000>` flag in the ``options`` parameter.
+        
+        SWIG Wrapper Notes This function is available in an overloaded form where the last two parameters may be omitted, indicating ``md`` = *NULL* , and ``options`` = :ref:`VRNA_MEASURE_SHANNON_ENTROPY <doxid-group__aln__utils_1ga1e659227c9fc077d29989f576f129000>` , respectively.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - alignment
+        
+                - The input sequence alignment (last entry must be *NULL* terminated)
+        
+            *
+                - md
+        
+                - Model details that specify known nucleotides (Maybe *NULL* )
+        
+            *
+                - options
+        
+                - A flag indicating which measure of conservation should be applied
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A 1-based vector of column conservations
+        
+        
+        
+        .. note::
+        
+            Currently, only :ref:`VRNA_MEASURE_SHANNON_ENTROPY <doxid-group__aln__utils_1ga1e659227c9fc077d29989f576f129000>` is supported as conservation measure.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`VRNA_MEASURE_SHANNON_ENTROPY <doxid-group__aln__utils_1ga1e659227c9fc077d29989f576f129000>`
+
+.. _doxid-group__aln__utils_1gaa2d600be90844094ec145ea14a314d2f:
+.. _cid-get_mpi:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int get_mpi (
+	    char* Alseq [],
+	    int n_seq,
+	    int length,
+	    int* mini
+	    )
+
+    .. container:: brief-description
+
+        Get the mean pairwise identity in steps from ?to?(ident)
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_aln_mpi() <doxid-group__aln__utils_1gade5a1f2d16e7fd9a57b37d8514f08e8e>` as a replacement
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - Alseq
+        
+                - 
+        
+            *
+                - n_seq
+        
+                - The number of sequences in the alignment
+        
+            *
+                - length
+        
+                - The length of the alignment
+        
+            *
+                - mini
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The mean pairwise identity
+
+.. _doxid-group__aln__utils_1gaa3e40277c837d6f7603afe319884c786:
+.. _cid-encode_ali_sequence:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void encode_ali_sequence (
+	    const char* sequence,
+	    short* S,
+	    short* s5,
+	    short* s3,
+	    char* ss,
+	    unsigned short* as,
+	    int circ
+	    )
+
+    .. container:: brief-description
+
+        Get arrays with encoded sequence of the alignment.
+
+    .. container:: detailed-description
+
+        this function assumes that in S, S5, s3, ss and as enough space is already allocated (size must be at least sequence length+2)
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The gapped sequence from the alignment
+        
+            *
+                - S
+        
+                - pointer to an array that holds encoded sequence
+        
+            *
+                - s5
+        
+                - pointer to an array that holds the next base 5' of alignment position i
+        
+            *
+                - s3
+        
+                - pointer to an array that holds the next base 3' of alignment position i
+        
+            *
+                - ss
+        
+                - 
+        
+            *
+                - as
+        
+                - 
+        
+            *
+                - circ
+        
+                - assume the molecules to be circular instead of linear (circ=0)
+
+.. _doxid-group__aln__utils_1ga8a560930f7f2582cc3967723a86cfdfa:
+.. _cid-alloc_sequence_arrays:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void alloc_sequence_arrays (
+	    const char** sequences,
+	    short*** S,
+	    short*** S5,
+	    short*** S3,
+	    unsigned short*** a2s,
+	    char*** Ss,
+	    int circ
+	    )
+
+    .. container:: brief-description
+
+        Allocate memory for sequence array used to deal with aligned sequences.
+
+    .. container:: detailed-description
+
+        Note that these arrays will also be initialized according to the sequence alignment given
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequences
+        
+                - The aligned sequences
+        
+            *
+                - S
+        
+                - A pointer to the array of encoded sequences
+        
+            *
+                - S5
+        
+                - A pointer to the array that contains the next 5' nucleotide of a sequence position
+        
+            *
+                - S3
+        
+                - A pointer to the array that contains the next 3' nucleotide of a sequence position
+        
+            *
+                - a2s
+        
+                - A pointer to the array that contains the alignment to sequence position mapping
+        
+            *
+                - Ss
+        
+                - A pointer to the array that contains the ungapped sequence
+        
+            *
+                - circ
+        
+                - assume the molecules to be circular instead of linear (circ=0)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`free_sequence_arrays() <doxid-group__aln__utils_1ga298a420a8c879202e2617b3f724fde38>`
+
+.. _doxid-group__aln__utils_1ga298a420a8c879202e2617b3f724fde38:
+.. _cid-free_sequence_arrays:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void free_sequence_arrays (
+	    unsigned int n_seq,
+	    short*** S,
+	    short*** S5,
+	    short*** S3,
+	    unsigned short*** a2s,
+	    char*** Ss
+	    )
+
+    .. container:: brief-description
+
+        Free the memory of the sequence arrays used to deal with aligned sequences.
+
+    .. container:: detailed-description
+
+        This function frees the memory previously allocated with :ref:`alloc_sequence_arrays() <doxid-group__aln__utils_1ga8a560930f7f2582cc3967723a86cfdfa>`
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - n_seq
+        
+                - The number of aligned sequences
+        
+            *
+                - S
+        
+                - A pointer to the array of encoded sequences
+        
+            *
+                - S5
+        
+                - A pointer to the array that contains the next 5' nucleotide of a sequence position
+        
+            *
+                - S3
+        
+                - A pointer to the array that contains the next 3' nucleotide of a sequence position
+        
+            *
+                - a2s
+        
+                - A pointer to the array that contains the alignment to sequence position mapping
+        
+            *
+                - Ss
+        
+                - A pointer to the array that contains the ungapped sequence
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`alloc_sequence_arrays() <doxid-group__aln__utils_1ga8a560930f7f2582cc3967723a86cfdfa>`
+
+Macros
+------
+
+.. _doxid-group__aln__utils_1ga1e659227c9fc077d29989f576f129000:
+.. _cid-vrna_measure_shannon_entropy:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MEASURE_SHANNON_ENTROPY
+
+    .. container:: brief-description
+
+        Flag indicating Shannon Entropy measure.
+
+    .. container:: detailed-description
+
+        Shannon Entropy is defined as :math:` H = - \sum_c p_c \cdot \log_2 p_c `
+

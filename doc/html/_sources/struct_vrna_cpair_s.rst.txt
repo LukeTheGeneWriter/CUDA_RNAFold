@@ -1,0 +1,44 @@
+.. index:: pair: struct; vrna_cpair_s
+.. _doxid-structvrna__cpair__s:
+.. _cid-vrna_cpair_s:
+
+struct vrna_cpair_s
+===================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+.. container:: brief-description
+
+    this datastructure is used as input parameter in functions of PS_dot.c
+
+.. _doxid-structvrna__cpair__s_1a2c3a7560376e8cf5caf5d978b59ecbc5:
+.. _cid-vrna_cpair_s::i:
+.. _doxid-structvrna__cpair__s_1a7dcb24ba978ed288002693416c920028:
+.. _cid-vrna_cpair_s::j:
+.. _doxid-structvrna__cpair__s_1a860b83ecd770e2e400e03c8042ab6dc4:
+.. _cid-vrna_cpair_s::mfe:
+.. _doxid-structvrna__cpair__s_1a315d7de8b08fb6b9d9c0cd749fb289fb:
+.. _cid-vrna_cpair_s::p:
+.. _doxid-structvrna__cpair__s_1af896ef199b072dd236fa053add3b5b7d:
+.. _cid-vrna_cpair_s::hue:
+.. _doxid-structvrna__cpair__s_1ab4aa029d10b7583c02f893ee22297f6f:
+.. _cid-vrna_cpair_s::sat:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int i
+	int j
+	int mfe
+	float p
+	float hue
+	float sat
+

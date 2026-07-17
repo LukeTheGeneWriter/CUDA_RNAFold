@@ -1,0 +1,946 @@
+.. index:: pair: group; Energy parameters
+.. _doxid-group__energy__parameters:
+.. _cid-energy_parameters:
+
+Energy parameters
+=================
+
+.. toctree::
+	:hidden:
+
+	group_energy_parameters_rw.rst
+	struct_vrna_exp_param_s.rst
+	struct_vrna_param_s.rst
+
+
+
+Overview
+--------
+
+All relevant functions to retrieve and copy pre-calculated energy parameter sets as well as reading/writing the energy parameter set from/to file(s). :ref:`More...<details-doxid-group__energy__parameters>`
+
+|	:ref:`Reading/Writing Energy Parameter Sets from/to File<doxid-group__energy__parameters__rw>`
+|		:ref:`Converting Energy Parameter Files<doxid-group__energy__parameters__convert>`
+
+
+.. _doxid-group__energy__parameters_1ga881878603a5668e49316d0cd1a10580a:
+.. _cid-vrna_params_prepare:
+.. _doxid-group__energy__parameters_1ga1c252a1ef78410efcdcc1998f3c415cb:
+.. _cid-get_parameter_copy:
+.. _doxid-group__energy__parameters_1gac2f6521f9db04ede2f23fc56cc9fa7e5:
+.. _cid-copy_parameters:
+.. _doxid-group__energy__parameters_1gac5889dd7be0201c76ebdd1c501cdff54:
+.. _cid-set_parameters:
+.. _doxid-group__energy__parameters_1ga32414ddbb3ff0aa35d18ad8e002aad5a:
+.. _cid-scale_pf_parameters:
+.. _doxid-group__energy__parameters_1ga00bcbd1e68465def3dabc12c213372cb:
+.. _cid-copy_pf_param:
+.. _doxid-group__energy__parameters_1ga106a2beb5026a25bfa90fd59b8b1d5b7:
+.. _cid-set_pf_param:
+.. _doxid-group__energy__parameters_1ga56cafabad2f8a7db83f2d5d3b0e8d313:
+.. _cid-vrna_gquad_max_box_size:
+.. _doxid-group__energy__parameters_1gaabc251a60f6dbe927dd3a3881a161fb7:
+.. _cid-vrna_gquad_max_linker_length:
+.. _doxid-group__energy__parameters_1gab7b5159125a90babbd3b81319305f35f:
+.. _cid-vrna_gquad_max_stack_size:
+.. _doxid-group__energy__parameters_1gad7bdd880afca461f97763d79ee57a347:
+.. _cid-vrna_gquad_min_box_size:
+.. _doxid-group__energy__parameters_1gab0e3cb58bc3a7e3fb08cc05f8e58ddab:
+.. _cid-vrna_gquad_min_linker_length:
+.. _doxid-group__energy__parameters_1gae24794ad38d2bf86d4c1e2f24cf35230:
+.. _cid-vrna_gquad_min_stack_size:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_param_s<doxid-structvrna__param__s>` :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`
+	typedef struct :ref:`vrna_exp_param_s<doxid-structvrna__exp__param__s>` :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`
+	typedef struct :ref:`vrna_param_s<doxid-structvrna__param__s>` :ref:`paramT<doxid-group__energy__parameters_1ga857dde86357d306cc902f0d8b2797659>`
+	typedef struct :ref:`vrna_exp_param_s<doxid-structvrna__exp__param__s>` :ref:`pf_paramT<doxid-group__energy__parameters_1ga8bffe1828e2cbec101769f5cc0b1535b>`
+
+	// structs
+
+	struct :ref:`vrna_exp_param_s<doxid-structvrna__exp__param__s>` 
+	struct :ref:`vrna_param_s<doxid-structvrna__param__s>` 
+
+	// global functions
+
+	:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* :ref:`vrna_params<doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e>` (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+	:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* :ref:`vrna_params_copy<doxid-group__energy__parameters_1ga4bffa39f26e7746148444dd8a8426eca>` (:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* par)
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* :ref:`vrna_exp_params<doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>` (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* :ref:`vrna_exp_params_comparative<doxid-group__energy__parameters_1gaf78c09e685e6eef4100b1a41d4042550>` (
+	    unsigned int n_seq,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* :ref:`vrna_exp_params_copy<doxid-group__energy__parameters_1ga70bc46be7cfa5434a71efe241c4f0609>` (:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* par)
+
+	void :ref:`vrna_params_subst<doxid-group__energy__parameters_1ga5d1909208f7ea3baa98b75afaa1f62ca>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* par
+	    )
+
+	void :ref:`vrna_exp_params_subst<doxid-group__energy__parameters_1ga8e7ac4fab3b0cc03afbc134eaafb3525>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* params
+	    )
+
+	void :ref:`vrna_exp_params_rescale<doxid-group__energy__parameters_1gad607bc3a5b5da16400e2ca4ea5560233>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double* mfe
+	    )
+
+	void :ref:`vrna_params_reset<doxid-group__energy__parameters_1gac40dc82e48a72a97cfc58b9da08a7792>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p
+	    )
+
+	void :ref:`vrna_exp_params_reset<doxid-group__energy__parameters_1gaa5409218068be84d7b50c78fbdaa85a9>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p
+	    )
+
+	void vrna_params_prepare (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    unsigned int options
+	    )
+
+	:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* get_parameter_copy (:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* par)
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* :ref:`get_scaled_pf_parameters<doxid-group__energy__parameters_1gabf3b9271c41dd3fac02d56e0b02b3344>` (void)
+
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* :ref:`get_boltzmann_factors<doxid-group__energy__parameters_1gaef2b931c7e9d4ffb0a5c33df50ec2068>` (
+	    double temperature,
+	    double betaScale,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` md,
+	    double pf_scale
+	    )
+
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* :ref:`get_boltzmann_factor_copy<doxid-group__energy__parameters_1ga665a446ba8ff211e551297a8fa36ec27>` (:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* parameters)
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* :ref:`get_scaled_alipf_parameters<doxid-group__energy__parameters_1ga0ccf4e1be085a573533fd6b9da2d8cf9>` (unsigned int n_seq)
+
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* :ref:`get_boltzmann_factors_ali<doxid-group__energy__parameters_1ga2aa1d87c97f35d2e4121634a17556829>` (
+	    unsigned int n_seq,
+	    double temperature,
+	    double betaScale,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` md,
+	    double pf_scale
+	    )
+
+	:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* :ref:`scale_parameters<doxid-group__energy__parameters_1ga541f2cf7436e9bc939b0a49b24baf987>` (void)
+
+	:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* :ref:`get_scaled_parameters<doxid-group__energy__parameters_1ga7fa6a000d7c16feab939f2c4ee626197>` (
+	    double temperature,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` md
+	    )
+
+	:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* copy_parameters (void)
+	:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* set_parameters (:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* dest)
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* scale_pf_parameters (void)
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* copy_pf_param (void)
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* set_pf_param (:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* dest)
+
+	// macros
+
+	#define VRNA_GQUAD_MAX_BOX_SIZE
+	#define VRNA_GQUAD_MAX_LINKER_LENGTH
+	#define VRNA_GQUAD_MAX_STACK_SIZE
+	#define VRNA_GQUAD_MIN_BOX_SIZE
+	#define VRNA_GQUAD_MIN_LINKER_LENGTH
+	#define VRNA_GQUAD_MIN_STACK_SIZE
+
+.. _details-doxid-group__energy__parameters:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    All relevant functions to retrieve and copy pre-calculated energy parameter sets as well as reading/writing the energy parameter set from/to file(s).
+
+.. container:: detailed-description
+
+    This module covers all relevant functions for pre-calculation of the energy parameters necessary for the folding routines provided by RNAlib. Furthermore, the energy parameter set in the RNAlib can be easily exchanged by a user-defined one. It is also possible to write the current energy parameter set into a text file.
+
+Typedefs
+--------
+
+.. _doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35:
+.. _cid-vrna_param_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_param_s<doxid-structvrna__param__s>` vrna_param_t
+
+    .. container:: brief-description
+
+        Typename for the free energy parameter data structure :ref:`vrna_params <doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e>` .
+
+.. _doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8:
+.. _cid-vrna_exp_param_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_exp_param_s<doxid-structvrna__exp__param__s>` vrna_exp_param_t
+
+    .. container:: brief-description
+
+        Typename for the Boltzmann factor data structure :ref:`vrna_exp_params <doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>` .
+
+.. _doxid-group__energy__parameters_1ga857dde86357d306cc902f0d8b2797659:
+.. _cid-paramt:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_param_s<doxid-structvrna__param__s>` paramT
+
+    .. container:: brief-description
+
+        Old typename of :ref:`vrna_param_s <doxid-structvrna__param__s>` .
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_param_t <doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>` instead!
+
+.. _doxid-group__energy__parameters_1ga8bffe1828e2cbec101769f5cc0b1535b:
+.. _cid-pf_paramt:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_exp_param_s<doxid-structvrna__exp__param__s>` pf_paramT
+
+    .. container:: brief-description
+
+        Old typename of :ref:`vrna_exp_param_s <doxid-structvrna__exp__param__s>` .
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_exp_param_t <doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>` instead!
+
+Global Functions
+----------------
+
+.. _doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e:
+.. _cid-vrna_params:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* vrna_params (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+
+    .. container:: brief-description
+
+        Get a data structure containing prescaled free energy parameters.
+
+    .. container:: detailed-description
+
+        If a NULL pointer is passed for the model details parameter, the default model parameters are stored within the requested :ref:`vrna_param_t <doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>` structure.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - md
+        
+                - A pointer to the model details to store inside the structure (Maybe NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the memory location where the requested parameters are stored
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_exp_params() <doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>`
+
+.. _doxid-group__energy__parameters_1ga4bffa39f26e7746148444dd8a8426eca:
+.. _cid-vrna_params_copy:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* vrna_params_copy (:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* par)
+
+    .. container:: brief-description
+
+        Get a copy of the provided free energy parameters.
+
+    .. container:: detailed-description
+
+        If NULL is passed as parameter, a default set of energy parameters is created and returned.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - par
+        
+                - The free energy parameters that are to be copied (Maybe NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A copy or a default set of the (provided) parameters
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_params() <doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e>` , :ref:`vrna_param_t <doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`
+
+.. _doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa:
+.. _cid-vrna_exp_params:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* vrna_exp_params (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+
+    .. container:: brief-description
+
+        Get a data structure containing prescaled free energy parameters already transformed to Boltzmann factors.
+
+    .. container:: detailed-description
+
+        This function returns a data structure that contains all necessary precomputed energy contributions for each type of loop.
+        
+        In contrast to :ref:`vrna_params() <doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e>` , the free energies within this data structure are stored as their Boltzmann factors, i.e.
+        
+        :math:` exp(-E / kT) `
+        
+        where :math:` E ` is the free energy.
+        
+        If a NULL pointer is passed for the model details parameter, the default model parameters are stored within the requested :ref:`vrna_exp_param_t <doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>` structure.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - md
+        
+                - A pointer to the model details to store inside the structure (Maybe NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the memory location where the requested parameters are stored
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_params() <doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e>` , vrna_rescale_pf_params()
+
+.. _doxid-group__energy__parameters_1gaf78c09e685e6eef4100b1a41d4042550:
+.. _cid-vrna_exp_params_comparative:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* vrna_exp_params_comparative (
+	    unsigned int n_seq,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+    .. container:: brief-description
+
+        Get a data structure containing prescaled free energy parameters already transformed to Boltzmann factors (alifold version)
+
+    .. container:: detailed-description
+
+        If a NULL pointer is passed for the model details parameter, the default model parameters are stored within the requested :ref:`vrna_exp_param_t <doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>` structure.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - n_seq
+        
+                - The number of sequences in the alignment
+        
+            *
+                - md
+        
+                - A pointer to the model details to store inside the structure (Maybe NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the memory location where the requested parameters are stored
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_exp_params() <doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>` , :ref:`vrna_params() <doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e>`
+
+.. _doxid-group__energy__parameters_1ga70bc46be7cfa5434a71efe241c4f0609:
+.. _cid-vrna_exp_params_copy:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* vrna_exp_params_copy (:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* par)
+
+    .. container:: brief-description
+
+        Get a copy of the provided free energy parameters (provided as Boltzmann factors)
+
+    .. container:: detailed-description
+
+        If NULL is passed as parameter, a default set of energy parameters is created and returned.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - par
+        
+                - The free energy parameters that are to be copied (Maybe NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A copy or a default set of the (provided) parameters
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_exp_params() <doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>` , :ref:`vrna_exp_param_t <doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`
+
+.. _doxid-group__energy__parameters_1ga5d1909208f7ea3baa98b75afaa1f62ca:
+.. _cid-vrna_params_subst:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_params_subst (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* par
+	    )
+
+    .. container:: brief-description
+
+        Update/Reset energy parameters data structure within a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+    .. container:: detailed-description
+
+        Passing NULL as second argument leads to a reset of the energy parameters within vc to their default values. Otherwise, the energy parameters provided will be copied over into vc.
+        
+        SWIG Wrapper Notes This function is attached to :ref:`vrna_fc_s <doxid-structvrna__fc__s>` objects as **params_subst()** method.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` that is about to receive updated energy parameters
+        
+            *
+                - par
+        
+                - The energy parameters used to substitute those within vc (Maybe NULL)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_params_reset() <doxid-group__energy__parameters_1gac40dc82e48a72a97cfc58b9da08a7792>` , :ref:`vrna_param_t <doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`vrna_params() <doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e>`
+
+.. _doxid-group__energy__parameters_1ga8e7ac4fab3b0cc03afbc134eaafb3525:
+.. _cid-vrna_exp_params_subst:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_exp_params_subst (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* params
+	    )
+
+    .. container:: brief-description
+
+        Update the energy parameters for subsequent partition function computations.
+
+    .. container:: detailed-description
+
+        This function can be used to properly assign new energy parameters for partition function computations to a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . For this purpose, the data of the provided pointer ``params`` will be copied into ``vc`` and a recomputation of the partition function scaling factor is issued, if the ``pf_scale`` attribute of ``params`` is less than ``1.0`` .
+        
+        Passing NULL as second argument leads to a reset of the energy parameters within vc to their default values
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure
+        
+            *
+                - params
+        
+                - A pointer to the new energy parameters
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_exp_params_reset() <doxid-group__energy__parameters_1gaa5409218068be84d7b50c78fbdaa85a9>` , :ref:`vrna_exp_params_rescale() <doxid-group__energy__parameters_1gad607bc3a5b5da16400e2ca4ea5560233>` , :ref:`vrna_exp_param_t <doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`vrna_exp_params() <doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>`
+
+.. _doxid-group__energy__parameters_1gad607bc3a5b5da16400e2ca4ea5560233:
+.. _cid-vrna_exp_params_rescale:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_exp_params_rescale (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double* mfe
+	    )
+
+    .. container:: brief-description
+
+        Rescale Boltzmann factors for partition function computations.
+
+    .. container:: detailed-description
+
+        This function may be used to (automatically) rescale the Boltzmann factors used in partition function computations. Since partition functions over subsequences can easily become extremely large, the RNAlib internally rescales them to avoid numerical over- and/or underflow. Therefore, a proper scaling factor :math:`s` needs to be chosen that in turn is then used to normalize the corresponding partition functions :math:`\hat{q}[i,j] = q[i,j] / s^{(j-i+1)}` .
+        
+        This function provides two ways to automatically adjust the scaling factor.
+        
+        #. Automatic guess
+        
+        #. Automatic adjustment according to MFE
+        
+        Passing ``NULL`` as second parameter activates the *automatic guess mode* . Here, the scaling factor is recomputed according to a mean free energy of ``184.3*length`` cal for random sequences. On the other hand, if the MFE for a sequence is known, it can be used to recompute a more robust scaling factor, since it represents the lowest free energy of the entire ensemble of structures, i.e. the highest Boltzmann factor. To activate this second mode of *automatic adjustment according to MFE* , a pointer to the MFE value needs to be passed as second argument. This value is then taken to compute the scaling factor as :math:` s = exp((sfact * MFE) / kT / length )` , where sfact is an additional scaling weight located in the vrna_md_t data structure of ``exp_params`` in ``vc`` .
+        
+        The computed scaling factor :math:`s` will be stored as ``pf_scale`` attribute of the ``exp_params`` data structure in ``vc`` .
+        
+        SWIG Wrapper Notes This function is attached to :ref:`vrna_fc_s <doxid-structvrna__fc__s>` objects as overloaded **exp_params_rescale()** method.
+        
+        When no parameter is passed to this method, the resulting action is the same as passing *NULL* as second parameter to :ref:`vrna_exp_params_rescale() <doxid-group__energy__parameters_1gad607bc3a5b5da16400e2ca4ea5560233>` , i.e. default scaling of the partition function. Passing an energy in kcal/mol, e.g. as retrieved by a previous call to the *mfe()* method, instructs all subsequent calls to scale the partition function accordingly.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure
+        
+            *
+                - mfe
+        
+                - A pointer to the MFE (in kcal/mol) or NULL
+        
+        
+        
+        .. note::
+        
+            This recomputation only takes place if the ``pf_scale`` attribute of the ``exp_params`` data structure contained in ``vc`` has a value below ``1.0`` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_exp_params_subst() <doxid-group__energy__parameters_1ga8e7ac4fab3b0cc03afbc134eaafb3525>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`vrna_exp_param_t <doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+
+.. _doxid-group__energy__parameters_1gac40dc82e48a72a97cfc58b9da08a7792:
+.. _cid-vrna_params_reset:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_params_reset (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p
+	    )
+
+    .. container:: brief-description
+
+        Reset free energy parameters within a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` according to provided, or default model details.
+
+    .. container:: detailed-description
+
+        This function allows one to rescale free energy parameters for subsequent structure prediction or evaluation according to a set of model details, e.g. temperature values. To do so, the caller provides either a pointer to a set of model details to be used for rescaling, or NULL if global default setting should be used.
+        
+        SWIG Wrapper Notes This function is attached to :ref:`vrna_fc_s <doxid-structvrna__fc__s>` objects as overloaded **params_reset()** method.
+        
+        When no parameter is passed to this method, the resulting action is the same as passing *NULL* as second parameter to :ref:`vrna_params_reset() <doxid-group__energy__parameters_1gac40dc82e48a72a97cfc58b9da08a7792>` , i.e. global default model settings are used. Passing an object of type :ref:`vrna_md_s <doxid-structvrna__md__s>` resets the fold compound according to the specifications stored within the :ref:`vrna_md_s <doxid-structvrna__md__s>` object.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure
+        
+            *
+                - md_p
+        
+                - A pointer to the new model details (or NULL for reset to defaults)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_exp_params_reset() <doxid-group__energy__parameters_1gaa5409218068be84d7b50c78fbdaa85a9>` , vrna_params_subs()
+
+.. _doxid-group__energy__parameters_1gaa5409218068be84d7b50c78fbdaa85a9:
+.. _cid-vrna_exp_params_reset:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_exp_params_reset (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p
+	    )
+
+    .. container:: brief-description
+
+        Reset Boltzmann factors for partition function computations within a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` according to provided, or default model details.
+
+    .. container:: detailed-description
+
+        This function allows one to rescale Boltzmann factors for subsequent partition function computations according to a set of model details, e.g. temperature values. To do so, the caller provides either a pointer to a set of model details to be used for rescaling, or NULL if global default setting should be used.
+        
+        SWIG Wrapper Notes This function is attached to :ref:`vrna_fc_s <doxid-structvrna__fc__s>` objects as overloaded **exp_params_reset()** method.
+        
+        When no parameter is passed to this method, the resulting action is the same as passing *NULL* as second parameter to :ref:`vrna_exp_params_reset() <doxid-group__energy__parameters_1gaa5409218068be84d7b50c78fbdaa85a9>` , i.e. global default model settings are used. Passing an object of type :ref:`vrna_md_s <doxid-structvrna__md__s>` resets the fold compound according to the specifications stored within the :ref:`vrna_md_s <doxid-structvrna__md__s>` object.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure
+        
+            *
+                - md_p
+        
+                - A pointer to the new model details (or NULL for reset to defaults)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_params_reset() <doxid-group__energy__parameters_1gac40dc82e48a72a97cfc58b9da08a7792>` , :ref:`vrna_exp_params_subst() <doxid-group__energy__parameters_1ga8e7ac4fab3b0cc03afbc134eaafb3525>` , :ref:`vrna_exp_params_rescale() <doxid-group__energy__parameters_1gad607bc3a5b5da16400e2ca4ea5560233>`
+
+.. _doxid-group__energy__parameters_1gabf3b9271c41dd3fac02d56e0b02b3344:
+.. _cid-get_scaled_pf_parameters:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* get_scaled_pf_parameters (void)
+
+    .. container:: detailed-description
+
+        get a data structure of type :ref:`vrna_exp_param_t <doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>` which contains the Boltzmann weights of several energy parameters scaled according to the current temperature
+        
+        Deprecated Use :ref:`vrna_exp_params() <doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>` instead!
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The data structure containing Boltzmann weights for use in partition function calculations
+
+.. _doxid-group__energy__parameters_1gaef2b931c7e9d4ffb0a5c33df50ec2068:
+.. _cid-get_boltzmann_factors:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* get_boltzmann_factors (
+	    double temperature,
+	    double betaScale,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` md,
+	    double pf_scale
+	    )
+
+    .. container:: brief-description
+
+        Get precomputed Boltzmann factors of the loop type dependent energy contributions with independent thermodynamic temperature.
+
+    .. container:: detailed-description
+
+        This function returns a data structure that contains all necessary precalculated Boltzmann factors for each loop type contribution.
+        
+        In contrast to :ref:`get_scaled_pf_parameters() <doxid-group__energy__parameters_1gabf3b9271c41dd3fac02d56e0b02b3344>` , this function enables setting of independent temperatures for both, the individual energy contributions as well as the thermodynamic temperature used in :math:` exp(-\Delta G / kT) `
+        
+        Deprecated Use :ref:`vrna_exp_params() <doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - temperature
+        
+                - The temperature in degrees Celcius used for (re-)scaling the energy contributions
+        
+            *
+                - betaScale
+        
+                - A scaling value that is used as a multiplication factor for the absolute temperature of the system
+        
+            *
+                - md
+        
+                - The model details to be used
+        
+            *
+                - pf_scale
+        
+                - The scaling factor for the Boltzmann factors
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A set of precomputed Boltzmann factors
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`get_scaled_pf_parameters() <doxid-group__energy__parameters_1gabf3b9271c41dd3fac02d56e0b02b3344>` , :ref:`get_boltzmann_factor_copy() <doxid-group__energy__parameters_1ga665a446ba8ff211e551297a8fa36ec27>`
+
+.. _doxid-group__energy__parameters_1ga665a446ba8ff211e551297a8fa36ec27:
+.. _cid-get_boltzmann_factor_copy:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* get_boltzmann_factor_copy (:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* parameters)
+
+    .. container:: brief-description
+
+        Get a copy of already precomputed Boltzmann factors.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_exp_params_copy() <doxid-group__energy__parameters_1ga70bc46be7cfa5434a71efe241c4f0609>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - parameters
+        
+                - The input data structure that shall be copied
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A copy of the provided Boltzmann factor data set
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`get_boltzmann_factors() <doxid-group__energy__parameters_1gaef2b931c7e9d4ffb0a5c33df50ec2068>` , :ref:`get_scaled_pf_parameters() <doxid-group__energy__parameters_1gabf3b9271c41dd3fac02d56e0b02b3344>`
+
+.. _doxid-group__energy__parameters_1ga0ccf4e1be085a573533fd6b9da2d8cf9:
+.. _cid-get_scaled_alipf_parameters:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* get_scaled_alipf_parameters (unsigned int n_seq)
+
+    .. container:: brief-description
+
+        Get precomputed Boltzmann factors of the loop type dependent energy contributions (alifold variant)
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_exp_params_comparative() <doxid-group__energy__parameters_1gaf78c09e685e6eef4100b1a41d4042550>` instead!
+
+.. _doxid-group__energy__parameters_1ga2aa1d87c97f35d2e4121634a17556829:
+.. _cid-get_boltzmann_factors_ali:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* get_boltzmann_factors_ali (
+	    unsigned int n_seq,
+	    double temperature,
+	    double betaScale,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` md,
+	    double pf_scale
+	    )
+
+    .. container:: brief-description
+
+        Get precomputed Boltzmann factors of the loop type dependent energy contributions (alifold variant) with independent thermodynamic temperature.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_exp_params_comparative() <doxid-group__energy__parameters_1gaf78c09e685e6eef4100b1a41d4042550>` instead!
+
+.. _doxid-group__energy__parameters_1ga541f2cf7436e9bc939b0a49b24baf987:
+.. _cid-scale_parameters:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* scale_parameters (void)
+
+    .. container:: brief-description
+
+        Get precomputed energy contributions for all the known loop types.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_params() <doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e>` instead!
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A set of precomputed energy contributions
+        
+        
+        
+        .. note::
+        
+            OpenMP: This function relies on several global model settings variables and thus is not to be considered threadsafe. See :ref:`get_scaled_parameters() <doxid-group__energy__parameters_1ga7fa6a000d7c16feab939f2c4ee626197>` for a completely threadsafe implementation.
+
+.. _doxid-group__energy__parameters_1ga7fa6a000d7c16feab939f2c4ee626197:
+.. _cid-get_scaled_parameters:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* get_scaled_parameters (
+	    double temperature,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` md
+	    )
+
+    .. container:: brief-description
+
+        Get precomputed energy contributions for all the known loop types.
+
+    .. container:: detailed-description
+
+        Call this function to retrieve precomputed energy contributions, i.e. scaled according to the temperature passed. Furthermore, this function assumes a data structure that contains the model details as well, such that subsequent folding recursions are able to retrieve the correct model settings
+        
+        Deprecated Use :ref:`vrna_params() <doxid-group__energy__parameters_1gad0e3e7e74bdc50d1709d40c92993185e>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - temperature
+        
+                - The temperature in degrees Celcius
+        
+            *
+                - md
+        
+                - The model details
+        
+        
+        
+        .. rubric:: Returns:
+        
+        precomputed energy contributions and model settings
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`set_model_details() <doxid-group__model__details_1gabad896c3650d420f3f3ddefc69e2bceb>`
+

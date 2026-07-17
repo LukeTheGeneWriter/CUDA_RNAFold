@@ -1,0 +1,1357 @@
+.. index:: pair: group; Utilities
+.. _doxid-group__utils:
+.. _cid-utils:
+
+Utilities
+=========
+
+.. toctree::
+	:hidden:
+
+	group_aln_utils.rst
+	group_buffer_utils.rst
+	group_file_utils.rst
+	group_plotting_utils.rst
+	group_string_utils.rst
+	group_struct_utils.rst
+	group_units.rst
+
+
+
+Overview
+--------
+
+
+
+|	:ref:`Utilities for sequence alignments<doxid-group__aln__utils>`
+|	:ref:`Functions that provide dynamically buffered stream-like data structures<doxid-group__buffer__utils>`
+|	:ref:`Functions to Read/Write several File Formats for RNA Sequences, Structures, and Alignments<doxid-group__file__utils>`
+|	:ref:`Functions for Creating Secondary Structure Plots, Dot-Plots, and More<doxid-group__plotting__utils>`
+|		:ref:`Functions to generate annotations for Secondary Structure Plots, Dot-Plots, and Others<doxid-group__annotation__utils>`
+|	:ref:`Parsing, converting, and comparing sequences<doxid-group__string__utils>`
+|	:ref:`Parsing, converting, comparing secondary structures<doxid-group__struct__utils>`
+|	:ref:`Functions to convert between various units<doxid-group__units>`
+
+
+.. _doxid-group__utils_1ga0fe05749df8bae9d2eda9013d6ba5551:
+.. _cid-vrna_sequence_length_max:
+.. _doxid-group__utils_1ga2ee2b98985e6335910f128c81c8f5842:
+.. _cid-vrna_nucleotide_iupac_identity:
+.. _doxid-group__utils_1gafa82673941b3bbb8006e9ca105fa33b9:
+.. _cid-vrna_ptypes_prepare:
+.. _doxid-group__utils_1ga56dfbd38023d289a3b5daf7fe06ab4d6:
+.. _cid-vrna_aln_encode:
+.. _doxid-group__utils_1ga629aeca7a1a5d148e2c7e0e5d12299cc:
+.. _cid-vrna_get_ptype_md:
+.. _doxid-group__utils_1ga1cef98562ce6016ed83e38bc15d7b4bb:
+.. _cid-vrna_get_ptype:
+.. _doxid-group__utils_1gab134b2a70a6933b7f3aada9abdc7b96e:
+.. _cid-vrna_get_ptype_window:
+.. _doxid-group__utils_1ga5e151c615eda34903514212f05a5ccf8:
+.. _cid-private:
+.. _doxid-group__utils_1gad17d551e31d1828c68acf40684849b7e:
+.. _cid-public:
+.. _doxid-group__utils_1ga8566d6787972100e68b5a2a159b4cf45:
+.. _cid-vrna_input_sequence:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global variables
+
+	unsigned short :ref:`xsubi<doxid-group__utils_1gaf9a866c8417afda7368bbac939ab3c47>`[3]
+
+	// global functions
+
+	unsigned int vrna_sequence_length_max (unsigned int options)
+
+	int vrna_nucleotide_IUPAC_identity (
+	    char a,
+	    char b
+	    )
+
+	void vrna_ptypes_prepare (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* fc,
+	    unsigned int options
+	    )
+
+	char* :ref:`vrna_ptypes<doxid-group__utils_1ga51a9e86a5f731f5f2f5584ee67cee4a8>` (
+	    const short* S,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	short* :ref:`vrna_seq_encode<doxid-group__utils_1ga636e7d6f888fd639587296a5eddea660>` (
+	    const char* sequence,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	short* :ref:`vrna_seq_encode_simple<doxid-group__utils_1ga3cd79d21d53248ad2634c1c0d43e97d7>` (
+	    const char* sequence,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	int :ref:`vrna_nucleotide_encode<doxid-group__utils_1gac12bf00123f88621c9be847b0879c1fb>` (
+	    char c,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	char :ref:`vrna_nucleotide_decode<doxid-group__utils_1ga48ef585e697be9c8a08ed68c655e29b6>` (
+	    int enc,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	void vrna_aln_encode (
+	    const char* sequence,
+	    short** S_p,
+	    short** s5_p,
+	    short** s3_p,
+	    char** ss_p,
+	    unsigned int** as_p,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	unsigned int vrna_get_ptype_md (
+	    int i,
+	    int j,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	unsigned int vrna_get_ptype (
+	    int ij,
+	    char* ptype
+	    )
+
+	unsigned int vrna_get_ptype_window (
+	    int i,
+	    int j,
+	    char** ptype
+	    )
+
+	unsigned int** :ref:`vrna_enumerate_necklaces<doxid-group__utils_1gae081ac655a76bd5c4b3d86c60b096b75>` (const unsigned int* type_counts)
+	void* :ref:`vrna_alloc<doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99>` (unsigned size)
+
+	void* :ref:`vrna_realloc<doxid-group__utils_1ga27f4719a66c6f90d1cca3d1e6e696c6a>` (
+	    void* p,
+	    unsigned size
+	    )
+
+	void :ref:`vrna_message_error<doxid-group__utils_1ga36b35be01d7f36cf7f59c245eee628d1>` (
+	    const char* format,
+	    ...
+	    )
+
+	void :ref:`vrna_message_verror<doxid-group__utils_1gabc1a08dea0d84b5c33701732172a8b18>` (
+	    const char* format,
+	    va_list args
+	    )
+
+	void :ref:`vrna_message_warning<doxid-group__utils_1ga6e07ed24add60693ba886d54d0a46635>` (
+	    const char* format,
+	    ...
+	    )
+
+	void :ref:`vrna_message_vwarning<doxid-group__utils_1ga377aa8ec8a49d343063adb22e6311f26>` (
+	    const char* format,
+	    va_list args
+	    )
+
+	void :ref:`vrna_message_info<doxid-group__utils_1ga039bae6153a6415b054dbe6045f83d03>` (
+	    FILE* fp,
+	    const char* format,
+	    ...
+	    )
+
+	void :ref:`vrna_message_vinfo<doxid-group__utils_1gad8b8139bd04fbfb51e398e9fcd6908dc>` (
+	    FILE* fp,
+	    const char* format,
+	    va_list args
+	    )
+
+	void :ref:`vrna_init_rand<doxid-group__utils_1ga0ad1f40ea316e5c5918695c35613027a>` (void)
+	double :ref:`vrna_urn<doxid-group__utils_1ga384e256ebb295d04a14426179db0dd6e>` (void)
+
+	int :ref:`vrna_int_urn<doxid-group__utils_1ga46111bb3747dbcf4609f0d40ae169ad9>` (
+	    int from,
+	    int to
+	    )
+
+	char* :ref:`vrna_time_stamp<doxid-group__utils_1gad3bbe8d01afb1310609cb018d5290550>` (void)
+
+	unsigned int :ref:`get_input_line<doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` (
+	    char** string,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_message_input_seq_simple<doxid-group__utils_1gaee1dd652ca5b9e56b096963a1576f73b>` (void)
+	void :ref:`vrna_message_input_seq<doxid-group__utils_1gaf4d194d558b0c975f269de01dea52460>` (const char* s)
+	int* :ref:`vrna_idx_row_wise<doxid-group__utils_1ga70b180e9ea764218a82647a1cd347445>` (unsigned int length)
+	int* :ref:`vrna_idx_col_wise<doxid-group__utils_1ga89ebc69c52fa0c78c9e1974b0017746b>` (unsigned int length)
+
+	// macros
+
+	#define :ref:`MAX2<doxid-group__utils_1ga33297b3679c713b0c4d897cd0fe3b122>`( \
+	    A, \
+	    B \
+	    )
+
+	#define :ref:`MAX3<doxid-group__utils_1ga8d577123d2e66d2b7d0bf9af6e172b93>`( \
+	    A, \
+	    B, \
+	    C \
+	    )
+
+	#define :ref:`MIN2<doxid-group__utils_1gae0b9cd0ce090bd69b951aa73e8fa4f7d>`( \
+	    A, \
+	    B \
+	    )
+
+	#define :ref:`MIN3<doxid-group__utils_1ga721b8d5f3abef17f10293f1f7f8c958e>`( \
+	    A, \
+	    B, \
+	    C \
+	    )
+
+	#define PRIVATE
+	#define PUBLIC
+	#define :ref:`VRNA_INPUT_BLANK_LINE<doxid-group__utils_1ga305474b93ccb79ae4c7754016a8ddd84>`
+	#define :ref:`VRNA_INPUT_COMMENT<doxid-group__utils_1gaf2062e0eeefffd3ed639af460b3d4fab>`
+	#define :ref:`VRNA_INPUT_CONSTRAINT<doxid-group__utils_1gac08a9df45b9721b97a47dbfe7a6e5f85>`
+	#define :ref:`VRNA_INPUT_ERROR<doxid-group__utils_1gad403c9ea58f1836689404c2931419c8c>`
+	#define :ref:`VRNA_INPUT_FASTA_HEADER<doxid-group__utils_1ga2f0d8069e93d3ac54d9320d6bdb8e7e7>`
+	#define :ref:`VRNA_INPUT_MISC<doxid-group__utils_1ga8e3241b321c9c1a78a69e59e2e019a71>`
+	#define :ref:`VRNA_INPUT_NOSKIP_BLANK_LINES<doxid-group__utils_1gab4db885222b3b69608310d7c7e63e286>`
+	#define :ref:`VRNA_INPUT_NOSKIP_COMMENTS<doxid-group__utils_1ga0f6311f11bed1842e3a527ab27b294c6>`
+	#define :ref:`VRNA_INPUT_NO_REST<doxid-group__utils_1ga7a2e8c50a0c7ce82e60da1016e1367fd>`
+	#define :ref:`VRNA_INPUT_NO_SPAN<doxid-group__utils_1ga0de536599b881c787b0943a2671da476>`
+	#define :ref:`VRNA_INPUT_NO_TRUNCATION<doxid-group__utils_1ga086742158293217a46ae2f71bb296937>`
+	#define :ref:`VRNA_INPUT_QUIT<doxid-group__utils_1ga72f3c6ca5c83d2b9baed2922d19c403d>`
+	#define VRNA_INPUT_SEQUENCE
+
+.. _details-doxid-group__utils:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Variables
+----------------
+
+.. _doxid-group__utils_1gaf9a866c8417afda7368bbac939ab3c47:
+.. _cid-xsubi:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned short xsubi [3]
+
+    .. container:: brief-description
+
+        Current 48 bit random number.
+
+    .. container:: detailed-description
+
+        This variable is used by :ref:`vrna_urn() <doxid-group__utils_1ga384e256ebb295d04a14426179db0dd6e>` . These should be set to some random number seeds before the first call to :ref:`vrna_urn() <doxid-group__utils_1ga384e256ebb295d04a14426179db0dd6e>` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_urn() <doxid-group__utils_1ga384e256ebb295d04a14426179db0dd6e>`
+
+Global Functions
+----------------
+
+.. _doxid-group__utils_1ga51a9e86a5f731f5f2f5584ee67cee4a8:
+.. _cid-vrna_ptypes:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_ptypes (
+	    const short* S,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+    .. container:: brief-description
+
+        Get an array of the numerical encoding for each possible base pair (i,j)
+
+    .. container:: detailed-description
+
+        
+        
+        .. note::
+        
+            This array is always indexed in column-wise order, in contrast to previously different indexing between mfe and pf variants!
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_idx_col_wise() <doxid-group__utils_1ga89ebc69c52fa0c78c9e1974b0017746b>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+
+.. _doxid-group__utils_1ga636e7d6f888fd639587296a5eddea660:
+.. _cid-vrna_seq_encode:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* vrna_seq_encode (
+	    const char* sequence,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+    .. container:: brief-description
+
+        Get a numerical representation of the nucleotide sequence.
+
+.. _doxid-group__utils_1ga3cd79d21d53248ad2634c1c0d43e97d7:
+.. _cid-vrna_seq_encode_simple:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* vrna_seq_encode_simple (
+	    const char* sequence,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+    .. container:: brief-description
+
+        Get a numerical representation of the nucleotide sequence (simple version)
+
+.. _doxid-group__utils_1gac12bf00123f88621c9be847b0879c1fb:
+.. _cid-vrna_nucleotide_encode:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_nucleotide_encode (
+	    char c,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+    .. container:: brief-description
+
+        Encode a nucleotide character to numerical value.
+
+    .. container:: detailed-description
+
+        This function encodes a nucleotide character to its numerical representation as required by many functions in RNAlib.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - c
+        
+                - The nucleotide character to encode
+        
+            *
+                - md
+        
+                - The model details that determine the kind of encoding
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The encoded nucleotide
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_nucleotide_decode() <doxid-group__utils_1ga48ef585e697be9c8a08ed68c655e29b6>` , :ref:`vrna_seq_encode() <doxid-group__utils_1ga636e7d6f888fd639587296a5eddea660>`
+
+.. _doxid-group__utils_1ga48ef585e697be9c8a08ed68c655e29b6:
+.. _cid-vrna_nucleotide_decode:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char vrna_nucleotide_decode (
+	    int enc,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+    .. container:: brief-description
+
+        Decode a numerical representation of a nucleotide back into nucleotide alphabet.
+
+    .. container:: detailed-description
+
+        This function decodes a numerical representation of a nucleotide character back into nucleotide alphabet
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - enc
+        
+                - The encoded nucleotide
+        
+            *
+                - md
+        
+                - The model details that determine the kind of decoding
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The decoded nucleotide character
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_nucleotide_encode() <doxid-group__utils_1gac12bf00123f88621c9be847b0879c1fb>` , :ref:`vrna_seq_encode() <doxid-group__utils_1ga636e7d6f888fd639587296a5eddea660>`
+
+.. _doxid-group__utils_1gae081ac655a76bd5c4b3d86c60b096b75:
+.. _cid-vrna_enumerate_necklaces:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int** vrna_enumerate_necklaces (const unsigned int* type_counts)
+
+    .. container:: brief-description
+
+        Enumerate all necklaces with fixed content.
+
+    .. container:: detailed-description
+
+        This function implements *A fast algorithm to generate necklaces with fixed content* as published by Joe Sawada in 2003 :ref:`[16] <doxid-citelist_1CITEREF_sawada:2003>` .
+        
+        The function receives a list of counts (the elements on the necklace) for each type of object within a necklace. The list starts at index 0 and ends with an entry that has a count of 0. The algorithm then enumerates all non-cyclic permutations of the content, returned as a list of necklaces. This list, again, is zero-terminated, i.e. the last entry of the list is a ``NULL`` pointer.
+        
+        SWIG Wrapper Notes This function is available as global function **enumerate_necklaces()** which accepts lists input, an produces list of lists output.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - type_counts
+        
+                - A 0-terminated list of entity counts
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A list of all non-cyclic permutations of the entities
+
+.. _doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99:
+.. _cid-vrna_alloc:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void* vrna_alloc (unsigned size)
+
+    .. container:: brief-description
+
+        Allocate space safely.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - size
+        
+                - The size of the memory to be allocated in bytes
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the allocated memory
+
+.. _doxid-group__utils_1ga27f4719a66c6f90d1cca3d1e6e696c6a:
+.. _cid-vrna_realloc:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void* vrna_realloc (
+	    void* p,
+	    unsigned size
+	    )
+
+    .. container:: brief-description
+
+        Reallocate space safely.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - p
+        
+                - A pointer to the memory region to be reallocated
+        
+            *
+                - size
+        
+                - The size of the memory to be allocated in bytes
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the newly allocated memory
+
+.. _doxid-group__utils_1ga36b35be01d7f36cf7f59c245eee628d1:
+.. _cid-vrna_message_error:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_message_error (
+	    const char* format,
+	    ...
+	    )
+
+    .. container:: brief-description
+
+        Print an error message and die.
+
+    .. container:: detailed-description
+
+        This function is a wrapper to *fprintf* (stderr, ...) that puts a capital **ERROR:** in front of the message and then exits the calling program.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - format
+        
+                - The error message to be printed
+        
+            *
+                - ...
+        
+                - Optional arguments for the formatted message string
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_message_verror() <doxid-group__utils_1gabc1a08dea0d84b5c33701732172a8b18>` , :ref:`vrna_message_warning() <doxid-group__utils_1ga6e07ed24add60693ba886d54d0a46635>` , :ref:`vrna_message_info() <doxid-group__utils_1ga039bae6153a6415b054dbe6045f83d03>`
+
+.. _doxid-group__utils_1gabc1a08dea0d84b5c33701732172a8b18:
+.. _cid-vrna_message_verror:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_message_verror (
+	    const char* format,
+	    va_list args
+	    )
+
+    .. container:: brief-description
+
+        Print an error message and die.
+
+    .. container:: detailed-description
+
+        This function is a wrapper to *vfprintf* (stderr, ...) that puts a capital **ERROR:** in front of the message and then exits the calling program.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - format
+        
+                - The error message to be printed
+        
+            *
+                - args
+        
+                - The argument list for the formatted message string
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_message_error() <doxid-group__utils_1ga36b35be01d7f36cf7f59c245eee628d1>` , :ref:`vrna_message_warning() <doxid-group__utils_1ga6e07ed24add60693ba886d54d0a46635>` , :ref:`vrna_message_info() <doxid-group__utils_1ga039bae6153a6415b054dbe6045f83d03>`
+
+.. _doxid-group__utils_1ga6e07ed24add60693ba886d54d0a46635:
+.. _cid-vrna_message_warning:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_message_warning (
+	    const char* format,
+	    ...
+	    )
+
+    .. container:: brief-description
+
+        Print a warning message.
+
+    .. container:: detailed-description
+
+        This function is a wrapper to *fprintf* (stderr, ...) that puts a capital **WARNING:** in front of the message.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - format
+        
+                - The warning message to be printed
+        
+            *
+                - ...
+        
+                - Optional arguments for the formatted message string
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_message_vwarning() <doxid-group__utils_1ga377aa8ec8a49d343063adb22e6311f26>` , :ref:`vrna_message_error() <doxid-group__utils_1ga36b35be01d7f36cf7f59c245eee628d1>` , :ref:`vrna_message_info() <doxid-group__utils_1ga039bae6153a6415b054dbe6045f83d03>`
+
+.. _doxid-group__utils_1ga377aa8ec8a49d343063adb22e6311f26:
+.. _cid-vrna_message_vwarning:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_message_vwarning (
+	    const char* format,
+	    va_list args
+	    )
+
+    .. container:: brief-description
+
+        Print a warning message.
+
+    .. container:: detailed-description
+
+        This function is a wrapper to *fprintf* (stderr, ...) that puts a capital **WARNING:** in front of the message.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - format
+        
+                - The warning message to be printed
+        
+            *
+                - args
+        
+                - The argument list for the formatted message string
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_message_vwarning() <doxid-group__utils_1ga377aa8ec8a49d343063adb22e6311f26>` , :ref:`vrna_message_error() <doxid-group__utils_1ga36b35be01d7f36cf7f59c245eee628d1>` , :ref:`vrna_message_info() <doxid-group__utils_1ga039bae6153a6415b054dbe6045f83d03>`
+
+.. _doxid-group__utils_1ga039bae6153a6415b054dbe6045f83d03:
+.. _cid-vrna_message_info:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_message_info (
+	    FILE* fp,
+	    const char* format,
+	    ...
+	    )
+
+    .. container:: brief-description
+
+        Print an info message.
+
+    .. container:: detailed-description
+
+        This function is a wrapper to *fprintf* (...).
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - fp
+        
+                - The file pointer where the message is printed to
+        
+            *
+                - format
+        
+                - The warning message to be printed
+        
+            *
+                - ...
+        
+                - Optional arguments for the formatted message string
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_message_vinfo() <doxid-group__utils_1gad8b8139bd04fbfb51e398e9fcd6908dc>` , :ref:`vrna_message_error() <doxid-group__utils_1ga36b35be01d7f36cf7f59c245eee628d1>` , :ref:`vrna_message_warning() <doxid-group__utils_1ga6e07ed24add60693ba886d54d0a46635>`
+
+.. _doxid-group__utils_1gad8b8139bd04fbfb51e398e9fcd6908dc:
+.. _cid-vrna_message_vinfo:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_message_vinfo (
+	    FILE* fp,
+	    const char* format,
+	    va_list args
+	    )
+
+    .. container:: brief-description
+
+        Print an info message.
+
+    .. container:: detailed-description
+
+        This function is a wrapper to *fprintf* (...).
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - fp
+        
+                - The file pointer where the message is printed to
+        
+            *
+                - format
+        
+                - The info message to be printed
+        
+            *
+                - args
+        
+                - The argument list for the formatted message string
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_message_vinfo() <doxid-group__utils_1gad8b8139bd04fbfb51e398e9fcd6908dc>` , :ref:`vrna_message_error() <doxid-group__utils_1ga36b35be01d7f36cf7f59c245eee628d1>` , :ref:`vrna_message_warning() <doxid-group__utils_1ga6e07ed24add60693ba886d54d0a46635>`
+
+.. _doxid-group__utils_1ga0ad1f40ea316e5c5918695c35613027a:
+.. _cid-vrna_init_rand:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_init_rand (void)
+
+    .. container:: brief-description
+
+        Initialize seed for random number generator.
+
+.. _doxid-group__utils_1ga384e256ebb295d04a14426179db0dd6e:
+.. _cid-vrna_urn:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_urn (void)
+
+    .. container:: brief-description
+
+        get a random number from [0..1]
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        A random number in range [0..1]
+        
+        
+        
+        .. note::
+        
+            Usually implemented by calling *erand48()* .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_int_urn() <doxid-group__utils_1ga46111bb3747dbcf4609f0d40ae169ad9>` , :ref:`vrna_init_rand() <doxid-group__utils_1ga0ad1f40ea316e5c5918695c35613027a>`
+
+.. _doxid-group__utils_1ga46111bb3747dbcf4609f0d40ae169ad9:
+.. _cid-vrna_int_urn:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_int_urn (
+	    int from,
+	    int to
+	    )
+
+    .. container:: brief-description
+
+        Generates a pseudo random integer in a specified range.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - from
+        
+                - The first number in range
+        
+            *
+                - to
+        
+                - The last number in range
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pseudo random number in range [from, to]
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_urn() <doxid-group__utils_1ga384e256ebb295d04a14426179db0dd6e>` , :ref:`vrna_init_rand() <doxid-group__utils_1ga0ad1f40ea316e5c5918695c35613027a>`
+
+.. _doxid-group__utils_1gad3bbe8d01afb1310609cb018d5290550:
+.. _cid-vrna_time_stamp:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_time_stamp (void)
+
+    .. container:: brief-description
+
+        Get a timestamp.
+
+    .. container:: detailed-description
+
+        Returns a string containing the current date in the format
+        
+        .. code-block:: none
+        
+            Fri Mar 19 21:10:57 1993
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A string containing the timestamp
+
+.. _doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5:
+.. _cid-get_input_line:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int get_input_line (
+	    char** string,
+	    unsigned int options
+	    )
+
+    .. container:: detailed-description
+
+        Retrieve a line from 'stdin' savely while skipping comment characters and other features This function returns the type of input it has read if recognized. An option argument allows one to switch between different reading modes.
+        
+        Currently available options are:
+        
+        #VRNA_INPUT_NOPRINT_COMMENTS, :ref:`VRNA_INPUT_NOSKIP_COMMENTS <doxid-group__utils_1ga0f6311f11bed1842e3a527ab27b294c6>` , #VRNA_INPUT_NOELIM_WS_SUFFIX
+        
+        pass a collection of options as one value like this:
+        
+        .. code-block:: none
+        
+            get_input_line(string, option_1 | option_2 | option_n)
+        
+        If the function recognizes the type of input, it will report it in the return value. It also reports if a user defined 'quit' command (-sign on 'stdin') was given. Possible return values are:
+        
+        :ref:`VRNA_INPUT_FASTA_HEADER <doxid-group__utils_1ga2f0d8069e93d3ac54d9320d6bdb8e7e7>` , :ref:`VRNA_INPUT_ERROR <doxid-group__utils_1gad403c9ea58f1836689404c2931419c8c>` , :ref:`VRNA_INPUT_MISC <doxid-group__utils_1ga8e3241b321c9c1a78a69e59e2e019a71>` , :ref:`VRNA_INPUT_QUIT <doxid-group__utils_1ga72f3c6ca5c83d2b9baed2922d19c403d>`
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - string
+        
+                - A pointer to the character array that contains the line read
+        
+            *
+                - options
+        
+                - A collection of options for switching the functions behavior
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A flag with information about what has been read
+
+.. _doxid-group__utils_1gaee1dd652ca5b9e56b096963a1576f73b:
+.. _cid-vrna_message_input_seq_simple:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_message_input_seq_simple (void)
+
+    .. container:: brief-description
+
+        Print a line to *stdout* that asks for an input sequence.
+
+    .. container:: detailed-description
+
+        There will also be a ruler (scale line) printed that helps orientation of the sequence positions
+
+.. _doxid-group__utils_1gaf4d194d558b0c975f269de01dea52460:
+.. _cid-vrna_message_input_seq:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_message_input_seq (const char* s)
+
+    .. container:: brief-description
+
+        Print a line with a user defined string and a ruler to stdout.
+
+    .. container:: detailed-description
+
+        (usually this is used to ask for user input) There will also be a ruler (scale line) printed that helps orientation of the sequence positions
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - s
+        
+                - A user defined string that will be printed to stdout
+
+.. _doxid-group__utils_1ga70b180e9ea764218a82647a1cd347445:
+.. _cid-vrna_idx_row_wise:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* vrna_idx_row_wise (unsigned int length)
+
+    .. container:: brief-description
+
+        Get an index mapper array (iindx) for accessing the energy matrices, e.g. in partition function related functions.
+
+    .. container:: detailed-description
+
+        Access of a position "(i,j)" is then accomplished by using
+        
+        .. code-block:: none
+        
+            (i,j) ~ iindx[i]-j
+        
+        This function is necessary as most of the two-dimensional energy matrices are actually one-dimensional arrays throughout the ViennaRNA Package
+        
+        Consult the implemented code to find out about the mapping formula ;)
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - length
+        
+                - The length of the RNA sequence
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The mapper array
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_idx_col_wise() <doxid-group__utils_1ga89ebc69c52fa0c78c9e1974b0017746b>`
+
+.. _doxid-group__utils_1ga89ebc69c52fa0c78c9e1974b0017746b:
+.. _cid-vrna_idx_col_wise:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* vrna_idx_col_wise (unsigned int length)
+
+    .. container:: brief-description
+
+        Get an index mapper array (indx) for accessing the energy matrices, e.g. in MFE related functions.
+
+    .. container:: detailed-description
+
+        Access of a position "(i,j)" is then accomplished by using
+        
+        .. code-block:: none
+        
+            (i,j) ~ indx[j]+i
+        
+        This function is necessary as most of the two-dimensional energy matrices are actually one-dimensional arrays throughout the ViennaRNAPackage
+        
+        Consult the implemented code to find out about the mapping formula ;)
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - length
+        
+                - The length of the RNA sequence
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The mapper array
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_idx_row_wise() <doxid-group__utils_1ga70b180e9ea764218a82647a1cd347445>`
+
+Macros
+------
+
+.. _doxid-group__utils_1ga33297b3679c713b0c4d897cd0fe3b122:
+.. _cid-max2:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define MAX2( \
+	    A, \
+	    B \
+	    )
+
+    .. container:: brief-description
+
+        Get the maximum of two comparable values.
+
+.. _doxid-group__utils_1ga8d577123d2e66d2b7d0bf9af6e172b93:
+.. _cid-max3:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define MAX3( \
+	    A, \
+	    B, \
+	    C \
+	    )
+
+    .. container:: brief-description
+
+        Get the maximum of three comparable values.
+
+.. _doxid-group__utils_1gae0b9cd0ce090bd69b951aa73e8fa4f7d:
+.. _cid-min2:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define MIN2( \
+	    A, \
+	    B \
+	    )
+
+    .. container:: brief-description
+
+        Get the minimum of two comparable values.
+
+.. _doxid-group__utils_1ga721b8d5f3abef17f10293f1f7f8c958e:
+.. _cid-min3:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define MIN3( \
+	    A, \
+	    B, \
+	    C \
+	    )
+
+    .. container:: brief-description
+
+        Get the minimum of three comparable values.
+
+.. _doxid-group__utils_1ga305474b93ccb79ae4c7754016a8ddd84:
+.. _cid-vrna_input_blank_line:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_BLANK_LINE
+
+    .. container:: brief-description
+
+        Output flag for :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` : *"read an empty line"* .
+
+.. _doxid-group__utils_1gaf2062e0eeefffd3ed639af460b3d4fab:
+.. _cid-vrna_input_comment:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_COMMENT
+
+    .. container:: brief-description
+
+        Output flag for :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` : *"read a comment"* .
+
+.. _doxid-group__utils_1gac08a9df45b9721b97a47dbfe7a6e5f85:
+.. _cid-vrna_input_constraint:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_CONSTRAINT
+
+    .. container:: brief-description
+
+        Input flag for :ref:`get_input_line() <doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` :
+        
+        Tell :ref:`get_input_line() <doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` that we assume to read a structure constraint.
+
+.. _doxid-group__utils_1gad403c9ea58f1836689404c2931419c8c:
+.. _cid-vrna_input_error:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_ERROR
+
+    .. container:: brief-description
+
+        Output flag of :ref:`get_input_line() <doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` : *"An ERROR has occured, maybe EOF"* .
+
+.. _doxid-group__utils_1ga2f0d8069e93d3ac54d9320d6bdb8e7e7:
+.. _cid-vrna_input_fasta_header:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_FASTA_HEADER
+
+    .. container:: brief-description
+
+        Input/Output flag of :ref:`get_input_line() <doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` :
+        
+        if used as input option this tells :ref:`get_input_line() <doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` that the data to be read should comply with the FASTA format.
+
+    .. container:: detailed-description
+
+        the function will return this flag if a fasta header was read
+
+.. _doxid-group__utils_1ga8e3241b321c9c1a78a69e59e2e019a71:
+.. _cid-vrna_input_misc:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_MISC
+
+    .. container:: brief-description
+
+        Output flag of :ref:`get_input_line() <doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` : *"something was read"* .
+
+.. _doxid-group__utils_1gab4db885222b3b69608310d7c7e63e286:
+.. _cid-vrna_input_noskip_blank_lines:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_NOSKIP_BLANK_LINES
+
+    .. container:: brief-description
+
+        Input switch for :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` : *"do not skip empty lines"* .
+
+.. _doxid-group__utils_1ga0f6311f11bed1842e3a527ab27b294c6:
+.. _cid-vrna_input_noskip_comments:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_NOSKIP_COMMENTS
+
+    .. container:: brief-description
+
+        Input switch for :ref:`get_input_line() <doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` : *"do not skip comment lines"* .
+
+.. _doxid-group__utils_1ga7a2e8c50a0c7ce82e60da1016e1367fd:
+.. _cid-vrna_input_no_rest:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_NO_REST
+
+    .. container:: brief-description
+
+        Input switch for :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` : *"do fill rest array"* .
+
+.. _doxid-group__utils_1ga0de536599b881c787b0943a2671da476:
+.. _cid-vrna_input_no_span:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_NO_SPAN
+
+    .. container:: brief-description
+
+        Input switch for :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` : *"never allow data to span more than one line"* .
+
+.. _doxid-group__utils_1ga086742158293217a46ae2f71bb296937:
+.. _cid-vrna_input_no_truncation:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_NO_TRUNCATION
+
+    .. container:: brief-description
+
+        Input switch for :ref:`get_input_line() <doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` : *"do not trunkate the line by eliminating white spaces at end of line"* .
+
+.. _doxid-group__utils_1ga72f3c6ca5c83d2b9baed2922d19c403d:
+.. _cid-vrna_input_quit:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_INPUT_QUIT
+
+    .. container:: brief-description
+
+        Output flag of :ref:`get_input_line() <doxid-group__utils_1ga8ef1835eb83f542396f59f0b205965e5>` : *"the user requested quitting the program"* .
+

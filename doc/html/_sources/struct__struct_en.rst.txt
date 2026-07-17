@@ -1,0 +1,32 @@
+.. index:: pair: struct; _struct_en
+.. _doxid-struct__struct__en:
+.. _cid-_struct_en:
+
+struct _struct_en
+=================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/move_set.h>
+
+
+.. container:: brief-description
+
+    Data structure for :ref:`energy_of_move() <doxid-group__eval_1ga539ecaed89730f7644c202f304d7529b>`
+
+.. _doxid-struct__struct__en_1aeecd2b2f343cfd8ec022a2a215076170:
+.. _cid-_struct_en::energy:
+.. _doxid-struct__struct__en_1afb76234a4e65aef644eeabcd57b77b86:
+.. _cid-_struct_en::structure:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int energy
+	short* structure
+

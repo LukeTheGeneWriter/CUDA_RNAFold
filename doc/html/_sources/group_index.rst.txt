@@ -1,0 +1,96 @@
+The RNAlib API
+==============
+
+.. toctree::
+	:hidden:
+
+	group_data_structures.rst
+	group_utils.rst
+	group_class_fold.rst
+	group_cofold.rst
+	group_grammar.rst
+	group_landscape.rst
+	group_consensus_fold.rst
+	group_subopt_and_representatives.rst
+	group_ligand_binding.rst
+	group_probing_data.rst
+	group_pf_fold.rst
+	group_eval.rst
+	group_mfe_fold.rst
+	group_paired_modules.rst
+	group_inverse_fold.rst
+	group_local_fold.rst
+
+|	:ref:`Data Structures and Preprocessor Macros<doxid-group__data__structures>`
+|		:ref:`The Dynamic Programming Matrices<doxid-group__dp__matrices>`
+|		:ref:`The Fold Compound<doxid-group__fold__compound>`
+|	:ref:`Utilities<doxid-group__utils>`
+|		:ref:`Utilities for sequence alignments<doxid-group__aln__utils>`
+|		:ref:`Functions that provide dynamically buffered stream-like data structures<doxid-group__buffer__utils>`
+|		:ref:`Functions to Read/Write several File Formats for RNA Sequences, Structures, and Alignments<doxid-group__file__utils>`
+|		:ref:`Functions for Creating Secondary Structure Plots, Dot-Plots, and More<doxid-group__plotting__utils>`
+|			:ref:`Functions to generate annotations for Secondary Structure Plots, Dot-Plots, and Others<doxid-group__annotation__utils>`
+|		:ref:`Parsing, converting, and comparing sequences<doxid-group__string__utils>`
+|		:ref:`Parsing, converting, comparing secondary structures<doxid-group__struct__utils>`
+|		:ref:`Functions to convert between various units<doxid-group__units>`
+|	:ref:`Classified Dynamic Programming variants<doxid-group__class__fold>`
+|		:ref:`Compute the Density of States<doxid-group__dos>`
+|		:ref:`Distance based partitioning of the Secondary Structure Space<doxid-group__kl__neighborhood>`
+|			:ref:`Calculating MFE representatives of a Distance Based Partitioning<doxid-group__kl__neighborhood__mfe>`
+|			:ref:`Calculate Partition Functions of a Distance Based Partitioning<doxid-group__kl__neighborhood__pf>`
+|			:ref:`Stochastic Backtracking of Structures from Distance Based Partitioning<doxid-group__kl__neighborhood__stochbt>`
+|	:ref:`RNA-RNA interaction<doxid-group__cofold>`
+|		:ref:`MFE Structures of two hybridized Sequences<doxid-group__mfe__cofold>`
+|		:ref:`Partition Function for two hybridized Sequences<doxid-group__pf__cofold>`
+|		:ref:`Partition Function for two hybridized Sequences as a stepwise Process<doxid-group__up__cofold>`
+|	:ref:`The RNA folding grammar<doxid-group__grammar>`
+|		:ref:`Constraining the RNA folding grammar<doxid-group__constraints>`
+|			:ref:`Hard constraints<doxid-group__hard__constraints>`
+|			:ref:`Soft constraints<doxid-group__soft__constraints>`
+|		:ref:`Extending the folding grammar with additional domains<doxid-group__domains>`
+|			:ref:`Unstructured domains<doxid-group__domains__up>`
+|		:ref:`Energy parameters<doxid-group__energy__parameters>`
+|			:ref:`Reading/Writing Energy Parameter Sets from/to File<doxid-group__energy__parameters__rw>`
+|				:ref:`Converting Energy Parameter Files<doxid-group__energy__parameters__convert>`
+|		:ref:`Fine-tuning of the implemented models<doxid-group__model__details>`
+|	:ref:`The RNA secondary structure landscape<doxid-group__landscape>`
+|		:ref:`Neighborhood relation and move sets for secondary structures<doxid-group__neighbors>`
+|		:ref:`Refolding paths of secondary structures<doxid-group__paths>`
+|			:ref:`Direct refolding paths between two secondary structures<doxid-group__direct__paths>`
+|	:ref:`Comparative structure prediction<doxid-group__consensus__fold>`
+|		:ref:`MFE Consensus Structures for Sequence Alignment(s)<doxid-group__consensus__mfe__fold>`
+|		:ref:`Partition Function and Base Pair Probabilities for Sequence Alignment(s)<doxid-group__consensus__pf__fold>`
+|		:ref:`Stochastic Backtracking of Consensus Structures from Sequence Alignment(s)<doxid-group__consensus__stochbt>`
+|		:ref:`Local MFE Consensus Structure Prediction for Sequence Alignments<doxid-group__local__consensus__fold>`
+|	:ref:`Suboptimals and representative structures<doxid-group__subopt__and__representatives>`
+|		:ref:`Compute the centroid structure<doxid-group__centroid__fold>`
+|		:ref:`Compute the structure with maximum expected accuracy (MEA)<doxid-group__mea__fold>`
+|		:ref:`Structure sampling from the ensemble<doxid-group__subopt__stochbt>`
+|		:ref:`Suboptimal structures within an energy band arround the MFE<doxid-group__subopt__wuchty>`
+|		:ref:`Suboptimal structures sensu Stiegler et al. 1984 / Zuker et al. 1989<doxid-group__subopt__zuker>`
+|	:ref:`Ligands binding to RNA structures<doxid-group__ligand__binding>`
+|		:ref:`Incorporating ligands binding to specific sequence/structure motifs using soft constraints<doxid-group__constraints__ligand>`
+|	:ref:`Experimental structure probing data<doxid-group__probing__data>`
+|		:ref:`SHAPE reactivity data<doxid-group___s_h_a_p_e__reactivities>`
+|		:ref:`Generate soft constraints from data<doxid-group__perturbation>`
+|	:ref:`Partition function and equilibrium properties<doxid-group__pf__fold>`
+|	:ref:`Free energy evaluation<doxid-group__eval>`
+|		:ref:`Process and evaluate individual loops<doxid-group__loops>`
+|	:ref:`Minimum Free Energy (MFE) algorithms<doxid-group__mfe__fold>`
+|		:ref:`MFE Structures of single Nucleic Acid Sequences<doxid-group__mfe__fold__single>`
+|	:ref:`Complex structured modules<doxid-group__paired__modules>`
+|		:ref:`G-quadruplexes<doxid-group__gquads>`
+|	:ref:`Inverse Folding (Design)<doxid-group__inverse__fold>`
+|	:ref:`Locally stable structures<doxid-group__local__fold>`
+|		:ref:`Local MFE Structure Prediction and Z-scores<doxid-group__local__mfe__fold>`
+|		:ref:`Partition Function and Equilibrium Probabilities for Locally Stable Secondary Structures<doxid-group__local__pf__fold>`
+
+
+.. rubric:: Reference:
+
+.. toctree::
+	:hidden:
+
+	global.rst
+
+|	:doc:`global`

@@ -1,0 +1,60 @@
+.. index:: pair: enum; vrna_fc_type_e
+.. _doxid-group__fold__compound_1ga01a4ff86fa71deaaa5d1abbd95a1447d:
+.. _cid-vrna_fc_type_e:
+
+enum vrna_fc_type_e
+===================
+
+
+
+Overview
+~~~~~~~~
+
+An enumerator that is used to specify the type of a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . :ref:`More...<details-doxid-group__fold__compound_1ga01a4ff86fa71deaaa5d1abbd95a1447d>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enum values
+
+	:ref:`VRNA_FC_TYPE_SINGLE<doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` 
+	:ref:`VRNA_FC_TYPE_COMPARATIVE<doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>` 
+
+.. _details-doxid-group__fold__compound_1ga01a4ff86fa71deaaa5d1abbd95a1447d:
+
+Detailed Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. container:: brief-description
+
+    An enumerator that is used to specify the type of a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+Enum Values
+-----------
+
+.. _doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6:
+.. _cid-vrna_fc_type_e::vrna_fc_type_single:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_FC_TYPE_SINGLE
+
+    .. container:: detailed-description
+
+        Type is suitable for single, and hybridizing sequences
+
+.. _doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023:
+.. _cid-vrna_fc_type_e::vrna_fc_type_comparative:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_FC_TYPE_COMPARATIVE
+
+    .. container:: detailed-description
+
+        Type is suitable for sequence alignments (consensus structure prediction)
+

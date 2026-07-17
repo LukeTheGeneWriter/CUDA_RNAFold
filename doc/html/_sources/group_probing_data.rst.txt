@@ -1,0 +1,23 @@
+.. index:: pair: group; Experimental structure probing data
+.. _doxid-group__probing__data:
+.. _cid-probing_data:
+
+Experimental structure probing data
+===================================
+
+.. toctree::
+	:hidden:
+
+	group_SHAPE_reactivities.rst
+	group_perturbation.rst
+
+
+
+.. container:: brief-description
+
+    Include experimental structure probing data to guide structure predictions.
+
+|	:ref:`SHAPE reactivity data<doxid-group___s_h_a_p_e__reactivities>`
+|	:ref:`Generate soft constraints from data<doxid-group__perturbation>`
+
+

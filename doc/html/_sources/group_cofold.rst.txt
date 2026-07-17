@@ -1,0 +1,23 @@
+.. index:: pair: group; RNA-RNA interaction
+.. _doxid-group__cofold:
+.. _cid-cofold:
+
+RNA-RNA interaction
+===================
+
+.. toctree::
+	:hidden:
+
+	group_mfe_cofold.rst
+	group_pf_cofold.rst
+	group_up_cofold.rst
+
+
+
+
+
+|	:ref:`MFE Structures of two hybridized Sequences<doxid-group__mfe__cofold>`
+|	:ref:`Partition Function for two hybridized Sequences<doxid-group__pf__cofold>`
+|	:ref:`Partition Function for two hybridized Sequences as a stepwise Process<doxid-group__up__cofold>`
+
+

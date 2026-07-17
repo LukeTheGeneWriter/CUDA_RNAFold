@@ -1,0 +1,23 @@
+.. index:: pair: group; Distance based partitioning of the Secondary Structure Space
+.. _doxid-group__kl__neighborhood:
+.. _cid-kl_neighborhood:
+
+Distance based partitioning of the Secondary Structure Space
+============================================================
+
+.. toctree::
+	:hidden:
+
+	group_kl_neighborhood_mfe.rst
+	group_kl_neighborhood_pf.rst
+	group_kl_neighborhood_stochbt.rst
+
+
+
+
+
+|	:ref:`Calculating MFE representatives of a Distance Based Partitioning<doxid-group__kl__neighborhood__mfe>`
+|	:ref:`Calculate Partition Functions of a Distance Based Partitioning<doxid-group__kl__neighborhood__pf>`
+|	:ref:`Stochastic Backtracking of Structures from Distance Based Partitioning<doxid-group__kl__neighborhood__stochbt>`
+
+

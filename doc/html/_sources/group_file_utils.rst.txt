@@ -1,0 +1,1851 @@
+.. index:: pair: group; Functions to Read/Write several File Formats for RNA Sequences, Structures, and Alignments
+.. _doxid-group__file__utils:
+.. _cid-file_utils:
+
+Functions to Read/Write several File Formats for RNA Sequences, Structures, and Alignments
+==========================================================================================
+
+.. toctree::
+	:hidden:
+
+	enum_vrna_command_e.rst
+	struct_vrna_command_s.rst
+
+
+
+Overview
+--------
+
+Functions dealing with file formats for RNA sequences, structures, and alignments. :ref:`More...<details-doxid-group__file__utils>`
+
+.. _doxid-group__file__utils_1ga39af7b684657ed0efa467ef9865777b3:
+.. _cid-extract_record_rest_structure:
+.. _doxid-group__file__utils_1ga61b9a7a4716c98a315ee9da411515f9c:
+.. _cid-get_multi_input_line:
+.. _doxid-group__file__utils_1ga8d6c5d6d2936464a11f542b843bd1610:
+.. _cid-vrna_cmd_parse_silent:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_command_s<doxid-structvrna__command__s>` :ref:`vrna_cmd_t<doxid-group__file__utils_1ga92cb3b5952352b103bcb32e5a99e0e5a>`
+
+	// enums
+
+	enum :ref:`vrna_command_e<doxid-group__file__utils_1ga2ea3e452bf3b3f3ca513b3b081a86137>`
+
+	// structs
+
+	struct :ref:`vrna_command_s<doxid-structvrna__command__s>` 
+
+	// global functions
+
+	:ref:`vrna_cmd_t<doxid-group__file__utils_1ga92cb3b5952352b103bcb32e5a99e0e5a>`* :ref:`vrna_file_commands_read<doxid-group__file__utils_1ga5d2a64331cff5b1059e7d327545d8a63>` (
+	    const char* filename,
+	    unsigned int options
+	    )
+
+	int :ref:`vrna_file_commands_apply<doxid-group__file__utils_1gadbe8c9622f7bcc6dcbe3448b98df8656>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* filename,
+	    unsigned int options
+	    )
+
+	int :ref:`vrna_commands_apply<doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_cmd_t<doxid-group__file__utils_1ga92cb3b5952352b103bcb32e5a99e0e5a>`* commands,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_commands_free<doxid-group__file__utils_1ga926fd7632e68f3da2e2069402b80b1ab>` (:ref:`vrna_cmd_t<doxid-group__file__utils_1ga92cb3b5952352b103bcb32e5a99e0e5a>`* commands)
+
+	void :ref:`vrna_file_helixlist<doxid-group__file__utils_1gaaface7db12fadc3d271641c4515ab6e4>` (
+	    const char* seq,
+	    const char* db,
+	    float energy,
+	    FILE* file
+	    )
+
+	void :ref:`vrna_file_connect<doxid-group__file__utils_1gab69682373ccca1e0e28cc967eec07745>` (
+	    const char* seq,
+	    const char* db,
+	    float energy,
+	    const char* identifier,
+	    FILE* file
+	    )
+
+	void :ref:`vrna_file_bpseq<doxid-group__file__utils_1ga9b462e6f202594af5d3fa56e280d633f>` (
+	    const char* seq,
+	    const char* db,
+	    FILE* file
+	    )
+
+	void :ref:`vrna_file_json<doxid-group__file__utils_1ga31f4a6c2ea1495a6e4f9eb45a9f6193d>` (
+	    const char* seq,
+	    const char* db,
+	    double energy,
+	    const char* identifier,
+	    FILE* file
+	    )
+
+	unsigned int :ref:`vrna_file_fasta_read_record<doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` (
+	    char** header,
+	    char** sequence,
+	    char*** rest,
+	    FILE* file,
+	    unsigned int options
+	    )
+
+	char* :ref:`vrna_extract_record_rest_structure<doxid-group__file__utils_1gad37cbb63a05eed63ba25c91628409be0>` (
+	    const char** lines,
+	    unsigned int length,
+	    unsigned int option
+	    )
+
+	int :ref:`vrna_file_SHAPE_read<doxid-group__file__utils_1ga646ebf45450a69a7f2533f9ecd283a32>` (
+	    const char* file_name,
+	    int length,
+	    double default_value,
+	    char* sequence,
+	    double* values
+	    )
+
+	void :ref:`vrna_extract_record_rest_constraint<doxid-group__file__utils_1ga55a9ae6dfeecc1b3f0c2acf6fa796c15>` (
+	    char** cstruc,
+	    const char** lines,
+	    unsigned int option
+	    )
+
+	char* extract_record_rest_structure (
+	    const char** lines,
+	    unsigned int length,
+	    unsigned int option
+	    )
+
+	unsigned int :ref:`read_record<doxid-group__file__utils_1gafd194a69af9d92b5b0412a7627ac1595>` (
+	    char** header,
+	    char** sequence,
+	    char*** rest,
+	    unsigned int options
+	    )
+
+	unsigned int get_multi_input_line (
+	    char** string,
+	    unsigned int options
+	    )
+
+	int :ref:`vrna_file_msa_read<doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` (
+	    const char* filename,
+	    char*** names,
+	    char*** aln,
+	    char** id,
+	    char** structure,
+	    unsigned int options
+	    )
+
+	int :ref:`vrna_file_msa_read_record<doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>` (
+	    FILE* fp,
+	    char*** names,
+	    char*** aln,
+	    char** id,
+	    char** structure,
+	    unsigned int options
+	    )
+
+	unsigned int :ref:`vrna_file_msa_detect_format<doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>` (
+	    const char* filename,
+	    unsigned int options
+	    )
+
+	int :ref:`vrna_file_msa_write<doxid-group__file__utils_1ga0c90faf1515ce0b16620036b1055ff1e>` (
+	    const char* filename,
+	    const char** names,
+	    const char** aln,
+	    const char* id,
+	    const char* structure,
+	    const char* source,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_file_copy<doxid-group__file__utils_1ga4382a56d2fee9ed738364b99329edc7c>` (
+	    FILE* from,
+	    FILE* to
+	    )
+
+	char* :ref:`vrna_read_line<doxid-group__file__utils_1gad16c270b70a77c753088b29de8a802dc>` (FILE* fp)
+	int :ref:`vrna_mkdir_p<doxid-group__file__utils_1gacfa44a974272a4d42c5d391cc780a0ec>` (const char* path)
+	char* :ref:`vrna_basename<doxid-group__file__utils_1ga8d0f8f84f1e2628172cf3c8648b2e507>` (const char* path)
+	char* :ref:`vrna_dirname<doxid-group__file__utils_1gae006d31b088d52d8aace86948def5fe8>` (const char* path)
+
+	char* :ref:`vrna_filename_sanitize<doxid-group__file__utils_1ga72eae0a472bad905b6facccf5b453a76>` (
+	    const char* name,
+	    const char* replacement
+	    )
+
+	float** :ref:`readribosum<doxid-group__file__utils_1ga5e125c9586fcd4e2e1559fe76f7289cc>` (char* name)
+
+	// macros
+
+	#define :ref:`VRNA_CMD_PARSE_DEFAULTS<doxid-group__file__utils_1ga0a6c88e21e366dca14958d69cd024008>`
+	#define :ref:`VRNA_CMD_PARSE_HC<doxid-group__file__utils_1gac54dec838d7b6bebd5df85f71702d324>`
+	#define :ref:`VRNA_CMD_PARSE_SC<doxid-group__file__utils_1ga8cad3c1f83e6f149829c49a186a83e21>`
+	#define :ref:`VRNA_CMD_PARSE_SD<doxid-group__file__utils_1gaf5e20210173cdb83bf70256a454f284b>`
+	#define VRNA_CMD_PARSE_SILENT
+	#define :ref:`VRNA_CMD_PARSE_UD<doxid-group__file__utils_1ga6c6409780698826b04ebfed9151d7649>`
+	#define :ref:`VRNA_CONSTRAINT_MULTILINE<doxid-group__file__utils_1ga7d725ef525b29891abef3f1ed42599a4>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_APPEND<doxid-group__file__utils_1ga1577ea0f497d9c501549c863a4f2c089>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_CLUSTAL<doxid-group__file__utils_1ga79a23de2c7249f2cccd762e475c81859>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_DEFAULT<doxid-group__file__utils_1ga4acc255373831856a8417b68de8a94c0>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_FASTA<doxid-group__file__utils_1gacf6274a2c825f34e4131404665b00604>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_MAF<doxid-group__file__utils_1gab3186d774c01570d2a47d0308eec4927>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_MIS<doxid-group__file__utils_1ga494488a771aa0c602fb4cf445be34d47>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_NOCHECK<doxid-group__file__utils_1ga229fb3778ecabea4782902b69fa48fd1>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_QUIET<doxid-group__file__utils_1ga73aa3701a22c5acfcb2e8927287a0554>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_SILENT<doxid-group__file__utils_1gad98ca08968d19f221f29d2a1faf26887>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM<doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>`
+	#define :ref:`VRNA_FILE_FORMAT_MSA_UNKNOWN<doxid-group__file__utils_1gabdc948f547e550125de3e7c65878400c>`
+	#define :ref:`VRNA_OPTION_MULTILINE<doxid-group__file__utils_1gabec89c09874528c6cb73140a4c3d86d7>`
+
+.. _details-doxid-group__file__utils:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Functions dealing with file formats for RNA sequences, structures, and alignments.
+
+Typedefs
+--------
+
+.. _doxid-group__file__utils_1ga92cb3b5952352b103bcb32e5a99e0e5a:
+.. _cid-vrna_cmd_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_command_s<doxid-structvrna__command__s>` vrna_cmd_t
+
+    .. container:: brief-description
+
+        Typename for the command repesenting data structure :ref:`vrna_command_s <doxid-structvrna__command__s>` .
+
+Global Functions
+----------------
+
+.. _doxid-group__file__utils_1ga5d2a64331cff5b1059e7d327545d8a63:
+.. _cid-vrna_file_commands_read:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_cmd_t<doxid-group__file__utils_1ga92cb3b5952352b103bcb32e5a99e0e5a>`* vrna_file_commands_read (
+	    const char* filename,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Extract a list of commands from a command file.
+
+    .. container:: detailed-description
+
+        Read a list of commands specified in the input file and return them as list of abstract commands
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - filename
+        
+                - The filename
+        
+            *
+                - options
+        
+                - Options to limit the type of commands read from the file
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A list of abstract commands
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_commands_apply() <doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>` , :ref:`vrna_file_commands_apply() <doxid-group__file__utils_1gadbe8c9622f7bcc6dcbe3448b98df8656>` , :ref:`vrna_commands_free() <doxid-group__file__utils_1ga926fd7632e68f3da2e2069402b80b1ab>`
+
+.. _doxid-group__file__utils_1gadbe8c9622f7bcc6dcbe3448b98df8656:
+.. _cid-vrna_file_commands_apply:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_file_commands_apply (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* filename,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Apply a list of commands from a command file.
+
+    .. container:: detailed-description
+
+        This function is a shortcut to directly parse a commands file and apply all successfully parsed commands to a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structure. It is the same as:
+        
+        .. ref-code-block:: cpp
+        
+            int         r;
+            :ref:`vrna_cmd_t <doxid-structvrna__command__s>`  *cmds;
+        
+            cmds  = :ref:`vrna_file_commands_read <doxid-group__file__utils_1ga5d2a64331cff5b1059e7d327545d8a63>`(filename, options);
+            r     = :ref:`vrna_commands_apply <doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>`(vc, cmds, options);
+        
+            :ref:`vrna_commands_free <doxid-group__file__utils_1ga926fd7632e68f3da2e2069402b80b1ab>`(cmds);
+        
+            return r;
+        
+        SWIG Wrapper Notes This function is attached as method **file_commands_apply()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the command list will be applied to
+        
+            *
+                - filename
+        
+                - The filename
+        
+            *
+                - options
+        
+                - Options to limit the type of commands read from the file
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The number of commands successfully applied
+
+.. _doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9:
+.. _cid-vrna_commands_apply:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_commands_apply (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_cmd_t<doxid-group__file__utils_1ga92cb3b5952352b103bcb32e5a99e0e5a>`* commands,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Apply a list of commands to a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as method **commands_apply()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the command list will be applied to
+        
+            *
+                - commands
+        
+                - The list of commands to apply
+        
+            *
+                - options
+        
+                - Options to limit the type of commands read from the file
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The number of commands successfully applied
+
+.. _doxid-group__file__utils_1ga926fd7632e68f3da2e2069402b80b1ab:
+.. _cid-vrna_commands_free:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_commands_free (:ref:`vrna_cmd_t<doxid-group__file__utils_1ga92cb3b5952352b103bcb32e5a99e0e5a>`* commands)
+
+    .. container:: brief-description
+
+        Free memory occupied by a list of commands.
+
+    .. container:: detailed-description
+
+        Release memory occupied by a list of commands
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - commands
+        
+                - A pointer to a list of commands
+
+.. _doxid-group__file__utils_1gaaface7db12fadc3d271641c4515ab6e4:
+.. _cid-vrna_file_helixlist:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_file_helixlist (
+	    const char* seq,
+	    const char* db,
+	    float energy,
+	    FILE* file
+	    )
+
+    .. container:: brief-description
+
+        Print a secondary structure as helix list.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - The RNA sequence
+        
+            *
+                - db
+        
+                - The structure in dot-bracket format
+        
+            *
+                - energy
+        
+                - Free energy of the structure in kcal/mol
+        
+            *
+                - file
+        
+                - The file handle used to print to (print defaults to 'stdout' if(file == NULL) )
+
+.. _doxid-group__file__utils_1gab69682373ccca1e0e28cc967eec07745:
+.. _cid-vrna_file_connect:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_file_connect (
+	    const char* seq,
+	    const char* db,
+	    float energy,
+	    const char* identifier,
+	    FILE* file
+	    )
+
+    .. container:: brief-description
+
+        Print a secondary structure as connect table.
+
+    .. container:: detailed-description
+
+        Connect table file format looks like this:
+        
+        .. code-block:: none
+        
+            300  ENERGY = 7.0  example
+              1 G       0    2   22    1
+              2 G       1    3   21    2
+        
+        where the headerline is followed by 6 columns with:
+        
+        #. Base number: index n
+        
+        #. Base (A, C, G, T, U, X)
+        
+        #. Index n-1 (0 if first nucleotide)
+        
+        #. Index n+1 (0 if last nucleotide)
+        
+        #. Number of the base to which n is paired. No pairing is indicated by 0 (zero).
+        
+        #. Natural numbering.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - The RNA sequence
+        
+            *
+                - db
+        
+                - The structure in dot-bracket format
+        
+            *
+                - energy
+        
+                - The free energy of the structure
+        
+            *
+                - identifier
+        
+                - An optional identifier for the sequence
+        
+            *
+                - file
+        
+                - The file handle used to print to (print defaults to 'stdout' if(file == NULL) )
+
+.. _doxid-group__file__utils_1ga9b462e6f202594af5d3fa56e280d633f:
+.. _cid-vrna_file_bpseq:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_file_bpseq (
+	    const char* seq,
+	    const char* db,
+	    FILE* file
+	    )
+
+    .. container:: brief-description
+
+        Print a secondary structure in bpseq format.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - The RNA sequence
+        
+            *
+                - db
+        
+                - The structure in dot-bracket format
+        
+            *
+                - file
+        
+                - The file handle used to print to (print defaults to 'stdout' if(file == NULL) )
+
+.. _doxid-group__file__utils_1ga31f4a6c2ea1495a6e4f9eb45a9f6193d:
+.. _cid-vrna_file_json:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_file_json (
+	    const char* seq,
+	    const char* db,
+	    double energy,
+	    const char* identifier,
+	    FILE* file
+	    )
+
+    .. container:: brief-description
+
+        Print a secondary structure in jsonformat.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - The RNA sequence
+        
+            *
+                - db
+        
+                - The structure in dot-bracket format
+        
+            *
+                - energy
+        
+                - The free energy
+        
+            *
+                - identifier
+        
+                - An identifier for the sequence
+        
+            *
+                - file
+        
+                - The file handle used to print to (print defaults to 'stdout' if(file == NULL) )
+
+.. _doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639:
+.. _cid-vrna_file_fasta_read_record:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int vrna_file_fasta_read_record (
+	    char** header,
+	    char** sequence,
+	    char*** rest,
+	    FILE* file,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Get a (fasta) data set from a file or stdin.
+
+    .. container:: detailed-description
+
+        This function may be used to obtain complete datasets from a filehandle or stdin. A dataset is always defined to contain at least a sequence. If data starts with a fasta header, i.e. a line like
+        
+        .. code-block:: none
+        
+            >some header info
+        
+        then :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` will assume that the sequence that follows the header may span over several lines. To disable this behavior and to assign a single line to the argument 'sequence' one can pass :ref:`VRNA_INPUT_NO_SPAN <doxid-group__utils_1ga0de536599b881c787b0943a2671da476>` in the 'options' argument. If no fasta header is read in the beginning of a data block, a sequence must not span over multiple lines!
+        
+        Unless the options :ref:`VRNA_INPUT_NOSKIP_COMMENTS <doxid-group__utils_1ga0f6311f11bed1842e3a527ab27b294c6>` or :ref:`VRNA_INPUT_NOSKIP_BLANK_LINES <doxid-group__utils_1gab4db885222b3b69608310d7c7e63e286>` are passed, a sequence may be interrupted by lines starting with a comment character or empty lines.
+        
+        A sequence is regarded as completely read if it was either assumed to not span over multiple lines, a secondary structure or structure constraint follows the sequence on the next line, or a new header marks the beginning of a new sequence...
+        
+        All lines following the sequence (this includes comments) that do not initiate a new dataset according to the above definition are available through the line-array 'rest'. Here one can usually find the structure constraint or other information belonging to the current dataset. Filling of 'rest' may be prevented by passing :ref:`VRNA_INPUT_NO_REST <doxid-group__utils_1ga7a2e8c50a0c7ce82e60da1016e1367fd>` to the options argument.
+        
+        The main purpose of this function is to be able to easily parse blocks of data in the header of a loop where all calculations for the appropriate data is done inside the loop. The loop may be then left on certain return values, e.g.:
+        
+        .. ref-code-block:: cpp
+        
+            char *id, *seq, **rest;
+            int  i;
+            id = seq = NULL;
+            rest = NULL;
+            while(!(vrna_file_fasta_read_record(&id, &seq, &rest, NULL, 0) & (VRNA_INPUT_ERROR | VRNA_INPUT_QUIT))){
+              if(id) printf("%s\n", id);
+              printf("%s\n", seq);
+              if(rest)
+                for(i=0;rest[i];i++){
+                  printf("%s\n", rest[i]);
+                  free(rest[i]);
+                }
+              free(rest);
+              free(seq);
+              free(id);
+            }
+        
+        In the example above, the while loop will be terminated when :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` returns either an error, EOF, or a user initiated quit request.
+        
+        As long as data is read from stdin (we are passing NULL as the file pointer), the id is printed if it is available for the current block of data. The sequence will be printed in any case and if some more lines belong to the current block of data each line will be printed as well.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - header
+        
+                - A pointer which will be set such that it points to the header of the record
+        
+            *
+                - sequence
+        
+                - A pointer which will be set such that it points to the sequence of the record
+        
+            *
+                - rest
+        
+                - A pointer which will be set such that it points to an array of lines which also belong to the record
+        
+            *
+                - file
+        
+                - A file handle to read from (if NULL, this function reads from stdin)
+        
+            *
+                - options
+        
+                - Some options which may be passed to alter the behavior of the function, use 0 for no options
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A flag with information about what the function actually did read
+        
+        
+        
+        .. note::
+        
+            This function will exit any program with an error message if no sequence could be read!
+        
+            This function is NOT threadsafe! It uses a global variable to store information about the next data block.
+        
+            Do not forget to free the memory occupied by header, sequence and rest!
+
+.. _doxid-group__file__utils_1gad37cbb63a05eed63ba25c91628409be0:
+.. _cid-vrna_extract_record_rest_structure:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_extract_record_rest_structure (
+	    const char** lines,
+	    unsigned int length,
+	    unsigned int option
+	    )
+
+    .. container:: brief-description
+
+        Extract a dot-bracket structure string from (multiline)character array.
+
+    .. container:: detailed-description
+
+        This function extracts a dot-bracket structure string from the 'rest' array as returned by :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` and returns it. All occurences of comments within the 'lines' array will be skipped as long as they do not break the structure string. If no structure could be read, this function returns NULL.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - lines
+        
+                - The (multiline) character array to be parsed
+        
+            *
+                - length
+        
+                - The assumed length of the dot-bracket string (passing a value < 1 results in no length limit)
+        
+            *
+                - option
+        
+                - Some options which may be passed to alter the behavior of the function, use 0 for no options
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The dot-bracket string read from lines or NULL
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            The argument 'lines' has to be a 2-dimensional character array as obtained by :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>`
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>`
+
+.. _doxid-group__file__utils_1ga646ebf45450a69a7f2533f9ecd283a32:
+.. _cid-vrna_file_shape_read:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_file_SHAPE_read (
+	    const char* file_name,
+	    int length,
+	    double default_value,
+	    char* sequence,
+	    double* values
+	    )
+
+    .. container:: brief-description
+
+        Read data from a given SHAPE reactivity input file.
+
+    .. container:: detailed-description
+
+        This function parses the informations from a given file and stores the result in the preallocated string sequence and the double array values.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - file_name
+        
+                - Path to the constraints file
+        
+            *
+                - length
+        
+                - Length of the sequence (file entries exceeding this limit will cause an error)
+        
+            *
+                - default_value
+        
+                - Value for missing indices
+        
+            *
+                - sequence
+        
+                - Pointer to an array used for storing the sequence obtained from the SHAPE reactivity file
+        
+            *
+                - values
+        
+                - Pointer to an array used for storing the values obtained from the SHAPE reactivity file
+
+.. _doxid-group__file__utils_1ga55a9ae6dfeecc1b3f0c2acf6fa796c15:
+.. _cid-vrna_extract_record_rest_constraint:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_extract_record_rest_constraint (
+	    char** cstruc,
+	    const char** lines,
+	    unsigned int option
+	    )
+
+    .. container:: brief-description
+
+        Extract a hard constraint encoded as pseudo dot-bracket string.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_extract_record_rest_structure() <doxid-group__file__utils_1gad37cbb63a05eed63ba25c91628409be0>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - cstruc
+        
+                - A pointer to a character array that is used as pseudo dot-bracket output
+        
+            *
+                - lines
+        
+                - A 2-dimensional character array with the extension lines from the FASTA input
+        
+            *
+                - option
+        
+                - The option flags that define the behavior and recognition pattern of this function
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            The argument 'lines' has to be a 2-dimensional character array as obtained by :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>`
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` , :ref:`VRNA_CONSTRAINT_DB_PIPE <doxid-group__hard__constraints_1ga13053547a2de5532b64b64d35e097ae1>` , :ref:`VRNA_CONSTRAINT_DB_DOT <doxid-group__hard__constraints_1ga369bea82eae75fbe626f409fa425747e>` , :ref:`VRNA_CONSTRAINT_DB_X <doxid-group__hard__constraints_1ga7283bbe0f8954f7b030ecc3f2d1932b2>` :ref:`VRNA_CONSTRAINT_DB_ANG_BRACK <doxid-constraints__hard_8h_1ad54c1315a47d55653dcaa5de6e544b77>` , :ref:`VRNA_CONSTRAINT_DB_RND_BRACK <doxid-group__hard__constraints_1gac17b034852c914bc5879954c65d7e74b>`
+
+.. _doxid-group__file__utils_1gafd194a69af9d92b5b0412a7627ac1595:
+.. _cid-read_record:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int read_record (
+	    char** header,
+	    char** sequence,
+	    char*** rest,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Get a data record from stdin.
+
+    .. container:: detailed-description
+
+        Deprecated This function is deprecated! Use :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>` as a replacment.
+
+.. _doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6:
+.. _cid-vrna_file_msa_read:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_file_msa_read (
+	    const char* filename,
+	    char*** names,
+	    char*** aln,
+	    char** id,
+	    char** structure,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Read a multiple sequence alignment from file.
+
+    .. container:: detailed-description
+
+        This function reads the (first) multiple sequence alignment from an input file. The read alignment is split into the sequence id/name part and the actual sequence information and stored in memory as arrays of ids/names and sequences. If the alignment file format allows for additional information, such as an ID of the entire alignment or consensus structure information, this data is retrieved as well and made available. The ``options`` parameter allows to specify the set of alignment file formats that should be used to retrieve the data. If 0 is passed as option, the list of alignment file formats defaults to :ref:`VRNA_FILE_FORMAT_MSA_DEFAULT <doxid-group__file__utils_1ga4acc255373831856a8417b68de8a94c0>` .
+        
+        Currently, the list of parsable multiple sequence alignment file formats consists of:
+        
+        * :ref:`ClustalW format <doxid-file_formats_1msa-formats-clustal>`
+        
+        * :ref:`Stockholm 1.0 format <doxid-file_formats_1msa-formats-stockholm>`
+        
+        * :ref:`FASTA (Pearson) format <doxid-file_formats_1msa-formats-fasta>`
+        
+        * :ref:`MAF format <doxid-file_formats_1msa-formats-maf>`
+        
+        SWIG Wrapper Notes In the target scripting language, only the first and last argument, ``filename`` and ``options`` , are passed to the corresponding function. The other arguments, which serve as output in the C-library, are available as additional return values. Hence, a function call in python may look like this:
+        
+        .. ref-code-block:: cpp
+        
+            num_seq, names, aln, id, structure = RNA.file_msa_read("msa.stk", RNA.FILE_FORMAT_MSA_STOCKHOLM)
+        
+        After successfully reading the first record, the variable ``num_seq`` contains the number of sequences in the alignment (the actual return value of the C-function), while the variables ``names`` , ``aln`` , ``id`` , and ``structure`` are lists of the sequence names and aligned sequences, as well as strings holding the alignment ID and the structure as stated in the ``SS_cons`` line, respectively. Note, the last two return values may be empty strings in case the alignment does not provide the required data.
+        
+        This function exists as an overloaded version where the ``options`` parameter may be omitted! In that case, the ``options`` parameter defaults to :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM <doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - filename
+        
+                - The name of input file that contains the alignment
+        
+            *
+                - names
+        
+                - An address to the pointer where sequence identifiers should be written to
+        
+            *
+                - aln
+        
+                - An address to the pointer where aligned sequences should be written to
+        
+            *
+                - id
+        
+                - An address to the pointer where the alignment ID should be written to (Maybe NULL)
+        
+            *
+                - structure
+        
+                - An address to the pointer where consensus structure information should be written to (Maybe NULL)
+        
+            *
+                - options
+        
+                - Options to manipulate the behavior of this function
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The number of sequences in the alignment, or -1 if no alignment record could be found
+        
+        
+        
+        .. note::
+        
+            After successfully reading an alignment, this function performs a validation of the data that includes uniqueness of the sequence identifiers, and equal sequence lengths. This check can be deactivated by passing :ref:`VRNA_FILE_FORMAT_MSA_NOCHECK <doxid-group__file__utils_1ga229fb3778ecabea4782902b69fa48fd1>` in the ``options`` parameter.
+        
+            It is the users responsibility to free any memory occupied by the output arguments ``names`` , ``aln`` , ``id`` , and ``structure`` after calling this function. The function automatically sets the latter two arguments to ``NULL`` in case no corresponding data could be retrieved from the input alignment.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read_record() <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>` , :ref:`VRNA_FILE_FORMAT_MSA_CLUSTAL <doxid-group__file__utils_1ga79a23de2c7249f2cccd762e475c81859>` , :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM <doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>` , :ref:`VRNA_FILE_FORMAT_MSA_FASTA <doxid-group__file__utils_1gacf6274a2c825f34e4131404665b00604>` , :ref:`VRNA_FILE_FORMAT_MSA_MAF <doxid-group__file__utils_1gab3186d774c01570d2a47d0308eec4927>` , :ref:`VRNA_FILE_FORMAT_MSA_DEFAULT <doxid-group__file__utils_1ga4acc255373831856a8417b68de8a94c0>` , :ref:`VRNA_FILE_FORMAT_MSA_NOCHECK <doxid-group__file__utils_1ga229fb3778ecabea4782902b69fa48fd1>`
+
+.. _doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd:
+.. _cid-vrna_file_msa_read_record:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_file_msa_read_record (
+	    FILE* fp,
+	    char*** names,
+	    char*** aln,
+	    char** id,
+	    char** structure,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Read a multiple sequence alignment from file handle.
+
+    .. container:: detailed-description
+
+        Similar to :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , this function reads a multiple sequence alignment from an input file handle. Since using a file handle, this function is not limited to the first alignment record, but allows for looping over all alignments within the input.
+        
+        The read alignment is split into the sequence id/name part and the actual sequence information and stored in memory as arrays of ids/names and sequences. If the alignment file format allows for additional information, such as an ID of the entire alignment or consensus structure information, this data is retrieved as well and made available. The ``options`` parameter allows to specify the alignment file format used to retrieve the data. A single format must be specified here, see :ref:`vrna_file_msa_detect_format() <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>` for helping to determine the correct MSA file format.
+        
+        Currently, the list of parsable multiple sequence alignment file formats consists of:
+        
+        * :ref:`ClustalW format <doxid-file_formats_1msa-formats-clustal>`
+        
+        * :ref:`Stockholm 1.0 format <doxid-file_formats_1msa-formats-stockholm>`
+        
+        * :ref:`FASTA (Pearson) format <doxid-file_formats_1msa-formats-fasta>`
+        
+        * :ref:`MAF format <doxid-file_formats_1msa-formats-maf>`
+        
+        SWIG Wrapper Notes In the target scripting language, only the first and last argument, ``fp`` and ``options`` , are passed to the corresponding function. The other arguments, which serve as output in the C-library, are available as additional return values. Hence, a function call in python may look like this:
+        
+        .. ref-code-block:: cpp
+        
+            f = open('msa.stk', 'r')
+            num_seq, names, aln, id, structure = RNA.file_msa_read_record(f, RNA.FILE_FORMAT_MSA_STOCKHOLM)
+            f.close()
+        
+        After successfully reading the first record, the variable ``num_seq`` contains the number of sequences in the alignment (the actual return value of the C-function), while the variables ``names`` , ``aln`` , ``id`` , and ``structure`` are lists of the sequence names and aligned sequences, as well as strings holding the alignment ID and the structure as stated in the ``SS_cons`` line, respectively. Note, the last two return values may be empty strings in case the alignment does not provide the required data.
+        
+        This function exists as an overloaded version where the ``options`` parameter may be omitted! In that case, the ``options`` parameter defaults to :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM <doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - fp
+        
+                - The file pointer the data will be retrieved from
+        
+            *
+                - names
+        
+                - An address to the pointer where sequence identifiers should be written to
+        
+            *
+                - aln
+        
+                - An address to the pointer where aligned sequences should be written to
+        
+            *
+                - id
+        
+                - An address to the pointer where the alignment ID should be written to (Maybe NULL)
+        
+            *
+                - structure
+        
+                - An address to the pointer where consensus structure information should be written to (Maybe NULL)
+        
+            *
+                - options
+        
+                - Options to manipulate the behavior of this function
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The number of sequences in the alignment, or -1 if no alignment record could be found
+        
+        
+        
+        .. note::
+        
+            After successfully reading an alignment, this function performs a validation of the data that includes uniqueness of the sequence identifiers, and equal sequence lengths. This check can be deactivated by passing :ref:`VRNA_FILE_FORMAT_MSA_NOCHECK <doxid-group__file__utils_1ga229fb3778ecabea4782902b69fa48fd1>` in the ``options`` parameter.
+        
+            It is the users responsibility to free any memory occupied by the output arguments ``names`` , ``aln`` , ``id`` , and ``structure`` after calling this function. The function automatically sets the latter two arguments to ``NULL`` in case no corresponding data could be retrieved from the input alignment.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , :ref:`vrna_file_msa_detect_format() <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>` , :ref:`VRNA_FILE_FORMAT_MSA_CLUSTAL <doxid-group__file__utils_1ga79a23de2c7249f2cccd762e475c81859>` , :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM <doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>` , :ref:`VRNA_FILE_FORMAT_MSA_FASTA <doxid-group__file__utils_1gacf6274a2c825f34e4131404665b00604>` , :ref:`VRNA_FILE_FORMAT_MSA_MAF <doxid-group__file__utils_1gab3186d774c01570d2a47d0308eec4927>` , :ref:`VRNA_FILE_FORMAT_MSA_DEFAULT <doxid-group__file__utils_1ga4acc255373831856a8417b68de8a94c0>` , :ref:`VRNA_FILE_FORMAT_MSA_NOCHECK <doxid-group__file__utils_1ga229fb3778ecabea4782902b69fa48fd1>`
+
+.. _doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9:
+.. _cid-vrna_file_msa_detect_format:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int vrna_file_msa_detect_format (
+	    const char* filename,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Detect the format of a multiple sequence alignment file.
+
+    .. container:: detailed-description
+
+        This function attempts to determine the format of a file that supposedly contains a multiple sequence alignment (MSA). This is useful in cases where a MSA file contains more than a single record and therefore :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` can not be applied, since it only retrieves the first. Here, one can try to guess the correct file format using this function and then loop over the file, record by record using one of the low-level record retrieval functions for the corresponding MSA file format.
+        
+        SWIG Wrapper Notes This function exists as an overloaded version where the ``options`` parameter may be omitted! In that case, the ``options`` parameter defaults to :ref:`VRNA_FILE_FORMAT_MSA_DEFAULT <doxid-group__file__utils_1ga4acc255373831856a8417b68de8a94c0>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - filename
+        
+                - The name of input file that contains the alignment
+        
+            *
+                - options
+        
+                - Options to manipulate the behavior of this function
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The MSA file format, or :ref:`VRNA_FILE_FORMAT_MSA_UNKNOWN <doxid-group__file__utils_1gabdc948f547e550125de3e7c65878400c>`
+        
+        
+        
+        .. note::
+        
+            This function parses the entire first record within the specified file. As a result, it returns :ref:`VRNA_FILE_FORMAT_MSA_UNKNOWN <doxid-group__file__utils_1gabdc948f547e550125de3e7c65878400c>` not only if it can't detect the file's format, but also in cases where the file doesn't contain sequences!
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , vrna_file_stockholm_read_record(), vrna_file_clustal_read_record(), :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>`
+
+.. _doxid-group__file__utils_1ga0c90faf1515ce0b16620036b1055ff1e:
+.. _cid-vrna_file_msa_write:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_file_msa_write (
+	    const char* filename,
+	    const char** names,
+	    const char** aln,
+	    const char* id,
+	    const char* structure,
+	    const char* source,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Write multiple sequence alignment file.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes In the target scripting language, this function exists as a set of overloaded versions, where the last four parameters may be omitted. If the ``options`` parameter is missing the options default to ( :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM <doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>` | :ref:`VRNA_FILE_FORMAT_MSA_APPEND <doxid-group__file__utils_1ga1577ea0f497d9c501549c863a4f2c089>` ).
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - filename
+        
+                - The output filename
+        
+            *
+                - names
+        
+                - The array of sequence names / identifies
+        
+            *
+                - aln
+        
+                - The array of aligned sequences
+        
+            *
+                - id
+        
+                - An optional ID for the alignment
+        
+            *
+                - structure
+        
+                - An optional consensus structure
+        
+            *
+                - source
+        
+                - A string describing the source of the alignment
+        
+            *
+                - options
+        
+                - Options to manipulate the behavior of this function
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Non-null upon successfully writing the alignment to file
+        
+        
+        
+        .. note::
+        
+            Currently, we only support :ref:`Stockholm 1.0 format <doxid-file_formats_1msa-formats-stockholm>` output
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM <doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>` , :ref:`VRNA_FILE_FORMAT_MSA_APPEND <doxid-group__file__utils_1ga1577ea0f497d9c501549c863a4f2c089>` , :ref:`VRNA_FILE_FORMAT_MSA_MIS <doxid-group__file__utils_1ga494488a771aa0c602fb4cf445be34d47>`
+
+.. _doxid-group__file__utils_1ga4382a56d2fee9ed738364b99329edc7c:
+.. _cid-vrna_file_copy:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_file_copy (
+	    FILE* from,
+	    FILE* to
+	    )
+
+    .. container:: brief-description
+
+        Inefficient cp .
+
+.. _doxid-group__file__utils_1gad16c270b70a77c753088b29de8a802dc:
+.. _cid-vrna_read_line:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_read_line (FILE* fp)
+
+    .. container:: brief-description
+
+        Read a line of arbitrary length from a stream.
+
+    .. container:: detailed-description
+
+        Returns a pointer to the resulting string. The necessary memory is allocated and should be released using *free()* when the string is no longer needed.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - fp
+        
+                - A file pointer to the stream where the function should read from
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the resulting string
+
+.. _doxid-group__file__utils_1gacfa44a974272a4d42c5d391cc780a0ec:
+.. _cid-vrna_mkdir_p:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_mkdir_p (const char* path)
+
+    .. container:: brief-description
+
+        Recursivly create a directory tree.
+
+.. _doxid-group__file__utils_1ga8d0f8f84f1e2628172cf3c8648b2e507:
+.. _cid-vrna_basename:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_basename (const char* path)
+
+    .. container:: brief-description
+
+        Extract the filename from a file path.
+
+.. _doxid-group__file__utils_1gae006d31b088d52d8aace86948def5fe8:
+.. _cid-vrna_dirname:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_dirname (const char* path)
+
+    .. container:: brief-description
+
+        Extract the directory part of a file path.
+
+.. _doxid-group__file__utils_1ga72eae0a472bad905b6facccf5b453a76:
+.. _cid-vrna_filename_sanitize:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_filename_sanitize (
+	    const char* name,
+	    const char* replacement
+	    )
+
+    .. container:: brief-description
+
+        Sanitize a file name.
+
+    .. container:: detailed-description
+
+        Returns a new file name where all invalid characters are substituted by a replacement character. If no replacement character is supplied, invalid characters are simply removed from the filename. File names may also never exceed a length of 255 characters. Longer file names will undergo a 'smart' truncation process, where the filenames suffix, i.e. everything after the last dot .', is attempted to be kept intact. Hence, only the filename part before the suffix is reduced in such a way that the total filename complies to the length restriction of 255 characters. If no suffix is present or the suffix itself already exceeds the maximum length, the filename is simply truncated from the back of the string.
+        
+        For now we consider the following characters invalid:
+        
+        * backslash '\'
+        
+        * slash '/'
+        
+        * question mark '?'
+        
+        * percent sign ''
+        
+        * asterisk '*'
+        
+        * colon ':'
+        
+        * pipe symbol '|'
+        
+        * double quote '"'
+        
+        * triangular brackets '<' and '>'
+        
+        Furthermore, the (resulting) file name must not be a reserved file name, such as:
+        
+        * '.'
+        
+        * '..'
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - name
+        
+                - The input file name
+        
+            *
+                - replacment
+        
+                - The replacement character, or NULL
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The sanitized file name, or NULL
+        
+        
+        
+        .. note::
+        
+            This function allocates a new block of memory for the sanitized string. It also may return (a) NULL if the input is pointing to NULL, or (b) an empty string if the input only consists of invalid characters which are simply removed!
+
+.. _doxid-group__file__utils_1ga5e125c9586fcd4e2e1559fe76f7289cc:
+.. _cid-readribosum:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float** readribosum (char* name)
+
+    .. container:: brief-description
+
+        Read a RiboSum or other user-defined Scoring Matrix and Store into global Memory.
+
+Macros
+------
+
+.. _doxid-group__file__utils_1ga0a6c88e21e366dca14958d69cd024008:
+.. _cid-vrna_cmd_parse_defaults:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CMD_PARSE_DEFAULTS
+
+    .. container:: brief-description
+
+        Command parse/apply flag indicating default set of commands.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_command_s <doxid-structvrna__command__s>` , :ref:`vrna_file_commands_read() <doxid-group__file__utils_1ga5d2a64331cff5b1059e7d327545d8a63>` , :ref:`vrna_file_commands_apply() <doxid-group__file__utils_1gadbe8c9622f7bcc6dcbe3448b98df8656>` , :ref:`vrna_commands_apply() <doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>`
+
+.. _doxid-group__file__utils_1gac54dec838d7b6bebd5df85f71702d324:
+.. _cid-vrna_cmd_parse_hc:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CMD_PARSE_HC
+
+    .. container:: brief-description
+
+        Command parse/apply flag indicating hard constraints.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_command_s <doxid-structvrna__command__s>` , :ref:`vrna_file_commands_read() <doxid-group__file__utils_1ga5d2a64331cff5b1059e7d327545d8a63>` , :ref:`vrna_file_commands_apply() <doxid-group__file__utils_1gadbe8c9622f7bcc6dcbe3448b98df8656>` , :ref:`vrna_commands_apply() <doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>`
+
+.. _doxid-group__file__utils_1ga8cad3c1f83e6f149829c49a186a83e21:
+.. _cid-vrna_cmd_parse_sc:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CMD_PARSE_SC
+
+    .. container:: brief-description
+
+        Command parse/apply flag indicating soft constraints.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_command_s <doxid-structvrna__command__s>` , :ref:`vrna_file_commands_read() <doxid-group__file__utils_1ga5d2a64331cff5b1059e7d327545d8a63>` , :ref:`vrna_file_commands_apply() <doxid-group__file__utils_1gadbe8c9622f7bcc6dcbe3448b98df8656>` , :ref:`vrna_commands_apply() <doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>`
+
+.. _doxid-group__file__utils_1gaf5e20210173cdb83bf70256a454f284b:
+.. _cid-vrna_cmd_parse_sd:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CMD_PARSE_SD
+
+    .. container:: brief-description
+
+        Command parse/apply flag indicating structured domains.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_command_s <doxid-structvrna__command__s>` , :ref:`vrna_file_commands_read() <doxid-group__file__utils_1ga5d2a64331cff5b1059e7d327545d8a63>` , :ref:`vrna_file_commands_apply() <doxid-group__file__utils_1gadbe8c9622f7bcc6dcbe3448b98df8656>` , :ref:`vrna_commands_apply() <doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>`
+
+.. _doxid-group__file__utils_1ga6c6409780698826b04ebfed9151d7649:
+.. _cid-vrna_cmd_parse_ud:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CMD_PARSE_UD
+
+    .. container:: brief-description
+
+        Command parse/apply flag indicating unstructured domains.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_command_s <doxid-structvrna__command__s>` , :ref:`vrna_file_commands_read() <doxid-group__file__utils_1ga5d2a64331cff5b1059e7d327545d8a63>` , :ref:`vrna_file_commands_apply() <doxid-group__file__utils_1gadbe8c9622f7bcc6dcbe3448b98df8656>` , :ref:`vrna_commands_apply() <doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>`
+
+.. _doxid-group__file__utils_1ga7d725ef525b29891abef3f1ed42599a4:
+.. _cid-vrna_constraint_multiline:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONSTRAINT_MULTILINE
+
+    .. container:: brief-description
+
+        parse multiline constraint
+
+    .. container:: detailed-description
+
+        Deprecated see :ref:`vrna_extract_record_rest_structure() <doxid-group__file__utils_1gad37cbb63a05eed63ba25c91628409be0>`
+
+.. _doxid-group__file__utils_1ga1577ea0f497d9c501549c863a4f2c089:
+.. _cid-vrna_file_format_msa_append:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_APPEND
+
+    .. container:: brief-description
+
+        Option flag indicating to append data to a multiple sequence alignment file rather than overwriting it.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_write() <doxid-group__file__utils_1ga0c90faf1515ce0b16620036b1055ff1e>`
+
+.. _doxid-group__file__utils_1ga79a23de2c7249f2cccd762e475c81859:
+.. _cid-vrna_file_format_msa_clustal:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_CLUSTAL
+
+    .. container:: brief-description
+
+        Option flag indicating ClustalW formatted files.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , :ref:`vrna_file_msa_read_record() <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>` , :ref:`vrna_file_msa_detect_format() <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>`
+
+.. _doxid-group__file__utils_1ga4acc255373831856a8417b68de8a94c0:
+.. _cid-vrna_file_format_msa_default:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_DEFAULT
+
+    .. container:: brief-description
+
+        Option flag indicating the set of default file formats.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , :ref:`vrna_file_msa_read_record() <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>` , :ref:`vrna_file_msa_detect_format() <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>`
+
+.. _doxid-group__file__utils_1gacf6274a2c825f34e4131404665b00604:
+.. _cid-vrna_file_format_msa_fasta:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_FASTA
+
+    .. container:: brief-description
+
+        Option flag indicating FASTA (Pearson) formatted files.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , :ref:`vrna_file_msa_read_record() <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>` , :ref:`vrna_file_msa_detect_format() <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>`
+
+.. _doxid-group__file__utils_1gab3186d774c01570d2a47d0308eec4927:
+.. _cid-vrna_file_format_msa_maf:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_MAF
+
+    .. container:: brief-description
+
+        Option flag indicating MAF formatted files.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , :ref:`vrna_file_msa_read_record() <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>` , :ref:`vrna_file_msa_detect_format() <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>`
+
+.. _doxid-group__file__utils_1ga494488a771aa0c602fb4cf445be34d47:
+.. _cid-vrna_file_format_msa_mis:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_MIS
+
+    .. container:: brief-description
+
+        Option flag indicating most informative sequence (MIS) output.
+
+    .. container:: detailed-description
+
+        The default reference sequence output for an alignment is simply a consensus sequence. This flag allows to write the most informative equence (MIS) instead.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_write() <doxid-group__file__utils_1ga0c90faf1515ce0b16620036b1055ff1e>`
+
+.. _doxid-group__file__utils_1ga229fb3778ecabea4782902b69fa48fd1:
+.. _cid-vrna_file_format_msa_nocheck:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_NOCHECK
+
+    .. container:: brief-description
+
+        Option flag to disable validation of the alignment.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , :ref:`vrna_file_msa_read_record() <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>`
+
+.. _doxid-group__file__utils_1ga73aa3701a22c5acfcb2e8927287a0554:
+.. _cid-vrna_file_format_msa_quiet:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_QUIET
+
+    .. container:: brief-description
+
+        Option flag to suppress unnecessary spam messages on ``stderr``
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , :ref:`vrna_file_msa_read_record() <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>`
+
+.. _doxid-group__file__utils_1gad98ca08968d19f221f29d2a1faf26887:
+.. _cid-vrna_file_format_msa_silent:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_SILENT
+
+    .. container:: brief-description
+
+        Option flag to completely silence any warnings on ``stderr``
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , :ref:`vrna_file_msa_read_record() <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>`
+
+.. _doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b:
+.. _cid-vrna_file_format_msa_stockholm:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_STOCKHOLM
+
+    .. container:: brief-description
+
+        Option flag indicating Stockholm 1.0 formatted files.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_read() <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` , :ref:`vrna_file_msa_read_record() <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>` , :ref:`vrna_file_msa_detect_format() <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>`
+
+.. _doxid-group__file__utils_1gabdc948f547e550125de3e7c65878400c:
+.. _cid-vrna_file_format_msa_unknown:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_FILE_FORMAT_MSA_UNKNOWN
+
+    .. container:: brief-description
+
+        Return flag of :ref:`vrna_file_msa_detect_format() <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>` to indicate unknown or malformatted alignment.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_msa_detect_format() <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>`
+
+.. _doxid-group__file__utils_1gabec89c09874528c6cb73140a4c3d86d7:
+.. _cid-vrna_option_multiline:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_OPTION_MULTILINE
+
+    .. container:: brief-description
+
+        Tell a function that an input is assumed to span several lines.
+
+    .. container:: detailed-description
+
+        If used as input-option a function might also be returning this state telling that it has read data from multiple lines.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_extract_record_rest_structure() <doxid-group__file__utils_1gad37cbb63a05eed63ba25c91628409be0>` , :ref:`vrna_file_fasta_read_record() <doxid-group__file__utils_1ga8cfb7e271efc9e1f34640acb85475639>`
+

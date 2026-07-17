@@ -1,0 +1,1055 @@
+.. index:: pair: group; Partition function and equilibrium properties
+.. _doxid-group__pf__fold:
+.. _cid-pf_fold:
+
+Partition function and equilibrium properties
+=============================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+Compute the partition function and various equilibrium properties derived from it. :ref:`More...<details-doxid-group__pf__fold>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	double :ref:`vrna_mean_bp_distance_pr<doxid-group__pf__fold_1gad3f0c240512e6d43e2e4d4c2076021f5>` (
+	    int length,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* pr
+	    )
+
+	double :ref:`vrna_mean_bp_distance<doxid-group__pf__fold_1gaa6b8983b559b9ef4b2e1b31113ea317b>` (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+	:ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* :ref:`vrna_stack_prob<doxid-group__pf__fold_1ga132664bf29fdc30bb5ea715491d1ab22>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double cutoff
+	    )
+
+	float :ref:`vrna_pf<doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    char* structure
+	    )
+
+	float :ref:`vrna_pf_fold<doxid-group__pf__fold_1gac4a2a74a79e49818bc35412a2b392c7e>` (
+	    const char* sequence,
+	    char* structure,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** pl
+	    )
+
+	float :ref:`vrna_pf_circfold<doxid-group__pf__fold_1ga87e5a77b6e50dd54e9d032a9b92973be>` (
+	    const char* sequence,
+	    char* structure,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** pl
+	    )
+
+	float :ref:`pf_fold_par<doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` (
+	    const char* sequence,
+	    char* structure,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* parameters,
+	    int calculate_bppm,
+	    int is_constrained,
+	    int is_circular
+	    )
+
+	float :ref:`pf_fold<doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` (
+	    const char* sequence,
+	    char* structure
+	    )
+
+	float :ref:`pf_circ_fold<doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735>` (
+	    const char* sequence,
+	    char* structure
+	    )
+
+	void :ref:`free_pf_arrays<doxid-group__pf__fold_1gae73db3f49a94f0f72e067ecd12681dbd>` (void)
+	void :ref:`update_pf_params<doxid-group__pf__fold_1ga384e927890f9c034ff09fa66da102d28>` (int length)
+
+	void :ref:`update_pf_params_par<doxid-group__pf__fold_1gaafe2d1b21f5418b123b088aa395e827d>` (
+	    int length,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* parameters
+	    )
+
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* :ref:`export_bppm<doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>` (void)
+
+	int :ref:`get_pf_arrays<doxid-group__pf__fold_1ga42faebdfce6f070c5f89adfc8427525c>` (
+	    short** S_p,
+	    short** S1_p,
+	    char** ptype_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qb_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qm_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** q1k_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qln_p
+	    )
+
+	double :ref:`mean_bp_distance<doxid-group__pf__fold_1ga79cbc375af65f11609feb6b055269e7d>` (int length)
+
+	double :ref:`mean_bp_distance_pr<doxid-group__pf__fold_1gad5ba36cef8d01cf4244cc09b9bf1ce1d>` (
+	    int length,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* pr
+	    )
+
+	:ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* :ref:`vrna_plist_from_probs<doxid-group__pf__fold_1ga94f6efc0b8d8712b023452794a0a5bd2>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double cut_off
+	    )
+
+	void :ref:`assign_plist_from_pr<doxid-group__pf__fold_1ga1cc05aaa9b0e7df2d3887e98321c2030>` (
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** pl,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* probs,
+	    int length,
+	    double cutoff
+	    )
+
+.. _details-doxid-group__pf__fold:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Compute the partition function and various equilibrium properties derived from it.
+
+Global Functions
+----------------
+
+.. _doxid-group__pf__fold_1gad3f0c240512e6d43e2e4d4c2076021f5:
+.. _cid-vrna_mean_bp_distance_pr:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_mean_bp_distance_pr (
+	    int length,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* pr
+	    )
+
+    .. container:: brief-description
+
+        Get the mean base pair distance in the thermodynamic ensemble from a probability matrix.
+
+    .. container:: detailed-description
+
+        :math:`<d> = \sum_{a,b} p_a p_b d(S_a,S_b)`
+        
+        this can be computed from the pair probs :math:`p_ij` as
+        
+        :math:`<d> = \sum_{ij} p_{ij}(1-p_{ij})`
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - length
+        
+                - The length of the sequence
+        
+            *
+                - pr
+        
+                - The matrix containing the base pair probabilities
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The mean pair distance of the structure ensemble
+
+.. _doxid-group__pf__fold_1gaa6b8983b559b9ef4b2e1b31113ea317b:
+.. _cid-vrna_mean_bp_distance:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_mean_bp_distance (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+    .. container:: brief-description
+
+        Get the mean base pair distance in the thermodynamic ensemble.
+
+    .. container:: detailed-description
+
+        :math:`<d> = \sum_{a,b} p_a p_b d(S_a,S_b)`
+        
+        this can be computed from the pair probs :math:`p_ij` as
+        
+        :math:`<d> = \sum_{ij} p_{ij}(1-p_{ij})`
+        
+        SWIG Wrapper Notes This function is attached as method **:ref:`mean_bp_distance() <doxid-group__pf__fold_1ga79cbc375af65f11609feb6b055269e7d>`** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The mean pair distance of the structure ensemble
+
+.. _doxid-group__pf__fold_1ga132664bf29fdc30bb5ea715491d1ab22:
+.. _cid-vrna_stack_prob:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* vrna_stack_prob (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double cutoff
+	    )
+
+    .. container:: brief-description
+
+        Compute stacking probabilities.
+
+    .. container:: detailed-description
+
+        For each possible base pair :math:`(i,j)` , compute the probability of a stack :math:`(i,j)` , :math:`(i+1, j-1)` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure with precomputed base pair probabilities
+        
+            *
+                - cutoff
+        
+                - A cutoff value that limits the output to stacks with :math:` p > \textrm{cutoff} ` .
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A list of stacks with enclosing base pair :math:`(i,j)` and probabiltiy :math:` p `
+
+.. _doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc:
+.. _cid-vrna_pf:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_pf (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute the partition function :math:`Q` for a given RNA sequence, or sequence alignment.
+
+    .. container:: detailed-description
+
+        If *structure* is not a NULL pointer on input, it contains on return a string consisting of the letters " . , | { } ( ) " denoting bases that are essentially unpaired, weakly paired, strongly paired without preference, weakly upstream (downstream) paired, or strongly up- (down-)stream paired bases, respectively. If the parameter calculate_bppm is set to 0 base pairing probabilities will not be computed (saving CPU time), otherwise after calculations took place :ref:`pr <doxid-fold__vars_8h_1ac98ec419070aee6831b44e5c700f090f>` will contain the probability that bases *i* and *j* pair.
+        
+        SWIG Wrapper Notes This function is attached as method **pf()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure
+        
+            *
+                - structure
+        
+                - A pointer to the character array where position-wise pairing propensity will be stored. (Maybe NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Gibbs free energy of the ensemble ( :math:`G = -RT \cdot \log(Q) ` ) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            This function is polymorphic. It accepts :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` , and :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_pf_fold() <doxid-group__pf__fold_1gac4a2a74a79e49818bc35412a2b392c7e>` , :ref:`vrna_pf_circfold() <doxid-group__pf__fold_1ga87e5a77b6e50dd54e9d032a9b92973be>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_pf_alifold() <doxid-group__consensus__pf__fold_1ga374e31a0f326b2c5da5b84e143a63f38>` , :ref:`vrna_pf_circalifold() <doxid-group__consensus__pf__fold_1gab70fe6c9a78b79cc5669881720926e1d>` , :ref:`vrna_db_from_probs() <doxid-group__struct__utils_1ga0c28c410a5ab22d6ab9c77a84e8d5b44>` , :ref:`vrna_exp_params() <doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>` , :ref:`vrna_aln_pinfo() <doxid-group__aln__utils_1gaf6421a1318586c59fea6a127ed9f65f3>`
+
+.. _doxid-group__pf__fold_1gac4a2a74a79e49818bc35412a2b392c7e:
+.. _cid-vrna_pf_fold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_pf_fold (
+	    const char* sequence,
+	    char* structure,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** pl
+	    )
+
+    .. container:: brief-description
+
+        Compute Partition function :math:`Q` (and base pair probabilities) for an RNA sequence using a comparative method.
+
+    .. container:: detailed-description
+
+        This simplified interface to :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` computes the partition function and, if required, base pair probabilities for an RNA sequence using default options. Memory required for dynamic programming (DP) matrices will be allocated and free'd on-the-fly. Hence, after return of this function, the recursively filled matrices are not available any more for any post-processing.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - RNA sequence
+        
+            *
+                - structure
+        
+                - A pointer to the character array where position-wise pairing propensity will be stored. (Maybe NULL)
+        
+            *
+                - pl
+        
+                - A pointer to a list of :ref:`vrna_ep_t <doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>` to store pairing probabilities (Maybe NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Gibbs free energy of the ensemble ( :math:`G = -RT \cdot \log(Q) ` ) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            In case you want to use the filled DP matrices for any subsequent post-processing step, or you require other conditions than specified by the default model details, use :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` , and the data structure :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` instead.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_pf_circfold() <doxid-group__pf__fold_1ga87e5a77b6e50dd54e9d032a9b92973be>` , :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+
+.. _doxid-group__pf__fold_1ga87e5a77b6e50dd54e9d032a9b92973be:
+.. _cid-vrna_pf_circfold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_pf_circfold (
+	    const char* sequence,
+	    char* structure,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** pl
+	    )
+
+    .. container:: brief-description
+
+        Compute Partition function :math:`Q` (and base pair probabilities) for a circular RNA sequences using a comparative method.
+
+    .. container:: detailed-description
+
+        This simplified interface to :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` computes the partition function and, if required, base pair probabilities for a circular RNA sequence using default options. Memory required for dynamic programming (DP) matrices will be allocated and free'd on-the-fly. Hence, after return of this function, the recursively filled matrices are not available any more for any post-processing.
+        
+        Folding of circular RNA sequences is handled as a post-processing step of the forward recursions. See :ref:`[7] <doxid-citelist_1CITEREF_hofacker:2006>` for further details.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - A circular RNA sequence
+        
+            *
+                - structure
+        
+                - A pointer to the character array where position-wise pairing propensity will be stored. (Maybe NULL)
+        
+            *
+                - pl
+        
+                - A pointer to a list of :ref:`vrna_ep_t <doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>` to store pairing probabilities (Maybe NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Gibbs free energy of the ensemble ( :math:`G = -RT \cdot \log(Q) ` ) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            In case you want to use the filled DP matrices for any subsequent post-processing step, or you require other conditions than specified by the default model details, use :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` , and the data structure :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` instead.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_pf_fold() <doxid-group__pf__fold_1gac4a2a74a79e49818bc35412a2b392c7e>` , :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+
+.. _doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf:
+.. _cid-pf_fold_par:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float pf_fold_par (
+	    const char* sequence,
+	    char* structure,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* parameters,
+	    int calculate_bppm,
+	    int is_constrained,
+	    int is_circular
+	    )
+
+    .. container:: brief-description
+
+        Compute the partition function :math:`Q` for a given RNA sequence.
+
+    .. container:: detailed-description
+
+        If *structure* is not a NULL pointer on input, it contains on return a string consisting of the letters " . , | { } ( ) " denoting bases that are essentially unpaired, weakly paired, strongly paired without preference, weakly upstream (downstream) paired, or strongly up- (down-)stream paired bases, respectively. If :ref:`fold_constrained <doxid-fold__vars_8h_1a0afc287c2464866d94858c39175154af>` is not 0, the *structure* string is interpreted on input as a list of constraints for the folding. The character "x" marks bases that must be unpaired, matching brackets " ( ) " denote base pairs, all other characters are ignored. Any pairs conflicting with the constraint will be forbidden. This is usually sufficient to ensure the constraints are honored. If the parameter calculate_bppm is set to 0 base pairing probabilities will not be computed (saving CPU time), otherwise after calculations took place :ref:`pr <doxid-fold__vars_8h_1ac98ec419070aee6831b44e5c700f090f>` will contain the probability that bases *i* and *j* pair.
+        
+        Deprecated Use :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` instead
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The RNA sequence input
+        
+            *
+                - structure
+        
+                - A pointer to a char array where a base pair probability information can be stored in a pseudo-dot-bracket notation (may be NULL, too)
+        
+            *
+                - parameters
+        
+                - Data structure containing the precalculated Boltzmann factors
+        
+            *
+                - calculate_bppm
+        
+                - Switch to Base pair probability calculations on/off (0==off)
+        
+            *
+                - is_constrained
+        
+                - Switch to indicate that a structure contraint is passed via the structure argument (0==off)
+        
+            *
+                - is_circular
+        
+                - Switch to (de-)activate postprocessing steps in case RNA sequence is circular (0==off)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Gibbs free energy of the ensemble ( :math:`G = -RT \cdot \log(Q) ` ) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            The global array :ref:`pr <doxid-fold__vars_8h_1ac98ec419070aee6831b44e5c700f090f>` is deprecated and the user who wants the calculated base pair probabilities for further computations is advised to use the function :ref:`export_bppm() <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>`
+        
+        
+        
+        .. admonition:: Post-Condition
+        
+            After successful run the hidden folding matrices are filled with the appropriate Boltzmann factors. Depending on whether the global variable :ref:`do_backtrack <doxid-group__model__details_1gad512b5dd4dbec60faccfe137bb474489>` was set the base pair probabilities are already computed and may be accessed for further usage via the :ref:`export_bppm() <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>` function. A call of :ref:`free_pf_arrays() <doxid-group__pf__fold_1gae73db3f49a94f0f72e067ecd12681dbd>` will free all memory allocated by this function. Successive calls will first free previously allocated memory before starting the computation.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` , :ref:`bppm_to_structure() <doxid-group__struct__utils_1ga129d81c4a1ead793c5b2311333e03dfa>` , :ref:`export_bppm() <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>` , :ref:`vrna_exp_params() <doxid-group__energy__parameters_1gab1f3016f96aa96bff020cdd904605afa>` , :ref:`free_pf_arrays() <doxid-group__pf__fold_1gae73db3f49a94f0f72e067ecd12681dbd>`
+
+.. _doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2:
+.. _cid-pf_fold-2:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float pf_fold (
+	    const char* sequence,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute the partition function :math:`Q` of an RNA sequence.
+
+    .. container:: detailed-description
+
+        If *structure* is not a NULL pointer on input, it contains on return a string consisting of the letters " . , | { } ( ) " denoting bases that are essentially unpaired, weakly paired, strongly paired without preference, weakly upstream (downstream) paired, or strongly up- (down-)stream paired bases, respectively. If :ref:`fold_constrained <doxid-fold__vars_8h_1a0afc287c2464866d94858c39175154af>` is not 0, the *structure* string is interpreted on input as a list of constraints for the folding. The character "x" marks bases that must be unpaired, matching brackets " ( ) " denote base pairs, all other characters are ignored. Any pairs conflicting with the constraint will be forbidden. This is usually sufficient to ensure the constraints are honored. If :ref:`do_backtrack <doxid-group__model__details_1gad512b5dd4dbec60faccfe137bb474489>` has been set to 0 base pairing probabilities will not be computed (saving CPU time), otherwise :ref:`pr <doxid-fold__vars_8h_1ac98ec419070aee6831b44e5c700f090f>` will contain the probability that bases *i* and *j* pair.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The RNA sequence input
+        
+            *
+                - structure
+        
+                - A pointer to a char array where a base pair probability information can be stored in a pseudo-dot-bracket notation (may be NULL, too)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Gibbs free energy of the ensemble ( :math:`G = -RT \cdot \log(Q) ` ) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            The global array :ref:`pr <doxid-fold__vars_8h_1ac98ec419070aee6831b44e5c700f090f>` is deprecated and the user who wants the calculated base pair probabilities for further computations is advised to use the function :ref:`export_bppm() <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>` .
+        
+            **OpenMP:** This function is not entirely threadsafe. While the recursions are working on their own copies of data the model details for the recursions are determined from the global settings just before entering the recursions. Consider using :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` for a really threadsafe implementation.
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            This function takes its model details from the global variables provided in *RNAlib*
+        
+        
+        
+        .. admonition:: Post-Condition
+        
+            After successful run the hidden folding matrices are filled with the appropriate Boltzmann factors. Depending on whether the global variable :ref:`do_backtrack <doxid-group__model__details_1gad512b5dd4dbec60faccfe137bb474489>` was set the base pair probabilities are already computed and may be accessed for further usage via the :ref:`export_bppm() <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>` function. A call of :ref:`free_pf_arrays() <doxid-group__pf__fold_1gae73db3f49a94f0f72e067ecd12681dbd>` will free all memory allocated by this function. Successive calls will first free previously allocated memory before starting the computation.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` , :ref:`pf_circ_fold() <doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735>` , :ref:`bppm_to_structure() <doxid-group__struct__utils_1ga129d81c4a1ead793c5b2311333e03dfa>` , :ref:`export_bppm() <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>`
+
+.. _doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735:
+.. _cid-pf_circ_fold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float pf_circ_fold (
+	    const char* sequence,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute the partition function of a circular RNA sequence.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The RNA sequence input
+        
+            *
+                - structure
+        
+                - A pointer to a char array where a base pair probability information can be stored in a pseudo-dot-bracket notation (may be NULL, too)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The Gibbs free energy of the ensemble ( :math:`G = -RT \cdot \log(Q) ` ) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            The global array :ref:`pr <doxid-fold__vars_8h_1ac98ec419070aee6831b44e5c700f090f>` is deprecated and the user who wants the calculated base pair probabilities for further computations is advised to use the function :ref:`export_bppm() <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>` .
+        
+            **OpenMP:** This function is not entirely threadsafe. While the recursions are working on their own copies of data the model details for the recursions are determined from the global settings just before entering the recursions. Consider using :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` for a really threadsafe implementation.
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            This function takes its model details from the global variables provided in *RNAlib*
+        
+        
+        
+        .. admonition:: Post-Condition
+        
+            After successful run the hidden folding matrices are filled with the appropriate Boltzmann factors. Depending on whether the global variable :ref:`do_backtrack <doxid-group__model__details_1gad512b5dd4dbec60faccfe137bb474489>` was set the base pair probabilities are already computed and may be accessed for further usage via the :ref:`export_bppm() <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>` function. A call of :ref:`free_pf_arrays() <doxid-group__pf__fold_1gae73db3f49a94f0f72e067ecd12681dbd>` will free all memory allocated by this function. Successive calls will first free previously allocated memory before starting the computation.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>`
+
+.. _doxid-group__pf__fold_1gae73db3f49a94f0f72e067ecd12681dbd:
+.. _cid-free_pf_arrays:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void free_pf_arrays (void)
+
+    .. container:: brief-description
+
+        Free arrays for the partition function recursions.
+
+    .. container:: detailed-description
+
+        Call this function if you want to free all allocated memory associated with the partition function forward recursion. Deprecated See vrna_fold_compound_t and its related functions for how to free memory occupied by the dynamic programming matrices
+        
+        
+        
+        .. note::
+        
+            Successive calls of :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` , :ref:`pf_circ_fold() <doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735>` already check if they should free any memory from a previous run.
+        
+            **OpenMP notice:**
+        
+        This function should be called before leaving a thread in order to avoid leaking memory
+        
+        
+        
+        .. admonition:: Post-Condition
+        
+            All memory allocated by :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` , :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` or :ref:`pf_circ_fold() <doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735>` will be free'd
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` , :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` , :ref:`pf_circ_fold() <doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735>`
+
+.. _doxid-group__pf__fold_1ga384e927890f9c034ff09fa66da102d28:
+.. _cid-update_pf_params:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void update_pf_params (int length)
+
+    .. container:: brief-description
+
+        Recalculate energy parameters.
+
+    .. container:: detailed-description
+
+        Call this function to recalculate the pair matrix and energy parameters after a change in folding parameters like :ref:`temperature <doxid-group__model__details_1gab4b11c8d9c758430960896bc3fe82ead>`
+        
+        Deprecated Use :ref:`vrna_exp_params_subst() <doxid-group__energy__parameters_1ga8e7ac4fab3b0cc03afbc134eaafb3525>` instead
+
+.. _doxid-group__pf__fold_1gaafe2d1b21f5418b123b088aa395e827d:
+.. _cid-update_pf_params_par:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void update_pf_params_par (
+	    int length,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* parameters
+	    )
+
+    .. container:: brief-description
+
+        Recalculate energy parameters.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_exp_params_subst() <doxid-group__energy__parameters_1ga8e7ac4fab3b0cc03afbc134eaafb3525>` instead
+
+.. _doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073:
+.. _cid-export_bppm:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* export_bppm (void)
+
+    .. container:: brief-description
+
+        Get a pointer to the base pair probability array
+        
+        Accessing the base pair probabilities for a pair (i,j) is achieved by.
+
+    .. container:: detailed-description
+
+        .. ref-code-block:: cpp
+        
+            FLT_OR_DBL *pr  = export_bppm();
+            pr_ij           = pr[iindx[i]-j];
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the base pair probability array
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            Call :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` , :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` or :ref:`pf_circ_fold() <doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735>` first to fill the base pair probability array
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` , :ref:`pf_circ_fold() <doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735>` , :ref:`vrna_idx_row_wise() <doxid-group__utils_1ga70b180e9ea764218a82647a1cd347445>`
+
+.. _doxid-group__pf__fold_1ga42faebdfce6f070c5f89adfc8427525c:
+.. _cid-get_pf_arrays:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int get_pf_arrays (
+	    short** S_p,
+	    short** S1_p,
+	    char** ptype_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qb_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qm_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** q1k_p,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qln_p
+	    )
+
+    .. container:: brief-description
+
+        Get the pointers to (almost) all relavant computation arrays used in partition function computation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - S_p
+        
+                - A pointer to the 'S' array (integer representation of nucleotides)
+        
+            *
+                - S1_p
+        
+                - A pointer to the 'S1' array (2nd integer representation of nucleotides)
+        
+            *
+                - ptype_p
+        
+                - A pointer to the pair type matrix
+        
+            *
+                - qb_p
+        
+                - A pointer to the Q B matrix
+        
+            *
+                - qm_p
+        
+                - A pointer to the Q M matrix
+        
+            *
+                - q1k_p
+        
+                - A pointer to the 5' slice of the Q matrix ( :math:`q1k(k) = Q(1, k)` )
+        
+            *
+                - qln_p
+        
+                - A pointer to the 3' slice of the Q matrix ( :math:`qln(l) = Q(l, n)` )
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Non Zero if everything went fine, 0 otherwise
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            In order to assign meaningful pointers, you have to call :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` or :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` first!
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` , :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` , :ref:`pf_circ_fold() <doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735>`
+
+.. _doxid-group__pf__fold_1ga79cbc375af65f11609feb6b055269e7d:
+.. _cid-mean_bp_distance:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double mean_bp_distance (int length)
+
+    .. container:: brief-description
+
+        Get the mean base pair distance of the last partition function computation.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_mean_bp_distance() <doxid-group__pf__fold_1gaa6b8983b559b9ef4b2e1b31113ea317b>` or :ref:`vrna_mean_bp_distance_pr() <doxid-group__pf__fold_1gad3f0c240512e6d43e2e4d4c2076021f5>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - length
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+        
+        mean base pair distance in thermodynamic ensemble
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mean_bp_distance() <doxid-group__pf__fold_1gaa6b8983b559b9ef4b2e1b31113ea317b>` , :ref:`vrna_mean_bp_distance_pr() <doxid-group__pf__fold_1gad3f0c240512e6d43e2e4d4c2076021f5>`
+
+.. _doxid-group__pf__fold_1gad5ba36cef8d01cf4244cc09b9bf1ce1d:
+.. _cid-mean_bp_distance_pr:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double mean_bp_distance_pr (
+	    int length,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* pr
+	    )
+
+    .. container:: brief-description
+
+        Get the mean base pair distance in the thermodynamic ensemble.
+
+    .. container:: detailed-description
+
+        This is a threadsafe implementation of :ref:`mean_bp_dist() <doxid-part__func_8h_1ae9556ba7ded44fe2321b6f67c3fc02a3>` !
+        
+        :math:`<d> = \sum_{a,b} p_a p_b d(S_a,S_b)`
+        
+        this can be computed from the pair probs :math:`p_ij` as
+        
+        :math:`<d> = \sum_{ij} p_{ij}(1-p_{ij})`
+        
+        Deprecated Use :ref:`vrna_mean_bp_distance() <doxid-group__pf__fold_1gaa6b8983b559b9ef4b2e1b31113ea317b>` or :ref:`vrna_mean_bp_distance_pr() <doxid-group__pf__fold_1gad3f0c240512e6d43e2e4d4c2076021f5>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - length
+        
+                - The length of the sequence
+        
+            *
+                - pr
+        
+                - The matrix containing the base pair probabilities
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The mean pair distance of the structure ensemble
+
+.. _doxid-group__pf__fold_1ga94f6efc0b8d8712b023452794a0a5bd2:
+.. _cid-vrna_plist_from_probs:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* vrna_plist_from_probs (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double cut_off
+	    )
+
+    .. container:: brief-description
+
+        Create a :ref:`vrna_ep_t <doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>` from base pair probability matrix.
+
+    .. container:: detailed-description
+
+        The probability matrix provided via the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` is parsed and all pair probabilities above the given threshold are used to create an entry in the plist
+        
+        The end of the plist is marked by sequence positions i as well as j equal to 0. This condition should be used to stop looping over its entries
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound
+        
+            *
+                - cut_off
+        
+                - The cutoff value
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the plist that is to be created
+
+.. _doxid-group__pf__fold_1ga1cc05aaa9b0e7df2d3887e98321c2030:
+.. _cid-assign_plist_from_pr:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void assign_plist_from_pr (
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** pl,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* probs,
+	    int length,
+	    double cutoff
+	    )
+
+    .. container:: brief-description
+
+        Create a vrna_ep_t from a probability matrix.
+
+    .. container:: detailed-description
+
+        The probability matrix given is parsed and all pair probabilities above the given threshold are used to create an entry in the plist
+        
+        The end of the plist is marked by sequence positions i as well as j equal to 0. This condition should be used to stop looping over its entries
+        
+        Deprecated Use :ref:`vrna_plist_from_probs() <doxid-group__pf__fold_1ga94f6efc0b8d8712b023452794a0a5bd2>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pl
+        
+                - A pointer to the vrna_ep_t that is to be created
+        
+            *
+                - probs
+        
+                - The probability matrix used for creating the plist
+        
+            *
+                - length
+        
+                - The length of the RNA sequence
+        
+            *
+                - cutoff
+        
+                - The cutoff value
+        
+        
+        
+        .. note::
+        
+            This function is threadsafe
+

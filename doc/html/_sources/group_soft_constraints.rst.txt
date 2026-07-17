@@ -1,0 +1,906 @@
+.. index:: pair: group; Soft constraints
+.. _doxid-group__soft__constraints:
+.. _cid-soft_constraints:
+
+Soft constraints
+================
+
+.. toctree::
+	:hidden:
+
+	struct_vrna_sc_s.rst
+
+
+
+Overview
+--------
+
+Functions and data structures for secondary structure soft constraints. :ref:`More...<details-doxid-group__soft__constraints>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_sc_s<doxid-structvrna__sc__s>` :ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`
+
+	typedef int () :ref:`vrna_callback_sc_energy<doxid-group__soft__constraints_1ga88a266695d9e25cc12114dceb7b4565e>` (
+	    int i,
+	    int j,
+	    int k,
+	    int l,
+	    unsigned char d,
+	    void *data
+	    )
+
+	typedef :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` () :ref:`vrna_callback_sc_exp_energy<doxid-group__soft__constraints_1ga4099978d410513edeeff8f3db13144c5>` (
+	    int i,
+	    int j,
+	    int k,
+	    int l,
+	    unsigned char d,
+	    void *data
+	    )
+
+	typedef :ref:`vrna_basepair_t<doxid-group__data__structures_1gac8c5669d3fb813cacf506489689305ce>`* () :ref:`vrna_callback_sc_backtrack<doxid-group__soft__constraints_1gaeb6448da6c593d4c489c7fbadcb99499>` (
+	    int i,
+	    int j,
+	    int k,
+	    int l,
+	    unsigned char d,
+	    void *data
+	    )
+
+	// structs
+
+	struct :ref:`vrna_sc_s<doxid-structvrna__sc__s>` 
+
+	// global functions
+
+	void :ref:`vrna_sc_init<doxid-group__soft__constraints_1ga9d977a1681356778cc66dceafbe5b032>` (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+	void :ref:`vrna_sc_set_bp<doxid-group__soft__constraints_1ga8e4334b24bc91453fbcda490a4e331af>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** constraints,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_sc_add_bp<doxid-group__soft__constraints_1gaf162aedac7422f2eb16ea030f47d2f4b>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` energy,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_sc_set_up<doxid-group__soft__constraints_1ga99ed63f3ef9e7fe3997932030487a344>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* constraints,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_sc_add_up<doxid-group__soft__constraints_1ga069915fe203a2c8e522dd37847177a09>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` energy,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_sc_remove<doxid-group__soft__constraints_1ga73cdc07b9a199c614367bebef0f2c41a>` (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+	void :ref:`vrna_sc_free<doxid-group__soft__constraints_1ga6d55446448d69346fc313b993c4fb3e8>` (:ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`* sc)
+
+	void :ref:`vrna_sc_add_data<doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    void* data,
+	    :ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* free_data
+	    )
+
+	void :ref:`vrna_sc_add_f<doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_sc_energy<doxid-group__soft__constraints_1ga88a266695d9e25cc12114dceb7b4565e>`* f
+	    )
+
+	void :ref:`vrna_sc_add_bt<doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_sc_backtrack<doxid-group__soft__constraints_1gaeb6448da6c593d4c489c7fbadcb99499>`* f
+	    )
+
+	void :ref:`vrna_sc_add_exp_f<doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_sc_exp_energy<doxid-group__soft__constraints_1ga4099978d410513edeeff8f3db13144c5>`* exp_f
+	    )
+
+.. _details-doxid-group__soft__constraints:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Functions and data structures for secondary structure soft constraints.
+
+.. container:: detailed-description
+
+    Soft-constraints are used to change position specific contributions in the recursions by adding bonuses/penalties in form of pseudo free energies to certain loop configurations.
+
+Typedefs
+--------
+
+.. _doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6:
+.. _cid-vrna_sc_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_sc_s<doxid-structvrna__sc__s>` vrna_sc_t
+
+    .. container:: brief-description
+
+        Typename for the soft constraints data structure :ref:`vrna_sc_s <doxid-structvrna__sc__s>` .
+
+.. _doxid-group__soft__constraints_1ga88a266695d9e25cc12114dceb7b4565e:
+.. _cid-vrna_callback_sc_energy:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef int () vrna_callback_sc_energy (
+	    int i,
+	    int j,
+	    int k,
+	    int l,
+	    unsigned char d,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback to retrieve pseudo energy contribution for soft constraint feature.
+
+    .. container:: detailed-description
+
+        This is the prototype for callback functions used by the folding recursions to evaluate generic soft constraints. The first four parameters passed indicate the delimiting nucleotide positions of the decomposition, and the parameter ``denotes`` the decomposition step. The last parameter ``data`` is the auxiliary data structure associated to the hard constraints via :ref:`vrna_sc_add_data() <doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>` , or NULL if no auxiliary data was added.
+        
+        Notes on Callback Functions This callback enables one to add (pseudo-)energy contributions to individual decompositions of the secondary structure.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - i
+        
+                - Left (5') delimiter position of substructure
+        
+            *
+                - j
+        
+                - Right (3') delimiter position of substructure
+        
+            *
+                - k
+        
+                - Left delimiter of decomposition
+        
+            *
+                - l
+        
+                - Right delimiter of decomposition
+        
+            *
+                - d
+        
+                - Decomposition step indicator
+        
+            *
+                - data
+        
+                - Auxiliary data
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Pseudo energy contribution in deka-kalories per mol
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`VRNA_DECOMP_PAIR_HP <doxid-group__constraints_1ga8bd41ebc8039378d242e4e8c273716a5>` , :ref:`VRNA_DECOMP_PAIR_IL <doxid-group__constraints_1gaeab04f34d7730cff2d651d782f95d857>` , :ref:`VRNA_DECOMP_PAIR_ML <doxid-group__constraints_1gaa15b1185673f0b9e900c4748d45f388f>` , :ref:`VRNA_DECOMP_ML_ML_ML <doxid-group__constraints_1ga735517266f2e35e1374b8f1ea77ef23e>` , :ref:`VRNA_DECOMP_ML_STEM <doxid-group__constraints_1ga4a23054c75d8efc785de50e3ea87602f>` , :ref:`VRNA_DECOMP_ML_ML <doxid-group__constraints_1ga7f4cb9ff7a33e67f0539bd39e7b19a78>` , :ref:`VRNA_DECOMP_ML_UP <doxid-group__constraints_1gae6478dda14e50e2f2cb9ef333a29256e>` , :ref:`VRNA_DECOMP_ML_ML_STEM <doxid-group__constraints_1ga63d8ceb8c96ae3b463e529e28cc0fe98>` , :ref:`VRNA_DECOMP_ML_COAXIAL <doxid-group__constraints_1ga4fe48d575830b16c208e280e01ab1497>` , :ref:`VRNA_DECOMP_EXT_EXT <doxid-group__constraints_1ga437adf5115c1999304eff26b41e4c9b6>` , :ref:`VRNA_DECOMP_EXT_UP <doxid-group__constraints_1gaff1ddaffe86d984623910b40cc8a8717>` , :ref:`VRNA_DECOMP_EXT_STEM <doxid-group__constraints_1gae44b5ace0d9b4a29088069ecb4cec441>` , :ref:`VRNA_DECOMP_EXT_EXT_EXT <doxid-group__constraints_1ga803bd818b3f4b2b0a4a5cfa2f7dc2045>` , :ref:`VRNA_DECOMP_EXT_STEM_EXT <doxid-group__constraints_1gabb09c5b78b75a44502fc77b950125c1e>` , :ref:`VRNA_DECOMP_EXT_EXT_STEM <doxid-group__constraints_1ga06efd054c9271438f6d82d4559d9e69f>` , :ref:`VRNA_DECOMP_EXT_EXT_STEM1 <doxid-group__constraints_1ga2e75d7a77118735b32f25422d9686719>` , :ref:`vrna_sc_add_f() <doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>` , :ref:`vrna_sc_add_exp_f() <doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>` , :ref:`vrna_sc_add_bt() <doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea>` , :ref:`vrna_sc_add_data() <doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>`
+
+.. _doxid-group__soft__constraints_1ga4099978d410513edeeff8f3db13144c5:
+.. _cid-vrna_callback_sc_exp_energy:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` () vrna_callback_sc_exp_energy (
+	    int i,
+	    int j,
+	    int k,
+	    int l,
+	    unsigned char d,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback to retrieve pseudo energy contribution as Boltzmann Factors for soft constraint feature.
+
+    .. container:: detailed-description
+
+        This is the prototype for callback functions used by the partition function recursions to evaluate generic soft constraints. The first four parameters passed indicate the delimiting nucleotide positions of the decomposition, and the parameter ``denotes`` the decomposition step. The last parameter ``data`` is the auxiliary data structure associated to the hard constraints via :ref:`vrna_sc_add_data() <doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>` , or NULL if no auxiliary data was added.
+        
+        Notes on Callback Functions This callback enables one to add (pseudo-)energy contributions to individual decompositions of the secondary structure (Partition function variant, i.e. contributions must be returned as Boltzmann factors).
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - i
+        
+                - Left (5') delimiter position of substructure
+        
+            *
+                - j
+        
+                - Right (3') delimiter position of substructure
+        
+            *
+                - k
+        
+                - Left delimiter of decomposition
+        
+            *
+                - l
+        
+                - Right delimiter of decomposition
+        
+            *
+                - d
+        
+                - Decomposition step indicator
+        
+            *
+                - data
+        
+                - Auxiliary data
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Pseudo energy contribution in deka-kalories per mol
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`VRNA_DECOMP_PAIR_HP <doxid-group__constraints_1ga8bd41ebc8039378d242e4e8c273716a5>` , :ref:`VRNA_DECOMP_PAIR_IL <doxid-group__constraints_1gaeab04f34d7730cff2d651d782f95d857>` , :ref:`VRNA_DECOMP_PAIR_ML <doxid-group__constraints_1gaa15b1185673f0b9e900c4748d45f388f>` , :ref:`VRNA_DECOMP_ML_ML_ML <doxid-group__constraints_1ga735517266f2e35e1374b8f1ea77ef23e>` , :ref:`VRNA_DECOMP_ML_STEM <doxid-group__constraints_1ga4a23054c75d8efc785de50e3ea87602f>` , :ref:`VRNA_DECOMP_ML_ML <doxid-group__constraints_1ga7f4cb9ff7a33e67f0539bd39e7b19a78>` , :ref:`VRNA_DECOMP_ML_UP <doxid-group__constraints_1gae6478dda14e50e2f2cb9ef333a29256e>` , :ref:`VRNA_DECOMP_ML_ML_STEM <doxid-group__constraints_1ga63d8ceb8c96ae3b463e529e28cc0fe98>` , :ref:`VRNA_DECOMP_ML_COAXIAL <doxid-group__constraints_1ga4fe48d575830b16c208e280e01ab1497>` , :ref:`VRNA_DECOMP_EXT_EXT <doxid-group__constraints_1ga437adf5115c1999304eff26b41e4c9b6>` , :ref:`VRNA_DECOMP_EXT_UP <doxid-group__constraints_1gaff1ddaffe86d984623910b40cc8a8717>` , :ref:`VRNA_DECOMP_EXT_STEM <doxid-group__constraints_1gae44b5ace0d9b4a29088069ecb4cec441>` , :ref:`VRNA_DECOMP_EXT_EXT_EXT <doxid-group__constraints_1ga803bd818b3f4b2b0a4a5cfa2f7dc2045>` , :ref:`VRNA_DECOMP_EXT_STEM_EXT <doxid-group__constraints_1gabb09c5b78b75a44502fc77b950125c1e>` , :ref:`VRNA_DECOMP_EXT_EXT_STEM <doxid-group__constraints_1ga06efd054c9271438f6d82d4559d9e69f>` , :ref:`VRNA_DECOMP_EXT_EXT_STEM1 <doxid-group__constraints_1ga2e75d7a77118735b32f25422d9686719>` , :ref:`vrna_sc_add_exp_f() <doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>` , :ref:`vrna_sc_add_f() <doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>` , :ref:`vrna_sc_add_bt() <doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea>` , :ref:`vrna_sc_add_data() <doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>`
+
+.. _doxid-group__soft__constraints_1gaeb6448da6c593d4c489c7fbadcb99499:
+.. _cid-vrna_callback_sc_backtrack:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef :ref:`vrna_basepair_t<doxid-group__data__structures_1gac8c5669d3fb813cacf506489689305ce>`* () vrna_callback_sc_backtrack (
+	    int i,
+	    int j,
+	    int k,
+	    int l,
+	    unsigned char d,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback to retrieve auxiliary base pairs for soft constraint feature.
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions This callback enables one to add auxiliary base pairs in the backtracking steps of hairpin- and interior loops.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - i
+        
+                - Left (5') delimiter position of substructure
+        
+            *
+                - j
+        
+                - Right (3') delimiter position of substructure
+        
+            *
+                - k
+        
+                - Left delimiter of decomposition
+        
+            *
+                - l
+        
+                - Right delimiter of decomposition
+        
+            *
+                - d
+        
+                - Decomposition step indicator
+        
+            *
+                - data
+        
+                - Auxiliary data
+        
+        
+        
+        .. rubric:: Returns:
+        
+        List of additional base pairs
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`VRNA_DECOMP_PAIR_HP <doxid-group__constraints_1ga8bd41ebc8039378d242e4e8c273716a5>` , :ref:`VRNA_DECOMP_PAIR_IL <doxid-group__constraints_1gaeab04f34d7730cff2d651d782f95d857>` , :ref:`VRNA_DECOMP_PAIR_ML <doxid-group__constraints_1gaa15b1185673f0b9e900c4748d45f388f>` , :ref:`VRNA_DECOMP_ML_ML_ML <doxid-group__constraints_1ga735517266f2e35e1374b8f1ea77ef23e>` , :ref:`VRNA_DECOMP_ML_STEM <doxid-group__constraints_1ga4a23054c75d8efc785de50e3ea87602f>` , :ref:`VRNA_DECOMP_ML_ML <doxid-group__constraints_1ga7f4cb9ff7a33e67f0539bd39e7b19a78>` , :ref:`VRNA_DECOMP_ML_UP <doxid-group__constraints_1gae6478dda14e50e2f2cb9ef333a29256e>` , :ref:`VRNA_DECOMP_ML_ML_STEM <doxid-group__constraints_1ga63d8ceb8c96ae3b463e529e28cc0fe98>` , :ref:`VRNA_DECOMP_ML_COAXIAL <doxid-group__constraints_1ga4fe48d575830b16c208e280e01ab1497>` , :ref:`VRNA_DECOMP_EXT_EXT <doxid-group__constraints_1ga437adf5115c1999304eff26b41e4c9b6>` , :ref:`VRNA_DECOMP_EXT_UP <doxid-group__constraints_1gaff1ddaffe86d984623910b40cc8a8717>` , :ref:`VRNA_DECOMP_EXT_STEM <doxid-group__constraints_1gae44b5ace0d9b4a29088069ecb4cec441>` , :ref:`VRNA_DECOMP_EXT_EXT_EXT <doxid-group__constraints_1ga803bd818b3f4b2b0a4a5cfa2f7dc2045>` , :ref:`VRNA_DECOMP_EXT_STEM_EXT <doxid-group__constraints_1gabb09c5b78b75a44502fc77b950125c1e>` , :ref:`VRNA_DECOMP_EXT_EXT_STEM <doxid-group__constraints_1ga06efd054c9271438f6d82d4559d9e69f>` , :ref:`VRNA_DECOMP_EXT_EXT_STEM1 <doxid-group__constraints_1ga2e75d7a77118735b32f25422d9686719>` , :ref:`vrna_sc_add_bt() <doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea>` , :ref:`vrna_sc_add_f() <doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>` , :ref:`vrna_sc_add_exp_f() <doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>` , :ref:`vrna_sc_add_data() <doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>`
+
+Global Functions
+----------------
+
+.. _doxid-group__soft__constraints_1ga9d977a1681356778cc66dceafbe5b032:
+.. _cid-vrna_sc_init:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_init (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+    .. container:: brief-description
+
+        Initialize an empty soft constraints data structure within a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+    .. container:: detailed-description
+
+        This function adds a proper soft constraints data structure to the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structure. If soft constraints already exist within the fold compound, they are removed.
+        
+        SWIG Wrapper Notes This function is attached as method **sc_init()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` where an empty soft constraint feature is to be added to
+        
+        
+        
+        .. note::
+        
+            Accepts vrna_fold_compound_t of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` and :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_set_bp() <doxid-group__soft__constraints_1ga8e4334b24bc91453fbcda490a4e331af>` , :ref:`vrna_sc_set_up() <doxid-group__soft__constraints_1ga99ed63f3ef9e7fe3997932030487a344>` , :ref:`vrna_sc_add_SHAPE_deigan() <doxid-group___s_h_a_p_e__reactivities_1ga57d612b58e1c61dd6cfcb5a843f8f1b3>` , :ref:`vrna_sc_add_SHAPE_zarringhalam() <doxid-group___s_h_a_p_e__reactivities_1gaf3c65a045060aef5c4e41693d30af58c>` , :ref:`vrna_sc_remove() <doxid-group__soft__constraints_1ga73cdc07b9a199c614367bebef0f2c41a>` , :ref:`vrna_sc_add_f() <doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>` , :ref:`vrna_sc_add_exp_f() <doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>` , vrna_sc_add_pre(), vrna_sc_add_post()
+
+.. _doxid-group__soft__constraints_1ga8e4334b24bc91453fbcda490a4e331af:
+.. _cid-vrna_sc_set_bp:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_set_bp (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** constraints,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Set soft constraints for paired nucleotides.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as method **sc_set_bp()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the soft constraints are associated with
+        
+            *
+                - constraints
+        
+                - A two-dimensional array of pseudo free energies in :math:` kcal / mol `
+        
+            *
+                - options
+        
+                - The options flag indicating how/where to store the soft constraints
+        
+        
+        
+        .. note::
+        
+            This function replaces any pre-exisitng soft constraints with the ones supplied in ``constraints`` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_add_bp() <doxid-group__soft__constraints_1gaf162aedac7422f2eb16ea030f47d2f4b>` , :ref:`vrna_sc_set_up() <doxid-group__soft__constraints_1ga99ed63f3ef9e7fe3997932030487a344>` , :ref:`vrna_sc_add_up() <doxid-group__soft__constraints_1ga069915fe203a2c8e522dd37847177a09>`
+
+.. _doxid-group__soft__constraints_1gaf162aedac7422f2eb16ea030f47d2f4b:
+.. _cid-vrna_sc_add_bp:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_add_bp (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    int j,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` energy,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Add soft constraints for paired nucleotides.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as an overloaded method **sc_add_bp()** to objects of type *fold_compound* . The method either takes arguments for a single base pair (i,j) with the corresponding energy value:
+        
+        .. ref-code-block:: cpp
+        
+            fold_compound.sc_add_bp(i, j, energy, options)
+        
+        or an entire 2-dimensional matrix with dimensions n x n that stores free energy contributions for any base pair (i,j) with :math:` 1 \leq i < j \leq n ` :
+        
+        .. ref-code-block:: cpp
+        
+            fold_compound.sc_add_bp(matrix, options)
+        
+        In both variants, the ``options`` argument is optional can may be omitted.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the soft constraints are associated with
+        
+            *
+                - i
+        
+                - The 5' position of the base pair the soft constraint is added for
+        
+            *
+                - j
+        
+                - The 3' position of the base pair the soft constraint is added for
+        
+            *
+                - energy
+        
+                - The free energy (soft-constraint) in :math:` kcal / mol `
+        
+            *
+                - options
+        
+                - The options flag indicating how/where to store the soft constraints
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_set_bp() <doxid-group__soft__constraints_1ga8e4334b24bc91453fbcda490a4e331af>` , :ref:`vrna_sc_set_up() <doxid-group__soft__constraints_1ga99ed63f3ef9e7fe3997932030487a344>` , :ref:`vrna_sc_add_up() <doxid-group__soft__constraints_1ga069915fe203a2c8e522dd37847177a09>`
+
+.. _doxid-group__soft__constraints_1ga99ed63f3ef9e7fe3997932030487a344:
+.. _cid-vrna_sc_set_up:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_set_up (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* constraints,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Set soft constraints for unpaired nucleotides.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as method **sc_set_up()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the soft constraints are associated with
+        
+            *
+                - constraints
+        
+                - A vector of pseudo free energies in :math:` kcal / mol `
+        
+            *
+                - options
+        
+                - The options flag indicating how/where to store the soft constraints
+        
+        
+        
+        .. note::
+        
+            This function replaces any pre-exisitng soft constraints with the ones supplied in ``constraints`` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_add_up() <doxid-group__soft__constraints_1ga069915fe203a2c8e522dd37847177a09>` , :ref:`vrna_sc_set_bp() <doxid-group__soft__constraints_1ga8e4334b24bc91453fbcda490a4e331af>` , :ref:`vrna_sc_add_bp() <doxid-group__soft__constraints_1gaf162aedac7422f2eb16ea030f47d2f4b>`
+
+.. _doxid-group__soft__constraints_1ga069915fe203a2c8e522dd37847177a09:
+.. _cid-vrna_sc_add_up:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_add_up (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int i,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` energy,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Add soft constraints for unpaired nucleotides.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as an overloaded method **sc_add_up()** to objects of type *fold_compound* . The method either takes arguments for a single nucleotide :math:`i ` with the corresponding energy value:
+        
+        .. ref-code-block:: cpp
+        
+            fold_compound.sc_add_up(i, energy, options)
+        
+        or an entire vector that stores free energy contributions for each nucleotide :math:`i ` with :math:` 1 \leq i \leq n ` :
+        
+        .. ref-code-block:: cpp
+        
+            fold_compound.sc_add_bp(vector, options)
+        
+        In both variants, the ``options`` argument is optional can may be omitted.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the soft constraints are associated with
+        
+            *
+                - i
+        
+                - The nucleotide position the soft constraint is added for
+        
+            *
+                - energy
+        
+                - The free energy (soft-constraint) in :math:` kcal / mol `
+        
+            *
+                - options
+        
+                - The options flag indicating how/where to store the soft constraints
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_set_up() <doxid-group__soft__constraints_1ga99ed63f3ef9e7fe3997932030487a344>` , :ref:`vrna_sc_add_bp() <doxid-group__soft__constraints_1gaf162aedac7422f2eb16ea030f47d2f4b>` , :ref:`vrna_sc_set_bp() <doxid-group__soft__constraints_1ga8e4334b24bc91453fbcda490a4e331af>`
+
+.. _doxid-group__soft__constraints_1ga73cdc07b9a199c614367bebef0f2c41a:
+.. _cid-vrna_sc_remove:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_remove (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+    .. container:: brief-description
+
+        Remove soft constraints from :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as method **sc_remove()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` possibly containing soft constraints
+        
+        
+        
+        .. note::
+        
+            Accepts vrna_fold_compound_t of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` and :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+
+.. _doxid-group__soft__constraints_1ga6d55446448d69346fc313b993c4fb3e8:
+.. _cid-vrna_sc_free:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_free (:ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`* sc)
+
+    .. container:: brief-description
+
+        Free memory occupied by a :ref:`vrna_sc_t <doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>` data structure.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sc
+        
+                - The data structure to free from memory
+
+.. _doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6:
+.. _cid-vrna_sc_add_data:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_add_data (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    void* data,
+	    :ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* free_data
+	    )
+
+    .. container:: brief-description
+
+        Add an auxiliary data structure for the generic soft constraints callback function.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as method **sc_add_data()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound the generic soft constraint function should be bound to
+        
+            *
+                - data
+        
+                - A pointer to the data structure that holds required data for function 'f'
+        
+            *
+                - free_data
+        
+                - A pointer to a function that free's the memory occupied by ``data`` (Maybe NULL)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_add_f() <doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>` , :ref:`vrna_sc_add_exp_f() <doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>` , :ref:`vrna_sc_add_bt() <doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea>`
+
+.. _doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9:
+.. _cid-vrna_sc_add_f:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_add_f (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_sc_energy<doxid-group__soft__constraints_1ga88a266695d9e25cc12114dceb7b4565e>`* f
+	    )
+
+    .. container:: brief-description
+
+        Bind a function pointer for generic soft constraint feature (MFE version)
+
+    .. container:: detailed-description
+
+        This function allows one to easily bind a function pointer and corresponding data structure to the soft constraint part :ref:`vrna_sc_t <doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>` of the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . The function for evaluating the generic soft constraint feature has to return a pseudo free energy :math:` \hat{E} ` in :math:` dacal/mol ` , where :math:` 1 dacal/mol = 10 cal/mol ` .
+        
+        SWIG Wrapper Notes This function is attached as method **sc_add_f()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound the generic soft constraint function should be bound to
+        
+            *
+                - f
+        
+                - A pointer to the function that evaluates the generic soft constraint feature
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_add_data() <doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>` , :ref:`vrna_sc_add_bt() <doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea>` , :ref:`vrna_sc_add_exp_f() <doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>`
+
+.. _doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea:
+.. _cid-vrna_sc_add_bt:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_add_bt (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_sc_backtrack<doxid-group__soft__constraints_1gaeb6448da6c593d4c489c7fbadcb99499>`* f
+	    )
+
+    .. container:: brief-description
+
+        Bind a backtracking function pointer for generic soft constraint feature.
+
+    .. container:: detailed-description
+
+        This function allows one to easily bind a function pointer to the soft constraint part :ref:`vrna_sc_t <doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>` of the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . The provided function should be used for backtracking purposes in loop regions that were altered via the generic soft constraint feature. It has to return an array of :ref:`vrna_basepair_t <doxid-group__data__structures_1gac8c5669d3fb813cacf506489689305ce>` data structures, were the last element in the list is indicated by a value of -1 in it's i position.
+        
+        SWIG Wrapper Notes This function is attached as method **sc_add_bt()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound the generic soft constraint function should be bound to
+        
+            *
+                - f
+        
+                - A pointer to the function that returns additional base pairs
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_add_data() <doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>` , :ref:`vrna_sc_add_f() <doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>` , :ref:`vrna_sc_add_exp_f() <doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>`
+
+.. _doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700:
+.. _cid-vrna_sc_add_exp_f:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_sc_add_exp_f (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_sc_exp_energy<doxid-group__soft__constraints_1ga4099978d410513edeeff8f3db13144c5>`* exp_f
+	    )
+
+    .. container:: brief-description
+
+        Bind a function pointer for generic soft constraint feature (PF version)
+
+    .. container:: detailed-description
+
+        This function allows one to easily bind a function pointer and corresponding data structure to the soft constraint part :ref:`vrna_sc_t <doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>` of the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . The function for evaluating the generic soft constraint feature has to return a pseudo free energy :math:` \hat{E} ` as Boltzmann factor, i.e. :math:` exp(- \hat{E} / kT) ` . The required unit for :math:` E ` is :math:` cal/mol ` .
+        
+        SWIG Wrapper Notes This function is attached as method **sc_add_exp_f()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound the generic soft constraint function should be bound to
+        
+            *
+                - exp_f
+        
+                - A pointer to the function that evaluates the generic soft constraint feature
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_add_bt() <doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea>` , :ref:`vrna_sc_add_f() <doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>` , :ref:`vrna_sc_add_data() <doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>`
+

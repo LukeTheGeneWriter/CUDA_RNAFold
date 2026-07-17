@@ -1,0 +1,1909 @@
+.. index:: pair: group; Parsing, converting, comparing secondary structures
+.. _doxid-group__struct__utils:
+.. _cid-struct_utils:
+
+Parsing, converting, comparing secondary structures
+===================================================
+
+.. toctree::
+	:hidden:
+
+	struct_vrna_elem_prob_s.rst
+	struct_vrna_hx_s.rst
+
+
+
+Overview
+--------
+
+
+
+.. _doxid-group__struct__utils_1ga6708519ddf10f1420016ad47b5a3baea:
+.. _cid-vrna_letter_structure:
+.. _doxid-group__struct__utils_1ga45360c09fb6d04d96e42dcccbb66015b:
+.. _cid-vrna_db_to_element_string:
+.. _doxid-group__struct__utils_1ga7ca60670fbbf23ae2ac9f63e5dbf8aef:
+.. _cid-vrna_hx_from_ptable:
+.. _doxid-group__struct__utils_1ga2fdaac8bb6c239c119ad5c20b145b7f2:
+.. _cid-vrna_hx_merge:
+.. _doxid-group__struct__utils_1gade238ede0090a5ca07f9b4dc0eea8a42:
+.. _cid-make_pair_table_pk:
+.. _doxid-group__struct__utils_1ga4358e89f64cc87a563b7ef3855f75bed:
+.. _cid-make_loop_index_pt:
+.. _doxid-group__struct__utils_1ga9298b97ac972401e3bbcf5afa5740060:
+.. _cid-letter_structure:
+.. _doxid-group__struct__utils_1gaa100f7d3ce0ad4f527a61c5764ebf277:
+.. _cid-struc:
+.. _doxid-group__struct__utils_1ga7c7484a8a1e6704b1aefaf589f3b27c1:
+.. _cid-vrna_plist_type_basepair:
+.. _doxid-group__struct__utils_1gac91ab79e9feede5347103949ecf04f8a:
+.. _cid-vrna_plist_type_gquad:
+.. _doxid-group__struct__utils_1ga4d142e0187b8410b61ec2b168ed4513e:
+.. _cid-vrna_plist_type_h_motif:
+.. _doxid-group__struct__utils_1gadf5905518079b5495bce3394cd7afb9a:
+.. _cid-vrna_plist_type_i_motif:
+.. _doxid-group__struct__utils_1ga36df728a95452170ca8684fc224299ea:
+.. _cid-vrna_plist_type_stack:
+.. _doxid-group__struct__utils_1ga01d749cdb675dcdbac1dc5103378c699:
+.. _cid-vrna_plist_type_ud_motif:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_hx_s<doxid-structvrna__hx__s>` :ref:`vrna_hx_t<doxid-group__struct__utils_1ga877363f3a1703b53ecd025c6fcf897a0>`
+	typedef struct :ref:`vrna_elem_prob_s<doxid-structvrna__elem__prob__s>` :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`
+
+	// structs
+
+	struct :ref:`vrna_elem_prob_s<doxid-structvrna__elem__prob__s>` 
+	struct :ref:`vrna_hx_s<doxid-structvrna__hx__s>` 
+
+	// global variables
+
+	int :ref:`loop_size<doxid-group__struct__utils_1ga3f31e0e48125601bfa57b52f8b038e8e>`[STRUC]
+	int :ref:`helix_size<doxid-group__struct__utils_1ga8218c0d581a3fba2a1a56a196abe19a5>`[STRUC]
+	int :ref:`loop_degree<doxid-group__struct__utils_1gaef14e2f8ab3f61e8e659ba6b9003b08a>`[STRUC]
+	int :ref:`loops<doxid-group__struct__utils_1ga439fcb9f8d4f9f4d2227fde5fbfecb30>`
+	int :ref:`unpaired<doxid-group__struct__utils_1gadd2f952597e02d66e1116a9d11d252d6>`
+	int :ref:`pairs<doxid-group__struct__utils_1ga6341cbb704924824e0236c1dce791032>`
+
+	// global functions
+
+	char* :ref:`b2HIT<doxid-group__struct__utils_1ga07b7e90e712559a1992fba3ac6d21bbd>` (const char* structure)
+	char* :ref:`b2C<doxid-group__struct__utils_1ga9c80d92391f2833549a8b6dac92233f0>` (const char* structure)
+	char* :ref:`b2Shapiro<doxid-group__struct__utils_1ga5cd2feb367feeacad0c03cb7ddba5f10>` (const char* structure)
+	char* :ref:`add_root<doxid-group__struct__utils_1ga880d33066dd95441e5fbb73c57ed1c3e>` (const char* structure)
+	char* :ref:`expand_Shapiro<doxid-group__struct__utils_1gabe3d815b420dc4553bfb23511198b4c6>` (const char* coarse)
+	char* :ref:`expand_Full<doxid-group__struct__utils_1ga78d73cd54a068ef2812812771cdddc6f>` (const char* structure)
+	char* :ref:`unexpand_Full<doxid-group__struct__utils_1ga260c4b622093b76a883bf96628280de1>` (const char* ffull)
+	char* :ref:`unweight<doxid-group__struct__utils_1ga09a80253ac7b6bae606871ba7c6e5136>` (const char* wcoarse)
+	void :ref:`unexpand_aligned_F<doxid-group__struct__utils_1ga1054c4477d53b31d79d4cb132100e87a>` (char* align [2])
+	void :ref:`parse_structure<doxid-group__struct__utils_1ga3c79042e6bf6f01706bf30ec9e69e8ac>` (const char* structure)
+	char* :ref:`vrna_db_pack<doxid-group__struct__utils_1ga55c4783060a1464f862f858d5599c9e1>` (const char* struc)
+	char* :ref:`vrna_db_unpack<doxid-group__struct__utils_1ga6490adff857d84ce06e6f379ae3a4512>` (const char* packed)
+	short* :ref:`vrna_ptable<doxid-group__struct__utils_1gae829fb8bb7f694c12a9c0bbc34c77c60>` (const char* structure)
+
+	short* :ref:`vrna_ptable_from_string<doxid-group__struct__utils_1gac76c9ef3de507748fb0416a59323362b>` (
+	    const char* string,
+	    unsigned int options
+	    )
+
+	short* :ref:`vrna_pt_pk_get<doxid-group__struct__utils_1gacca520048b24ec5a8978f4dafb4e4bf8>` (const char* structure)
+	short* :ref:`vrna_ptable_copy<doxid-group__struct__utils_1ga2daefbbd6d9f8803731651882f54332d>` (const short* pt)
+	short* :ref:`vrna_pt_ali_get<doxid-group__struct__utils_1ga1ee4cdcda1f57d32dcb38032116d335d>` (const char* structure)
+	short* :ref:`vrna_pt_snoop_get<doxid-group__struct__utils_1gaef0f7e1a6c00c81a349973de53039dda>` (const char* structure)
+	int* :ref:`vrna_loopidx_from_ptable<doxid-group__struct__utils_1ga03e15af299be0866ff21da880c74b92e>` (const short* pt)
+
+	void :ref:`vrna_db_flatten<doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>` (
+	    char* structure,
+	    unsigned int options
+	    )
+
+	void :ref:`vrna_db_flatten_to<doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>` (
+	    char* string,
+	    const char target [3],
+	    unsigned int options
+	    )
+
+	char* :ref:`vrna_db_from_ptable<doxid-group__struct__utils_1gaf9ecd0d7877fecdbb0292e24f40283d5>` (short* pt)
+	char* :ref:`vrna_db_from_WUSS<doxid-group__struct__utils_1ga02ca70cffb2d864f7b2d95d92218bae0>` (const char* wuss)
+
+	int :ref:`vrna_bp_distance<doxid-group__struct__utils_1ga65bdfbac6a16bf30286e8a3f7d15f60a>` (
+	    const char* str1,
+	    const char* str2
+	    )
+
+	unsigned int* :ref:`vrna_refBPcnt_matrix<doxid-group__struct__utils_1gab4c2a00c99ce1d612ffa5bde114eb96d>` (
+	    const short* reference_pt,
+	    unsigned int turn
+	    )
+
+	unsigned int* :ref:`vrna_refBPdist_matrix<doxid-group__struct__utils_1ga5a27bd058183170afd4716f5b8ff511a>` (
+	    const short* pt1,
+	    const short* pt2,
+	    unsigned int turn
+	    )
+
+	char* :ref:`vrna_db_from_probs<doxid-group__struct__utils_1ga0c28c410a5ab22d6ab9c77a84e8d5b44>` (
+	    const :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* pr,
+	    unsigned int length
+	    )
+
+	char :ref:`vrna_bpp_symbol<doxid-group__struct__utils_1ga025bff1b27fa46534c8fae6980f64bb5>` (const float* x)
+
+	char* :ref:`vrna_db_from_bp_stack<doxid-group__struct__utils_1ga27bea2c241564af53a065982183389df>` (
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp,
+	    unsigned int length
+	    )
+
+	void vrna_letter_structure (
+	    char* structure,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp,
+	    unsigned int length
+	    )
+
+	:ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* :ref:`vrna_plist<doxid-group__struct__utils_1gaf002d69024d709744664a8b9ca3dd77d>` (
+	    const char* struc,
+	    float pr
+	    )
+
+	char* :ref:`vrna_db_from_plist<doxid-group__struct__utils_1ga6a51a36b9245d0bac868c5cd172b9611>` (
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* pairs,
+	    unsigned int n
+	    )
+
+	char* vrna_db_to_element_string (const char* structure)
+	:ref:`vrna_hx_t<doxid-group__struct__utils_1ga877363f3a1703b53ecd025c6fcf897a0>`* vrna_hx_from_ptable (short* pt)
+
+	:ref:`vrna_hx_t<doxid-group__struct__utils_1ga877363f3a1703b53ecd025c6fcf897a0>`* vrna_hx_merge (
+	    const :ref:`vrna_hx_t<doxid-group__struct__utils_1ga877363f3a1703b53ecd025c6fcf897a0>`* list,
+	    int maxdist
+	    )
+
+	void :ref:`assign_plist_from_db<doxid-group__struct__utils_1gab61df77cf7949cd516181fce0c3d7d78>` (
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** pl,
+	    const char* struc,
+	    float pr
+	    )
+
+	char* :ref:`pack_structure<doxid-group__struct__utils_1gac6dfa5e22928c087c6e09ff0054a7ced>` (const char* struc)
+	char* :ref:`unpack_structure<doxid-group__struct__utils_1ga071c6921efe1eb974f115ee6fefa3c39>` (const char* packed)
+	short* :ref:`make_pair_table<doxid-group__struct__utils_1ga89c32307ee50a0026f4a3131fac0845a>` (const char* structure)
+	short* make_pair_table_pk (const char* structure)
+	short* :ref:`copy_pair_table<doxid-group__struct__utils_1gafeaa6d68eef3a99d0a7aa08aa91c6601>` (const short* pt)
+	short* :ref:`alimake_pair_table<doxid-group__struct__utils_1ga3c81b3967056c3888b8472b65fbb16f5>` (const char* structure)
+	short* :ref:`make_pair_table_snoop<doxid-group__struct__utils_1ga9aa3bf3b4346bb7fb88efc154dd07a79>` (const char* structure)
+	int* make_loop_index_pt (short* pt)
+
+	int :ref:`bp_distance<doxid-group__struct__utils_1ga6ebbcd29a754f0e4f1a66d1fd84184db>` (
+	    const char* str1,
+	    const char* str2
+	    )
+
+	unsigned int* :ref:`make_referenceBP_array<doxid-group__struct__utils_1ga578cd9712dee812fb1c58aa3cc489864>` (
+	    short* reference_pt,
+	    unsigned int turn
+	    )
+
+	unsigned int* :ref:`compute_BPdifferences<doxid-group__struct__utils_1gadd463184355d0803b6ee6e09f29182f2>` (
+	    short* pt1,
+	    short* pt2,
+	    unsigned int turn
+	    )
+
+	void :ref:`parenthesis_structure<doxid-group__struct__utils_1gadf0ad2d46c9ca7b850437d1b79627a7e>` (
+	    char* structure,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp,
+	    int length
+	    )
+
+	void :ref:`parenthesis_zuker<doxid-group__struct__utils_1gab9c5c8311bd5120900585d4fa50c2df0>` (
+	    char* structure,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp,
+	    int length
+	    )
+
+	void letter_structure (
+	    char* structure,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp,
+	    int length
+	    )
+
+	void :ref:`bppm_to_structure<doxid-group__struct__utils_1ga129d81c4a1ead793c5b2311333e03dfa>` (
+	    char* structure,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* pr,
+	    unsigned int length
+	    )
+
+	char :ref:`bppm_symbol<doxid-group__struct__utils_1ga49962ad6242b8c628de6ca16bb831c1d>` (const float* x)
+
+	// macros
+
+	#define STRUC
+	#define :ref:`VRNA_BRACKETS_ALPHA<doxid-group__struct__utils_1ga7e3f630af8d69bb0e917145aacf2f96d>`
+	#define :ref:`VRNA_BRACKETS_ANG<doxid-group__struct__utils_1ga863e03f7f73f10fc9bbcbefbdda4bec8>`
+	#define :ref:`VRNA_BRACKETS_CLY<doxid-group__struct__utils_1gaf41be40e79cb756c4e0bb8edb4d803d2>`
+	#define :ref:`VRNA_BRACKETS_DEFAULT<doxid-group__struct__utils_1ga559ebf76b1b289f85309f4206e99aa1a>`
+	#define :ref:`VRNA_BRACKETS_RND<doxid-group__struct__utils_1gac92d5fa7c6625bce2670ece510a24fbd>`
+	#define :ref:`VRNA_BRACKETS_SQR<doxid-group__struct__utils_1ga60525d61d7496eeea490a37f3d6bf757>`
+	#define VRNA_PLIST_TYPE_BASEPAIR
+	#define VRNA_PLIST_TYPE_GQUAD
+	#define VRNA_PLIST_TYPE_H_MOTIF
+	#define VRNA_PLIST_TYPE_I_MOTIF
+	#define VRNA_PLIST_TYPE_STACK
+	#define VRNA_PLIST_TYPE_UD_MOTIF
+
+.. _details-doxid-group__struct__utils:
+
+Detailed Documentation
+----------------------
+
+
+
+Typedefs
+--------
+
+.. _doxid-group__struct__utils_1ga877363f3a1703b53ecd025c6fcf897a0:
+.. _cid-vrna_hx_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_hx_s<doxid-structvrna__hx__s>` vrna_hx_t
+
+    .. container:: brief-description
+
+        Convenience typedef for data structure :ref:`vrna_hx_s <doxid-structvrna__hx__s>` .
+
+.. _doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca:
+.. _cid-vrna_ep_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_elem_prob_s<doxid-structvrna__elem__prob__s>` vrna_ep_t
+
+    .. container:: brief-description
+
+        Convenience typedef for data structure #vrna_pp_s.
+
+Global Variables
+----------------
+
+.. _doxid-group__struct__utils_1ga3f31e0e48125601bfa57b52f8b038e8e:
+.. _cid-loop_size:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int loop_size [STRUC]
+
+    .. container:: brief-description
+
+        contains a list of all loop sizes. loop_size[0] contains the number of external bases.
+
+.. _doxid-group__struct__utils_1ga8218c0d581a3fba2a1a56a196abe19a5:
+.. _cid-helix_size:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int helix_size [STRUC]
+
+    .. container:: brief-description
+
+        contains a list of all stack sizes.
+
+.. _doxid-group__struct__utils_1gaef14e2f8ab3f61e8e659ba6b9003b08a:
+.. _cid-loop_degree:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int loop_degree [STRUC]
+
+    .. container:: brief-description
+
+        contains the corresponding list of loop degrees.
+
+.. _doxid-group__struct__utils_1ga439fcb9f8d4f9f4d2227fde5fbfecb30:
+.. _cid-loops:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int loops
+
+    .. container:: brief-description
+
+        contains the number of loops ( and therefore of stacks ).
+
+.. _doxid-group__struct__utils_1gadd2f952597e02d66e1116a9d11d252d6:
+.. _cid-unpaired:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int unpaired
+
+    .. container:: brief-description
+
+        contains the number of unpaired bases.
+
+.. _doxid-group__struct__utils_1ga6341cbb704924824e0236c1dce791032:
+.. _cid-pairs:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int pairs
+
+    .. container:: brief-description
+
+        contains the number of base pairs in the last parsed structure.
+
+Global Functions
+----------------
+
+.. _doxid-group__struct__utils_1ga07b7e90e712559a1992fba3ac6d21bbd:
+.. _cid-b2hit:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* b2HIT (const char* structure)
+
+    .. container:: brief-description
+
+        Converts the full structure from bracket notation to the HIT notation including root.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__struct__utils_1ga9c80d92391f2833549a8b6dac92233f0:
+.. _cid-b2c:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* b2C (const char* structure)
+
+    .. container:: brief-description
+
+        Converts the full structure from bracket notation to the a coarse grained notation using the 'H' 'B' 'I' 'M' and 'R' identifiers.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__struct__utils_1ga5cd2feb367feeacad0c03cb7ddba5f10:
+.. _cid-b2shapiro:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* b2Shapiro (const char* structure)
+
+    .. container:: brief-description
+
+        Converts the full structure from bracket notation to the *weighted* coarse grained notation using the 'H' 'B' 'I' 'M' 'S' 'E' and 'R' identifiers.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__struct__utils_1ga880d33066dd95441e5fbb73c57ed1c3e:
+.. _cid-add_root:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* add_root (const char* structure)
+
+    .. container:: brief-description
+
+        Adds a root to an un-rooted tree in any except bracket notation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__struct__utils_1gabe3d815b420dc4553bfb23511198b4c6:
+.. _cid-expand_shapiro:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* expand_Shapiro (const char* coarse)
+
+    .. container:: brief-description
+
+        Inserts missing 'S' identifiers in unweighted coarse grained structures as obtained from :ref:`b2C() <doxid-group__struct__utils_1ga9c80d92391f2833549a8b6dac92233f0>` .
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - coarse
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__struct__utils_1ga78d73cd54a068ef2812812771cdddc6f:
+.. _cid-expand_full:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* expand_Full (const char* structure)
+
+    .. container:: brief-description
+
+        Convert the full structure from bracket notation to the expanded notation including root.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__struct__utils_1ga260c4b622093b76a883bf96628280de1:
+.. _cid-unexpand_full:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* unexpand_Full (const char* ffull)
+
+    .. container:: brief-description
+
+        Restores the bracket notation from an expanded full or HIT tree, that is any tree using only identifiers 'U' 'P' and 'R'.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - ffull
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__struct__utils_1ga09a80253ac7b6bae606871ba7c6e5136:
+.. _cid-unweight:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* unweight (const char* wcoarse)
+
+    .. container:: brief-description
+
+        Strip weights from any weighted tree.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - wcoarse
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__struct__utils_1ga1054c4477d53b31d79d4cb132100e87a:
+.. _cid-unexpand_aligned_f:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void unexpand_aligned_F (char* align [2])
+
+    .. container:: brief-description
+
+        Converts two aligned structures in expanded notation.
+
+    .. container:: detailed-description
+
+        Takes two aligned structures as produced by :ref:`tree_edit_distance() <doxid-treedist_8h_1a3b21f1925f7071f46d93431a835217bb>` function back to bracket notation with '_' as the gap character. The result overwrites the input.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - align
+        
+                -
+
+.. _doxid-group__struct__utils_1ga3c79042e6bf6f01706bf30ec9e69e8ac:
+.. _cid-parse_structure:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void parse_structure (const char* structure)
+
+    .. container:: brief-description
+
+        Collects a statistic of structure elements of the full structure in bracket notation.
+
+    .. container:: detailed-description
+
+        The function writes to the following global variables: :ref:`loop_size <doxid-group__struct__utils_1ga3f31e0e48125601bfa57b52f8b038e8e>` , :ref:`loop_degree <doxid-group__struct__utils_1gaef14e2f8ab3f61e8e659ba6b9003b08a>` , :ref:`helix_size <doxid-group__struct__utils_1ga8218c0d581a3fba2a1a56a196abe19a5>` , :ref:`loops <doxid-group__struct__utils_1ga439fcb9f8d4f9f4d2227fde5fbfecb30>` , :ref:`pairs <doxid-group__struct__utils_1ga6341cbb704924824e0236c1dce791032>` , :ref:`unpaired <doxid-group__struct__utils_1gadd2f952597e02d66e1116a9d11d252d6>`
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__struct__utils_1ga55c4783060a1464f862f858d5599c9e1:
+.. _cid-vrna_db_pack:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_db_pack (const char* struc)
+
+    .. container:: brief-description
+
+        Pack secondary secondary structure, 5:1 compression using base 3 encoding.
+
+    .. container:: detailed-description
+
+        Returns a binary string encoding of the secondary structure using a 5:1 compression scheme. The string is NULL terminated and can therefore be used with standard string functions such as strcmp(). Useful for programs that need to keep many structures in memory.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - struc
+        
+                - The secondary structure in dot-bracket notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The binary encoded structure
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_db_unpack() <doxid-group__struct__utils_1ga6490adff857d84ce06e6f379ae3a4512>`
+
+.. _doxid-group__struct__utils_1ga6490adff857d84ce06e6f379ae3a4512:
+.. _cid-vrna_db_unpack:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_db_unpack (const char* packed)
+
+    .. container:: brief-description
+
+        Unpack secondary structure previously packed with :ref:`vrna_db_pack() <doxid-group__struct__utils_1ga55c4783060a1464f862f858d5599c9e1>`
+
+    .. container:: detailed-description
+
+        Translate a compressed binary string produced by :ref:`vrna_db_pack() <doxid-group__struct__utils_1ga55c4783060a1464f862f858d5599c9e1>` back into the familiar dot-bracket notation.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - packed
+        
+                - The binary encoded packed secondary structure
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The unpacked secondary structure in dot-bracket notation
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_db_pack() <doxid-group__struct__utils_1ga55c4783060a1464f862f858d5599c9e1>`
+
+.. _doxid-group__struct__utils_1gae829fb8bb7f694c12a9c0bbc34c77c60:
+.. _cid-vrna_ptable:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* vrna_ptable (const char* structure)
+
+    .. container:: brief-description
+
+        Create a pair table of a secondary structure.
+
+    .. container:: detailed-description
+
+        Returns a newly allocated table, such that table[i]=j if (i.j) pair or 0 if i is unpaired, table[0] contains the length of the structure.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - The secondary structure in dot-bracket notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the created pair_table
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ptable_from_string() <doxid-group__struct__utils_1gac76c9ef3de507748fb0416a59323362b>` , :ref:`vrna_db_from_ptable() <doxid-group__struct__utils_1gaf9ecd0d7877fecdbb0292e24f40283d5>`
+
+.. _doxid-group__struct__utils_1gac76c9ef3de507748fb0416a59323362b:
+.. _cid-vrna_ptable_from_string:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* vrna_ptable_from_string (
+	    const char* string,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Create a pair table for a secondary structure string.
+
+    .. container:: detailed-description
+
+        This function takes an input string of a secondary structure annotation in :ref:`Dot-Bracket Notation (a.k.a. Dot-Parenthesis Notation) <doxid-rna_structure_notations_1dot-bracket-notation>` or :ref:`Extended Dot-Bracket Notation <doxid-rna_structure_notations_1dot-bracket-ext-notation>` , and converts it into a pair table representation.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - string
+        
+                - Secondary structure in :ref:`Extended Dot-Bracket Notation <doxid-rna_structure_notations_1dot-bracket-ext-notation>`
+        
+            *
+                - options
+        
+                - A bitmask to specify which brackets are recognized during conversion to pair table
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to a new pair table of the provided secondary structure
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ptable() <doxid-group__struct__utils_1gae829fb8bb7f694c12a9c0bbc34c77c60>` , :ref:`vrna_db_from_ptable() <doxid-group__struct__utils_1gaf9ecd0d7877fecdbb0292e24f40283d5>` , :ref:`vrna_db_flatten_to() <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>` , :ref:`VRNA_BRACKETS_RND <doxid-group__struct__utils_1gac92d5fa7c6625bce2670ece510a24fbd>` , :ref:`VRNA_BRACKETS_ANG <doxid-group__struct__utils_1ga863e03f7f73f10fc9bbcbefbdda4bec8>` , :ref:`VRNA_BRACKETS_CLY <doxid-group__struct__utils_1gaf41be40e79cb756c4e0bb8edb4d803d2>` , :ref:`VRNA_BRACKETS_SQR <doxid-group__struct__utils_1ga60525d61d7496eeea490a37f3d6bf757>` , :ref:`VRNA_BRACKETS_DEFAULT <doxid-group__struct__utils_1ga559ebf76b1b289f85309f4206e99aa1a>`
+
+.. _doxid-group__struct__utils_1gacca520048b24ec5a8978f4dafb4e4bf8:
+.. _cid-vrna_pt_pk_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* vrna_pt_pk_get (const char* structure)
+
+    .. container:: brief-description
+
+        Create a pair table of a secondary structure (pseudo-knot version)
+
+    .. container:: detailed-description
+
+        Returns a newly allocated table, such that table[i]=j if (i.j) pair or 0 if i is unpaired, table[0] contains the length of the structure.
+        
+        In contrast to :ref:`vrna_ptable() <doxid-group__struct__utils_1gae829fb8bb7f694c12a9c0bbc34c77c60>` this function also recognizes the base pairs denoted by '[' and ']' brackets.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - The secondary structure in (extended) dot-bracket notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the created pair_table
+
+.. _doxid-group__struct__utils_1ga2daefbbd6d9f8803731651882f54332d:
+.. _cid-vrna_ptable_copy:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* vrna_ptable_copy (const short* pt)
+
+    .. container:: brief-description
+
+        Get an exact copy of a pair table.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pt
+        
+                - The pair table to be copied
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the copy of 'pt'
+
+.. _doxid-group__struct__utils_1ga1ee4cdcda1f57d32dcb38032116d335d:
+.. _cid-vrna_pt_ali_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* vrna_pt_ali_get (const char* structure)
+
+    .. container:: brief-description
+
+        Create a pair table of a secondary structure (snoop align version)
+
+.. _doxid-group__struct__utils_1gaef0f7e1a6c00c81a349973de53039dda:
+.. _cid-vrna_pt_snoop_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* vrna_pt_snoop_get (const char* structure)
+
+    .. container:: brief-description
+
+        Create a pair table of a secondary structure (snoop version)
+
+    .. container:: detailed-description
+
+        returns a newly allocated table, such that: table[i]=j if (i.j) pair or 0 if i is unpaired, table[0] contains the length of the structure. The special pseudoknotted H/ACA-mRNA structure is taken into account.
+
+.. _doxid-group__struct__utils_1ga03e15af299be0866ff21da880c74b92e:
+.. _cid-vrna_loopidx_from_ptable:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* vrna_loopidx_from_ptable (const short* pt)
+
+    .. container:: brief-description
+
+        Get a loop index representation of a structure.
+
+.. _doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7:
+.. _cid-vrna_db_flatten:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_db_flatten (
+	    char* structure,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Substitute pairs of brackets in a string with parenthesis.
+
+    .. container:: detailed-description
+
+        This function can be used to replace brackets of unusual types, such as angular brackets  <>  , to dot-bracket format. The ``options`` parameter is used tpo specify which types of brackets will be replaced by round parenthesis  () .
+        
+        SWIG Wrapper Notes This function flattens an input structure string in-place! The second parameter is optional and defaults to :ref:`VRNA_BRACKETS_DEFAULT <doxid-group__struct__utils_1ga559ebf76b1b289f85309f4206e99aa1a>` .
+        
+        An overloaded version of this function exists, where an additional second parameter can be passed to specify the target brackets, i.e. the type of matching pair characters all brackets will be flattened to. Therefore, in the scripting language interface this function is a replacement for :ref:`vrna_db_flatten_to() <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - The structure string where brackets are flattened in-place
+        
+            *
+                - options
+        
+                - A bitmask to specify which types of brackets should be flattened out
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_db_flatten_to() <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>` , :ref:`VRNA_BRACKETS_RND <doxid-group__struct__utils_1gac92d5fa7c6625bce2670ece510a24fbd>` , :ref:`VRNA_BRACKETS_ANG <doxid-group__struct__utils_1ga863e03f7f73f10fc9bbcbefbdda4bec8>` , :ref:`VRNA_BRACKETS_CLY <doxid-group__struct__utils_1gaf41be40e79cb756c4e0bb8edb4d803d2>` , :ref:`VRNA_BRACKETS_SQR <doxid-group__struct__utils_1ga60525d61d7496eeea490a37f3d6bf757>` , :ref:`VRNA_BRACKETS_DEFAULT <doxid-group__struct__utils_1ga559ebf76b1b289f85309f4206e99aa1a>`
+
+.. _doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8:
+.. _cid-vrna_db_flatten_to:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_db_flatten_to (
+	    char* string,
+	    const char target [3],
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Substitute pairs of brackets in a string with another type of pair characters.
+
+    .. container:: detailed-description
+
+        This function can be used to replace brackets in a structure annotation string, such as square brackets  []  , to another type of pair characters, e.g. angular brackets  <> .
+        
+        The ``target`` array must contain a character for the 'pair open' annotation at position 0, and one for 'pair close' at position 1. T ``options`` parameter is used to specify which types of brackets will be replaced by the new pairs.
+        
+        SWIG Wrapper Notes This function is available as an overloaded version of :ref:`vrna_db_flatten() <doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>`
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - The structure string where brackets are flattened in-place
+        
+            *
+                - target
+        
+                - The new pair characters the string will be flattened to
+        
+            *
+                - options
+        
+                - A bitmask to specify which types of brackets should be flattened out
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_db_flatten() <doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>` , :ref:`VRNA_BRACKETS_RND <doxid-group__struct__utils_1gac92d5fa7c6625bce2670ece510a24fbd>` , :ref:`VRNA_BRACKETS_ANG <doxid-group__struct__utils_1ga863e03f7f73f10fc9bbcbefbdda4bec8>` , :ref:`VRNA_BRACKETS_CLY <doxid-group__struct__utils_1gaf41be40e79cb756c4e0bb8edb4d803d2>` , :ref:`VRNA_BRACKETS_SQR <doxid-group__struct__utils_1ga60525d61d7496eeea490a37f3d6bf757>` , :ref:`VRNA_BRACKETS_DEFAULT <doxid-group__struct__utils_1ga559ebf76b1b289f85309f4206e99aa1a>`
+
+.. _doxid-group__struct__utils_1gaf9ecd0d7877fecdbb0292e24f40283d5:
+.. _cid-vrna_db_from_ptable:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_db_from_ptable (short* pt)
+
+    .. container:: brief-description
+
+        Convert a pair table into dot-parenthesis notation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pt
+        
+                - The pair table to be copied
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A char pointer to the dot-bracket string
+
+.. _doxid-group__struct__utils_1ga02ca70cffb2d864f7b2d95d92218bae0:
+.. _cid-vrna_db_from_wuss:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_db_from_WUSS (const char* wuss)
+
+    .. container:: brief-description
+
+        Convert a WUSS annotation string to dot-bracket format.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - wuss
+        
+                - The input string in WUSS notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A dot-bracket notation of the input secondary structure
+        
+        
+        
+        .. note::
+        
+            This function flattens all brackets, and treats pseudo-knots annotated by matching pairs of upper/lowercase letters as unpaired nucleotides
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`Washington University Secondary Structure (WUSS) notation <doxid-rna_structure_notations_1wuss-notation>`
+
+.. _doxid-group__struct__utils_1ga65bdfbac6a16bf30286e8a3f7d15f60a:
+.. _cid-vrna_bp_distance:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_bp_distance (
+	    const char* str1,
+	    const char* str2
+	    )
+
+    .. container:: brief-description
+
+        Compute the "base pair" distance between two secondary structures s1 and s2.
+
+    .. container:: detailed-description
+
+        The sequences should have the same length. dist = number of base pairs in one structure but not in the other same as edit distance with open-pair close-pair as move-set
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - str1
+        
+                - First structure in dot-bracket notation
+        
+            *
+                - str2
+        
+                - Second structure in dot-bracket notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The base pair distance between str1 and str2
+
+.. _doxid-group__struct__utils_1gab4c2a00c99ce1d612ffa5bde114eb96d:
+.. _cid-vrna_refbpcnt_matrix:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* vrna_refBPcnt_matrix (
+	    const short* reference_pt,
+	    unsigned int turn
+	    )
+
+    .. container:: brief-description
+
+        Make a reference base pair count matrix.
+
+    .. container:: detailed-description
+
+        Get an upper triangular matrix containing the number of basepairs of a reference structure for each interval [i,j] with i<j. Access it via iindx!!!
+
+.. _doxid-group__struct__utils_1ga5a27bd058183170afd4716f5b8ff511a:
+.. _cid-vrna_refbpdist_matrix:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* vrna_refBPdist_matrix (
+	    const short* pt1,
+	    const short* pt2,
+	    unsigned int turn
+	    )
+
+    .. container:: brief-description
+
+        Make a reference base pair distance matrix.
+
+    .. container:: detailed-description
+
+        Get an upper triangular matrix containing the base pair distance of two reference structures for each interval [i,j] with i<j. Access it via iindx!!!
+
+.. _doxid-group__struct__utils_1ga0c28c410a5ab22d6ab9c77a84e8d5b44:
+.. _cid-vrna_db_from_probs:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_db_from_probs (
+	    const :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* pr,
+	    unsigned int length
+	    )
+
+    .. container:: brief-description
+
+        Create a dot-bracket like structure string from base pair probability matrix.
+
+.. _doxid-group__struct__utils_1ga025bff1b27fa46534c8fae6980f64bb5:
+.. _cid-vrna_bpp_symbol:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char vrna_bpp_symbol (const float* x)
+
+    .. container:: brief-description
+
+        Get a pseudo dot bracket notation for a given probability information.
+
+.. _doxid-group__struct__utils_1ga27bea2c241564af53a065982183389df:
+.. _cid-vrna_db_from_bp_stack:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_db_from_bp_stack (
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp,
+	    unsigned int length
+	    )
+
+    .. container:: brief-description
+
+        Create a dot-backet/parenthesis structure from backtracking stack.
+
+    .. container:: detailed-description
+
+        This function is capable to create dot-bracket structures from suboptimal structure prediction sensu M. Zuker
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - bp
+        
+                - Base pair stack containing the traced base pairs
+        
+            *
+                - length
+        
+                - The length of the structure
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The secondary structure in dot-bracket notation as provided in the input
+
+.. _doxid-group__struct__utils_1gaf002d69024d709744664a8b9ca3dd77d:
+.. _cid-vrna_plist:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* vrna_plist (
+	    const char* struc,
+	    float pr
+	    )
+
+    .. container:: brief-description
+
+        Create a :ref:`vrna_ep_t <doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>` from a dot-bracket string.
+
+    .. container:: detailed-description
+
+        The dot-bracket string is parsed and for each base pair an entry in the plist is created. The probability of each pair in the list is set by a function parameter.
+        
+        The end of the plist is marked by sequence positions i as well as j equal to 0. This condition should be used to stop looping over its entries
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - struc
+        
+                - The secondary structure in dot-bracket notation
+        
+            *
+                - pr
+        
+                - The probability for each base pair used in the plist
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The plist array
+
+.. _doxid-group__struct__utils_1ga6a51a36b9245d0bac868c5cd172b9611:
+.. _cid-vrna_db_from_plist:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_db_from_plist (
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* pairs,
+	    unsigned int n
+	    )
+
+    .. container:: brief-description
+
+        Convert a list of base pairs into dot-bracket notation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pairs
+        
+                - A :ref:`vrna_ep_t <doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>` containing the pairs to be included in the dot-bracket string
+        
+            *
+                - n
+        
+                - The length of the structure (number of nucleotides)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The dot-bracket string containing the provided base pairs
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_plist() <doxid-group__struct__utils_1gaf002d69024d709744664a8b9ca3dd77d>`
+
+.. _doxid-group__struct__utils_1gab61df77cf7949cd516181fce0c3d7d78:
+.. _cid-assign_plist_from_db:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void assign_plist_from_db (
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** pl,
+	    const char* struc,
+	    float pr
+	    )
+
+    .. container:: brief-description
+
+        Create a :ref:`vrna_ep_t <doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>` from a dot-bracket string.
+
+    .. container:: detailed-description
+
+        The dot-bracket string is parsed and for each base pair an entry in the plist is created. The probability of each pair in the list is set by a function parameter.
+        
+        The end of the plist is marked by sequence positions i as well as j equal to 0. This condition should be used to stop looping over its entries
+        
+        Deprecated Use :ref:`vrna_plist() <doxid-group__struct__utils_1gaf002d69024d709744664a8b9ca3dd77d>` instead
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pl
+        
+                - A pointer to the :ref:`vrna_ep_t <doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>` that is to be created
+        
+            *
+                - struc
+        
+                - The secondary structure in dot-bracket notation
+        
+            *
+                - pr
+        
+                - The probability for each base pair
+
+.. _doxid-group__struct__utils_1gac6dfa5e22928c087c6e09ff0054a7ced:
+.. _cid-pack_structure:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* pack_structure (const char* struc)
+
+    .. container:: brief-description
+
+        Pack secondary secondary structure, 5:1 compression using base 3 encoding.
+
+    .. container:: detailed-description
+
+        Returns a binary string encoding of the secondary structure using a 5:1 compression scheme. The string is NULL terminated and can therefore be used with standard string functions such as strcmp(). Useful for programs that need to keep many structures in memory.
+        
+        Deprecated Use :ref:`vrna_db_pack() <doxid-group__struct__utils_1ga55c4783060a1464f862f858d5599c9e1>` as a replacement
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - struc
+        
+                - The secondary structure in dot-bracket notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The binary encoded structure
+
+.. _doxid-group__struct__utils_1ga071c6921efe1eb974f115ee6fefa3c39:
+.. _cid-unpack_structure:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* unpack_structure (const char* packed)
+
+    .. container:: brief-description
+
+        Unpack secondary structure previously packed with :ref:`pack_structure() <doxid-group__struct__utils_1gac6dfa5e22928c087c6e09ff0054a7ced>`
+
+    .. container:: detailed-description
+
+        Translate a compressed binary string produced by :ref:`pack_structure() <doxid-group__struct__utils_1gac6dfa5e22928c087c6e09ff0054a7ced>` back into the familiar dot-bracket notation.
+        
+        Deprecated Use :ref:`vrna_db_unpack() <doxid-group__struct__utils_1ga6490adff857d84ce06e6f379ae3a4512>` as a replacement
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - packed
+        
+                - The binary encoded packed secondary structure
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The unpacked secondary structure in dot-bracket notation
+
+.. _doxid-group__struct__utils_1ga89c32307ee50a0026f4a3131fac0845a:
+.. _cid-make_pair_table:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* make_pair_table (const char* structure)
+
+    .. container:: brief-description
+
+        Create a pair table of a secondary structure.
+
+    .. container:: detailed-description
+
+        Returns a newly allocated table, such that table[i]=j if (i.j) pair or 0 if i is unpaired, table[0] contains the length of the structure.
+        
+        Deprecated Use :ref:`vrna_ptable() <doxid-group__struct__utils_1gae829fb8bb7f694c12a9c0bbc34c77c60>` instead
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - structure
+        
+                - The secondary structure in dot-bracket notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the created pair_table
+
+.. _doxid-group__struct__utils_1gafeaa6d68eef3a99d0a7aa08aa91c6601:
+.. _cid-copy_pair_table:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* copy_pair_table (const short* pt)
+
+    .. container:: brief-description
+
+        Get an exact copy of a pair table.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_ptable_copy() <doxid-group__struct__utils_1ga2daefbbd6d9f8803731651882f54332d>` instead
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pt
+        
+                - The pair table to be copied
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the copy of 'pt'
+
+.. _doxid-group__struct__utils_1ga3c81b3967056c3888b8472b65fbb16f5:
+.. _cid-alimake_pair_table:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* alimake_pair_table (const char* structure)
+
+    .. container:: detailed-description
+
+        Pair table for snoop align
+        
+        Deprecated Use :ref:`vrna_pt_ali_get() <doxid-group__struct__utils_1ga1ee4cdcda1f57d32dcb38032116d335d>` instead!
+
+.. _doxid-group__struct__utils_1ga9aa3bf3b4346bb7fb88efc154dd07a79:
+.. _cid-make_pair_table_snoop:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* make_pair_table_snoop (const char* structure)
+
+    .. container:: detailed-description
+
+        returns a newly allocated table, such that: table[i]=j if (i.j) pair or 0 if i is unpaired, table[0] contains the length of the structure. The special pseudoknotted H/ACA-mRNA structure is taken into account. Deprecated Use :ref:`vrna_pt_snoop_get() <doxid-group__struct__utils_1gaef0f7e1a6c00c81a349973de53039dda>` instead!
+
+.. _doxid-group__struct__utils_1ga6ebbcd29a754f0e4f1a66d1fd84184db:
+.. _cid-bp_distance:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int bp_distance (
+	    const char* str1,
+	    const char* str2
+	    )
+
+    .. container:: brief-description
+
+        Compute the "base pair" distance between two secondary structures s1 and s2.
+
+    .. container:: detailed-description
+
+        The sequences should have the same length. dist = number of base pairs in one structure but not in the other same as edit distance with open-pair close-pair as move-set
+        
+        Deprecated Use vrna_bp_distance instead
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - str1
+        
+                - First structure in dot-bracket notation
+        
+            *
+                - str2
+        
+                - Second structure in dot-bracket notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The base pair distance between str1 and str2
+
+.. _doxid-group__struct__utils_1ga578cd9712dee812fb1c58aa3cc489864:
+.. _cid-make_referencebp_array:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* make_referenceBP_array (
+	    short* reference_pt,
+	    unsigned int turn
+	    )
+
+    .. container:: brief-description
+
+        Make a reference base pair count matrix.
+
+    .. container:: detailed-description
+
+        Get an upper triangular matrix containing the number of basepairs of a reference structure for each interval [i,j] with i<j. Access it via iindx!!!
+        
+        Deprecated Use :ref:`vrna_refBPcnt_matrix() <doxid-group__struct__utils_1gab4c2a00c99ce1d612ffa5bde114eb96d>` instead
+
+.. _doxid-group__struct__utils_1gadd463184355d0803b6ee6e09f29182f2:
+.. _cid-compute_bpdifferences:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* compute_BPdifferences (
+	    short* pt1,
+	    short* pt2,
+	    unsigned int turn
+	    )
+
+    .. container:: brief-description
+
+        Make a reference base pair distance matrix.
+
+    .. container:: detailed-description
+
+        Get an upper triangular matrix containing the base pair distance of two reference structures for each interval [i,j] with i<j. Access it via iindx!!!
+        
+        Deprecated Use :ref:`vrna_refBPdist_matrix() <doxid-group__struct__utils_1ga5a27bd058183170afd4716f5b8ff511a>` instead
+
+.. _doxid-group__struct__utils_1gadf0ad2d46c9ca7b850437d1b79627a7e:
+.. _cid-parenthesis_structure:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void parenthesis_structure (
+	    char* structure,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp,
+	    int length
+	    )
+
+    .. container:: brief-description
+
+        Create a dot-backet/parenthesis structure from backtracking stack.
+
+    .. container:: detailed-description
+
+        Deprecated use vrna_parenthesis_structure() instead
+        
+        
+        
+        .. note::
+        
+            This function is threadsafe
+
+.. _doxid-group__struct__utils_1gab9c5c8311bd5120900585d4fa50c2df0:
+.. _cid-parenthesis_zuker:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void parenthesis_zuker (
+	    char* structure,
+	    :ref:`vrna_bp_stack_t<doxid-group__data__structures_1gaa651bda42e7692f08cb603cd6834b0ee>`* bp,
+	    int length
+	    )
+
+    .. container:: brief-description
+
+        Create a dot-backet/parenthesis structure from backtracking stack obtained by zuker suboptimal calculation in cofold.c.
+
+    .. container:: detailed-description
+
+        Deprecated use vrna_parenthesis_zuker instead
+        
+        
+        
+        .. note::
+        
+            This function is threadsafe
+
+.. _doxid-group__struct__utils_1ga129d81c4a1ead793c5b2311333e03dfa:
+.. _cid-bppm_to_structure:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void bppm_to_structure (
+	    char* structure,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* pr,
+	    unsigned int length
+	    )
+
+    .. container:: brief-description
+
+        Create a dot-bracket like structure string from base pair probability matrix.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_db_from_probs() <doxid-group__struct__utils_1ga0c28c410a5ab22d6ab9c77a84e8d5b44>` instead!
+
+.. _doxid-group__struct__utils_1ga49962ad6242b8c628de6ca16bb831c1d:
+.. _cid-bppm_symbol:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char bppm_symbol (const float* x)
+
+    .. container:: brief-description
+
+        Get a pseudo dot bracket notation for a given probability information.
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_bpp_symbol() <doxid-group__struct__utils_1ga025bff1b27fa46534c8fae6980f64bb5>` instead!
+
+Macros
+------
+
+.. _doxid-group__struct__utils_1ga7e3f630af8d69bb0e917145aacf2f96d:
+.. _cid-vrna_brackets_alpha:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_BRACKETS_ALPHA
+
+    .. container:: brief-description
+
+        Bitflag to indicate secondary structure notations using uppercase/lowercase letters from the latin alphabet.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ptable_from_string() <doxid-group__struct__utils_1gac76c9ef3de507748fb0416a59323362b>`
+
+.. _doxid-group__struct__utils_1ga863e03f7f73f10fc9bbcbefbdda4bec8:
+.. _cid-vrna_brackets_ang:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_BRACKETS_ANG
+
+    .. container:: brief-description
+
+        Bitflag to indicate secondary structure notations using angular brackets, ``<>``
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ptable_from_string() <doxid-group__struct__utils_1gac76c9ef3de507748fb0416a59323362b>` , :ref:`vrna_db_flatten() <doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>` , :ref:`vrna_db_flatten_to() <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>`
+
+.. _doxid-group__struct__utils_1gaf41be40e79cb756c4e0bb8edb4d803d2:
+.. _cid-vrna_brackets_cly:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_BRACKETS_CLY
+
+    .. container:: brief-description
+
+        Bitflag to indicate secondary structure notations using curly brackets, ``{}``
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ptable_from_string() <doxid-group__struct__utils_1gac76c9ef3de507748fb0416a59323362b>` , :ref:`vrna_db_flatten() <doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>` , :ref:`vrna_db_flatten_to() <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>`
+
+.. _doxid-group__struct__utils_1ga559ebf76b1b289f85309f4206e99aa1a:
+.. _cid-vrna_brackets_default:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_BRACKETS_DEFAULT
+
+    .. container:: brief-description
+
+        Default bitmask to indicate secondary structure notation using any pair of brackets.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ptable_from_string() <doxid-group__struct__utils_1gac76c9ef3de507748fb0416a59323362b>` , :ref:`vrna_db_flatten() <doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>` , :ref:`vrna_db_flatten_to() <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>`
+
+.. _doxid-group__struct__utils_1gac92d5fa7c6625bce2670ece510a24fbd:
+.. _cid-vrna_brackets_rnd:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_BRACKETS_RND
+
+    .. container:: brief-description
+
+        Bitflag to indicate secondary structure notations using round brackets (parenthesis), ``()``
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ptable_from_string() <doxid-group__struct__utils_1gac76c9ef3de507748fb0416a59323362b>` , :ref:`vrna_db_flatten() <doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>` , :ref:`vrna_db_flatten_to() <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>`
+
+.. _doxid-group__struct__utils_1ga60525d61d7496eeea490a37f3d6bf757:
+.. _cid-vrna_brackets_sqr:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_BRACKETS_SQR
+
+    .. container:: brief-description
+
+        Bitflag to indicate secondary structure notations using square brackets, ``[]``
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ptable_from_string() <doxid-group__struct__utils_1gac76c9ef3de507748fb0416a59323362b>` , :ref:`vrna_db_flatten() <doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>` , :ref:`vrna_db_flatten_to() <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>`
+

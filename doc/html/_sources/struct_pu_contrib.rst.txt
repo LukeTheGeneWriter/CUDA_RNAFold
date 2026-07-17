@@ -1,0 +1,123 @@
+.. index:: pair: struct; pu_contrib
+.. _doxid-structpu__contrib:
+.. _cid-pu_contrib:
+
+struct pu_contrib
+=================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+Overview
+--------
+
+contributions to p_u :ref:`More...<details-doxid-structpu__contrib>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	double** :ref:`H<doxid-structpu__contrib_1ac9034ac9a84ed0647587659d6e9be1e8>`
+	double** :ref:`I<doxid-structpu__contrib_1a8ca0da20536780589fb3e3472ca0581f>`
+	double** :ref:`M<doxid-structpu__contrib_1a1222ebf74f426bbcd843dcc325da207b>`
+	double** :ref:`E<doxid-structpu__contrib_1accb192ba6b4b91a1cb2f8080934fd428>`
+	int :ref:`length<doxid-structpu__contrib_1a33d5ada6e861db0c81aa3d5b2989262e>`
+	int :ref:`w<doxid-structpu__contrib_1a403c1c7f20beeeffba7632fac0cfcbff>`
+
+.. _details-doxid-structpu__contrib:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    contributions to p_u
+
+Fields
+------
+
+.. _doxid-structpu__contrib_1ac9034ac9a84ed0647587659d6e9be1e8:
+.. _cid-pu_contrib::h:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double** H
+
+    .. container:: brief-description
+
+        hairpin loops
+
+.. _doxid-structpu__contrib_1a8ca0da20536780589fb3e3472ca0581f:
+.. _cid-pu_contrib::i:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double** I
+
+    .. container:: brief-description
+
+        interior loops
+
+.. _doxid-structpu__contrib_1a1222ebf74f426bbcd843dcc325da207b:
+.. _cid-pu_contrib::m:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double** M
+
+    .. container:: brief-description
+
+        multi loops
+
+.. _doxid-structpu__contrib_1accb192ba6b4b91a1cb2f8080934fd428:
+.. _cid-pu_contrib::e:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double** E
+
+    .. container:: brief-description
+
+        exterior loop
+
+.. _doxid-structpu__contrib_1a33d5ada6e861db0c81aa3d5b2989262e:
+.. _cid-pu_contrib::length:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int length
+
+    .. container:: brief-description
+
+        length of the input sequence
+
+.. _doxid-structpu__contrib_1a403c1c7f20beeeffba7632fac0cfcbff:
+.. _cid-pu_contrib::w:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int w
+
+    .. container:: brief-description
+
+        longest unpaired region
+

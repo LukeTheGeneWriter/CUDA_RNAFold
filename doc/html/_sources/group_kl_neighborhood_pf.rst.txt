@@ -1,0 +1,133 @@
+.. index:: pair: group; Calculate Partition Functions of a Distance Based Partitioning
+.. _doxid-group__kl__neighborhood__pf:
+.. _cid-kl_neighborhood_pf:
+
+Calculate Partition Functions of a Distance Based Partitioning
+==============================================================
+
+.. toctree::
+	:hidden:
+
+	struct_vrna_sol_TwoD_pf_t.rst
+
+
+
+Overview
+--------
+
+Compute the partition function and stochastically sample secondary structures for a partitioning of the secondary structure space according to the base pair distance to two fixed reference structures. :ref:`More...<details-doxid-group__kl__neighborhood__pf>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_sol_TwoD_pf_t<doxid-structvrna__sol___two_d__pf__t>` :ref:`vrna_sol_TwoD_pf_t<doxid-group__kl__neighborhood__pf_1ga5e449fbd695406aabd2bcabddc374621>`
+
+	// structs
+
+	struct :ref:`vrna_sol_TwoD_pf_t<doxid-structvrna__sol___two_d__pf__t>` 
+
+	// global functions
+
+	:ref:`vrna_sol_TwoD_pf_t<doxid-structvrna__sol___two_d__pf__t>`* :ref:`vrna_pf_TwoD<doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int maxDistance1,
+	    int maxDistance2
+	    )
+
+.. _details-doxid-group__kl__neighborhood__pf:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Compute the partition function and stochastically sample secondary structures for a partitioning of the secondary structure space according to the base pair distance to two fixed reference structures.
+
+Typedefs
+--------
+
+.. _doxid-group__kl__neighborhood__pf_1ga5e449fbd695406aabd2bcabddc374621:
+.. _cid-vrna_sol_twod_pf_t-2:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_sol_TwoD_pf_t<doxid-structvrna__sol___two_d__pf__t>` vrna_sol_TwoD_pf_t
+
+    .. container:: brief-description
+
+        Solution element returned from :ref:`vrna_pf_TwoD() <doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836>`
+
+    .. container:: detailed-description
+
+        This element contains the partition function for the appropriate kappa (k), lambda (l) neighborhood The datastructure contains two integer attributes 'k' and 'l' as well as an attribute 'q' of type :ref:`FLT_OR_DBL <doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`
+        
+        A value of :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` in k denotes the end of a list
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_pf_TwoD() <doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836>`
+
+Global Functions
+----------------
+
+.. _doxid-group__kl__neighborhood__pf_1ga0bc3427689bd09da09b8b3094a27f836:
+.. _cid-vrna_pf_twod:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_sol_TwoD_pf_t<doxid-structvrna__sol___two_d__pf__t>`* vrna_pf_TwoD (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int maxDistance1,
+	    int maxDistance2
+	    )
+
+    .. container:: brief-description
+
+        Compute the partition function for all distance classes.
+
+    .. container:: detailed-description
+
+        This function computes the partition functions for all distance classes according the two reference structures specified in the datastructure 'vars'. Similar to :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` the arguments maxDistance1 and maxDistance2 specify the maximum distance to both reference structures. A value of '-1' in either of them makes the appropriate distance restrictionless, i.e. all basepair distancies to the reference are taken into account during computation. In case there is a restriction, the returned solution contains an entry where the attribute k=l=-1 contains the partition function for all structures exceeding the restriction. A value of :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` in the attribute 'k' of the returned list denotes the end of the list
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The datastructure containing all necessary folding attributes and matrices
+        
+            *
+                - maxDistance1
+        
+                - The maximum basepair distance to reference1 (may be -1)
+        
+            *
+                - maxDistance2
+        
+                - The maximum basepair distance to reference2 (may be -1)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A list of partition funtions for the corresponding distance classes
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_TwoD() <doxid-group__fold__compound_1ga9d24b196753b4f9f03774f11661510f5>` , :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` , :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` :ref:`vrna_sol_TwoD_pf_t <doxid-structvrna__sol___two_d__pf__t>`
+

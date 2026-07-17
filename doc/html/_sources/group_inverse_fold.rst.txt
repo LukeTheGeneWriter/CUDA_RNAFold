@@ -1,0 +1,192 @@
+.. index:: pair: group; Inverse Folding (Design)
+.. _doxid-group__inverse__fold:
+.. _cid-inverse_fold:
+
+Inverse Folding (Design)
+========================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+RNA sequence design. :ref:`More...<details-doxid-group__inverse__fold>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global variables
+
+	char* :ref:`symbolset<doxid-group__inverse__fold_1ga8f791e7740a5a28b9f6fafb4e60301d9>`
+	float :ref:`final_cost<doxid-group__inverse__fold_1ga7f17d3b169af048d32bb185039a9c09c>`
+	int :ref:`give_up<doxid-group__inverse__fold_1ga7ec4ba51f86e1717a1e174264e4a75ce>`
+	int :ref:`inv_verbose<doxid-group__inverse__fold_1gafcfc65fba01b9cca5946726ed9057a63>`
+
+	// global functions
+
+	float :ref:`inverse_fold<doxid-group__inverse__fold_1ga7af026de55d4babad879f2c92559cbbc>` (
+	    char* start,
+	    const char* target
+	    )
+
+	float :ref:`inverse_pf_fold<doxid-group__inverse__fold_1gaeef52ecbf2a2450ad585a344f9826806>` (
+	    char* start,
+	    const char* target
+	    )
+
+.. _details-doxid-group__inverse__fold:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    RNA sequence design.
+
+Global Variables
+----------------
+
+.. _doxid-group__inverse__fold_1ga8f791e7740a5a28b9f6fafb4e60301d9:
+.. _cid-symbolset:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* symbolset
+
+    .. container:: brief-description
+
+        This global variable points to the allowed bases, initially "AUGC". It can be used to design sequences from reduced alphabets.
+
+.. _doxid-group__inverse__fold_1ga7f17d3b169af048d32bb185039a9c09c:
+.. _cid-final_cost:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float final_cost
+
+    .. container:: detailed-description
+
+        when to stop :ref:`inverse_pf_fold() <doxid-group__inverse__fold_1gaeef52ecbf2a2450ad585a344f9826806>`
+
+.. _doxid-group__inverse__fold_1ga7ec4ba51f86e1717a1e174264e4a75ce:
+.. _cid-give_up:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int give_up
+
+    .. container:: detailed-description
+
+        default 0: try to minimize structure distance even if no exact solution can be found
+
+.. _doxid-group__inverse__fold_1gafcfc65fba01b9cca5946726ed9057a63:
+.. _cid-inv_verbose:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int inv_verbose
+
+    .. container:: detailed-description
+
+        print out substructure on which :ref:`inverse_fold() <doxid-group__inverse__fold_1ga7af026de55d4babad879f2c92559cbbc>` fails
+
+Global Functions
+----------------
+
+.. _doxid-group__inverse__fold_1ga7af026de55d4babad879f2c92559cbbc:
+.. _cid-inverse_fold-2:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float inverse_fold (
+	    char* start,
+	    const char* target
+	    )
+
+    .. container:: brief-description
+
+        Find sequences with predefined structure.
+
+    .. container:: detailed-description
+
+        This function searches for a sequence with minimum free energy structure provided in the parameter 'target', starting with sequence 'start'. It returns 0 if the search was successful, otherwise a structure distance in terms of the energy difference between the search result and the actual target 'target' is returned. The found sequence is returned in 'start'. If :ref:`give_up <doxid-group__inverse__fold_1ga7ec4ba51f86e1717a1e174264e4a75ce>` is set to 1, the function will return as soon as it is clear that the search will be unsuccessful, this speeds up the algorithm if you are only interested in exact solutions.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - start
+        
+                - The start sequence
+        
+            *
+                - target
+        
+                - The target secondary structure in dot-bracket notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The distance to the target in case a search was unsuccessful, 0 otherwise
+
+.. _doxid-group__inverse__fold_1gaeef52ecbf2a2450ad585a344f9826806:
+.. _cid-inverse_pf_fold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float inverse_pf_fold (
+	    char* start,
+	    const char* target
+	    )
+
+    .. container:: brief-description
+
+        Find sequence that maximizes probability of a predefined structure.
+
+    .. container:: detailed-description
+
+        This function searches for a sequence with maximum probability to fold into the provided structure 'target' using the partition function algorithm. It returns :math:`-kT \cdot \log(p)` where :math:`p` is the frequency of 'target' in the ensemble of possible structures. This is usually much slower than :ref:`inverse_fold() <doxid-group__inverse__fold_1ga7af026de55d4babad879f2c92559cbbc>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - start
+        
+                - The start sequence
+        
+            *
+                - target
+        
+                - The target secondary structure in dot-bracket notation
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The distance to the target in case a search was unsuccessful, 0 otherwise
+

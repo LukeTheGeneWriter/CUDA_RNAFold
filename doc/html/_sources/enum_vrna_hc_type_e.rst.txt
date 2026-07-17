@@ -1,0 +1,72 @@
+.. index:: pair: enum; vrna_hc_type_e
+.. _doxid-constraints__hard_8h_1a0fcb8bda9b3712e14f8f513def112435:
+.. _cid-vrna_hc_type_e:
+
+enum vrna_hc_type_e
+===================
+
+
+
+Overview
+~~~~~~~~
+
+The hard constraints type. :ref:`More...<details-doxid-constraints__hard_8h_1a0fcb8bda9b3712e14f8f513def112435>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enum values
+
+	:ref:`VRNA_HC_DEFAULT<doxid-constraints__hard_8h_1a0fcb8bda9b3712e14f8f513def112435a030a42722f849b10dd5780ceed7dfedd>` 
+	:ref:`VRNA_HC_WINDOW<doxid-constraints__hard_8h_1a0fcb8bda9b3712e14f8f513def112435a876c110b3de8e8c89ba5824b08cadb74>` 
+
+.. _details-doxid-constraints__hard_8h_1a0fcb8bda9b3712e14f8f513def112435:
+
+Detailed Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. container:: brief-description
+
+    The hard constraints type.
+
+.. container:: detailed-description
+
+    Global and local structure prediction methods use a slightly different way to handle hard constraints internally. This enum is used to distinguish both types.
+
+Enum Values
+-----------
+
+.. _doxid-constraints__hard_8h_1a0fcb8bda9b3712e14f8f513def112435a030a42722f849b10dd5780ceed7dfedd:
+.. _cid-vrna_hc_type_e::vrna_hc_default:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_HC_DEFAULT
+
+    .. container:: brief-description
+
+        Default Hard Constraints.
+
+.. _doxid-constraints__hard_8h_1a0fcb8bda9b3712e14f8f513def112435a876c110b3de8e8c89ba5824b08cadb74:
+.. _cid-vrna_hc_type_e::vrna_hc_window:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_HC_WINDOW
+
+    .. container:: brief-description
+
+        Hard Constraints suitable for local structure prediction using window approach.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` , :ref:`vrna_mfe_window_zscore() <doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` , :ref:`pfl_fold() <doxid-group__local__pf__fold_1ga7cdf690583871f9c158a0f91d4785cb6>`
+

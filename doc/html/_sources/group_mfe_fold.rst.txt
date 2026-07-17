@@ -1,0 +1,173 @@
+.. index:: pair: group; Minimum Free Energy (MFE) algorithms
+.. _doxid-group__mfe__fold:
+.. _cid-mfe_fold:
+
+Minimum Free Energy (MFE) algorithms
+====================================
+
+.. toctree::
+	:hidden:
+
+	group_mfe_fold_single.rst
+
+
+
+Overview
+--------
+
+
+
+|	:ref:`MFE Structures of single Nucleic Acid Sequences<doxid-group__mfe__fold__single>`
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef void () :ref:`vrna_mfe_window_callback<doxid-group__mfe__fold_1ga4f3e5bc214ef803074ace313cb9571b4>` (
+	    int start,
+	    int end,
+	    const char *structure,
+	    float en,
+	    void *data
+	    )
+
+	// global functions
+
+	float :ref:`vrna_mfe<doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    char* structure
+	    )
+
+.. _details-doxid-group__mfe__fold:
+
+Detailed Documentation
+----------------------
+
+
+
+Typedefs
+--------
+
+.. _doxid-group__mfe__fold_1ga4f3e5bc214ef803074ace313cb9571b4:
+.. _cid-vrna_mfe_window_callback:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef void () vrna_mfe_window_callback (
+	    int start,
+	    int end,
+	    const char *structure,
+	    float en,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        The default callback for sliding window MFE structure predictions.
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions This function will be called for each hit in a sliding window MFE prediction.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - start
+        
+                - provides the first position of the hit (1-based, relative to entire sequence/alignment)
+        
+            *
+                - end
+        
+                - provides the last position of the hit (1-based, relative to the entire sequence/alignment)
+        
+            *
+                - structure
+        
+                - provides the (sub)structure in dot-bracket notation
+        
+            *
+                - en
+        
+                - is the free energy of the structure hit in kcal/mol
+        
+            *
+                - data
+        
+                - is some arbitrary data pointer passed through by the function executing the callback
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>`
+
+Global Functions
+----------------
+
+.. _doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd:
+.. _cid-vrna_mfe:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_mfe (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute minimum free energy and an appropriate secondary structure of an RNA sequence, or RNA sequence alignment.
+
+    .. container:: detailed-description
+
+        Depending on the type of the provided :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , this function predicts the MFE for a single sequence, or a corresponding averaged MFE for a sequence alignment. If backtracking is activated, it also constructs the corresponding secondary structure, or consensus structure. Therefore, the second parameter, *structure* , has to point to an allocated block of memory with a size of at least :math:`\mathrm{strlen}(\mathrm{sequence})+1` to store the backtracked MFE structure. (For consensus structures, this is the length of the alignment + 1. If ``NULL`` is passed, no backtracking will be performed.
+        
+        SWIG Wrapper Notes This function is attached as method **mfe()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - fold compound
+        
+            *
+                - structure
+        
+                - A pointer to the character array where the secondary structure in dot-bracket notation will be written to (Maybe NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        the minimum free energy (MFE) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            This function is polymorphic. It accepts :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` , and :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold() <doxid-group__mfe__fold__single_1ga29a33b2895f4e67b0480271ff289afdc>` , :ref:`vrna_circfold() <doxid-group__mfe__fold__single_1gaf973483d8acbc8cc9aacfc8a9b7f0074>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_alifold() <doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1>` , :ref:`vrna_circalifold() <doxid-group__consensus__mfe__fold_1ga17a1be7490468c29c335ba9bffacba53>`
+

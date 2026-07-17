@@ -1,0 +1,65 @@
+.. index:: pair: group; Compute the structure with maximum expected accuracy (MEA)
+.. _doxid-group__mea__fold:
+.. _cid-mea_fold:
+
+Compute the structure with maximum expected accuracy (MEA)
+==========================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	float :ref:`MEA<doxid-group__mea__fold_1ga396ec6144c6a74fcbab4cea6b42d76c3>` (
+	    :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* p,
+	    char* structure,
+	    double gamma
+	    )
+
+.. _details-doxid-group__mea__fold:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__mea__fold_1ga396ec6144c6a74fcbab4cea6b42d76c3:
+.. _cid-mea:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float MEA (
+	    :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* p,
+	    char* structure,
+	    double gamma
+	    )
+
+    .. container:: brief-description
+
+        Computes a MEA (maximum expected accuracy) structure.
+
+    .. container:: detailed-description
+
+        The algorithm maximizes the expected accuracy
+        
+        .. math::
+        
+            A(S) = \sum_{(i,j) \in S} 2 \gamma p_{ij} + \sum_{i \notin S} p^u_i
+        
+        Higher values of :math:`\gamma` result in more base pairs of lower probability and thus higher sensitivity. Low values of :math:`\gamma` result in structures containing only highly likely pairs (high specificity). The code of the MEA function also demonstrates the use of sparse dynamic programming scheme to reduce the time and memory complexity of folding.
+

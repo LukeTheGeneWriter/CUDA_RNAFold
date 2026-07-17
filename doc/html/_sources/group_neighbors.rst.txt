@@ -1,0 +1,486 @@
+.. index:: pair: group; Neighborhood relation and move sets for secondary structures
+.. _doxid-group__neighbors:
+.. _cid-neighbors:
+
+Neighborhood relation and move sets for secondary structures
+============================================================
+
+.. toctree::
+	:hidden:
+
+	struct_vrna_move_s.rst
+
+
+
+Overview
+--------
+
+Different functions to generate structural neighbors of a secondary structure according to a particular Move Set. :ref:`More...<details-doxid-group__neighbors>`
+
+.. _doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755:
+.. _cid-vrna_move_t:
+.. _doxid-group__neighbors_1gaeff6157398a2073f587416fa9ec94789:
+.. _cid-vrna_move_init:
+.. _doxid-group__neighbors_1gabebc731deb0f194b8b666dab0f732c2a:
+.. _cid-vrna_move_apply_to_db:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_move_s<doxid-structvrna__move__s>` vrna_move_t
+
+	// structs
+
+	struct :ref:`vrna_move_s<doxid-structvrna__move__s>` 
+
+	// global functions
+
+	:ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>` vrna_move_init (
+	    int pos_5,
+	    int pos_3
+	    )
+
+	void :ref:`vrna_move_list_free<doxid-group__neighbors_1gad085062ae3aa7ee20783debe4a906fad>` (:ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* moves)
+
+	void :ref:`vrna_move_apply<doxid-group__neighbors_1gacdbc5f609b46aeb07d2c7e015677a1e0>` (
+	    short* pt,
+	    const :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* m
+	    )
+
+	void vrna_move_apply_to_db (
+	    char* structure,
+	    const short* pt,
+	    const :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* m
+	    )
+
+	void :ref:`vrna_loopidx_update<doxid-group__neighbors_1ga5ceb55ee56494b1f5b7aaa758cb722d1>` (
+	    int* loopidx,
+	    const short* pt,
+	    int length,
+	    const :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* m
+	    )
+
+	:ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* :ref:`vrna_neighbors<doxid-group__neighbors_1gab1473d856b15da2120fe648977798ad5>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const short* pt,
+	    unsigned int options
+	    )
+
+	:ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* :ref:`vrna_neighbors_successive<doxid-group__neighbors_1gae5aaa1c5a1f22e889843f3edbdd04714>` (
+	    const :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* curr_move,
+	    const short* prev_pt,
+	    const :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* prev_neighbors,
+	    int size_prev_neighbors,
+	    int* size_neighbors,
+	    unsigned int options
+	    )
+
+	// macros
+
+	#define :ref:`VRNA_MOVESET_DEFAULT<doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1>`
+	#define :ref:`VRNA_MOVESET_DELETION<doxid-group__neighbors_1gac05db9392c6647e3e9a6982096c5b384>`
+	#define :ref:`VRNA_MOVESET_INSERTION<doxid-group__neighbors_1gaf39028db9c70d3be528929182a3f2d5a>`
+	#define :ref:`VRNA_MOVESET_NO_LP<doxid-group__neighbors_1ga258084b251b218fba9398826435a4393>`
+	#define :ref:`VRNA_MOVESET_SHIFT<doxid-group__neighbors_1ga68ea27c81de4b74e48b775c04052590b>`
+
+.. _details-doxid-group__neighbors:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Different functions to generate structural neighbors of a secondary structure according to a particular Move Set.
+
+.. container:: detailed-description
+
+    This module contains methods to compute the neighbors of an RNA secondary structure. Neighbors of a given structure are all structures that differ in exactly one base pair. That means one can insert an delete base pairs in the given structure. These insertions and deletions of base pairs are usually called moves. A third move which is considered in these methods is a shift move. A shifted base pair has one stable position and one position that changes. These moves are encoded as follows:
+    
+    
+    
+    * insertion: (i, j) where i,j > 0
+    
+    * deletion: (i, j) where i,j < 0
+      
+      shift: (i, j) where either i > 0, j < 0 or i < 0, j > 0
+      
+      The negative position of a shift indicates the position that has changed.
+    
+    .. ref-code-block:: cpp
+    
+        Example:
+                 We have given a sequence and a structure.
+                 Sequence  AAGGAAACC
+                 Structure ..(.....)
+                 Indices   123456789
+        
+                 The given base pair is (3,9) and the neighbors are the insertion (4, 8), the deletion (-3,-9), the shift (3,-8)
+                 and the shift (-4, 9).
+                 This leads to the neighbored structures:
+                 ...(....)
+                 .........
+                 ...(...).
+                 ....(...)
+    
+    A simple method to construct all insertions is to iterate over the positions of a sequence twice. The first iteration has the index i in [1, sequence length], the second iteration has the index j in [i+1, sequence length]. All pairs (i,j) with compatible letters and which are non-crossing with present base pairs are valid neighbored insertion moves. Valid deletion moves are all present base pairs with negative sign. Valid shift moves are constructed by taking all paired positions as fix position of a shift move and iterating over all positions of the sequence. If the letters of a position are compatible and if it the move is non-crossing with existing base pairs, we have a valid shift move. The method of generating shift moves can be accelerated by skipping neighbored base pairs.
+    
+    If we need to construct all neighbors several times for subsequent moves, we can speed up the task by using the move set of the previous structure. The previous move set has to be filtered, such that all moves that would cross the next selected move are non-crossing. Next, the selected move has to be removed. Then one has to only to generate all moves that were not possible before. One move is the inverted selected move (if it was an insertion, simply make the indices negative). The generation of all other new moves is different and depends on the selected move. It is easy for an insertion move, because we have only to include all non-crossing shift moves, that are possible with the new base pair. For that we can either iterate over the sequence or we can select all crossing shift moves in the filter procedure and convert them into shifts.
+    
+    The generation of new moves given a deletion is a little bit more complex, because we can create more moves. At first we can insert the deleted pair as insertion move. Then we generate all insertions that would have crossed the deleted base pair. Finally we construct all crossing shift moves.
+    
+    If the given move is a shift, we can save much time by specifying the intervals for the generation of new moves. The interval which was enclosed by the positive position of the shift move and the previous paired position is the freed interval after applying the move. This freed interval includes all positions and base pairs that we need to construct new insertions and shifts. All these new moves have one position in the freed interval and the other position in the environment of the freed interval. The environment are all position which are outside the freed interval, but within the same enclosing loop of the shift move. The environment for valid base pairs can be divided into one or more intervals, depending on the shift move. The following examples describe a few scenarios to specify the intervals of the environment.
+    
+    .. image:: shift_move_intervals.svg
+    
+    
+    
+    .. image:: shift_move_intervals
+    
+    Given the intervals of the environment and the freed interval, the new shift moves can be constructed quickly. One has to take all positions of pairs from the environment in order to create valid pairs with positions in the freed interval. The same procedure can be applied for the other direction. This is taking all paired positions within the freed interval in order to look for pairs with valid positions in the intervals of the environment.
+
+Global Functions
+----------------
+
+.. _doxid-group__neighbors_1gad085062ae3aa7ee20783debe4a906fad:
+.. _cid-vrna_move_list_free:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_move_list_free (:ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* moves)
+
+    .. container:: detailed-description
+
+        delete all moves in a zero terminated list.
+
+.. _doxid-group__neighbors_1gacdbc5f609b46aeb07d2c7e015677a1e0:
+.. _cid-vrna_move_apply:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_move_apply (
+	    short* pt,
+	    const :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* m
+	    )
+
+    .. container:: brief-description
+
+        Apply a particular move / transition to a secondary structure, i.e. transform a structure.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pt
+        
+                - The pair table representation of the secondary structure
+        
+            *
+                - m
+        
+                - The move to apply
+
+.. _doxid-group__neighbors_1ga5ceb55ee56494b1f5b7aaa758cb722d1:
+.. _cid-vrna_loopidx_update:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_loopidx_update (
+	    int* loopidx,
+	    const short* pt,
+	    int length,
+	    const :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* m
+	    )
+
+    .. container:: brief-description
+
+        Alters the loopIndices array that was constructed with :ref:`vrna_loopidx_from_ptable() <doxid-group__struct__utils_1ga03e15af299be0866ff21da880c74b92e>` .
+
+    .. container:: detailed-description
+
+        The loopIndex of the current move will be inserted. The correctness of the input will not be checked because the speed should be optimized.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - loopidx
+        
+                - The loop index data structure that needs an update
+        
+            *
+                - pt
+        
+                - A pair table on which the move will be executed
+        
+            *
+                - length
+        
+                - The length of the structure
+        
+            *
+                - m
+        
+                - The move that is applied to the current structure
+
+.. _doxid-group__neighbors_1gab1473d856b15da2120fe648977798ad5:
+.. _cid-vrna_neighbors:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* vrna_neighbors (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const short* pt,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Generate neighbors of a secondary structure.
+
+    .. container:: detailed-description
+
+        This function allows one to generate all structural neighbors (according to a particular move set) of an RNA secondary structure. The neighborhood is then returned as a list of transitions / moves required to transform the current structure into the actual neighbor.
+        
+        SWIG Wrapper Notes This function is attached as an overloaded method *neighbors()* to objects of type *fold_compound* . The optional parameter ``options`` defaults to :ref:`VRNA_MOVESET_DEFAULT <doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1>` if it is omitted.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - A vrna_fold_compound_t containing the energy parameters and model details
+        
+            *
+                - pt
+        
+                - The pair table representation of the structure
+        
+            *
+                - options
+        
+                - Options to modify the behavior of this function, e.g. available move set
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Neighbors as a list of moves / transitions (the last element in the list has both of its fields set to 0)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_neighbors_successive() <doxid-group__neighbors_1gae5aaa1c5a1f22e889843f3edbdd04714>` , :ref:`vrna_move_apply() <doxid-group__neighbors_1gacdbc5f609b46aeb07d2c7e015677a1e0>` , :ref:`VRNA_MOVESET_INSERTION <doxid-group__neighbors_1gaf39028db9c70d3be528929182a3f2d5a>` , :ref:`VRNA_MOVESET_DELETION <doxid-group__neighbors_1gac05db9392c6647e3e9a6982096c5b384>` , :ref:`VRNA_MOVESET_SHIFT <doxid-group__neighbors_1ga68ea27c81de4b74e48b775c04052590b>` , :ref:`VRNA_MOVESET_DEFAULT <doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1>`
+
+.. _doxid-group__neighbors_1gae5aaa1c5a1f22e889843f3edbdd04714:
+.. _cid-vrna_neighbors_successive:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* vrna_neighbors_successive (
+	    const :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* curr_move,
+	    const short* prev_pt,
+	    const :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* prev_neighbors,
+	    int size_prev_neighbors,
+	    int* size_neighbors,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Generate neighbors of a secondary structure (the fast way)
+
+    .. container:: detailed-description
+
+        This function implements a fast way to generate all neighbors of a secondary structure that results from successive applications of individual moves. The speed-up results from updating an already known list of valid neighbors before the individual move towards the current structure took place. In essence, this function removes neighbors that are not accessible anymore and inserts neighbors emerging after a move took place.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - A vrna_fold_compound_t containing the energy parameters and model details
+        
+            *
+                - curr_move
+        
+                - The move that was/will be applied to ``prev_pt``
+        
+            *
+                - prev_pt
+        
+                - A pair table representation of the structure before ``curr_move`` is/was applied
+        
+            *
+                - prev_neighbors
+        
+                - The list of neighbors of ``prev_pt``
+        
+            *
+                - size_prev_neighbors
+        
+                - The size of ``prev_neighbors`` , i.e. the lists length
+        
+            *
+                - size_neighbors
+        
+                - A pointer to store the size / length of the new neighbor list
+        
+            *
+                - options
+        
+                - Options to modify the behavior of this function, e.g. available move set
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Neighbors as a list of moves / transitions (the last element in the list has both of its fields set to 0)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_neighbors() <doxid-group__neighbors_1gab1473d856b15da2120fe648977798ad5>` , :ref:`vrna_move_apply() <doxid-group__neighbors_1gacdbc5f609b46aeb07d2c7e015677a1e0>` , :ref:`VRNA_MOVESET_INSERTION <doxid-group__neighbors_1gaf39028db9c70d3be528929182a3f2d5a>` , :ref:`VRNA_MOVESET_DELETION <doxid-group__neighbors_1gac05db9392c6647e3e9a6982096c5b384>` , :ref:`VRNA_MOVESET_SHIFT <doxid-group__neighbors_1ga68ea27c81de4b74e48b775c04052590b>` , :ref:`VRNA_MOVESET_DEFAULT <doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1>`
+
+Macros
+------
+
+.. _doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1:
+.. _cid-vrna_moveset_default:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MOVESET_DEFAULT
+
+    .. container:: brief-description
+
+        Option flag indicating default move set, i.e. insertions/deletion of a base pair.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_neighbors() <doxid-group__neighbors_1gab1473d856b15da2120fe648977798ad5>` , :ref:`vrna_neighbors_successive <doxid-group__neighbors_1gae5aaa1c5a1f22e889843f3edbdd04714>` , :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>`
+
+.. _doxid-group__neighbors_1gac05db9392c6647e3e9a6982096c5b384:
+.. _cid-vrna_moveset_deletion:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MOVESET_DELETION
+
+    .. container:: brief-description
+
+        Option flag indicating deletion move.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_neighbors() <doxid-group__neighbors_1gab1473d856b15da2120fe648977798ad5>` , :ref:`vrna_neighbors_successive <doxid-group__neighbors_1gae5aaa1c5a1f22e889843f3edbdd04714>` , :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>`
+
+.. _doxid-group__neighbors_1gaf39028db9c70d3be528929182a3f2d5a:
+.. _cid-vrna_moveset_insertion:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MOVESET_INSERTION
+
+    .. container:: brief-description
+
+        Option flag indicating insertion move.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_neighbors() <doxid-group__neighbors_1gab1473d856b15da2120fe648977798ad5>` , :ref:`vrna_neighbors_successive <doxid-group__neighbors_1gae5aaa1c5a1f22e889843f3edbdd04714>` , :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>`
+
+.. _doxid-group__neighbors_1ga258084b251b218fba9398826435a4393:
+.. _cid-vrna_moveset_no_lp:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MOVESET_NO_LP
+
+    .. container:: brief-description
+
+        Option flag indicating moves without lonely base pairs.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_neighbors() <doxid-group__neighbors_1gab1473d856b15da2120fe648977798ad5>` , :ref:`vrna_neighbors_successive <doxid-group__neighbors_1gae5aaa1c5a1f22e889843f3edbdd04714>` , :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>`
+
+.. _doxid-group__neighbors_1ga68ea27c81de4b74e48b775c04052590b:
+.. _cid-vrna_moveset_shift:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MOVESET_SHIFT
+
+    .. container:: brief-description
+
+        Option flag indicating shift move.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_neighbors() <doxid-group__neighbors_1gab1473d856b15da2120fe648977798ad5>` , :ref:`vrna_neighbors_successive <doxid-group__neighbors_1gae5aaa1c5a1f22e889843f3edbdd04714>` , :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>`
+

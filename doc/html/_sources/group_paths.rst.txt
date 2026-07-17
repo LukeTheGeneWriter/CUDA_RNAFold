@@ -1,0 +1,355 @@
+.. index:: pair: group; Refolding paths of secondary structures
+.. _doxid-group__paths:
+.. _cid-paths:
+
+Refolding paths of secondary structures
+=======================================
+
+.. toctree::
+	:hidden:
+
+	group_direct_paths.rst
+
+
+
+Overview
+--------
+
+
+
+|	:ref:`Direct refolding paths between two secondary structures<doxid-group__direct__paths>`
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	:ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* :ref:`vrna_path<doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    short* pt,
+	    unsigned int steps,
+	    unsigned int options
+	    )
+
+	:ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* :ref:`vrna_path_gradient<doxid-group__paths_1gae92cce443a8a64f7b7fb89867b7d6125>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    short* pt,
+	    unsigned int options
+	    )
+
+	:ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* :ref:`vrna_path_random<doxid-group__paths_1ga9234756c337078fa599529d3db70d913>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    short* pt,
+	    unsigned int steps,
+	    unsigned int options
+	    )
+
+	// macros
+
+	#define :ref:`VRNA_PATH_DEFAULT<doxid-group__paths_1gaf1bb1f8fec8d24e3b821f621b19f77b4>`
+	#define :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT<doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>`
+	#define :ref:`VRNA_PATH_RANDOM<doxid-group__paths_1ga0b84bd36bfd783130297797c51dd85ae>`
+	#define :ref:`VRNA_PATH_STEEPEST_DESCENT<doxid-group__paths_1ga705cea2b3243a38a2d6e3b1e141ed061>`
+
+.. _details-doxid-group__paths:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae:
+.. _cid-vrna_path:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* vrna_path (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    short* pt,
+	    unsigned int steps,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Compute a path, store the final structure, and return a list of transition moves from the start to the final structure.
+
+    .. container:: detailed-description
+
+        This function computes, given a start structure in pair table format, a transition path, updates the pair table to the final structure of the path. Finally, if not requested otherwise by using the :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT <doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>` flag in the ``options`` field, this function returns a list of individual transitions that lead from the start to the final structure if requested.
+        
+        The currently available transition paths are
+        
+        * Steepest Descent / Gradient walk (flag: :ref:`VRNA_PATH_STEEPEST_DESCENT <doxid-group__paths_1ga705cea2b3243a38a2d6e3b1e141ed061>` )
+        
+        * Random walk (flag: :ref:`VRNA_PATH_RANDOM <doxid-group__paths_1ga0b84bd36bfd783130297797c51dd85ae>` )
+        
+        The type of transitions must be set through the ``options`` parameter
+        
+        SWIG Wrapper Notes This function is attached as an overloaded method *path()* to objects of type *fold_compound* . The optional parameter ``options`` defaults to :ref:`VRNA_PATH_DEFAULT <doxid-group__paths_1gaf1bb1f8fec8d24e3b821f621b19f77b4>` if it is omitted.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - A vrna_fold_compound_t containing the energy parameters and model details
+        
+            *
+                - pt
+        
+                - The pair table containing the start structure. Used to update to the final structure after execution of this function
+        
+            *
+                - options
+        
+                - Options to modify the behavior of this function
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A list of transition moves (default), or NULL (if options & :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT <doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>` )
+        
+        
+        
+        .. note::
+        
+            Since the result is written to the input structure you may want to use :ref:`vrna_ptable_copy() <doxid-group__struct__utils_1ga2daefbbd6d9f8803731651882f54332d>` before calling this function to keep the initial structure
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path_gradient() <doxid-group__paths_1gae92cce443a8a64f7b7fb89867b7d6125>` , :ref:`vrna_path_random() <doxid-group__paths_1ga9234756c337078fa599529d3db70d913>` , :ref:`vrna_ptable() <doxid-group__struct__utils_1gae829fb8bb7f694c12a9c0bbc34c77c60>` , :ref:`vrna_ptable_copy() <doxid-group__struct__utils_1ga2daefbbd6d9f8803731651882f54332d>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` :ref:`VRNA_PATH_STEEPEST_DESCENT <doxid-group__paths_1ga705cea2b3243a38a2d6e3b1e141ed061>` , :ref:`VRNA_PATH_RANDOM <doxid-group__paths_1ga0b84bd36bfd783130297797c51dd85ae>` , :ref:`VRNA_MOVESET_DEFAULT <doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1>` , :ref:`VRNA_MOVESET_SHIFT <doxid-group__neighbors_1ga68ea27c81de4b74e48b775c04052590b>` , :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT <doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>`
+
+.. _doxid-group__paths_1gae92cce443a8a64f7b7fb89867b7d6125:
+.. _cid-vrna_path_gradient:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* vrna_path_gradient (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    short* pt,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Compute a steepest descent / gradient path, store the final structure, and return a list of transition moves from the start to the final structure.
+
+    .. container:: detailed-description
+
+        This function computes, given a start structure in pair table format, a steepest descent path, updates the pair table to the final structure of the path. Finally, if not requested otherwise by using the :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT <doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>` flag in the ``options`` field, this function returns a list of individual transitions that lead from the start to the final structure if requested.
+        
+        SWIG Wrapper Notes This function is attached as an overloaded method *path_gradient()* to objects of type *fold_compound* . The optional parameter ``options`` defaults to :ref:`VRNA_PATH_DEFAULT <doxid-group__paths_1gaf1bb1f8fec8d24e3b821f621b19f77b4>` if it is omitted.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - A vrna_fold_compound_t containing the energy parameters and model details
+        
+            *
+                - pt
+        
+                - The pair table containing the start structure. Used to update to the final structure after execution of this function
+        
+            *
+                - options
+        
+                - Options to modify the behavior of this function
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A list of transition moves (default), or NULL (if options & :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT <doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>` )
+        
+        
+        
+        .. note::
+        
+            Since the result is written to the input structure you may want to use :ref:`vrna_ptable_copy() <doxid-group__struct__utils_1ga2daefbbd6d9f8803731651882f54332d>` before calling this function to keep the initial structure
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path_random() <doxid-group__paths_1ga9234756c337078fa599529d3db70d913>` , :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>` , :ref:`vrna_ptable() <doxid-group__struct__utils_1gae829fb8bb7f694c12a9c0bbc34c77c60>` , :ref:`vrna_ptable_copy() <doxid-group__struct__utils_1ga2daefbbd6d9f8803731651882f54332d>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` :ref:`VRNA_MOVESET_DEFAULT <doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1>` , :ref:`VRNA_MOVESET_SHIFT <doxid-group__neighbors_1ga68ea27c81de4b74e48b775c04052590b>` , :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT <doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>`
+
+.. _doxid-group__paths_1ga9234756c337078fa599529d3db70d913:
+.. _cid-vrna_path_random:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* vrna_path_random (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    short* pt,
+	    unsigned int steps,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Generate a random walk / path of a given length, store the final structure, and return a list of transition moves from the start to the final structure.
+
+    .. container:: detailed-description
+
+        This function generates, given a start structure in pair table format, a random walk / path, updates the pair table to the final structure of the path. Finally, if not requested otherwise by using the :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT <doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>` flag in the ``options`` field, this function returns a list of individual transitions that lead from the start to the final structure if requested.
+        
+        SWIG Wrapper Notes This function is attached as an overloaded method *path_gradient()* to objects of type *fold_compound* . The optional parameter ``options`` defaults to :ref:`VRNA_PATH_DEFAULT <doxid-group__paths_1gaf1bb1f8fec8d24e3b821f621b19f77b4>` if it is omitted.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - A vrna_fold_compound_t containing the energy parameters and model details
+        
+            *
+                - pt
+        
+                - The pair table containing the start structure. Used to update to the final structure after execution of this function
+        
+            *
+                - steps
+        
+                - The length of the path, i.e. the total number of transitions / moves
+        
+            *
+                - options
+        
+                - Options to modify the behavior of this function
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A list of transition moves (default), or NULL (if options & :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT <doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>` )
+        
+        
+        
+        .. note::
+        
+            Since the result is written to the input structure you may want to use :ref:`vrna_ptable_copy() <doxid-group__struct__utils_1ga2daefbbd6d9f8803731651882f54332d>` before calling this function to keep the initial structure
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path_gradient() <doxid-group__paths_1gae92cce443a8a64f7b7fb89867b7d6125>` , :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>` , :ref:`vrna_ptable() <doxid-group__struct__utils_1gae829fb8bb7f694c12a9c0bbc34c77c60>` , :ref:`vrna_ptable_copy() <doxid-group__struct__utils_1ga2daefbbd6d9f8803731651882f54332d>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` :ref:`VRNA_MOVESET_DEFAULT <doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1>` , :ref:`VRNA_MOVESET_SHIFT <doxid-group__neighbors_1ga68ea27c81de4b74e48b775c04052590b>` , :ref:`VRNA_PATH_NO_TRANSITION_OUTPUT <doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d>`
+
+Macros
+------
+
+.. _doxid-group__paths_1gaf1bb1f8fec8d24e3b821f621b19f77b4:
+.. _cid-vrna_path_default:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PATH_DEFAULT
+
+    .. container:: brief-description
+
+        Option flag to request defaults (steepest descent / default move set)
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>` , :ref:`VRNA_PATH_STEEPEST_DESCENT <doxid-group__paths_1ga705cea2b3243a38a2d6e3b1e141ed061>` , :ref:`VRNA_MOVESET_DEFAULT <doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1>`
+
+.. _doxid-group__paths_1ga1ee63e54ecf136491e12ff03ede2622d:
+.. _cid-vrna_path_no_transition_output:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PATH_NO_TRANSITION_OUTPUT
+
+    .. container:: brief-description
+
+        Option flag to omit returning the transition path.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>` , :ref:`vrna_path_gradient() <doxid-group__paths_1gae92cce443a8a64f7b7fb89867b7d6125>` , :ref:`vrna_path_random() <doxid-group__paths_1ga9234756c337078fa599529d3db70d913>`
+
+.. _doxid-group__paths_1ga0b84bd36bfd783130297797c51dd85ae:
+.. _cid-vrna_path_random-2:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PATH_RANDOM
+
+    .. container:: brief-description
+
+        Option flag to request a random walk path.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>`
+
+.. _doxid-group__paths_1ga705cea2b3243a38a2d6e3b1e141ed061:
+.. _cid-vrna_path_steepest_descent:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PATH_STEEPEST_DESCENT
+
+    .. container:: brief-description
+
+        Option flag to request a steepest descent / gradient path.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path() <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>`
+

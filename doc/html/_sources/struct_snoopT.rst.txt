@@ -1,0 +1,74 @@
+.. index:: pair: struct; snoopT
+.. _doxid-structsnoop_t:
+.. _cid-snoopt:
+
+struct snoopT
+=============
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+.. container:: brief-description
+
+    Data structure for RNAsnoop.
+
+.. _doxid-structsnoop_t_1ab265b017019caad2f8121b46912f1a35:
+.. _cid-snoopt::i:
+.. _doxid-structsnoop_t_1a655f3b218fbf2d6d7a882b02e4fe1656:
+.. _cid-snoopt::j:
+.. _doxid-structsnoop_t_1a03224eb72cd9ba96435b13a0122f5572:
+.. _cid-snoopt::u:
+.. _doxid-structsnoop_t_1a91c6ad1b51c5c3fcab4b016e282ecdab:
+.. _cid-snoopt::structure:
+.. _doxid-structsnoop_t_1a327c9f135166d9fafa60e92566e977e4:
+.. _cid-snoopt::energy:
+.. _doxid-structsnoop_t_1ab567e3546bec5913121a76ea8900af09:
+.. _cid-snoopt::duplex_el:
+.. _doxid-structsnoop_t_1a04e6ed2a405c4ff915347bc10ee5312f:
+.. _cid-snoopt::duplex_er:
+.. _doxid-structsnoop_t_1ae6be38a6ba9d0c959df2effd47fa0902:
+.. _cid-snoopt::loop_e:
+.. _doxid-structsnoop_t_1a5cf23d33ce2c78275a18ba0d6ffe0b75:
+.. _cid-snoopt::loop_d:
+.. _doxid-structsnoop_t_1afa0fcb2b43eee28eee4b54428cba6f1c:
+.. _cid-snoopt::pscd:
+.. _doxid-structsnoop_t_1a5c9b34b8a942d569cb527a8198929edc:
+.. _cid-snoopt::psct:
+.. _doxid-structsnoop_t_1a9fd035cfb440a7a8a6f003083448a1b3:
+.. _cid-snoopt::pscg:
+.. _doxid-structsnoop_t_1ab4a2b8e90f973c210ce8b3489c6fd229:
+.. _cid-snoopt::duplex_ol:
+.. _doxid-structsnoop_t_1a6b962fdb4f06f118cf6ed141abe2ad8a:
+.. _cid-snoopt::duplex_or:
+.. _doxid-structsnoop_t_1a16bfe1a79922cc4a33e18bbbb51cee61:
+.. _cid-snoopt::duplex_ot:
+.. _doxid-structsnoop_t_1af1fa0deae33e51ccf529d9b5017e146d:
+.. _cid-snoopt::fullstemenergy:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int i
+	int j
+	int u
+	char* structure
+	float energy
+	float Duplex_El
+	float Duplex_Er
+	float Loop_E
+	float Loop_D
+	float pscd
+	float psct
+	float pscg
+	float Duplex_Ol
+	float Duplex_Or
+	float Duplex_Ot
+	float fullStemEnergy
+

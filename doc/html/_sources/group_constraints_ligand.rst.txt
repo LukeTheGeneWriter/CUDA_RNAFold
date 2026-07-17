@@ -1,0 +1,120 @@
+.. index:: pair: group; Incorporating ligands binding to specific sequence/structure motifs using soft constraints
+.. _doxid-group__constraints__ligand:
+.. _cid-constraints_ligand:
+
+Incorporating ligands binding to specific sequence/structure motifs using soft constraints
+==========================================================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+Ligand binding to specific hairpin/interior loop like motifs using the :ref:`Soft constraints <doxid-group__soft__constraints>` feature. :ref:`More...<details-doxid-group__constraints__ligand>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	int :ref:`vrna_sc_add_hi_motif<doxid-group__constraints__ligand_1gaa6ff0113a3a76dc0b8d62961f4e1dfa0>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* seq,
+	    const char* structure,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` energy,
+	    unsigned int options
+	    )
+
+.. _details-doxid-group__constraints__ligand:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Ligand binding to specific hairpin/interior loop like motifs using the :ref:`Soft constraints <doxid-group__soft__constraints>` feature.
+
+.. container:: detailed-description
+
+    Here is an example that adds a theophylline binding motif. Free energy contribution is derived from :math:`k_d = 0.32 \mu mol / l ` , taken from Jenison et al. 1994
+    
+    .. image:: theo_aptamer.svg
+    
+    
+    
+    .. image:: theo_aptamer
+    
+    .. ref-code-block:: cpp
+    
+        :ref:`vrna_sc_add_hi_motif <doxid-group__constraints__ligand_1gaa6ff0113a3a76dc0b8d62961f4e1dfa0>`(vc,
+                           "GAUACCAG&CCCUUGGCAGC",
+                           "(...((((&)...)))...)",
+                           -9.22, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+
+Global Functions
+----------------
+
+.. _doxid-group__constraints__ligand_1gaa6ff0113a3a76dc0b8d62961f4e1dfa0:
+.. _cid-vrna_sc_add_hi_motif:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_sc_add_hi_motif (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* seq,
+	    const char* structure,
+	    :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` energy,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Add soft constraints for hairpin or interior loop binding motif.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as method **sc_add_hi_motif()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the motif is applied to
+        
+            *
+                - seq
+        
+                - The sequence motif (may be interspaced by '&' character
+        
+            *
+                - structure
+        
+                - The structure motif (may be interspaced by '&' character
+        
+            *
+                - energy
+        
+                - The free energy of the motif (e.g. binding free energy)
+        
+            *
+                - options
+        
+                - Options
+        
+        
+        
+        .. rubric:: Returns:
+        
+        non-zero value if application of the motif using soft constraints was successful
+

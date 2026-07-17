@@ -1,0 +1,429 @@
+.. index:: pair: group; Converting Energy Parameter Files
+.. _doxid-group__energy__parameters__convert:
+.. _cid-energy_parameters_convert:
+
+Converting Energy Parameter Files
+=================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+Convert energy parameter files into the latest format. :ref:`More...<details-doxid-group__energy__parameters__convert>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	void :ref:`convert_parameter_file<doxid-group__energy__parameters__convert_1gafbe538bc4eb2cf2a33326e1010005f8a>` (
+	    const char* iname,
+	    const char* oname,
+	    unsigned int options
+	    )
+
+	// macros
+
+	#define :ref:`VRNA_CONVERT_OUTPUT_ALL<doxid-group__energy__parameters__convert_1ga8dc6aee5a806c49b71557152f9616bc4>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_BULGE<doxid-group__energy__parameters__convert_1ga7092fe0be4de6f02cc0bf08e81af726a>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_DANGLE3<doxid-group__energy__parameters__convert_1ga34a8a5479ef885834ef32f3fb43d79bc>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_DANGLE5<doxid-group__energy__parameters__convert_1ga036ffd996d8c8a9acf631760dd1da24b>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_DUMP<doxid-group__energy__parameters__convert_1gac86976e9c2a55b3a6481ea60044f6098>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_HP<doxid-group__energy__parameters__convert_1gaf66fe2cb11dfcfd32d791049c254a8a4>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_INT<doxid-group__energy__parameters__convert_1gac5c2289fdf8ff1b980976d1613ff943a>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_INT_11<doxid-group__energy__parameters__convert_1ga079aafefd5f8ab57ee5120099a34bd25>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_INT_21<doxid-group__energy__parameters__convert_1gacf770881d9034431ebe741642342a1f9>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_INT_22<doxid-group__energy__parameters__convert_1gaa307671e2631cdacad9cbe4c6583b05f>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_MISC<doxid-group__energy__parameters__convert_1ga46d5b1535ae86060b6317565b7c6b40b>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_ML<doxid-group__energy__parameters__convert_1gaf2c8755d64eff3852aa45df9ac80a4fe>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_MM_EXT<doxid-group__energy__parameters__convert_1gaf14ead7ef1fdbe725ade653750fc51e3>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_MM_HP<doxid-group__energy__parameters__convert_1gaa892c7b4957459090f3e08da298cc347>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_MM_INT<doxid-group__energy__parameters__convert_1ga4ff223fb1f9c62cd92d9ab811ad03d55>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_MM_INT_1N<doxid-group__energy__parameters__convert_1gaf5d3743219f83c6348155cd81e755bbb>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_MM_INT_23<doxid-group__energy__parameters__convert_1ga78382ec622ba99e0ac2262317bdd7316>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_MM_MULTI<doxid-group__energy__parameters__convert_1gae67af9f1cdf7baf2865481282a5d1034>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_NINIO<doxid-group__energy__parameters__convert_1ga2eb0462f16939ddacdaf751a88d675ce>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_SPECIAL_HP<doxid-group__energy__parameters__convert_1gaa1ff48a79642d69579d1766561ec6db6>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_STACK<doxid-group__energy__parameters__convert_1gad23522d63f8d4c50d5a5deee9bee3ef2>`
+	#define :ref:`VRNA_CONVERT_OUTPUT_VANILLA<doxid-group__energy__parameters__convert_1ga0d4e8a836bb4864ab5129c085dbf592d>`
+
+.. _details-doxid-group__energy__parameters__convert:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Convert energy parameter files into the latest format.
+
+.. container:: detailed-description
+
+    To preserve some backward compatibility the RNAlib also provides functions to convert energy parameter files from the format used in version 1.4-1.8 into the new format used since version 2.0
+
+Global Functions
+----------------
+
+.. _doxid-group__energy__parameters__convert_1gafbe538bc4eb2cf2a33326e1010005f8a:
+.. _cid-convert_parameter_file:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void convert_parameter_file (
+	    const char* iname,
+	    const char* oname,
+	    unsigned int options
+	    )
+
+    .. container:: detailed-description
+
+        Convert/dump a Vienna 1.8.4 formatted energy parameter file
+        
+        The options argument allows one to control the different output modes.
+        
+        Currently available options are:
+        
+        :ref:`VRNA_CONVERT_OUTPUT_ALL <doxid-group__energy__parameters__convert_1ga8dc6aee5a806c49b71557152f9616bc4>` , :ref:`VRNA_CONVERT_OUTPUT_HP <doxid-group__energy__parameters__convert_1gaf66fe2cb11dfcfd32d791049c254a8a4>` , :ref:`VRNA_CONVERT_OUTPUT_STACK <doxid-group__energy__parameters__convert_1gad23522d63f8d4c50d5a5deee9bee3ef2>`
+        
+        :ref:`VRNA_CONVERT_OUTPUT_MM_HP <doxid-group__energy__parameters__convert_1gaa892c7b4957459090f3e08da298cc347>` , :ref:`VRNA_CONVERT_OUTPUT_MM_INT <doxid-group__energy__parameters__convert_1ga4ff223fb1f9c62cd92d9ab811ad03d55>` , :ref:`VRNA_CONVERT_OUTPUT_MM_INT_1N <doxid-group__energy__parameters__convert_1gaf5d3743219f83c6348155cd81e755bbb>`
+        
+        :ref:`VRNA_CONVERT_OUTPUT_MM_INT_23 <doxid-group__energy__parameters__convert_1ga78382ec622ba99e0ac2262317bdd7316>` , :ref:`VRNA_CONVERT_OUTPUT_MM_MULTI <doxid-group__energy__parameters__convert_1gae67af9f1cdf7baf2865481282a5d1034>` , :ref:`VRNA_CONVERT_OUTPUT_MM_EXT <doxid-group__energy__parameters__convert_1gaf14ead7ef1fdbe725ade653750fc51e3>`
+        
+        :ref:`VRNA_CONVERT_OUTPUT_DANGLE5 <doxid-group__energy__parameters__convert_1ga036ffd996d8c8a9acf631760dd1da24b>` , :ref:`VRNA_CONVERT_OUTPUT_DANGLE3 <doxid-group__energy__parameters__convert_1ga34a8a5479ef885834ef32f3fb43d79bc>` , :ref:`VRNA_CONVERT_OUTPUT_INT_11 <doxid-group__energy__parameters__convert_1ga079aafefd5f8ab57ee5120099a34bd25>`
+        
+        :ref:`VRNA_CONVERT_OUTPUT_INT_21 <doxid-group__energy__parameters__convert_1gacf770881d9034431ebe741642342a1f9>` , :ref:`VRNA_CONVERT_OUTPUT_INT_22 <doxid-group__energy__parameters__convert_1gaa307671e2631cdacad9cbe4c6583b05f>` , :ref:`VRNA_CONVERT_OUTPUT_BULGE <doxid-group__energy__parameters__convert_1ga7092fe0be4de6f02cc0bf08e81af726a>`
+        
+        :ref:`VRNA_CONVERT_OUTPUT_INT <doxid-group__energy__parameters__convert_1gac5c2289fdf8ff1b980976d1613ff943a>` , :ref:`VRNA_CONVERT_OUTPUT_ML <doxid-group__energy__parameters__convert_1gaf2c8755d64eff3852aa45df9ac80a4fe>` , :ref:`VRNA_CONVERT_OUTPUT_MISC <doxid-group__energy__parameters__convert_1ga46d5b1535ae86060b6317565b7c6b40b>`
+        
+        :ref:`VRNA_CONVERT_OUTPUT_SPECIAL_HP <doxid-group__energy__parameters__convert_1gaa1ff48a79642d69579d1766561ec6db6>` , :ref:`VRNA_CONVERT_OUTPUT_VANILLA <doxid-group__energy__parameters__convert_1ga0d4e8a836bb4864ab5129c085dbf592d>` , :ref:`VRNA_CONVERT_OUTPUT_NINIO <doxid-group__energy__parameters__convert_1ga2eb0462f16939ddacdaf751a88d675ce>`
+        
+        :ref:`VRNA_CONVERT_OUTPUT_DUMP <doxid-group__energy__parameters__convert_1gac86976e9c2a55b3a6481ea60044f6098>`
+        
+        The defined options are fine for bitwise compare- and assignment-operations, e. g.: pass a collection of options as a single value like this:
+        
+        .. code-block:: none
+        
+            convert_parameter_file(ifile, ofile, option_1 | option_2 | option_n)
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - iname
+        
+                - The input file name (If NULL input is read from stdin)
+        
+            *
+                - oname
+        
+                - The output file name (If NULL output is written to stdout)
+        
+            *
+                - options
+        
+                - The options (as described above)
+
+Macros
+------
+
+.. _doxid-group__energy__parameters__convert_1ga8dc6aee5a806c49b71557152f9616bc4:
+.. _cid-vrna_convert_output_all:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_ALL
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of a complete parameter set
+
+.. _doxid-group__energy__parameters__convert_1ga7092fe0be4de6f02cc0bf08e81af726a:
+.. _cid-vrna_convert_output_bulge:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_BULGE
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of bulge loop contribution
+
+.. _doxid-group__energy__parameters__convert_1ga34a8a5479ef885834ef32f3fb43d79bc:
+.. _cid-vrna_convert_output_dangle3:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_DANGLE3
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of 3' dangle contribution
+
+.. _doxid-group__energy__parameters__convert_1ga036ffd996d8c8a9acf631760dd1da24b:
+.. _cid-vrna_convert_output_dangle5:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_DANGLE5
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of 5' dangle conctribution
+
+.. _doxid-group__energy__parameters__convert_1gac86976e9c2a55b3a6481ea60044f6098:
+.. _cid-vrna_convert_output_dump:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_DUMP
+
+    .. container:: detailed-description
+
+        Flag to indicate dumping the energy contributions from the library instead of an input file
+
+.. _doxid-group__energy__parameters__convert_1gaf66fe2cb11dfcfd32d791049c254a8a4:
+.. _cid-vrna_convert_output_hp:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_HP
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of hairpin contributions
+
+.. _doxid-group__energy__parameters__convert_1gac5c2289fdf8ff1b980976d1613ff943a:
+.. _cid-vrna_convert_output_int:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_INT
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of interior loop contribution
+
+.. _doxid-group__energy__parameters__convert_1ga079aafefd5f8ab57ee5120099a34bd25:
+.. _cid-vrna_convert_output_int_11:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_INT_11
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of 1:1 interior loop contribution
+
+.. _doxid-group__energy__parameters__convert_1gacf770881d9034431ebe741642342a1f9:
+.. _cid-vrna_convert_output_int_21:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_INT_21
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of 2:1 interior loop contribution
+
+.. _doxid-group__energy__parameters__convert_1gaa307671e2631cdacad9cbe4c6583b05f:
+.. _cid-vrna_convert_output_int_22:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_INT_22
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of 2:2 interior loop contribution
+
+.. _doxid-group__energy__parameters__convert_1ga46d5b1535ae86060b6317565b7c6b40b:
+.. _cid-vrna_convert_output_misc:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_MISC
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of misc contributions (such as terminalAU)
+
+.. _doxid-group__energy__parameters__convert_1gaf2c8755d64eff3852aa45df9ac80a4fe:
+.. _cid-vrna_convert_output_ml:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_ML
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of multi loop contribution
+
+.. _doxid-group__energy__parameters__convert_1gaf14ead7ef1fdbe725ade653750fc51e3:
+.. _cid-vrna_convert_output_mm_ext:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_MM_EXT
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of exterior loop mismatch contribution
+
+.. _doxid-group__energy__parameters__convert_1gaa892c7b4957459090f3e08da298cc347:
+.. _cid-vrna_convert_output_mm_hp:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_MM_HP
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of hairpin mismatch contribution
+
+.. _doxid-group__energy__parameters__convert_1ga4ff223fb1f9c62cd92d9ab811ad03d55:
+.. _cid-vrna_convert_output_mm_int:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_MM_INT
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of interior loop mismatch contribution
+
+.. _doxid-group__energy__parameters__convert_1gaf5d3743219f83c6348155cd81e755bbb:
+.. _cid-vrna_convert_output_mm_int_1n:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_MM_INT_1N
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of 1:n interior loop mismatch contribution
+
+.. _doxid-group__energy__parameters__convert_1ga78382ec622ba99e0ac2262317bdd7316:
+.. _cid-vrna_convert_output_mm_int_23:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_MM_INT_23
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of 2:3 interior loop mismatch contribution
+
+.. _doxid-group__energy__parameters__convert_1gae67af9f1cdf7baf2865481282a5d1034:
+.. _cid-vrna_convert_output_mm_multi:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_MM_MULTI
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of multi loop mismatch contribution
+
+.. _doxid-group__energy__parameters__convert_1ga2eb0462f16939ddacdaf751a88d675ce:
+.. _cid-vrna_convert_output_ninio:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_NINIO
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of interior loop asymmetry contribution
+
+.. _doxid-group__energy__parameters__convert_1gaa1ff48a79642d69579d1766561ec6db6:
+.. _cid-vrna_convert_output_special_hp:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_SPECIAL_HP
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of special hairpin contributions (tri-, tetra-, hexa-loops)
+
+.. _doxid-group__energy__parameters__convert_1gad23522d63f8d4c50d5a5deee9bee3ef2:
+.. _cid-vrna_convert_output_stack:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_STACK
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of base pair stack contributions
+
+.. _doxid-group__energy__parameters__convert_1ga0d4e8a836bb4864ab5129c085dbf592d:
+.. _cid-vrna_convert_output_vanilla:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_CONVERT_OUTPUT_VANILLA
+
+    .. container:: detailed-description
+
+        Flag to indicate printing of given parameters only
+        
+        
+        
+        .. note::
+        
+            This option overrides all other output options, except :ref:`VRNA_CONVERT_OUTPUT_DUMP <doxid-group__energy__parameters__convert_1gac86976e9c2a55b3a6481ea60044f6098>` !
+

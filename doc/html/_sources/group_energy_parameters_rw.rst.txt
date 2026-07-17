@@ -1,0 +1,133 @@
+.. index:: pair: group; Reading/Writing Energy Parameter Sets from/to File
+.. _doxid-group__energy__parameters__rw:
+.. _cid-energy_parameters_rw:
+
+Reading/Writing Energy Parameter Sets from/to File
+==================================================
+
+.. toctree::
+	:hidden:
+
+	group_energy_parameters_convert.rst
+	enum_parset.rst
+
+
+
+Overview
+--------
+
+Read and Write energy parameter sets from and to text files. :ref:`More...<details-doxid-group__energy__parameters__rw>`
+
+|	:ref:`Converting Energy Parameter Files<doxid-group__energy__parameters__convert>`
+
+
+.. _doxid-group__energy__parameters__rw_1gaaab17a97b765b302b16f7b9eb4004801:
+.. _cid-gettype:
+.. _doxid-group__energy__parameters__rw_1ga0f228d51ba3fcd7dca0c991f37b2ed2a:
+.. _cid-settype:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enums
+
+	enum :ref:`parset<doxid-group__energy__parameters__rw_1ga7bf2bb363bcf5ce50d60255d256e5682>`
+
+	// global functions
+
+	const char* :ref:`last_parameter_file<doxid-group__energy__parameters__rw_1ga5abafd7bad6d506e18bed13b18123cfe>` (void)
+	void :ref:`read_parameter_file<doxid-group__energy__parameters__rw_1ga165a142a3c68fb6655c69ef4ab7cd749>` (const char fname [])
+	void :ref:`write_parameter_file<doxid-group__energy__parameters__rw_1ga8a43459be386a7489feeab68dc2c6c76>` (const char fname [])
+	enum :ref:`parset<doxid-group__energy__parameters__rw_1ga7bf2bb363bcf5ce50d60255d256e5682>` gettype (const char* ident)
+	char* settype (enum :ref:`parset<doxid-group__energy__parameters__rw_1ga7bf2bb363bcf5ce50d60255d256e5682>` s)
+
+.. _details-doxid-group__energy__parameters__rw:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Read and Write energy parameter sets from and to text files.
+
+.. container:: detailed-description
+
+    A default set of parameters, identical to the one described in :ref:`[14] <doxid-citelist_1CITEREF_mathews:2004>` and :ref:`[19] <doxid-citelist_1CITEREF_turner:2010>` , is compiled into the library.
+
+Global Functions
+----------------
+
+.. _doxid-group__energy__parameters__rw_1ga5abafd7bad6d506e18bed13b18123cfe:
+.. _cid-last_parameter_file:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        const char* last_parameter_file (void)
+
+    .. container:: brief-description
+
+        Get the file name of the parameter file that was most recently loaded.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The file name of the last parameter file, or NULL if parameters are still at defaults
+
+.. _doxid-group__energy__parameters__rw_1ga165a142a3c68fb6655c69ef4ab7cd749:
+.. _cid-read_parameter_file:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void read_parameter_file (const char fname [])
+
+    .. container:: brief-description
+
+        Read energy parameters from a file.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - fname
+        
+                - The path to the file containing the energy parameters
+
+.. _doxid-group__energy__parameters__rw_1ga8a43459be386a7489feeab68dc2c6c76:
+.. _cid-write_parameter_file:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void write_parameter_file (const char fname [])
+
+    .. container:: brief-description
+
+        Write energy parameters to a file.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - fname
+        
+                - A filename (path) for the file where the current energy parameters will be written to
+

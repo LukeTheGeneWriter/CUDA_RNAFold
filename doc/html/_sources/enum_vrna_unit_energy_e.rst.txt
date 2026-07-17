@@ -1,0 +1,236 @@
+.. index:: pair: enum; vrna_unit_energy_e
+.. _doxid-group__units_1ga1d2fd1e73caf995e4dc69072b33e6ba5:
+.. _cid-vrna_unit_energy_e:
+
+enum vrna_unit_energy_e
+=======================
+
+
+
+Overview
+~~~~~~~~
+
+Energy / Work Units. :ref:`More...<details-doxid-group__units_1ga1d2fd1e73caf995e4dc69072b33e6ba5>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enum values
+
+	:ref:`VRNA_UNIT_J<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a0120f465758c5d3f0c416bb6b68ac008>` 
+	:ref:`VRNA_UNIT_KJ<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5af992c2a5505ac9e419ea906752810141>` 
+	:ref:`VRNA_UNIT_CAL_IT<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a9aa5cffe20a1407ad113a9cd10a28287>` 
+	:ref:`VRNA_UNIT_DACAL_IT<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a16f8d3c98e6baf1662c33f082e50e3aa>` 
+	:ref:`VRNA_UNIT_KCAL_IT<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5aafecefeb1301d0d40ce7d4c60f5aaeeb>` 
+	:ref:`VRNA_UNIT_CAL<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5af9b9e10348e63083965843e9c4bd285b>` 
+	:ref:`VRNA_UNIT_DACAL<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a579ddb9fef9ec4b1a198b556715b549c>` 
+	:ref:`VRNA_UNIT_KCAL<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a5a231fa4f1f62a1d6e5f9af020014b79>` 
+	:ref:`VRNA_UNIT_G_TNT<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a40325b8627e91b92dc5481961e2193d5>` 
+	:ref:`VRNA_UNIT_KG_TNT<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a32711a912cf18203c635a49ccf104a7a>` 
+	:ref:`VRNA_UNIT_T_TNT<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a5186dbc0bc2a6fcce080753389e2759c>` 
+	:ref:`VRNA_UNIT_EV<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5ad1e56199abf591432c1d75ecd3bd9702>` 
+	:ref:`VRNA_UNIT_WH<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a94309db45738a94c6a78ed1434346a7d>` 
+	:ref:`VRNA_UNIT_KWH<doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a57b033a1f079079cac03c0866ab69ec9>` 
+
+.. _details-doxid-group__units_1ga1d2fd1e73caf995e4dc69072b33e6ba5:
+
+Detailed Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. container:: brief-description
+
+    Energy / Work Units.
+
+.. container:: detailed-description
+
+    
+    
+    .. admonition:: See also:
+    
+        :ref:`vrna_convert_energy() <doxid-group__units_1gada3216e97b410928ba19a4487e5fe6f2>`
+
+Enum Values
+-----------
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a0120f465758c5d3f0c416bb6b68ac008:
+.. _cid-vrna_unit_energy_e::vrna_unit_j:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_J
+
+    .. container:: brief-description
+
+        Joule ( :math:` 1~J = 1~kg \cdot m^2 s^{-2} ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5af992c2a5505ac9e419ea906752810141:
+.. _cid-vrna_unit_energy_e::vrna_unit_kj:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_KJ
+
+    .. container:: brief-description
+
+        Kilojoule ( :math:` 1~kJ = 1,000~J ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a9aa5cffe20a1407ad113a9cd10a28287:
+.. _cid-vrna_unit_energy_e::vrna_unit_cal_it:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_CAL_IT
+
+    .. container:: brief-description
+
+        Calorie (International (Steam) Table, :math:` 1~cal_{IT} = 4.1868~J ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a16f8d3c98e6baf1662c33f082e50e3aa:
+.. _cid-vrna_unit_energy_e::vrna_unit_dacal_it:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_DACAL_IT
+
+    .. container:: brief-description
+
+        Decacolorie (International (Steam) Table, :math:` 1~dacal_{IT} = 10~cal_{IT} = 41.868~J ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5aafecefeb1301d0d40ce7d4c60f5aaeeb:
+.. _cid-vrna_unit_energy_e::vrna_unit_kcal_it:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_KCAL_IT
+
+    .. container:: brief-description
+
+        Kilocalorie (International (Steam) Table, :math:` 1~kcal_{IT} = 4.1868~kJ ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5af9b9e10348e63083965843e9c4bd285b:
+.. _cid-vrna_unit_energy_e::vrna_unit_cal:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_CAL
+
+    .. container:: brief-description
+
+        Calorie (Thermochemical, :math:` 1~cal_{th} = 4.184~J ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a579ddb9fef9ec4b1a198b556715b549c:
+.. _cid-vrna_unit_energy_e::vrna_unit_dacal:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_DACAL
+
+    .. container:: brief-description
+
+        Decacalorie (Thermochemical, :math:` 1~dacal_{th} = 10~cal_{th} = 41.84~J ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a5a231fa4f1f62a1d6e5f9af020014b79:
+.. _cid-vrna_unit_energy_e::vrna_unit_kcal:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_KCAL
+
+    .. container:: brief-description
+
+        Kilocalorie (Thermochemical, :math:` 1~kcal_{th} = 4.184~kJ ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a40325b8627e91b92dc5481961e2193d5:
+.. _cid-vrna_unit_energy_e::vrna_unit_g_tnt:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_G_TNT
+
+    .. container:: brief-description
+
+        g TNT ( :math:` 1~g~\mathrm{TNT} = 1,000~cal_{th} = 4,184~J ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a32711a912cf18203c635a49ccf104a7a:
+.. _cid-vrna_unit_energy_e::vrna_unit_kg_tnt:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_KG_TNT
+
+    .. container:: brief-description
+
+        kg TNT ( :math:` 1~kg~\mathrm{TNT} = 1,000~kcal_{th} = 4,184~kJ ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a5186dbc0bc2a6fcce080753389e2759c:
+.. _cid-vrna_unit_energy_e::vrna_unit_t_tnt:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_T_TNT
+
+    .. container:: brief-description
+
+        ton TNT ( :math:` 1~t~\mathrm{TNT} = 1,000,000~kcal_{th} = 4,184~MJ ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5ad1e56199abf591432c1d75ecd3bd9702:
+.. _cid-vrna_unit_energy_e::vrna_unit_ev:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_EV
+
+    .. container:: brief-description
+
+        Electronvolt ( :math:` 1~eV = 1.602176565 \times 10^{-19}~J ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a94309db45738a94c6a78ed1434346a7d:
+.. _cid-vrna_unit_energy_e::vrna_unit_wh:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_WH
+
+    .. container:: brief-description
+
+        Watt hour ( :math:` 1~W \cdot h = 1~W \cdot 3,600 s = 3,600~J = 3.6~kJ ` )
+
+.. _doxid-group__units_1gga1d2fd1e73caf995e4dc69072b33e6ba5a57b033a1f079079cac03c0866ab69ec9:
+.. _cid-vrna_unit_energy_e::vrna_unit_kwh:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_KWH
+
+    .. container:: brief-description
+
+        Kilowatt hour ( :math:` 1~kW \cdot h = 1~kW \cdot 3,600~s = 3,600~kJ = 3.6~MJ ` )
+

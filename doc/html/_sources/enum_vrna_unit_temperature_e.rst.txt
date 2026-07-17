@@ -1,0 +1,152 @@
+.. index:: pair: enum; vrna_unit_temperature_e
+.. _doxid-group__units_1gadeca8d9e91ef85f1b652cc8aef63d7e4:
+.. _cid-vrna_unit_temperature_e:
+
+enum vrna_unit_temperature_e
+============================
+
+
+
+Overview
+~~~~~~~~
+
+Temperature Units. :ref:`More...<details-doxid-group__units_1gadeca8d9e91ef85f1b652cc8aef63d7e4>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enum values
+
+	:ref:`VRNA_UNIT_K<doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a9b970a8dd20a98af000ac43e393a1d2d>` 
+	:ref:`VRNA_UNIT_DEG_C<doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a64b03f220d7256def88b3ed4a78440b2>` 
+	:ref:`VRNA_UNIT_DEG_F<doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a56a659dc1a1e6c01a62c67ed8799fea9>` 
+	:ref:`VRNA_UNIT_DEG_R<doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a71335b199e50c9ac773d4090018984bc>` 
+	:ref:`VRNA_UNIT_DEG_N<doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4ac3c83c399df537d213671bf6537bd400>` 
+	:ref:`VRNA_UNIT_DEG_DE<doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a8b047fe5980c99270a587e668c2a2d8b>` 
+	:ref:`VRNA_UNIT_DEG_RE<doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a94dce0a5f2e13a3a3fd554d6b0cd6395>` 
+	:ref:`VRNA_UNIT_DEG_RO<doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a405589efa7e654a6cfe148a992adc1d0>` 
+
+.. _details-doxid-group__units_1gadeca8d9e91ef85f1b652cc8aef63d7e4:
+
+Detailed Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. container:: brief-description
+
+    Temperature Units.
+
+.. container:: detailed-description
+
+    
+    
+    .. admonition:: See also:
+    
+        :ref:`vrna_convert_temperature() <doxid-group__units_1gaf1bb1db32eba33b9f306214f5955d0c2>`
+
+Enum Values
+-----------
+
+.. _doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a9b970a8dd20a98af000ac43e393a1d2d:
+.. _cid-vrna_unit_temperature_e::vrna_unit_k:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_K
+
+    .. container:: brief-description
+
+        Kelvin (K)
+
+.. _doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a64b03f220d7256def88b3ed4a78440b2:
+.. _cid-vrna_unit_temperature_e::vrna_unit_deg_c:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_DEG_C
+
+    .. container:: brief-description
+
+        Degree Celcius ( C) ( :math:` [^{\circ}C] = [K] - 273.15 ` )
+
+.. _doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a56a659dc1a1e6c01a62c67ed8799fea9:
+.. _cid-vrna_unit_temperature_e::vrna_unit_deg_f:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_DEG_F
+
+    .. container:: brief-description
+
+        Degree Fahrenheit ( F) ( :math:` [^{\circ}F] = [K] \times \frac{9}{5} - 459.67 ` )
+
+.. _doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a71335b199e50c9ac773d4090018984bc:
+.. _cid-vrna_unit_temperature_e::vrna_unit_deg_r:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_DEG_R
+
+    .. container:: brief-description
+
+        Degree Rankine ( R) ( :math:` [^{\circ}R] = [K] \times \frac{9}{5} ` )
+
+.. _doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4ac3c83c399df537d213671bf6537bd400:
+.. _cid-vrna_unit_temperature_e::vrna_unit_deg_n:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_DEG_N
+
+    .. container:: brief-description
+
+        Degree Newton ( N) ( :math:` [^{\circ}N] = ([K] - 273.15) \times \frac{33}{100} ` )
+
+.. _doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a8b047fe5980c99270a587e668c2a2d8b:
+.. _cid-vrna_unit_temperature_e::vrna_unit_deg_de:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_DEG_DE
+
+    .. container:: brief-description
+
+        Degree Delisle ( De) ( :math:` [^{\circ}De] = (373.15 - [K]) \time \frac{3}{2} ` )
+
+.. _doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a94dce0a5f2e13a3a3fd554d6b0cd6395:
+.. _cid-vrna_unit_temperature_e::vrna_unit_deg_re:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_DEG_RE
+
+    .. container:: brief-description
+
+        Degree R aumur ( R ) ( :math:` [^{\circ}R{\acute e}] = ([K] - 273.15) \times \frac{4}{5} ` )
+
+.. _doxid-group__units_1ggadeca8d9e91ef85f1b652cc8aef63d7e4a405589efa7e654a6cfe148a992adc1d0:
+.. _cid-vrna_unit_temperature_e::vrna_unit_deg_ro:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_UNIT_DEG_RO
+
+    .. container:: brief-description
+
+        Degree R mer ( R ) ( :math:` [^{\circ}\mathrm{R{\o}}] = ([K] - 273.15) \times \frac{21}{40} + 7.5 ` )
+

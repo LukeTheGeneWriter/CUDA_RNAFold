@@ -1,0 +1,32 @@
+.. index:: pair: struct; Tree
+.. _doxid-struct_tree:
+.. _cid-tree:
+
+struct Tree
+===========
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/dist_vars.h>
+
+
+.. container:: brief-description
+
+    :ref:`Tree <doxid-struct_tree>` data structure.
+
+.. _doxid-struct_tree_1a11e6daf12b69525b6ecb02650e01a6a5:
+.. _cid-tree::postorder_list:
+.. _doxid-struct_tree_1ae5771e9ab03f7d22aacd67e04069147d:
+.. _cid-tree::keyroots:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	:ref:`Postorder_list<doxid-struct_postorder__list>`* postorder_list
+	int* keyroots
+

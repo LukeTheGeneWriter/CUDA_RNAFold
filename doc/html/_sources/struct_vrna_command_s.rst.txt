@@ -1,0 +1,50 @@
+.. index:: pair: struct; vrna_command_s
+.. _doxid-structvrna__command__s:
+.. _cid-vrna_command_s:
+
+struct vrna_command_s
+=====================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/commands.h>
+
+
+Overview
+--------
+
+List element for commands ready for application to a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . :ref:`More...<details-doxid-structvrna__command__s>`
+
+.. _doxid-structvrna__command__s_1ab269c4ae50d6bbd3802effcb9837956a:
+.. _cid-vrna_command_s::type:
+.. _doxid-structvrna__command__s_1ad02d33315933a2d62434a759036892a9:
+.. _cid-vrna_command_s::data:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	:ref:`vrna_command_e<doxid-group__file__utils_1ga2ea3e452bf3b3f3ca513b3b081a86137>` type
+	void* data
+
+.. _details-doxid-structvrna__command__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    List element for commands ready for application to a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+.. container:: detailed-description
+
+    
+    
+    .. admonition:: See also:
+    
+        :ref:`vrna_file_commands_read() <doxid-group__file__utils_1ga5d2a64331cff5b1059e7d327545d8a63>` , :ref:`vrna_commands_apply() <doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>` , :ref:`vrna_commands_free() <doxid-group__file__utils_1ga926fd7632e68f3da2e2069402b80b1ab>`
+

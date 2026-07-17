@@ -1,0 +1,2529 @@
+.. index:: pair: group; Fine-tuning of the implemented models
+.. _doxid-group__model__details:
+.. _cid-model_details:
+
+Fine-tuning of the implemented models
+=====================================
+
+.. toctree::
+	:hidden:
+
+	struct_vrna_md_s.rst
+
+
+
+Overview
+--------
+
+Functions and data structures to fine-tune the implemented secondary structure evaluation model. :ref:`More...<details-doxid-group__model__details>`
+
+.. _doxid-group__model__details_1gaf3cbac6ff5d706d6e414677841ddf94c:
+.. _cid-cv_fact:
+.. _doxid-group__model__details_1ga502948a122a2af5b914355b1f3ea2f61:
+.. _cid-nc_fact:
+.. _doxid-group__model__details_1ga87398a419421bf5d90f246382e6ed70c:
+.. _cid-vrna_md_set_nonstandards:
+.. _doxid-group__model__details_1ga0ca65d37c515d6d36b06d3db1abb69d3:
+.. _cid-option_string:
+.. _doxid-group__model__details_1gad554b4852cd5fec35025db8edbbba3cd:
+.. _cid-nbases:
+.. _doxid-group__model__details_1ga590b5539f4560d5b02e24db8d3ed1977:
+.. _cid-model_detailst:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_md_s<doxid-structvrna__md__s>` :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`
+
+	// structs
+
+	struct :ref:`vrna_md_s<doxid-structvrna__md__s>` 
+
+	// global variables
+
+	double :ref:`temperature<doxid-group__model__details_1gab4b11c8d9c758430960896bc3fe82ead>`
+	double :ref:`pf_scale<doxid-group__model__details_1gad3b22044065acc6dee0af68931b52cfd>`
+	int :ref:`dangles<doxid-group__model__details_1ga72b511ed1201f7e23ec437e468790d74>`
+	int :ref:`tetra_loop<doxid-group__model__details_1ga4f6265bdf0ead7ff4628a360adbfd77e>`
+	int :ref:`noLonelyPairs<doxid-group__model__details_1ga097eccaabd6ae8b4fef83cccff85bb5d>`
+	int :ref:`noGU<doxid-group__model__details_1gabf380d09e4f1ab94fc6af57cf0ad5d32>`
+	int :ref:`no_closingGU<doxid-group__model__details_1gaa8d1c7b92489179e1eafa562b7bdd259>`
+	int :ref:`circ<doxid-group__model__details_1gaf9202a1a09f5828dc731e2d9a10fa111>`
+	int :ref:`gquad<doxid-group__model__details_1ga25f2bdcdf56e813d288845484a13d704>`
+	int :ref:`uniq_ML<doxid-group__model__details_1ga6c5655c8b272e3e6cab74dd0f540294f>`
+	int :ref:`energy_set<doxid-group__model__details_1gafb1ef1166da85092ae8a325e02dcae71>`
+	int :ref:`do_backtrack<doxid-group__model__details_1gad512b5dd4dbec60faccfe137bb474489>`
+	char :ref:`backtrack_type<doxid-group__model__details_1ga83bdb43472a259c71e69fa9f70f420c3>`
+	char* :ref:`nonstandards<doxid-group__model__details_1ga2695d91cc535d09c2eae5c3884e2ec64>`
+	int :ref:`max_bp_span<doxid-group__model__details_1ga18df869af0d70101106458fc3f027806>`
+	int :ref:`oldAliEn<doxid-group__model__details_1gac408868ba00671cbc7d1d535105af045>`
+	int :ref:`ribo<doxid-group__model__details_1ga0656afca1d2853f9ee6591172f5638de>`
+	double cv_fact
+	double nc_fact
+	int :ref:`logML<doxid-group__model__details_1ga80c3c5fd35e7479704cc91d2d0367743>`
+
+	// global functions
+
+	void :ref:`vrna_md_set_default<doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+	void :ref:`vrna_md_update<doxid-group__model__details_1ga36ae40b8c3b82362f5798ad5b047b814>` (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+
+	:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* :ref:`vrna_md_copy<doxid-group__model__details_1ga619057a740918b5fb01808362bb67aea>` (
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_to,
+	    const :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_from
+	    )
+
+	char* :ref:`vrna_md_option_string<doxid-group__model__details_1ga3a7469f0725a849af6ba61a57dfd60ce>` (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+
+	void vrna_md_set_nonstandards (
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md,
+	    const char* ns_bases
+	    )
+
+	void :ref:`vrna_md_defaults_reset<doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p)
+	void :ref:`vrna_md_defaults_temperature<doxid-group__model__details_1gaf9e527e9a2f7e6fd6e42bc6e602f5445>` (double T)
+	double :ref:`vrna_md_defaults_temperature_get<doxid-group__model__details_1ga96b24a74437f9ba46c4e06343155bf46>` (void)
+	void :ref:`vrna_md_defaults_betaScale<doxid-group__model__details_1gae984567db36c3f9b8731ecc917abf3a2>` (double b)
+	double :ref:`vrna_md_defaults_betaScale_get<doxid-group__model__details_1gabb8780f5410c52f970d75b044059bd09>` (void)
+	void :ref:`vrna_md_defaults_dangles<doxid-group__model__details_1gac76a5374def8e5e4e644ff6e4cc72dee>` (int d)
+	int :ref:`vrna_md_defaults_dangles_get<doxid-group__model__details_1ga67ca06f95ae133778c79a4493c9817b8>` (void)
+	void :ref:`vrna_md_defaults_special_hp<doxid-group__model__details_1gafff6449a02744add0308e653230c15fc>` (int flag)
+	int :ref:`vrna_md_defaults_special_hp_get<doxid-group__model__details_1ga1d68a6efdaa1253cc63fd9cd06452559>` (void)
+	void :ref:`vrna_md_defaults_noLP<doxid-group__model__details_1ga2f88ffc393ac9d7987849c965fd29ea8>` (int flag)
+	int :ref:`vrna_md_defaults_noLP_get<doxid-group__model__details_1ga934344888fbacaed538bbbfe910f2aa6>` (void)
+	void :ref:`vrna_md_defaults_noGU<doxid-group__model__details_1ga98218f85c7a957a1d1ddf4627fdf5a39>` (int flag)
+	int :ref:`vrna_md_defaults_noGU_get<doxid-group__model__details_1ga5faa7d4e536d7fe36ec25428c0cf2563>` (void)
+	void :ref:`vrna_md_defaults_noGUclosure<doxid-group__model__details_1gade5b9951d71ca2fb357a4e6c0c18ccd1>` (int flag)
+	int :ref:`vrna_md_defaults_noGUclosure_get<doxid-group__model__details_1ga4f7fdad083243a5348d63320ddaa70f3>` (void)
+	void :ref:`vrna_md_defaults_logML<doxid-group__model__details_1ga3de50a73455d88c3957386933b8e1f90>` (int flag)
+	int :ref:`vrna_md_defaults_logML_get<doxid-group__model__details_1ga93f04e070d529c5d0bb87c9681f6ad29>` (void)
+	void :ref:`vrna_md_defaults_circ<doxid-group__model__details_1ga4e1deb3e91a8a99e5c6dd905a5eb0186>` (int flag)
+	int :ref:`vrna_md_defaults_circ_get<doxid-group__model__details_1gad3a7e58de344ad93a08925f58f94f6fb>` (void)
+	void :ref:`vrna_md_defaults_gquad<doxid-group__model__details_1ga0685ca2aeb39af76f2421fc308163dce>` (int flag)
+	int :ref:`vrna_md_defaults_gquad_get<doxid-group__model__details_1gae645b8612f879eb38b45244fa9eddb9e>` (void)
+	void :ref:`vrna_md_defaults_uniq_ML<doxid-group__model__details_1ga59b944f61c5d2babec2d4c48c820de67>` (int flag)
+	int :ref:`vrna_md_defaults_uniq_ML_get<doxid-group__model__details_1gab48e70fd024bf838404bcbcca0c874a0>` (void)
+	void :ref:`vrna_md_defaults_energy_set<doxid-group__model__details_1ga8dd29c55787a4576277e1907e92d810c>` (int e)
+	int :ref:`vrna_md_defaults_energy_set_get<doxid-group__model__details_1ga017ed6afb1cba2b7f242412cab618b53>` (void)
+	void :ref:`vrna_md_defaults_backtrack<doxid-group__model__details_1ga978c468b2fe96a70d5191e3dd17d5599>` (int flag)
+	int :ref:`vrna_md_defaults_backtrack_get<doxid-group__model__details_1ga90da1156e6883ddd68527c2830706648>` (void)
+	void :ref:`vrna_md_defaults_backtrack_type<doxid-group__model__details_1ga68305274de96b56b7799575e222560d8>` (char t)
+	char :ref:`vrna_md_defaults_backtrack_type_get<doxid-group__model__details_1ga1425b4ebd0e034dead66d79becd64143>` (void)
+	void :ref:`vrna_md_defaults_compute_bpp<doxid-group__model__details_1gaf1b5db10f1f476767f9a95f8a78e3132>` (int flag)
+	int :ref:`vrna_md_defaults_compute_bpp_get<doxid-group__model__details_1gaa3a537e61fbe0518673bf9f73fd820f3>` (void)
+	void :ref:`vrna_md_defaults_max_bp_span<doxid-group__model__details_1ga4c4bc962f09b4480cb8499f1cf8ae4ec>` (int span)
+	int :ref:`vrna_md_defaults_max_bp_span_get<doxid-group__model__details_1gaa60f989e062fecd4d4bac89c1883da85>` (void)
+	void :ref:`vrna_md_defaults_min_loop_size<doxid-group__model__details_1gac152f1e78c1058a10261022c8dfda0f7>` (int size)
+	int :ref:`vrna_md_defaults_min_loop_size_get<doxid-group__model__details_1ga5cc691174a75c652807dc361b617632a>` (void)
+	void :ref:`vrna_md_defaults_window_size<doxid-group__model__details_1ga7b802ce0e8c3181bf5cb580de6d5b26a>` (int size)
+	int :ref:`vrna_md_defaults_window_size_get<doxid-group__model__details_1ga670146a9aa3ba77f4d422d60b7c30ac9>` (void)
+	void :ref:`vrna_md_defaults_oldAliEn<doxid-group__model__details_1ga41521d5b9fb7e0f31e7ea73f5792afab>` (int flag)
+	int :ref:`vrna_md_defaults_oldAliEn_get<doxid-group__model__details_1ga2374492b5019df88022fe4c05f0f3630>` (void)
+	void :ref:`vrna_md_defaults_ribo<doxid-group__model__details_1ga937c45e1d06fd6168730a9b08d130be3>` (int flag)
+	int :ref:`vrna_md_defaults_ribo_get<doxid-group__model__details_1ga169027f0c0561ea7d87b655e4b336bfc>` (void)
+	void :ref:`vrna_md_defaults_cv_fact<doxid-group__model__details_1gad3a3f40baafd91a6ce80a91a68e20053>` (double factor)
+	double :ref:`vrna_md_defaults_cv_fact_get<doxid-group__model__details_1gae59c68393807217b0a2497adb64d3ee3>` (void)
+	void :ref:`vrna_md_defaults_nc_fact<doxid-group__model__details_1gac35e596c850dce3ad55c49119fd7d471>` (double factor)
+	double :ref:`vrna_md_defaults_nc_fact_get<doxid-group__model__details_1ga7ac759eaa7159bf5f022745f5da59508>` (void)
+	void :ref:`vrna_md_defaults_sfact<doxid-group__model__details_1ga3f73d3029d3d0025d4cc311510cd95a3>` (double factor)
+	double :ref:`vrna_md_defaults_sfact_get<doxid-group__model__details_1gab2df6aab954b63fd3592d18e90285dae>` (void)
+	void :ref:`set_model_details<doxid-group__model__details_1gabad896c3650d420f3f3ddefc69e2bceb>` (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+	char* option_string (void)
+
+	// macros
+
+	#define :ref:`MAXALPHA<doxid-group__model__details_1ga05a5ffe718aa431d97419a12fb082379>`
+	#define NBASES
+	#define :ref:`VRNA_MODEL_DEFAULT_ALI_CV_FACT<doxid-group__model__details_1gaaaf3d73d6abc18d3889676952bfedb96>`
+	#define :ref:`VRNA_MODEL_DEFAULT_ALI_NC_FACT<doxid-group__model__details_1ga8f774daaafec28160c1ca5d09f2cbdba>`
+	#define :ref:`VRNA_MODEL_DEFAULT_ALI_OLD_EN<doxid-group__model__details_1ga2a5bbfc1edf33077e39466d2d9807115>`
+	#define :ref:`VRNA_MODEL_DEFAULT_ALI_RIBO<doxid-group__model__details_1ga64b3ab65a9ca42d4ad1d05e193083147>`
+	#define :ref:`VRNA_MODEL_DEFAULT_BACKTRACK<doxid-group__model__details_1ga3fda8006ab84baf817bd8e5ccbc6bb35>`
+	#define :ref:`VRNA_MODEL_DEFAULT_BACKTRACK_TYPE<doxid-group__model__details_1gad0e81fcaca53c4a826c68e0796de2afb>`
+	#define :ref:`VRNA_MODEL_DEFAULT_BETA_SCALE<doxid-group__model__details_1ga383d3ac8d08c3b6221754b50871c1200>`
+	#define :ref:`VRNA_MODEL_DEFAULT_CIRC<doxid-group__model__details_1ga22059033db7bcd875c51fec32425490a>`
+	#define :ref:`VRNA_MODEL_DEFAULT_COMPUTE_BPP<doxid-group__model__details_1ga1d6cd5051940b126c248147c011bac6c>`
+	#define :ref:`VRNA_MODEL_DEFAULT_DANGLES<doxid-group__model__details_1ga2aa7bc2cae774b83a5c468f824c27a42>`
+	#define :ref:`VRNA_MODEL_DEFAULT_ENERGY_SET<doxid-group__model__details_1ga6fcf6b2d0f89256cdbd166486c9b6e1e>`
+	#define :ref:`VRNA_MODEL_DEFAULT_GQUAD<doxid-group__model__details_1ga793ed812e86f43799b14b2deee917f23>`
+	#define :ref:`VRNA_MODEL_DEFAULT_LOG_ML<doxid-group__model__details_1ga938f68463e84fe060aa6502f428a517d>`
+	#define :ref:`VRNA_MODEL_DEFAULT_MAX_BP_SPAN<doxid-group__model__details_1ga7cb6f4ae8fdebff6746a4410814f2977>`
+	#define :ref:`VRNA_MODEL_DEFAULT_NO_GU<doxid-group__model__details_1ga34702f7d14d38b877ba8e475281e97e2>`
+	#define :ref:`VRNA_MODEL_DEFAULT_NO_GU_CLOSURE<doxid-group__model__details_1ga5308de46faaca4b9fd16045864901ee7>`
+	#define :ref:`VRNA_MODEL_DEFAULT_NO_LP<doxid-group__model__details_1gab72462726dd60ed0d43339bbf7ee08ad>`
+	#define :ref:`VRNA_MODEL_DEFAULT_PF_SCALE<doxid-group__model__details_1ga5505389cba74a18bbc116d2bb20256fa>`
+	#define :ref:`VRNA_MODEL_DEFAULT_SPECIAL_HP<doxid-group__model__details_1gabd1ab224e1048defd45c165ed7d1c108>`
+	#define :ref:`VRNA_MODEL_DEFAULT_TEMPERATURE<doxid-group__model__details_1gaf47f9850b3b4763479f7a7e7a15648a2>`
+	#define :ref:`VRNA_MODEL_DEFAULT_UNIQ_ML<doxid-group__model__details_1ga63f6006a02ba2d89148441f406c309e7>`
+	#define :ref:`VRNA_MODEL_DEFAULT_WINDOW_SIZE<doxid-group__model__details_1ga8de04a9cb57e811e313b0f9f207f6bdb>`
+	#define model_detailsT
+
+.. _details-doxid-group__model__details:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Functions and data structures to fine-tune the implemented secondary structure evaluation model.
+
+Typedefs
+--------
+
+.. _doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c:
+.. _cid-vrna_md_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_md_s<doxid-structvrna__md__s>` vrna_md_t
+
+    .. container:: brief-description
+
+        Typename for the model details data structure :ref:`vrna_md_s <doxid-structvrna__md__s>` .
+
+Global Variables
+----------------
+
+.. _doxid-group__model__details_1gab4b11c8d9c758430960896bc3fe82ead:
+.. _cid-temperature:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double temperature
+
+    .. container:: brief-description
+
+        Rescale energy parameters to a temperature in degC.
+
+    .. container:: detailed-description
+
+        Default is 37C. You have to call the update_..._params() functions after changing this parameter. Deprecated Use :ref:`vrna_md_defaults_temperature() <doxid-group__model__details_1gaf9e527e9a2f7e6fd6e42bc6e602f5445>` , and :ref:`vrna_md_defaults_temperature_get() <doxid-group__model__details_1ga96b24a74437f9ba46c4e06343155bf46>` to change, and read the global default temperature settings
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_temperature() <doxid-group__model__details_1gaf9e527e9a2f7e6fd6e42bc6e602f5445>` , :ref:`vrna_md_defaults_temperature_get() <doxid-group__model__details_1ga96b24a74437f9ba46c4e06343155bf46>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>`
+
+.. _doxid-group__model__details_1gad3b22044065acc6dee0af68931b52cfd:
+.. _cid-pf_scale:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double pf_scale
+
+    .. container:: brief-description
+
+        A scaling factor used by :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` to avoid overflows.
+
+    .. container:: detailed-description
+
+        Should be set to approximately :math:`exp{((-F/kT)/length)}` , where :math:`F` is an estimate for the ensemble free energy, for example the minimum free energy. You must call :ref:`update_pf_params() <doxid-group__pf__fold_1ga384e927890f9c034ff09fa66da102d28>` after changing this parameter.
+        
+        If pf_scale is -1 (the default) , an estimate will be provided automatically when computing partition functions, e.g. :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` The automatic estimate is usually insufficient for sequences more than a few hundred bases long.
+
+.. _doxid-group__model__details_1ga72b511ed1201f7e23ec437e468790d74:
+.. _cid-dangles:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int dangles
+
+    .. container:: brief-description
+
+        Switch the energy model for dangling end contributions (0, 1, 2, 3)
+
+    .. container:: detailed-description
+
+        If set to 0 no stabilizing energies are assigned to bases adjacent to helices in free ends and multiloops (so called dangling ends). Normally (dangles = 1) dangling end energies are assigned only to unpaired bases and a base cannot participate simultaneously in two dangling ends. In the partition function algorithm :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` these checks are neglected. If :ref:`dangles <doxid-group__model__details_1ga72b511ed1201f7e23ec437e468790d74>` is set to 2, all folding routines will follow this convention. This treatment of dangling ends gives more favorable energies to helices directly adjacent to one another, which can be beneficial since such helices often do engage in stabilizing interactions through co-axial stacking.
+        
+        If dangles = 3 co-axial stacking is explicitly included for adjacent helices in multiloops. The option affects only mfe folding and energy evaluation ( :ref:`fold() <doxid-group__mfe__fold__single_1gaadafcb0f140795ae62e5ca027e335a9b>` and :ref:`energy_of_structure() <doxid-group__eval_1gaf93986cb3cb29770ec9cca69c9fab8cf>` ), as well as suboptimal folding ( :ref:`subopt() <doxid-group__subopt__wuchty_1ga700f662506a233e42dd7fda74fafd40e>` ) via re-evaluation of energies. Co-axial stacking with one intervening mismatch is not considered so far.
+        
+        Default is 2 in most algorithms, partition function algorithms can only handle 0 and 2
+
+.. _doxid-group__model__details_1ga4f6265bdf0ead7ff4628a360adbfd77e:
+.. _cid-tetra_loop:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int tetra_loop
+
+    .. container:: brief-description
+
+        Include special stabilizing energies for some tri-, tetra- and hexa-loops;.
+
+    .. container:: detailed-description
+
+        default is 1.
+
+.. _doxid-group__model__details_1ga097eccaabd6ae8b4fef83cccff85bb5d:
+.. _cid-nolonelypairs:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int noLonelyPairs
+
+    .. container:: brief-description
+
+        Global switch to avoid/allow helices of length 1.
+
+    .. container:: detailed-description
+
+        Disallow all pairs which can only occur as lonely pairs (i.e. as helix of length 1). This avoids lonely base pairs in the predicted structures in most cases.
+
+.. _doxid-group__model__details_1gabf380d09e4f1ab94fc6af57cf0ad5d32:
+.. _cid-nogu:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int noGU
+
+    .. container:: brief-description
+
+        Global switch to forbid/allow GU base pairs at all.
+
+.. _doxid-group__model__details_1gaa8d1c7b92489179e1eafa562b7bdd259:
+.. _cid-no_closinggu:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int no_closingGU
+
+    .. container:: brief-description
+
+        GU allowed only inside stacks if set to 1.
+
+.. _doxid-group__model__details_1gaf9202a1a09f5828dc731e2d9a10fa111:
+.. _cid-circ:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int circ
+
+    .. container:: brief-description
+
+        backward compatibility variable.. this does not effect anything
+
+.. _doxid-group__model__details_1ga25f2bdcdf56e813d288845484a13d704:
+.. _cid-gquad:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int gquad
+
+    .. container:: brief-description
+
+        Allow G-quadruplex formation.
+
+.. _doxid-group__model__details_1ga6c5655c8b272e3e6cab74dd0f540294f:
+.. _cid-uniq_ml:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int uniq_ML
+
+    .. container:: brief-description
+
+        do ML decomposition uniquely (for subopt)
+
+.. _doxid-group__model__details_1gafb1ef1166da85092ae8a325e02dcae71:
+.. _cid-energy_set:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int energy_set
+
+    .. container:: brief-description
+
+        0 = BP; 1=any with GC; 2=any with AU-parameter
+
+    .. container:: detailed-description
+
+        If set to 1 or 2: fold sequences from an artificial alphabet ABCD..., where A pairs B, C pairs D, etc. using either GC (1) or AU parameters (2); default is 0, you probably don't want to change it.
+
+.. _doxid-group__model__details_1gad512b5dd4dbec60faccfe137bb474489:
+.. _cid-do_backtrack:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int do_backtrack
+
+    .. container:: brief-description
+
+        do backtracking, i.e. compute secondary structures or base pair probabilities
+
+    .. container:: detailed-description
+
+        If 0, do not calculate pair probabilities in :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` ; this is about twice as fast. Default is 1.
+
+.. _doxid-group__model__details_1ga83bdb43472a259c71e69fa9f70f420c3:
+.. _cid-backtrack_type:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char backtrack_type
+
+    .. container:: brief-description
+
+        A backtrack array marker for :ref:`inverse_fold() <doxid-group__inverse__fold_1ga7af026de55d4babad879f2c92559cbbc>`
+
+    .. container:: detailed-description
+
+        If set to 'C': force (1,N) to be paired, 'M' fold as if the sequence were inside a multiloop. Otherwise ('F') the usual mfe structure is computed.
+
+.. _doxid-group__model__details_1ga2695d91cc535d09c2eae5c3884e2ec64:
+.. _cid-nonstandards:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* nonstandards
+
+    .. container:: brief-description
+
+        contains allowed non standard base pairs
+
+    .. container:: detailed-description
+
+        Lists additional base pairs that will be allowed to form in addition to GC, CG, AU, UA, GU and UG. Nonstandard base pairs are given a stacking energy of 0.
+
+.. _doxid-group__model__details_1ga18df869af0d70101106458fc3f027806:
+.. _cid-max_bp_span:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int max_bp_span
+
+    .. container:: brief-description
+
+        Maximum allowed base pair span.
+
+    .. container:: detailed-description
+
+        A value of -1 indicates no restriction for distant base pairs.
+
+.. _doxid-group__model__details_1gac408868ba00671cbc7d1d535105af045:
+.. _cid-oldalien:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int oldAliEn
+
+    .. container:: brief-description
+
+        use old alifold energies (with gaps)
+
+.. _doxid-group__model__details_1ga0656afca1d2853f9ee6591172f5638de:
+.. _cid-ribo:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int ribo
+
+    .. container:: brief-description
+
+        use ribosum matrices
+
+.. _doxid-group__model__details_1ga80c3c5fd35e7479704cc91d2d0367743:
+.. _cid-logml:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int logML
+
+    .. container:: brief-description
+
+        if nonzero use logarithmic ML energy in energy_of_struct
+
+Global Functions
+----------------
+
+.. _doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66:
+.. _cid-vrna_md_set_default:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_set_default (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+
+    .. container:: brief-description
+
+        Apply default model details to a provided :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` data structure.
+
+    .. container:: detailed-description
+
+        Use this function to initialize a :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` data structure with its default values
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - md
+        
+                - A pointer to the data structure that is about to be initialized
+
+.. _doxid-group__model__details_1ga36ae40b8c3b82362f5798ad5b047b814:
+.. _cid-vrna_md_update:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_update (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+
+    .. container:: brief-description
+
+        Update the model details data structure.
+
+    .. container:: detailed-description
+
+        This function should be called after changing the :ref:`vrna_md_t.energy_set <doxid-structvrna__md__s_1a5eee4e3b468eb690d1407e0178dafb3f>` attribute since it re-initializes base pairing related arrays within the :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` data structure. In particular, :ref:`vrna_md_t.pair <doxid-structvrna__md__s_1ab4da594c638707e212f64aadb54a7454>` , :ref:`vrna_md_t.alias <doxid-structvrna__md__s_1a66136cf9abc8ff790ec0d33245d68fd5>` , and :ref:`vrna_md_t.rtype <doxid-structvrna__md__s_1ad082d0fea31e002b90cdfe5e6382f8b0>` are set to the values that correspond to the specified :ref:`vrna_md_t.energy_set <doxid-structvrna__md__s_1a5eee4e3b468eb690d1407e0178dafb3f>` option
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`vrna_md_t.energy_set <doxid-structvrna__md__s_1a5eee4e3b468eb690d1407e0178dafb3f>` , :ref:`vrna_md_t.pair <doxid-structvrna__md__s_1ab4da594c638707e212f64aadb54a7454>` , :ref:`vrna_md_t.rtype <doxid-structvrna__md__s_1ad082d0fea31e002b90cdfe5e6382f8b0>` , :ref:`vrna_md_t.alias <doxid-structvrna__md__s_1a66136cf9abc8ff790ec0d33245d68fd5>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga619057a740918b5fb01808362bb67aea:
+.. _cid-vrna_md_copy:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* vrna_md_copy (
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_to,
+	    const :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_from
+	    )
+
+    .. container:: brief-description
+
+        Copy/Clone a :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` model.
+
+    .. container:: detailed-description
+
+        Use this function to clone a given model either inplace (target container ``md_to`` given) or create a copy by cloning the source model and returning it ( ``md_to`` == NULL).
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - md_to
+        
+                - The model to be overwritten (if non-NULL and ``md_to`` != ``md_from`` )
+        
+            *
+                - md_from
+        
+                - The model to copy (if non-NULL)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A pointer to the copy model (or NULL if ``md_from`` == NULL)
+
+.. _doxid-group__model__details_1ga3a7469f0725a849af6ba61a57dfd60ce:
+.. _cid-vrna_md_option_string:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_md_option_string (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+
+    .. container:: brief-description
+
+        Get a corresponding commandline parameter string of the options in a :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` .
+
+    .. container:: detailed-description
+
+        
+        
+        .. note::
+        
+            This function is not threadsafe!
+
+.. _doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45:
+.. _cid-vrna_md_defaults_reset:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_reset (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md_p)
+
+    .. container:: brief-description
+
+        Reset the global default model details to a specific set of parameters, or their initial values.
+
+    .. container:: detailed-description
+
+        This function resets the global default model details to their initial values, i.e. as specified by the ViennaRNA Package release, upon passing NULL as argument. Alternatively it resets them according to a set of provided parameters.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - md_p
+        
+                - A set of model details to use as global default (if NULL is passed, factory defaults are restored)
+        
+        
+        
+        .. note::
+        
+            The global default parameters affect all function calls of RNAlib where model details are not explicitly provided. Hence, any change of them is not considered threadsafe
+        
+        
+        
+        .. warning::
+        
+            This function first resets the global default settings to factory defaults, and only then applies user provided settings (if any). User settings that do not meet specifications are skipped.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`
+
+.. _doxid-group__model__details_1gaf9e527e9a2f7e6fd6e42bc6e602f5445:
+.. _cid-vrna_md_defaults_temperature:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_temperature (double T)
+
+    .. container:: brief-description
+
+        Set default temperature for energy evaluation of loops.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - T
+        
+                - Temperature in centigrade
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_TEMPERATURE <doxid-group__model__details_1gaf47f9850b3b4763479f7a7e7a15648a2>`
+
+.. _doxid-group__model__details_1ga96b24a74437f9ba46c4e06343155bf46:
+.. _cid-vrna_md_defaults_temperature_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_md_defaults_temperature_get (void)
+
+    .. container:: brief-description
+
+        Get default temperature for energy evaluation of loops.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for temperature in centigrade
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_temperature() <doxid-group__model__details_1gaf9e527e9a2f7e6fd6e42bc6e602f5445>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_TEMPERATURE <doxid-group__model__details_1gaf47f9850b3b4763479f7a7e7a15648a2>`
+
+.. _doxid-group__model__details_1gae984567db36c3f9b8731ecc917abf3a2:
+.. _cid-vrna_md_defaults_betascale:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_betaScale (double b)
+
+    .. container:: brief-description
+
+        Set default scaling factor of thermodynamic temperature in Boltzmann factors.
+
+    .. container:: detailed-description
+
+        Bolzmann factors are then computed as :math:` exp(-E / (b \cdot kT))` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - b
+        
+                - The scaling factor, default is 1.0
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_BETA_SCALE <doxid-group__model__details_1ga383d3ac8d08c3b6221754b50871c1200>`
+
+.. _doxid-group__model__details_1gabb8780f5410c52f970d75b044059bd09:
+.. _cid-vrna_md_defaults_betascale_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_md_defaults_betaScale_get (void)
+
+    .. container:: brief-description
+
+        Get default scaling factor of thermodynamic temperature in Boltzmann factors.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default thermodynamic temperature scaling factor
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_betaScale() <doxid-group__model__details_1gae984567db36c3f9b8731ecc917abf3a2>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_BETA_SCALE <doxid-group__model__details_1ga383d3ac8d08c3b6221754b50871c1200>`
+
+.. _doxid-group__model__details_1gac76a5374def8e5e4e644ff6e4cc72dee:
+.. _cid-vrna_md_defaults_dangles:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_dangles (int d)
+
+    .. container:: brief-description
+
+        Set default dangle model for structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - d
+        
+                - The dangle model
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_DANGLES <doxid-group__model__details_1ga2aa7bc2cae774b83a5c468f824c27a42>`
+
+.. _doxid-group__model__details_1ga67ca06f95ae133778c79a4493c9817b8:
+.. _cid-vrna_md_defaults_dangles_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_dangles_get (void)
+
+    .. container:: brief-description
+
+        Get default dangle model for structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for the dangle model
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_dangles() <doxid-group__model__details_1gac76a5374def8e5e4e644ff6e4cc72dee>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_DANGLES <doxid-group__model__details_1ga2aa7bc2cae774b83a5c468f824c27a42>`
+
+.. _doxid-group__model__details_1gafff6449a02744add0308e653230c15fc:
+.. _cid-vrna_md_defaults_special_hp:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_special_hp (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior for lookup of tabulated free energies for special hairpin loops, such as Tri-, Tetra-, or Hexa-loops.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_SPECIAL_HP <doxid-group__model__details_1gabd1ab224e1048defd45c165ed7d1c108>`
+
+.. _doxid-group__model__details_1ga1d68a6efdaa1253cc63fd9cd06452559:
+.. _cid-vrna_md_defaults_special_hp_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_special_hp_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior for lookup of tabulated free energies for special hairpin loops, such as Tri-, Tetra-, or Hexa-loops.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for the treatment of special hairpin loops
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_special_hp() <doxid-group__model__details_1gafff6449a02744add0308e653230c15fc>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_SPECIAL_HP <doxid-group__model__details_1gabd1ab224e1048defd45c165ed7d1c108>`
+
+.. _doxid-group__model__details_1ga2f88ffc393ac9d7987849c965fd29ea8:
+.. _cid-vrna_md_defaults_nolp:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_noLP (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior for prediction of canonical secondary structures.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_NO_LP <doxid-group__model__details_1gab72462726dd60ed0d43339bbf7ee08ad>`
+
+.. _doxid-group__model__details_1ga934344888fbacaed538bbbfe910f2aa6:
+.. _cid-vrna_md_defaults_nolp_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_noLP_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior for prediction of canonical secondary structures.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for predicting canonical secondary structures
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_noLP() <doxid-group__model__details_1ga2f88ffc393ac9d7987849c965fd29ea8>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_NO_LP <doxid-group__model__details_1gab72462726dd60ed0d43339bbf7ee08ad>`
+
+.. _doxid-group__model__details_1ga98218f85c7a957a1d1ddf4627fdf5a39:
+.. _cid-vrna_md_defaults_nogu:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_noGU (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior for treatment of G-U wobble pairs.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_NO_GU <doxid-group__model__details_1ga34702f7d14d38b877ba8e475281e97e2>`
+
+.. _doxid-group__model__details_1ga5faa7d4e536d7fe36ec25428c0cf2563:
+.. _cid-vrna_md_defaults_nogu_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_noGU_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior for treatment of G-U wobble pairs.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for treatment of G-U wobble pairs
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_noGU() <doxid-group__model__details_1ga98218f85c7a957a1d1ddf4627fdf5a39>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_NO_GU <doxid-group__model__details_1ga34702f7d14d38b877ba8e475281e97e2>`
+
+.. _doxid-group__model__details_1gade5b9951d71ca2fb357a4e6c0c18ccd1:
+.. _cid-vrna_md_defaults_noguclosure:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_noGUclosure (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior for G-U pairs as closing pair for loops.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_NO_GU_CLOSURE <doxid-group__model__details_1ga5308de46faaca4b9fd16045864901ee7>`
+
+.. _doxid-group__model__details_1ga4f7fdad083243a5348d63320ddaa70f3:
+.. _cid-vrna_md_defaults_noguclosure_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_noGUclosure_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior for G-U pairs as closing pair for loops.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for treatment of G-U pairs closing a loop
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_noGUclosure() <doxid-group__model__details_1gade5b9951d71ca2fb357a4e6c0c18ccd1>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_NO_GU_CLOSURE <doxid-group__model__details_1ga5308de46faaca4b9fd16045864901ee7>`
+
+.. _doxid-group__model__details_1ga3de50a73455d88c3957386933b8e1f90:
+.. _cid-vrna_md_defaults_logml:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_logML (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior recomputing free energies of multi-branch loops using a logarithmic model.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_LOG_ML <doxid-group__model__details_1ga938f68463e84fe060aa6502f428a517d>`
+
+.. _doxid-group__model__details_1ga93f04e070d529c5d0bb87c9681f6ad29:
+.. _cid-vrna_md_defaults_logml_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_logML_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior recomputing free energies of multi-branch loops using a logarithmic model.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for logarithmic model in multi-branch loop free energy evaluation
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_logML() <doxid-group__model__details_1ga3de50a73455d88c3957386933b8e1f90>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_LOG_ML <doxid-group__model__details_1ga938f68463e84fe060aa6502f428a517d>`
+
+.. _doxid-group__model__details_1ga4e1deb3e91a8a99e5c6dd905a5eb0186:
+.. _cid-vrna_md_defaults_circ:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_circ (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior whether input sequences are circularized.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_CIRC <doxid-group__model__details_1ga22059033db7bcd875c51fec32425490a>`
+
+.. _doxid-group__model__details_1gad3a7e58de344ad93a08925f58f94f6fb:
+.. _cid-vrna_md_defaults_circ_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_circ_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior whether input sequences are circularized.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for treating input sequences as circular
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_circ() <doxid-group__model__details_1ga4e1deb3e91a8a99e5c6dd905a5eb0186>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_CIRC <doxid-group__model__details_1ga22059033db7bcd875c51fec32425490a>`
+
+.. _doxid-group__model__details_1ga0685ca2aeb39af76f2421fc308163dce:
+.. _cid-vrna_md_defaults_gquad:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_gquad (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior for treatment of G-Quadruplexes.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_GQUAD <doxid-group__model__details_1ga793ed812e86f43799b14b2deee917f23>`
+
+.. _doxid-group__model__details_1gae645b8612f879eb38b45244fa9eddb9e:
+.. _cid-vrna_md_defaults_gquad_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_gquad_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior for treatment of G-Quadruplexes.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for treatment of G-Quadruplexes
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_gquad() <doxid-group__model__details_1ga0685ca2aeb39af76f2421fc308163dce>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_GQUAD <doxid-group__model__details_1ga793ed812e86f43799b14b2deee917f23>`
+
+.. _doxid-group__model__details_1ga59b944f61c5d2babec2d4c48c820de67:
+.. _cid-vrna_md_defaults_uniq_ml:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_uniq_ML (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior for creating additional matrix for unique multi-branch loop prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. note::
+        
+            Activating this option usually results in higher memory consumption!
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_UNIQ_ML <doxid-group__model__details_1ga63f6006a02ba2d89148441f406c309e7>`
+
+.. _doxid-group__model__details_1gab48e70fd024bf838404bcbcca0c874a0:
+.. _cid-vrna_md_defaults_uniq_ml_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_uniq_ML_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior for creating additional matrix for unique multi-branch loop prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for creating additional matrices for unique multi-branch loop prediction
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_uniq_ML() <doxid-group__model__details_1ga59b944f61c5d2babec2d4c48c820de67>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_UNIQ_ML <doxid-group__model__details_1ga63f6006a02ba2d89148441f406c309e7>`
+
+.. _doxid-group__model__details_1ga8dd29c55787a4576277e1907e92d810c:
+.. _cid-vrna_md_defaults_energy_set:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_energy_set (int e)
+
+    .. container:: brief-description
+
+        Set default energy set.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - e
+        
+                - Energy set (0, 1, 2, 3)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ENERGY_SET <doxid-group__model__details_1ga6fcf6b2d0f89256cdbd166486c9b6e1e>`
+
+.. _doxid-group__model__details_1ga017ed6afb1cba2b7f242412cab618b53:
+.. _cid-vrna_md_defaults_energy_set_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_energy_set_get (void)
+
+    .. container:: brief-description
+
+        Get default energy set.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for the energy set
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_energy_set() <doxid-group__model__details_1ga8dd29c55787a4576277e1907e92d810c>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ENERGY_SET <doxid-group__model__details_1ga6fcf6b2d0f89256cdbd166486c9b6e1e>`
+
+.. _doxid-group__model__details_1ga978c468b2fe96a70d5191e3dd17d5599:
+.. _cid-vrna_md_defaults_backtrack:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_backtrack (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior for whether to backtrack secondary structures.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_BACKTRACK <doxid-group__model__details_1ga3fda8006ab84baf817bd8e5ccbc6bb35>`
+
+.. _doxid-group__model__details_1ga90da1156e6883ddd68527c2830706648:
+.. _cid-vrna_md_defaults_backtrack_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_backtrack_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior for whether to backtrack secondary structures.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for backtracking structures
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_backtrack() <doxid-group__model__details_1ga978c468b2fe96a70d5191e3dd17d5599>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_BACKTRACK <doxid-group__model__details_1ga3fda8006ab84baf817bd8e5ccbc6bb35>`
+
+.. _doxid-group__model__details_1ga68305274de96b56b7799575e222560d8:
+.. _cid-vrna_md_defaults_backtrack_type:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_backtrack_type (char t)
+
+    .. container:: brief-description
+
+        Set default backtrack type, i.e. which DP matrix is used.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - t
+        
+                - The type ('F', 'C', or 'M')
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_BACKTRACK_TYPE <doxid-group__model__details_1gad0e81fcaca53c4a826c68e0796de2afb>`
+
+.. _doxid-group__model__details_1ga1425b4ebd0e034dead66d79becd64143:
+.. _cid-vrna_md_defaults_backtrack_type_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char vrna_md_defaults_backtrack_type_get (void)
+
+    .. container:: brief-description
+
+        Get default backtrack type, i.e. which DP matrix is used.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings that specify which DP matrix is used for backtracking
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_backtrack_type() <doxid-group__model__details_1ga68305274de96b56b7799575e222560d8>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_BACKTRACK_TYPE <doxid-group__model__details_1gad0e81fcaca53c4a826c68e0796de2afb>`
+
+.. _doxid-group__model__details_1gaf1b5db10f1f476767f9a95f8a78e3132:
+.. _cid-vrna_md_defaults_compute_bpp:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_compute_bpp (int flag)
+
+    .. container:: brief-description
+
+        Set the default behavior for whether to compute base pair probabilities after partition function computation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_COMPUTE_BPP <doxid-group__model__details_1ga1d6cd5051940b126c248147c011bac6c>`
+
+.. _doxid-group__model__details_1gaa3a537e61fbe0518673bf9f73fd820f3:
+.. _cid-vrna_md_defaults_compute_bpp_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_compute_bpp_get (void)
+
+    .. container:: brief-description
+
+        Get the default behavior for whether to compute base pair probabilities after partition function computation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings that specify whether base pair probabilities are computed together with partition function
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_compute_bpp() <doxid-group__model__details_1gaf1b5db10f1f476767f9a95f8a78e3132>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_COMPUTE_BPP <doxid-group__model__details_1ga1d6cd5051940b126c248147c011bac6c>`
+
+.. _doxid-group__model__details_1ga4c4bc962f09b4480cb8499f1cf8ae4ec:
+.. _cid-vrna_md_defaults_max_bp_span:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_max_bp_span (int span)
+
+    .. container:: brief-description
+
+        Set default maximal base pair span.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - span
+        
+                - Maximal base pair span
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_MAX_BP_SPAN <doxid-group__model__details_1ga7cb6f4ae8fdebff6746a4410814f2977>`
+
+.. _doxid-group__model__details_1gaa60f989e062fecd4d4bac89c1883da85:
+.. _cid-vrna_md_defaults_max_bp_span_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_max_bp_span_get (void)
+
+    .. container:: brief-description
+
+        Get default maximal base pair span.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for maximum base pair span
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_max_bp_span() <doxid-group__model__details_1ga4c4bc962f09b4480cb8499f1cf8ae4ec>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_MAX_BP_SPAN <doxid-group__model__details_1ga7cb6f4ae8fdebff6746a4410814f2977>`
+
+.. _doxid-group__model__details_1gac152f1e78c1058a10261022c8dfda0f7:
+.. _cid-vrna_md_defaults_min_loop_size:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_min_loop_size (int size)
+
+    .. container:: brief-description
+
+        Set default minimal loop size.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - size
+        
+                - Minimal size, i.e. number of unpaired nucleotides for a hairpin loop
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`TURN <doxid-energy__const_8h_1ae646250fd59311356c7e5722a81c3a96>`
+
+.. _doxid-group__model__details_1ga5cc691174a75c652807dc361b617632a:
+.. _cid-vrna_md_defaults_min_loop_size_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_min_loop_size_get (void)
+
+    .. container:: brief-description
+
+        Get default minimal loop size.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for minimal size of hairpin loops
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_min_loop_size() <doxid-group__model__details_1gac152f1e78c1058a10261022c8dfda0f7>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`TURN <doxid-energy__const_8h_1ae646250fd59311356c7e5722a81c3a96>`
+
+.. _doxid-group__model__details_1ga7b802ce0e8c3181bf5cb580de6d5b26a:
+.. _cid-vrna_md_defaults_window_size:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_window_size (int size)
+
+    .. container:: brief-description
+
+        Set default window size for sliding window structure prediction approaches.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - size
+        
+                - The size of the sliding window
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_WINDOW_SIZE <doxid-group__model__details_1ga8de04a9cb57e811e313b0f9f207f6bdb>`
+
+.. _doxid-group__model__details_1ga670146a9aa3ba77f4d422d60b7c30ac9:
+.. _cid-vrna_md_defaults_window_size_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_window_size_get (void)
+
+    .. container:: brief-description
+
+        Get default window size for sliding window structure prediction approaches.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for the size of the sliding window
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_window_size() <doxid-group__model__details_1ga7b802ce0e8c3181bf5cb580de6d5b26a>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_WINDOW_SIZE <doxid-group__model__details_1ga8de04a9cb57e811e313b0f9f207f6bdb>`
+
+.. _doxid-group__model__details_1ga41521d5b9fb7e0f31e7ea73f5792afab:
+.. _cid-vrna_md_defaults_oldalien:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_oldAliEn (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior for whether to use old energy model for comparative structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. note::
+        
+            This option is outdated. Activating the old energy model usually results in worse consensus structure predictions.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ALI_OLD_EN <doxid-group__model__details_1ga2a5bbfc1edf33077e39466d2d9807115>`
+
+.. _doxid-group__model__details_1ga2374492b5019df88022fe4c05f0f3630:
+.. _cid-vrna_md_defaults_oldalien_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_oldAliEn_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior for whether to use old energy model for comparative structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for using old energy model for comparative structure prediction
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_oldAliEn() <doxid-group__model__details_1ga41521d5b9fb7e0f31e7ea73f5792afab>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ALI_OLD_EN <doxid-group__model__details_1ga2a5bbfc1edf33077e39466d2d9807115>`
+
+.. _doxid-group__model__details_1ga937c45e1d06fd6168730a9b08d130be3:
+.. _cid-vrna_md_defaults_ribo:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_ribo (int flag)
+
+    .. container:: brief-description
+
+        Set default behavior for whether to use Ribosum Scoring in comparative structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - flag
+        
+                - On/Off switch (0 = OFF, else = ON)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ALI_RIBO <doxid-group__model__details_1ga64b3ab65a9ca42d4ad1d05e193083147>`
+
+.. _doxid-group__model__details_1ga169027f0c0561ea7d87b655e4b336bfc:
+.. _cid-vrna_md_defaults_ribo_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_md_defaults_ribo_get (void)
+
+    .. container:: brief-description
+
+        Get default behavior for whether to use Ribosum Scoring in comparative structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for using Ribosum scoring in comparative structure prediction
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_ribo() <doxid-group__model__details_1ga937c45e1d06fd6168730a9b08d130be3>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ALI_RIBO <doxid-group__model__details_1ga64b3ab65a9ca42d4ad1d05e193083147>`
+
+.. _doxid-group__model__details_1gad3a3f40baafd91a6ce80a91a68e20053:
+.. _cid-vrna_md_defaults_cv_fact:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_cv_fact (double factor)
+
+    .. container:: brief-description
+
+        Set the default co-variance scaling factor used in comparative structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - factor
+        
+                - The co-variance factor
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ALI_CV_FACT <doxid-group__model__details_1gaaaf3d73d6abc18d3889676952bfedb96>`
+
+.. _doxid-group__model__details_1gae59c68393807217b0a2497adb64d3ee3:
+.. _cid-vrna_md_defaults_cv_fact_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_md_defaults_cv_fact_get (void)
+
+    .. container:: brief-description
+
+        Get the default co-variance scaling factor used in comparative structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings for the co-variance factor
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_cv_fact() <doxid-group__model__details_1gad3a3f40baafd91a6ce80a91a68e20053>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ALI_CV_FACT <doxid-group__model__details_1gaaaf3d73d6abc18d3889676952bfedb96>`
+
+.. _doxid-group__model__details_1gac35e596c850dce3ad55c49119fd7d471:
+.. _cid-vrna_md_defaults_nc_fact:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_nc_fact (double factor)
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - factor
+        
+                - 
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ALI_NC_FACT <doxid-group__model__details_1ga8f774daaafec28160c1ca5d09f2cbdba>`
+
+.. _doxid-group__model__details_1ga7ac759eaa7159bf5f022745f5da59508:
+.. _cid-vrna_md_defaults_nc_fact_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_md_defaults_nc_fact_get (void)
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_nc_fact() <doxid-group__model__details_1gac35e596c850dce3ad55c49119fd7d471>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` , :ref:`VRNA_MODEL_DEFAULT_ALI_NC_FACT <doxid-group__model__details_1ga8f774daaafec28160c1ca5d09f2cbdba>`
+
+.. _doxid-group__model__details_1ga3f73d3029d3d0025d4cc311510cd95a3:
+.. _cid-vrna_md_defaults_sfact:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_md_defaults_sfact (double factor)
+
+    .. container:: brief-description
+
+        Set the default scaling factor used to avoid under-/overflows in partition function computation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - factor
+        
+                - The scaling factor (default: 1.07)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`
+
+.. _doxid-group__model__details_1gab2df6aab954b63fd3592d18e90285dae:
+.. _cid-vrna_md_defaults_sfact_get:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_md_defaults_sfact_get (void)
+
+    .. container:: brief-description
+
+        Get the default scaling factor used to avoid under-/overflows in partition function computation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Returns:
+        
+        The global default settings of the scaling factor
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_defaults_sfact() <doxid-group__model__details_1ga3f73d3029d3d0025d4cc311510cd95a3>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` , :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`
+
+.. _doxid-group__model__details_1gabad896c3650d420f3f3ddefc69e2bceb:
+.. _cid-set_model_details:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void set_model_details (:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md)
+
+    .. container:: brief-description
+
+        Set default model details.
+
+    .. container:: detailed-description
+
+        Use this function if you wish to initialize a :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` data structure with its default values, i.e. the global model settings as provided by the deprecated global variables.
+        
+        Deprecated This function will vanish as soon as backward compatibility of RNAlib is dropped (expected in version 3). Use :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - md
+        
+                - A pointer to the data structure that is about to be initialized
+
+Macros
+------
+
+.. _doxid-group__model__details_1ga05a5ffe718aa431d97419a12fb082379:
+.. _cid-maxalpha:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define MAXALPHA
+
+    .. container:: brief-description
+
+        Maximal length of alphabet.
+
+.. _doxid-group__model__details_1gaaaf3d73d6abc18d3889676952bfedb96:
+.. _cid-vrna_model_default_ali_cv_fact:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_ALI_CV_FACT
+
+    .. container:: brief-description
+
+        Default model behavior for weighting the co-variance score in consensus structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.cv_fact <doxid-structvrna__md__s_1a62ebefb9d0643e5c4c8a2ec84a105ce6>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga8f774daaafec28160c1ca5d09f2cbdba:
+.. _cid-vrna_model_default_ali_nc_fact:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_ALI_NC_FACT
+
+    .. container:: brief-description
+
+        Default model behavior for weighting the nucleotide conservation? in consensus structure prediction.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.nc_fact <doxid-structvrna__md__s_1abcf568e6124bfcb2f847ff4eb0dfded6>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga2a5bbfc1edf33077e39466d2d9807115:
+.. _cid-vrna_model_default_ali_old_en:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_ALI_OLD_EN
+
+    .. container:: brief-description
+
+        Default model behavior for consensus structure energy evaluation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.oldAliEn <doxid-structvrna__md__s_1ab53aec4503130877973c6111ae6f0f76>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga64b3ab65a9ca42d4ad1d05e193083147:
+.. _cid-vrna_model_default_ali_ribo:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_ALI_RIBO
+
+    .. container:: brief-description
+
+        Default model behavior for consensus structure co-variance contribution assessment.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.ribo <doxid-structvrna__md__s_1a3df2ae4bd9c133ef8ab92a53b1d035ec>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga3fda8006ab84baf817bd8e5ccbc6bb35:
+.. _cid-vrna_model_default_backtrack:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_BACKTRACK
+
+    .. container:: brief-description
+
+        Default model behavior with regards to backtracking of structures.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.backtrack <doxid-structvrna__md__s_1a31f4471608cbdd03887f63c281823adb>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1gad0e81fcaca53c4a826c68e0796de2afb:
+.. _cid-vrna_model_default_backtrack_type:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_BACKTRACK_TYPE
+
+    .. container:: brief-description
+
+        Default model behavior on what type of backtracking to perform.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.backtrack_type <doxid-structvrna__md__s_1abb265da25121d22ed11c8435861f0e53>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga383d3ac8d08c3b6221754b50871c1200:
+.. _cid-vrna_model_default_beta_scale:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_BETA_SCALE
+
+    .. container:: brief-description
+
+        Default scaling factor for absolute thermodynamic temperature in Boltzmann factors.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_exp_param_t.alpha <doxid-structvrna__exp__param__s_1a77145830b7bb01b36c3217b363310ef0>` , :ref:`vrna_md_t.betaScale <doxid-structvrna__md__s_1a19524bf1d8d7ab590ed36edbbcaaba2c>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga22059033db7bcd875c51fec32425490a:
+.. _cid-vrna_model_default_circ:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_CIRC
+
+    .. container:: brief-description
+
+        Default model behavior to treat a molecule as a circular RNA (DNA)
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.circ <doxid-structvrna__md__s_1a92762e1008503d4623ff5c01e358a464>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga1d6cd5051940b126c248147c011bac6c:
+.. _cid-vrna_model_default_compute_bpp:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_COMPUTE_BPP
+
+    .. container:: brief-description
+
+        Default model behavior with regards to computing base pair probabilities.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.compute_bpp <doxid-structvrna__md__s_1aa0c3e03d9064363e27adcc92b8d0380f>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga2aa7bc2cae774b83a5c468f824c27a42:
+.. _cid-vrna_model_default_dangles:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_DANGLES
+
+    .. container:: brief-description
+
+        Default dangling end model.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.dangles <doxid-structvrna__md__s_1adcda4ff2ea77748ae0e8700288282efc>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga6fcf6b2d0f89256cdbd166486c9b6e1e:
+.. _cid-vrna_model_default_energy_set:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_ENERGY_SET
+
+    .. container:: brief-description
+
+        Default model behavior on which energy set to use.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.energy_set <doxid-structvrna__md__s_1a5eee4e3b468eb690d1407e0178dafb3f>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga793ed812e86f43799b14b2deee917f23:
+.. _cid-vrna_model_default_gquad:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_GQUAD
+
+    .. container:: brief-description
+
+        Default model behavior regarding the treatment of G-Quadruplexes.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.gquad <doxid-structvrna__md__s_1af88a511a2b1f526b4c6213de6cb8fd6e>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga938f68463e84fe060aa6502f428a517d:
+.. _cid-vrna_model_default_log_ml:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_LOG_ML
+
+    .. container:: brief-description
+
+        Default model behavior on how to evaluate the energy contribution of multi-branch loops.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.logML <doxid-structvrna__md__s_1ae259f89a94acae0c7f1412603e7f57b5>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga7cb6f4ae8fdebff6746a4410814f2977:
+.. _cid-vrna_model_default_max_bp_span:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_MAX_BP_SPAN
+
+    .. container:: brief-description
+
+        Default model behavior for the allowed maximum base pair span.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.max_bp_span <doxid-structvrna__md__s_1a659e5fcc6e8c9f1a68e7de6548eef3b0>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga34702f7d14d38b877ba8e475281e97e2:
+.. _cid-vrna_model_default_no_gu:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_NO_GU
+
+    .. container:: brief-description
+
+        Default model behavior for G-U base pairs.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.noGU <doxid-structvrna__md__s_1ad64a5eaf9c4550e7525b36a725fec4b2>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga5308de46faaca4b9fd16045864901ee7:
+.. _cid-vrna_model_default_no_gu_closure:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_NO_GU_CLOSURE
+
+    .. container:: brief-description
+
+        Default model behavior for G-U base pairs closing a loop.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.noGUclosure <doxid-structvrna__md__s_1a7e883db1f33f8f3baa5c9b140350c78e>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1gab72462726dd60ed0d43339bbf7ee08ad:
+.. _cid-vrna_model_default_no_lp:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_NO_LP
+
+    .. container:: brief-description
+
+        Default model behavior for so-called 'lonely pairs'.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.noLP <doxid-structvrna__md__s_1a753200bf21cee0ea2df64afe43999f5d>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga5505389cba74a18bbc116d2bb20256fa:
+.. _cid-vrna_model_default_pf_scale:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_PF_SCALE
+
+    .. container:: brief-description
+
+        Default scaling factor for partition function computations.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_exp_param_t.pf_scale <doxid-structvrna__exp__param__s_1a53c12f0d74f94ce371e0471a8ab5a377>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1gabd1ab224e1048defd45c165ed7d1c108:
+.. _cid-vrna_model_default_special_hp:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_SPECIAL_HP
+
+    .. container:: brief-description
+
+        Default model behavior for lookup of special tri-, tetra-, and hexa-loops.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.special_hp <doxid-structvrna__md__s_1add64a96d23e77ef1d0ddf8dfc5228143>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1gaf47f9850b3b4763479f7a7e7a15648a2:
+.. _cid-vrna_model_default_temperature:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_TEMPERATURE
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.temperature <doxid-structvrna__md__s_1a5f7e5c2b65bada5188443470e576aa4b>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga63f6006a02ba2d89148441f406c309e7:
+.. _cid-vrna_model_default_uniq_ml:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_UNIQ_ML
+
+    .. container:: brief-description
+
+        Default behavior of the model regarding unique multi-branch loop decomposition.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.uniq_ML <doxid-structvrna__md__s_1ade065b814a4e2e72ead93ab502613ed2>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+
+.. _doxid-group__model__details_1ga8de04a9cb57e811e313b0f9f207f6bdb:
+.. _cid-vrna_model_default_window_size:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_MODEL_DEFAULT_WINDOW_SIZE
+
+    .. container:: brief-description
+
+        Default model behavior for the sliding window approach.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_md_t.window_size <doxid-structvrna__md__s_1abea42f9229f8d8d6bcbedef316315bfc>` , :ref:`vrna_md_defaults_reset() <doxid-group__model__details_1ga70834424cf804d149937de89f80ceb45>` , :ref:`vrna_md_set_default() <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`
+

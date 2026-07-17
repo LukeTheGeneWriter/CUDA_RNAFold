@@ -1,0 +1,714 @@
+.. index:: pair: group; Unstructured domains
+.. _doxid-group__domains__up:
+.. _cid-domains_up:
+
+Unstructured domains
+====================
+
+.. toctree::
+	:hidden:
+
+	struct_vrna_unstructured_domain_s.rst
+
+
+
+Overview
+--------
+
+Add and modify unstructured domains to the RNA folding grammar. :ref:`More...<details-doxid-group__domains__up>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_unstructured_domain_s<doxid-structvrna__unstructured__domain__s>` :ref:`vrna_ud_t<doxid-group__domains__up_1ga0009117b14d29143e8b18ab891f48c2d>`
+
+	typedef int () :ref:`vrna_callback_ud_energy<doxid-group__domains__up_1ga75825c57d0bfde4ae4f95c044260c5c3>` (
+	    vrna_fold_compound_t *vc,
+	    int i,
+	    int j,
+	    unsigned int loop_type,
+	    void *data
+	    )
+
+	typedef :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` () :ref:`vrna_callback_ud_exp_energy<doxid-group__domains__up_1ga861706f257ba993753464b823e65b86e>` (
+	    vrna_fold_compound_t *vc,
+	    int i,
+	    int j,
+	    unsigned int loop_type,
+	    void *data
+	    )
+
+	typedef void () :ref:`vrna_callback_ud_production<doxid-group__domains__up_1ga4fdfc02c1b660c07f2d887772f02a0a1>` (
+	    vrna_fold_compound_t *vc,
+	    void *data
+	    )
+
+	typedef void () :ref:`vrna_callback_ud_exp_production<doxid-group__domains__up_1ga33d78327dcd04c1ca5ab2887edc18c7b>` (
+	    vrna_fold_compound_t *vc,
+	    void *data
+	    )
+
+	typedef void () :ref:`vrna_callback_ud_probs_add<doxid-group__domains__up_1gab10498abc84fcaf336aca8f8d7d42eb2>` (
+	    vrna_fold_compound_t *vc,
+	    int i,
+	    int j,
+	    unsigned int loop_type,
+	    FLT_OR_DBL exp_energy,
+	    void *data
+	    )
+
+	typedef :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` () :ref:`vrna_callback_ud_probs_get<doxid-group__domains__up_1gaa10ba1b6f1e179ea84c5caca9cdaae67>` (
+	    vrna_fold_compound_t *vc,
+	    int i,
+	    int j,
+	    unsigned int loop_type,
+	    int motif,
+	    void *data
+	    )
+
+	// structs
+
+	struct :ref:`vrna_unstructured_domain_s<doxid-structvrna__unstructured__domain__s>` 
+
+	// global functions
+
+	void :ref:`vrna_ud_add_motif<doxid-group__domains__up_1gaec0c3313fb2951946614f920d289829a>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* motif,
+	    double motif_en,
+	    unsigned int loop_type
+	    )
+
+	void :ref:`vrna_ud_remove<doxid-group__domains__up_1gada59cb0c498b812eadd010811af3f2d4>` (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+	void :ref:`vrna_ud_set_data<doxid-group__domains__up_1gac1f18c312b91d80089534a87d956e58b>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    void* data,
+	    :ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* free_cb
+	    )
+
+	void :ref:`vrna_ud_set_prod_rule_cb<doxid-group__domains__up_1ga745a99f0bc72898d54de16f6e538828a>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_ud_production<doxid-group__domains__up_1ga4fdfc02c1b660c07f2d887772f02a0a1>`* pre_cb,
+	    :ref:`vrna_callback_ud_energy<doxid-group__domains__up_1ga75825c57d0bfde4ae4f95c044260c5c3>`* e_cb
+	    )
+
+	void :ref:`vrna_ud_set_exp_prod_rule_cb<doxid-group__domains__up_1ga2fb1db2099da26c76247e1209ad4aa09>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_ud_exp_production<doxid-group__domains__up_1ga33d78327dcd04c1ca5ab2887edc18c7b>`* pre_cb,
+	    :ref:`vrna_callback_ud_exp_energy<doxid-group__domains__up_1ga861706f257ba993753464b823e65b86e>`* exp_e_cb
+	    )
+
+	// macros
+
+	#define :ref:`VRNA_UNSTRUCTURED_DOMAIN_ALL_LOOPS<doxid-group__domains__up_1ga3c6be4cce70f1af9e885788856101699>`
+	#define :ref:`VRNA_UNSTRUCTURED_DOMAIN_EXT_LOOP<doxid-group__domains__up_1gaac911374e86236a51bfd42e1f098eaba>`
+	#define :ref:`VRNA_UNSTRUCTURED_DOMAIN_HP_LOOP<doxid-group__domains__up_1ga23b610ea9564346c45cc1e2bbb62adf7>`
+	#define :ref:`VRNA_UNSTRUCTURED_DOMAIN_INT_LOOP<doxid-group__domains__up_1gac4a0feccd9654c149203200248c2716b>`
+	#define :ref:`VRNA_UNSTRUCTURED_DOMAIN_MB_LOOP<doxid-group__domains__up_1ga67b80796655e5227a4ed662bfbe398b0>`
+	#define :ref:`VRNA_UNSTRUCTURED_DOMAIN_MOTIF<doxid-group__domains__up_1gaab12b58d59be76446a9f76fad2fe624c>`
+
+.. _details-doxid-group__domains__up:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Add and modify unstructured domains to the RNA folding grammar.
+
+.. container:: detailed-description
+
+    This module provides the tools to add and modify unstructured domains to the production rules of the RNA folding grammar. Usually this functionality is utilized for incorporating ligand binding to unpaired stretches of an RNA.
+    
+    Bug Although the additional production rule(s) for unstructured domains as descibed in domains_unstructured are always treated as 'segments possibly bound to one or more ligands', the current implementation requires that at least one ligand is bound. The default implementation already takes care of the required changes, however, upon using callback functions other than the default ones, one has to take care of this fact. Please also note, that this behavior might change in one of the next releases, such that the decomposition schemes as shown above comply with the actual implementation.
+    
+    A default implementation allows one to readily use this feature by simply adding sequence motifs and corresponding binding free energies with the function :ref:`vrna_ud_add_motif() <doxid-group__domains__up_1gaec0c3313fb2951946614f920d289829a>` (see also :ref:`Ligands binding to unstructured domains <doxid-group__ligands__up>` ).
+    
+    The grammar extension is realized using a callback function that
+    
+    * evaluates the binding free energy of a ligand to its target sequence segment (white boxes in the figures above), or
+    
+    * returns the free energy of an unpaired stretch possibly bound by a ligand, stored in the additional *U* DP matrix.
+    
+    The callback is passed the segment positions, the loop context, and which of the two above mentioned evaluations are required. A second callback implements the pre-processing step that prepares the *U* DP matrix by evaluating all possible cases of the additional production rule. Both callbacks have a default implementation in *RNAlib* , but may be over-written by a user-implementation, making it fully user-customizable.
+    
+    For equilibrium probability computations, two additional callbacks exist. One to store/add and one to retrieve the probability of unstructured domains at particular positions. Our implementation already takes care of computing the probabilities, but users of the unstructured domain feature are required to provide a mechanism to efficiently store/add the corresponding values into some external data structure.
+
+Typedefs
+--------
+
+.. _doxid-group__domains__up_1ga0009117b14d29143e8b18ab891f48c2d:
+.. _cid-vrna_ud_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_unstructured_domain_s<doxid-structvrna__unstructured__domain__s>` vrna_ud_t
+
+    .. container:: brief-description
+
+        Typename for the ligand binding extension data structure :ref:`vrna_unstructured_domain_s <doxid-structvrna__unstructured__domain__s>` .
+
+.. _doxid-group__domains__up_1ga75825c57d0bfde4ae4f95c044260c5c3:
+.. _cid-vrna_callback_ud_energy:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef int () vrna_callback_ud_energy (
+	    vrna_fold_compound_t *vc,
+	    int i,
+	    int j,
+	    unsigned int loop_type,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback to retrieve binding free energy of a ligand bound to an unpaired sequence segment.
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions This function will be called to determine the additional energy contribution of a specific unstructured domain, e.g. the binding free energy of some ligand.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The current :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+        
+            *
+                - i
+        
+                - The start of the unstructured domain (5' end)
+        
+            *
+                - j
+        
+                - The end of the unstructured domain (3' end)
+        
+            *
+                - loop_type
+        
+                - The loop context of the unstructured domain
+        
+            *
+                - data
+        
+                - Auxiliary data
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The auxiliary energy contribution in deka-cal/mol
+
+.. _doxid-group__domains__up_1ga861706f257ba993753464b823e65b86e:
+.. _cid-vrna_callback_ud_exp_energy:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` () vrna_callback_ud_exp_energy (
+	    vrna_fold_compound_t *vc,
+	    int i,
+	    int j,
+	    unsigned int loop_type,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback to retrieve Boltzmann factor of the binding free energy of a ligand bound to an unpaired sequence segment.
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions This function will be called to determine the additional energy contribution of a specific unstructured domain, e.g. the binding free energy of some ligand (Partition function variant, i.e. the Boltzmann factors instead of actual free energies).
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The current :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+        
+            *
+                - i
+        
+                - The start of the unstructured domain (5' end)
+        
+            *
+                - j
+        
+                - The end of the unstructured domain (3' end)
+        
+            *
+                - loop_type
+        
+                - The loop context of the unstructured domain
+        
+            *
+                - data
+        
+                - Auxiliary data
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The auxiliary energy contribution as Boltzmann factor
+
+.. _doxid-group__domains__up_1ga4fdfc02c1b660c07f2d887772f02a0a1:
+.. _cid-vrna_callback_ud_production:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef void () vrna_callback_ud_production (
+	    vrna_fold_compound_t *vc,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback for pre-processing the production rule of the ligand binding to unpaired stretches feature.
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions The production rule for the unstructured domain grammar extension
+
+.. _doxid-group__domains__up_1ga33d78327dcd04c1ca5ab2887edc18c7b:
+.. _cid-vrna_callback_ud_exp_production:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef void () vrna_callback_ud_exp_production (
+	    vrna_fold_compound_t *vc,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback for pre-processing the production rule of the ligand binding to unpaired stretches feature (partition function variant)
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions The production rule for the unstructured domain grammar extension (Partition function variant)
+
+.. _doxid-group__domains__up_1gab10498abc84fcaf336aca8f8d7d42eb2:
+.. _cid-vrna_callback_ud_probs_add:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef void () vrna_callback_ud_probs_add (
+	    vrna_fold_compound_t *vc,
+	    int i,
+	    int j,
+	    unsigned int loop_type,
+	    FLT_OR_DBL exp_energy,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback to store/add equilibrium probability for a ligand bound to an unpaired sequence segment.
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions A callback function to store equilibrium probabilities for the unstructured domain feature
+
+.. _doxid-group__domains__up_1gaa10ba1b6f1e179ea84c5caca9cdaae67:
+.. _cid-vrna_callback_ud_probs_get:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` () vrna_callback_ud_probs_get (
+	    vrna_fold_compound_t *vc,
+	    int i,
+	    int j,
+	    unsigned int loop_type,
+	    int motif,
+	    void *data
+	    )
+
+    .. container:: brief-description
+
+        Callback to retrieve equilibrium probability for a ligand bound to an unpaired sequence segment.
+
+    .. container:: detailed-description
+
+        Notes on Callback Functions A callback function to retrieve equilibrium probabilities for the unstructured domain feature
+
+Global Functions
+----------------
+
+.. _doxid-group__domains__up_1gaec0c3313fb2951946614f920d289829a:
+.. _cid-vrna_ud_add_motif:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_ud_add_motif (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* motif,
+	    double motif_en,
+	    unsigned int loop_type
+	    )
+
+    .. container:: brief-description
+
+        Add an unstructured domain motif, e.g. for ligand binding.
+
+    .. container:: detailed-description
+
+        This function adds a ligand binding motif and the associated binding free energy to the :ref:`vrna_ud_t <doxid-group__domains__up_1ga0009117b14d29143e8b18ab891f48c2d>` attribute of a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . The motif data will then be used in subsequent secondary structure predictions. Multiple calls to this function with different motifs append all additional data to a list of ligands, which all will be evaluated. Ligand motif data can be removed from the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` again using the :ref:`vrna_ud_remove() <doxid-group__domains__up_1gada59cb0c498b812eadd010811af3f2d4>` function. The loop type parameter allows one to limit the ligand binding to particular loop type, such as the exterior loop, hairpin loops, interior loops, or multibranch loops.
+        
+        SWIG Wrapper Notes This function is attached as method **ud_add_motif()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structure the ligand motif should be bound to
+        
+            *
+                - motif
+        
+                - The sequence motif the ligand binds to
+        
+            *
+                - motif_en
+        
+                - The binding free energy of the ligand in kcal/mol
+        
+            *
+                - loop_type
+        
+                - The loop type the ligand binds to
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`VRNA_UNSTRUCTURED_DOMAIN_EXT_LOOP <doxid-group__domains__up_1gaac911374e86236a51bfd42e1f098eaba>` , :ref:`VRNA_UNSTRUCTURED_DOMAIN_HP_LOOP <doxid-group__domains__up_1ga23b610ea9564346c45cc1e2bbb62adf7>` , :ref:`VRNA_UNSTRUCTURED_DOMAIN_INT_LOOP <doxid-group__domains__up_1gac4a0feccd9654c149203200248c2716b>` , :ref:`VRNA_UNSTRUCTURED_DOMAIN_MB_LOOP <doxid-group__domains__up_1ga67b80796655e5227a4ed662bfbe398b0>` , :ref:`VRNA_UNSTRUCTURED_DOMAIN_ALL_LOOPS <doxid-group__domains__up_1ga3c6be4cce70f1af9e885788856101699>` , :ref:`vrna_ud_remove() <doxid-group__domains__up_1gada59cb0c498b812eadd010811af3f2d4>`
+
+.. _doxid-group__domains__up_1gada59cb0c498b812eadd010811af3f2d4:
+.. _cid-vrna_ud_remove:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_ud_remove (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+    .. container:: brief-description
+
+        Remove ligand binding to unpaired stretches.
+
+    .. container:: detailed-description
+
+        This function removes all ligand motifs that were bound to a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` using the :ref:`vrna_ud_add_motif() <doxid-group__domains__up_1gaec0c3313fb2951946614f920d289829a>` function.
+        
+        SWIG Wrapper Notes This function is attached as method **ud_remove()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structure the ligand motif data should be removed from
+
+.. _doxid-group__domains__up_1gac1f18c312b91d80089534a87d956e58b:
+.. _cid-vrna_ud_set_data:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_ud_set_data (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    void* data,
+	    :ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* free_cb
+	    )
+
+    .. container:: brief-description
+
+        Attach an auxiliary data structure.
+
+    .. container:: detailed-description
+
+        This function binds an arbitrary, auxiliary data structure for user-implemented ligand binding. The optional callback ``free`` will be passed the bound data structure whenever the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` is removed from memory to avoid memory leaks.
+        
+        SWIG Wrapper Notes This function is attached as method **ud_set_data()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structure the auxiliary data structure should be bound to
+        
+            *
+                - data
+        
+                - A pointer to the auxiliary data structure
+        
+            *
+                - free_cb
+        
+                - A pointer to a callback function that free's memory occupied by ``data``
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ud_set_prod_rule_cb() <doxid-group__domains__up_1ga745a99f0bc72898d54de16f6e538828a>` , :ref:`vrna_ud_set_exp_prod_rule_cb() <doxid-group__domains__up_1ga2fb1db2099da26c76247e1209ad4aa09>` , :ref:`vrna_ud_remove() <doxid-group__domains__up_1gada59cb0c498b812eadd010811af3f2d4>`
+
+.. _doxid-group__domains__up_1ga745a99f0bc72898d54de16f6e538828a:
+.. _cid-vrna_ud_set_prod_rule_cb:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_ud_set_prod_rule_cb (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_ud_production<doxid-group__domains__up_1ga4fdfc02c1b660c07f2d887772f02a0a1>`* pre_cb,
+	    :ref:`vrna_callback_ud_energy<doxid-group__domains__up_1ga75825c57d0bfde4ae4f95c044260c5c3>`* e_cb
+	    )
+
+    .. container:: brief-description
+
+        Attach production rule callbacks for free energies computations.
+
+    .. container:: detailed-description
+
+        Use this function to bind a user-implemented grammar extension for unstructured domains.
+        
+        The callback ``e_cb`` needs to evaluate the free energy contribution :math:`f(i,j)` of the unpaired segment :math:`[i,j]` . It will be executed in each of the regular secondary structure production rules. Whenever the callback is passed the :ref:`VRNA_UNSTRUCTURED_DOMAIN_MOTIF <doxid-group__domains__up_1gaab12b58d59be76446a9f76fad2fe624c>` flag via its ``loop_type`` parameter the contribution of any ligand that consecutively binds from position :math:`i` to :math:`j` (the white box) is requested. Otherwise, the callback usually performs a lookup in the precomputed ``B`` matrices. Which ``B`` matrix is addressed will be indicated by the flags :ref:`VRNA_UNSTRUCTURED_DOMAIN_EXT_LOOP <doxid-group__domains__up_1gaac911374e86236a51bfd42e1f098eaba>` , :ref:`VRNA_UNSTRUCTURED_DOMAIN_HP_LOOP <doxid-group__domains__up_1ga23b610ea9564346c45cc1e2bbb62adf7>` :ref:`VRNA_UNSTRUCTURED_DOMAIN_INT_LOOP <doxid-group__domains__up_1gac4a0feccd9654c149203200248c2716b>` , and :ref:`VRNA_UNSTRUCTURED_DOMAIN_MB_LOOP <doxid-group__domains__up_1ga67b80796655e5227a4ed662bfbe398b0>` . As their names already imply, they specify exterior loops ( ``F`` production rule), hairpin loops and interior loops ( ``C`` production rule), and multibranch loops ( ``M`` and ``M1`` production rule).
+        
+        .. image:: ligands_up_callback.svg
+        
+        
+        
+        .. image:: ligands_up_callback
+        
+        The ``pre_cb`` callback will be executed as a pre-processing step right before the regular secondary structure rules. Usually one would use this callback to fill the dynamic programming matrices ``U`` and preparations of the auxiliary data structure :ref:`vrna_unstructured_domain_s.data <doxid-structvrna__unstructured__domain__s_1a8802b1b0512999a9f35202031811ce17>`
+        
+        .. image:: B_prod_rule.svg
+        
+        
+        
+        .. image:: B_prod_rule
+        
+        SWIG Wrapper Notes This function is attached as method **ud_set_prod_rule_cb()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structure the callback will be bound to
+        
+            *
+                - pre_cb
+        
+                - A pointer to a callback function for the ``B`` production rule
+        
+            *
+                - e_cb
+        
+                - A pointer to a callback function for free energy evaluation
+
+.. _doxid-group__domains__up_1ga2fb1db2099da26c76247e1209ad4aa09:
+.. _cid-vrna_ud_set_exp_prod_rule_cb:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_ud_set_exp_prod_rule_cb (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    :ref:`vrna_callback_ud_exp_production<doxid-group__domains__up_1ga33d78327dcd04c1ca5ab2887edc18c7b>`* pre_cb,
+	    :ref:`vrna_callback_ud_exp_energy<doxid-group__domains__up_1ga861706f257ba993753464b823e65b86e>`* exp_e_cb
+	    )
+
+    .. container:: brief-description
+
+        Attach production rule for partition function.
+
+    .. container:: detailed-description
+
+        This function is the partition function companion of :ref:`vrna_ud_set_prod_rule_cb() <doxid-group__domains__up_1ga745a99f0bc72898d54de16f6e538828a>` .
+        
+        Use it to bind callbacks to (i) fill the ``U`` production rule dynamic programming matrices and/or prepare the :ref:`vrna_unstructured_domain_s.data <doxid-structvrna__unstructured__domain__s_1a8802b1b0512999a9f35202031811ce17>` , and (ii) provide a callback to retrieve partition functions for subsegments :math:` [i,j] ` .
+        
+        .. image:: B_prod_rule.svg
+        
+        
+        
+        .. image:: B_prod_rule
+        
+        .. image:: ligands_up_callback.svg
+        
+        
+        
+        .. image:: ligands_up_callback
+        
+        SWIG Wrapper Notes This function is attached as method **ud_set_exp_prod_rule_cb()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` data structure the callback will be bound to
+        
+            *
+                - pre_cb
+        
+                - A pointer to a callback function for the ``B`` production rule
+        
+            *
+                - exp_e_cb
+        
+                - A pointer to a callback function that retrieves the partition function for a segment :math:`[i,j]` that may be bound by one or more ligands.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_ud_set_prod_rule_cb() <doxid-group__domains__up_1ga745a99f0bc72898d54de16f6e538828a>`
+
+Macros
+------
+
+.. _doxid-group__domains__up_1ga3c6be4cce70f1af9e885788856101699:
+.. _cid-vrna_unstructured_domain_all_loops:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_UNSTRUCTURED_DOMAIN_ALL_LOOPS
+
+    .. container:: brief-description
+
+        Flag to indicate ligand bound to unpiared stretch in any loop (convenience macro)
+
+.. _doxid-group__domains__up_1gaac911374e86236a51bfd42e1f098eaba:
+.. _cid-vrna_unstructured_domain_ext_loop:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_UNSTRUCTURED_DOMAIN_EXT_LOOP
+
+    .. container:: brief-description
+
+        Flag to indicate ligand bound to unpiared stretch in the exterior loop.
+
+.. _doxid-group__domains__up_1ga23b610ea9564346c45cc1e2bbb62adf7:
+.. _cid-vrna_unstructured_domain_hp_loop:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_UNSTRUCTURED_DOMAIN_HP_LOOP
+
+    .. container:: brief-description
+
+        Flag to indicate ligand bound to unpaired stretch in a hairpin loop.
+
+.. _doxid-group__domains__up_1gac4a0feccd9654c149203200248c2716b:
+.. _cid-vrna_unstructured_domain_int_loop:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_UNSTRUCTURED_DOMAIN_INT_LOOP
+
+    .. container:: brief-description
+
+        Flag to indicate ligand bound to unpiared stretch in an interior loop.
+
+.. _doxid-group__domains__up_1ga67b80796655e5227a4ed662bfbe398b0:
+.. _cid-vrna_unstructured_domain_mb_loop:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_UNSTRUCTURED_DOMAIN_MB_LOOP
+
+    .. container:: brief-description
+
+        Flag to indicate ligand bound to unpiared stretch in a multibranch loop.
+
+.. _doxid-group__domains__up_1gaab12b58d59be76446a9f76fad2fe624c:
+.. _cid-vrna_unstructured_domain_motif:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_UNSTRUCTURED_DOMAIN_MOTIF
+
+    .. container:: brief-description
+
+        Flag to indicate ligand binding without additional unbound nucleotides (motif-only)
+

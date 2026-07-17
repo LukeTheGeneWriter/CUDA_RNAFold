@@ -1,0 +1,35 @@
+.. index:: pair: struct; swString
+.. _doxid-structsw_string:
+.. _cid-swstring:
+
+struct swString
+===============
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/dist_vars.h>
+
+
+.. container:: brief-description
+
+    Some other data structure.
+
+.. _doxid-structsw_string_1addebb11cfebe93604a0ee3ac05e743ad:
+.. _cid-swstring::type:
+.. _doxid-structsw_string_1a6a55abcf6f7a4f0b4f8a01e0fd9a2d02:
+.. _cid-swstring::sign:
+.. _doxid-structsw_string_1a59272a18126fcf037501e0c80982949a:
+.. _cid-swstring::weight:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int type
+	int sign
+	float weight
+

@@ -1,0 +1,26 @@
+.. include:: page_index.rst
+
+.. toctree::
+	:hidden:
+
+	page_getting_started.rst
+	page_concepts.rst
+	page_io.rst
+	page_data_structures.rst
+	page_api_features.rst
+	page_utilities.rst
+	page_examples.rst
+	page_changelog.rst
+	page_deprecated.rst
+	page_bug.rst
+	page_citelist.rst
+
+.. toctree::
+	:hidden:
+
+	group_index.rst
+
+
+.. rubric:: Index:
+
+|	:ref:`genindex`

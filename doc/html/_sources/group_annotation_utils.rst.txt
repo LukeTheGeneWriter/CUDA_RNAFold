@@ -1,0 +1,82 @@
+.. index:: pair: group; Functions to generate annotations for Secondary Structure Plots, Dot-Plots, and Others
+.. _doxid-group__annotation__utils:
+.. _cid-annotation_utils:
+
+Functions to generate annotations for Secondary Structure Plots, Dot-Plots, and Others
+======================================================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	char** :ref:`vrna_annotate_covar_struct<doxid-group__annotation__utils_1gae0305bbf95eddd4a57648a1e4739a7f3>` (
+	    const char** alignment,
+	    const char* structure,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+	:ref:`vrna_cpair_t<doxid-group__data__structures_1gae4fc91141cc69c6d8eaf1332cb991ecc>`* :ref:`vrna_annotate_covar_pairs<doxid-group__annotation__utils_1gadb9ba32197f05d5876d389b2ba92edac>` (
+	    const char** alignment,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* pl,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* mfel,
+	    double threshold,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+.. _details-doxid-group__annotation__utils:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__annotation__utils_1gae0305bbf95eddd4a57648a1e4739a7f3:
+.. _cid-vrna_annotate_covar_struct:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char** vrna_annotate_covar_struct (
+	    const char** alignment,
+	    const char* structure,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+    .. container:: brief-description
+
+        Produce covariance annotation for an alignment given a secondary structure.
+
+.. _doxid-group__annotation__utils_1gadb9ba32197f05d5876d389b2ba92edac:
+.. _cid-vrna_annotate_covar_pairs:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_cpair_t<doxid-group__data__structures_1gae4fc91141cc69c6d8eaf1332cb991ecc>`* vrna_annotate_covar_pairs (
+	    const char** alignment,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* pl,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* mfel,
+	    double threshold,
+	    :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>`* md
+	    )
+
+    .. container:: brief-description
+
+        Produce covariance annotation for an alignment given a set of base pairs.
+

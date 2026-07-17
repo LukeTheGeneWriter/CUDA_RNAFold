@@ -1,0 +1,326 @@
+.. index:: pair: group; Local MFE Structure Prediction and Z-scores
+.. _doxid-group__local__mfe__fold:
+.. _cid-local_mfe_fold:
+
+Local MFE Structure Prediction and Z-scores
+===========================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	float :ref:`vrna_Lfold<doxid-group__local__mfe__fold_1ga4918cce52bf69c1913cda503b2ac75d8>` (
+	    const char* string,
+	    int window_size,
+	    FILE* file
+	    )
+
+	float :ref:`vrna_Lfoldz<doxid-group__local__mfe__fold_1ga27fddda5fc63eb49c861e38845fc34b4>` (
+	    const char* string,
+	    int window_size,
+	    double min_z,
+	    FILE* file
+	    )
+
+	float :ref:`Lfold<doxid-group__local__mfe__fold_1ga16e5a70e60835bb969eaecbe6482f1be>` (
+	    const char* string,
+	    char* structure,
+	    int maxdist
+	    )
+
+	float :ref:`Lfoldz<doxid-group__local__mfe__fold_1gab6d79eecc180f586679f7b85cce5cbe9>` (
+	    const char* string,
+	    char* structure,
+	    int maxdist,
+	    int zsc,
+	    double min_z
+	    )
+
+	float :ref:`vrna_mfe_window<doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    FILE* file
+	    )
+
+	float :ref:`vrna_mfe_window_zscore<doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double min_z,
+	    FILE* file
+	    )
+
+.. _details-doxid-group__local__mfe__fold:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__local__mfe__fold_1ga4918cce52bf69c1913cda503b2ac75d8:
+.. _cid-vrna_lfold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_Lfold (
+	    const char* string,
+	    int window_size,
+	    FILE* file
+	    )
+
+    .. container:: brief-description
+
+        Local MFE prediction using a sliding window approach (simplified interface)
+
+    .. container:: detailed-description
+
+        This simplified interface to :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` computes the MFE and locally optimal secondary structure using default options. Structures are predicted using a sliding window approach, where base pairs may not span outside the window. Memory required for dynamic programming (DP) matrices will be allocated and free'd on-the-fly. Hence, after return of this function, the recursively filled matrices are not available any more for any post-processing.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - string
+        
+                - The nucleic acid sequence
+        
+            *
+                - window_size
+        
+                - The window size for locally optimal structures
+        
+            *
+                - file
+        
+                - The output file handle where predictions are written to (if NULL, output is written to stdout)
+        
+        
+        
+        .. note::
+        
+            In case you want to use the filled DP matrices for any subsequent post-processing step, or you require other conditions than specified by the default model details, use :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` , and the data structure :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` instead.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` , :ref:`vrna_Lfoldz() <doxid-group__local__mfe__fold_1ga27fddda5fc63eb49c861e38845fc34b4>` , :ref:`vrna_mfe_window_zscore() <doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+
+.. _doxid-group__local__mfe__fold_1ga27fddda5fc63eb49c861e38845fc34b4:
+.. _cid-vrna_lfoldz:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_Lfoldz (
+	    const char* string,
+	    int window_size,
+	    double min_z,
+	    FILE* file
+	    )
+
+    .. container:: brief-description
+
+        Local MFE prediction using a sliding window approach with z-score cut-off (simplified interface)
+
+    .. container:: detailed-description
+
+        This simplified interface to :ref:`vrna_mfe_window_zscore() <doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` computes the MFE and locally optimal secondary structure using default options. Structures are predicted using a sliding window approach, where base pairs may not span outside the window. Memory required for dynamic programming (DP) matrices will be allocated and free'd on-the-fly. Hence, after return of this function, the recursively filled matrices are not available any more for any post-processing. This function is the z-score version of :ref:`vrna_Lfold() <doxid-group__local__mfe__fold_1ga4918cce52bf69c1913cda503b2ac75d8>` , i.e. only predictions above a certain z-score cut-off value are printed.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - string
+        
+                - The nucleic acid sequence
+        
+            *
+                - window_size
+        
+                - The window size for locally optimal structures
+        
+            *
+                - min_z
+        
+                - The minimal z-score for a predicted structure to appear in the output
+        
+            *
+                - file
+        
+                - The output file handle where predictions are written to (if NULL, output is written to stdout)
+        
+        
+        
+        .. note::
+        
+            In case you want to use the filled DP matrices for any subsequent post-processing step, or you require other conditions than specified by the default model details, use :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` , and the data structure :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` instead.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_window_zscore() <doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` , :ref:`vrna_Lfold() <doxid-group__local__mfe__fold_1ga4918cce52bf69c1913cda503b2ac75d8>` , :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+
+.. _doxid-group__local__mfe__fold_1ga16e5a70e60835bb969eaecbe6482f1be:
+.. _cid-lfold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float Lfold (
+	    const char* string,
+	    char* structure,
+	    int maxdist
+	    )
+
+    .. container:: brief-description
+
+        The local analog to :ref:`fold() <doxid-group__mfe__fold__single_1gaadafcb0f140795ae62e5ca027e335a9b>` .
+
+    .. container:: detailed-description
+
+        Computes the minimum free energy structure including only base pairs with a span smaller than 'maxdist'
+        
+        Deprecated Use :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` instead!
+
+.. _doxid-group__local__mfe__fold_1gab6d79eecc180f586679f7b85cce5cbe9:
+.. _cid-lfoldz:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float Lfoldz (
+	    const char* string,
+	    char* structure,
+	    int maxdist,
+	    int zsc,
+	    double min_z
+	    )
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_mfe_window_zscore() <doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` instead!
+
+.. _doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce:
+.. _cid-vrna_mfe_window:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_mfe_window (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    FILE* file
+	    )
+
+    .. container:: brief-description
+
+        Local MFE prediction using a sliding window approach.
+
+    .. container:: detailed-description
+
+        Computes minimum free energy structures using a sliding window approach, where base pairs may not span outside the window. In contrast to :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , where a maximum base pair span may be set using the :ref:`vrna_md_t.max_bp_span <doxid-structvrna__md__s_1a659e5fcc6e8c9f1a68e7de6548eef3b0>` attribute and one globally optimal structure is predicted, this function uses a sliding window to retrieve all locally optimal structures within each window. The size of the sliding window is set in the :ref:`vrna_md_t.window_size <doxid-structvrna__md__s_1abea42f9229f8d8d6bcbedef316315bfc>` attribute, prior to the retrieval of the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` using :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` with option :ref:`VRNA_OPTION_WINDOW <doxid-group__fold__compound_1ga2b2a8009ccdccc3eb1571556261aee8e>`
+        
+        The predicted structures are written on-the-fly, either to stdout, if a NULL pointer is passed as file parameter, or to the corresponding filehandle.
+        
+        SWIG Wrapper Notes This function is attached as method **mfe_window()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` with preallocated memory for the DP matrices
+        
+            *
+                - file
+        
+                - The output file handle where predictions are written to (maybe NULL)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_mfe_window_zscore() <doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` , :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , :ref:`vrna_Lfold() <doxid-group__local__mfe__fold_1ga4918cce52bf69c1913cda503b2ac75d8>` , :ref:`vrna_Lfoldz() <doxid-group__local__mfe__fold_1ga27fddda5fc63eb49c861e38845fc34b4>` , :ref:`VRNA_OPTION_WINDOW <doxid-group__fold__compound_1ga2b2a8009ccdccc3eb1571556261aee8e>` , :ref:`vrna_md_t.max_bp_span <doxid-structvrna__md__s_1a659e5fcc6e8c9f1a68e7de6548eef3b0>` , :ref:`vrna_md_t.window_size <doxid-structvrna__md__s_1abea42f9229f8d8d6bcbedef316315bfc>`
+
+.. _doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6:
+.. _cid-vrna_mfe_window_zscore:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_mfe_window_zscore (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    double min_z,
+	    FILE* file
+	    )
+
+    .. container:: brief-description
+
+        Local MFE prediction using a sliding window approach (with z-score cut-off)
+
+    .. container:: detailed-description
+
+        Computes minimum free energy structures using a sliding window approach, where base pairs may not span outside the window. This function is the z-score version of :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` , i.e. only predictions above a certain z-score cut-off value are printed. As for :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` , the size of the sliding window is set in the :ref:`vrna_md_t.window_size <doxid-structvrna__md__s_1abea42f9229f8d8d6bcbedef316315bfc>` attribute, prior to the retrieval of the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` using :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` with option :ref:`VRNA_OPTION_WINDOW <doxid-group__fold__compound_1ga2b2a8009ccdccc3eb1571556261aee8e>` .
+        
+        The predicted structures are written on-the-fly, either to stdout, if a NULL pointer is passed as file parameter, or to the corresponding filehandle.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` with preallocated memory for the DP matrices
+        
+            *
+                - min_z
+        
+                - The minimal z-score for a predicted structure to appear in the output
+        
+            *
+                - file
+        
+                - The output file handle where predictions are written to (maybe NULL)
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_mfe_window_zscore() <doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` , :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , :ref:`vrna_Lfold() <doxid-group__local__mfe__fold_1ga4918cce52bf69c1913cda503b2ac75d8>` , :ref:`vrna_Lfoldz() <doxid-group__local__mfe__fold_1ga27fddda5fc63eb49c861e38845fc34b4>` , :ref:`VRNA_OPTION_WINDOW <doxid-group__fold__compound_1ga2b2a8009ccdccc3eb1571556261aee8e>` , :ref:`vrna_md_t.max_bp_span <doxid-structvrna__md__s_1a659e5fcc6e8c9f1a68e7de6548eef3b0>` , :ref:`vrna_md_t.window_size <doxid-structvrna__md__s_1abea42f9229f8d8d6bcbedef316315bfc>`
+

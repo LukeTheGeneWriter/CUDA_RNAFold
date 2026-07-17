@@ -1,0 +1,109 @@
+.. index:: pair: struct; pu_out
+.. _doxid-structpu__out:
+.. _cid-pu_out:
+
+struct pu_out
+=============
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+Overview
+--------
+
+Collection of all free_energy of beeing unpaired values for output. :ref:`More...<details-doxid-structpu__out>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int :ref:`len<doxid-structpu__out_1a314b8f43c3ee0bf6060afbeced5dbe6c>`
+	int :ref:`u_vals<doxid-structpu__out_1a7697bc7a46cd1b8e37e337e708cb6023>`
+	int :ref:`contribs<doxid-structpu__out_1a638b0de1837cfd441871d005d3ab2938>`
+	char** :ref:`header<doxid-structpu__out_1ac9e9e30b16e7d04c770460b8487fb09d>`
+	double** :ref:`u_values<doxid-structpu__out_1a366edbc4170d5c177908e178ff340828>`
+
+.. _details-doxid-structpu__out:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Collection of all free_energy of beeing unpaired values for output.
+
+Fields
+------
+
+.. _doxid-structpu__out_1a314b8f43c3ee0bf6060afbeced5dbe6c:
+.. _cid-pu_out::len:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int len
+
+    .. container:: brief-description
+
+        sequence length
+
+.. _doxid-structpu__out_1a7697bc7a46cd1b8e37e337e708cb6023:
+.. _cid-pu_out::u_vals:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int u_vals
+
+    .. container:: brief-description
+
+        number of different -u values
+
+.. _doxid-structpu__out_1a638b0de1837cfd441871d005d3ab2938:
+.. _cid-pu_out::contribs:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int contribs
+
+    .. container:: brief-description
+
+        [-c "SHIME"]
+
+.. _doxid-structpu__out_1ac9e9e30b16e7d04c770460b8487fb09d:
+.. _cid-pu_out::header:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char** header
+
+    .. container:: brief-description
+
+        header line
+
+.. _doxid-structpu__out_1a366edbc4170d5c177908e178ff340828:
+.. _cid-pu_out::u_values:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double** u_values
+
+    .. container:: brief-description
+
+        (the -u values * [-c "SHIME"]) * seq len
+

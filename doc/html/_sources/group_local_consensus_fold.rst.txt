@@ -1,0 +1,79 @@
+.. index:: pair: group; Local MFE Consensus Structure Prediction for Sequence Alignments
+.. _doxid-group__local__consensus__fold:
+.. _cid-local_consensus_fold:
+
+Local MFE Consensus Structure Prediction for Sequence Alignments
+================================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	float :ref:`aliLfold<doxid-group__local__consensus__fold_1ga864db0f9c428356d978ad0600aa9a8bc>` (
+	    const char** AS,
+	    char* structure,
+	    int maxdist
+	    )
+
+.. _details-doxid-group__local__consensus__fold:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__local__consensus__fold_1ga864db0f9c428356d978ad0600aa9a8bc:
+.. _cid-alilfold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float aliLfold (
+	    const char** AS,
+	    char* structure,
+	    int maxdist
+	    )
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - strings
+        
+                - 
+        
+            *
+                - structure
+        
+                - 
+        
+            *
+                - maxdist
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+

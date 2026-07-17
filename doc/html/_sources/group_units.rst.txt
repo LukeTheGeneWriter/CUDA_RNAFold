@@ -1,0 +1,158 @@
+.. index:: pair: group; Functions to convert between various units
+.. _doxid-group__units:
+.. _cid-units:
+
+Functions to convert between various units
+==========================================
+
+.. toctree::
+	:hidden:
+
+	enum_vrna_unit_energy_e.rst
+	enum_vrna_unit_temperature_e.rst
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enums
+
+	enum :ref:`vrna_unit_energy_e<doxid-group__units_1ga1d2fd1e73caf995e4dc69072b33e6ba5>`
+	enum :ref:`vrna_unit_temperature_e<doxid-group__units_1gadeca8d9e91ef85f1b652cc8aef63d7e4>`
+
+	// global functions
+
+	double :ref:`vrna_convert_energy<doxid-group__units_1gada3216e97b410928ba19a4487e5fe6f2>` (
+	    double energy,
+	    :ref:`vrna_unit_energy_e<doxid-group__units_1ga1d2fd1e73caf995e4dc69072b33e6ba5>` from,
+	    :ref:`vrna_unit_energy_e<doxid-group__units_1ga1d2fd1e73caf995e4dc69072b33e6ba5>` to
+	    )
+
+	double :ref:`vrna_convert_temperature<doxid-group__units_1gaf1bb1db32eba33b9f306214f5955d0c2>` (
+	    double temp,
+	    :ref:`vrna_unit_temperature_e<doxid-group__units_1gadeca8d9e91ef85f1b652cc8aef63d7e4>` from,
+	    :ref:`vrna_unit_temperature_e<doxid-group__units_1gadeca8d9e91ef85f1b652cc8aef63d7e4>` to
+	    )
+
+.. _details-doxid-group__units:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__units_1gada3216e97b410928ba19a4487e5fe6f2:
+.. _cid-vrna_convert_energy:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_convert_energy (
+	    double energy,
+	    :ref:`vrna_unit_energy_e<doxid-group__units_1ga1d2fd1e73caf995e4dc69072b33e6ba5>` from,
+	    :ref:`vrna_unit_energy_e<doxid-group__units_1ga1d2fd1e73caf995e4dc69072b33e6ba5>` to
+	    )
+
+    .. container:: brief-description
+
+        Convert between energy / work units.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - energy
+        
+                - Input energy value
+        
+            *
+                - from
+        
+                - Input unit
+        
+            *
+                - to
+        
+                - Output unit
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Energy value in Output unit
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_unit_energy_e <doxid-group__units_1ga1d2fd1e73caf995e4dc69072b33e6ba5>`
+
+.. _doxid-group__units_1gaf1bb1db32eba33b9f306214f5955d0c2:
+.. _cid-vrna_convert_temperature:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double vrna_convert_temperature (
+	    double temp,
+	    :ref:`vrna_unit_temperature_e<doxid-group__units_1gadeca8d9e91ef85f1b652cc8aef63d7e4>` from,
+	    :ref:`vrna_unit_temperature_e<doxid-group__units_1gadeca8d9e91ef85f1b652cc8aef63d7e4>` to
+	    )
+
+    .. container:: brief-description
+
+        Convert between temperature units.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - temp
+        
+                - Input temperature value
+        
+            *
+                - from
+        
+                - Input unit
+        
+            *
+                - to
+        
+                - Output unit
+        
+        
+        
+        .. rubric:: Returns:
+        
+        Temperature value in Output unit
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_unit_temperature_e <doxid-group__units_1gadeca8d9e91ef85f1b652cc8aef63d7e4>`
+

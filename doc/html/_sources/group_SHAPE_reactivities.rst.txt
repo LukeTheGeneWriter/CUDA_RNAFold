@@ -1,0 +1,353 @@
+.. index:: pair: group; SHAPE reactivity data
+.. _doxid-group___s_h_a_p_e__reactivities:
+.. _cid-shape_reactivities:
+
+SHAPE reactivity data
+=====================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+Incorporate SHAPE reactivity structure probing data into the folding recursions by means of soft constraints. :ref:`More...<details-doxid-group___s_h_a_p_e__reactivities>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	int :ref:`vrna_sc_add_SHAPE_deigan<doxid-group___s_h_a_p_e__reactivities_1ga57d612b58e1c61dd6cfcb5a843f8f1b3>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const double* reactivities,
+	    double m,
+	    double b,
+	    unsigned int options
+	    )
+
+	int :ref:`vrna_sc_add_SHAPE_deigan_ali<doxid-group___s_h_a_p_e__reactivities_1ga04ba85da63d8c793bb8001d1e6f800ba>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char** shape_files,
+	    const int* shape_file_association,
+	    double m,
+	    double b,
+	    unsigned int options
+	    )
+
+	int :ref:`vrna_sc_add_SHAPE_zarringhalam<doxid-group___s_h_a_p_e__reactivities_1gaf3c65a045060aef5c4e41693d30af58c>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const double* reactivities,
+	    double b,
+	    double default_value,
+	    const char* shape_conversion,
+	    unsigned int options
+	    )
+
+	int :ref:`vrna_sc_SHAPE_to_pr<doxid-group___s_h_a_p_e__reactivities_1ga67675b3ed48744489a3bcfa4174197cb>` (
+	    const char* shape_conversion,
+	    double* values,
+	    int length,
+	    double default_value
+	    )
+
+.. _details-doxid-group___s_h_a_p_e__reactivities:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Incorporate SHAPE reactivity structure probing data into the folding recursions by means of soft constraints.
+
+.. container:: detailed-description
+
+    Details for our implementation to incorporate SHAPE reactivity data to guide secondary structure prediction can be found in :ref:`[13] <doxid-citelist_1CITEREF_lorenz:2016a>`
+
+Global Functions
+----------------
+
+.. _doxid-group___s_h_a_p_e__reactivities_1ga57d612b58e1c61dd6cfcb5a843f8f1b3:
+.. _cid-vrna_sc_add_shape_deigan:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_sc_add_SHAPE_deigan (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const double* reactivities,
+	    double m,
+	    double b,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Add SHAPE reactivity data as soft constraints (Deigan et al. method)
+
+    .. container:: detailed-description
+
+        This approach of SHAPE directed RNA folding uses the simple linear ansatz
+        
+        .. math::
+        
+            \Delta G_{\text{SHAPE}}(i) = m \ln(\text{SHAPE reactivity}(i)+1)+ b
+        
+        to convert SHAPE reactivity values to pseudo energies whenever a nucleotide :math:` i ` contributes to a stacked pair. A positive slope :math:` m ` penalizes high reactivities in paired regions, while a negative intercept :math:` b ` results in a confirmatory ` bonus ' free energy for correctly predicted base pairs. Since the energy evaluation of a base pair stack involves two pairs, the pseudo energies are added for all four contributing nucleotides. Consequently, the energy term is applied twice for pairs inside a helix and only once for pairs adjacent to other structures. For all other loop types the energy model remains unchanged even when the experimental data highly disagrees with a certain motif.
+        
+        SWIG Wrapper Notes This function is attached as method **sc_add_SHAPE_deigan()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the soft constraints are associated with
+        
+            *
+                - reactivities
+        
+                - A vector of normalized SHAPE reactivities
+        
+            *
+                - m
+        
+                - The slope of the conversion function
+        
+            *
+                - b
+        
+                - The intercept of the conversion function
+        
+            *
+                - options
+        
+                - The options flag indicating how/where to store the soft constraints
+        
+        
+        
+        .. rubric:: Returns:
+        
+        1 on successful extraction of the method, 0 on errors
+        
+        
+        
+        .. admonition:: See also:
+        
+            For further details, we refer to :ref:`[4] <doxid-citelist_1CITEREF_deigan:2009>` .
+        
+            :ref:`vrna_sc_remove() <doxid-group__soft__constraints_1ga73cdc07b9a199c614367bebef0f2c41a>` , :ref:`vrna_sc_add_SHAPE_zarringhalam() <doxid-group___s_h_a_p_e__reactivities_1gaf3c65a045060aef5c4e41693d30af58c>` , :ref:`vrna_sc_minimize_pertubation() <doxid-group__perturbation_1gaa124bdc20d88001c38ade590c4bcc3c4>`
+
+.. _doxid-group___s_h_a_p_e__reactivities_1ga04ba85da63d8c793bb8001d1e6f800ba:
+.. _cid-vrna_sc_add_shape_deigan_ali:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_sc_add_SHAPE_deigan_ali (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char** shape_files,
+	    const int* shape_file_association,
+	    double m,
+	    double b,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Add SHAPE reactivity data from files as soft constraints for consensus structure prediction (Deigan et al. method)
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as method **sc_add_SHAPE_deigan_ali()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the soft constraints are associated with
+        
+            *
+                - shape_files
+        
+                - A set of filenames that contain normalized SHAPE reactivity data
+        
+            *
+                - shape_file_association
+        
+                - An array of integers that associate the files with sequences in the alignment
+        
+            *
+                - m
+        
+                - The slope of the conversion function
+        
+            *
+                - b
+        
+                - The intercept of the conversion function
+        
+            *
+                - options
+        
+                - The options flag indicating how/where to store the soft constraints
+        
+        
+        
+        .. rubric:: Returns:
+        
+        1 on successful extraction of the method, 0 on errors
+
+.. _doxid-group___s_h_a_p_e__reactivities_1gaf3c65a045060aef5c4e41693d30af58c:
+.. _cid-vrna_sc_add_shape_zarringhalam:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_sc_add_SHAPE_zarringhalam (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const double* reactivities,
+	    double b,
+	    double default_value,
+	    const char* shape_conversion,
+	    unsigned int options
+	    )
+
+    .. container:: brief-description
+
+        Add SHAPE reactivity data as soft constraints (Zarringhalam et al. method)
+
+    .. container:: detailed-description
+
+        This method first converts the observed SHAPE reactivity of nucleotide :math:` i ` into a probability :math:` q_i ` that position :math:` i ` is unpaired by means of a non-linear map. Then pseudo-energies of the form
+        
+        .. math::
+        
+            \Delta G_{\text{SHAPE}}(x,i) = \beta\ |x_i - q_i|
+        
+        are computed, where :math:` x_i=0 ` if position :math:` i ` is unpaired and :math:` x_i=1 ` if :math:` i ` is paired in a given secondary structure. The parameter :math:` \beta ` serves as scaling factor. The magnitude of discrepancy between prediction and experimental observation is represented by :math:` |x_i - q_i| ` .
+        
+        SWIG Wrapper Notes This function is attached as method **sc_add_SHAPE_zarringhalam()** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` the soft constraints are associated with
+        
+            *
+                - reactivities
+        
+                - A vector of normalized SHAPE reactivities
+        
+            *
+                - b
+        
+                - The scaling factor :math:` \beta ` of the conversion function
+        
+            *
+                - default_value
+        
+                - The default value for a nucleotide where reactivity data is missing for
+        
+            *
+                - shape_conversion
+        
+                - A flag that specifies how to convert reactivities to probabilities
+        
+            *
+                - options
+        
+                - The options flag indicating how/where to store the soft constraints
+        
+        
+        
+        .. rubric:: Returns:
+        
+        1 on successful extraction of the method, 0 on errors
+        
+        
+        
+        .. admonition:: See also:
+        
+            For further details, we refer to :ref:`[22] <doxid-citelist_1CITEREF_zarringhalam:2012>`
+        
+            :ref:`vrna_sc_remove() <doxid-group__soft__constraints_1ga73cdc07b9a199c614367bebef0f2c41a>` , :ref:`vrna_sc_add_SHAPE_deigan() <doxid-group___s_h_a_p_e__reactivities_1ga57d612b58e1c61dd6cfcb5a843f8f1b3>` , :ref:`vrna_sc_minimize_pertubation() <doxid-group__perturbation_1gaa124bdc20d88001c38ade590c4bcc3c4>`
+
+.. _doxid-group___s_h_a_p_e__reactivities_1ga67675b3ed48744489a3bcfa4174197cb:
+.. _cid-vrna_sc_shape_to_pr:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_sc_SHAPE_to_pr (
+	    const char* shape_conversion,
+	    double* values,
+	    int length,
+	    double default_value
+	    )
+
+    .. container:: brief-description
+
+        Convert SHAPE reactivity values to probabilities for being unpaired.
+
+    .. container:: detailed-description
+
+        This function parses the informations from a given file and stores the result in the preallocated string sequence and the :ref:`FLT_OR_DBL <doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` array values.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - shape_conversion
+        
+                - String definining the method used for the conversion process
+        
+            *
+                - values
+        
+                - Pointer to an array of SHAPE reactivities
+        
+            *
+                - length
+        
+                - Length of the array of SHAPE reactivities
+        
+            *
+                - default_value
+        
+                - Result used for position with invalid/missing reactivity values
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_file_SHAPE_read() <doxid-group__file__utils_1ga646ebf45450a69a7f2533f9ecd283a32>`
+

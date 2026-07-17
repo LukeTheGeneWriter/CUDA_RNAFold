@@ -1,0 +1,74 @@
+.. index:: pair: enum; vrna_seq_type_e
+.. _doxid-sequence_8h_1a85cda3fcf5d6bd7ec090d3a96e808609:
+.. _cid-vrna_seq_type_e:
+
+enum vrna_seq_type_e
+====================
+
+
+
+Overview
+~~~~~~~~
+
+A enumerator used in :ref:`vrna_sequence_s <doxid-structvrna__sequence__s>` to distinguish different nucleotide sequences. :ref:`More...<details-doxid-sequence_8h_1a85cda3fcf5d6bd7ec090d3a96e808609>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enum values
+
+	:ref:`VRNA_SEQ_UNKNOWN<doxid-sequence_8h_1a85cda3fcf5d6bd7ec090d3a96e808609ad8682ac290d0dd51022e3b82840e1a74>` 
+	:ref:`VRNA_SEQ_RNA<doxid-sequence_8h_1a85cda3fcf5d6bd7ec090d3a96e808609ac52309234beaf94e6a3bd1b9b69de9f4>` 
+	:ref:`VRNA_SEQ_DNA<doxid-sequence_8h_1a85cda3fcf5d6bd7ec090d3a96e808609a4da1613644c3a3766ef1d6494f271332>` 
+
+.. _details-doxid-sequence_8h_1a85cda3fcf5d6bd7ec090d3a96e808609:
+
+Detailed Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. container:: brief-description
+
+    A enumerator used in :ref:`vrna_sequence_s <doxid-structvrna__sequence__s>` to distinguish different nucleotide sequences.
+
+Enum Values
+-----------
+
+.. _doxid-sequence_8h_1a85cda3fcf5d6bd7ec090d3a96e808609ad8682ac290d0dd51022e3b82840e1a74:
+.. _cid-vrna_seq_type_e::vrna_seq_unknown:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_SEQ_UNKNOWN
+
+    .. container:: brief-description
+
+        Nucleotide sequence represents an Unkown type.
+
+.. _doxid-sequence_8h_1a85cda3fcf5d6bd7ec090d3a96e808609ac52309234beaf94e6a3bd1b9b69de9f4:
+.. _cid-vrna_seq_type_e::vrna_seq_rna:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_SEQ_RNA
+
+    .. container:: brief-description
+
+        Nucleotide sequence represents an RNA type.
+
+.. _doxid-sequence_8h_1a85cda3fcf5d6bd7ec090d3a96e808609a4da1613644c3a3766ef1d6494f271332:
+.. _cid-vrna_seq_type_e::vrna_seq_dna:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_SEQ_DNA
+
+    .. container:: brief-description
+
+        Nucleotide sequence represents a DNA type.
+

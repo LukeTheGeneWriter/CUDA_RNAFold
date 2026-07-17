@@ -1,0 +1,74 @@
+.. index:: pair: struct; dupVar
+.. _doxid-structdup_var:
+.. _cid-dupvar:
+
+struct dupVar
+=============
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+.. container:: brief-description
+
+    Data structure used in RNApkplex.
+
+.. _doxid-structdup_var_1a50ea99c4653c6f2c7e1c60aa30610fd8:
+.. _cid-dupvar::i:
+.. _doxid-structdup_var_1a55013be08c4d13e3e0dbac43227d76da:
+.. _cid-dupvar::j:
+.. _doxid-structdup_var_1aaa663742abecd8e37d062d8c185bd9c5:
+.. _cid-dupvar::end:
+.. _doxid-structdup_var_1a834790e6ae9c6babd3b03126ae161908:
+.. _cid-dupvar::pk_helix:
+.. _doxid-structdup_var_1ac21289fea0518e2db4b50cff0368a4c7:
+.. _cid-dupvar::structure:
+.. _doxid-structdup_var_1a58aa3018ab0d069ee3b83e00c7f6db8a:
+.. _cid-dupvar::energy:
+.. _doxid-structdup_var_1a18c9e7a500f7701d857f5265d0f33145:
+.. _cid-dupvar::offset:
+.. _doxid-structdup_var_1aeb799a6f6873dc4a7a438ff67804a123:
+.. _cid-dupvar::dg1:
+.. _doxid-structdup_var_1a3a9f5b2d5e8cc7fa0b070311f0f360fb:
+.. _cid-dupvar::dg2:
+.. _doxid-structdup_var_1aaeb77285d40c59400d59a6698d737f32:
+.. _cid-dupvar::ddg:
+.. _doxid-structdup_var_1a157631c8507bed5cdc4f4760ab7d24a0:
+.. _cid-dupvar::tb:
+.. _doxid-structdup_var_1ae4b56b08a491a0ec03eba3f4b8120b5c:
+.. _cid-dupvar::te:
+.. _doxid-structdup_var_1a148569653fe6e9f8bc92f34e1da1bcfb:
+.. _cid-dupvar::qb:
+.. _doxid-structdup_var_1a9a3b61653ce27869d66d9a20e7774ce0:
+.. _cid-dupvar::qe:
+.. _doxid-structdup_var_1a3b15616278d5a95fbf1085efa8ee5f26:
+.. _cid-dupvar::inactive:
+.. _doxid-structdup_var_1a18db66f6558422be96063f8e42ccb944:
+.. _cid-dupvar::processed:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int i
+	int j
+	int end
+	char* pk_helix
+	char* structure
+	double energy
+	int offset
+	double dG1
+	double dG2
+	double ddG
+	int tb
+	int te
+	int qb
+	int qe
+	int inactive
+	int processed
+

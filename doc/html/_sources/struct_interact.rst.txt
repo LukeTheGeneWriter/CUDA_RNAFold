@@ -1,0 +1,165 @@
+.. index:: pair: struct; interact
+.. _doxid-structinteract:
+.. _cid-interact:
+
+struct interact
+===============
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+Overview
+--------
+
+interaction data structure for RNAup :ref:`More...<details-doxid-structinteract>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	double* :ref:`Pi<doxid-structinteract_1a1fc8b3860c083f164daa9712690a3a56>`
+	double* :ref:`Gi<doxid-structinteract_1a54f8183542fff4c32ab7ace49a16c02c>`
+	double :ref:`Gikjl<doxid-structinteract_1ad58303190f9e085c3ab59890cbf61223>`
+	double :ref:`Gikjl_wo<doxid-structinteract_1a41793812abae560805414761fec398fe>`
+	int :ref:`i<doxid-structinteract_1ab6d031a21388be8763b75ea74c937f17>`
+	int :ref:`k<doxid-structinteract_1a61e457fbf943d57364be6ddf1b4e7b8a>`
+	int :ref:`j<doxid-structinteract_1a7555cb6363d1479341eb72b9c087aa34>`
+	int :ref:`l<doxid-structinteract_1a030ab45056342e12cb3955e4defd3904>`
+	int :ref:`length<doxid-structinteract_1ac9fcb5dca54ec5faa76e02b6488b9524>`
+
+.. _details-doxid-structinteract:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    interaction data structure for RNAup
+
+Fields
+------
+
+.. _doxid-structinteract_1a1fc8b3860c083f164daa9712690a3a56:
+.. _cid-interact::pi:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double* Pi
+
+    .. container:: brief-description
+
+        probabilities of interaction
+
+.. _doxid-structinteract_1a54f8183542fff4c32ab7ace49a16c02c:
+.. _cid-interact::gi:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double* Gi
+
+    .. container:: brief-description
+
+        free energies of interaction
+
+.. _doxid-structinteract_1ad58303190f9e085c3ab59890cbf61223:
+.. _cid-interact::gikjl:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double Gikjl
+
+    .. container:: brief-description
+
+        full free energy for interaction between [k,i] k<i in longer seq and [j,l] j<l in shorter seq
+
+.. _doxid-structinteract_1a41793812abae560805414761fec398fe:
+.. _cid-interact::gikjl_wo:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double Gikjl_wo
+
+    .. container:: brief-description
+
+        Gikjl without contributions for prob_unpaired.
+
+.. _doxid-structinteract_1ab6d031a21388be8763b75ea74c937f17:
+.. _cid-interact::i:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int i
+
+    .. container:: brief-description
+
+        k<i in longer seq
+
+.. _doxid-structinteract_1a61e457fbf943d57364be6ddf1b4e7b8a:
+.. _cid-interact::k:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int k
+
+    .. container:: brief-description
+
+        k<i in longer seq
+
+.. _doxid-structinteract_1a7555cb6363d1479341eb72b9c087aa34:
+.. _cid-interact::j:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int j
+
+    .. container:: brief-description
+
+        j<l in shorter seq
+
+.. _doxid-structinteract_1a030ab45056342e12cb3955e4defd3904:
+.. _cid-interact::l:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int l
+
+    .. container:: brief-description
+
+        j<l in shorter seq
+
+.. _doxid-structinteract_1ac9fcb5dca54ec5faa76e02b6488b9524:
+.. _cid-interact::length:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int length
+
+    .. container:: brief-description
+
+        length of longer sequence
+

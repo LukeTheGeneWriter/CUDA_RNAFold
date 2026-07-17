@@ -1,0 +1,66 @@
+.. index:: pair: enum; vrna_sc_type_e
+.. _doxid-constraints__soft_8h_1ab926b4d8c342aa5fb2f8f007200635a8:
+.. _cid-vrna_sc_type_e:
+
+enum vrna_sc_type_e
+===================
+
+
+
+Overview
+~~~~~~~~
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enum values
+
+	:ref:`VRNA_SC_DEFAULT<doxid-constraints__soft_8h_1ab926b4d8c342aa5fb2f8f007200635a8a0bd84aa58715eb7fb12cd385c7d27201>` 
+	:ref:`VRNA_SC_WINDOW<doxid-constraints__soft_8h_1ab926b4d8c342aa5fb2f8f007200635a8a4a982ee6f7310949a504cc9f75f34581>` 
+
+.. _details-doxid-constraints__soft_8h_1ab926b4d8c342aa5fb2f8f007200635a8:
+
+Detailed Documentation
+~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+Enum Values
+-----------
+
+.. _doxid-constraints__soft_8h_1ab926b4d8c342aa5fb2f8f007200635a8a0bd84aa58715eb7fb12cd385c7d27201:
+.. _cid-vrna_sc_type_e::vrna_sc_default:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_SC_DEFAULT
+
+    .. container:: brief-description
+
+        Default Soft Constraints.
+
+.. _doxid-constraints__soft_8h_1ab926b4d8c342aa5fb2f8f007200635a8a4a982ee6f7310949a504cc9f75f34581:
+.. _cid-vrna_sc_type_e::vrna_sc_window:
+.. container:: enum-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        VRNA_SC_WINDOW
+
+    .. container:: brief-description
+
+        Soft Constraints suitable for local structure prediction using window approach.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_mfe_window() <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` , :ref:`vrna_mfe_window_zscore() <doxid-group__local__mfe__fold_1gaa4f67ae94efd08d800c17f9b53423fd6>` , :ref:`pfl_fold() <doxid-group__local__pf__fold_1ga7cdf690583871f9c158a0f91d4785cb6>`
+

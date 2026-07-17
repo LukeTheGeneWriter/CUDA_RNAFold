@@ -1,0 +1,35 @@
+.. index:: pair: struct; node
+.. _doxid-structnode:
+.. _cid-node:
+
+struct node
+===========
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+.. container:: brief-description
+
+    Data structure for RNAsnoop (fold energy list)
+
+.. _doxid-structnode_1a0b368c2c0da47aa26492ace9c8c6e778:
+.. _cid-node::k:
+.. _doxid-structnode_1a9ac761dfb5511f78b2a921abc4eb6f44:
+.. _cid-node::energy:
+.. _doxid-structnode_1aa3e8aa83f864292b5a01210f4453fcc0:
+.. _cid-node::next:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int k
+	int energy
+	struct :ref:`node<doxid-structnode>`* next
+

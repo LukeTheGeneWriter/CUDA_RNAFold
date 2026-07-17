@@ -1,0 +1,41 @@
+.. index:: pair: struct; Postorder_list
+.. _doxid-struct_postorder__list:
+.. _cid-postorder_list:
+
+struct Postorder_list
+=====================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/dist_vars.h>
+
+
+.. container:: brief-description
+
+    Postorder data structure.
+
+.. _doxid-struct_postorder__list_1ad343960ea507b59bdca376ac0526e47e:
+.. _cid-postorder_list::type:
+.. _doxid-struct_postorder__list_1a3e51b5eb1abf664a859e19112280abb4:
+.. _cid-postorder_list::weight:
+.. _doxid-struct_postorder__list_1ab41ab9f9394007a89d316e75b76acfab:
+.. _cid-postorder_list::father:
+.. _doxid-struct_postorder__list_1a058d36bce140d937db829fcd2067af9f:
+.. _cid-postorder_list::sons:
+.. _doxid-struct_postorder__list_1a23626266a53e5d2860905d1f16658afc:
+.. _cid-postorder_list::leftmostleaf:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int type
+	int weight
+	int father
+	int sons
+	int leftmostleaf
+

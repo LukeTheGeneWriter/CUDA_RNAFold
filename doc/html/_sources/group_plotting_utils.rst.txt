@@ -1,0 +1,555 @@
+.. index:: pair: group; Functions for Creating Secondary Structure Plots, Dot-Plots, and More
+.. _doxid-group__plotting__utils:
+.. _cid-plotting_utils:
+
+Functions for Creating Secondary Structure Plots, Dot-Plots, and More
+=====================================================================
+
+.. toctree::
+	:hidden:
+
+	group_annotation_utils.rst
+	struct_COORDINATE.rst
+	struct_vrna_dotplot_auxdata_t.rst
+
+
+
+Overview
+--------
+
+
+
+|	:ref:`Functions to generate annotations for Secondary Structure Plots, Dot-Plots, and Others<doxid-group__annotation__utils>`
+
+
+.. _doxid-group__plotting__utils_1ga948111b910926f0405a3fa920c790816:
+.. _cid-naview_xy_coordinates:
+.. _doxid-group__plotting__utils_1ga76b5c0637db9385a553cdd8e66e61eca:
+.. _cid-vrna_file_ps_aln:
+.. _doxid-group__plotting__utils_1ga2881c9b855baff948f92b93262df9ff6:
+.. _cid-vrna_file_ps_aln_sub:
+.. _doxid-group__plotting__utils_1ga45e56b67e3f333f4335197737b5f9822:
+.. _cid-vrna_plot_dp_eps:
+.. _doxid-group__plotting__utils_1ga2f6294599b0fbe8338bec6918c3b1ba7:
+.. _cid-ps_color_dot_plot:
+.. _doxid-group__plotting__utils_1gab3e6bb8fac08c07b32883ae2049aed9d:
+.. _cid-ps_color_dot_plot_turn:
+.. _doxid-group__plotting__utils_1ga3921213b67eb931daeb24451e989f8de:
+.. _cid-vrna_plot_dp_ps_list:
+.. _doxid-group__plotting__utils_1ga5582a502d39ec3bc8d5ba3262102991c:
+.. _cid-ps_dot_plot_turn:
+.. _doxid-group__plotting__utils_1ga598a3330b3c21701223ee0ca14316eca:
+.. _cid-pi:
+.. _doxid-group__plotting__utils_1ga4ffe7c60ebdd6907b33ed6e1808ac465:
+.. _cid-pihalf:
+.. _doxid-group__plotting__utils_1ga7cf7de27166f5c445e2cf0ffc03b1a7a:
+.. _cid-vrna_plot_probabilities_acc:
+.. _doxid-group__plotting__utils_1gacbb7170d7e64a20671b97dafe3825011:
+.. _cid-vrna_plot_probabilities_bp:
+.. _doxid-group__plotting__utils_1gaa3a3d5cf87de5120a93eab3be788b6fb:
+.. _cid-vrna_plot_probabilities_default:
+.. _doxid-group__plotting__utils_1ga886fa0619733b98667111faa56cd03d6:
+.. _cid-vrna_plot_probabilities_sc_bp:
+.. _doxid-group__plotting__utils_1ga228fe1c75b71cb40726b9423d2bed2a9:
+.. _cid-vrna_plot_probabilities_sc_motif:
+.. _doxid-group__plotting__utils_1ga41a92625e75a77555b3f6e3a0ef7b89b:
+.. _cid-vrna_plot_probabilities_sc_up:
+.. _doxid-group__plotting__utils_1ga78f8da179bc3f52b1c1180931ed8b0f7:
+.. _cid-vrna_plot_probabilities_sd:
+.. _doxid-group__plotting__utils_1ga7f35d77121d2080b8c172841248b2060:
+.. _cid-vrna_plot_probabilities_ud:
+.. _doxid-group__plotting__utils_1ga6cce76e1c319a60a8b8e39d8887e2f1a:
+.. _cid-vrna_plot_probabilities_ud_lin:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// structs
+
+	struct :ref:`COORDINATE<doxid-struct_c_o_o_r_d_i_n_a_t_e>` 
+	struct :ref:`vrna_dotplot_auxdata_t<doxid-structvrna__dotplot__auxdata__t>` 
+
+	// global variables
+
+	int :ref:`rna_plot_type<doxid-group__plotting__utils_1ga5964c4581431b098b80027d6e14dcdd4>`
+
+	// global functions
+
+	int naview_xy_coordinates (
+	    short* pair_table,
+	    float* X,
+	    float* Y
+	    )
+
+	int :ref:`PS_color_aln<doxid-group__plotting__utils_1ga821802c3685e37e15182341f6217470d>` (
+	    const char* structure,
+	    const char* filename,
+	    const char* seqs [],
+	    const char* names []
+	    )
+
+	int vrna_file_PS_aln (
+	    const char* filename,
+	    const char** seqs,
+	    const char** names,
+	    const char* structure,
+	    int columns
+	    )
+
+	int vrna_file_PS_aln_sub (
+	    const char* filename,
+	    const char** seqs,
+	    const char** names,
+	    const char* structure,
+	    int start,
+	    int end,
+	    int columns
+	    )
+
+	int :ref:`aliPS_color_aln<doxid-group__plotting__utils_1gaab48d4dac655d688abe921389ac2847c>` (
+	    const char* structure,
+	    const char* filename,
+	    const char* seqs [],
+	    const char* names []
+	    )
+
+	int :ref:`simple_xy_coordinates<doxid-group__plotting__utils_1gaf4b9173e7d3fd361c3c85e6def194123>` (
+	    short* pair_table,
+	    float* X,
+	    float* Y
+	    )
+
+	int :ref:`simple_circplot_coordinates<doxid-group__plotting__utils_1gac4ea13d35308f09940178d2b05a248c2>` (
+	    short* pair_table,
+	    float* x,
+	    float* y
+	    )
+
+	int vrna_plot_dp_EPS (
+	    const char* filename,
+	    const char* sequence,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* upper,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* lower,
+	    :ref:`vrna_dotplot_auxdata_t<doxid-structvrna__dotplot__auxdata__t>`* auxdata,
+	    unsigned int options
+	    )
+
+	int PS_color_dot_plot (
+	    char* string,
+	    :ref:`cpair<doxid-group__data__structures_1ga8412f116a2eb07b59ade9e14ca7c5ef1>`* pi,
+	    char* filename
+	    )
+
+	int PS_color_dot_plot_turn (
+	    char* seq,
+	    :ref:`cpair<doxid-group__data__structures_1ga8412f116a2eb07b59ade9e14ca7c5ef1>`* pi,
+	    char* filename,
+	    int winSize
+	    )
+
+	int :ref:`PS_dot_plot_list<doxid-group__plotting__utils_1ga00ea223b5cf02eb2faae5ff29f0d5e12>` (
+	    char* seq,
+	    char* filename,
+	    :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* pl,
+	    :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* mf,
+	    char* comment
+	    )
+
+	int vrna_plot_dp_PS_list (
+	    char* seq,
+	    int cp,
+	    char* wastlfile,
+	    :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* pl,
+	    :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* mf,
+	    char* comment
+	    )
+
+	int PS_dot_plot_turn (
+	    char* seq,
+	    :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* pl,
+	    char* filename,
+	    int winSize
+	    )
+
+	int :ref:`PS_dot_plot<doxid-group__plotting__utils_1ga689a97a7e3b8a2df14728b8204d9d57b>` (
+	    char* string,
+	    char* file
+	    )
+
+	// macros
+
+	#define PI
+	#define PIHALF
+	#define VRNA_PLOT_PROBABILITIES_ACC
+	#define VRNA_PLOT_PROBABILITIES_BP
+	#define VRNA_PLOT_PROBABILITIES_DEFAULT
+	#define VRNA_PLOT_PROBABILITIES_SC_BP
+	#define VRNA_PLOT_PROBABILITIES_SC_MOTIF
+	#define VRNA_PLOT_PROBABILITIES_SC_UP
+	#define VRNA_PLOT_PROBABILITIES_SD
+	#define VRNA_PLOT_PROBABILITIES_UD
+	#define VRNA_PLOT_PROBABILITIES_UD_LIN
+	#define :ref:`VRNA_PLOT_TYPE_CIRCULAR<doxid-group__plotting__utils_1ga8c9eac631348da92136c8363ecdd9fb9>`
+	#define :ref:`VRNA_PLOT_TYPE_NAVIEW<doxid-group__plotting__utils_1ga94d4c863ecac2f220f76658afb92f964>`
+	#define :ref:`VRNA_PLOT_TYPE_SIMPLE<doxid-group__plotting__utils_1gae6d17b9f0a53cf5205a9181e0f8422e9>`
+
+.. _details-doxid-group__plotting__utils:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Variables
+----------------
+
+.. _doxid-group__plotting__utils_1ga5964c4581431b098b80027d6e14dcdd4:
+.. _cid-rna_plot_type:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int rna_plot_type
+
+    .. container:: brief-description
+
+        Switch for changing the secondary structure layout algorithm.
+
+    .. container:: detailed-description
+
+        Current possibility are 0 for a simple radial drawing or 1 for the modified radial drawing taken from the *naview* program of :ref:`[3] <doxid-citelist_1CITEREF_bruccoleri:1988>` .
+        
+        
+        
+        .. note::
+        
+            To provide thread safety please do not rely on this global variable in future implementations but pass a plot type flag directly to the function that decides which layout algorithm it may use!
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`VRNA_PLOT_TYPE_SIMPLE <doxid-group__plotting__utils_1gae6d17b9f0a53cf5205a9181e0f8422e9>` , :ref:`VRNA_PLOT_TYPE_NAVIEW <doxid-group__plotting__utils_1ga94d4c863ecac2f220f76658afb92f964>` , :ref:`VRNA_PLOT_TYPE_CIRCULAR <doxid-group__plotting__utils_1ga8c9eac631348da92136c8363ecdd9fb9>`
+
+Global Functions
+----------------
+
+.. _doxid-group__plotting__utils_1ga821802c3685e37e15182341f6217470d:
+.. _cid-ps_color_aln:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int PS_color_aln (
+	    const char* structure,
+	    const char* filename,
+	    const char* seqs [],
+	    const char* names []
+	    )
+
+    .. container:: brief-description
+
+        Produce PostScript sequence alignment color-annotated by consensus structure.
+
+.. _doxid-group__plotting__utils_1gaab48d4dac655d688abe921389ac2847c:
+.. _cid-alips_color_aln:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int aliPS_color_aln (
+	    const char* structure,
+	    const char* filename,
+	    const char* seqs [],
+	    const char* names []
+	    )
+
+    .. container:: detailed-description
+
+        PS_color_aln for duplexes
+
+.. _doxid-group__plotting__utils_1gaf4b9173e7d3fd361c3c85e6def194123:
+.. _cid-simple_xy_coordinates:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int simple_xy_coordinates (
+	    short* pair_table,
+	    float* X,
+	    float* Y
+	    )
+
+    .. container:: brief-description
+
+        Calculate nucleotide coordinates for secondary structure plot the *Simple way*
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pair_table
+        
+                - The pair table of the secondary structure
+        
+            *
+                - X
+        
+                - a pointer to an array with enough allocated space to hold the x coordinates
+        
+            *
+                - Y
+        
+                - a pointer to an array with enough allocated space to hold the y coordinates
+        
+        
+        
+        .. rubric:: Returns:
+        
+        length of sequence on success, 0 otherwise
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`make_pair_table() <doxid-group__struct__utils_1ga89c32307ee50a0026f4a3131fac0845a>` , :ref:`rna_plot_type <doxid-group__plotting__utils_1ga5964c4581431b098b80027d6e14dcdd4>` , :ref:`simple_circplot_coordinates() <doxid-group__plotting__utils_1gac4ea13d35308f09940178d2b05a248c2>` , :ref:`naview_xy_coordinates() <doxid-group__plotting__utils_1ga948111b910926f0405a3fa920c790816>` , :ref:`vrna_file_PS_rnaplot_a() <doxid-plot__structure_8h_1a139a31dd0ba9fc6612431f67de901c31>` , :ref:`vrna_file_PS_rnaplot <doxid-plot__structure_8h_1abdc8f6548ba4a3bc3cd868ccbcfdb86a>` , :ref:`svg_rna_plot() <doxid-plot__structure_8h_1ae7853539b5df98f294b4af434e979304>`
+
+.. _doxid-group__plotting__utils_1gac4ea13d35308f09940178d2b05a248c2:
+.. _cid-simple_circplot_coordinates:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int simple_circplot_coordinates (
+	    short* pair_table,
+	    float* x,
+	    float* y
+	    )
+
+    .. container:: brief-description
+
+        Calculate nucleotide coordinates for *Circular Plot*
+
+    .. container:: detailed-description
+
+        This function calculates the coordinates of nucleotides mapped in equal distancies onto a unit circle.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pair_table
+        
+                - The pair table of the secondary structure
+        
+            *
+                - x
+        
+                - a pointer to an array with enough allocated space to hold the x coordinates
+        
+            *
+                - y
+        
+                - a pointer to an array with enough allocated space to hold the y coordinates
+        
+        
+        
+        .. rubric:: Returns:
+        
+        length of sequence on success, 0 otherwise
+        
+        
+        
+        .. note::
+        
+            In order to draw nice arcs using quadratic bezier curves that connect base pairs one may calculate a second tangential point :math:`P^t` in addition to the actual R 2 coordinates. the simplest way to do so may be to compute a radius scaling factor :math:`rs` in the interval :math:`[0,1]` that weights the proportion of base pair span to the actual length of the sequence. This scaling factor can then be used to calculate the coordinates for :math:`P^t` , i.e. :math:` P^{t}_x[i] = X[i] * rs` and :math:`P^{t}_y[i] = Y[i] * rs` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`make_pair_table() <doxid-group__struct__utils_1ga89c32307ee50a0026f4a3131fac0845a>` , :ref:`rna_plot_type <doxid-group__plotting__utils_1ga5964c4581431b098b80027d6e14dcdd4>` , :ref:`simple_xy_coordinates() <doxid-group__plotting__utils_1gaf4b9173e7d3fd361c3c85e6def194123>` , :ref:`naview_xy_coordinates() <doxid-group__plotting__utils_1ga948111b910926f0405a3fa920c790816>` , :ref:`vrna_file_PS_rnaplot_a() <doxid-plot__structure_8h_1a139a31dd0ba9fc6612431f67de901c31>` , :ref:`vrna_file_PS_rnaplot <doxid-plot__structure_8h_1abdc8f6548ba4a3bc3cd868ccbcfdb86a>` , :ref:`svg_rna_plot() <doxid-plot__structure_8h_1ae7853539b5df98f294b4af434e979304>`
+
+.. _doxid-group__plotting__utils_1ga00ea223b5cf02eb2faae5ff29f0d5e12:
+.. _cid-ps_dot_plot_list:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int PS_dot_plot_list (
+	    char* seq,
+	    char* filename,
+	    :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* pl,
+	    :ref:`plist<doxid-group__data__structures_1ga9608eed021ebfbdd7a901cfdc446c8e9>`* mf,
+	    char* comment
+	    )
+
+    .. container:: brief-description
+
+        Produce a postscript dot-plot from two pair lists.
+
+    .. container:: detailed-description
+
+        This function reads two plist structures (e.g. base pair probabilities and a secondary structure) as produced by :ref:`assign_plist_from_pr() <doxid-group__pf__fold_1ga1cc05aaa9b0e7df2d3887e98321c2030>` and :ref:`assign_plist_from_db() <doxid-group__struct__utils_1gab61df77cf7949cd516181fce0c3d7d78>` and produces a postscript "dot plot" that is written to 'filename'.
+        
+        Using base pair probabilities in the first and mfe structure in the second plist, the resulting "dot plot" represents each base pairing probability by a square of corresponding area in a upper triangle matrix. The lower part of the matrix contains the minimum free energy structure.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - The RNA sequence
+        
+            *
+                - filename
+        
+                - A filename for the postscript output
+        
+            *
+                - pl
+        
+                - The base pair probability pairlist
+        
+            *
+                - mf
+        
+                - The mfe secondary structure pairlist
+        
+            *
+                - comment
+        
+                - A comment
+        
+        
+        
+        .. rubric:: Returns:
+        
+        1 if postscript was successfully written, 0 otherwise
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`assign_plist_from_pr() <doxid-group__pf__fold_1ga1cc05aaa9b0e7df2d3887e98321c2030>` , :ref:`assign_plist_from_db() <doxid-group__struct__utils_1gab61df77cf7949cd516181fce0c3d7d78>`
+
+.. _doxid-group__plotting__utils_1ga689a97a7e3b8a2df14728b8204d9d57b:
+.. _cid-ps_dot_plot:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int PS_dot_plot (
+	    char* string,
+	    char* file
+	    )
+
+    .. container:: brief-description
+
+        Produce postscript dot-plot.
+
+    .. container:: detailed-description
+
+        Wrapper to PS_dot_plot_list
+        
+        Reads base pair probabilities produced by :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` from the global array :ref:`pr <doxid-fold__vars_8h_1ac98ec419070aee6831b44e5c700f090f>` and the pair list :ref:`base_pair <doxid-fold__vars_8h_1a0244a629b5ab4f58b77590c3dfd130dc>` produced by :ref:`fold() <doxid-group__mfe__fold__single_1gaadafcb0f140795ae62e5ca027e335a9b>` and produces a postscript "dot plot" that is written to 'filename'. The "dot plot" represents each base pairing probability by a square of corresponding area in a upper triangle matrix. The lower part of the matrix contains the minimum free energy Deprecated This function is deprecated and will be removed soon! Use :ref:`PS_dot_plot_list() <doxid-group__plotting__utils_1ga00ea223b5cf02eb2faae5ff29f0d5e12>` instead!
+        
+        
+        
+        .. note::
+        
+            DO NOT USE THIS FUNCTION ANYMORE SINCE IT IS NOT THREADSAFE
+
+Macros
+------
+
+.. _doxid-group__plotting__utils_1ga8c9eac631348da92136c8363ecdd9fb9:
+.. _cid-vrna_plot_type_circular:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PLOT_TYPE_CIRCULAR
+
+    .. container:: brief-description
+
+        Definition of Plot type *Circular*
+
+    .. container:: detailed-description
+
+        This is the plot type definition for several RNA structure plotting functions telling them to produce a **Circular plot**
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`rna_plot_type <doxid-group__plotting__utils_1ga5964c4581431b098b80027d6e14dcdd4>` , :ref:`vrna_file_PS_rnaplot_a() <doxid-plot__structure_8h_1a139a31dd0ba9fc6612431f67de901c31>` , :ref:`vrna_file_PS_rnaplot() <doxid-plot__structure_8h_1abdc8f6548ba4a3bc3cd868ccbcfdb86a>` , :ref:`svg_rna_plot() <doxid-plot__structure_8h_1ae7853539b5df98f294b4af434e979304>` , :ref:`gmlRNA() <doxid-plot__structure_8h_1a70834bc8c0aad4fe6824ff76ccb8f329>` , :ref:`ssv_rna_plot() <doxid-plot__structure_8h_1add368528755f9a830727b680243541df>` , :ref:`xrna_plot() <doxid-plot__structure_8h_1a2f6d5953e6a323df898896b8d6614483>`
+
+.. _doxid-group__plotting__utils_1ga94d4c863ecac2f220f76658afb92f964:
+.. _cid-vrna_plot_type_naview:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PLOT_TYPE_NAVIEW
+
+    .. container:: brief-description
+
+        Definition of Plot type *Naview*
+
+    .. container:: detailed-description
+
+        This is the plot type definition for several RNA structure plotting functions telling them to use **Naview** plotting algorithm
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`rna_plot_type <doxid-group__plotting__utils_1ga5964c4581431b098b80027d6e14dcdd4>` , :ref:`vrna_file_PS_rnaplot_a() <doxid-plot__structure_8h_1a139a31dd0ba9fc6612431f67de901c31>` , :ref:`vrna_file_PS_rnaplot() <doxid-plot__structure_8h_1abdc8f6548ba4a3bc3cd868ccbcfdb86a>` , :ref:`svg_rna_plot() <doxid-plot__structure_8h_1ae7853539b5df98f294b4af434e979304>` , :ref:`gmlRNA() <doxid-plot__structure_8h_1a70834bc8c0aad4fe6824ff76ccb8f329>` , :ref:`ssv_rna_plot() <doxid-plot__structure_8h_1add368528755f9a830727b680243541df>` , :ref:`xrna_plot() <doxid-plot__structure_8h_1a2f6d5953e6a323df898896b8d6614483>`
+
+.. _doxid-group__plotting__utils_1gae6d17b9f0a53cf5205a9181e0f8422e9:
+.. _cid-vrna_plot_type_simple:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PLOT_TYPE_SIMPLE
+
+    .. container:: brief-description
+
+        Definition of Plot type *simple*
+
+    .. container:: detailed-description
+
+        This is the plot type definition for several RNA structure plotting functions telling them to use **Simple** plotting algorithm
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`rna_plot_type <doxid-group__plotting__utils_1ga5964c4581431b098b80027d6e14dcdd4>` , :ref:`vrna_file_PS_rnaplot_a() <doxid-plot__structure_8h_1a139a31dd0ba9fc6612431f67de901c31>` , :ref:`vrna_file_PS_rnaplot() <doxid-plot__structure_8h_1abdc8f6548ba4a3bc3cd868ccbcfdb86a>` , :ref:`svg_rna_plot() <doxid-plot__structure_8h_1ae7853539b5df98f294b4af434e979304>` , :ref:`gmlRNA() <doxid-plot__structure_8h_1a70834bc8c0aad4fe6824ff76ccb8f329>` , :ref:`ssv_rna_plot() <doxid-plot__structure_8h_1add368528755f9a830727b680243541df>` , :ref:`xrna_plot() <doxid-plot__structure_8h_1a2f6d5953e6a323df898896b8d6614483>`
+

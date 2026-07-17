@@ -1,0 +1,785 @@
+.. index:: pair: group; Partition Function and Equilibrium Probabilities for Locally Stable Secondary Structures
+.. _doxid-group__local__pf__fold:
+.. _cid-local_pf_fold:
+
+Partition Function and Equilibrium Probabilities for Locally Stable Secondary Structures
+========================================================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. _doxid-group__local__pf__fold_1gab5aa36df48576d25cd42aea2c0bd021d:
+.. _cid-update_pf_paramslp_par:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	:ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* :ref:`vrna_pfl_fold<doxid-group__local__pf__fold_1ga6267230f20cab0e2315375310b4dad85>` (
+	    const char* sequence,
+	    int window_size,
+	    int max_bp_span,
+	    float cutoff
+	    )
+
+	void :ref:`vrna_pfl_fold_cb<doxid-group__local__pf__fold_1ga8dc3788e66420f524f2bfc0b685a939d>` (
+	    const char* sequence,
+	    int window_size,
+	    int max_bp_span,
+	    :ref:`vrna_probs_window_callback<doxid-_l_pfold_8h_1abe710a1182e6db69cc75329dfc9bed67>`* cb,
+	    void* data
+	    )
+
+	double** :ref:`vrna_pfl_fold_up<doxid-group__local__pf__fold_1ga1dd5c51b797c961124912e289bff553a>` (
+	    const char* sequence,
+	    int ulength,
+	    int window_size,
+	    int max_bp_span
+	    )
+
+	void :ref:`vrna_pfl_fold_up_cb<doxid-group__local__pf__fold_1ga8958d91b1f1aebfb32b58805d141ccf3>` (
+	    const char* sequence,
+	    int ulength,
+	    int window_size,
+	    int max_bp_span,
+	    :ref:`vrna_probs_window_callback<doxid-_l_pfold_8h_1abe710a1182e6db69cc75329dfc9bed67>`* cb,
+	    void* data
+	    )
+
+	void :ref:`vrna_probs_window<doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* fc,
+	    int ulength,
+	    unsigned int options,
+	    :ref:`vrna_probs_window_callback<doxid-_l_pfold_8h_1abe710a1182e6db69cc75329dfc9bed67>`* cb,
+	    void* data
+	    )
+
+	void :ref:`update_pf_paramsLP<doxid-group__local__pf__fold_1ga5a019014d37fe6105131dfc2fc447880>` (int length)
+
+	void update_pf_paramsLP_par (
+	    int length,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* parameters
+	    )
+
+	:ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* :ref:`pfl_fold<doxid-group__local__pf__fold_1ga7cdf690583871f9c158a0f91d4785cb6>` (
+	    char* sequence,
+	    int winSize,
+	    int pairSize,
+	    float cutoffb,
+	    double** pU,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** dpp2,
+	    FILE* pUfp,
+	    FILE* spup
+	    )
+
+	:ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* :ref:`pfl_fold_par<doxid-group__local__pf__fold_1gaedf355f07b3d83bc93f98712132571b0>` (
+	    char* sequence,
+	    int winSize,
+	    int pairSize,
+	    float cutoffb,
+	    double** pU,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** dpp2,
+	    FILE* pUfp,
+	    FILE* spup,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* parameters
+	    )
+
+	void :ref:`putoutpU_prob<doxid-group__local__pf__fold_1ga0bcb751860bbf34e3dfee8c2fbdb3ef3>` (
+	    double** pU,
+	    int length,
+	    int ulength,
+	    FILE* fp,
+	    int energies
+	    )
+
+	void :ref:`putoutpU_prob_bin<doxid-group__local__pf__fold_1ga9acb00ee10e96b1ca4ea394cd8bcec75>` (
+	    double** pU,
+	    int length,
+	    int ulength,
+	    FILE* fp,
+	    int energies
+	    )
+
+	// macros
+
+	#define :ref:`VRNA_PROBS_WINDOW_BPP<doxid-group__local__pf__fold_1ga296217b76e76e5f7e6927e7210aa9b1f>`
+	#define :ref:`VRNA_PROBS_WINDOW_STACKP<doxid-group__local__pf__fold_1ga0a13fc668b02f21b225e2334e4caac08>`
+	#define :ref:`VRNA_PROBS_WINDOW_UP<doxid-group__local__pf__fold_1ga18325811c7dfc7b7d9d4ac37f4353615>`
+	#define :ref:`VRNA_PROBS_WINDOW_UP_SPLIT<doxid-group__local__pf__fold_1ga9068f4ec008bf1c042a9357f5c2c5e13>`
+
+.. _details-doxid-group__local__pf__fold:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__local__pf__fold_1ga6267230f20cab0e2315375310b4dad85:
+.. _cid-vrna_pfl_fold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* vrna_pfl_fold (
+	    const char* sequence,
+	    int window_size,
+	    int max_bp_span,
+	    float cutoff
+	    )
+
+    .. container:: brief-description
+
+        Compute base pair probabilities using a sliding-window approach.
+
+    .. container:: detailed-description
+
+        This is a simplified wrapper to :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` that given a nucleid acid sequence, a window size, a maximum base pair span, and a cutoff value computes the pair probabilities for any base pair in any window. The pair probabilities are returned as a list and the user has to take care to free() the memory occupied by the list.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The nucleic acid input sequence
+        
+            *
+                - window_size
+        
+                - The size of the sliding window
+        
+            *
+                - max_bp_span
+        
+                - The maximum distance along the backbone between two nucleotides that form a base pairs
+        
+            *
+                - cutoff
+        
+                - A cutoff value that omits all pairs with lower probability
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A list of base pair probabilities, terminated by an entry with :ref:`vrna_ep_t.i <doxid-structvrna__elem__prob__s_1a0f8bb11ded4e605f816d7ad92eb568f6>` and :ref:`vrna_ep_t.j <doxid-structvrna__elem__prob__s_1acada5be62ed6843334a918ca543f0c0d>` set to 0
+        
+        
+        
+        .. note::
+        
+            This function uses default model settings! For custom model settings, we refer to the function :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` , :ref:`vrna_pfl_fold_cb() <doxid-group__local__pf__fold_1ga8dc3788e66420f524f2bfc0b685a939d>` , :ref:`vrna_pfl_fold_up() <doxid-group__local__pf__fold_1ga1dd5c51b797c961124912e289bff553a>`
+
+.. _doxid-group__local__pf__fold_1ga8dc3788e66420f524f2bfc0b685a939d:
+.. _cid-vrna_pfl_fold_cb:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_pfl_fold_cb (
+	    const char* sequence,
+	    int window_size,
+	    int max_bp_span,
+	    :ref:`vrna_probs_window_callback<doxid-_l_pfold_8h_1abe710a1182e6db69cc75329dfc9bed67>`* cb,
+	    void* data
+	    )
+
+    .. container:: brief-description
+
+        Compute base pair probabilities using a sliding-window approach (callback version)
+
+    .. container:: detailed-description
+
+        This is a simplified wrapper to :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` that given a nucleid acid sequence, a window size, a maximum base pair span, and a cutoff value computes the pair probabilities for any base pair in any window. It is similar to :ref:`vrna_pfl_fold() <doxid-group__local__pf__fold_1ga6267230f20cab0e2315375310b4dad85>` but uses a callback mechanism to return the pair probabilities.
+        
+        Read the details for :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` for details on the callback implementation!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The nucleic acid input sequence
+        
+            *
+                - window_size
+        
+                - The size of the sliding window
+        
+            *
+                - max_bp_span
+        
+                - The maximum distance along the backbone between two nucleotides that form a base pairs
+        
+            *
+                - cb
+        
+                - The callback function which collects the pair probability data for further processing
+        
+            *
+                - data
+        
+                - Some arbitrary data structure that is passed to the callback ``cb``
+        
+        
+        
+        .. note::
+        
+            This function uses default model settings! For custom model settings, we refer to the function :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` , :ref:`vrna_pfl_fold() <doxid-group__local__pf__fold_1ga6267230f20cab0e2315375310b4dad85>` , :ref:`vrna_pfl_fold_up_cb() <doxid-group__local__pf__fold_1ga8958d91b1f1aebfb32b58805d141ccf3>`
+
+.. _doxid-group__local__pf__fold_1ga1dd5c51b797c961124912e289bff553a:
+.. _cid-vrna_pfl_fold_up:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double** vrna_pfl_fold_up (
+	    const char* sequence,
+	    int ulength,
+	    int window_size,
+	    int max_bp_span
+	    )
+
+    .. container:: brief-description
+
+        Compute probability of contiguous unpaired segments.
+
+    .. container:: detailed-description
+
+        This is a simplified wrapper to :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` that given a nucleic acid sequence, a maximum length of unpaired segments ( ``ulength`` ), a window size, and a maximum base pair span computes the equilibrium probability of any segment not exceeding ``ulength`` . The probabilities to be unpaired are returned as a 1-based, 2-dimensional matrix with dimensions :math:` N \times M ` , where :math:`N` is the length of the sequence and :math:`M` is the maximum segment length. As an example, the probability of a segment of size 5 starting at position 100 is stored in the matrix entry :math:`X[100][5]` .
+        
+        It is the users responsibility to free the memory occupied by this matrix.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The nucleic acid input sequence
+        
+            *
+                - ulength
+        
+                - The maximal length of an unpaired segment
+        
+            *
+                - window_size
+        
+                - The size of the sliding window
+        
+            *
+                - max_bp_span
+        
+                - The maximum distance along the backbone between two nucleotides that form a base pairs
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The probabilities to be unpaired for any segment not exceeding ``ulength``
+        
+        
+        
+        .. note::
+        
+            This function uses default model settings! For custom model settings, we refer to the function :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` .
+
+.. _doxid-group__local__pf__fold_1ga8958d91b1f1aebfb32b58805d141ccf3:
+.. _cid-vrna_pfl_fold_up_cb:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_pfl_fold_up_cb (
+	    const char* sequence,
+	    int ulength,
+	    int window_size,
+	    int max_bp_span,
+	    :ref:`vrna_probs_window_callback<doxid-_l_pfold_8h_1abe710a1182e6db69cc75329dfc9bed67>`* cb,
+	    void* data
+	    )
+
+    .. container:: brief-description
+
+        Compute probability of contiguous unpaired segments.
+
+    .. container:: detailed-description
+
+        This is a simplified wrapper to :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` that given a nucleic acid sequence, a maximum length of unpaired segments ( ``ulength`` ), a window size, and a maximum base pair span computes the equilibrium probability of any segment not exceeding ``ulength`` . It is similar to :ref:`vrna_pfl_fold_up() <doxid-group__local__pf__fold_1ga1dd5c51b797c961124912e289bff553a>` but uses a callback mechanism to return the unpaired probabilities.
+        
+        Read the details for :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` for details on the callback implementation!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The nucleic acid input sequence
+        
+            *
+                - ulength
+        
+                - The maximal length of an unpaired segment
+        
+            *
+                - window_size
+        
+                - The size of the sliding window
+        
+            *
+                - max_bp_span
+        
+                - The maximum distance along the backbone between two nucleotides that form a base pairs
+        
+            *
+                - cb
+        
+                - The callback function which collects the pair probability data for further processing
+        
+            *
+                - data
+        
+                - Some arbitrary data structure that is passed to the callback ``cb``
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The probabilities to be unpaired for any segment not exceeding ``ulength``
+        
+        
+        
+        .. note::
+        
+            This function uses default model settings! For custom model settings, we refer to the function :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` .
+
+.. _doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137:
+.. _cid-vrna_probs_window:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void vrna_probs_window (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* fc,
+	    int ulength,
+	    unsigned int options,
+	    :ref:`vrna_probs_window_callback<doxid-_l_pfold_8h_1abe710a1182e6db69cc75329dfc9bed67>`* cb,
+	    void* data
+	    )
+
+    .. container:: brief-description
+
+        Compute various equilibrium probabilities under a sliding window approach.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - fc
+        
+                - The fold compound with sequence data, model settings and precomputed energy parameters
+        
+            *
+                - ulength
+        
+                - The maximal length of an unpaired segment (only for unpaired probability computations)
+        
+            *
+                - cb
+        
+                - The callback function which collects the pair probability data for further processing
+        
+            *
+                - data
+        
+                - Some arbitrary data structure that is passed to the callback ``cb``
+        
+            *
+                - options
+        
+                - Option flags to control the behavior of this function
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_pfl_fold_cb() <doxid-group__local__pf__fold_1ga8dc3788e66420f524f2bfc0b685a939d>` , :ref:`vrna_pfl_fold_up_cb() <doxid-group__local__pf__fold_1ga8958d91b1f1aebfb32b58805d141ccf3>` , :ref:`VRNA_PROBS_WINDOW_BPP <doxid-group__local__pf__fold_1ga296217b76e76e5f7e6927e7210aa9b1f>` , :ref:`VRNA_PROBS_WINDOW_UP <doxid-group__local__pf__fold_1ga18325811c7dfc7b7d9d4ac37f4353615>` , :ref:`VRNA_PROBS_WINDOW_UP_SPLIT <doxid-group__local__pf__fold_1ga9068f4ec008bf1c042a9357f5c2c5e13>`
+
+.. _doxid-group__local__pf__fold_1ga5a019014d37fe6105131dfc2fc447880:
+.. _cid-update_pf_paramslp:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void update_pf_paramsLP (int length)
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - length
+        
+                -
+
+.. _doxid-group__local__pf__fold_1ga7cdf690583871f9c158a0f91d4785cb6:
+.. _cid-pfl_fold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* pfl_fold (
+	    char* sequence,
+	    int winSize,
+	    int pairSize,
+	    float cutoffb,
+	    double** pU,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** dpp2,
+	    FILE* pUfp,
+	    FILE* spup
+	    )
+
+    .. container:: brief-description
+
+        Compute partition functions for locally stable secondary structures.
+
+    .. container:: detailed-description
+
+        pfl_fold computes partition functions for every window of size 'winSize' possible in a RNA molecule, allowing only pairs with a span smaller than 'pairSize'. It returns the mean pair probabilities averaged over all windows containing the pair in 'pl'. 'winSize' should always be >= 'pairSize'. Note that in contrast to :ref:`Lfold() <doxid-group__local__mfe__fold_1ga16e5a70e60835bb969eaecbe6482f1be>` , bases outside of the window do not influence the structure at all. Only probabilities higher than 'cutoffb' are kept.
+        
+        If 'pU' is supplied (i.e is not the NULL pointer), :ref:`pfl_fold() <doxid-group__local__pf__fold_1ga7cdf690583871f9c158a0f91d4785cb6>` will also compute the mean probability that regions of length 'u' and smaller are unpaired. The parameter 'u' is supplied in 'pup[0][0]'. On return the 'pup' array will contain these probabilities, with the entry on 'pup[x][y]' containing the mean probability that x and the y-1 preceding bases are unpaired. The 'pU' array needs to be large enough to hold n+1 float* entries, where n is the sequence length.
+        
+        If an array dpp2 is supplied, the probability of base pair (i,j) given that there already exists a base pair (i+1,j-1) is also computed and saved in this array. If pUfp is given (i.e. not NULL), pU is not saved but put out imediately. If spup is given (i.e. is not NULL), the pair probabilities in pl are not saved but put out imediately.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - RNA sequence
+        
+            *
+                - winSize
+        
+                - size of the window
+        
+            *
+                - pairSize
+        
+                - maximum size of base pair
+        
+            *
+                - cutoffb
+        
+                - cutoffb for base pairs
+        
+            *
+                - pU
+        
+                - array holding all unpaired probabilities
+        
+            *
+                - dpp2
+        
+                - array of dependent pair probabilities
+        
+            *
+                - pUfp
+        
+                - file pointer for pU
+        
+            *
+                - spup
+        
+                - file pointer for pair probabilities
+        
+        
+        
+        .. rubric:: Returns:
+        
+        list of pair probabilities
+
+.. _doxid-group__local__pf__fold_1gaedf355f07b3d83bc93f98712132571b0:
+.. _cid-pfl_fold_par:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`* pfl_fold_par (
+	    char* sequence,
+	    int winSize,
+	    int pairSize,
+	    float cutoffb,
+	    double** pU,
+	    :ref:`vrna_ep_t<doxid-group__struct__utils_1gab9ac98ab55ded9fb90043b024b915aca>`** dpp2,
+	    FILE* pUfp,
+	    FILE* spup,
+	    :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* parameters
+	    )
+
+    .. container:: brief-description
+
+        Compute partition functions for locally stable secondary structures.
+
+.. _doxid-group__local__pf__fold_1ga0bcb751860bbf34e3dfee8c2fbdb3ef3:
+.. _cid-putoutpu_prob:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void putoutpU_prob (
+	    double** pU,
+	    int length,
+	    int ulength,
+	    FILE* fp,
+	    int energies
+	    )
+
+    .. container:: brief-description
+
+        Writes the unpaired probabilities (pU) or opening energies into a file.
+
+    .. container:: detailed-description
+
+        Can write either the unpaired probabilities (accessibilities) pU or the opening energies -log(pU)kT into a file
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pU
+        
+                - pair probabilities
+        
+            *
+                - length
+        
+                - length of RNA sequence
+        
+            *
+                - ulength
+        
+                - maximum length of unpaired stretch
+        
+            *
+                - fp
+        
+                - file pointer of destination file
+        
+            *
+                - energies
+        
+                - switch to put out as opening energies
+
+.. _doxid-group__local__pf__fold_1ga9acb00ee10e96b1ca4ea394cd8bcec75:
+.. _cid-putoutpu_prob_bin:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void putoutpU_prob_bin (
+	    double** pU,
+	    int length,
+	    int ulength,
+	    FILE* fp,
+	    int energies
+	    )
+
+    .. container:: brief-description
+
+        Writes the unpaired probabilities (pU) or opening energies into a binary file.
+
+    .. container:: detailed-description
+
+        Can write either the unpaired probabilities (accessibilities) pU or the opening energies -log(pU)kT into a file
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - pU
+        
+                - pair probabilities
+        
+            *
+                - length
+        
+                - length of RNA sequence
+        
+            *
+                - ulength
+        
+                - maximum length of unpaired stretch
+        
+            *
+                - fp
+        
+                - file pointer of destination file
+        
+            *
+                - energies
+        
+                - switch to put out as opening energies
+
+Macros
+------
+
+.. _doxid-group__local__pf__fold_1ga296217b76e76e5f7e6927e7210aa9b1f:
+.. _cid-vrna_probs_window_bpp:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PROBS_WINDOW_BPP
+
+    .. container:: brief-description
+
+        Option flag to activate callback triggers for pairing probabilities.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>`
+
+.. _doxid-group__local__pf__fold_1ga0a13fc668b02f21b225e2334e4caac08:
+.. _cid-vrna_probs_window_stackp:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PROBS_WINDOW_STACKP
+
+    .. container:: brief-description
+
+        Option flag to activate callback triggers for stacking probabilities.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>`
+
+.. _doxid-group__local__pf__fold_1ga18325811c7dfc7b7d9d4ac37f4353615:
+.. _cid-vrna_probs_window_up:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PROBS_WINDOW_UP
+
+    .. container:: brief-description
+
+        Option flag to activate callback triggers for unpaired probabilities.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>`
+
+.. _doxid-group__local__pf__fold_1ga9068f4ec008bf1c042a9357f5c2c5e13:
+.. _cid-vrna_probs_window_up_split:
+.. container:: macro-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        #define VRNA_PROBS_WINDOW_UP_SPLIT
+
+    .. container:: brief-description
+
+        Option flag to activate callback triggers for unpaired probabilities (split up into different loop types)
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` , :ref:`VRNA_EXT_LOOP <doxid-_l_pfold_8h_1af0bb577130090f6c856d1358804250bf>` , :ref:`VRNA_HP_LOOP <doxid-_l_pfold_8h_1a30170811c320f3a7b23ffff3b3343b91>` , :ref:`VRNA_INT_LOOP <doxid-_l_pfold_8h_1a956a237e7d956b684b7d593cb3eca665>` , :ref:`VRNA_MB_LOOP <doxid-_l_pfold_8h_1ad905b71f02b3799eb84b490435aec837>` , :ref:`VRNA_ANY_LOOP <doxid-_l_pfold_8h_1a1fef1ad234755db78ab6b695edce5080>`
+

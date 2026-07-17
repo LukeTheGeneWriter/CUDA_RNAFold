@@ -1,0 +1,261 @@
+.. index:: pair: group; Structure sampling from the ensemble
+.. _doxid-group__subopt__stochbt:
+.. _cid-subopt_stochbt:
+
+Structure sampling from the ensemble
+====================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global variables
+
+	int :ref:`st_back<doxid-group__subopt__stochbt_1gacd79b1a570e6ad9be24cb11fe8cae30a>`
+
+	// global functions
+
+	char* :ref:`vrna_pbacktrack5<doxid-group__subopt__stochbt_1ga347375a4da8bdff74639529847f97d4f>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int length
+	    )
+
+	char* :ref:`vrna_pbacktrack<doxid-group__subopt__stochbt_1ga901fe42a33b07be083421741bf7dc610>` (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+	char* :ref:`pbacktrack<doxid-group__subopt__stochbt_1gac03ca6db186bb3bf0a2a326d7fb3ba03>` (char* sequence)
+	char* :ref:`pbacktrack_circ<doxid-group__subopt__stochbt_1ga00474051204ac9ad576b3e45174d03ff>` (char* sequence)
+
+.. _details-doxid-group__subopt__stochbt:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Variables
+----------------
+
+.. _doxid-group__subopt__stochbt_1gacd79b1a570e6ad9be24cb11fe8cae30a:
+.. _cid-st_back:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int st_back
+
+    .. container:: brief-description
+
+        Flag indicating that auxilary arrays are needed throughout the computations. This is essential for stochastic backtracking.
+
+    .. container:: detailed-description
+
+        Set this variable to 1 prior to a call of :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` to ensure that all matrices needed for stochastic backtracking are filled in the forward recursions
+        
+        Deprecated set the *uniq_ML* flag in :ref:`vrna_md_t <doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` before passing it to :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` .
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`pbacktrack() <doxid-group__subopt__stochbt_1gac03ca6db186bb3bf0a2a326d7fb3ba03>` , :ref:`pbacktrack_circ <doxid-group__subopt__stochbt_1ga00474051204ac9ad576b3e45174d03ff>`
+
+Global Functions
+----------------
+
+.. _doxid-group__subopt__stochbt_1ga347375a4da8bdff74639529847f97d4f:
+.. _cid-vrna_pbacktrack5:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_pbacktrack5 (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    int length
+	    )
+
+    .. container:: brief-description
+
+        Sample a secondary structure of a subsequence from the Boltzmann ensemble according its probability.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as overloaded method **:ref:`pbacktrack() <doxid-group__subopt__stochbt_1gac03ca6db186bb3bf0a2a326d7fb3ba03>`** to objects of type *fold_compound*
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure
+        
+            *
+                - length
+        
+                - The length of the subsequence to consider (starting with 5' end)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A sampled secondary structure in dot-bracket notation (or NULL on error)
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            Unique multiloop decomposition has to be active upon creation of ``vc`` with :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` or similar. This can be done easily by passing :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` a model details parameter with :ref:`vrna_md_t.uniq_ML <doxid-structvrna__md__s_1ade065b814a4e2e72ead93ab502613ed2>` = 1.
+        
+            :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` has to be called first to fill the partition function matrices
+
+.. _doxid-group__subopt__stochbt_1ga901fe42a33b07be083421741bf7dc610:
+.. _cid-vrna_pbacktrack:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* vrna_pbacktrack (:ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc)
+
+    .. container:: brief-description
+
+        Sample a secondary structure (consensus structure) from the Boltzmann ensemble according its probability.
+
+    .. container:: detailed-description
+
+        SWIG Wrapper Notes This function is attached as overloaded method **:ref:`pbacktrack() <doxid-group__subopt__stochbt_1gac03ca6db186bb3bf0a2a326d7fb3ba03>`** to objects of type *fold_compound* that accepts an optional ``length`` argument. Hence, it serves as a replacement for :ref:`vrna_pbacktrack() <doxid-group__subopt__stochbt_1ga901fe42a33b07be083421741bf7dc610>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The fold compound data structure
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A sampled secondary structure in dot-bracket notation (or NULL on error)
+        
+        
+        
+        .. note::
+        
+            This function is polymorphic. It accepts :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` of type :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` , and :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>` .
+        
+            The function will automagically detect cicular RNAs based on the model_details in exp_params as provided via the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            Unique multiloop decomposition has to be active upon creation of ``vc`` with :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` or similar. This can be done easily by passing :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` a model details parameter with :ref:`vrna_md_t.uniq_ML <doxid-structvrna__md__s_1ade065b814a4e2e72ead93ab502613ed2>` = 1.
+        
+            :ref:`vrna_pf() <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` has to be called first to fill the partition function matrices
+
+.. _doxid-group__subopt__stochbt_1gac03ca6db186bb3bf0a2a326d7fb3ba03:
+.. _cid-pbacktrack:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* pbacktrack (char* sequence)
+
+    .. container:: brief-description
+
+        Sample a secondary structure from the Boltzmann ensemble according its probability.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The RNA sequence
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A sampled secondary structure in dot-bracket notation
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            :ref:`st_back <doxid-group__subopt__stochbt_1gacd79b1a570e6ad9be24cb11fe8cae30a>` has to be set to 1 before calling :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` or :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>`
+        
+            :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` or :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` have to be called first to fill the partition function matrices
+
+.. _doxid-group__subopt__stochbt_1ga00474051204ac9ad576b3e45174d03ff:
+.. _cid-pbacktrack_circ:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* pbacktrack_circ (char* sequence)
+
+    .. container:: brief-description
+
+        Sample a secondary structure of a circular RNA from the Boltzmann ensemble according its probability.
+
+    .. container:: detailed-description
+
+        This function does the same as :ref:`pbacktrack() <doxid-group__subopt__stochbt_1gac03ca6db186bb3bf0a2a326d7fb3ba03>` but assumes the RNA molecule to be circular
+        
+        Deprecated Use :ref:`vrna_pbacktrack() <doxid-group__subopt__stochbt_1ga901fe42a33b07be083421741bf7dc610>` instead.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - The RNA sequence
+        
+        
+        
+        .. rubric:: Returns:
+        
+        A sampled secondary structure in dot-bracket notation
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            :ref:`st_back <doxid-group__subopt__stochbt_1gacd79b1a570e6ad9be24cb11fe8cae30a>` has to be set to 1 before calling :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` or :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>`
+        
+            :ref:`pf_fold_par() <doxid-group__pf__fold_1gac4f95bee734b2563a3d6e9932117ebdf>` or :ref:`pf_circ_fold() <doxid-group__pf__fold_1ga819ce5fca8984004ac81c4a3b04cb735>` have to be called first to fill the partition function matrices
+

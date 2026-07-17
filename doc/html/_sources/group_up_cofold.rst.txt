@@ -1,0 +1,233 @@
+.. index:: pair: group; Partition Function for two hybridized Sequences as a stepwise Process
+.. _doxid-group__up__cofold:
+.. _cid-up_cofold:
+
+Partition Function for two hybridized Sequences as a stepwise Process
+=====================================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+RNA-RNA interaction as a stepwise process. :ref:`More...<details-doxid-group__up__cofold>`
+
+.. _doxid-group__up__cofold_1ga73efd2918cbbb2cdf44422653f996852:
+.. _cid-up_plot:
+.. _doxid-group__up__cofold_1gadb5cde7e5ef562664db38638171c7a66:
+.. _cid-get_pu_contrib_struct:
+.. _doxid-group__up__cofold_1gae1b3579727cf7a27eea93594d0e6d831:
+.. _cid-free_pu_contrib:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	:ref:`pu_contrib<doxid-structpu__contrib>`* :ref:`pf_unstru<doxid-group__up__cofold_1ga5b4ee40e190d2f633cd01cf0d2fe93cf>` (
+	    char* sequence,
+	    int max_w
+	    )
+
+	:ref:`interact<doxid-structinteract>`* :ref:`pf_interact<doxid-group__up__cofold_1ga1aa0aa02bc3a724f87360c03097afd00>` (
+	    const char* s1,
+	    const char* s2,
+	    :ref:`pu_contrib<doxid-structpu__contrib>`* p_c,
+	    :ref:`pu_contrib<doxid-structpu__contrib>`* p_c2,
+	    int max_w,
+	    char* cstruc,
+	    int incr3,
+	    int incr5
+	    )
+
+	void :ref:`free_interact<doxid-group__up__cofold_1gadde308fd5f696dc271b1532aa96fd12f>` (:ref:`interact<doxid-structinteract>`* pin)
+
+	int Up_plot (
+	    :ref:`pu_contrib<doxid-structpu__contrib>`* p_c,
+	    :ref:`pu_contrib<doxid-structpu__contrib>`* p_c_sh,
+	    :ref:`interact<doxid-structinteract>`* pint,
+	    char* ofile,
+	    int** unpaired_values,
+	    char* select_contrib,
+	    char* head,
+	    unsigned int mode
+	    )
+
+	:ref:`pu_contrib<doxid-structpu__contrib>`* get_pu_contrib_struct (
+	    unsigned int n,
+	    unsigned int w
+	    )
+
+	void :ref:`free_pu_contrib_struct<doxid-group__up__cofold_1gac20bd61824981d45ce0dc9934aa56df8>` (:ref:`pu_contrib<doxid-structpu__contrib>`* pu)
+	void free_pu_contrib (:ref:`pu_contrib<doxid-structpu__contrib>`* pu)
+
+.. _details-doxid-group__up__cofold:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    RNA-RNA interaction as a stepwise process.
+
+.. container:: detailed-description
+
+    In this approach to cofolding the interaction between two RNA molecules is seen as a stepwise process. In a first step, the target molecule has to adopt a structure in which a binding site is accessible. In a second step, the ligand molecule will hybridize with a region accessible to an interaction. Consequently the algorithm is designed as a two step process: The first step is the calculation of the probability that a region within the target is unpaired, or equivalently, the calculation of the free energy needed to expose a region. In the second step we compute the free energy of an interaction for every possible binding site.
+
+Global Functions
+----------------
+
+.. _doxid-group__up__cofold_1ga5b4ee40e190d2f633cd01cf0d2fe93cf:
+.. _cid-pf_unstru:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`pu_contrib<doxid-structpu__contrib>`* pf_unstru (
+	    char* sequence,
+	    int max_w
+	    )
+
+    .. container:: brief-description
+
+        Calculate the partition function over all unpaired regions of a maximal length.
+
+    .. container:: detailed-description
+
+        You have to call function :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` providing the same sequence before calling :ref:`pf_unstru() <doxid-group__up__cofold_1ga5b4ee40e190d2f633cd01cf0d2fe93cf>` . If you want to calculate unpaired regions for a constrained structure, set variable 'structure' in function ' :ref:`pf_fold() <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>` ' to the constrain string. It returns a :ref:`pu_contrib <doxid-structpu__contrib>` struct containing four arrays of dimension [i = 1 to length(sequence)][j = 0 to u-1] containing all possible contributions to the probabilities of unpaired regions of maximum length u. Each array in :ref:`pu_contrib <doxid-structpu__contrib>` contains one of the contributions to the total probability of being unpaired: The probability of being unpaired within an exterior loop is in array :ref:`pu_contrib <doxid-structpu__contrib>` ->E, the probability of being unpaired within a hairpin loop is in array :ref:`pu_contrib <doxid-structpu__contrib>` ->H, the probability of being unpaired within an interior loop is in array :ref:`pu_contrib <doxid-structpu__contrib>` ->I and probability of being unpaired within a multi-loop is in array :ref:`pu_contrib <doxid-structpu__contrib>` ->M. The total probability of being unpaired is the sum of the four arrays of :ref:`pu_contrib <doxid-structpu__contrib>` .
+        
+        This function frees everything allocated automatically. To free the output structure call :ref:`free_pu_contrib() <doxid-group__up__cofold_1gae1b3579727cf7a27eea93594d0e6d831>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequence
+        
+                - 
+        
+            *
+                - max_w
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__up__cofold_1ga1aa0aa02bc3a724f87360c03097afd00:
+.. _cid-pf_interact:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`interact<doxid-structinteract>`* pf_interact (
+	    const char* s1,
+	    const char* s2,
+	    :ref:`pu_contrib<doxid-structpu__contrib>`* p_c,
+	    :ref:`pu_contrib<doxid-structpu__contrib>`* p_c2,
+	    int max_w,
+	    char* cstruc,
+	    int incr3,
+	    int incr5
+	    )
+
+    .. container:: brief-description
+
+        Calculates the probability of a local interaction between two sequences.
+
+    .. container:: detailed-description
+
+        The function considers the probability that the region of interaction is unpaired within 's1' and 's2'. The longer sequence has to be given as 's1'. The shorter sequence has to be given as 's2'. Function :ref:`pf_unstru() <doxid-group__up__cofold_1ga5b4ee40e190d2f633cd01cf0d2fe93cf>` has to be called for 's1' and 's2', where the probabilities of being unpaired have to be given in 'p_c' and 'p_c2', respectively. If you do not want to include the probabilities of being unpaired for 's2' set 'p_c2' to NULL. If variable 'cstruc' is not NULL, constrained folding is done: The available constrains for intermolecular interaction are: '.' (no constrain), 'x' (the base has no intermolecular interaction) and '|' (the corresponding base has to be paired intermolecularily).
+        
+        The parameter 'w' determines the maximal length of the interaction. The parameters 'incr5' and 'incr3' allows inclusion of unpaired residues left ('incr5') and right ('incr3') of the region of interaction in 's1'. If the 'incr' options are used, function :ref:`pf_unstru() <doxid-group__up__cofold_1ga5b4ee40e190d2f633cd01cf0d2fe93cf>` has to be called with w=w+incr5+incr3 for the longer sequence 's1'.
+        
+        It returns a structure of type :ref:`interact <doxid-structinteract>` which contains the probability of the best local interaction including residue i in Pi and the minimum free energy in Gi, where i is the position in sequence 's1'. The member Gikjl of structure :ref:`interact <doxid-structinteract>` is the best interaction between region [k,i] k<i in longer sequence 's1' and region [j,l] j<l in 's2'. Gikjl_wo is Gikjl without the probability of beeing unpaired.
+        
+        Use :ref:`free_interact() <doxid-group__up__cofold_1gadde308fd5f696dc271b1532aa96fd12f>` to free the returned structure, all other stuff is freed inside :ref:`pf_interact() <doxid-group__up__cofold_1ga1aa0aa02bc3a724f87360c03097afd00>` .
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - s1
+        
+                - 
+        
+            *
+                - s2
+        
+                - 
+        
+            *
+                - p_c
+        
+                - 
+        
+            *
+                - p_c2
+        
+                - 
+        
+            *
+                - max_w
+        
+                - 
+        
+            *
+                - cstruc
+        
+                - 
+        
+            *
+                - incr3
+        
+                - 
+        
+            *
+                - incr5
+        
+                - 
+        
+        
+        
+        .. rubric:: Returns:
+
+.. _doxid-group__up__cofold_1gadde308fd5f696dc271b1532aa96fd12f:
+.. _cid-free_interact:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void free_interact (:ref:`interact<doxid-structinteract>`* pin)
+
+    .. container:: brief-description
+
+        Frees the output of function :ref:`pf_interact() <doxid-group__up__cofold_1ga1aa0aa02bc3a724f87360c03097afd00>` .
+
+.. _doxid-group__up__cofold_1gac20bd61824981d45ce0dc9934aa56df8:
+.. _cid-free_pu_contrib_struct:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void free_pu_contrib_struct (:ref:`pu_contrib<doxid-structpu__contrib>`* pu)
+
+    .. container:: brief-description
+
+        Frees the output of function :ref:`pf_unstru() <doxid-group__up__cofold_1ga5b4ee40e190d2f633cd01cf0d2fe93cf>` .
+

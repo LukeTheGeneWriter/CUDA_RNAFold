@@ -1,0 +1,291 @@
+.. index:: pair: group; MFE Consensus Structures for Sequence Alignment(s)
+.. _doxid-group__consensus__mfe__fold:
+.. _cid-consensus_mfe_fold:
+
+MFE Consensus Structures for Sequence Alignment(s)
+==================================================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global functions
+
+	float :ref:`vrna_alifold<doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1>` (
+	    const char** sequences,
+	    char* structure
+	    )
+
+	float :ref:`vrna_circalifold<doxid-group__consensus__mfe__fold_1ga17a1be7490468c29c335ba9bffacba53>` (
+	    const char** sequences,
+	    char* structure
+	    )
+
+	float :ref:`alifold<doxid-group__consensus__mfe__fold_1ga4cf00f0659e5f0480335d69e797f05b1>` (
+	    const char** strings,
+	    char* structure
+	    )
+
+	float :ref:`circalifold<doxid-group__consensus__mfe__fold_1gadbd3b0b1c144cbfb4efe704b2b260f96>` (
+	    const char** strings,
+	    char* structure
+	    )
+
+	void :ref:`free_alifold_arrays<doxid-group__consensus__mfe__fold_1ga72095e4554b5d577250ea14c42acc49e>` (void)
+
+.. _details-doxid-group__consensus__mfe__fold:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Functions
+----------------
+
+.. _doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1:
+.. _cid-vrna_alifold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_alifold (
+	    const char** sequences,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute Minimum Free Energy (MFE), and a corresponding consensus secondary structure for an RNA sequence alignment using a comparative method.
+
+    .. container:: detailed-description
+
+        This simplified interface to :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` computes the MFE and, if required, a consensus secondary structure for an RNA sequence alignment using default options. Memory required for dynamic programming (DP) matrices will be allocated and free'd on-the-fly. Hence, after return of this function, the recursively filled matrices are not available any more for any post-processing, e.g. suboptimal backtracking, etc.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequences
+        
+                - RNA sequence alignment
+        
+            *
+                - structure
+        
+                - A pointer to the character array where the secondary structure in dot-bracket notation will be written to
+        
+        
+        
+        .. rubric:: Returns:
+        
+        the minimum free energy (MFE) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            In case you want to use the filled DP matrices for any subsequent post-processing step, or you require other conditions than specified by the default model details, use :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , and the data structure :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` instead.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_circalifold() <doxid-group__consensus__mfe__fold_1ga17a1be7490468c29c335ba9bffacba53>` , :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+
+.. _doxid-group__consensus__mfe__fold_1ga17a1be7490468c29c335ba9bffacba53:
+.. _cid-vrna_circalifold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float vrna_circalifold (
+	    const char** sequences,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute Minimum Free Energy (MFE), and a corresponding consensus secondary structure for a sequence alignment of circular RNAs using a comparative method.
+
+    .. container:: detailed-description
+
+        This simplified interface to :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` computes the MFE and, if required, a consensus secondary structure for an RNA sequence alignment using default options. Memory required for dynamic programming (DP) matrices will be allocated and free'd on-the-fly. Hence, after return of this function, the recursively filled matrices are not available any more for any post-processing, e.g. suboptimal backtracking, etc.
+        
+        Folding of circular RNA sequences is handled as a post-processing step of the forward recursions. See :ref:`[7] <doxid-citelist_1CITEREF_hofacker:2006>` for further details.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - sequences
+        
+                - Sequence alignment of circular RNAs
+        
+            *
+                - structure
+        
+                - A pointer to the character array where the secondary structure in dot-bracket notation will be written to
+        
+        
+        
+        .. rubric:: Returns:
+        
+        the minimum free energy (MFE) in kcal/mol
+        
+        
+        
+        .. note::
+        
+            In case you want to use the filled DP matrices for any subsequent post-processing step, or you require other conditions than specified by the default model details, use :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , and the data structure :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` instead.
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_alifold() <doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1>` , :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`
+
+.. _doxid-group__consensus__mfe__fold_1ga4cf00f0659e5f0480335d69e797f05b1:
+.. _cid-alifold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float alifold (
+	    const char** strings,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute MFE and according consensus structure of an alignment of sequences.
+
+    .. container:: detailed-description
+
+        This function predicts the consensus structure for the aligned 'sequences' and returns the minimum free energy; the mfe structure in bracket notation is returned in 'structure'.
+        
+        Sufficient space must be allocated for 'structure' before calling :ref:`alifold() <doxid-group__consensus__mfe__fold_1ga4cf00f0659e5f0480335d69e797f05b1>` .
+        
+        Deprecated Usage of this function is discouraged! Use :ref:`vrna_alifold() <doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1>` , or :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - strings
+        
+                - A pointer to a NULL terminated array of character arrays
+        
+            *
+                - structure
+        
+                - A pointer to a character array that may contain a constraining consensus structure (will be overwritten by a consensus structure that exhibits the MFE)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The free energy score in kcal/mol
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_alifold() <doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1>` , :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>`
+
+.. _doxid-group__consensus__mfe__fold_1gadbd3b0b1c144cbfb4efe704b2b260f96:
+.. _cid-circalifold:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float circalifold (
+	    const char** strings,
+	    char* structure
+	    )
+
+    .. container:: brief-description
+
+        Compute MFE and according structure of an alignment of sequences assuming the sequences are circular instead of linear.
+
+    .. container:: detailed-description
+
+        Deprecated Usage of this function is discouraged! Use vrna_alicircfold(), and :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` instead!
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - strings
+        
+                - A pointer to a NULL terminated array of character arrays
+        
+            *
+                - structure
+        
+                - A pointer to a character array that may contain a constraining consensus structure (will be overwritten by a consensus structure that exhibits the MFE)
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The free energy score in kcal/mol
+        
+        
+        
+        .. admonition:: See also:
+        
+            vrna_alicircfold(), :ref:`vrna_alifold() <doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1>` , :ref:`vrna_mfe() <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>`
+
+.. _doxid-group__consensus__mfe__fold_1ga72095e4554b5d577250ea14c42acc49e:
+.. _cid-free_alifold_arrays:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void free_alifold_arrays (void)
+
+    .. container:: brief-description
+
+        Free the memory occupied by MFE alifold functions.
+
+    .. container:: detailed-description
+
+        Deprecated Usage of this function is discouraged! It only affects memory being free'd that was allocated by an old API function before. Release of memory occupied by the newly introduced :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` is handled by :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>`
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>`
+

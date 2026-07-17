@@ -1,0 +1,63 @@
+.. index:: pair: group; Compute the Density of States
+.. _doxid-group__dos:
+.. _cid-dos:
+
+Compute the Density of States
+=============================
+
+.. toctree::
+	:hidden:
+
+
+
+Overview
+--------
+
+
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// global variables
+
+	int :ref:`density_of_states<doxid-group__dos_1ga937634a76b46a22530a74906f1957a9e>`[MAXDOS+1]
+
+.. _details-doxid-group__dos:
+
+Detailed Documentation
+----------------------
+
+
+
+Global Variables
+----------------
+
+.. _doxid-group__dos_1ga937634a76b46a22530a74906f1957a9e:
+.. _cid-density_of_states:
+.. container:: global variables-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int density_of_states [MAXDOS+1]
+
+    .. container:: brief-description
+
+        The Density of States.
+
+    .. container:: detailed-description
+
+        This array contains the density of states for an RNA sequences after a call to :ref:`subopt_par() <doxid-group__subopt__wuchty_1gaa1e1e7031a948ebcb39a9d58d1e9842c>` , :ref:`subopt() <doxid-group__subopt__wuchty_1ga700f662506a233e42dd7fda74fafd40e>` or :ref:`subopt_circ() <doxid-group__subopt__wuchty_1ga8634516e4740e0b6c9a46d2bae940340>` .
+        
+        
+        
+        .. admonition:: Pre-Condition
+        
+            Call one of the functions :ref:`subopt_par() <doxid-group__subopt__wuchty_1gaa1e1e7031a948ebcb39a9d58d1e9842c>` , :ref:`subopt() <doxid-group__subopt__wuchty_1ga700f662506a233e42dd7fda74fafd40e>` or :ref:`subopt_circ() <doxid-group__subopt__wuchty_1ga8634516e4740e0b6c9a46d2bae940340>` prior accessing the contents of this array
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`subopt_par() <doxid-group__subopt__wuchty_1gaa1e1e7031a948ebcb39a9d58d1e9842c>` , :ref:`subopt() <doxid-group__subopt__wuchty_1ga700f662506a233e42dd7fda74fafd40e>` , :ref:`subopt_circ() <doxid-group__subopt__wuchty_1ga8634516e4740e0b6c9a46d2bae940340>`
+

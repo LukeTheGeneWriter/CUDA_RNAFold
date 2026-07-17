@@ -1,0 +1,40 @@
+.. index:: pair: enum; vrna_command_e
+.. _doxid-group__file__utils_1ga2ea3e452bf3b3f3ca513b3b081a86137:
+.. _cid-vrna_command_e:
+
+enum vrna_command_e
+===================
+
+
+
+.. container:: brief-description
+
+    Types of commands within a list of :ref:`vrna_command_s <doxid-structvrna__command__s>` structures.
+
+.. _doxid-group__file__utils_1gga2ea3e452bf3b3f3ca513b3b081a86137a3c0a225034da3be5566da27701106896:
+.. _cid-vrna_command_e::vrna_cmd_error:
+.. _doxid-group__file__utils_1gga2ea3e452bf3b3f3ca513b3b081a86137a6a856bc3495c61ccf9c3cd4fd8eb148c:
+.. _cid-vrna_command_e::vrna_cmd_last:
+.. _doxid-group__file__utils_1gga2ea3e452bf3b3f3ca513b3b081a86137afce8f1dd47f4eeb20010b1dbffa1a388:
+.. _cid-vrna_command_e::vrna_cmd_hc:
+.. _doxid-group__file__utils_1gga2ea3e452bf3b3f3ca513b3b081a86137a1083bb6aca26bb24de0a66739974e87a:
+.. _cid-vrna_command_e::vrna_cmd_sc:
+.. _doxid-group__file__utils_1gga2ea3e452bf3b3f3ca513b3b081a86137a3eb2d309976ff8a8910a747bc9994899:
+.. _cid-vrna_command_e::vrna_cmd_motif:
+.. _doxid-group__file__utils_1gga2ea3e452bf3b3f3ca513b3b081a86137adc843a9673ba5ee6e2bff4877c911010:
+.. _cid-vrna_command_e::vrna_cmd_ud:
+.. _doxid-group__file__utils_1gga2ea3e452bf3b3f3ca513b3b081a86137aab834c524f6a3d4b51dd5a5f132471b9:
+.. _cid-vrna_command_e::vrna_cmd_sd:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// enum values
+
+	VRNA_CMD_ERROR = -1
+	VRNA_CMD_LAST = 0
+	VRNA_CMD_HC 
+	VRNA_CMD_SC 
+	VRNA_CMD_MOTIF 
+	VRNA_CMD_UD 
+	VRNA_CMD_SD 
+

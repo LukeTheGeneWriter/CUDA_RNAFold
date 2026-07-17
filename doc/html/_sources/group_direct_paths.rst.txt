@@ -1,0 +1,557 @@
+.. index:: pair: group; Direct refolding paths between two secondary structures
+.. _doxid-group__direct__paths:
+.. _cid-direct_paths:
+
+Direct refolding paths between two secondary structures
+=======================================================
+
+.. toctree::
+	:hidden:
+
+	struct_vrna_path_s.rst
+
+
+
+Overview
+--------
+
+Heuristics to explore direct, optimal (re-)folding paths between two secondary structures. :ref:`More...<details-doxid-group__direct__paths>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// typedefs
+
+	typedef struct :ref:`vrna_path_s<doxid-structvrna__path__s>` :ref:`vrna_path_t<doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>`
+	typedef struct :ref:`vrna_path_s<doxid-structvrna__path__s>` :ref:`path_t<doxid-group__direct__paths_1gab6b8737d5377e70a7815d04aae7fd884>`
+
+	// structs
+
+	struct :ref:`vrna_path_s<doxid-structvrna__path__s>` 
+
+	// global functions
+
+	int :ref:`vrna_path_findpath_saddle<doxid-group__direct__paths_1gad611574a76593e26021f177e7854b6b4>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* s1,
+	    const char* s2,
+	    int width
+	    )
+
+	int :ref:`vrna_path_findpath_saddle_ub<doxid-group__direct__paths_1gada8d722e37401b1aea30128b07555771>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* s1,
+	    const char* s2,
+	    int width,
+	    int maxE
+	    )
+
+	:ref:`vrna_path_t<doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>`* :ref:`vrna_path_findpath<doxid-group__direct__paths_1ga4b2283c4142cafd99678495585fcc842>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* s1,
+	    const char* s2,
+	    int width
+	    )
+
+	:ref:`vrna_path_t<doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>`* :ref:`vrna_path_findpath_ub<doxid-group__direct__paths_1ga8d47812616303f40057dfb033869863a>` (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* s1,
+	    const char* s2,
+	    int width,
+	    int maxE
+	    )
+
+	int :ref:`find_saddle<doxid-group__direct__paths_1ga4c0dabf032c04eeab9c7370d15db6ad2>` (
+	    const char* seq,
+	    const char* s1,
+	    const char* s2,
+	    int width
+	    )
+
+	void :ref:`free_path<doxid-group__direct__paths_1ga9056421d716ae89f0ed3f107627f395b>` (:ref:`vrna_path_t<doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>`* path)
+
+	:ref:`vrna_path_t<doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>`* :ref:`get_path<doxid-group__direct__paths_1gac009a44db824f90a6de5f9c28b9b3222>` (
+	    const char* seq,
+	    const char* s1,
+	    const char* s2,
+	    int width
+	    )
+
+.. _details-doxid-group__direct__paths:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Heuristics to explore direct, optimal (re-)folding paths between two secondary structures.
+
+Typedefs
+--------
+
+.. _doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe:
+.. _cid-vrna_path_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_path_s<doxid-structvrna__path__s>` vrna_path_t
+
+    .. container:: brief-description
+
+        Typename for the refolding path data structure :ref:`vrna_path_s <doxid-structvrna__path__s>` .
+
+.. _doxid-group__direct__paths_1gab6b8737d5377e70a7815d04aae7fd884:
+.. _cid-path_t:
+.. container:: typedef-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        typedef struct :ref:`vrna_path_s<doxid-structvrna__path__s>` path_t
+
+    .. container:: brief-description
+
+        Old typename of :ref:`vrna_path_s <doxid-structvrna__path__s>` .
+
+    .. container:: detailed-description
+
+        Deprecated Use :ref:`vrna_path_t <doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>` instead!
+
+Global Functions
+----------------
+
+.. _doxid-group__direct__paths_1gad611574a76593e26021f177e7854b6b4:
+.. _cid-vrna_path_findpath_saddle:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_path_findpath_saddle (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* s1,
+	    const char* s2,
+	    int width
+	    )
+
+    .. container:: brief-description
+
+        Find energy of a saddle point between 2 structures (search only direct path)
+
+    .. container:: detailed-description
+
+        This function uses an inplementation of the *findpath* algorithm :ref:`[5] <doxid-citelist_1CITEREF_flamm:2001>` for near-optimal direct refolding path prediction.
+        
+        Model details, and energy parameters are used as provided via the parameter 'vc'. The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` does not require memory for any DP matrices, but requires all most basic init values as one would get from a call like this:
+        
+        .. ref-code-block:: cpp
+        
+            vc = :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>`(sequence, NULL, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+        
+        SWIG Wrapper Notes This function is attached as an overloaded method *path_findpath_saddle()* to objects of type *fold_compound* . The optional parameter ``width`` defaults to 1 if it is omitted.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` with precomputed sequence encoding and model details
+        
+            *
+                - s1
+        
+                - The start structure in dot-bracket notation
+        
+            *
+                - s2
+        
+                - The target structure in dot-bracket notation
+        
+            *
+                - width
+        
+                - A number specifying how many strutures are being kept at each step during the search
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The saddle energy in 10cal/mol
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path_findpath_saddle_ub() <doxid-group__direct__paths_1gada8d722e37401b1aea30128b07555771>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , :ref:`vrna_path_findpath() <doxid-group__direct__paths_1ga4b2283c4142cafd99678495585fcc842>`
+
+.. _doxid-group__direct__paths_1gada8d722e37401b1aea30128b07555771:
+.. _cid-vrna_path_findpath_saddle_ub:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int vrna_path_findpath_saddle_ub (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* s1,
+	    const char* s2,
+	    int width,
+	    int maxE
+	    )
+
+    .. container:: brief-description
+
+        Find energy of a saddle point between 2 structures (search only direct path)
+
+    .. container:: detailed-description
+
+        This function uses an inplementation of the *findpath* algorithm :ref:`[5] <doxid-citelist_1CITEREF_flamm:2001>` for near-optimal direct refolding path prediction.
+        
+        Model details, and energy parameters are used as provided via the parameter 'vc'. The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` does not require memory for any DP matrices, but requires all most basic init values as one would get from a call like this:
+        
+        .. ref-code-block:: cpp
+        
+            vc = :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>`(sequence, NULL, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+        
+        SWIG Wrapper Notes This function is attached as an overloaded method *path_findpath_saddle()* to objects of type *fold_compound* . The optional parameter ``width`` defaults to 1 if it is omitted, while the optional parameter ``maxE`` defaults to :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` . In case the function did not find a path with :math:`E_{saddle} < E_{max}` the function returns a *NULL* object, i.e. *undef* for Perl and *None* for Python.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` with precomputed sequence encoding and model details
+        
+            *
+                - s1
+        
+                - The start structure in dot-bracket notation
+        
+            *
+                - s2
+        
+                - The target structure in dot-bracket notation
+        
+            *
+                - width
+        
+                - A number specifying how many strutures are being kept at each step during the search
+        
+            *
+                - maxE
+        
+                - An upper bound for the saddle point energy in 10cal/mol
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The saddle energy in 10cal/mol
+        
+        
+        
+        .. warning::
+        
+            The argument ``maxE`` ( :math:`E_{max}` ) enables one to specify an upper bound, or maximum free energy for the saddle point between the two input structures. If no path with :math:`E_{saddle} < E_{max}` is found, the function simply returns ``maxE``
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path_findpath_saddle() <doxid-group__direct__paths_1gad611574a76593e26021f177e7854b6b4>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , :ref:`vrna_path_findpath() <doxid-group__direct__paths_1ga4b2283c4142cafd99678495585fcc842>`
+
+.. _doxid-group__direct__paths_1ga4b2283c4142cafd99678495585fcc842:
+.. _cid-vrna_path_findpath:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_path_t<doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>`* vrna_path_findpath (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* s1,
+	    const char* s2,
+	    int width
+	    )
+
+    .. container:: brief-description
+
+        Find refolding path between 2 structures (search only direct path)
+
+    .. container:: detailed-description
+
+        This function uses an inplementation of the *findpath* algorithm :ref:`[5] <doxid-citelist_1CITEREF_flamm:2001>` for near-optimal direct refolding path prediction.
+        
+        Model details, and energy parameters are used as provided via the parameter 'vc'. The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` does not require memory for any DP matrices, but requires all most basic init values as one would get from a call like this:
+        
+        .. ref-code-block:: cpp
+        
+            vc = :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>`(sequence, NULL, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+        
+        SWIG Wrapper Notes This function is attached as an overloaded method *path_findpath()* to objects of type *fold_compound* . The optional parameter ``width`` defaults to 1 if it is omitted.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` with precomputed sequence encoding and model details
+        
+            *
+                - s1
+        
+                - The start structure in dot-bracket notation
+        
+            *
+                - s2
+        
+                - The target structure in dot-bracket notation
+        
+            *
+                - width
+        
+                - A number specifying how many strutures are being kept at each step during the search
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The saddle energy in 10cal/mol
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path_findpath_ub() <doxid-group__direct__paths_1ga8d47812616303f40057dfb033869863a>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , :ref:`vrna_path_findpath_saddle() <doxid-group__direct__paths_1gad611574a76593e26021f177e7854b6b4>`
+
+.. _doxid-group__direct__paths_1ga8d47812616303f40057dfb033869863a:
+.. _cid-vrna_path_findpath_ub:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_path_t<doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>`* vrna_path_findpath_ub (
+	    :ref:`vrna_fold_compound_t<doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>`* vc,
+	    const char* s1,
+	    const char* s2,
+	    int width,
+	    int maxE
+	    )
+
+    .. container:: brief-description
+
+        Find refolding path between 2 structures (search only direct path)
+
+    .. container:: detailed-description
+
+        This function uses an inplementation of the *findpath* algorithm :ref:`[5] <doxid-citelist_1CITEREF_flamm:2001>` for near-optimal direct refolding path prediction.
+        
+        Model details, and energy parameters are used as provided via the parameter 'vc'. The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` does not require memory for any DP matrices, but requires all most basic init values as one would get from a call like this:
+        
+        .. ref-code-block:: cpp
+        
+            vc = :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>`(sequence, NULL, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+        
+        SWIG Wrapper Notes This function is attached as an overloaded method *path_findpath()* to objects of type *fold_compound* . The optional parameter ``width`` defaults to 1 if it is omitted, while the optional parameter ``maxE`` defaults to :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` . In case the function did not find a path with :math:`E_{saddle} < E_{max}` the function returns an empty list.
+        
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - vc
+        
+                - The :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` with precomputed sequence encoding and model details
+        
+            *
+                - s1
+        
+                - The start structure in dot-bracket notation
+        
+            *
+                - s2
+        
+                - The target structure in dot-bracket notation
+        
+            *
+                - width
+        
+                - A number specifying how many strutures are being kept at each step during the search
+        
+            *
+                - maxE
+        
+                - An upper bound for the saddle point energy in 10cal/mol
+        
+        
+        
+        .. rubric:: Returns:
+        
+        The saddle energy in 10cal/mol
+        
+        
+        
+        .. warning::
+        
+            The argument ``maxE`` enables one to specify an upper bound, or maximum free energy for the saddle point between the two input structures. If no path with :math:`E_{saddle} < E_{max}` is found, the function simply returns *NULL*
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_path_findpath() <doxid-group__direct__paths_1ga4b2283c4142cafd99678495585fcc842>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , :ref:`vrna_path_findpath_saddle() <doxid-group__direct__paths_1gad611574a76593e26021f177e7854b6b4>`
+
+.. _doxid-group__direct__paths_1ga4c0dabf032c04eeab9c7370d15db6ad2:
+.. _cid-find_saddle:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int find_saddle (
+	    const char* seq,
+	    const char* s1,
+	    const char* s2,
+	    int width
+	    )
+
+    .. container:: brief-description
+
+        Find energy of a saddle point between 2 structures (search only direct path)
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - RNA sequence
+        
+            *
+                - s1
+        
+                - A pointer to the character array where the first secondary structure in dot-bracket notation will be written to
+        
+            *
+                - s2
+        
+                - A pointer to the character array where the second secondary structure in dot-bracket notation will be written to
+        
+            *
+                - width
+        
+                - integer how many strutures are being kept during the search
+        
+        
+        
+        .. rubric:: Returns:
+        
+        the saddle energy in 10cal/mol
+
+.. _doxid-group__direct__paths_1ga9056421d716ae89f0ed3f107627f395b:
+.. _cid-free_path:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void free_path (:ref:`vrna_path_t<doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>`* path)
+
+    .. container:: brief-description
+
+        Free memory allocated by :ref:`get_path() <doxid-group__direct__paths_1gac009a44db824f90a6de5f9c28b9b3222>` function.
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - path
+        
+                - pointer to memory to be freed
+
+.. _doxid-group__direct__paths_1gac009a44db824f90a6de5f9c28b9b3222:
+.. _cid-get_path:
+.. container:: function-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_path_t<doxid-group__direct__paths_1ga818d4f3d1cf8723d6905990b08d909fe>`* get_path (
+	    const char* seq,
+	    const char* s1,
+	    const char* s2,
+	    int width
+	    )
+
+    .. container:: brief-description
+
+        Find refolding path between 2 structures (search only direct path)
+
+    .. container:: detailed-description
+
+        
+        
+        .. rubric:: Parameters:
+        
+        .. list-table::
+            :widths: 20 80
+        
+            *
+                - seq
+        
+                - RNA sequence
+        
+            *
+                - s1
+        
+                - A pointer to the character array where the first secondary structure in dot-bracket notation will be written to
+        
+            *
+                - s2
+        
+                - A pointer to the character array where the second secondary structure in dot-bracket notation will be written to
+        
+            *
+                - width
+        
+                - integer how many strutures are being kept during the search
+        
+        
+        
+        .. rubric:: Returns:
+        
+        direct refolding path between two structures
+
