@@ -1,0 +1,141 @@
+\hypertarget{interior__loopx_8h_source}{}\section{interior\+\_\+loopx.\+h}
+\label{interior__loopx_8h_source}\index{Vienna\+R\+N\+A/interior\+\_\+loopx.\+h@{Vienna\+R\+N\+A/interior\+\_\+loopx.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{comment}{//WBL 12 Jan 2018 $Revision: 1.16 $ CUDA GGGP ViennaRNA-2.3.0 rf/rf\_cuda2}
+00002 
+00003 \textcolor{comment}{//Modifications:}
+00004 \textcolor{comment}{//WBL 18 Jan 2018 Replace doube 30. by float 30.0f}
+00005 \textcolor{comment}{//WBL 12 Jan 2018 Remove unused functions}
+00006 
+00007 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_INTERIOR\_LOOPS\_HX}
+00008 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_INTERIOR\_LOOPS\_HX}
+00009 
+00010 \textcolor{preprocessor}{#include <\mbox{\hyperlink{utils_8h}{ViennaRNA/utils.h}}>}
+00011 \textcolor{preprocessor}{#include "ViennaRNA/energy\_par.h"}
+00012 \textcolor{preprocessor}{#include <\mbox{\hyperlink{data__structures_8h}{ViennaRNA/data\_structures.h}}>}
+00013 \textcolor{preprocessor}{#include <\mbox{\hyperlink{params_8h}{ViennaRNA/params.h}}>}
+00014 \textcolor{preprocessor}{#include <\mbox{\hyperlink{constraints_8h}{ViennaRNA/constraints.h}}>}
+00015 
+00016 \textcolor{preprocessor}{#ifdef \_\_GNUC\_\_}
+00017 \textcolor{preprocessor}{# define INLINE inline}
+00018 \textcolor{preprocessor}{#else}
+00019 \textcolor{preprocessor}{# define INLINE}
+00020 \textcolor{preprocessor}{#endif}
+00021 
+00022 \textcolor{preprocessor}{#ifdef ON\_SAME\_STRAND}
+00023 \textcolor{preprocessor}{#undef ON\_SAME\_STRAND}
+00024 \textcolor{preprocessor}{#endif}
+00025 
+00026 \textcolor{preprocessor}{#define ON\_SAME\_STRAND(I,J,C)  (((I)>=(C))||((J)<(C)))}
+00027 
+00088 \textcolor{comment}{//PRIVATE INLINE int}
+00089 \_\_device\_\_ \textcolor{keyword}{inline} \textcolor{keywordtype}{int}
+\Hypertarget{interior__loopx_8h_source_l00090}\mbox{\hyperlink{group__loops_ga2c300faa922acafdc2c7322d6671f910}{00090}} \mbox{\hyperlink{group__loops_ga2c300faa922acafdc2c7322d6671f910}{IntLoop\_X}}(\textcolor{keyword}{const} \textcolor{keywordtype}{int} n1,
+00091           \textcolor{keyword}{const} \textcolor{keywordtype}{int} ns,
+00092           \textcolor{keyword}{const} \textcolor{keywordtype}{int} nl,
+00093           \textcolor{keyword}{const} \textcolor{keywordtype}{int} type,
+00094           \textcolor{keyword}{const} \textcolor{keywordtype}{int} type\_2,
+00095           \textcolor{keyword}{const} \textcolor{keywordtype}{int} si1,
+00096           \textcolor{keyword}{const} \textcolor{keywordtype}{int} sj1,
+00097           \textcolor{keyword}{const} \textcolor{keywordtype}{int} sp1,
+00098           \textcolor{keyword}{const} \textcolor{keywordtype}{int} sq1,
+00099     \textcolor{comment}{//Remainder are in const vrna\_param\_t *P,}
+00100     \textcolor{comment}{//approx in order of how much gcov says they are used}
+00101     \textcolor{keyword}{const} \textcolor{keywordtype}{int} TerminalAU,
+00102     \textcolor{keyword}{const} \textcolor{keywordtype}{int} ninio2,
+00103     \textcolor{keyword}{const} \textcolor{keywordtype}{int} bulge[\mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}}+1],
+00104     \textcolor{keyword}{const} \textcolor{keywordtype}{int} internal\_loop[\mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}}+1],
+00105     \textcolor{keyword}{const} \textcolor{keywordtype}{float} lxc,
+00106     \textcolor{keyword}{const} \textcolor{keywordtype}{int} mismatchI[\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5],
+00107     \textcolor{keyword}{const} \textcolor{keywordtype}{int} mismatch1nI[\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5],
+00108     \textcolor{keyword}{const} \textcolor{keywordtype}{int} mismatch23I[\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5],
+00109     \textcolor{comment}{//gcov says p->stack,P->int11,P->int21,P->int22 seldom used}
+00110     \textcolor{keyword}{const} \textcolor{keywordtype}{int} stack[\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1],
+00111     \textcolor{keyword}{const} \textcolor{keywordtype}{int} int11[\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5],
+00112     \textcolor{keyword}{const} \textcolor{keywordtype}{int} int21[\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5][5],
+00113     \textcolor{keyword}{const} \textcolor{keywordtype}{int} int22[\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{energy__const_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5][5][5] \textcolor{comment}{/*,}
+00114 \textcolor{comment}{    const int v*/})\{ \textcolor{comment}{//verbose}
+00115 \textcolor{comment}{//printf("E\_IntLoop(%d,%d,%d,%d,%d,%d,%d,P)\(\backslash\)n",}
+00116 \textcolor{comment}{//   n1,n2,type,type\_2,si1,sj1,sp1,sq1);}
+00117 
+00118   \textcolor{comment}{/* compute energy of degree 2 loop (stack bulge or interior) */}
+00119   \textcolor{keywordtype}{int} u, energy;
+00120   energy = \mbox{\hyperlink{energy__const_8h_a12c2040f25d8e3a7b9e1c2024c618cb6}{INF}};
+00121 
+00122   \textcolor{keywordflow}{if} (nl == 0) \{
+00123     \textcolor{comment}{//if(v)printf("n1==0 stack[%d][%d]",type,type\_2);}
+00124     \textcolor{keywordflow}{return} stack[type][type\_2];  \textcolor{comment}{/* stack */}
+00125   \}
+00126   \textcolor{keywordflow}{if} (ns==0) \{                      \textcolor{comment}{/* bulge */}
+00127     energy = (nl<=\mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}})? bulge[nl]:
+00128       (bulge[30]+(\textcolor{keywordtype}{int})(lxc*log(nl/30.0f)));
+00129     \textcolor{keywordflow}{if} (nl==1) \{
+00130       \textcolor{comment}{//if(v)printf("nl==1 stack[%d][%d] ",type,type\_2);}
+00131       \textcolor{comment}{//if(v)printf("ns==0 bulge[%d] %d %d ",nl,type,type\_2);}
+00132       energy += stack[type][type\_2];
+00133     \}
+00134     \textcolor{keywordflow}{else} \{
+00135       \textcolor{comment}{//if(v)printf("ns==0 bulge[%d] %d %d ",nl,type,type\_2);}
+00136       \textcolor{comment}{//if(v)printf("nl!=1 %d %d TerminalAU?? ",type,type\_2);}
+00137       \textcolor{keywordflow}{if} (type>2) energy += TerminalAU;
+00138       \textcolor{keywordflow}{if} (type\_2>2) energy += TerminalAU;
+00139     \}
+00140     \textcolor{keywordflow}{return} energy;
+00141   \}
+00142   \textcolor{keywordflow}{else} \{                            \textcolor{comment}{/* interior loop */}
+00143     \textcolor{keywordflow}{if} (ns==1) \{
+00144       \textcolor{keywordflow}{if} (nl==1) \{                    \textcolor{comment}{/* 1x1 loop */}
+00145   \textcolor{comment}{//if(v)printf("ns==1 nl==1 int11[%d][%d][%d][%d]",type,type\_2,si1,sj1);}
+00146         \textcolor{keywordflow}{return} int11[type][type\_2][si1][sj1];
+00147       \}
+00148       \textcolor{keywordflow}{if} (nl==2) \{                  \textcolor{comment}{/* 2x1 loop */}
+00149         \textcolor{keywordflow}{if} (n1==1) \{
+00150     \textcolor{comment}{//if(v)printf("ns==1 nl==2 n1==1 int21[%d][%d][%d][%d][%d]",type,type\_2,si1,sq1,sj1);}
+00151           energy = int21[type][type\_2][si1][sq1][sj1];
+00152   \}
+00153   \textcolor{keywordflow}{else} \{
+00154     \textcolor{comment}{//if(v)printf("ns==1 nl==2 n1!=1 int21[%d][%d][%d][%d][%d]",type\_2,type,sq1,si1,sp1);}
+00155           energy = int21[type\_2][type][sq1][si1][sp1];
+00156   \}
+00157         \textcolor{keywordflow}{return} energy;
+00158       \}
+00159       \textcolor{keywordflow}{else} \{  \textcolor{comment}{/* 1xn loop */}
+00160   \textcolor{comment}{//if(v)printf("ns==1 nl!=1 && nl!=2 internal\_loop[%d] ",nl+1);}
+00161   \textcolor{comment}{//if(v)printf("mismatch1nI[%d][%d][%d] + mismatch1nI[%d][%d][%d]",type,si1,sj1, type\_2,sq1,sp1);}
+00162         energy = (nl+1<=\mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}})?(internal\_loop[nl+1]) : (internal\_loop[30]+(int)(lxc*log((nl+1)/30.
+      0f)));
+00163         energy += \mbox{\hyperlink{group__utils_gae0b9cd0ce090bd69b951aa73e8fa4f7d}{MIN2}}(MAX\_NINIO, (nl-ns)*ninio2);
+00164         energy += mismatch1nI[type][si1][sj1] + mismatch1nI[type\_2][sq1][sp1];
+00165         \textcolor{keywordflow}{return} energy;
+00166       \}
+00167     \}
+00168     \textcolor{keywordflow}{else} \textcolor{keywordflow}{if} (ns==2) \{
+00169       \textcolor{keywordflow}{if}(nl==2)      \{              \textcolor{comment}{/* 2x2 loop */}
+00170   \textcolor{comment}{//if(v)printf("ns!=1 ns==2 nl==2 int22[%d][%d][%d][%d][%d][%d]",type,type\_2,si1,sp1,sq1,sj1);}
+00171         \textcolor{keywordflow}{return} int22[type][type\_2][si1][sp1][sq1][sj1];\}
+00172       \textcolor{keywordflow}{else} \textcolor{keywordflow}{if} (nl==3)\{              \textcolor{comment}{/* 2x3 loop */}
+00173   \textcolor{comment}{//if(v)printf("ns!=1 ns==2 nl==3 internal\_loop\_5 ");}
+00174   \textcolor{comment}{//if(v)printf("mismatch23I[%d][%d][%d] + mismatch23I[%d][%d][%d]",type,si1,sj1, type\_2,sq1,sp1);}
+00175         energy = internal\_loop[5]+ninio2;
+00176         energy += mismatch23I[type][si1][sj1] + mismatch23I[type\_2][sq1][sp1];
+00177         \textcolor{keywordflow}{return} energy;
+00178       \}
+00179 
+00180     \}
+00181     \{ \textcolor{comment}{/* generic interior loop (no else here!)*/}
+00182       u = nl + ns;
+00183       \textcolor{comment}{//if(v)printf("other internal\_loop[%d] xninio2 ",u);}
+00184       \textcolor{comment}{//if(v)printf("mismatchI[%d][%d][%d] + mismatchI[%d][%d][%d]",type,si1,sj1, type\_2,sq1,sp1);}
+00185       energy = (u <= \mbox{\hyperlink{energy__const_8h_ad1bd6eabac419670ddd3c9ed82145988}{MAXLOOP}}) ? (internal\_loop[u]) : (internal\_loop[30]+(int)(lxc*log((u)/30.0f)));
+00186 
+00187       energy += \mbox{\hyperlink{group__utils_gae0b9cd0ce090bd69b951aa73e8fa4f7d}{MIN2}}(MAX\_NINIO, (nl-ns)*ninio2);
+00188 
+00189       energy += mismatchI[type][si1][sj1] + mismatchI[type\_2][sq1][sp1];
+00190     \}
+00191   \}
+00192   \textcolor{keywordflow}{return} energy;
+00193 \}
+00194 
+00195 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}

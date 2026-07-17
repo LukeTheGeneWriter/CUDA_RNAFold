@@ -1,0 +1,197 @@
+\hypertarget{structvrna__md__s}{}\section{vrna\+\_\+md\+\_\+s Struct Reference}
+\label{structvrna__md__s}\index{vrna\+\_\+md\+\_\+s@{vrna\+\_\+md\+\_\+s}}
+
+
+The data structure that contains the complete model details used throughout the calculations.  
+
+
+\subsection*{Data Fields}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structvrna__md__s_a5f7e5c2b65bada5188443470e576aa4b}\label{structvrna__md__s_a5f7e5c2b65bada5188443470e576aa4b}} 
+double \mbox{\hyperlink{structvrna__md__s_a5f7e5c2b65bada5188443470e576aa4b}{temperature}}
+\begin{DoxyCompactList}\small\item\em The temperature used to scale the thermodynamic parameters. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a19524bf1d8d7ab590ed36edbbcaaba2c}\label{structvrna__md__s_a19524bf1d8d7ab590ed36edbbcaaba2c}} 
+double \mbox{\hyperlink{structvrna__md__s_a19524bf1d8d7ab590ed36edbbcaaba2c}{beta\+Scale}}
+\begin{DoxyCompactList}\small\item\em A scaling factor for the thermodynamic temperature of the Boltzmann factors. \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{structvrna__md__s_adcda4ff2ea77748ae0e8700288282efc}{dangles}}
+\begin{DoxyCompactList}\small\item\em Specifies the dangle model used in any energy evaluation (0,1,2 or 3) \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_add64a96d23e77ef1d0ddf8dfc5228143}\label{structvrna__md__s_add64a96d23e77ef1d0ddf8dfc5228143}} 
+int \mbox{\hyperlink{structvrna__md__s_add64a96d23e77ef1d0ddf8dfc5228143}{special\+\_\+hp}}
+\begin{DoxyCompactList}\small\item\em Include special hairpin contributions for tri, tetra and hexaloops. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a753200bf21cee0ea2df64afe43999f5d}\label{structvrna__md__s_a753200bf21cee0ea2df64afe43999f5d}} 
+int \mbox{\hyperlink{structvrna__md__s_a753200bf21cee0ea2df64afe43999f5d}{no\+LP}}
+\begin{DoxyCompactList}\small\item\em Only consider canonical structures, i.\+e. no \textquotesingle{}lonely\textquotesingle{} base pairs. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_ad64a5eaf9c4550e7525b36a725fec4b2}\label{structvrna__md__s_ad64a5eaf9c4550e7525b36a725fec4b2}} 
+int \mbox{\hyperlink{structvrna__md__s_ad64a5eaf9c4550e7525b36a725fec4b2}{no\+GU}}
+\begin{DoxyCompactList}\small\item\em Do not allow GU pairs. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a7e883db1f33f8f3baa5c9b140350c78e}\label{structvrna__md__s_a7e883db1f33f8f3baa5c9b140350c78e}} 
+int \mbox{\hyperlink{structvrna__md__s_a7e883db1f33f8f3baa5c9b140350c78e}{no\+G\+Uclosure}}
+\begin{DoxyCompactList}\small\item\em Do not allow loops to be closed by GU pair. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_ae259f89a94acae0c7f1412603e7f57b5}\label{structvrna__md__s_ae259f89a94acae0c7f1412603e7f57b5}} 
+int \mbox{\hyperlink{structvrna__md__s_ae259f89a94acae0c7f1412603e7f57b5}{log\+ML}}
+\begin{DoxyCompactList}\small\item\em Use logarithmic scaling for multiloops. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a92762e1008503d4623ff5c01e358a464}\label{structvrna__md__s_a92762e1008503d4623ff5c01e358a464}} 
+int \mbox{\hyperlink{structvrna__md__s_a92762e1008503d4623ff5c01e358a464}{circ}}
+\begin{DoxyCompactList}\small\item\em Assume R\+NA to be circular instead of linear. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_af88a511a2b1f526b4c6213de6cb8fd6e}\label{structvrna__md__s_af88a511a2b1f526b4c6213de6cb8fd6e}} 
+int \mbox{\hyperlink{structvrna__md__s_af88a511a2b1f526b4c6213de6cb8fd6e}{gquad}}
+\begin{DoxyCompactList}\small\item\em Include G-\/quadruplexes in structure prediction. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a87edce006e9daff84363ec0e6abd2182}\label{structvrna__md__s_a87edce006e9daff84363ec0e6abd2182}} 
+int \mbox{\hyperlink{structvrna__md__s_a87edce006e9daff84363ec0e6abd2182}{canonical\+B\+Ponly}}
+\begin{DoxyCompactList}\small\item\em remove non-\/canonical bp\textquotesingle{}s from constraint structures \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_ade065b814a4e2e72ead93ab502613ed2}\label{structvrna__md__s_ade065b814a4e2e72ead93ab502613ed2}} 
+int \mbox{\hyperlink{structvrna__md__s_ade065b814a4e2e72ead93ab502613ed2}{uniq\+\_\+\+ML}}
+\begin{DoxyCompactList}\small\item\em Flag to ensure unique multi-\/branch loop decomposition during folding. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a5eee4e3b468eb690d1407e0178dafb3f}\label{structvrna__md__s_a5eee4e3b468eb690d1407e0178dafb3f}} 
+int \mbox{\hyperlink{structvrna__md__s_a5eee4e3b468eb690d1407e0178dafb3f}{energy\+\_\+set}}
+\begin{DoxyCompactList}\small\item\em Specifies the energy set that defines set of compatible base pairs. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a31f4471608cbdd03887f63c281823adb}\label{structvrna__md__s_a31f4471608cbdd03887f63c281823adb}} 
+int \mbox{\hyperlink{structvrna__md__s_a31f4471608cbdd03887f63c281823adb}{backtrack}}
+\begin{DoxyCompactList}\small\item\em Specifies whether or not secondary structures should be backtraced. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_abb265da25121d22ed11c8435861f0e53}\label{structvrna__md__s_abb265da25121d22ed11c8435861f0e53}} 
+char \mbox{\hyperlink{structvrna__md__s_abb265da25121d22ed11c8435861f0e53}{backtrack\+\_\+type}}
+\begin{DoxyCompactList}\small\item\em Specifies in which matrix to backtrack. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_aa0c3e03d9064363e27adcc92b8d0380f}\label{structvrna__md__s_aa0c3e03d9064363e27adcc92b8d0380f}} 
+int \mbox{\hyperlink{structvrna__md__s_aa0c3e03d9064363e27adcc92b8d0380f}{compute\+\_\+bpp}}
+\begin{DoxyCompactList}\small\item\em Specifies whether or not backward recursions for base pair probability (bpp) computation will be performed. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a3fde4ac9eaf972f503c7a76726cefb59}\label{structvrna__md__s_a3fde4ac9eaf972f503c7a76726cefb59}} 
+char \mbox{\hyperlink{structvrna__md__s_a3fde4ac9eaf972f503c7a76726cefb59}{nonstandards}} \mbox{[}64\mbox{]}
+\begin{DoxyCompactList}\small\item\em contains allowed non standard bases \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a659e5fcc6e8c9f1a68e7de6548eef3b0}\label{structvrna__md__s_a659e5fcc6e8c9f1a68e7de6548eef3b0}} 
+int \mbox{\hyperlink{structvrna__md__s_a659e5fcc6e8c9f1a68e7de6548eef3b0}{max\+\_\+bp\+\_\+span}}
+\begin{DoxyCompactList}\small\item\em maximum allowed base pair span \end{DoxyCompactList}\item 
+int \mbox{\hyperlink{structvrna__md__s_a9ed7ba42fcc46915c5c0c524f3d255f5}{min\+\_\+loop\+\_\+size}}
+\begin{DoxyCompactList}\small\item\em Minimum size of hairpin loops. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_abea42f9229f8d8d6bcbedef316315bfc}\label{structvrna__md__s_abea42f9229f8d8d6bcbedef316315bfc}} 
+int \mbox{\hyperlink{structvrna__md__s_abea42f9229f8d8d6bcbedef316315bfc}{window\+\_\+size}}
+\begin{DoxyCompactList}\small\item\em Size of the sliding window for locally optimal structure prediction. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_ab53aec4503130877973c6111ae6f0f76}\label{structvrna__md__s_ab53aec4503130877973c6111ae6f0f76}} 
+int \mbox{\hyperlink{structvrna__md__s_ab53aec4503130877973c6111ae6f0f76}{old\+Ali\+En}}
+\begin{DoxyCompactList}\small\item\em Use old alifold energy model. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a3df2ae4bd9c133ef8ab92a53b1d035ec}\label{structvrna__md__s_a3df2ae4bd9c133ef8ab92a53b1d035ec}} 
+int \mbox{\hyperlink{structvrna__md__s_a3df2ae4bd9c133ef8ab92a53b1d035ec}{ribo}}
+\begin{DoxyCompactList}\small\item\em Use ribosum scoring table in alifold energy model. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a62ebefb9d0643e5c4c8a2ec84a105ce6}\label{structvrna__md__s_a62ebefb9d0643e5c4c8a2ec84a105ce6}} 
+double \mbox{\hyperlink{structvrna__md__s_a62ebefb9d0643e5c4c8a2ec84a105ce6}{cv\+\_\+fact}}
+\begin{DoxyCompactList}\small\item\em Co-\/variance scaling factor for consensus structure prediction. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_abcf568e6124bfcb2f847ff4eb0dfded6}\label{structvrna__md__s_abcf568e6124bfcb2f847ff4eb0dfded6}} 
+double \mbox{\hyperlink{structvrna__md__s_abcf568e6124bfcb2f847ff4eb0dfded6}{nc\+\_\+fact}}
+\begin{DoxyCompactList}\small\item\em Scaling factor to weight co-\/variance contributions of non-\/canonical pairs. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_ab6f4cabaa9b4726b13592486d5bc21c7}\label{structvrna__md__s_ab6f4cabaa9b4726b13592486d5bc21c7}} 
+double \mbox{\hyperlink{structvrna__md__s_ab6f4cabaa9b4726b13592486d5bc21c7}{sfact}}
+\begin{DoxyCompactList}\small\item\em Scaling factor for partition function scaling. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_ad082d0fea31e002b90cdfe5e6382f8b0}\label{structvrna__md__s_ad082d0fea31e002b90cdfe5e6382f8b0}} 
+int \mbox{\hyperlink{structvrna__md__s_ad082d0fea31e002b90cdfe5e6382f8b0}{rtype}} \mbox{[}8\mbox{]}
+\begin{DoxyCompactList}\small\item\em Reverse base pair type array. \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_a66136cf9abc8ff790ec0d33245d68fd5}\label{structvrna__md__s_a66136cf9abc8ff790ec0d33245d68fd5}} 
+short \mbox{\hyperlink{structvrna__md__s_a66136cf9abc8ff790ec0d33245d68fd5}{alias}} \mbox{[}\mbox{\hyperlink{group__model__details_ga05a5ffe718aa431d97419a12fb082379}{M\+A\+X\+A\+L\+P\+HA}}+1\mbox{]}
+\begin{DoxyCompactList}\small\item\em alias of an integer nucleotide representation \end{DoxyCompactList}\item 
+\mbox{\Hypertarget{structvrna__md__s_ab4da594c638707e212f64aadb54a7454}\label{structvrna__md__s_ab4da594c638707e212f64aadb54a7454}} 
+int \mbox{\hyperlink{structvrna__md__s_ab4da594c638707e212f64aadb54a7454}{pair}} \mbox{[}\mbox{\hyperlink{group__model__details_ga05a5ffe718aa431d97419a12fb082379}{M\+A\+X\+A\+L\+P\+HA}}+1\mbox{]}\mbox{[}\mbox{\hyperlink{group__model__details_ga05a5ffe718aa431d97419a12fb082379}{M\+A\+X\+A\+L\+P\+HA}}+1\mbox{]}
+\begin{DoxyCompactList}\small\item\em Integer representation of a base pair. \end{DoxyCompactList}\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+The data structure that contains the complete model details used throughout the calculations. 
+
+For convenience reasons, we provide the type name \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}} to address this data structure without the use of the struct keyword
+
+\begin{DoxySeeAlso}{See also}
+\mbox{\hyperlink{group__model__details_ga8ac6ff84936282436f822644bf841f66}{vrna\+\_\+md\+\_\+set\+\_\+default()}}, \mbox{\hyperlink{group__model__details_gabad896c3650d420f3f3ddefc69e2bceb}{set\+\_\+model\+\_\+details()}}, \mbox{\hyperlink{group__model__details_ga36ae40b8c3b82362f5798ad5b047b814}{vrna\+\_\+md\+\_\+update()}}, \mbox{\hyperlink{group__model__details_ga1f8a10e12a0a1915f2a4eff0b28ea17c}{vrna\+\_\+md\+\_\+t}}
+\end{DoxySeeAlso}
+\begin{DoxyRefDesc}{S\+W\+I\+G Wrapper Notes}
+\item[\mbox{\hyperlink{wrappers__wrappers000042}{S\+W\+I\+G Wrapper Notes}}]This data structure is wrapped as an object {\bfseries md} with multiple related functions attached as methods.
+
+A new set of default parameters can be obtained by calling the constructure of {\bfseries md\+:} ~\newline
+
+\begin{DoxyItemize}
+\item {\itshape md()} -- Initialize with default settings
+\end{DoxyItemize}
+
+The resulting object has a list of attached methods which directly correspond to functions that mainly operate on the corresponding {\itshape C} data structure\+:~\newline
+
+\begin{DoxyItemize}
+\item {\itshape reset()} -- \mbox{\hyperlink{group__model__details_ga8ac6ff84936282436f822644bf841f66}{vrna\+\_\+md\+\_\+set\+\_\+default()}}
+\item {\itshape set\+\_\+from\+\_\+globals()} -- \mbox{\hyperlink{group__model__details_gabad896c3650d420f3f3ddefc69e2bceb}{set\+\_\+model\+\_\+details()}}
+\item {\itshape option\+\_\+string()} -- \mbox{\hyperlink{group__model__details_ga3a7469f0725a849af6ba61a57dfd60ce}{vrna\+\_\+md\+\_\+option\+\_\+string()}}
+\end{DoxyItemize}
+
+Note, that default parameters can be modified by directly setting any of the following global variables. Internally, getting/setting default parameters using their global variable representative translates into calls of the following functions, therefore these wrappers for these functions do not exist in the scripting language interface(s)\+:
+
+\tabulinesep=1mm
+\begin{longtabu} spread 0pt [c]{*{3}{|X[-1]}|}
+\hline
+\rowcolor{\tableheadbgcolor}\textbf{ global variable  }&\textbf{ {\itshape C} getter  }&\textbf{ {\itshape C} setter   }\\\cline{1-3}
+\endfirsthead
+\hline
+\endfoot
+\hline
+\rowcolor{\tableheadbgcolor}\textbf{ global variable  }&\textbf{ {\itshape C} getter  }&\textbf{ {\itshape C} setter   }\\\cline{1-3}
+\endhead
+temperature  &\mbox{\hyperlink{group__model__details_ga96b24a74437f9ba46c4e06343155bf46}{vrna\+\_\+md\+\_\+defaults\+\_\+temperature\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_gaf9e527e9a2f7e6fd6e42bc6e602f5445}{vrna\+\_\+md\+\_\+defaults\+\_\+temperature()}}   \\\cline{1-3}
+dangles  &\mbox{\hyperlink{group__model__details_ga67ca06f95ae133778c79a4493c9817b8}{vrna\+\_\+md\+\_\+defaults\+\_\+dangles\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_gac76a5374def8e5e4e644ff6e4cc72dee}{vrna\+\_\+md\+\_\+defaults\+\_\+dangles()}}   \\\cline{1-3}
+beta\+Scale  &\mbox{\hyperlink{group__model__details_gabb8780f5410c52f970d75b044059bd09}{vrna\+\_\+md\+\_\+defaults\+\_\+beta\+Scale\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_gae984567db36c3f9b8731ecc917abf3a2}{vrna\+\_\+md\+\_\+defaults\+\_\+beta\+Scale()}}   \\\cline{1-3}
+tetra\+\_\+loop  &this is an alias of {\itshape special\+\_\+hp}  &\\\cline{1-3}
+special\+\_\+hp  &\mbox{\hyperlink{group__model__details_ga1d68a6efdaa1253cc63fd9cd06452559}{vrna\+\_\+md\+\_\+defaults\+\_\+special\+\_\+hp\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_gafff6449a02744add0308e653230c15fc}{vrna\+\_\+md\+\_\+defaults\+\_\+special\+\_\+hp()}}   \\\cline{1-3}
+no\+Lonely\+Pairs  &this is an alias of {\itshape no\+LP}  &\\\cline{1-3}
+no\+LP  &\mbox{\hyperlink{group__model__details_ga934344888fbacaed538bbbfe910f2aa6}{vrna\+\_\+md\+\_\+defaults\+\_\+no\+L\+P\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga2f88ffc393ac9d7987849c965fd29ea8}{vrna\+\_\+md\+\_\+defaults\+\_\+no\+L\+P()}}   \\\cline{1-3}
+no\+GU  &\mbox{\hyperlink{group__model__details_ga5faa7d4e536d7fe36ec25428c0cf2563}{vrna\+\_\+md\+\_\+defaults\+\_\+no\+G\+U\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga98218f85c7a957a1d1ddf4627fdf5a39}{vrna\+\_\+md\+\_\+defaults\+\_\+no\+G\+U()}}   \\\cline{1-3}
+no\+\_\+closing\+GU  &this is an alias of {\itshape no\+G\+Uclosure}  &\\\cline{1-3}
+no\+G\+Uclosure  &\mbox{\hyperlink{group__model__details_ga4f7fdad083243a5348d63320ddaa70f3}{vrna\+\_\+md\+\_\+defaults\+\_\+no\+G\+Uclosure\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_gade5b9951d71ca2fb357a4e6c0c18ccd1}{vrna\+\_\+md\+\_\+defaults\+\_\+no\+G\+Uclosure()}}   \\\cline{1-3}
+log\+ML  &\mbox{\hyperlink{group__model__details_ga93f04e070d529c5d0bb87c9681f6ad29}{vrna\+\_\+md\+\_\+defaults\+\_\+log\+M\+L\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga3de50a73455d88c3957386933b8e1f90}{vrna\+\_\+md\+\_\+defaults\+\_\+log\+M\+L()}}   \\\cline{1-3}
+circ  &\mbox{\hyperlink{group__model__details_gad3a7e58de344ad93a08925f58f94f6fb}{vrna\+\_\+md\+\_\+defaults\+\_\+circ\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga4e1deb3e91a8a99e5c6dd905a5eb0186}{vrna\+\_\+md\+\_\+defaults\+\_\+circ()}}   \\\cline{1-3}
+gquad  &\mbox{\hyperlink{group__model__details_gae645b8612f879eb38b45244fa9eddb9e}{vrna\+\_\+md\+\_\+defaults\+\_\+gquad\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga0685ca2aeb39af76f2421fc308163dce}{vrna\+\_\+md\+\_\+defaults\+\_\+gquad()}}   \\\cline{1-3}
+uniq\+\_\+\+ML  &\mbox{\hyperlink{group__model__details_gab48e70fd024bf838404bcbcca0c874a0}{vrna\+\_\+md\+\_\+defaults\+\_\+uniq\+\_\+\+M\+L\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga59b944f61c5d2babec2d4c48c820de67}{vrna\+\_\+md\+\_\+defaults\+\_\+uniq\+\_\+\+M\+L()}}   \\\cline{1-3}
+energy\+\_\+set  &\mbox{\hyperlink{group__model__details_ga017ed6afb1cba2b7f242412cab618b53}{vrna\+\_\+md\+\_\+defaults\+\_\+energy\+\_\+set\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga8dd29c55787a4576277e1907e92d810c}{vrna\+\_\+md\+\_\+defaults\+\_\+energy\+\_\+set()}}   \\\cline{1-3}
+backtrack  &\mbox{\hyperlink{group__model__details_ga90da1156e6883ddd68527c2830706648}{vrna\+\_\+md\+\_\+defaults\+\_\+backtrack\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga978c468b2fe96a70d5191e3dd17d5599}{vrna\+\_\+md\+\_\+defaults\+\_\+backtrack()}}   \\\cline{1-3}
+backtrack\+\_\+type  &\mbox{\hyperlink{group__model__details_ga1425b4ebd0e034dead66d79becd64143}{vrna\+\_\+md\+\_\+defaults\+\_\+backtrack\+\_\+type\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga68305274de96b56b7799575e222560d8}{vrna\+\_\+md\+\_\+defaults\+\_\+backtrack\+\_\+type()}}   \\\cline{1-3}
+do\+\_\+backtrack  &this is an alias of {\itshape compute\+\_\+bpp}  &\\\cline{1-3}
+compute\+\_\+bpp  &\mbox{\hyperlink{group__model__details_gaa3a537e61fbe0518673bf9f73fd820f3}{vrna\+\_\+md\+\_\+defaults\+\_\+compute\+\_\+bpp\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_gaf1b5db10f1f476767f9a95f8a78e3132}{vrna\+\_\+md\+\_\+defaults\+\_\+compute\+\_\+bpp()}}   \\\cline{1-3}
+max\+\_\+bp\+\_\+span  &\mbox{\hyperlink{group__model__details_gaa60f989e062fecd4d4bac89c1883da85}{vrna\+\_\+md\+\_\+defaults\+\_\+max\+\_\+bp\+\_\+span\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga4c4bc962f09b4480cb8499f1cf8ae4ec}{vrna\+\_\+md\+\_\+defaults\+\_\+max\+\_\+bp\+\_\+span()}}   \\\cline{1-3}
+min\+\_\+loop\+\_\+size  &\mbox{\hyperlink{group__model__details_ga5cc691174a75c652807dc361b617632a}{vrna\+\_\+md\+\_\+defaults\+\_\+min\+\_\+loop\+\_\+size\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_gac152f1e78c1058a10261022c8dfda0f7}{vrna\+\_\+md\+\_\+defaults\+\_\+min\+\_\+loop\+\_\+size()}}   \\\cline{1-3}
+window\+\_\+size  &\mbox{\hyperlink{group__model__details_ga670146a9aa3ba77f4d422d60b7c30ac9}{vrna\+\_\+md\+\_\+defaults\+\_\+window\+\_\+size\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga7b802ce0e8c3181bf5cb580de6d5b26a}{vrna\+\_\+md\+\_\+defaults\+\_\+window\+\_\+size()}}   \\\cline{1-3}
+old\+Ali\+En  &\mbox{\hyperlink{group__model__details_ga2374492b5019df88022fe4c05f0f3630}{vrna\+\_\+md\+\_\+defaults\+\_\+old\+Ali\+En\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga41521d5b9fb7e0f31e7ea73f5792afab}{vrna\+\_\+md\+\_\+defaults\+\_\+old\+Ali\+En()}}   \\\cline{1-3}
+ribo  &\mbox{\hyperlink{group__model__details_ga169027f0c0561ea7d87b655e4b336bfc}{vrna\+\_\+md\+\_\+defaults\+\_\+ribo\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga937c45e1d06fd6168730a9b08d130be3}{vrna\+\_\+md\+\_\+defaults\+\_\+ribo()}}   \\\cline{1-3}
+cv\+\_\+fact  &\mbox{\hyperlink{group__model__details_gae59c68393807217b0a2497adb64d3ee3}{vrna\+\_\+md\+\_\+defaults\+\_\+cv\+\_\+fact\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_gad3a3f40baafd91a6ce80a91a68e20053}{vrna\+\_\+md\+\_\+defaults\+\_\+cv\+\_\+fact()}}   \\\cline{1-3}
+nc\+\_\+fact  &\mbox{\hyperlink{group__model__details_ga7ac759eaa7159bf5f022745f5da59508}{vrna\+\_\+md\+\_\+defaults\+\_\+nc\+\_\+fact\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_gac35e596c850dce3ad55c49119fd7d471}{vrna\+\_\+md\+\_\+defaults\+\_\+nc\+\_\+fact()}}   \\\cline{1-3}
+sfact  &\mbox{\hyperlink{group__model__details_gab2df6aab954b63fd3592d18e90285dae}{vrna\+\_\+md\+\_\+defaults\+\_\+sfact\+\_\+get()}}  &\mbox{\hyperlink{group__model__details_ga3f73d3029d3d0025d4cc311510cd95a3}{vrna\+\_\+md\+\_\+defaults\+\_\+sfact()}}   \\\cline{1-3}
+\end{longtabu}
+
+
+\end{DoxyRefDesc}
+
+
+\subsection{Field Documentation}
+\mbox{\Hypertarget{structvrna__md__s_adcda4ff2ea77748ae0e8700288282efc}\label{structvrna__md__s_adcda4ff2ea77748ae0e8700288282efc}} 
+\index{vrna\+\_\+md\+\_\+s@{vrna\+\_\+md\+\_\+s}!dangles@{dangles}}
+\index{dangles@{dangles}!vrna\+\_\+md\+\_\+s@{vrna\+\_\+md\+\_\+s}}
+\subsubsection{\texorpdfstring{dangles}{dangles}}
+{\footnotesize\ttfamily int vrna\+\_\+md\+\_\+s\+::dangles}
+
+
+
+Specifies the dangle model used in any energy evaluation (0,1,2 or 3) 
+
+If set to 0 no stabilizing energies are assigned to bases adjacent to helices in free ends and multiloops (so called dangling ends). Normally (dangles = 1) dangling end energies are assigned only to unpaired bases and a base cannot participate simultaneously in two dangling ends. In the partition function algorithm \mbox{\hyperlink{group__pf__fold_ga29e256d688ad221b78d37f427e0e99bc}{vrna\+\_\+pf()}} these checks are neglected. To provide comparability between free energy minimization and partition function algorithms, the default setting is 2. This treatment of dangling ends gives more favorable energies to helices directly adjacent to one another, which can be beneficial since such helices often do engage in stabilizing interactions through co-\/axial stacking.~\newline
+If set to 3 co-\/axial stacking is explicitly included for adjacent helices in multiloops. The option affects only mfe folding and energy evaluation (\mbox{\hyperlink{group__mfe__fold_gabd3b147371ccf25c577f88bbbaf159fd}{vrna\+\_\+mfe()}} and \mbox{\hyperlink{group__eval_ga58f199f1438d794a265f3b27fc8ea631}{vrna\+\_\+eval\+\_\+structure()}}), as well as suboptimal folding (\mbox{\hyperlink{group__subopt__wuchty_ga0f11d738fb8c8b1885a90c11c8931ff6}{vrna\+\_\+subopt()}}) via re-\/evaluation of energies. Co-\/axial stacking with one intervening mismatch is not considered so far. \begin{DoxyNote}{Note}
+Some function do not implement all dangle model but only a subset of (0,1,2,3). In particular, partition function algorithms can only handle 0 and 2. Read the documentation of the particular recurrences or energy evaluation function for information about the provided dangle model. 
+\end{DoxyNote}
+\mbox{\Hypertarget{structvrna__md__s_a9ed7ba42fcc46915c5c0c524f3d255f5}\label{structvrna__md__s_a9ed7ba42fcc46915c5c0c524f3d255f5}} 
+\index{vrna\+\_\+md\+\_\+s@{vrna\+\_\+md\+\_\+s}!min\+\_\+loop\+\_\+size@{min\+\_\+loop\+\_\+size}}
+\index{min\+\_\+loop\+\_\+size@{min\+\_\+loop\+\_\+size}!vrna\+\_\+md\+\_\+s@{vrna\+\_\+md\+\_\+s}}
+\subsubsection{\texorpdfstring{min\+\_\+loop\+\_\+size}{min\_loop\_size}}
+{\footnotesize\ttfamily int vrna\+\_\+md\+\_\+s\+::min\+\_\+loop\+\_\+size}
+
+
+
+Minimum size of hairpin loops. 
+
+\begin{DoxyNote}{Note}
+The default value for this field is \mbox{\hyperlink{energy__const_8h_ae646250fd59311356c7e5722a81c3a96}{T\+U\+RN}}, however, it may be 0 in cofolding context. 
+\end{DoxyNote}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+Vienna\+R\+N\+A/\mbox{\hyperlink{model_8h}{model.\+h}}\end{DoxyCompactItemize}

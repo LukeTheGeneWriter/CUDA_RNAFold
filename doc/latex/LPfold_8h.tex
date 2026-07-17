@@ -1,0 +1,45 @@
+\hypertarget{LPfold_8h}{}\section{Vienna\+R\+N\+A/\+L\+Pfold.h File Reference}
+\label{LPfold_8h}\index{Vienna\+R\+N\+A/\+L\+Pfold.\+h@{Vienna\+R\+N\+A/\+L\+Pfold.\+h}}
+
+
+Partition function implementation for the Lfold algorithm.  
+
+
+Include dependency graph for L\+Pfold.\+h\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{LPfold_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+void \mbox{\hyperlink{group__local__pf__fold_ga5a019014d37fe6105131dfc2fc447880}{update\+\_\+pf\+\_\+params\+LP}} (int length)
+\item 
+\mbox{\hyperlink{group__data__structures_gab1d8894b43aa84cbc50b862a73785fbc}{plist}} $\ast$ \mbox{\hyperlink{group__local__pf__fold_ga7dcf599d07258801ea55e7d14a56908d}{pfl\+\_\+fold}} (char $\ast$sequence, int win\+Size, int pair\+Size, float cutoffb, double $\ast$$\ast$pU, \mbox{\hyperlink{group__data__structures_gab1d8894b43aa84cbc50b862a73785fbc}{plist}} $\ast$$\ast$dpp2, F\+I\+LE $\ast$p\+Ufp, F\+I\+LE $\ast$spup)
+\begin{DoxyCompactList}\small\item\em Compute partition functions for locally stable secondary structures. \end{DoxyCompactList}\item 
+\mbox{\hyperlink{group__data__structures_gab1d8894b43aa84cbc50b862a73785fbc}{plist}} $\ast$ \mbox{\hyperlink{group__local__pf__fold_ga14c2b82fdd5ab7a1951f1c2db4f5cf2c}{pfl\+\_\+fold\+\_\+par}} (char $\ast$sequence, int win\+Size, int pair\+Size, float cutoffb, double $\ast$$\ast$pU, \mbox{\hyperlink{group__data__structures_gab1d8894b43aa84cbc50b862a73785fbc}{plist}} $\ast$$\ast$dpp2, F\+I\+LE $\ast$p\+Ufp, F\+I\+LE $\ast$spup, \mbox{\hyperlink{group__energy__parameters_ga01d8b92fe734df8d79a6169482c7d8d8}{vrna\+\_\+exp\+\_\+param\+\_\+t}} $\ast$parameters)
+\begin{DoxyCompactList}\small\item\em Compute partition functions for locally stable secondary structures. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__local__pf__fold_ga0bcb751860bbf34e3dfee8c2fbdb3ef3}{putoutp\+U\+\_\+prob}} (double $\ast$$\ast$pU, int length, int ulength, F\+I\+LE $\ast$fp, int energies)
+\begin{DoxyCompactList}\small\item\em Writes the unpaired probabilities (pU) or opening energies into a file. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{group__local__pf__fold_ga9acb00ee10e96b1ca4ea394cd8bcec75}{putoutp\+U\+\_\+prob\+\_\+bin}} (double $\ast$$\ast$pU, int length, int ulength, F\+I\+LE $\ast$fp, int energies)
+\begin{DoxyCompactList}\small\item\em Writes the unpaired probabilities (pU) or opening energies into a binary file. \end{DoxyCompactList}\item 
+void \mbox{\hyperlink{LPfold_8h_ae85bf55053e9fb295208be322e0fa07a}{init\+\_\+pf\+\_\+fold\+LP}} (int length)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Partition function implementation for the Lfold algorithm. 
+
+
+
+\subsection{Function Documentation}
+\mbox{\Hypertarget{LPfold_8h_ae85bf55053e9fb295208be322e0fa07a}\label{LPfold_8h_ae85bf55053e9fb295208be322e0fa07a}} 
+\index{L\+Pfold.\+h@{L\+Pfold.\+h}!init\+\_\+pf\+\_\+fold\+LP@{init\+\_\+pf\+\_\+fold\+LP}}
+\index{init\+\_\+pf\+\_\+fold\+LP@{init\+\_\+pf\+\_\+fold\+LP}!L\+Pfold.\+h@{L\+Pfold.\+h}}
+\subsubsection{\texorpdfstring{init\+\_\+pf\+\_\+fold\+L\+P()}{init\_pf\_foldLP()}}
+{\footnotesize\ttfamily void init\+\_\+pf\+\_\+fold\+LP (\begin{DoxyParamCaption}\item[{int}]{length }\end{DoxyParamCaption})}
+
+Dunno if this function was ever used by external programs linking to R\+N\+Alib, but it was declared P\+U\+B\+L\+IC before. Anyway, never use this function as it will be removed soon and does nothing at all 
