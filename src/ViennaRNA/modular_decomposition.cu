@@ -28,6 +28,7 @@
 #include <limits.h>
 #include <unistd.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "ViennaRNA/utils.h"
 #include "ViennaRNA/energy_par.h"
