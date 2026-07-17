@@ -2469,8 +2469,8 @@ for as_dir in $PATH
 do
   IFS=$as_save_IFS
   test -z "$as_dir" && as_dir=.
-    $as_echo "PATH: $as_dir"
-  done
+  $as_echo "PATH: $as_dir"
+done
 IFS=$as_save_IFS
 
 } >&5
