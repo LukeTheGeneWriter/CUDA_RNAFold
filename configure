@@ -33,9 +33,9 @@ if test -n "${ZSH_VERSION+set}" && (emulate sh) >/dev/null 2>&1; then :
   alias -g '${1+"$@"}'='"$@"'
   setopt NO_GLOB_SUBST
 else
-  case `(set -o) 2>/dev/null` in (
+  case `(set -o) 2>/dev/null` in #(
   *posix*) :
-    set -o posix ;; (
+    set -o posix ;; #(
   *) :
      ;;
 esac
