@@ -202,6 +202,7 @@ choose_gpu(int argc, char **argv) {
 		printf("failed to set cudaDeviceMapHost for zero copy error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
 		use_cuda = 0;
 		return; //for the time being, RNAFold will use pthreads instead
+	}
 
     error = cudaFree(0);
     if (error != cudaSuccess)
@@ -217,7 +218,7 @@ choose_gpu(int argc, char **argv) {
                      errno, __FILE__,__LINE__);
       exit(errno);
     }*/
-	use_cuda = 1
+	use_cuda = 1;
 }
 
 void int_Memcpy(int* out, const int* in, const unsigned int size, const cudaMemcpyKind dir, const int error_report) {
