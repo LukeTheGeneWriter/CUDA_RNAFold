@@ -1,0 +1,117 @@
+\hypertarget{stub2_8h_source}{}\section{stub2.\+h}
+\label{stub2_8h_source}\index{Vienna\+R\+N\+A/stub2.\+h@{Vienna\+R\+N\+A/stub2.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{comment}{/* Modifications for eventual CUDA version $Revision: 1.13 $}
+00002 \textcolor{comment}{WBL  8 Jan 2018 Extend linkage for CUDA interface in modular\_decomposition.cu}
+00003 \textcolor{comment}{WBL  3 Dec 2017 investigate data dependence in E\_mb\_loop\_fast}
+00004 \textcolor{comment}{  split off multibranch\_loops.c r1.10 for time being}
+00005 \textcolor{comment}{*/}
+00006 
+00007 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00008 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{keywordtype}{void}
+00009 \textcolor{preprocessor}{#else}
+00010 PUBLIC \textcolor{keywordtype}{void}
+00011 \textcolor{preprocessor}{#endif}
+00012 choose\_gpu(\textcolor{keywordtype}{int} argc, \textcolor{keywordtype}{char} **argv); \textcolor{comment}{//updates argc and argv}
+00013 
+00014 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00015 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{comment}{/*PUBLIC*/} \textcolor{keywordtype}{void}
+00016 \textcolor{preprocessor}{#else}
+00017 PUBLIC \textcolor{keywordtype}{void}
+00018 \textcolor{preprocessor}{#endif}
+00019 init\_fML(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles,\textcolor{keyword}{const} \textcolor{keywordtype}{int} length);
+00020 
+00021 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00022 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{comment}{/*PUBLIC*/} \textcolor{keywordtype}{void}
+00023 \textcolor{preprocessor}{#else}
+00024 PUBLIC \textcolor{keywordtype}{void}
+00025 \textcolor{preprocessor}{#endif}
+00026 load\_fML(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles,
+00027    \textcolor{keyword}{const} \textcolor{keywordtype}{int} i, \textcolor{keyword}{const} \textcolor{keywordtype}{int} turn, \textcolor{keyword}{const} \textcolor{keywordtype}{int} length,
+00028    \textcolor{keyword}{const} \textcolor{keywordtype}{int}* energy\_min);
+00029 
+00030 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00031 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{comment}{/*PUBLIC*/} \textcolor{keywordtype}{void}
+00032 \textcolor{preprocessor}{#else}
+00033 PUBLIC \textcolor{keywordtype}{void}
+00034 \textcolor{preprocessor}{#endif}
+00035 load\_min\_fML(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles, \textcolor{keyword}{const} \textcolor{keywordtype}{int} i, \textcolor{keyword}{const} \textcolor{keywordtype}{int} turn, \textcolor{keyword}{const} \textcolor{keywordtype}{int} length);
+00036 
+00037 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00038 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{comment}{/*PUBLIC*/} \textcolor{keywordtype}{void}
+00039 \textcolor{preprocessor}{#else}
+00040 PUBLIC \textcolor{keywordtype}{void}
+00041 \textcolor{preprocessor}{#endif}
+00042 modular\_decomposition\_i(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles,
+00043       \textcolor{keyword}{const} \textcolor{keywordtype}{int} i, \textcolor{keyword}{const} \textcolor{keywordtype}{int} turn, \textcolor{keyword}{const} \textcolor{keywordtype}{int} length,
+00044           \textcolor{comment}{//const int* indx,}
+00045           \textcolor{comment}{//const int ijsize,  //for sanity checks}
+00046           \textcolor{comment}{//const int* my\_fML,}
+00047       \textcolor{keywordtype}{int}* DMLi);
+00048 
+00049 PUBLIC \textcolor{keywordtype}{int}
+00050 extend\_fm\_3p( \textcolor{keyword}{const} \textcolor{keywordtype}{int} i,
+00051               \textcolor{keyword}{const} \textcolor{keywordtype}{int} j,
+00052               \textcolor{keyword}{const} \textcolor{keywordtype}{int} *fm,
+00053               \textcolor{keyword}{const} \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc);
+00054 
+00055 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00056 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{comment}{/*PUBLIC*/} \textcolor{keywordtype}{void}
+00057 \textcolor{preprocessor}{#else}
+00058 PUBLIC \textcolor{keywordtype}{void}
+00059 \textcolor{preprocessor}{#endif}
+00060 init\_gpu(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles, \textcolor{keyword}{const} \textcolor{keywordtype}{int} length);
+00061 
+00062 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00063 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{comment}{/*PUBLIC*/} \textcolor{keywordtype}{void}
+00064 \textcolor{preprocessor}{#else}
+00065 PUBLIC \textcolor{keywordtype}{void}
+00066 \textcolor{preprocessor}{#endif}
+00067 init\_gpu2(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles, \textcolor{keyword}{const} \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} **VC, \textcolor{keyword}{const} \textcolor{keywordtype}{int} turn\_, \textcolor{keyword}{const} \textcolor{keywordtype}{int}
+       length, \textcolor{keyword}{const} \textcolor{keywordtype}{int} block\_size);
+00068 
+00069 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00070 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{comment}{/*PUBLIC*/} \textcolor{keywordtype}{void}
+00071 \textcolor{preprocessor}{#else}
+00072 PUBLIC \textcolor{keywordtype}{void}
+00073 \textcolor{preprocessor}{#endif}
+00074 load\_my\_c(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles,
+00075     \textcolor{keyword}{const} \textcolor{keywordtype}{int} i, \textcolor{keyword}{const} \textcolor{keywordtype}{int} turn, \textcolor{keyword}{const} \textcolor{keywordtype}{int} length,
+00076     \textcolor{keyword}{const} \textcolor{keywordtype}{int}* min\_e); \textcolor{comment}{//in}
+00077 
+00078 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00079 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{comment}{/*PUBLIC*/} \textcolor{keywordtype}{void}
+00080 \textcolor{preprocessor}{#else}
+00081 PUBLIC \textcolor{keywordtype}{void}
+00082 \textcolor{preprocessor}{#endif}
+00083 int\_loop\_i(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles,
+00084      \textcolor{keyword}{const} \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} **VC,
+00085      \textcolor{keyword}{const} \textcolor{keywordtype}{int} i, \textcolor{keyword}{const} \textcolor{keywordtype}{int} turn, \textcolor{keyword}{const} \textcolor{keywordtype}{int} length,
+00086      \textcolor{comment}{/*const int* indx, const int ijsize,}
+00087 \textcolor{comment}{     const char* hard\_constraints, const int* my\_c,*/}
+00088      \textcolor{keywordtype}{int}* energy\_min ); \textcolor{comment}{//out}
+00089 
+00090 
+00091 PUBLIC \textcolor{keywordtype}{void}
+00092 par\_mfe(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles,
+00093   \textcolor{keyword}{const} \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}** VC,
+00094   \textcolor{keyword}{const} \textcolor{keywordtype}{char}** Structure,
+00095   \textcolor{keywordtype}{float}* EN); \textcolor{comment}{//out}
+00096 
+00097 \textcolor{preprocessor}{#ifdef \_\_cplusplus}
+00098 \textcolor{keyword}{extern} \textcolor{stringliteral}{"C"} \textcolor{comment}{/*PUBLIC*/} \textcolor{keywordtype}{void}
+00099 \textcolor{preprocessor}{#else}
+00100 PUBLIC \textcolor{keywordtype}{void}
+00101 \textcolor{preprocessor}{#endif}
+00102 sanity(\textcolor{keyword}{const} \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}* vc0, \textcolor{keyword}{const} 
+      \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}* vc);
+00103 
+00104 PRIVATE \textcolor{keywordtype}{void}
+00105 par\_fill\_arrays(\textcolor{keyword}{const} \textcolor{keywordtype}{int} nfiles, \textcolor{keyword}{const} \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} **VC, \textcolor{keywordtype}{int}* Energy);
+00106 
+00107 \textcolor{keywordtype}{int}
+00108 mb\_loop\_fast( \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc,
+00109                 \textcolor{keywordtype}{int} i,
+00110                 \textcolor{keywordtype}{int} j);
+\end{DoxyCode}

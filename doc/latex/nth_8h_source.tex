@@ -1,0 +1,31 @@
+\hypertarget{nth_8h_source}{}\section{nth.\+h}
+\label{nth_8h_source}\index{Vienna\+R\+N\+A/nth.\+h@{Vienna\+R\+N\+A/nth.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{comment}{//WBL 20 Jan 2018}
+00002 
+00003 \textcolor{comment}{//
+      https://devtalk.nvidia.com/default/topic/799429/cuda-programming-and-performance/possible-to-use-the-cuda-math-api-integer-intrinsics-to-find-the-nth-unset-bit-in-a-32-bit-int/1}
+00004 \textcolor{comment}{//njuffa Posted 12/29/2014 08:48 PM}
+00005 \textcolor{comment}{//    int find\_nth\_clear\_bit (unsigned int a, int n)}
+00006 \textcolor{comment}{//WBL removed 2nd line for find\_nth\_set\_bit and c32 argument}
+00007 \_\_device\_\_ \textcolor{keyword}{inline}
+00008 \textcolor{keywordtype}{int} find\_nth\_set\_bit (\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int} a, \textcolor{keywordtype}{int} n, \textcolor{keywordtype}{int}& c32 \textcolor{comment}{/*popc*/})
+00009     \{
+00010         \textcolor{keywordtype}{int} t, i = n, r = 0;
+00011         \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int} c1 = a;
+00012 \textcolor{comment}{//      unsigned int c1 = ~a; // search for 1-bits instead of 0-bits}
+00013         \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int} c2 = c1 - ((c1 >> 1) & 0x55555555);
+00014         \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int} c4 = ((c2 >> 2) & 0x33333333) + (c2 & 0x33333333);
+00015         \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int} c8 = ((c4 >> 4) + c4) & 0x0f0f0f0f;
+00016         \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int} c16 = ((c8 >> 8) + c8);
+00017         \textcolor{comment}{/*int*/} c32 = ((c16 >> 16) + c16) & 0x3f;
+00018         t = (c16    ) & 0x1f; \textcolor{keywordflow}{if} (i >= t) \{ r += 16; i -= t; \}
+00019         t = (c8 >> r) & 0x0f; \textcolor{keywordflow}{if} (i >= t) \{ r +=  8; i -= t; \}
+00020         t = (c4 >> r) & 0x07; \textcolor{keywordflow}{if} (i >= t) \{ r +=  4; i -= t; \}
+00021         t = (c2 >> r) & 0x03; \textcolor{keywordflow}{if} (i >= t) \{ r +=  2; i -= t; \}
+00022         t = (c1 >> r) & 0x01; \textcolor{keywordflow}{if} (i >= t) \{ r +=  1;         \}
+00023         \textcolor{keywordflow}{if} (n >= c32) r = -1;
+00024         \textcolor{keywordflow}{return} r; 
+00025     \}
+\end{DoxyCode}
