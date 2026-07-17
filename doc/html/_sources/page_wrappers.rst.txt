@@ -1,0 +1,715 @@
+.. index:: pair: page; Scripting Language interface(s)
+.. _doxid-wrappers:
+
+Scripting Language interface(s)
+===============================
+
+.. _doxid-wrappers_1scripting_intro:
+
+Introduction
+------------
+
+
+For an easy integration into scripting languages, we provide an automatically generated interface to the RNAlib C-library, generated with SWIG.
+
+.. _doxid-wrappers_1scripting_renaming:
+
+Function renaming scheme
+------------------------
+
+
+The main difference when using a scripting language interface compared to direct calls of RNAlib C functions is, that the prefix 'vrna_' is dropped. For instance, when calling the :ref:`vrna_fold() <doxid-group__mfe__fold__single_1ga29a33b2895f4e67b0480271ff289afdc>` function, corresponding calls in perl or python are RNA::fold(), and RNA.fold(), respectively.
+
+Functions that are dedicated to work on specific data structures only, e.g. the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` , are usually not exported at all. Instead, they are attached as object methods of a corresponding class (see :ref:`Object oriented Interface for data structures <doxid-wrappers_1scripting_oo_interface>` for detailed information).
+
+.. _doxid-wrappers_1scripting_oo_interface:
+
+Object oriented Interface for data structures
+---------------------------------------------
+
+
+For data structures, typedefs, and enumerations the 'vrna_' prefixes are dropped as well, together with their suffixes '_s', '_t', and '_e', respectively. Furthermore, data structures are usually transformed into classes and relevant functions of the C-library are attached as methods.
+
+.. _doxid-wrappers_1scripting_examples:
+
+Examples
+--------
+
+
+Examples on the basic usage of the scripting language interfaces can be found in the scripting_perl_examples and scripting_python_examples section.
+
+.. _doxid-wrappers_1scripting_wrapper_notes:
+
+SWIG generated Wrapper notes
+----------------------------
+
+
+Special notes on how functions, structures, enums, and macro definitions are actually wrapped, can be found below
+
+.. list-table::
+    :widths: 20 80
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000002` Global :ref:`vrna_aln_conservation_col <doxid-group__aln__utils_1gaa12b481a7e7b965ef2eb1bcc4399e759>` (const char **alignment, const vrna_md_t *md_p, unsigned int options)
+
+        - This function is available in an overloaded form where the last two parameters may be omitted, indicating ``md`` = *NULL* , and ``options`` = :ref:`VRNA_MEASURE_SHANNON_ENTROPY <doxid-group__aln__utils_1ga1e659227c9fc077d29989f576f129000>` , respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000001` Global :ref:`vrna_aln_conservation_struct <doxid-group__aln__utils_1gab6f16a2ea93f3bfd4d089cc8d448bb16>` (const char **alignment, const char *structure, const vrna_md_t *md)
+
+        - This function is available in an overloaded form where the last parameter may be omitted, indicating ``md`` = *NULL*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000005` Global :ref:`vrna_commands_apply <doxid-group__file__utils_1ga5e993fc4b9602af73aaaab4d3b3cd9a9>` (vrna_fold_compound_t *vc, vrna_cmd_t *commands, unsigned int options)
+
+        - This function is attached as method **commands_apply()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000088` Global :ref:`vrna_db_flatten <doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>` (char *structure, unsigned int options)
+
+        - This function flattens an input structure string in-place! The second parameter is optional and defaults to :ref:`VRNA_BRACKETS_DEFAULT <doxid-group__struct__utils_1ga559ebf76b1b289f85309f4206e99aa1a>` .
+          
+          An overloaded version of this function exists, where an additional second parameter can be passed to specify the target brackets, i.e. the type of matching pair characters all brackets will be flattened to. Therefore, in the scripting language interface this function is a replacement for :ref:`vrna_db_flatten_to() <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>` .
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000089` Global :ref:`vrna_db_flatten_to <doxid-group__struct__utils_1ga690425199c8b71545e7196e3af1436f8>` (char *string, const char target[3], unsigned int options)
+
+        - This function is available as an overloaded version of :ref:`vrna_db_flatten() <doxid-group__struct__utils_1gae966b9f44168a4f4b39ca42ffb5f37b7>`
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000003` Global :ref:`vrna_enumerate_necklaces <doxid-group__utils_1gae081ac655a76bd5c4b3d86c60b096b75>` (const unsigned int *type_counts)
+
+        - This function is available as global function **enumerate_necklaces()** which accepts lists input, an produces list of lists output.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000040` Global :ref:`vrna_eval_circ_consensus_structure <doxid-group__eval_1gac96577cf232c71160f762737a994b7c6>` (const char **alignment, const char *structure)
+
+        - This function is available through an overloadeded version of :ref:`vrna_eval_circ_structure() <doxid-group__eval_1ga3e05a23ddf9b083f4e69881e440d4866>` . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000050` Global :ref:`vrna_eval_circ_consensus_structure_v <doxid-group__eval_1gae89240c230e4740b22a703ee953396b9>` (const char **alignment, const char *structure, int verbosity_level, FILE *file)
+
+        - This function is available through an overloaded version of :ref:`vrna_eval_circ_structure() <doxid-group__eval_1ga3e05a23ddf9b083f4e69881e440d4866>` . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument. The last two arguments are optional and default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000042` Global :ref:`vrna_eval_circ_gquad_consensus_structure <doxid-group__eval_1gac673ebb9ae2a29f54d201e2ac5b85540>` (const char **alignment, const char *structure)
+
+        - This function is available through an overloadeded version of :ref:`vrna_eval_circ_gquad_structure() <doxid-group__eval_1ga9dba2fc5d7e6ad1359a7c2f350589c0e>` . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000052` Global :ref:`vrna_eval_circ_gquad_consensus_structure_v <doxid-group__eval_1gaecd3e17292a0b3927277434019a5e187>` (const char **alignment, const char *structure, int verbosity_level, FILE *file)
+
+        - This function is available through an overloaded version of :ref:`vrna_eval_circ_gquad_structure() <doxid-group__eval_1ga9dba2fc5d7e6ad1359a7c2f350589c0e>` . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument. The last two arguments are optional and default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000038` Global :ref:`vrna_eval_circ_gquad_structure <doxid-group__eval_1ga9dba2fc5d7e6ad1359a7c2f350589c0e>` (const char *string, const char *structure)
+
+        - In the target scripting language, this function serves as a wrapper for :ref:`vrna_eval_circ_gquad_structure_v() <doxid-group__eval_1gab96a6c59923ff06c35f8c2fd2c239727>` and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000048` Global :ref:`vrna_eval_circ_gquad_structure_v <doxid-group__eval_1gab96a6c59923ff06c35f8c2fd2c239727>` (const char *string, const char *structure, int verbosity_level, FILE *file)
+
+        - This function is available through an overloaded version of :ref:`vrna_eval_circ_gquad_structure() <doxid-group__eval_1ga9dba2fc5d7e6ad1359a7c2f350589c0e>` . The last two arguments for this function are optional and default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000036` Global :ref:`vrna_eval_circ_structure <doxid-group__eval_1ga3e05a23ddf9b083f4e69881e440d4866>` (const char *string, const char *structure)
+
+        - In the target scripting language, this function serves as a wrapper for :ref:`vrna_eval_circ_structure_v() <doxid-group__eval_1gac3fb44e0773a51be8efc5f4f595a94a7>` and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000046` Global :ref:`vrna_eval_circ_structure_v <doxid-group__eval_1gac3fb44e0773a51be8efc5f4f595a94a7>` (const char *string, const char *structure, int verbosity_level, FILE *file)
+
+        - This function is available through an overloaded version of :ref:`vrna_eval_circ_structure() <doxid-group__eval_1ga3e05a23ddf9b083f4e69881e440d4866>` . The last two arguments for this function are optional and default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000054` Global :ref:`vrna_eval_consensus_structure_pt_simple <doxid-group__eval_1gabbb4d2a7aa324ec9cce8f47ce61ab8af>` (const char **alignment, const short *pt)
+
+        - This function is available through an overloadeded version of :ref:`vrna_eval_structure_pt_simple() <doxid-group__eval_1ga0bba59b4d6e53461088666ff4aece7b0>` . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000039` Global :ref:`vrna_eval_consensus_structure_simple <doxid-group__eval_1ga7762c3a7bdcbc3a14ef93259d322c7d6>` (const char **alignment, const char *structure)
+
+        - This function is available through an overloadeded version of :ref:`vrna_eval_structure_simple() <doxid-group__eval_1ga7e5273464b775d4130245681312c1369>` . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000049` Global :ref:`vrna_eval_consensus_structure_simple_v <doxid-group__eval_1gad88927c62ab0a8b534e078e44be1b36e>` (const char **alignment, const char *structure, int verbosity_level, FILE *file)
+
+        - This function is available through an overloaded version of :ref:`vrna_eval_structure_simple() <doxid-group__eval_1ga7e5273464b775d4130245681312c1369>` . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument. The last two arguments are optional and default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000044` Global :ref:`vrna_eval_consensus_structure_simple_verbose <doxid-group__eval_1ga1c07851f6b665c3461a19e9e4eb33d26>` (const char **alignment, const char *structure, FILE *file)
+
+        - This function is not available. Use :ref:`vrna_eval_consensus_structure_simple_v() <doxid-group__eval_1gad88927c62ab0a8b534e078e44be1b36e>` instead!
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000029` Global :ref:`vrna_eval_covar_structure <doxid-group__eval_1ga6cea75c0eb9857fb59172be54cab09e0>` (vrna_fold_compound_t *vc, const char *structure)
+
+        - This function is attached as method **eval_covar_structure()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000041` Global :ref:`vrna_eval_gquad_consensus_structure <doxid-group__eval_1gaf09a326b3d57a4b30c27bd0e216198ac>` (const char **alignment, const char *structure)
+
+        - This function is available through an overloadeded version of :ref:`vrna_eval_gquad_structure() <doxid-group__eval_1ga3263504825ef4b523eba797c99921df4>` . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000051` Global :ref:`vrna_eval_gquad_consensus_structure_v <doxid-group__eval_1ga8abc794fc48d43268ced5e8cde017baa>` (const char **alignment, const char *structure, int verbosity_level, FILE *file)
+
+        - This function is available through an overloaded version of :ref:`vrna_eval_gquad_structure() <doxid-group__eval_1ga3263504825ef4b523eba797c99921df4>` . Simply pass a sequence alignment as list of strings (including gaps) as first, and the consensus structure as second argument. The last two arguments are optional and default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000037` Global :ref:`vrna_eval_gquad_structure <doxid-group__eval_1ga3263504825ef4b523eba797c99921df4>` (const char *string, const char *structure)
+
+        - In the target scripting language, this function serves as a wrapper for :ref:`vrna_eval_gquad_structure_v() <doxid-group__eval_1gaeaa2bdbc1b5d78c667e735fbdff87fff>` and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000047` Global :ref:`vrna_eval_gquad_structure_v <doxid-group__eval_1gaeaa2bdbc1b5d78c667e735fbdff87fff>` (const char *string, const char *structure, int verbosity_level, FILE *file)
+
+        - This function is available through an overloaded version of :ref:`vrna_eval_gquad_structure() <doxid-group__eval_1ga3263504825ef4b523eba797c99921df4>` . The last two arguments for this function are optional and default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000033` Global :ref:`vrna_eval_hp_loop <doxid-group__loops_1gab3eb4651dc26dc2b653a57dd340d7e68>` (vrna_fold_compound_t *vc, int i, int j)
+
+        - This function is attached as method **eval_hp_loop()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000034` Global :ref:`vrna_eval_int_loop <doxid-group__loops_1ga018f1314dbbae42fdd27c94670b61721>` (vrna_fold_compound_t *vc, int i, int j, int k, int l)
+
+        - This function is attached as method **eval_int_loop()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000030` Global :ref:`vrna_eval_loop_pt <doxid-group__eval_1ga730ba4df55c02fd530a0cddd49faf760>` (vrna_fold_compound_t *vc, int i, const short *pt)
+
+        - This function is attached as method **eval_loop_pt()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000031` Global :ref:`vrna_eval_move <doxid-group__eval_1gaff1b9e4f4d17b434b0a822fe783672c1>` (vrna_fold_compound_t *vc, const char *structure, int m1, int m2)
+
+        - This function is attached as method **eval_move()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000032` Global :ref:`vrna_eval_move_pt <doxid-group__eval_1ga123dabc119ea98c968a5e903cc46f0fb>` (vrna_fold_compound_t *vc, short *pt, int m1, int m2)
+
+        - This function is attached as method **eval_move_pt()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000025` Global :ref:`vrna_eval_structure <doxid-group__eval_1ga58f199f1438d794a265f3b27fc8ea631>` (vrna_fold_compound_t *vc, const char *structure)
+
+        - This function is attached as method **eval_structure()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000026` Global :ref:`vrna_eval_structure_pt <doxid-group__eval_1gadbd09372ddfd7a450bbd590c96a6bfe4>` (vrna_fold_compound_t *vc, const short *pt)
+
+        - This function is attached as method **eval_structure_pt()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000053` Global :ref:`vrna_eval_structure_pt_simple <doxid-group__eval_1ga0bba59b4d6e53461088666ff4aece7b0>` (const char *string, const short *pt)
+
+        - In the target scripting language, this function serves as a wrapper for :ref:`vrna_eval_structure_pt_v() <doxid-group__eval_1ga2c6533ba0afe4c88d335d8f1e0e2a48e>` and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000028` Global :ref:`vrna_eval_structure_pt_verbose <doxid-group__eval_1ga8a517cfeeae8c376ae7b1e0c401d38b4>` (vrna_fold_compound_t *vc, const short *pt, FILE *file)
+
+        - This function is attached as method **eval_structure_pt_verbose()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000035` Global :ref:`vrna_eval_structure_simple <doxid-group__eval_1ga7e5273464b775d4130245681312c1369>` (const char *string, const char *structure)
+
+        - In the target scripting language, this function serves as a wrapper for :ref:`vrna_eval_structure_simple_v() <doxid-group__eval_1gacd6278343e77d13f1d53588e50d303bc>` and, thus, allows for two additional, optional arguments, the verbosity level and a file handle which default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000045` Global :ref:`vrna_eval_structure_simple_v <doxid-group__eval_1gacd6278343e77d13f1d53588e50d303bc>` (const char *string, const char *structure, int verbosity_level, FILE *file)
+
+        - This function is available through an overloaded version of :ref:`vrna_eval_structure_simple() <doxid-group__eval_1ga7e5273464b775d4130245681312c1369>` . The last two arguments for this function are optional and default to :ref:`VRNA_VERBOSITY_QUIET <doxid-eval_8h_1af4afe19780b61b4962c613bde324128b>` and NULL, respectively.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000043` Global :ref:`vrna_eval_structure_simple_verbose <doxid-group__eval_1gaf928bfd96767e1b8033a95a4cc432e39>` (const char *string, const char *structure, FILE *file)
+
+        - This function is not available. Use :ref:`vrna_eval_structure_simple_v() <doxid-group__eval_1gacd6278343e77d13f1d53588e50d303bc>` instead!
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000027` Global :ref:`vrna_eval_structure_verbose <doxid-group__eval_1ga0928d699d310178f84ee2351034e5cb5>` (vrna_fold_compound_t *vc, const char *structure, FILE *file)
+
+        - This function is attached as method **eval_structure_verbose()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000080` Global :ref:`vrna_exp_params_rescale <doxid-group__energy__parameters_1gad607bc3a5b5da16400e2ca4ea5560233>` (vrna_fold_compound_t *vc, double *mfe)
+
+        - This function is attached to :ref:`vrna_fc_s <doxid-structvrna__fc__s>` objects as overloaded **exp_params_rescale()** method.
+          
+          When no parameter is passed to this method, the resulting action is the same as passing *NULL* as second parameter to :ref:`vrna_exp_params_rescale() <doxid-group__energy__parameters_1gad607bc3a5b5da16400e2ca4ea5560233>` , i.e. default scaling of the partition function. Passing an energy in kcal/mol, e.g. as retrieved by a previous call to the *mfe()* method, instructs all subsequent calls to scale the partition function accordingly.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000082` Global :ref:`vrna_exp_params_reset <doxid-group__energy__parameters_1gaa5409218068be84d7b50c78fbdaa85a9>` (vrna_fold_compound_t *vc, vrna_md_t *md_p)
+
+        - This function is attached to :ref:`vrna_fc_s <doxid-structvrna__fc__s>` objects as overloaded **exp_params_reset()** method.
+          
+          When no parameter is passed to this method, the resulting action is the same as passing *NULL* as second parameter to :ref:`vrna_exp_params_reset() <doxid-group__energy__parameters_1gaa5409218068be84d7b50c78fbdaa85a9>` , i.e. global default model settings are used. Passing an object of type :ref:`vrna_md_s <doxid-structvrna__md__s>` resets the fold compound according to the specifications stored within the :ref:`vrna_md_s <doxid-structvrna__md__s>` object.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000067` Class :ref:`vrna_fc_s <doxid-group__fold__compound>`
+
+        - This data structure is wrapped as an object **fold_compound** with several related functions attached as methods.
+          
+          A new **fold_compound** can be obtained by calling one of its constructors:
+          
+          
+          
+          
+          
+          The resulting object has a list of attached methods which in most cases directly correspond to functions that mainly operate on the corresponding *C* data structure:
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000004` Global :ref:`vrna_file_commands_apply <doxid-group__file__utils_1gadbe8c9622f7bcc6dcbe3448b98df8656>` (vrna_fold_compound_t *vc, const char *filename, unsigned int options)
+
+        - This function is attached as method **file_commands_apply()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000059` Global :ref:`vrna_file_msa_detect_format <doxid-group__file__utils_1ga627ac281b5f11c63861726e6472626c9>` (const char *filename, unsigned int options)
+
+        - This function exists as an overloaded version where the ``options`` parameter may be omitted! In that case, the ``options`` parameter defaults to :ref:`VRNA_FILE_FORMAT_MSA_DEFAULT <doxid-group__file__utils_1ga4acc255373831856a8417b68de8a94c0>` .
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000060` Global :ref:`vrna_file_msa_read <doxid-group__file__utils_1ga08a01c40ac5f5e0e04e9ae2258c99aa6>` (const char *filename, char ***names, char ***aln, char **id, char **structure, unsigned int options)
+
+        - In the target scripting language, only the first and last argument, ``filename`` and ``options`` , are passed to the corresponding function. The other arguments, which serve as output in the C-library, are available as additional return values. Hence, a function call in python may look like this:
+          
+          .. ref-code-block:: cpp
+          
+              num_seq, names, aln, id, structure = RNA.file_msa_read("msa.stk", RNA.FILE_FORMAT_MSA_STOCKHOLM)
+          
+          After successfully reading the first record, the variable ``num_seq`` contains the number of sequences in the alignment (the actual return value of the C-function), while the variables ``names`` , ``aln`` , ``id`` , and ``structure`` are lists of the sequence names and aligned sequences, as well as strings holding the alignment ID and the structure as stated in the ``SS_cons`` line, respectively. Note, the last two return values may be empty strings in case the alignment does not provide the required data.
+          
+          This function exists as an overloaded version where the ``options`` parameter may be omitted! In that case, the ``options`` parameter defaults to :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM <doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>` .
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000061` Global :ref:`vrna_file_msa_read_record <doxid-group__file__utils_1ga59204cd1daa4927f5127cc65a2886efd>` (FILE *fp, char ***names, char ***aln, char **id, char **structure, unsigned int options)
+
+        - In the target scripting language, only the first and last argument, ``fp`` and ``options`` , are passed to the corresponding function. The other arguments, which serve as output in the C-library, are available as additional return values. Hence, a function call in python may look like this:
+          
+          .. ref-code-block:: cpp
+          
+              f = open('msa.stk', 'r')
+              num_seq, names, aln, id, structure = RNA.file_msa_read_record(f, RNA.FILE_FORMAT_MSA_STOCKHOLM)
+              f.close()
+          
+          After successfully reading the first record, the variable ``num_seq`` contains the number of sequences in the alignment (the actual return value of the C-function), while the variables ``names`` , ``aln`` , ``id`` , and ``structure`` are lists of the sequence names and aligned sequences, as well as strings holding the alignment ID and the structure as stated in the ``SS_cons`` line, respectively. Note, the last two return values may be empty strings in case the alignment does not provide the required data.
+          
+          This function exists as an overloaded version where the ``options`` parameter may be omitted! In that case, the ``options`` parameter defaults to :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM <doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>` .
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000062` Global :ref:`vrna_file_msa_write <doxid-group__file__utils_1ga0c90faf1515ce0b16620036b1055ff1e>` (const char *filename, const char **names, const char **aln, const char *id, const char *structure, const char *source, unsigned int options)
+
+        - In the target scripting language, this function exists as a set of overloaded versions, where the last four parameters may be omitted. If the ``options`` parameter is missing the options default to ( :ref:`VRNA_FILE_FORMAT_MSA_STOCKHOLM <doxid-group__file__utils_1ga62be992445cd8ab2ad7a8fded944338b>` | :ref:`VRNA_FILE_FORMAT_MSA_APPEND <doxid-group__file__utils_1ga1577ea0f497d9c501549c863a4f2c089>` ).
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000010` Global :ref:`vrna_hc_add_from_db <doxid-group__hard__constraints_1ga5b4de3247b67358080c176b94591a8e6>` (vrna_fold_compound_t *vc, const char *constraint, unsigned int options)
+
+        - This function is attached as method **hc_add_from_db()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000006` Global :ref:`vrna_hc_init <doxid-group__hard__constraints_1ga36ff456c43bf920629cee5a236e4f0ff>` (vrna_fold_compound_t *vc)
+
+        - This function is attached as method **hc_init()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000077` Class :ref:`vrna_md_s <doxid-group__model__details>`
+
+        - This data structure is wrapped as an object **md** with multiple related functions attached as methods.
+          
+          A new set of default parameters can be obtained by calling the constructure of **md:**
+          
+          The resulting object has a list of attached methods which directly correspond to functions that mainly operate on the corresponding *C* data structure:
+          
+          Note, that default parameters can be modified by directly setting any of the following global variables. Internally, getting/setting default parameters using their global variable representative translates into calls of the following functions, therefore these wrappers for these functions do not exist in the scripting language interface(s):
+          
+          global variable
+          
+          *C* getter
+          
+          *C* setter
+          
+          temperature
+          
+          :ref:`vrna_md_defaults_temperature_get() <doxid-group__model__details_1ga96b24a74437f9ba46c4e06343155bf46>`
+          
+          :ref:`vrna_md_defaults_temperature() <doxid-group__model__details_1gaf9e527e9a2f7e6fd6e42bc6e602f5445>`
+          
+          dangles
+          
+          :ref:`vrna_md_defaults_dangles_get() <doxid-group__model__details_1ga67ca06f95ae133778c79a4493c9817b8>`
+          
+          :ref:`vrna_md_defaults_dangles() <doxid-group__model__details_1gac76a5374def8e5e4e644ff6e4cc72dee>`
+          
+          betaScale
+          
+          :ref:`vrna_md_defaults_betaScale_get() <doxid-group__model__details_1gabb8780f5410c52f970d75b044059bd09>`
+          
+          :ref:`vrna_md_defaults_betaScale() <doxid-group__model__details_1gae984567db36c3f9b8731ecc917abf3a2>`
+          
+          tetra_loop
+          
+          this is an alias of *special_hp*
+          
+          special_hp
+          
+          :ref:`vrna_md_defaults_special_hp_get() <doxid-group__model__details_1ga1d68a6efdaa1253cc63fd9cd06452559>`
+          
+          :ref:`vrna_md_defaults_special_hp() <doxid-group__model__details_1gafff6449a02744add0308e653230c15fc>`
+          
+          noLonelyPairs
+          
+          this is an alias of *noLP*
+          
+          noLP
+          
+          :ref:`vrna_md_defaults_noLP_get() <doxid-group__model__details_1ga934344888fbacaed538bbbfe910f2aa6>`
+          
+          :ref:`vrna_md_defaults_noLP() <doxid-group__model__details_1ga2f88ffc393ac9d7987849c965fd29ea8>`
+          
+          noGU
+          
+          :ref:`vrna_md_defaults_noGU_get() <doxid-group__model__details_1ga5faa7d4e536d7fe36ec25428c0cf2563>`
+          
+          :ref:`vrna_md_defaults_noGU() <doxid-group__model__details_1ga98218f85c7a957a1d1ddf4627fdf5a39>`
+          
+          no_closingGU
+          
+          this is an alias of *noGUclosure*
+          
+          noGUclosure
+          
+          :ref:`vrna_md_defaults_noGUclosure_get() <doxid-group__model__details_1ga4f7fdad083243a5348d63320ddaa70f3>`
+          
+          :ref:`vrna_md_defaults_noGUclosure() <doxid-group__model__details_1gade5b9951d71ca2fb357a4e6c0c18ccd1>`
+          
+          logML
+          
+          :ref:`vrna_md_defaults_logML_get() <doxid-group__model__details_1ga93f04e070d529c5d0bb87c9681f6ad29>`
+          
+          :ref:`vrna_md_defaults_logML() <doxid-group__model__details_1ga3de50a73455d88c3957386933b8e1f90>`
+          
+          circ
+          
+          :ref:`vrna_md_defaults_circ_get() <doxid-group__model__details_1gad3a7e58de344ad93a08925f58f94f6fb>`
+          
+          :ref:`vrna_md_defaults_circ() <doxid-group__model__details_1ga4e1deb3e91a8a99e5c6dd905a5eb0186>`
+          
+          gquad
+          
+          :ref:`vrna_md_defaults_gquad_get() <doxid-group__model__details_1gae645b8612f879eb38b45244fa9eddb9e>`
+          
+          :ref:`vrna_md_defaults_gquad() <doxid-group__model__details_1ga0685ca2aeb39af76f2421fc308163dce>`
+          
+          uniq_ML
+          
+          :ref:`vrna_md_defaults_uniq_ML_get() <doxid-group__model__details_1gab48e70fd024bf838404bcbcca0c874a0>`
+          
+          :ref:`vrna_md_defaults_uniq_ML() <doxid-group__model__details_1ga59b944f61c5d2babec2d4c48c820de67>`
+          
+          energy_set
+          
+          :ref:`vrna_md_defaults_energy_set_get() <doxid-group__model__details_1ga017ed6afb1cba2b7f242412cab618b53>`
+          
+          :ref:`vrna_md_defaults_energy_set() <doxid-group__model__details_1ga8dd29c55787a4576277e1907e92d810c>`
+          
+          backtrack
+          
+          :ref:`vrna_md_defaults_backtrack_get() <doxid-group__model__details_1ga90da1156e6883ddd68527c2830706648>`
+          
+          :ref:`vrna_md_defaults_backtrack() <doxid-group__model__details_1ga978c468b2fe96a70d5191e3dd17d5599>`
+          
+          backtrack_type
+          
+          :ref:`vrna_md_defaults_backtrack_type_get() <doxid-group__model__details_1ga1425b4ebd0e034dead66d79becd64143>`
+          
+          :ref:`vrna_md_defaults_backtrack_type() <doxid-group__model__details_1ga68305274de96b56b7799575e222560d8>`
+          
+          do_backtrack
+          
+          this is an alias of *compute_bpp*
+          
+          compute_bpp
+          
+          :ref:`vrna_md_defaults_compute_bpp_get() <doxid-group__model__details_1gaa3a537e61fbe0518673bf9f73fd820f3>`
+          
+          :ref:`vrna_md_defaults_compute_bpp() <doxid-group__model__details_1gaf1b5db10f1f476767f9a95f8a78e3132>`
+          
+          max_bp_span
+          
+          :ref:`vrna_md_defaults_max_bp_span_get() <doxid-group__model__details_1gaa60f989e062fecd4d4bac89c1883da85>`
+          
+          :ref:`vrna_md_defaults_max_bp_span() <doxid-group__model__details_1ga4c4bc962f09b4480cb8499f1cf8ae4ec>`
+          
+          min_loop_size
+          
+          :ref:`vrna_md_defaults_min_loop_size_get() <doxid-group__model__details_1ga5cc691174a75c652807dc361b617632a>`
+          
+          :ref:`vrna_md_defaults_min_loop_size() <doxid-group__model__details_1gac152f1e78c1058a10261022c8dfda0f7>`
+          
+          window_size
+          
+          :ref:`vrna_md_defaults_window_size_get() <doxid-group__model__details_1ga670146a9aa3ba77f4d422d60b7c30ac9>`
+          
+          :ref:`vrna_md_defaults_window_size() <doxid-group__model__details_1ga7b802ce0e8c3181bf5cb580de6d5b26a>`
+          
+          oldAliEn
+          
+          :ref:`vrna_md_defaults_oldAliEn_get() <doxid-group__model__details_1ga2374492b5019df88022fe4c05f0f3630>`
+          
+          :ref:`vrna_md_defaults_oldAliEn() <doxid-group__model__details_1ga41521d5b9fb7e0f31e7ea73f5792afab>`
+          
+          ribo
+          
+          :ref:`vrna_md_defaults_ribo_get() <doxid-group__model__details_1ga169027f0c0561ea7d87b655e4b336bfc>`
+          
+          :ref:`vrna_md_defaults_ribo() <doxid-group__model__details_1ga937c45e1d06fd6168730a9b08d130be3>`
+          
+          cv_fact
+          
+          :ref:`vrna_md_defaults_cv_fact_get() <doxid-group__model__details_1gae59c68393807217b0a2497adb64d3ee3>`
+          
+          :ref:`vrna_md_defaults_cv_fact() <doxid-group__model__details_1gad3a3f40baafd91a6ce80a91a68e20053>`
+          
+          nc_fact
+          
+          :ref:`vrna_md_defaults_nc_fact_get() <doxid-group__model__details_1ga7ac759eaa7159bf5f022745f5da59508>`
+          
+          :ref:`vrna_md_defaults_nc_fact() <doxid-group__model__details_1gac35e596c850dce3ad55c49119fd7d471>`
+          
+          sfact
+          
+          :ref:`vrna_md_defaults_sfact_get() <doxid-group__model__details_1gab2df6aab954b63fd3592d18e90285dae>`
+          
+          :ref:`vrna_md_defaults_sfact() <doxid-group__model__details_1ga3f73d3029d3d0025d4cc311510cd95a3>`
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000085` Global :ref:`vrna_mean_bp_distance <doxid-group__pf__fold_1gaa6b8983b559b9ef4b2e1b31113ea317b>` (vrna_fold_compound_t *vc)
+
+        - This function is attached as method **:ref:`mean_bp_distance() <doxid-group__pf__fold_1ga79cbc375af65f11609feb6b055269e7d>`** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000074` Global :ref:`vrna_mfe <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>` (vrna_fold_compound_t *vc, char *structure)
+
+        - This function is attached as method **mfe()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000075` Global :ref:`vrna_mfe_dimer <doxid-group__mfe__cofold_1gaab22d10c1190f205f16a77cab9d5d3ee>` (vrna_fold_compound_t *vc, char *structure)
+
+        - This function is attached as method **mfe_dimer()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000076` Global :ref:`vrna_mfe_window <doxid-group__local__mfe__fold_1ga689df235a1915a1ad56e377383c044ce>` (vrna_fold_compound_t *vc, FILE *file)
+
+        - This function is attached as method **mfe_window()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000078` Global :ref:`vrna_neighbors <doxid-group__neighbors_1gab1473d856b15da2120fe648977798ad5>` (vrna_fold_compound_t *vc, const short *pt, unsigned int options)
+
+        - This function is attached as an overloaded method *neighbors()* to objects of type *fold_compound* . The optional parameter ``options`` defaults to :ref:`VRNA_MOVESET_DEFAULT <doxid-group__neighbors_1gaa5ffec4dd0d02df320f123e6888154d1>` if it is omitted.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000081` Global :ref:`vrna_params_reset <doxid-group__energy__parameters_1gac40dc82e48a72a97cfc58b9da08a7792>` (vrna_fold_compound_t *vc, vrna_md_t *md_p)
+
+        - This function is attached to :ref:`vrna_fc_s <doxid-structvrna__fc__s>` objects as overloaded **params_reset()** method.
+          
+          When no parameter is passed to this method, the resulting action is the same as passing *NULL* as second parameter to :ref:`vrna_params_reset() <doxid-group__energy__parameters_1gac40dc82e48a72a97cfc58b9da08a7792>` , i.e. global default model settings are used. Passing an object of type :ref:`vrna_md_s <doxid-structvrna__md__s>` resets the fold compound according to the specifications stored within the :ref:`vrna_md_s <doxid-structvrna__md__s>` object.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000079` Global :ref:`vrna_params_subst <doxid-group__energy__parameters_1ga5d1909208f7ea3baa98b75afaa1f62ca>` (vrna_fold_compound_t *vc, vrna_param_t *par)
+
+        - This function is attached to :ref:`vrna_fc_s <doxid-structvrna__fc__s>` objects as **params_subst()** method.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000093` Global :ref:`vrna_path <doxid-group__paths_1gab6aee4143f8b103518d5cbfe6bfe5eae>` (vrna_fold_compound_t *vc, short *pt, unsigned int steps, unsigned int options)
+
+        - This function is attached as an overloaded method *path()* to objects of type *fold_compound* . The optional parameter ``options`` defaults to :ref:`VRNA_PATH_DEFAULT <doxid-group__paths_1gaf1bb1f8fec8d24e3b821f621b19f77b4>` if it is omitted.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000065` Global :ref:`vrna_path_findpath <doxid-group__direct__paths_1ga4b2283c4142cafd99678495585fcc842>` (vrna_fold_compound_t *vc, const char *s1, const char *s2, int width)
+
+        - This function is attached as an overloaded method *path_findpath()* to objects of type *fold_compound* . The optional parameter ``width`` defaults to 1 if it is omitted.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000063` Global :ref:`vrna_path_findpath_saddle <doxid-group__direct__paths_1gad611574a76593e26021f177e7854b6b4>` (vrna_fold_compound_t *vc, const char *s1, const char *s2, int width)
+
+        - This function is attached as an overloaded method *path_findpath_saddle()* to objects of type *fold_compound* . The optional parameter ``width`` defaults to 1 if it is omitted.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000064` Global :ref:`vrna_path_findpath_saddle_ub <doxid-group__direct__paths_1gada8d722e37401b1aea30128b07555771>` (vrna_fold_compound_t *vc, const char *s1, const char *s2, int width, int maxE)
+
+        - This function is attached as an overloaded method *path_findpath_saddle()* to objects of type *fold_compound* . The optional parameter ``width`` defaults to 1 if it is omitted, while the optional parameter ``maxE`` defaults to :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` . In case the function did not find a path with :math:`E_{saddle} < E_{max}` the function returns a *NULL* object, i.e. *undef* for Perl and *None* for Python.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000066` Global :ref:`vrna_path_findpath_ub <doxid-group__direct__paths_1ga8d47812616303f40057dfb033869863a>` (vrna_fold_compound_t *vc, const char *s1, const char *s2, int width, int maxE)
+
+        - This function is attached as an overloaded method *path_findpath()* to objects of type *fold_compound* . The optional parameter ``width`` defaults to 1 if it is omitted, while the optional parameter ``maxE`` defaults to :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` . In case the function did not find a path with :math:`E_{saddle} < E_{max}` the function returns an empty list.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000094` Global :ref:`vrna_path_gradient <doxid-group__paths_1gae92cce443a8a64f7b7fb89867b7d6125>` (vrna_fold_compound_t *vc, short *pt, unsigned int options)
+
+        - This function is attached as an overloaded method *path_gradient()* to objects of type *fold_compound* . The optional parameter ``options`` defaults to :ref:`VRNA_PATH_DEFAULT <doxid-group__paths_1gaf1bb1f8fec8d24e3b821f621b19f77b4>` if it is omitted.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000095` Global :ref:`vrna_path_random <doxid-group__paths_1ga9234756c337078fa599529d3db70d913>` (vrna_fold_compound_t *vc, short *pt, unsigned int steps, unsigned int options)
+
+        - This function is attached as an overloaded method *path_gradient()* to objects of type *fold_compound* . The optional parameter ``options`` defaults to :ref:`VRNA_PATH_DEFAULT <doxid-group__paths_1gaf1bb1f8fec8d24e3b821f621b19f77b4>` if it is omitted.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000087` Global :ref:`vrna_pbacktrack <doxid-group__subopt__stochbt_1ga901fe42a33b07be083421741bf7dc610>` (vrna_fold_compound_t *vc)
+
+        - This function is attached as overloaded method **:ref:`pbacktrack() <doxid-group__subopt__stochbt_1gac03ca6db186bb3bf0a2a326d7fb3ba03>`** to objects of type *fold_compound* that accepts an optional ``length`` argument. Hence, it serves as a replacement for :ref:`vrna_pbacktrack() <doxid-group__subopt__stochbt_1ga901fe42a33b07be083421741bf7dc610>` .
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000086` Global :ref:`vrna_pbacktrack5 <doxid-group__subopt__stochbt_1ga347375a4da8bdff74639529847f97d4f>` (vrna_fold_compound_t *vc, int length)
+
+        - This function is attached as overloaded method **:ref:`pbacktrack() <doxid-group__subopt__stochbt_1gac03ca6db186bb3bf0a2a326d7fb3ba03>`** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000083` Global :ref:`vrna_pf <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>` (vrna_fold_compound_t *vc, char *structure)
+
+        - This function is attached as method **pf()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000084` Global :ref:`vrna_pf_dimer <doxid-group__pf__cofold_1ga4e5c7d06c302a7c59fc0d64dc142ca63>` (vrna_fold_compound_t *vc, char *structure)
+
+        - This function is attached as method **pf_dimer()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000018` Global :ref:`vrna_sc_add_bp <doxid-group__soft__constraints_1gaf162aedac7422f2eb16ea030f47d2f4b>` (vrna_fold_compound_t *vc, int i, int j, FLT_OR_DBL energy, unsigned int options)
+
+        - This function is attached as an overloaded method **sc_add_bp()** to objects of type *fold_compound* . The method either takes arguments for a single base pair (i,j) with the corresponding energy value:
+          
+          .. ref-code-block:: cpp
+          
+              fold_compound.sc_add_bp(i, j, energy, options)
+          
+          or an entire 2-dimensional matrix with dimensions n x n that stores free energy contributions for any base pair (i,j) with :math:` 1 \leq i < j \leq n ` :
+          
+          .. ref-code-block:: cpp
+          
+              fold_compound.sc_add_bp(matrix, options)
+          
+          In both variants, the ``options`` argument is optional can may be omitted.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000023` Global :ref:`vrna_sc_add_bt <doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea>` (vrna_fold_compound_t *vc, vrna_callback_sc_backtrack *f)
+
+        - This function is attached as method **sc_add_bt()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000021` Global :ref:`vrna_sc_add_data <doxid-group__soft__constraints_1ga15c6d52471ec97897e2bb7f964f5deb6>` (vrna_fold_compound_t *vc, void *data, vrna_callback_free_auxdata *free_data)
+
+        - This function is attached as method **sc_add_data()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000024` Global :ref:`vrna_sc_add_exp_f <doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>` (vrna_fold_compound_t *vc, vrna_callback_sc_exp_energy *exp_f)
+
+        - This function is attached as method **sc_add_exp_f()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000022` Global :ref:`vrna_sc_add_f <doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>` (vrna_fold_compound_t *vc, vrna_callback_sc_energy *f)
+
+        - This function is attached as method **sc_add_f()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000011` Global :ref:`vrna_sc_add_hi_motif <doxid-group__constraints__ligand_1gaa6ff0113a3a76dc0b8d62961f4e1dfa0>` (vrna_fold_compound_t *vc, const char *seq, const char *structure, FLT_OR_DBL energy, unsigned int options)
+
+        - This function is attached as method **sc_add_hi_motif()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000012` Global :ref:`vrna_sc_add_SHAPE_deigan <doxid-group___s_h_a_p_e__reactivities_1ga57d612b58e1c61dd6cfcb5a843f8f1b3>` (vrna_fold_compound_t *vc, const double *reactivities, double m, double b, unsigned int options)
+
+        - This function is attached as method **sc_add_SHAPE_deigan()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000013` Global :ref:`vrna_sc_add_SHAPE_deigan_ali <doxid-group___s_h_a_p_e__reactivities_1ga04ba85da63d8c793bb8001d1e6f800ba>` (vrna_fold_compound_t *vc, const char **shape_files, const int *shape_file_association, double m, double b, unsigned int options)
+
+        - This function is attached as method **sc_add_SHAPE_deigan_ali()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000014` Global :ref:`vrna_sc_add_SHAPE_zarringhalam <doxid-group___s_h_a_p_e__reactivities_1gaf3c65a045060aef5c4e41693d30af58c>` (vrna_fold_compound_t *vc, const double *reactivities, double b, double default_value, const char *shape_conversion, unsigned int options)
+
+        - This function is attached as method **sc_add_SHAPE_zarringhalam()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000020` Global :ref:`vrna_sc_add_up <doxid-group__soft__constraints_1ga069915fe203a2c8e522dd37847177a09>` (vrna_fold_compound_t *vc, int i, FLT_OR_DBL energy, unsigned int options)
+
+        - This function is attached as an overloaded method **sc_add_up()** to objects of type *fold_compound* . The method either takes arguments for a single nucleotide :math:`i ` with the corresponding energy value:
+          
+          .. ref-code-block:: cpp
+          
+              fold_compound.sc_add_up(i, energy, options)
+          
+          or an entire vector that stores free energy contributions for each nucleotide :math:`i ` with :math:` 1 \leq i \leq n ` :
+          
+          .. ref-code-block:: cpp
+          
+              fold_compound.sc_add_bp(vector, options)
+          
+          In both variants, the ``options`` argument is optional can may be omitted.
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000015` Global :ref:`vrna_sc_init <doxid-group__soft__constraints_1ga9d977a1681356778cc66dceafbe5b032>` (vrna_fold_compound_t *vc)
+
+        - This function is attached as method **sc_init()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000016` Global :ref:`vrna_sc_remove <doxid-group__soft__constraints_1ga73cdc07b9a199c614367bebef0f2c41a>` (vrna_fold_compound_t *vc)
+
+        - This function is attached as method **sc_remove()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000017` Global :ref:`vrna_sc_set_bp <doxid-group__soft__constraints_1ga8e4334b24bc91453fbcda490a4e331af>` (vrna_fold_compound_t *vc, const FLT_OR_DBL **constraints, unsigned int options)
+
+        - This function is attached as method **sc_set_bp()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000019` Global :ref:`vrna_sc_set_up <doxid-group__soft__constraints_1ga99ed63f3ef9e7fe3997932030487a344>` (vrna_fold_compound_t *vc, const FLT_OR_DBL *constraints, unsigned int options)
+
+        - This function is attached as method **sc_set_up()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000090` Global :ref:`vrna_subopt <doxid-group__subopt__wuchty_1ga0f11d738fb8c8b1885a90c11c8931ff6>` (vrna_fold_compound_t *vc, int delta, int sorted, FILE *fp)
+
+        - This function is attached as method **:ref:`subopt() <doxid-group__subopt__wuchty_1ga700f662506a233e42dd7fda74fafd40e>`** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000091` Global :ref:`vrna_subopt_cb <doxid-group__subopt__wuchty_1ga1053837e6b6f158093508f8a70998352>` (vrna_fold_compound_t *vc, int delta, vrna_subopt_callback *cb, void *data)
+
+        - This function is attached as method **subopt_cb()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000092` Global :ref:`vrna_subopt_zuker <doxid-group__subopt__zuker_1gababde9d210eb433854f1e71da7815fbb>` (vrna_fold_compound_t *vc)
+
+        - This function is attached as method **subopt_zuker()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000068` Global :ref:`vrna_ud_add_motif <doxid-group__domains__up_1gaec0c3313fb2951946614f920d289829a>` (vrna_fold_compound_t *vc, const char *motif, double motif_en, unsigned int loop_type)
+
+        - This function is attached as method **ud_add_motif()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000069` Global :ref:`vrna_ud_remove <doxid-group__domains__up_1gada59cb0c498b812eadd010811af3f2d4>` (vrna_fold_compound_t *vc)
+
+        - This function is attached as method **ud_remove()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000070` Global :ref:`vrna_ud_set_data <doxid-group__domains__up_1gac1f18c312b91d80089534a87d956e58b>` (vrna_fold_compound_t *vc, void *data, vrna_callback_free_auxdata *free_cb)
+
+        - This function is attached as method **ud_set_data()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000072` Global :ref:`vrna_ud_set_exp_prod_rule_cb <doxid-group__domains__up_1ga2fb1db2099da26c76247e1209ad4aa09>` (vrna_fold_compound_t *vc, vrna_callback_ud_exp_production *pre_cb, vrna_callback_ud_exp_energy *exp_e_cb)
+
+        - This function is attached as method **ud_set_exp_prod_rule_cb()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000073` Global :ref:`vrna_ud_set_prob_cb <doxid-unstructured__domains_8h_1a13ac877c9db89a1a5b5d9c0394148595>` (vrna_fold_compound_t *vc, vrna_callback_ud_probs_add *setter, vrna_callback_ud_probs_get *getter)
+
+        - This function is attached as method **ud_set_prob_cb()** to objects of type *fold_compound*
+
+    *
+        - :target:`doxid-wrappers_1_wrappers000071` Global :ref:`vrna_ud_set_prod_rule_cb <doxid-group__domains__up_1ga745a99f0bc72898d54de16f6e538828a>` (vrna_fold_compound_t *vc, vrna_callback_ud_production *pre_cb, vrna_callback_ud_energy *e_cb)
+
+        - This function is attached as method **ud_set_prod_rule_cb()** to objects of type *fold_compound*
+

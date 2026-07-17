@@ -1,0 +1,268 @@
+.. index:: pair: struct; vrna_mx_pf_s
+.. _doxid-structvrna__mx__pf__s:
+.. _cid-vrna_mx_pf_s:
+
+struct vrna_mx_pf_s
+===================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/dp_matrices.h>
+
+
+.. container:: brief-description
+
+    Partition function (PF) Dynamic Programming (DP) matrices data structure required within the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+.. _doxid-structvrna__mx__pf__s_1a74ba745d6fc4ac5d437bc24450ea789c:
+.. _cid-vrna_mx_pf_s::type:
+.. _doxid-structvrna__mx__pf__s_1a798f72ece3f3f970bb0de2120600ad63:
+.. _cid-vrna_mx_pf_s::length:
+.. _doxid-structvrna__mx__pf__s_1a133ac57938cb0969da254a594572baf8:
+.. _cid-vrna_mx_pf_s::scale:
+.. _doxid-structvrna__mx__pf__s_1ae18e83833416f62943d5dd7be1cc038f:
+.. _cid-vrna_mx_pf_s::expmlbase:
+.. _doxid-structvrna__mx__pf__s_1a033a0277ac33736256c6a13f13d75879:
+.. _cid-vrna_mx_pf_s::q:
+.. _doxid-structvrna__mx__pf__s_1abd5ea8aa63458625d0c8b2a868fcfa28:
+.. _cid-vrna_mx_pf_s::qb:
+.. _doxid-structvrna__mx__pf__s_1a612e774309a7fd0b6812200aa31f87d5:
+.. _cid-vrna_mx_pf_s::qm:
+.. _doxid-structvrna__mx__pf__s_1ad60e1fd6fa490ae72cdd899c37a52165:
+.. _cid-vrna_mx_pf_s::qm1:
+.. _doxid-structvrna__mx__pf__s_1aee4b900811aa012ab135838e2e5868f2:
+.. _cid-vrna_mx_pf_s::probs:
+.. _doxid-structvrna__mx__pf__s_1a6ee76a2c5cefd1a9d6addf0a32071124:
+.. _cid-vrna_mx_pf_s::q1k:
+.. _doxid-structvrna__mx__pf__s_1ae3a10b81e574b966d062e705b4ad8168:
+.. _cid-vrna_mx_pf_s::qln:
+.. _doxid-structvrna__mx__pf__s_1a40d61ddad03db0ba06e1848ce9004138:
+.. _cid-vrna_mx_pf_s::g:
+.. _doxid-structvrna__mx__pf__s_1a160e39f74bfcd3f94c77bdf334070782:
+.. _cid-vrna_mx_pf_s::qo:
+.. _doxid-structvrna__mx__pf__s_1a0a4ff1fd1b71810ccab242a862cfdf8c:
+.. _cid-vrna_mx_pf_s::qm2:
+.. _doxid-structvrna__mx__pf__s_1a0841b18e38c22bb92df7efee9caaabb0:
+.. _cid-vrna_mx_pf_s::qho:
+.. _doxid-structvrna__mx__pf__s_1ac9c23d0dd3a0bb150c389399afe119eb:
+.. _cid-vrna_mx_pf_s::qio:
+.. _doxid-structvrna__mx__pf__s_1a970e8f6dfdf874185a9d4f77a942f61c:
+.. _cid-vrna_mx_pf_s::qmo:
+.. _doxid-structvrna__mx__pf__s_1a742126d3bbd599a459660e78ea150564:
+.. _cid-vrna_mx_pf_s::q_local:
+.. _doxid-structvrna__mx__pf__s_1a8676136222e69b430a7a4fcbbf27c65c:
+.. _cid-vrna_mx_pf_s::qb_local:
+.. _doxid-structvrna__mx__pf__s_1adc05b79fd8df7a618a7dfdc852c9703d:
+.. _cid-vrna_mx_pf_s::qm_local:
+.. _doxid-structvrna__mx__pf__s_1a401780fdba30145d0e3af22c36b432d6:
+.. _cid-vrna_mx_pf_s::pr:
+.. _doxid-structvrna__mx__pf__s_1a24af2da1539a28f43f1c557f7d7ec1bf:
+.. _cid-vrna_mx_pf_s::qm2_local:
+.. _doxid-structvrna__mx__pf__s_1a1398df7d88fef9aac386d24ee4cb9d17:
+.. _cid-vrna_mx_pf_s::qi5:
+.. _doxid-structvrna__mx__pf__s_1ab0cbf800f6a85a2d3f8a45ffcd08d7a8:
+.. _cid-vrna_mx_pf_s::q2l:
+.. _doxid-structvrna__mx__pf__s_1a3eb1defdbdc5494a392a7c2c5eaf63b1:
+.. _cid-vrna_mx_pf_s::qmb:
+.. _doxid-structvrna__mx__pf__s_1abecae05445c9fcf21081b7a8e2f8b395:
+.. _cid-vrna_mx_pf_s::g_local:
+.. _doxid-structvrna__mx__pf__s_1a29678f1d17a805ce2c80d765e00f694d:
+.. _cid-vrna_mx_pf_s::q-2:
+.. _doxid-structvrna__mx__pf__s_1a13ccc584739950bcd6de23925a9afe0e:
+.. _cid-vrna_mx_pf_s::l_min_q:
+.. _doxid-structvrna__mx__pf__s_1ac136ef6871aad05b013aaec2a4cc9298:
+.. _cid-vrna_mx_pf_s::l_max_q:
+.. _doxid-structvrna__mx__pf__s_1aa09c7b59d39b4b669173330976ae4798:
+.. _cid-vrna_mx_pf_s::k_min_q:
+.. _doxid-structvrna__mx__pf__s_1a6405e58faa7aac0d7fd7bf6fc2821b99:
+.. _cid-vrna_mx_pf_s::k_max_q:
+.. _doxid-structvrna__mx__pf__s_1a7bf41bf6ce96a6a6ffad912a6bb9f023:
+.. _cid-vrna_mx_pf_s::q_b:
+.. _doxid-structvrna__mx__pf__s_1aa6ab6ade9a4f4aa347ea1ac3d780bbf4:
+.. _cid-vrna_mx_pf_s::l_min_q_b:
+.. _doxid-structvrna__mx__pf__s_1a7a6b46c40f038de8798e009ead7e5c81:
+.. _cid-vrna_mx_pf_s::l_max_q_b:
+.. _doxid-structvrna__mx__pf__s_1a32a61364685e55e2cb90c3bef635fe9e:
+.. _cid-vrna_mx_pf_s::k_min_q_b:
+.. _doxid-structvrna__mx__pf__s_1a4bb8b8fc4b39dbf163584164575253e4:
+.. _cid-vrna_mx_pf_s::k_max_q_b:
+.. _doxid-structvrna__mx__pf__s_1a283eb582a89f62cf7d12bb6afc774ba7:
+.. _cid-vrna_mx_pf_s::q_m:
+.. _doxid-structvrna__mx__pf__s_1acdb695807092c9fa8ba32b4c033881b2:
+.. _cid-vrna_mx_pf_s::l_min_q_m:
+.. _doxid-structvrna__mx__pf__s_1a0e46adc65e479d671aed00097b8f162a:
+.. _cid-vrna_mx_pf_s::l_max_q_m:
+.. _doxid-structvrna__mx__pf__s_1ab3375971ac859512a745d6eec99244d2:
+.. _cid-vrna_mx_pf_s::k_min_q_m:
+.. _doxid-structvrna__mx__pf__s_1a9b9d2a9a7a25929605437af8fe3e7f47:
+.. _cid-vrna_mx_pf_s::k_max_q_m:
+.. _doxid-structvrna__mx__pf__s_1a3ebab8245e0d6747c8cb4068fcb2f14c:
+.. _cid-vrna_mx_pf_s::q_m1:
+.. _doxid-structvrna__mx__pf__s_1a798dd2cc60f5af4b93dac4cba0459683:
+.. _cid-vrna_mx_pf_s::l_min_q_m1:
+.. _doxid-structvrna__mx__pf__s_1afec22c55d9cdea707596702ce40221ec:
+.. _cid-vrna_mx_pf_s::l_max_q_m1:
+.. _doxid-structvrna__mx__pf__s_1a89548e61d9fbf7936f9e46aed2296813:
+.. _cid-vrna_mx_pf_s::k_min_q_m1:
+.. _doxid-structvrna__mx__pf__s_1abb96656ec2020302fb1e1c9394ff2519:
+.. _cid-vrna_mx_pf_s::k_max_q_m1:
+.. _doxid-structvrna__mx__pf__s_1a4271859f583cc0b27d0bfb6951c050f5:
+.. _cid-vrna_mx_pf_s::q_m2:
+.. _doxid-structvrna__mx__pf__s_1ad23a0e61af82fdf8243c10000d418a8f:
+.. _cid-vrna_mx_pf_s::l_min_q_m2:
+.. _doxid-structvrna__mx__pf__s_1a8182f4fd762fcb853a78ae818e275114:
+.. _cid-vrna_mx_pf_s::l_max_q_m2:
+.. _doxid-structvrna__mx__pf__s_1ac76826db329f701f0abf43d9e1a4446c:
+.. _cid-vrna_mx_pf_s::k_min_q_m2:
+.. _doxid-structvrna__mx__pf__s_1a9dc7897463d929ff56198e3cd79aa531:
+.. _cid-vrna_mx_pf_s::k_max_q_m2:
+.. _doxid-structvrna__mx__pf__s_1a50d4c30dd0d535cd3a00c29e2b77c81e:
+.. _cid-vrna_mx_pf_s::q_c:
+.. _doxid-structvrna__mx__pf__s_1a1a165b9e68b552abd6970e7b79398e68:
+.. _cid-vrna_mx_pf_s::l_min_q_c:
+.. _doxid-structvrna__mx__pf__s_1ad16c8bacc50d9ad75fc4d3aad18b3c74:
+.. _cid-vrna_mx_pf_s::l_max_q_c:
+.. _doxid-structvrna__mx__pf__s_1aca9ff00550c75057c3f0796526eaa3fd:
+.. _cid-vrna_mx_pf_s::k_min_q_c:
+.. _doxid-structvrna__mx__pf__s_1ac5cdf53876b9ea8060b7c0fc12b2bdca:
+.. _cid-vrna_mx_pf_s::k_max_q_c:
+.. _doxid-structvrna__mx__pf__s_1aba4db9bf16cbe37199838b8ed1ba096c:
+.. _cid-vrna_mx_pf_s::q_ch:
+.. _doxid-structvrna__mx__pf__s_1a08f5bfd11886731ebb3a9f0ba97a0b6b:
+.. _cid-vrna_mx_pf_s::l_min_q_ch:
+.. _doxid-structvrna__mx__pf__s_1a1ac1d79977932e1b7131b47948b3915a:
+.. _cid-vrna_mx_pf_s::l_max_q_ch:
+.. _doxid-structvrna__mx__pf__s_1a763eab70c62986a630fd0013d1931ea8:
+.. _cid-vrna_mx_pf_s::k_min_q_ch:
+.. _doxid-structvrna__mx__pf__s_1a8093a0a48f24c26e575b18e5d59b1e5c:
+.. _cid-vrna_mx_pf_s::k_max_q_ch:
+.. _doxid-structvrna__mx__pf__s_1a1db737927aabceddad13832191c5fa27:
+.. _cid-vrna_mx_pf_s::q_ci:
+.. _doxid-structvrna__mx__pf__s_1a9e0b38f8272badd75df592524e383973:
+.. _cid-vrna_mx_pf_s::l_min_q_ci:
+.. _doxid-structvrna__mx__pf__s_1a852c2d9450a188cc49d72150f7647e48:
+.. _cid-vrna_mx_pf_s::l_max_q_ci:
+.. _doxid-structvrna__mx__pf__s_1addf9d5e7d009a936651fa1b98421e2bd:
+.. _cid-vrna_mx_pf_s::k_min_q_ci:
+.. _doxid-structvrna__mx__pf__s_1abc3dd1b2bf0f90647e8c73c93432b154:
+.. _cid-vrna_mx_pf_s::k_max_q_ci:
+.. _doxid-structvrna__mx__pf__s_1ae8e6bc3de40ebe54c7c36677cdc38df8:
+.. _cid-vrna_mx_pf_s::q_cm:
+.. _doxid-structvrna__mx__pf__s_1aef4bfb509acba7441d9ace1e0a7e4b93:
+.. _cid-vrna_mx_pf_s::l_min_q_cm:
+.. _doxid-structvrna__mx__pf__s_1a57c50e60f1679e2d1add5b48d67b4ad4:
+.. _cid-vrna_mx_pf_s::l_max_q_cm:
+.. _doxid-structvrna__mx__pf__s_1ab014ff37700866fd2be6139b3ec470c6:
+.. _cid-vrna_mx_pf_s::k_min_q_cm:
+.. _doxid-structvrna__mx__pf__s_1a10c73fd5be9a9bbd350f929d758ac8cf:
+.. _cid-vrna_mx_pf_s::k_max_q_cm:
+.. _doxid-structvrna__mx__pf__s_1a9d0f5ad230b36b3553ddf7585c1ae2ec:
+.. _cid-vrna_mx_pf_s::q_rem:
+.. _doxid-structvrna__mx__pf__s_1a3e398f1778086b00deb05a3990d533ab:
+.. _cid-vrna_mx_pf_s::q_b_rem:
+.. _doxid-structvrna__mx__pf__s_1a07d9c31f3205d96e094104971b8a85a6:
+.. _cid-vrna_mx_pf_s::q_m_rem:
+.. _doxid-structvrna__mx__pf__s_1a7d77708c602e982af5a6c1f340d329f4:
+.. _cid-vrna_mx_pf_s::q_m1_rem:
+.. _doxid-structvrna__mx__pf__s_1a6480ac40d5405af825dee74e3518d6ae:
+.. _cid-vrna_mx_pf_s::q_m2_rem:
+.. _doxid-structvrna__mx__pf__s_1a0ce7f4b73a6df939f79dfd2f21de80b8:
+.. _cid-vrna_mx_pf_s::q_c_rem:
+.. _doxid-structvrna__mx__pf__s_1aff841b24d39a4f162ba1d10e5109cbe3:
+.. _cid-vrna_mx_pf_s::q_ch_rem:
+.. _doxid-structvrna__mx__pf__s_1a844916b65f091b27e89547f7a51a2dea:
+.. _cid-vrna_mx_pf_s::q_ci_rem:
+.. _doxid-structvrna__mx__pf__s_1a6f6bad095f31114e990d68af46d2eda5:
+.. _cid-vrna_mx_pf_s::q_cm_rem:
+.. _doxid-structvrna__mx__pf__s_1aaf100e121f20be727a22545f24f568ec:
+.. _cid-vrna_mx_pf_s::@21:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	:ref:`vrna_mx_type_e<doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>` type
+	unsigned int length
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* scale
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* expMLbase
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* q
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* qb
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* qm
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* qm1
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* probs
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* q1k
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* qln
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* G
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` qo
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* qm2
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` qho
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` qio
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` qmo
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** q_local
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qb_local
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qm_local
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** pR
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qm2_local
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** QI5
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** q2l
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** qmb
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** G_local
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`*** Q
+	int** l_min_Q
+	int** l_max_Q
+	int* k_min_Q
+	int* k_max_Q
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`*** Q_B
+	int** l_min_Q_B
+	int** l_max_Q_B
+	int* k_min_Q_B
+	int* k_max_Q_B
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`*** Q_M
+	int** l_min_Q_M
+	int** l_max_Q_M
+	int* k_min_Q_M
+	int* k_max_Q_M
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`*** Q_M1
+	int** l_min_Q_M1
+	int** l_max_Q_M1
+	int* k_min_Q_M1
+	int* k_max_Q_M1
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`*** Q_M2
+	int** l_min_Q_M2
+	int** l_max_Q_M2
+	int* k_min_Q_M2
+	int* k_max_Q_M2
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** Q_c
+	int* l_min_Q_c
+	int* l_max_Q_c
+	int k_min_Q_c
+	int k_max_Q_c
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** Q_cH
+	int* l_min_Q_cH
+	int* l_max_Q_cH
+	int k_min_Q_cH
+	int k_max_Q_cH
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** Q_cI
+	int* l_min_Q_cI
+	int* l_max_Q_cI
+	int k_min_Q_cI
+	int k_max_Q_cI
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** Q_cM
+	int* l_min_Q_cM
+	int* l_max_Q_cM
+	int k_min_Q_cM
+	int k_max_Q_cM
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* Q_rem
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* Q_B_rem
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* Q_M_rem
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* Q_M1_rem
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* Q_M2_rem
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` Q_c_rem
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` Q_cH_rem
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` Q_cI_rem
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` Q_cM_rem
+

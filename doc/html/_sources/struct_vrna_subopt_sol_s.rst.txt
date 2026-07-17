@@ -1,0 +1,67 @@
+.. index:: pair: struct; vrna_subopt_sol_s
+.. _doxid-structvrna__subopt__sol__s:
+.. _cid-vrna_subopt_sol_s:
+
+struct vrna_subopt_sol_s
+========================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/subopt.h>
+
+
+Overview
+--------
+
+Solution element from subopt.c. :ref:`More...<details-doxid-structvrna__subopt__sol__s>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	float :ref:`energy<doxid-structvrna__subopt__sol__s_1a99bc26ca68392aa4656386cf73b73fef>`
+	char* :ref:`structure<doxid-structvrna__subopt__sol__s_1a3c632c7f08eb6a8827c6151625e5ef8e>`
+
+.. _details-doxid-structvrna__subopt__sol__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Solution element from subopt.c.
+
+Fields
+------
+
+.. _doxid-structvrna__subopt__sol__s_1a99bc26ca68392aa4656386cf73b73fef:
+.. _cid-vrna_subopt_sol_s::energy:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float energy
+
+    .. container:: brief-description
+
+        Free Energy of structure in kcal/mol.
+
+.. _doxid-structvrna__subopt__sol__s_1a3c632c7f08eb6a8827c6151625e5ef8e:
+.. _cid-vrna_subopt_sol_s::structure:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* structure
+
+    .. container:: brief-description
+
+        Structure in dot-bracket notation.
+

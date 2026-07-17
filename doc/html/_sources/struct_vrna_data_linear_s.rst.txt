@@ -1,0 +1,33 @@
+.. index:: pair: struct; vrna_data_linear_s
+.. _doxid-structvrna__data__linear__s:
+.. _cid-vrna_data_linear_s:
+
+struct vrna_data_linear_s
+=========================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+
+
+.. _doxid-structvrna__data__linear__s_1a1b363db8810b7e017354053e58a5d456:
+.. _cid-vrna_data_linear_s::position:
+.. _doxid-structvrna__data__linear__s_1a1858552a04a89a45199ae600c2545dd0:
+.. _cid-vrna_data_linear_s::value:
+.. _doxid-structvrna__data__linear__s_1a7f6d42e6f48694588f26f19ff7741658:
+.. _cid-vrna_data_linear_s::color:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	unsigned int position
+	float value
+	:ref:`vrna_color_t<doxid-group__data__structures_1gaed93ddf2ef6b26141a89f9a65b9426b9>` color
+

@@ -1,0 +1,35 @@
+.. index:: pair: page; RNA-RNA Interaction
+.. _doxid-rip:
+
+RNA-RNA Interaction
+===================
+
+.. _doxid-rip_1rip_intro:
+
+rip_intro
+---------
+
+
+The function of an RNA molecule often depends on its interaction with other RNAs. The following routines therefore allows one to predict structures formed by two RNA molecules upon hybridization.
+
+.. _doxid-rip_1rip_intro:
+
+rip_intro
+---------
+
+
+One approach to co-folding two RNAs consists of concatenating the two sequences and keeping track of the concatenation point in all energy evaluations. Correspondingly, many of the :ref:`cofold() <doxid-group__mfe__cofold_1gabc8517f22cfe70595ee81fc837910d52>` and :ref:`co_pf_fold() <doxid-part__func__co_8h_1ae5c1e7331718669bdae7a86de2be6184>` routines take one sequence string as argument and use the the global variable :ref:`cut_point <doxid-fold__vars_8h_1ab9b2c3a37a5516614c06d0ab54b97cda>` to mark the concatenation point. Note that while the *RNAcofold* program uses the '&' character to mark the chain break in its input, you should not use an '&' when using the library routines (set :ref:`cut_point <doxid-fold__vars_8h_1ab9b2c3a37a5516614c06d0ab54b97cda>` instead).
+
+.. _doxid-rip_1rip_stepwise:
+
+RNA-RNA interaction as a Stepwise Process
+-----------------------------------------
+
+
+In a second approach to co-folding two RNAs, cofolding is seen as a stepwise process. In the first step the probability of an unpaired region is calculated and in a second step this probability of an unpaired region is multiplied with the probability of an interaction between the two RNAs. This approach is implemented for the interaction between a long target sequence and a short ligand RNA. Function :ref:`pf_unstru() <doxid-group__up__cofold_1ga5b4ee40e190d2f633cd01cf0d2fe93cf>` calculates the partition function over all unpaired regions in the input sequence. Function :ref:`pf_interact() <doxid-group__up__cofold_1ga1aa0aa02bc3a724f87360c03097afd00>` , which calculates the partition function over all possible interactions between two sequences, needs both sequence as separate strings as input.
+
+.. _doxid-rip_1rip_api:
+
+RNA-RNA Interaction API
+-----------------------
+

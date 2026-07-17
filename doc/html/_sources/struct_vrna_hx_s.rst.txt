@@ -1,0 +1,41 @@
+.. index:: pair: struct; vrna_hx_s
+.. _doxid-structvrna__hx__s:
+.. _cid-vrna_hx_s:
+
+struct vrna_hx_s
+================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/structure_utils.h>
+
+
+.. container:: brief-description
+
+    Data structure representing an entry of a helix list.
+
+.. _doxid-structvrna__hx__s_1ac9b1c418fb5426f8fb2562681a60d56c:
+.. _cid-vrna_hx_s::start:
+.. _doxid-structvrna__hx__s_1a05b855a6c2b277f26f0282bc13c1e6e0:
+.. _cid-vrna_hx_s::end:
+.. _doxid-structvrna__hx__s_1a9184affd5dc5043f195e5c274c8e857f:
+.. _cid-vrna_hx_s::length:
+.. _doxid-structvrna__hx__s_1a51a6a945dbc7f9443fb19a1af8126bb7:
+.. _cid-vrna_hx_s::up5:
+.. _doxid-structvrna__hx__s_1ac2c0832c332d750ff1c87f63a01760bd:
+.. _cid-vrna_hx_s::up3:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	unsigned int start
+	unsigned int end
+	unsigned int length
+	unsigned int up5
+	unsigned int up3
+

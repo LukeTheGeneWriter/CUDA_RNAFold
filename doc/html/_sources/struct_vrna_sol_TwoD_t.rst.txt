@@ -1,0 +1,107 @@
+.. index:: pair: struct; vrna_sol_TwoD_t
+.. _doxid-structvrna__sol___two_d__t:
+.. _cid-vrna_sol_twod_t:
+
+struct vrna_sol_TwoD_t
+======================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/2Dfold.h>
+
+
+Overview
+--------
+
+Solution element returned from :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>` :ref:`More...<details-doxid-structvrna__sol___two_d__t>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int :ref:`k<doxid-structvrna__sol___two_d__t_1ac111e850bb3b3a11b6b5707912cfa1b8>`
+	int :ref:`l<doxid-structvrna__sol___two_d__t_1ab8e95cd920901175a2cc8de726ab1d36>`
+	float :ref:`en<doxid-structvrna__sol___two_d__t_1a7577863a6a84224dfee39b321c03cab1>`
+	char* :ref:`s<doxid-structvrna__sol___two_d__t_1ac5942d2505a6cd7e4a8073a321d5d2d5>`
+
+.. _details-doxid-structvrna__sol___two_d__t:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Solution element returned from :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>`
+
+.. container:: detailed-description
+
+    This element contains free energy and structure for the appropriate kappa (k), lambda (l) neighborhood The datastructure contains two integer attributes 'k' and 'l' as well as an attribute 'en' of type float representing the free energy in kcal/mol and an attribute 's' of type char* containg the secondary structure representative,
+    
+    A value of :ref:`INF <doxid-energy__const_8h_1a12c2040f25d8e3a7b9e1c2024c618cb6>` in k denotes the end of a list
+    
+    
+    
+    .. admonition:: See also:
+    
+        :ref:`vrna_mfe_TwoD() <doxid-group__kl__neighborhood__mfe_1ga243c288b463147352829df04de6a2f77>`
+
+Fields
+------
+
+.. _doxid-structvrna__sol___two_d__t_1ac111e850bb3b3a11b6b5707912cfa1b8:
+.. _cid-vrna_sol_twod_t::k:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int k
+
+    .. container:: brief-description
+
+        Distance to first reference.
+
+.. _doxid-structvrna__sol___two_d__t_1ab8e95cd920901175a2cc8de726ab1d36:
+.. _cid-vrna_sol_twod_t::l:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int l
+
+    .. container:: brief-description
+
+        Distance to second reference.
+
+.. _doxid-structvrna__sol___two_d__t_1a7577863a6a84224dfee39b321c03cab1:
+.. _cid-vrna_sol_twod_t::en:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float en
+
+    .. container:: brief-description
+
+        Free energy in kcal/mol.
+
+.. _doxid-structvrna__sol___two_d__t_1ac5942d2505a6cd7e4a8073a321d5d2d5:
+.. _cid-vrna_sol_twod_t::s:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* s
+
+    .. container:: brief-description
+
+        MFE representative structure in dot-bracket notation.
+

@@ -1,0 +1,18 @@
+.. index:: pair: page; API Features
+.. _doxid-api_features:
+
+API Features
+============
+
+* :ref:`RNAlib API v3.0 <doxid-new_a_p_i>`
+  
+  - :ref:`Callback Functions <doxid-callbacks>`
+  
+  - :ref:`Scripting Language interface(s) <doxid-wrappers>`
+
+.. toctree::
+	:hidden:
+
+	page_newAPI.rst
+	page_callbacks.rst
+	page_wrappers.rst

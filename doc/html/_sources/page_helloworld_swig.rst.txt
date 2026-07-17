@@ -1,0 +1,142 @@
+.. index:: pair: page; HelloWorld (Perl/Python)
+.. _doxid-helloworld_swig:
+
+HelloWorld (Perl/Python)
+========================
+
+.. _doxid-helloworld_swig_1helloworld_perl:
+
+Perl5
+-----
+
+
+.. rubric:: Simple MFE prediction for a given sequence
+
+.. ref-code-block:: cpp
+
+    use RNA;
+    
+    # The RNA sequence
+    my $seq = "GAGUAGUGGAACCAGGCUAUGUUUGUGACUCGCAGACUAACA";
+    
+    # compute minimum free energy (MFE) and corresponding structure
+    my ($ss, $mfe) = RNA::fold($seq);
+    
+    # print output
+    printf "%s\n%s [ %6.2f ]\n", $seq, $ss, $mfe;
+
+.. rubric:: Simple MFE prediction for a multiple sequence alignment
+
+.. ref-code-block:: cpp
+
+    use RNA;
+    
+    # The RNA sequence alignment
+    my @sequences = (
+        "CUGCCUCACAACGUUUGUGCCUCAGUUACCCGUAGAUGUAGUGAGGGU",
+        "CUGCCUCACAACAUUUGUGCCUCAGUUACUCAUAGAUGUAGUGAGGGU",
+        "---CUCGACACCACU---GCCUCGGUUACCCAUCGGUGCAGUGCGGGU"
+    );
+    
+    # compute the consensus sequence
+    my $cons = RNA::consensus(\@sequences);
+    
+    # predict Minmum Free Energy and corresponding secondary structure
+    my ($ss, $mfe) = RNA::alifold(\@sequences);
+    
+    # print output
+    printf "%s\n%s [ %6.2f ]\n", $cons, $ss, $mfe;
+
+.. rubric:: Deviating from the Default Model
+
+.. ref-code-block:: cpp
+
+    use RNA;
+    
+    # The RNA sequence
+    my $seq = "GAGUAGUGGAACCAGGCUAUGUUUGUGACUCGCAGACUAACA";
+    
+    # create a new model details structure
+    my $md = new RNA::md();
+    
+    # change temperature and dangle model
+    $md->{temperature} = 20.0; # 20 Deg Celcius
+    $md->{dangles}     = 1;    # Dangle Model 1
+    
+    # create a fold compound
+    my $fc = new RNA::fold_compound($seq, $md);
+    
+    # predict Minmum Free Energy and corresponding secondary structure
+    my ($ss, $mfe) = $fc->mfe();
+    
+    # print sequence, structure and MFE
+    printf "%s\n%s [ %6.2f ]\n", $seq, $ss, $mfe;
+
+.. _doxid-helloworld_swig_1helloworld_python:
+
+Python
+------
+
+
+.. rubric:: Simple MFE prediction for a given sequence
+
+.. ref-code-block:: cpp
+
+    import RNA
+    
+    # The RNA sequence
+    seq = "GAGUAGUGGAACCAGGCUAUGUUUGUGACUCGCAGACUAACA"
+    
+    # compute minimum free energy (MFE) and corresponding structure
+    (ss, mfe) = RNA.fold(seq)
+    
+    # print output
+    print "%s\n%s [ %6.2f ]" % (seq, ss, mfe)
+
+.. rubric:: Simple MFE prediction for a multiple sequence alignment
+
+.. ref-code-block:: cpp
+
+    import RNA
+    
+    # The RNA sequence alignment
+    sequences = [
+        "CUGCCUCACAACGUUUGUGCCUCAGUUACCCGUAGAUGUAGUGAGGGU",
+        "CUGCCUCACAACAUUUGUGCCUCAGUUACUCAUAGAUGUAGUGAGGGU",
+        "---CUCGACACCACU---GCCUCGGUUACCCAUCGGUGCAGUGCGGGU"
+    ]
+    
+    # compute the consensus sequence
+    cons = RNA.consensus(sequences)
+    
+    # predict Minmum Free Energy and corresponding secondary structure
+    (ss, mfe) = RNA.alifold(sequences);
+    
+    # print output
+    print "%s\n%s [ %6.2f ]" % (cons, ss, mfe)
+
+.. rubric:: Deviating from the Default Model
+
+.. ref-code-block:: cpp
+
+    import RNA
+    
+    # The RNA sequence
+    seq = "GAGUAGUGGAACCAGGCUAUGUUUGUGACUCGCAGACUAACA"
+    
+    # create a new model details structure
+    md = RNA.md()
+    
+    # change temperature and dangle model
+    md.temperature = 20.0 # 20 Deg Celcius
+    md.dangles     = 1    # Dangle Model 1
+    
+    # create a fold compound
+    fc = RNA.fold_compound(seq, md)
+    
+    # predict Minmum Free Energy and corresponding secondary structure
+    (ss, mfe) = fc.mfe()
+    
+    # print sequence, structure and MFE
+    print "%s\n%s [ %6.2f ]\n" % (seq, ss, mfe)
+

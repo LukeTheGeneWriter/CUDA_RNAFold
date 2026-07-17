@@ -1,0 +1,12 @@
+.. index:: pair: page; The 'Fold Compound'
+.. _doxid-fold_compound_container:
+
+The 'Fold Compound'
+===================
+
+
+
+.. admonition:: See also:
+
+    :ref:`The Fold Compound <doxid-group__fold__compound>`
+

@@ -1,0 +1,35 @@
+.. index:: pair: struct; vrna_sect_s
+.. _doxid-structvrna__sect__s:
+.. _cid-vrna_sect_s:
+
+struct vrna_sect_s
+==================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/data_structures.h>
+
+
+.. container:: brief-description
+
+    Stack of partial structures for backtracking.
+
+.. _doxid-structvrna__sect__s_1afe4556fdd4c991ce07e025623774fbde:
+.. _cid-vrna_sect_s::i:
+.. _doxid-structvrna__sect__s_1a3698df1a69b4e9b4d6299f3cfc52479f:
+.. _cid-vrna_sect_s::j:
+.. _doxid-structvrna__sect__s_1a25b6b41468a46ee9ce5115109d70a1c2:
+.. _cid-vrna_sect_s::ml:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int i
+	int j
+	int ml
+

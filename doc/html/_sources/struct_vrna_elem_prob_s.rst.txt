@@ -1,0 +1,56 @@
+.. index:: pair: struct; vrna_elem_prob_s
+.. _doxid-structvrna__elem__prob__s:
+.. _cid-vrna_elem_prob_s:
+
+struct vrna_elem_prob_s
+=======================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/structure_utils.h>
+
+
+Overview
+--------
+
+Data structure representing a single entry of an element probability list (e.g. list of pair probabilities) :ref:`More...<details-doxid-structvrna__elem__prob__s>`
+
+.. _doxid-structvrna__elem__prob__s_1a0f8bb11ded4e605f816d7ad92eb568f6:
+.. _cid-vrna_elem_prob_s::i:
+.. _doxid-structvrna__elem__prob__s_1acada5be62ed6843334a918ca543f0c0d:
+.. _cid-vrna_elem_prob_s::j:
+.. _doxid-structvrna__elem__prob__s_1a9c09385582d8a7ab00485181f4e868b7:
+.. _cid-vrna_elem_prob_s::p:
+.. _doxid-structvrna__elem__prob__s_1a11715ffa51cb6277db7ebd3d9170d691:
+.. _cid-vrna_elem_prob_s::type:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int i
+	int j
+	float p
+	int type
+
+.. _details-doxid-structvrna__elem__prob__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Data structure representing a single entry of an element probability list (e.g. list of pair probabilities)
+
+.. container:: detailed-description
+
+    
+    
+    .. admonition:: See also:
+    
+        :ref:`vrna_plist() <doxid-group__struct__utils_1gaf002d69024d709744664a8b9ca3dd77d>` , :ref:`vrna_plist_from_probs() <doxid-group__pf__fold_1ga94f6efc0b8d8712b023452794a0a5bd2>` , :ref:`vrna_db_from_plist() <doxid-group__struct__utils_1ga6a51a36b9245d0bac868c5cd172b9611>` , :ref:`VRNA_PLIST_TYPE_BASEPAIR <doxid-group__struct__utils_1ga7c7484a8a1e6704b1aefaf589f3b27c1>` , :ref:`VRNA_PLIST_TYPE_GQUAD <doxid-group__struct__utils_1gac91ab79e9feede5347103949ecf04f8a>` , :ref:`VRNA_PLIST_TYPE_H_MOTIF <doxid-group__struct__utils_1ga4d142e0187b8410b61ec2b168ed4513e>` , :ref:`VRNA_PLIST_TYPE_I_MOTIF <doxid-group__struct__utils_1gadf5905518079b5495bce3394cd7afb9a>` , :ref:`VRNA_PLIST_TYPE_UD_MOTIF <doxid-group__struct__utils_1ga01d749cdb675dcdbac1dc5103378c699>` , :ref:`VRNA_PLIST_TYPE_STACK <doxid-group__struct__utils_1ga36df728a95452170ca8684fc224299ea>`
+

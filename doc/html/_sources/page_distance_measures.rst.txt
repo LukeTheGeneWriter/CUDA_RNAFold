@@ -1,0 +1,142 @@
+.. index:: pair: page; Distance Measures
+.. _doxid-distance_measures:
+
+Distance Measures
+=================
+
+A simple measure of dissimilarity between secondary structures of equal length is the base pair distance, given by the number of pairs present in only one of the two structures being compared. I.e. the number of base pairs that have to be opened or closed to transform one structure into the other. It is therefore particularly useful for comparing structures on the same sequence. It is implemented by
+
+.. code-block:: none
+
+    int bp_distance(const char *str1,
+                    const char *str2)
+
+Compute the "base pair" distance between two secondary structures s1 and s2.
+
+For other cases a distance measure that allows for gaps is preferable. We can define distances between structures as edit distances between trees or their string representations. In the case of string distances this is the same as "sequence alignment". Given a set of edit operations and edit costs, the edit distance is given by the minimum sum of the costs along an edit path converting one object into the other. Edit distances like these always define a metric. The edit operations used by us are insertion, deletion and replacement of nodes. String editing does not pay attention to the matching of brackets, while in tree editing matching brackets represent a single node of the tree. :ref:`Tree <doxid-struct_tree>` editing is therefore usually preferable, although somewhat slower. String edit distances are always smaller or equal to tree edit distances.
+
+The different level of detail in the structure representations defined above naturally leads to different measures of distance. For full structures we use a cost of 1 for deletion or insertion of an unpaired base and 2 for a base pair. Replacing an unpaired base for a pair incurs a cost of 1.
+
+Two cost matrices are provided for coarse grained structures:
+
+.. code-block:: none
+
+    /*  Null,   H,   B,   I,   M,   S,   E    */
+       {   0,   2,   2,   2,   2,   1,   1},   /* Null replaced */
+       {   2,   0,   2,   2,   2, INF, INF},   /* H    replaced */
+       {   2,   2,   0,   1,   2, INF, INF},   /* B    replaced */
+       {   2,   2,   1,   0,   2, INF, INF},   /* I    replaced */
+       {   2,   2,   2,   2,   0, INF, INF},   /* M    replaced */
+       {   1, INF, INF, INF, INF,   0, INF},   /* S    replaced */
+       {   1, INF, INF, INF, INF, INF,   0},   /* E    replaced */
+    
+    
+    /* Null,   H,   B,   I,   M,   S,   E   */
+       {   0, 100,   5,   5,  75,   5,   5},   /* Null replaced */
+       { 100,   0,   8,   8,   8, INF, INF},   /* H    replaced */
+       {   5,   8,   0,   3,   8, INF, INF},   /* B    replaced */
+       {   5,   8,   3,   0,   8, INF, INF},   /* I    replaced */
+       {  75,   8,   8,   8,   0, INF, INF},   /* M    replaced */
+       {   5, INF, INF, INF, INF,   0, INF},   /* S    replaced */
+       {   5, INF, INF, INF, INF, INF,   0},   /* E    replaced */
+
+The lower matrix uses the costs given in :ref:`[17] <doxid-citelist_1CITEREF_shapiro:1990>` . All distance functions use the following global variables:
+
+.. code-block:: none
+
+    int  cost_matrix;
+
+Specify the cost matrix to be used for distance calculations.
+
+.. code-block:: none
+
+    int   edit_backtrack;
+
+Produce an alignment of the two structures being compared by tracing the editing path giving the minimum distance.
+
+.. code-block:: none
+
+    char *aligned_line[4];
+
+Contains the two aligned structures after a call to one of the distance functions with :ref:`edit_backtrack <doxid-dist__vars_8h_1aa03194c513af6b860e7b33e370b82bdb>` set to 1.
+
+.. _doxid-distance_measures_1sec_tree_edit_distance:
+
+Functions for Tree Edit Distances
+---------------------------------
+
+
+.. code-block:: none
+
+    Tree   *make_tree (char *struc)
+
+Constructs a :ref:`Tree <doxid-struct_tree>` ( essentially the postorder list ) of the structure 'struc', for use in :ref:`tree_edit_distance() <doxid-treedist_8h_1a3b21f1925f7071f46d93431a835217bb>` .
+
+.. code-block:: none
+
+    float   tree_edit_distance (Tree *T1,
+                                Tree *T2)
+
+Calculates the edit distance of the two trees.
+
+.. code-block:: none
+
+    void    free_tree(Tree *t)
+
+Free the memory allocated for :ref:`Tree <doxid-struct_tree>` t.
+
+.. _doxid-distance_measures_1sec_string_alignment:
+
+Functions for String Alignment
+------------------------------
+
+
+.. code-block:: none
+
+    swString *Make_swString (char *string)
+
+Convert a structure into a format suitable for :ref:`string_edit_distance() <doxid-stringdist_8h_1a89e3c335ef17780576d7c0e713830db9>` .
+
+.. code-block:: none
+
+    float     string_edit_distance (swString *T1,
+                                    swString *T2)
+
+Calculate the string edit distance of T1 and T2.
+
+.. _doxid-distance_measures_1sec_compare_base_pair_probs:
+
+Functions for Comparison of Base Pair Probabilities
+---------------------------------------------------
+
+
+For comparison of base pair probability matrices, the matrices are first condensed into probability profiles which are the compared by alignment.
+
+.. code-block:: none
+
+    float *Make_bp_profile_bppm ( double *bppm,
+                                  int length)
+
+condense pair probability matrix into a vector containing probabilities for unpaired, upstream paired and downstream paired.
+
+.. code-block:: none
+
+    float profile_edit_distance ( const float *T1,
+                                  const float *T2)
+
+Align the 2 probability profiles T1, T2
+
+.
+
+
+
+.. admonition:: See also:
+
+    ``utils.h`` , ``dist_vars.h`` and ``stringdist.h`` for more details
+
+    ``dist_vars.h`` and ``treedist.h`` for prototypes and more detailed descriptions
+
+    ``dist_vars.h`` and ``stringdist.h`` for prototypes and more detailed descriptions
+
+    ``ProfileDist.h`` for prototypes and more details of the above functions
+

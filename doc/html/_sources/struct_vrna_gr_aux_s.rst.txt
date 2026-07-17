@@ -1,0 +1,45 @@
+.. index:: pair: struct; vrna_gr_aux_s
+.. _doxid-structvrna__gr__aux__s:
+.. _cid-vrna_gr_aux_s:
+
+struct vrna_gr_aux_s
+====================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/grammar.h>
+
+
+
+
+.. _doxid-structvrna__gr__aux__s_1a177c06df7c9632acd61e833671e128a4:
+.. _cid-vrna_gr_aux_s::cb_aux_f:
+.. _doxid-structvrna__gr__aux__s_1a6437d8207d52503cfeeec87666652faf:
+.. _cid-vrna_gr_aux_s::cb_aux_c:
+.. _doxid-structvrna__gr__aux__s_1a56558a56dc06c22667bda4ce2a2ddc57:
+.. _cid-vrna_gr_aux_s::cb_aux_m:
+.. _doxid-structvrna__gr__aux__s_1a2ac5c8adff5f9a69a82b21cd7496eea9:
+.. _cid-vrna_gr_aux_s::cb_aux_m1:
+.. _doxid-structvrna__gr__aux__s_1a028eee994dbc35f78e3266d030abed58:
+.. _cid-vrna_gr_aux_s::cb_aux:
+.. _doxid-structvrna__gr__aux__s_1af02cce70c1873f975cf6f60fa37751da:
+.. _cid-vrna_gr_aux_s::auxdata:
+.. _doxid-structvrna__gr__aux__s_1ad558dc65d426484476551479c0705326:
+.. _cid-vrna_gr_aux_s::free_auxdata:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	:ref:`vrna_callback_gr_rule_aux<doxid-group__grammar_1ga4872800fb64a0cc6d861f53efb91ee05>`* cb_aux_f
+	:ref:`vrna_callback_gr_rule_aux<doxid-group__grammar_1ga4872800fb64a0cc6d861f53efb91ee05>`* cb_aux_c
+	:ref:`vrna_callback_gr_rule_aux<doxid-group__grammar_1ga4872800fb64a0cc6d861f53efb91ee05>`* cb_aux_m
+	:ref:`vrna_callback_gr_rule_aux<doxid-group__grammar_1ga4872800fb64a0cc6d861f53efb91ee05>`* cb_aux_m1
+	:ref:`vrna_callback_gr_rule_aux<doxid-group__grammar_1ga4872800fb64a0cc6d861f53efb91ee05>`* cb_aux
+	void* auxdata
+	:ref:`vrna_callback_gr_free_auxdata<doxid-group__grammar_1gadc8bec7146fda1ee9276df8fc22d8639>`* free_auxdata
+

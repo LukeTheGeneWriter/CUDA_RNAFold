@@ -1,0 +1,38 @@
+.. index:: pair: struct; vrna_hc_bp_storage_t
+.. _doxid-structvrna__hc__bp__storage__t:
+.. _cid-vrna_hc_bp_storage_t:
+
+struct vrna_hc_bp_storage_t
+===========================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/constraints_hard.h>
+
+
+.. container:: brief-description
+
+    A base pair hard constraint.
+
+.. _doxid-structvrna__hc__bp__storage__t_1a443d13e1e2898e829c8ae71c183174b9:
+.. _cid-vrna_hc_bp_storage_t::interval_start:
+.. _doxid-structvrna__hc__bp__storage__t_1a5c7b920629beab7c5ec484d70ae7cb00:
+.. _cid-vrna_hc_bp_storage_t::interval_end:
+.. _doxid-structvrna__hc__bp__storage__t_1a600013cf429dd0e314f37f716caf9381:
+.. _cid-vrna_hc_bp_storage_t::loop_type:
+.. _doxid-structvrna__hc__bp__storage__t_1a0e3c4d41ef287b059ab93cef490f3a8a:
+.. _cid-vrna_hc_bp_storage_t::replace:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int interval_start
+	int interval_end
+	unsigned char loop_type
+	unsigned char replace : 1
+

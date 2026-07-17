@@ -1,0 +1,148 @@
+.. index:: pair: page; Plotting
+.. _doxid-plots:
+
+Plotting
+========
+
+Create Plots of Secondary Structures, Feature Motifs, and Sequence Alignments
+
+.. _doxid-plots_1utils_ss:
+
+Producing secondary structure graphs
+------------------------------------
+
+
+.. code-block:: none
+
+    int PS_rna_plot ( char *string,
+                      char *structure,
+                      char *file)
+
+Produce a secondary structure graph in PostScript and write it to 'filename'.
+
+.. code-block:: none
+
+    int PS_rna_plot_a (
+                char *string,
+                char *structure,
+                char *file,
+                char *pre,
+                char *post)
+
+Produce a secondary structure graph in PostScript including additional annotation macros and write it to 'filename'.
+
+.. code-block:: none
+
+    int gmlRNA (char *string,
+                char *structure,
+                char *ssfile,
+                char option)
+
+Produce a secondary structure graph in Graph Meta Language (gml) and write it to a file.
+
+.. code-block:: none
+
+    int ssv_rna_plot (char *string,
+                      char *structure,
+                      char *ssfile)
+
+Produce a secondary structure graph in SStructView format.
+
+.. code-block:: none
+
+    int svg_rna_plot (char *string,
+                      char *structure,
+                      char *ssfile)
+
+Produce a secondary structure plot in SVG format and write it to a file.
+
+.. code-block:: none
+
+    int xrna_plot ( char *string,
+                    char *structure,
+                    char *ssfile)
+
+Produce a secondary structure plot for further editing in XRNA.
+
+.. code-block:: none
+
+    int rna_plot_type
+
+Switch for changing the secondary structure layout algorithm.
+
+Two low-level functions provide direct access to the graph lauyouting algorithms:
+
+.. code-block:: none
+
+    int simple_xy_coordinates ( short *pair_table,
+                                float *X,
+                                float *Y)
+
+Calculate nucleotide coordinates for secondary structure plot the *Simple way*
+
+.. code-block:: none
+
+    int naview_xy_coordinates ( short *pair_table,
+                                float *X,
+                                float *Y)
+
+.. _doxid-plots_1utils_dot:
+
+Producing (colored) dot plots for base pair probabilities
+---------------------------------------------------------
+
+
+.. code-block:: none
+
+    int PS_color_dot_plot ( char *string,
+                            cpair *pi,
+                            char *filename)
+
+.. code-block:: none
+
+    int PS_color_dot_plot_turn (char *seq,
+                                cpair *pi,
+                                char *filename,
+                                int winSize)
+
+.. code-block:: none
+
+    int PS_dot_plot_list (char *seq,
+                          char *filename,
+                          plist *pl,
+                          plist *mf,
+                          char *comment)
+
+Produce a postscript dot-plot from two pair lists.
+
+.. code-block:: none
+
+    int PS_dot_plot_turn (char *seq,
+                          struct plist *pl,
+                          char *filename,
+                          int winSize)
+
+.. _doxid-plots_1utils_aln:
+
+Producing (colored) alignments
+------------------------------
+
+
+.. code-block:: none
+
+    int PS_color_aln (
+                const char *structure,
+                const char *filename,
+                const char *seqs[],
+                const char *names[])
+
+Produce PostScript sequence alignment color-annotated by consensus structure.
+
+
+
+.. admonition:: See also:
+
+    ``PS_dot.h`` and ``naview.h`` for more detailed descriptions.
+
+    ``PS_dot.h`` for more detailed descriptions.
+

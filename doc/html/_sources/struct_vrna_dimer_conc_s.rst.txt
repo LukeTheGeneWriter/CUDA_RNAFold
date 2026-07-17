@@ -1,0 +1,93 @@
+.. index:: pair: struct; vrna_dimer_conc_s
+.. _doxid-structvrna__dimer__conc__s:
+.. _cid-vrna_dimer_conc_s:
+
+struct vrna_dimer_conc_s
+========================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/concentrations.h>
+
+
+Overview
+--------
+
+Data structure for concentration dependency computations. :ref:`More...<details-doxid-structvrna__dimer__conc__s>`
+
+.. _doxid-structvrna__dimer__conc__s_1a217db3b506d42fa8517f907b28aa231e:
+.. _cid-vrna_dimer_conc_s::aac:
+.. _doxid-structvrna__dimer__conc__s_1a413bc4b0ed1eea92655033862ed6d1da:
+.. _cid-vrna_dimer_conc_s::bbc:
+.. _doxid-structvrna__dimer__conc__s_1a7d9f7bec4f51476ed1a5cfee673d61b4:
+.. _cid-vrna_dimer_conc_s::ac:
+.. _doxid-structvrna__dimer__conc__s_1a96eb62519e39a224240ad93ad89e4570:
+.. _cid-vrna_dimer_conc_s::bc:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	double :ref:`Ac_start<doxid-structvrna__dimer__conc__s_1a6e64ce1afbc93756afef06c0e3ccce97>`
+	double :ref:`Bc_start<doxid-structvrna__dimer__conc__s_1a5763381efee22a0bbec2f2d0754f7697>`
+	double :ref:`ABc<doxid-structvrna__dimer__conc__s_1aef56a1fe8d7f07e7b5d9a65417dda8a4>`
+	double AAc
+	double BBc
+	double Ac
+	double Bc
+
+.. _details-doxid-structvrna__dimer__conc__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Data structure for concentration dependency computations.
+
+Fields
+------
+
+.. _doxid-structvrna__dimer__conc__s_1a6e64ce1afbc93756afef06c0e3ccce97:
+.. _cid-vrna_dimer_conc_s::ac_start:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double Ac_start
+
+    .. container:: brief-description
+
+        start concentration A
+
+.. _doxid-structvrna__dimer__conc__s_1a5763381efee22a0bbec2f2d0754f7697:
+.. _cid-vrna_dimer_conc_s::bc_start:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double Bc_start
+
+    .. container:: brief-description
+
+        start concentration B
+
+.. _doxid-structvrna__dimer__conc__s_1aef56a1fe8d7f07e7b5d9a65417dda8a4:
+.. _cid-vrna_dimer_conc_s::abc:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double ABc
+
+    .. container:: brief-description
+
+        End concentration AB.
+

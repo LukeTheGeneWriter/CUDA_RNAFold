@@ -1,0 +1,29 @@
+.. index:: pair: page; Locally Stable Secondary Structures
+.. _doxid-local_vs_global:
+
+Locally Stable Secondary Structures
+===================================
+
+.. _doxid-local_vs_global_1local_intro:
+
+local_intro
+-----------
+
+
+.. _doxid-local_vs_global_1local_mfe:
+
+local_mfe
+---------
+
+
+.. _doxid-local_vs_global_1local_pf:
+
+local_pf
+--------
+
+
+.. _doxid-local_vs_global_1local_api:
+
+Locally Stable Secondary Structure API
+--------------------------------------
+

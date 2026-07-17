@@ -1,0 +1,40 @@
+.. index:: pair: page; Classified DP variations
+.. _doxid-classified_dp:
+
+Classified DP variations
+========================
+
+.. _doxid-classified_dp_1classified_dp_intro:
+
+The Idea of Classified Dynamic Programming
+------------------------------------------
+
+
+Usually, thermodynamic properties using the basic recursions for :ref:`Minimum Free Energy Algorithm(s) <doxid-mfe_algorithm>` , :ref:`Partition Function and Equilibrium Probabilitiy Algorithm(s) <doxid-pf_algorithm>` , and so forth, are computed over the entire structure space. However, sometimes it is desired to partition the structure space *a priori* and compute the above properties for each of the resulting partitions. This approach directly leads to *Classified Dynamic Programming* .
+
+.. _doxid-classified_dp_1distance_classes:
+
+Distance Class Partitioning
+---------------------------
+
+
+The secondary structure space is divided into partitions according to the base pair distance to two given reference structures and all relevant properties are calculated for each of the resulting partitions.
+
+.. _doxid-classified_dp_1density_of_states:
+
+Density of States (DOS)
+-----------------------
+
+
+.. _doxid-classified_dp_1classified_dp_api:
+
+Classified DP API
+-----------------
+
+
+
+
+.. admonition:: See also:
+
+    For further details, we refer to Lorenz et al. 2009 :ref:`[10] <doxid-citelist_1CITEREF_lorenz:2009>`
+

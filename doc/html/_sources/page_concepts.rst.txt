@@ -1,0 +1,61 @@
+.. index:: pair: page; Concepts and Algorithms
+.. _doxid-concepts:
+
+Concepts and Algorithms
+=======================
+
+This is an overview of the concepts and algorithms for which implementations can be found in this library.
+
+Almost all of them rely on the physics based Nearest Neighbor Model for RNA secondary structure prediction.
+
+* :ref:`RNA Structure <doxid-secondary_structures>` gives an introduction into the different layers of abstraction for RNA structures
+
+* :ref:`Distance Measures <doxid-distance_measures>` introduces different metrics to allow for the comparison of secondary structures
+
+* :ref:`Free Energy of Secondary Structures <doxid-energy_evaluation>` shows how the stability of a secondary structure can be quantified in terms of free energy
+
+* :ref:`Secondary Structure Folding Grammar <doxid-folding_grammar>` explains the basic recursive decomposition scheme that is applied in secondary structure prediction
+
+* :ref:`RNA Secondary Structure Landscapes <doxid-secondary_structure_landscape>` describes how transition paths between secondary structures span a landscape like graph
+
+* :ref:`Minimum Free Energy Algorithm(s) <doxid-mfe_algorithm>` compute the most stable conformation in thermodynamic equilibrium
+
+* :ref:`Partition Function and Equilibrium Probabilitiy Algorithm(s) <doxid-pf_algorithm>` enable one to apply statistical mechanics to derive equilibrium probabilities of structure features
+
+* :ref:`Suboptimals and (other) Representative Structures <doxid-suboptimal_structures>` allow for alternative description and enumeration of the structure ensemble
+
+* :ref:`RNA-RNA Interaction <doxid-rip>` introduces how to model the interaction between RNA molecules
+
+* :ref:`Locally Stable Secondary Structures <doxid-local_vs_global>` offer insights into structuredness of long sequences and entire genomes
+
+* :ref:`Comparative Structure Prediction <doxid-consensus_structures>` augment structure prediction with evolutionary conservation of homologous sequences
+
+* :ref:`Classified DP variations <doxid-classified_dp>` perform an *a priori* partitioning of the structure ensemble and compute various properties for the resulting classes.
+
+* :ref:`RNA Sequence Design <doxid-design>` constitutes the inverse problem of structure prediction
+
+* :ref:`Experimental Structure Probing Data <doxid-structure_probing_data>` can be used to guide structure prediction, for instance using SHAPE reactivity data
+
+* :ref:`Ligand Binding <doxid-ligand_binding>` adds more complexity to structure prediction by modelling the interaction between small chemical compounds or proteins and the RNA
+
+* :ref:`(Tertiary) Structure Motifs <doxid-structure_motifs>` extend the abstraction of secondary structure beyond canonical base pair formation
+
+.. toctree::
+	:hidden:
+
+	page_secondary_structures.rst
+	page_distance_measures.rst
+	page_energy_evaluation.rst
+	page_folding_grammar.rst
+	page_secondary_structure_landscape.rst
+	page_mfe_algorithm.rst
+	page_pf_algorithm.rst
+	page_suboptimal_structures.rst
+	page_rip.rst
+	page_local_vs_global.rst
+	page_consensus_structures.rst
+	page_classified_dp.rst
+	page_design.rst
+	page_structure_probing_data.rst
+	page_ligand_binding.rst
+	page_structure_motifs.rst

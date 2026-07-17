@@ -1,0 +1,30 @@
+.. index:: pair: struct; vrna_unstructured_domain_motif_s
+.. _doxid-structvrna__unstructured__domain__motif__s:
+.. _cid-vrna_unstructured_domain_motif_s:
+
+struct vrna_unstructured_domain_motif_s
+=======================================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/unstructured_domains.h>
+
+
+
+
+.. _doxid-structvrna__unstructured__domain__motif__s_1ad8dbd95d790d17bcf80597b7a27cef79:
+.. _cid-vrna_unstructured_domain_motif_s::start:
+.. _doxid-structvrna__unstructured__domain__motif__s_1aee5d1fcdd26894faa5f7defb9cf99033:
+.. _cid-vrna_unstructured_domain_motif_s::number:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int start
+	int number
+

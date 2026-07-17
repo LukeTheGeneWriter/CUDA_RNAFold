@@ -1,0 +1,967 @@
+.. index:: pair: struct; vrna_fc_s
+.. _doxid-structvrna__fc__s:
+.. _cid-vrna_fc_s:
+
+struct vrna_fc_s
+================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/fold_compound.h>
+
+
+Overview
+--------
+
+The most basic data structure required by many functions throughout the RNAlib. :ref:`More...<details-doxid-structvrna__fc__s>`
+
+.. _doxid-structvrna__fc__s_1a3bf15e0e44539f9f622fd09227bf3de1:
+.. _cid-vrna_fc_s::strand_order:
+.. _doxid-structvrna__fc__s_1a571ee9a932f633c7d9167ae029573935:
+.. _cid-vrna_fc_s::strand_start:
+.. _doxid-structvrna__fc__s_1aaa1b51bc6eb47cc661fea834d7175a54:
+.. _cid-vrna_fc_s::strand_end:
+.. _doxid-structvrna__fc__s_1ad8962b97f5e5e233d9bfb5b16a691d26:
+.. _cid-vrna_fc_s::strands:
+.. _doxid-structvrna__fc__s_1a855b503aefd052430bf463d8518d2ff5:
+.. _cid-vrna_fc_s::nucleotides:
+.. _doxid-structvrna__fc__s_1a42f34f531718cead0550a1ed59785e6d:
+.. _cid-vrna_fc_s::aux_grammar:
+.. _doxid-structvrna__fc__s_1aaf9064092f674882e78665e1646ffdbf:
+.. _cid-vrna_fc_s::sequence_encoding2:
+.. _doxid-structvrna__fc__s_1abf4a526147da57db63990892987fea29:
+.. _cid-vrna_fc_s::ss:
+.. _doxid-structvrna__fc__s_1a1e8ab3e7d0ba41bdd86e12044903881a:
+.. _cid-vrna_fc_s::a2s:
+.. _doxid-structvrna__fc__s_1ac539df9233472dd76d070f4a821185a9:
+.. _cid-vrna_fc_s::oldalien:
+.. _doxid-structvrna__fc__s_1ab172ac3b4bdd7448d7f6c112850081bc:
+.. _cid-vrna_fc_s::@29:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	:ref:`vrna_fc_type_e<doxid-group__fold__compound_1ga01a4ff86fa71deaaa5d1abbd95a1447d>` :ref:`type<doxid-structvrna__fc__s_1ac5eab693deac9a1a40c2a95ac294707c>`
+	unsigned int :ref:`length<doxid-structvrna__fc__s_1a95fbfed770b858e50c766505dc4bf998>`
+	int :ref:`cutpoint<doxid-structvrna__fc__s_1ae1a7bbff0256577e2b22709bac11fdb4>`
+	unsigned int* :ref:`strand_number<doxid-structvrna__fc__s_1a23304c5186dfae97bc69dc19d37f70c3>`
+	unsigned int* strand_order
+	unsigned int* strand_start
+	unsigned int* strand_end
+	unsigned int strands
+	:ref:`vrna_seq_t<doxid-sequence_8h_1aa35bee3061759495467070b47d0e1f22>`* nucleotides
+	:ref:`vrna_hc_t<doxid-group__hard__constraints_1gac7e4c4f8abe3163a68110c5bff24e01d>`* :ref:`hc<doxid-structvrna__fc__s_1aceaa904dbf50092d403ca99422e8f824>`
+	:ref:`vrna_mx_mfe_t<doxid-group__dp__matrices_1gae5aef35d016475e758f619b7bcb534f9>`* :ref:`matrices<doxid-structvrna__fc__s_1aca8be7bdc65bafe2172c6ee777f18568>`
+	:ref:`vrna_mx_pf_t<doxid-group__dp__matrices_1ga68729ab3fed26bdd1806fa814f172fc1>`* :ref:`exp_matrices<doxid-structvrna__fc__s_1afc38ed5a1028a2712d2365274bf49727>`
+	:ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* :ref:`params<doxid-structvrna__fc__s_1a19b8720c2c5321c1b97c830bd17566ea>`
+	:ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* :ref:`exp_params<doxid-structvrna__fc__s_1a7052a5d24f6091b9c5f79edcc9456a12>`
+	int* :ref:`iindx<doxid-structvrna__fc__s_1afdead4cf55c882d3497e779573e17e03>`
+	int* :ref:`jindx<doxid-structvrna__fc__s_1a5037235dee512efd85ca543780bbca1a>`
+	:ref:`vrna_callback_recursion_status<doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>`* :ref:`stat_cb<doxid-structvrna__fc__s_1a87a83f6795b569000efcbe65acc3dd81>`
+	void* :ref:`auxdata<doxid-structvrna__fc__s_1a20048e0c369e9f24b55423d600037c68>`
+	:ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* :ref:`free_auxdata<doxid-structvrna__fc__s_1a8e84dbabab016ecd74da6c38cb94e816>`
+	:ref:`vrna_sd_t<doxid-structured__domains_8h_1afa7bbdebb6be4a0d8b829208d4083383>`* :ref:`domains_struc<doxid-structvrna__fc__s_1ac25a84f2658de0d7a54cd710c16198b1>`
+	:ref:`vrna_ud_t<doxid-group__domains__up_1ga0009117b14d29143e8b18ab891f48c2d>`* :ref:`domains_up<doxid-structvrna__fc__s_1a4f70b6d32681fc8ca061236f21819ae7>`
+	:ref:`vrna_gr_aux_t<doxid-group__grammar_1ga8825fbe6d7de2ff61c232cc7550a82cc>`* aux_grammar
+	unsigned int :ref:`maxD1<doxid-structvrna__fc__s_1a426305721b16023f2f3247f7354d2c46>`
+	unsigned int :ref:`maxD2<doxid-structvrna__fc__s_1a38695774fd396c892f9a70d39978b231>`
+	short* :ref:`reference_pt1<doxid-structvrna__fc__s_1aa279ba4bd0ff541d435d3a049687f3ac>`
+	short* :ref:`reference_pt2<doxid-structvrna__fc__s_1a926ad253f5f0eed642bc227493d0278d>`
+	unsigned int* :ref:`referenceBPs1<doxid-structvrna__fc__s_1a62a8d4ab8dadffbf09da917adff6c71e>`
+	unsigned int* :ref:`referenceBPs2<doxid-structvrna__fc__s_1a19187f33433e84683730dedff8544f71>`
+	unsigned int* :ref:`bpdist<doxid-structvrna__fc__s_1a5c53e55583ce096148075bc240fc2bce>`
+	unsigned int* :ref:`mm1<doxid-structvrna__fc__s_1a0af5a888bac2ae32107da32776144504>`
+	unsigned int* :ref:`mm2<doxid-structvrna__fc__s_1a54c0b979274b285a7e093ed54aa3252e>`
+	int :ref:`window_size<doxid-structvrna__fc__s_1adacbf7cdfb47d3072683ab509de735f6>`
+	char** :ref:`ptype_local<doxid-structvrna__fc__s_1a2ecb8ff5e21190936a8a146be7a251ff>`
+	char* :ref:`sequence<doxid-structvrna__fc__s_1a87f6abcda89cfb7a486c97e1f5371525>`
+	short* :ref:`sequence_encoding<doxid-structvrna__fc__s_1a9934bdb695d35a3544285cbcc19f9763>`
+	short* sequence_encoding2
+	char* :ref:`ptype<doxid-structvrna__fc__s_1a3fbea559f1d1976b2d67c215cdeee0b2>`
+	char* :ref:`ptype_pf_compat<doxid-structvrna__fc__s_1a7fe1235ce3d41287695f1ae1e283e8fc>`
+	:ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`* :ref:`sc<doxid-structvrna__fc__s_1ac7089e90460ad3990a308808c8044c9f>`
+	char** :ref:`sequences<doxid-structvrna__fc__s_1a965dbb42f2e13cace5aa3bbab4396530>`
+	unsigned int :ref:`n_seq<doxid-structvrna__fc__s_1a614702ab74478e786272be44f8cebfe3>`
+	char* :ref:`cons_seq<doxid-structvrna__fc__s_1ac472afde64d8b3c8b84e4809fda7d814>`
+	short* :ref:`S_cons<doxid-structvrna__fc__s_1aa3fab7ae38ebfed2028375221d295686>`
+	short** :ref:`S<doxid-structvrna__fc__s_1aebb37297f92c7bd22aac6343f8f61d61>`
+	short** :ref:`S5<doxid-structvrna__fc__s_1a78d089b475e2230bd536b9a6ed8bb17c>`
+	short** :ref:`S3<doxid-structvrna__fc__s_1af6ab2a25b84d2308ee23f6b11b5fd52d>`
+	char** Ss
+	unsigned int** a2s
+	int* :ref:`pscore<doxid-structvrna__fc__s_1a14dc7755af6019ddbd0cf94b209e89dd>`
+	int** :ref:`pscore_local<doxid-structvrna__fc__s_1ad966c15907e6c2e32b0910c7a3154509>`
+	short* :ref:`pscore_pf_compat<doxid-structvrna__fc__s_1abf5e82d14649b6179ae60ed7da6e4fc0>`
+	:ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`** :ref:`scs<doxid-structvrna__fc__s_1ac2b047fddabc51a76a96511174e47db1>`
+	int oldAliEn
+
+.. _details-doxid-structvrna__fc__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    The most basic data structure required by many functions throughout the RNAlib.
+
+.. container:: detailed-description
+
+    SWIG Wrapper Notes This data structure is wrapped as an object **fold_compound** with several related functions attached as methods.
+    
+    A new **fold_compound** can be obtained by calling one of its constructors:
+    
+    
+    
+    * *fold_compound(seq)* Initialize with a single sequence, or two concatenated sequences separated by an ampersand character '&' (for cofolding)
+    
+    * *fold_compound(aln)* Initialize with a sequence alignment *aln* stored as a list of sequences (with gap characters)
+    
+    The resulting object has a list of attached methods which in most cases directly correspond to functions that mainly operate on the corresponding *C* data structure:
+    
+    
+    
+    * *:ref:`type() <doxid-structvrna__fc__s_1ac5eab693deac9a1a40c2a95ac294707c>`* Get the type of the *fold_compound* (See :ref:`vrna_fc_type_e <doxid-group__fold__compound_1ga01a4ff86fa71deaaa5d1abbd95a1447d>` )
+    
+    * *:ref:`length() <doxid-structvrna__fc__s_1a95fbfed770b858e50c766505dc4bf998>`* Get the length of the sequence(s) or alignment stored within the *fold_compound*
+    
+    
+    
+    .. note::
+    
+        Please read the documentation of this data structure carefully! Some attributes are only available for specific types this data structure can adopt.
+    
+    
+    
+    .. warning::
+    
+        Reading/Writing from/to attributes that are not within the scope of the current type usually result in undefined behavior!
+    
+    
+    
+    .. admonition:: See also:
+    
+        :ref:`vrna_fold_compound_t.type <doxid-structvrna__fc__s_1ac5eab693deac9a1a40c2a95ac294707c>` , :ref:`vrna_fold_compound() <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>` , :ref:`vrna_fold_compound_comparative() <doxid-group__fold__compound_1gad6bacc816af274922b13d947f708aa0c>` , :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` , :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` , :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+
+Fields
+------
+
+.. _doxid-structvrna__fc__s_1ac5eab693deac9a1a40c2a95ac294707c:
+.. _cid-vrna_fc_s::type:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_fc_type_e<doxid-group__fold__compound_1ga01a4ff86fa71deaaa5d1abbd95a1447d>` type
+
+    .. container:: brief-description
+
+        The type of the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+    .. container:: detailed-description
+
+        Currently possible values are :ref:`VRNA_FC_TYPE_SINGLE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447da7e264dd3cf2dc9b6448caabcb7763cd6>` , and :ref:`VRNA_FC_TYPE_COMPARATIVE <doxid-group__fold__compound_1gga01a4ff86fa71deaaa5d1abbd95a1447dab821ce46ea3cf665be97df22a76f5023>`
+        
+        
+        
+        .. warning::
+        
+            Do not edit this attribute, it will be automagically set by the corresponding get() methods for the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . The value specified in this attribute dictates the set of other attributes to use within this data structure.
+
+.. _doxid-structvrna__fc__s_1a95fbfed770b858e50c766505dc4bf998:
+.. _cid-vrna_fc_s::length:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int length
+
+    .. container:: brief-description
+
+        The length of the sequence (or sequence alignment)
+
+.. _doxid-structvrna__fc__s_1ae1a7bbff0256577e2b22709bac11fdb4:
+.. _cid-vrna_fc_s::cutpoint:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int cutpoint
+
+    .. container:: brief-description
+
+        The position of the (cofold) cutpoint within the provided sequence. If there is no cutpoint, this field will be set to -1.
+
+.. _doxid-structvrna__fc__s_1a23304c5186dfae97bc69dc19d37f70c3:
+.. _cid-vrna_fc_s::strand_number:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* strand_number
+
+    .. container:: brief-description
+
+        The strand number a particular nucleotide is associated with.
+
+.. _doxid-structvrna__fc__s_1aceaa904dbf50092d403ca99422e8f824:
+.. _cid-vrna_fc_s::hc:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_hc_t<doxid-group__hard__constraints_1gac7e4c4f8abe3163a68110c5bff24e01d>`* hc
+
+    .. container:: brief-description
+
+        The hard constraints data structure used for structure prediction.
+
+.. _doxid-structvrna__fc__s_1aca8be7bdc65bafe2172c6ee777f18568:
+.. _cid-vrna_fc_s::matrices:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_mx_mfe_t<doxid-group__dp__matrices_1gae5aef35d016475e758f619b7bcb534f9>`* matrices
+
+    .. container:: brief-description
+
+        The MFE DP matrices.
+
+.. _doxid-structvrna__fc__s_1afc38ed5a1028a2712d2365274bf49727:
+.. _cid-vrna_fc_s::exp_matrices:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_mx_pf_t<doxid-group__dp__matrices_1ga68729ab3fed26bdd1806fa814f172fc1>`* exp_matrices
+
+    .. container:: brief-description
+
+        The PF DP matrices.
+
+.. _doxid-structvrna__fc__s_1a19b8720c2c5321c1b97c830bd17566ea:
+.. _cid-vrna_fc_s::params:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_param_t<doxid-group__energy__parameters_1ga8a69ca7d787e4fd6079914f5343a1f35>`* params
+
+    .. container:: brief-description
+
+        The precomputed free energy contributions for each type of loop.
+
+.. _doxid-structvrna__fc__s_1a7052a5d24f6091b9c5f79edcc9456a12:
+.. _cid-vrna_fc_s::exp_params:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_exp_param_t<doxid-group__energy__parameters_1ga01d8b92fe734df8d79a6169482c7d8d8>`* exp_params
+
+    .. container:: brief-description
+
+        The precomputed free energy contributions as Boltzmann factors.
+
+.. _doxid-structvrna__fc__s_1afdead4cf55c882d3497e779573e17e03:
+.. _cid-vrna_fc_s::iindx:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* iindx
+
+    .. container:: brief-description
+
+        DP matrix accessor.
+
+.. _doxid-structvrna__fc__s_1a5037235dee512efd85ca543780bbca1a:
+.. _cid-vrna_fc_s::jindx:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* jindx
+
+    .. container:: brief-description
+
+        DP matrix accessor.
+
+.. _doxid-structvrna__fc__s_1a87a83f6795b569000efcbe65acc3dd81:
+.. _cid-vrna_fc_s::stat_cb:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_callback_recursion_status<doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>`* stat_cb
+
+    .. container:: brief-description
+
+        Recursion status callback (usually called just before, and after recursive computations in the library.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_callback_recursion_status() <doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>` , :ref:`vrna_fold_compound_add_callback() <doxid-group__fold__compound_1ga097ed6133055624667cbce8cfdebf82d>`
+
+.. _doxid-structvrna__fc__s_1a20048e0c369e9f24b55423d600037c68:
+.. _cid-vrna_fc_s::auxdata:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void* auxdata
+
+    .. container:: brief-description
+
+        A pointer to auxiliary, user-defined data.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_add_auxdata() <doxid-group__fold__compound_1ga6316a9426bea2f742375e8df6febd3f6>` , :ref:`vrna_fold_compound_t.free_auxdata <doxid-structvrna__fc__s_1a8e84dbabab016ecd74da6c38cb94e816>`
+
+.. _doxid-structvrna__fc__s_1a8e84dbabab016ecd74da6c38cb94e816:
+.. _cid-vrna_fc_s::free_auxdata:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* free_auxdata
+
+    .. container:: brief-description
+
+        A callback to free auxiliary user data whenever the fold_compound itself is free'd.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_fold_compound_t.auxdata <doxid-structvrna__fc__s_1a20048e0c369e9f24b55423d600037c68>` , :ref:`vrna_callback_free_auxdata() <doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`
+
+.. _doxid-structvrna__fc__s_1ac25a84f2658de0d7a54cd710c16198b1:
+.. _cid-vrna_fc_s::domains_struc:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_sd_t<doxid-structured__domains_8h_1afa7bbdebb6be4a0d8b829208d4083383>`* domains_struc
+
+    .. container:: brief-description
+
+        Additional structured domains.
+
+.. _doxid-structvrna__fc__s_1a4f70b6d32681fc8ca061236f21819ae7:
+.. _cid-vrna_fc_s::domains_up:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_ud_t<doxid-group__domains__up_1ga0009117b14d29143e8b18ab891f48c2d>`* domains_up
+
+    .. container:: brief-description
+
+        Additional unstructured domains.
+
+.. _doxid-structvrna__fc__s_1a426305721b16023f2f3247f7354d2c46:
+.. _cid-vrna_fc_s::maxd1:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int maxD1
+
+    .. container:: brief-description
+
+        Maximum allowed base pair distance to first reference.
+
+.. _doxid-structvrna__fc__s_1a38695774fd396c892f9a70d39978b231:
+.. _cid-vrna_fc_s::maxd2:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int maxD2
+
+    .. container:: brief-description
+
+        Maximum allowed base pair distance to second reference.
+
+.. _doxid-structvrna__fc__s_1aa279ba4bd0ff541d435d3a049687f3ac:
+.. _cid-vrna_fc_s::reference_pt1:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* reference_pt1
+
+    .. container:: brief-description
+
+        A pairtable of the first reference structure.
+
+.. _doxid-structvrna__fc__s_1a926ad253f5f0eed642bc227493d0278d:
+.. _cid-vrna_fc_s::reference_pt2:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* reference_pt2
+
+    .. container:: brief-description
+
+        A pairtable of the second reference structure.
+
+.. _doxid-structvrna__fc__s_1a62a8d4ab8dadffbf09da917adff6c71e:
+.. _cid-vrna_fc_s::referencebps1:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* referenceBPs1
+
+    .. container:: brief-description
+
+        Matrix containing number of basepairs of reference structure1 in interval [i,j].
+
+.. _doxid-structvrna__fc__s_1a19187f33433e84683730dedff8544f71:
+.. _cid-vrna_fc_s::referencebps2:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* referenceBPs2
+
+    .. container:: brief-description
+
+        Matrix containing number of basepairs of reference structure2 in interval [i,j].
+
+.. _doxid-structvrna__fc__s_1a5c53e55583ce096148075bc240fc2bce:
+.. _cid-vrna_fc_s::bpdist:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* bpdist
+
+    .. container:: brief-description
+
+        Matrix containing base pair distance of reference structure 1 and 2 on interval [i,j].
+
+.. _doxid-structvrna__fc__s_1a0af5a888bac2ae32107da32776144504:
+.. _cid-vrna_fc_s::mm1:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* mm1
+
+    .. container:: brief-description
+
+        Maximum matching matrix, reference struct 1 disallowed.
+
+.. _doxid-structvrna__fc__s_1a54c0b979274b285a7e093ed54aa3252e:
+.. _cid-vrna_fc_s::mm2:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int* mm2
+
+    .. container:: brief-description
+
+        Maximum matching matrix, reference struct 2 disallowed.
+
+.. _doxid-structvrna__fc__s_1adacbf7cdfb47d3072683ab509de735f6:
+.. _cid-vrna_fc_s::window_size:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int window_size
+
+    .. container:: brief-description
+
+        window size for local folding sliding window approach
+
+.. _doxid-structvrna__fc__s_1a2ecb8ff5e21190936a8a146be7a251ff:
+.. _cid-vrna_fc_s::ptype_local:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char** ptype_local
+
+    .. container:: brief-description
+
+        Pair type array (for local folding)
+
+.. _doxid-structvrna__fc__s_1a87f6abcda89cfb7a486c97e1f5371525:
+.. _cid-vrna_fc_s::sequence:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* sequence
+
+    .. container:: brief-description
+
+        The input sequence string.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_SINGLE
+
+.. _doxid-structvrna__fc__s_1a9934bdb695d35a3544285cbcc19f9763:
+.. _cid-vrna_fc_s::sequence_encoding:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* sequence_encoding
+
+    .. container:: brief-description
+
+        Numerical encoding of the input sequence.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_SINGLE
+        
+        
+        
+        .. admonition:: See also:
+        
+            vrna_sequence_encode()
+
+.. _doxid-structvrna__fc__s_1a3fbea559f1d1976b2d67c215cdeee0b2:
+.. _cid-vrna_fc_s::ptype:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* ptype
+
+    .. container:: brief-description
+
+        Pair type array.
+
+    .. container:: detailed-description
+
+        Contains the numerical encoding of the pair type for each pair (i,j) used in MFE, Partition function and Evaluation computations.
+        
+        
+        
+        .. note::
+        
+            This array is always indexed via jindx, in contrast to previously different indexing between mfe and pf variants!
+        
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_SINGLE
+        
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_idx_col_wise() <doxid-group__utils_1ga89ebc69c52fa0c78c9e1974b0017746b>` , :ref:`vrna_ptypes() <doxid-group__utils_1ga51a9e86a5f731f5f2f5584ee67cee4a8>`
+
+.. _doxid-structvrna__fc__s_1a7fe1235ce3d41287695f1ae1e283e8fc:
+.. _cid-vrna_fc_s::ptype_pf_compat:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* ptype_pf_compat
+
+    .. container:: brief-description
+
+        ptype array indexed via iindx
+
+    .. container:: detailed-description
+
+        Deprecated This attribute will vanish in the future! It's meant for backward compatibility only!
+        
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_SINGLE
+
+.. _doxid-structvrna__fc__s_1ac7089e90460ad3990a308808c8044c9f:
+.. _cid-vrna_fc_s::sc:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`* sc
+
+    .. container:: brief-description
+
+        The soft constraints for usage in structure prediction and evaluation.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_SINGLE
+
+.. _doxid-structvrna__fc__s_1a965dbb42f2e13cace5aa3bbab4396530:
+.. _cid-vrna_fc_s::sequences:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char** sequences
+
+    .. container:: brief-description
+
+        The aligned sequences.
+
+    .. container:: detailed-description
+
+        
+        
+        .. note::
+        
+            The end of the alignment is indicated by a NULL pointer in the second dimension
+        
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1a614702ab74478e786272be44f8cebfe3:
+.. _cid-vrna_fc_s::n_seq:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int n_seq
+
+    .. container:: brief-description
+
+        The number of sequences in the alignment.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1ac472afde64d8b3c8b84e4809fda7d814:
+.. _cid-vrna_fc_s::cons_seq:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* cons_seq
+
+    .. container:: brief-description
+
+        The consensus sequence of the aligned sequences.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1aa3fab7ae38ebfed2028375221d295686:
+.. _cid-vrna_fc_s::s_cons:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* S_cons
+
+    .. container:: brief-description
+
+        Numerical encoding of the consensus sequence.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1aebb37297f92c7bd22aac6343f8f61d61:
+.. _cid-vrna_fc_s::s:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short** S
+
+    .. container:: brief-description
+
+        Numerical encoding of the sequences in the alignment.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1a78d089b475e2230bd536b9a6ed8bb17c:
+.. _cid-vrna_fc_s::s5:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short** S5
+
+    .. container:: brief-description
+
+        S5[s][i] holds next base 5' of i in sequence s.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1af6ab2a25b84d2308ee23f6b11b5fd52d:
+.. _cid-vrna_fc_s::s3:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short** S3
+
+    .. container:: brief-description
+
+        Sl[s][i] holds next base 3' of i in sequence s.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1a14dc7755af6019ddbd0cf94b209e89dd:
+.. _cid-vrna_fc_s::pscore:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* pscore
+
+    .. container:: brief-description
+
+        Precomputed array of pair types expressed as pairing scores.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1ad966c15907e6c2e32b0910c7a3154509:
+.. _cid-vrna_fc_s::pscore_local:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int** pscore_local
+
+    .. container:: brief-description
+
+        Precomputed array of pair types expressed as pairing scores.
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1abf5e82d14649b6179ae60ed7da6e4fc0:
+.. _cid-vrna_fc_s::pscore_pf_compat:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short* pscore_pf_compat
+
+    .. container:: brief-description
+
+        Precomputed array of pair types expressed as pairing scores indexed via iindx.
+
+    .. container:: detailed-description
+
+        Deprecated This attribute will vanish in the future!
+        
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+
+.. _doxid-structvrna__fc__s_1ac2b047fddabc51a76a96511174e47db1:
+.. _cid-vrna_fc_s::scs:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_sc_t<doxid-group__soft__constraints_1ga75401ce219ef8dbcceb672db82d434c6>`** scs
+
+    .. container:: brief-description
+
+        A set of soft constraints (for each sequence in the alignment)
+
+    .. container:: detailed-description
+
+        
+        
+        .. warning::
+        
+            Only available if
+        
+        .. code-block:: none
+        
+            type==VRNA_FC_TYPE_COMPARATIVE
+

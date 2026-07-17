@@ -1,0 +1,116 @@
+.. index:: pair: page; Callback Functions
+.. _doxid-callbacks:
+
+Callback Functions
+==================
+
+With the new :ref:`RNAlib API v3.0 <doxid-new_a_p_i>` we introduce so-called callback mechanisms for several functions.
+
+.. _doxid-callbacks_1callbacks_intro:
+
+The purpose of Callback mechanisms
+----------------------------------
+
+
+Using callback mechanisms, our library enables users not only to retrieve computed data without the need for parsing complicated data structures, but also allows one to tweak our implementation to do additional tasks without the requirement of a re-implementation of basic algorithms.
+
+Our implementation of the callback mechanisms always follows the same scheme: The user:
+
+* defines a function that complies with the interface we've defined, and
+
+* passes a pointer to said function to our implementations
+
+In addition to the specific arguments of our callback interfaces, virtually all callbacks receive an additional *pass-through-pointer* as their last argument. This enables one to:
+
+* encapsulate data, and
+
+* provide thread-safe operations,
+
+since this pointer is simply passed through by our library functions. It may therefore hold the address of an arbitrary, user-defined data structure.
+
+.. _doxid-callbacks_1callback_descriptions:
+
+List of available Callbacks
+---------------------------
+
+
+Below, you find an enumeration of the individual callback functions that are available in *RNAlib* .
+
+.. list-table::
+    :widths: 20 80
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000005` Global :ref:`vrna_callback_free_auxdata <doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>` (void *data)
+
+        - This callback is supposed to free memory occupied by an auxiliary data structure. It will be called when the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` is erased from memory through a call to :ref:`vrna_fold_compound_free() <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>` and will be passed the address of memory previously bound to the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` via :ref:`vrna_fold_compound_add_auxdata() <doxid-group__fold__compound_1ga6316a9426bea2f742375e8df6febd3f6>` .
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000001` Global :ref:`vrna_callback_hc_evaluate <doxid-group__hard__constraints_1gae465f1d4a3d8b6592b38ecbb0d9f613d>` (int i, int j, int k, int l, unsigned char d, void *data)
+
+        - This callback enables one to over-rule default hard constraints in secondary structure decompositions.
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000006` Global :ref:`vrna_callback_recursion_status <doxid-group__fold__compound_1gac86036fa8cad1108832335063243cdc8>` (unsigned char status, void *data)
+
+        - This function will be called to notify a third-party implementation about the status of a currently ongoing recursion. The purpose of this callback mechanism is to provide users with a simple way to ensure pre- and post conditions for auxiliary mechanisms attached to our implementations.
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000004` Global :ref:`vrna_callback_sc_backtrack <doxid-group__soft__constraints_1gaeb6448da6c593d4c489c7fbadcb99499>` (int i, int j, int k, int l, unsigned char d, void *data)
+
+        - This callback enables one to add auxiliary base pairs in the backtracking steps of hairpin- and interior loops.
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000002` Global :ref:`vrna_callback_sc_energy <doxid-group__soft__constraints_1ga88a266695d9e25cc12114dceb7b4565e>` (int i, int j, int k, int l, unsigned char d, void *data)
+
+        - This callback enables one to add (pseudo-)energy contributions to individual decompositions of the secondary structure.
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000003` Global :ref:`vrna_callback_sc_exp_energy <doxid-group__soft__constraints_1ga4099978d410513edeeff8f3db13144c5>` (int i, int j, int k, int l, unsigned char d, void *data)
+
+        - This callback enables one to add (pseudo-)energy contributions to individual decompositions of the secondary structure (Partition function variant, i.e. contributions must be returned as Boltzmann factors).
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000010` Global :ref:`vrna_callback_ud_energy <doxid-group__domains__up_1ga75825c57d0bfde4ae4f95c044260c5c3>` (vrna_fold_compound_t *vc, int i, int j, unsigned int loop_type, void *data)
+
+        - This function will be called to determine the additional energy contribution of a specific unstructured domain, e.g. the binding free energy of some ligand.
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000011` Global :ref:`vrna_callback_ud_exp_energy <doxid-group__domains__up_1ga861706f257ba993753464b823e65b86e>` (vrna_fold_compound_t *vc, int i, int j, unsigned int loop_type, void *data)
+
+        - This function will be called to determine the additional energy contribution of a specific unstructured domain, e.g. the binding free energy of some ligand (Partition function variant, i.e. the Boltzmann factors instead of actual free energies).
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000013` Global :ref:`vrna_callback_ud_exp_production <doxid-group__domains__up_1ga33d78327dcd04c1ca5ab2887edc18c7b>` (vrna_fold_compound_t *vc, void *data)
+
+        - The production rule for the unstructured domain grammar extension (Partition function variant)
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000014` Global :ref:`vrna_callback_ud_probs_add <doxid-group__domains__up_1gab10498abc84fcaf336aca8f8d7d42eb2>` (vrna_fold_compound_t *vc, int i, int j, unsigned int loop_type, FLT_OR_DBL exp_energy, void *data)
+
+        - A callback function to store equilibrium probabilities for the unstructured domain feature
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000015` Global :ref:`vrna_callback_ud_probs_get <doxid-group__domains__up_1gaa10ba1b6f1e179ea84c5caca9cdaae67>` (vrna_fold_compound_t *vc, int i, int j, unsigned int loop_type, int motif, void *data)
+
+        - A callback function to retrieve equilibrium probabilities for the unstructured domain feature
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000012` Global :ref:`vrna_callback_ud_production <doxid-group__domains__up_1ga4fdfc02c1b660c07f2d887772f02a0a1>` (vrna_fold_compound_t *vc, void *data)
+
+        - The production rule for the unstructured domain grammar extension
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000008` Global :ref:`vrna_mfe_window_callback <doxid-group__mfe__fold_1ga4f3e5bc214ef803074ace313cb9571b4>` (int start, int end, const char *structure, float en, void *data)
+
+        - This function will be called for each hit in a sliding window MFE prediction.
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000007` Global :ref:`vrna_probs_window_callback <doxid-_l_pfold_8h_1abe710a1182e6db69cc75329dfc9bed67>` (FLT_OR_DBL *pr, int pr_size, int i, int max, unsigned int type, void *data)
+
+        - This function will be called for each probability data set in the sliding window probability computation implementation of :ref:`vrna_probs_window() <doxid-group__local__pf__fold_1ga70ec33810fa17a9f67a7c59f156d0137>` . The argument *type* specifies the type of probability that is passed to this function.
+
+    *
+        - :target:`doxid-callbacks_1_callbacks000009` Global :ref:`vrna_subopt_callback <doxid-group__subopt__wuchty_1gaa0270c66d04f59e750401695b8282e04>` (const char *stucture, float energy, void *data)
+
+        - This function will be called for each suboptimal secondary structure that is successfully backtraced.
+

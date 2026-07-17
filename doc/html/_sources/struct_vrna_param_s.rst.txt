@@ -1,0 +1,180 @@
+.. index:: pair: struct; vrna_param_s
+.. _doxid-structvrna__param__s:
+.. _cid-vrna_param_s:
+
+struct vrna_param_s
+===================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/params.h>
+
+
+Overview
+--------
+
+The datastructure that contains temperature scaled energy parameters. :ref:`More...<details-doxid-structvrna__param__s>`
+
+.. _doxid-structvrna__param__s_1ab2e674fea69570fb83bcf63f19e433ee:
+.. _cid-vrna_param_s::id:
+.. _doxid-structvrna__param__s_1af7cdedcea1bb1c171856ab06dc9f6ed2:
+.. _cid-vrna_param_s::stack:
+.. _doxid-structvrna__param__s_1ac3160bdbb97b2ef9e949c9ba66bf057c:
+.. _cid-vrna_param_s::hairpin:
+.. _doxid-structvrna__param__s_1aa7121473b8a705f84048c09b12c1d1c2:
+.. _cid-vrna_param_s::bulge:
+.. _doxid-structvrna__param__s_1a2a4fb2c65023ec371c9b96573da6d2fc:
+.. _cid-vrna_param_s::internal_loop:
+.. _doxid-structvrna__param__s_1a6122f31447a8cccdd1203c9695ba1e3b:
+.. _cid-vrna_param_s::mismatchext:
+.. _doxid-structvrna__param__s_1af1a456ce5983b107c47e5dd25727205e:
+.. _cid-vrna_param_s::mismatchi:
+.. _doxid-structvrna__param__s_1a6058cd6334a2e5929bd36315e9d0fe3a:
+.. _cid-vrna_param_s::mismatch1ni:
+.. _doxid-structvrna__param__s_1a2d8a2ed8936cd60fbed953a2bc64f9b3:
+.. _cid-vrna_param_s::mismatch23i:
+.. _doxid-structvrna__param__s_1ad07794648fa1cac6f02c57c095fb53e6:
+.. _cid-vrna_param_s::mismatchh:
+.. _doxid-structvrna__param__s_1afcc32f63f2c829bfb0016db82f7810fc:
+.. _cid-vrna_param_s::mismatchm:
+.. _doxid-structvrna__param__s_1ad2534b54836d48b4f549b319766f658f:
+.. _cid-vrna_param_s::dangle5:
+.. _doxid-structvrna__param__s_1a75c644da73d4d01c86b5f6a1e3af3ae9:
+.. _cid-vrna_param_s::dangle3:
+.. _doxid-structvrna__param__s_1a585e235827774a0073be22bf00e48c30:
+.. _cid-vrna_param_s::int11:
+.. _doxid-structvrna__param__s_1a983245e30d7a41a3102e5e5ea4bec7e2:
+.. _cid-vrna_param_s::int21:
+.. _doxid-structvrna__param__s_1ad56fdeadc2a2e51b9f23b2c26d067ec4:
+.. _cid-vrna_param_s::int22:
+.. _doxid-structvrna__param__s_1ac03c4835310b225a64ea9eb77a174940:
+.. _cid-vrna_param_s::ninio:
+.. _doxid-structvrna__param__s_1a24ea058414d3fb918c7fbf189a4a1e51:
+.. _cid-vrna_param_s::lxc:
+.. _doxid-structvrna__param__s_1a6fd54883ec8b69345e970ad372f83679:
+.. _cid-vrna_param_s::mlbase:
+.. _doxid-structvrna__param__s_1a28c7b54d5e8edf9a1121a2d1f9c98e7f:
+.. _cid-vrna_param_s::mlintern:
+.. _doxid-structvrna__param__s_1a585d850089d454a367daef9ce2fc8395:
+.. _cid-vrna_param_s::mlclosing:
+.. _doxid-structvrna__param__s_1a0ad35507a03ba7f751e82cb375e991dd:
+.. _cid-vrna_param_s::terminalau:
+.. _doxid-structvrna__param__s_1a86f6ae1e5649264f7ad82969a49bb09e:
+.. _cid-vrna_param_s::duplexinit:
+.. _doxid-structvrna__param__s_1a3a853cc7dbad832e377d03c2be09f3a0:
+.. _cid-vrna_param_s::tetraloop_e:
+.. _doxid-structvrna__param__s_1a2fda2f47699f66eb79becc63481dc7a5:
+.. _cid-vrna_param_s::tetraloops:
+.. _doxid-structvrna__param__s_1a779303656223c8f9f12a7bdb877ae4ae:
+.. _cid-vrna_param_s::triloop_e:
+.. _doxid-structvrna__param__s_1a5824325d79edfe569c6023f52a08d7be:
+.. _cid-vrna_param_s::triloops:
+.. _doxid-structvrna__param__s_1a9fa7c16fb78efb6e2730b6553282ebf9:
+.. _cid-vrna_param_s::hexaloop_e:
+.. _doxid-structvrna__param__s_1a1b32fef887ebf8097da6f5913743794c:
+.. _cid-vrna_param_s::hexaloops:
+.. _doxid-structvrna__param__s_1ac9ca6eda834acca6eee5d00ee3ee69c9:
+.. _cid-vrna_param_s::triplec:
+.. _doxid-structvrna__param__s_1a481323a736818349ec7c66ebf01825c6:
+.. _cid-vrna_param_s::multipleca:
+.. _doxid-structvrna__param__s_1a465b7758e3d105f10a6fa7958024abb4:
+.. _cid-vrna_param_s::multiplecb:
+.. _doxid-structvrna__param__s_1ae614af2c628faa36c8007bd054be21d9:
+.. _cid-vrna_param_s::gquad:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int id
+	int stack[NBPAIRS+1][NBPAIRS+1]
+	int hairpin[31]
+	int bulge[MAXLOOP+1]
+	int internal_loop[MAXLOOP+1]
+	int mismatchExt[NBPAIRS+1][5][5]
+	int mismatchI[NBPAIRS+1][5][5]
+	int mismatch1nI[NBPAIRS+1][5][5]
+	int mismatch23I[NBPAIRS+1][5][5]
+	int mismatchH[NBPAIRS+1][5][5]
+	int mismatchM[NBPAIRS+1][5][5]
+	int dangle5[NBPAIRS+1][5]
+	int dangle3[NBPAIRS+1][5]
+	int int11[NBPAIRS+1][NBPAIRS+1][5][5]
+	int int21[NBPAIRS+1][NBPAIRS+1][5][5][5]
+	int int22[NBPAIRS+1][NBPAIRS+1][5][5][5][5]
+	int ninio[5]
+	double lxc
+	int MLbase
+	int MLintern[NBPAIRS+1]
+	int MLclosing
+	int TerminalAU
+	int DuplexInit
+	int Tetraloop_E[200]
+	char Tetraloops[1401]
+	int Triloop_E[40]
+	char Triloops[241]
+	int Hexaloop_E[40]
+	char Hexaloops[1801]
+	int TripleC
+	int MultipleCA
+	int MultipleCB
+	int gquad[VRNA_GQUAD_MAX_STACK_SIZE+1][3 *VRNA_GQUAD_MAX_LINKER_LENGTH+1]
+	double :ref:`temperature<doxid-structvrna__param__s_1aeed2cd83713012bcb52e431041e037c8>`
+	:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` :ref:`model_details<doxid-structvrna__param__s_1a7b84353eb9075c595bad4ceb871bcae7>`
+	char :ref:`param_file<doxid-structvrna__param__s_1ace10aa4aacffcbf6de92349f2ee0d66a>`[256]
+
+.. _details-doxid-structvrna__param__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    The datastructure that contains temperature scaled energy parameters.
+
+Fields
+------
+
+.. _doxid-structvrna__param__s_1aeed2cd83713012bcb52e431041e037c8:
+.. _cid-vrna_param_s::temperature:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double temperature
+
+    .. container:: brief-description
+
+        Temperature used for loop contribution scaling.
+
+.. _doxid-structvrna__param__s_1a7b84353eb9075c595bad4ceb871bcae7:
+.. _cid-vrna_param_s::model_details:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` model_details
+
+    .. container:: brief-description
+
+        Model details to be used in the recursions.
+
+.. _doxid-structvrna__param__s_1ace10aa4aacffcbf6de92349f2ee0d66a:
+.. _cid-vrna_param_s::param_file:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char param_file [256]
+
+    .. container:: brief-description
+
+        The filename the parameters were derived from, or empty string if they represent the default.
+

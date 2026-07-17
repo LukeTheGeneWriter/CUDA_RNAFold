@@ -1,0 +1,541 @@
+.. index:: pair: page; C Examples
+.. _doxid-examples_c:
+
+C Examples
+==========
+
+.. _doxid-examples_c_1ex_c_simple:
+
+Hello World Examples
+--------------------
+
+
+.. rubric:: helloworld_mfe.c
+
+The following is an example showing the minimal requirements to compute the Minimum Free Energy (MFE) and corresponding secondary structure of an RNA sequence
+
+.. ref-code-block:: cpp
+
+    #include <stdlib.h>
+    #include <stdio.h>
+    #include <string.h>
+    
+    #include <ViennaRNA/fold.h>
+    #include <ViennaRNA/utils.h>
+    
+    int
+    main()
+    {
+      /* The RNA sequence */
+      char  *seq = "GAGUAGUGGAACCAGGCUAUGUUUGUGACUCGCAGACUAACA";
+    
+      /* allocate memory for MFE structure (length + 1) */
+      char  *structure = (char *):ref:`vrna_alloc <doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99>`(sizeof(char) * (strlen(seq) + 1));
+    
+      /* predict Minmum Free Energy and corresponding secondary structure */
+      float mfe = :ref:`vrna_fold <doxid-group__mfe__fold__single_1ga29a33b2895f4e67b0480271ff289afdc>`(seq, structure);
+    
+      /* print sequence, structure and MFE */
+      printf("%s\n%s [ %6.2f ]\n", seq, structure, mfe);
+    
+      /* cleanup memory */
+      free(structure);
+    
+      return 0;
+    }
+
+.. rubric:: helloworld_mfe_comparative.c
+
+Instead of using a single sequence as done above, this example predicts a consensus structure for a multiple sequence alignment
+
+.. ref-code-block:: cpp
+
+    #include <stdlib.h>
+    #include <stdio.h>
+    #include <string.h>
+    
+    #include <ViennaRNA/alifold.h>
+    #include <ViennaRNA/aln_util.h>
+    #include <ViennaRNA/utils.h>
+    
+    int
+    main()
+    {
+      /* The RNA sequence alignment */
+      const char  *sequences[] = {
+        "CUGCCUCACAACGUUUGUGCCUCAGUUACCCGUAGAUGUAGUGAGGGU",
+        "CUGCCUCACAACAUUUGUGCCUCAGUUACUCAUAGAUGUAGUGAGGGU",
+        "---CUCGACACCACU---GCCUCGGUUACCCAUCGGUGCAGUGCGGGU",
+        NULL /* indicates end of alignment */
+      };
+    
+      /* compute the consensus sequence */
+      char        *cons = :ref:`consensus <doxid-group__aln__utils_1ga8e8b805faaf6dee2feb4cbc38ba48e71>`(sequences);
+    
+      /* allocate memory for MFE consensus structure (length + 1) */
+      char        *structure = (char *):ref:`vrna_alloc <doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99>`(sizeof(char) * (strlen(sequences[0]) + 1));
+    
+      /* predict Minmum Free Energy and corresponding secondary structure */
+      float       mfe = :ref:`vrna_alifold <doxid-group__consensus__mfe__fold_1ga6c9d3bef3e92c6d423ffac9f981418c1>`(sequences, structure);
+    
+      /* print consensus sequence, structure and MFE */
+      printf("%s\n%s [ %6.2f ]\n", cons, structure, mfe);
+    
+      /* cleanup memory */
+      free(cons);
+      free(structure);
+    
+      return 0;
+    }
+
+.. rubric:: helloworld_probabilities.c
+
+This example shows how to compute the partition function and base pair probabilities with minimal implementation effort.
+
+.. ref-code-block:: cpp
+
+    #include <stdlib.h>
+    #include <stdio.h>
+    #include <string.h>
+    
+    #include <ViennaRNA/fold.h>
+    #include <ViennaRNA/part_func.h>
+    #include <ViennaRNA/utils.h>
+    
+    int
+    main()
+    {
+      /* The RNA sequence */
+      char      *seq = "GAGUAGUGGAACCAGGCUAUGUUUGUGACUCGCAGACUAACA";
+    
+      /* allocate memory for pairing propensity string (length + 1) */
+      char      *propensity = (char *):ref:`vrna_alloc <doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99>`(sizeof(char) * (strlen(seq) + 1));
+    
+      /* pointers for storing and navigating through base pair probabilities */
+      :ref:`vrna_ep_t <doxid-structvrna__elem__prob__s>` *ptr, *pair_probabilities = NULL;
+    
+      float     en = :ref:`vrna_pf_fold <doxid-group__pf__fold_1gac4a2a74a79e49818bc35412a2b392c7e>`(seq, propensity, &pair_probabilities);
+    
+      /* print sequence, pairing propensity string and ensemble free energy */
+      printf("%s\n%s [ %6.2f ]\n", seq, propensity, en);
+    
+      /* print all base pairs with probability above 50% */
+      for (ptr = pair_probabilities; ptr->:ref:`i <doxid-structvrna__elem__prob__s_1a0f8bb11ded4e605f816d7ad92eb568f6>` != 0; ptr++)
+        if (ptr->:ref:`p <doxid-structvrna__elem__prob__s_1a9c09385582d8a7ab00485181f4e868b7>` > 0.5)
+          printf("p(%d, %d) = %g\n", ptr->:ref:`i <doxid-structvrna__elem__prob__s_1a0f8bb11ded4e605f816d7ad92eb568f6>`, ptr->:ref:`j <doxid-structvrna__elem__prob__s_1acada5be62ed6843334a918ca543f0c0d>`, ptr->:ref:`p <doxid-structvrna__elem__prob__s_1a9c09385582d8a7ab00485181f4e868b7>`);
+    
+      /* cleanup memory */
+      free(pair_probabilities);
+      free(propensity);
+    
+      return 0;
+    }
+
+.. _doxid-examples_c_1ex_c_fc:
+
+First Steps with the Fold Compound
+----------------------------------
+
+
+.. rubric:: fold_compound_mfe.c
+
+Instead of calling the simple MFE folding interface :ref:`vrna_fold() <doxid-group__mfe__fold__single_1ga29a33b2895f4e67b0480271ff289afdc>` , this example shows how to first create a :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` container with the RNA sequence to finally compute the MFE using this container. This is especially useful if non-default model settings are applied or the dynamic programming (DP) matrices of the MFE prediction are required for post-processing operations, or other tasks on the same sequence will be performed.
+
+.. ref-code-block:: cpp
+
+    #include <stdlib.h>
+    #include <stdio.h>
+    
+    #include <ViennaRNA/fold_compound.h>
+    #include <ViennaRNA/mfe.h>
+    #include <ViennaRNA/string_utils.h>
+    #include <ViennaRNA/utils.h>
+    
+    
+    int
+    main()
+    {
+      /* initialize random number generator */
+      :ref:`vrna_init_rand <doxid-group__utils_1ga0ad1f40ea316e5c5918695c35613027a>`();
+    
+      /* Generate a random sequence of 50 nucleotides */
+      char                  *seq = :ref:`vrna_random_string <doxid-group__string__utils_1ga4eeb3750dcf860b9f3158249f95dbd7f>`(50, "ACGU");
+    
+      /* Create a fold compound for the sequence */
+      :ref:`vrna_fold_compound_t <doxid-structvrna__fc__s>`  *fc = :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>`(seq, NULL, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+    
+      /* allocate memory for MFE structure (length + 1) */
+      char                  *structure = (char *):ref:`vrna_alloc <doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99>`(sizeof(char) * (strlen(seq) + 1));
+    
+      /* predict Minmum Free Energy and corresponding secondary structure */
+      float                 mfe = :ref:`vrna_mfe <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>`(fc, structure);
+    
+      /* print sequence, structure and MFE */
+      printf("%s\n%s [ %6.2f ]\n", seq, structure, mfe);
+    
+      /* cleanup memory */
+      free(seq);
+      free(structure);
+      :ref:`vrna_fold_compound_free <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>`(fc);
+    
+      return 0;
+    }
+
+.. rubric:: fold_compound_md.c
+
+In the following, we change the model settings (model details) to a temperature of 25 Degree Celcius, and activate G-Quadruplex precition.
+
+.. ref-code-block:: cpp
+
+    #include <stdlib.h>
+    #include <stdio.h>
+    #include <string.h>
+    
+    #include <ViennaRNA/mfe.h>
+    #include <ViennaRNA/fold_compound.h>
+    #include <ViennaRNA/model.h>
+    #include <ViennaRNA/string_utils.h>
+    #include <ViennaRNA/utils.h>
+    
+    int
+    main()
+    {
+      /* initialize random number generator */
+      :ref:`vrna_init_rand <doxid-group__utils_1ga0ad1f40ea316e5c5918695c35613027a>`();
+    
+      /* Generate a random sequence of 50 nucleotides */
+      char      *seq = :ref:`vrna_random_string <doxid-group__string__utils_1ga4eeb3750dcf860b9f3158249f95dbd7f>`(50, "ACGU");
+    
+      /* allocate memory for MFE structure (length + 1) */
+      char      *structure = (char *):ref:`vrna_alloc <doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99>`(sizeof(char) * (strlen(seq) + 1));
+    
+      /* create a new model details structure to store the Model Settings */
+      :ref:`vrna_md_t <doxid-structvrna__md__s>` md;
+    
+      /* ALWAYS set default model settings first! */
+      :ref:`vrna_md_set_default <doxid-group__model__details_1ga8ac6ff84936282436f822644bf841f66>`(&md);
+    
+      /* change temperature and activate G-Quadruplex prediction */
+      md.:ref:`temperature <doxid-structvrna__md__s_1a5f7e5c2b65bada5188443470e576aa4b>`  = 25.0; /* 25 Deg Celcius */
+      md.:ref:`gquad <doxid-structvrna__md__s_1af88a511a2b1f526b4c6213de6cb8fd6e>`        = 1;    /* Turn-on G-Quadruples support */
+    
+      /* create a fold compound */
+      :ref:`vrna_fold_compound_t <doxid-structvrna__fc__s>`  *fc = :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>`(seq, &md, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+    
+      /* predict Minmum Free Energy and corresponding secondary structure */
+      float                 mfe = :ref:`vrna_mfe <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>`(fc, structure);
+    
+      /* print sequence, structure and MFE */
+      printf("%s\n%s [ %6.2f ]\n", seq, structure, mfe);
+    
+      /* cleanup memory */
+      free(structure);
+      :ref:`vrna_fold_compound_free <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>`(fc);
+    
+      return 0;
+    }
+
+.. _doxid-examples_c_1ex_c_callbacks:
+
+Writing Callback Functions
+--------------------------
+
+
+.. rubric:: callback_subopt.c
+
+Here is a basic example how to use the callback mechanism in :ref:`vrna_subopt_cb() <doxid-group__subopt__wuchty_1ga1053837e6b6f158093508f8a70998352>` . It simply defines a callback function (see interface definition for :ref:`vrna_subopt_callback <doxid-group__subopt__wuchty_1gaa0270c66d04f59e750401695b8282e04>` ) that prints the result and increases a counter variable.
+
+.. ref-code-block:: cpp
+
+    #include <stdlib.h>
+    #include <stdio.h>
+    
+    #include <ViennaRNA/fold_compound.h>
+    #include <ViennaRNA/subopt.h>
+    #include <ViennaRNA/string_utils.h>
+    #include <ViennaRNA/utils.h>
+    
+    
+    void
+    subopt_callback(const char  *structure,
+                    float       energy,
+                    void        *data)
+    {
+      /* simply print the result and increase the counter variable by 1 */
+      if (structure)
+        printf("%d.\t%s\t%6.2f\n", (*((int *)data))++, structure, energy);
+    }
+    
+    
+    int
+    main()
+    {
+      /* initialize random number generator */
+      :ref:`vrna_init_rand <doxid-group__utils_1ga0ad1f40ea316e5c5918695c35613027a>`();
+    
+      /* Generate a random sequence of 50 nucleotides */
+      char                  *seq = :ref:`vrna_random_string <doxid-group__string__utils_1ga4eeb3750dcf860b9f3158249f95dbd7f>`(50, "ACGU");
+    
+      /* Create a fold compound for the sequence */
+      :ref:`vrna_fold_compound_t <doxid-structvrna__fc__s>`  *fc = :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>`(seq, NULL, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+    
+      int                   counter = 0;
+    
+      /*
+       *  call subopt to enumerate all secondary structures in an energy band of
+       *  5 kcal/mol of the MFE and pass it the address of the callback and counter
+       *  variable
+       */
+      :ref:`vrna_subopt_cb <doxid-group__subopt__wuchty_1ga1053837e6b6f158093508f8a70998352>`(fc, 500, &subopt_callback, (void *)&counter);
+    
+      /* cleanup memory */
+      free(seq);
+      :ref:`vrna_fold_compound_free <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>`(fc);
+    
+      return 0;
+    }
+
+.. _doxid-examples_c_1ex_c_sc:
+
+Application of Soft Constraints
+-------------------------------
+
+
+.. rubric:: soft_constraints_up.c
+
+In this example, a random RNA sequence is generated to predict its MFE under the constraint that a particular nucleotide receives an additional bonus energy if it remains unpaired.
+
+.. ref-code-block:: cpp
+
+    #include <stdlib.h>
+    #include <stdio.h>
+    
+    #include <ViennaRNA/fold_compound.h>
+    #include <ViennaRNA/mfe.h>
+    #include <ViennaRNA/string_utils.h>
+    #include <ViennaRNA/constraints_soft.h>
+    #include <ViennaRNA/utils.h>
+    
+    int
+    main()
+    {
+      /* initialize random number generator */
+      :ref:`vrna_init_rand <doxid-group__utils_1ga0ad1f40ea316e5c5918695c35613027a>`();
+    
+      /* Generate a random sequence of 50 nucleotides */
+      char                  *seq = :ref:`vrna_random_string <doxid-group__string__utils_1ga4eeb3750dcf860b9f3158249f95dbd7f>`(50, "ACGU");
+    
+      /* Create a fold compound for the sequence */
+      :ref:`vrna_fold_compound_t <doxid-structvrna__fc__s>`  *fc = :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>`(seq, NULL, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+    
+      /* Add soft constraint of -1.7 kcal/mol to nucleotide 5 whenever it appears in an unpaired context */
+      :ref:`vrna_sc_add_up <doxid-group__soft__constraints_1ga069915fe203a2c8e522dd37847177a09>`(fc, 5, -1.7, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+    
+      /* allocate memory for MFE structure (length + 1) */
+      char  *structure = (char *):ref:`vrna_alloc <doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99>`(sizeof(char) * 51);
+    
+      /* predict Minmum Free Energy and corresponding secondary structure */
+      float mfe = :ref:`vrna_mfe <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>`(fc, structure);
+    
+      /* print seqeunce, structure and MFE */
+      printf("%s\n%s [ %6.2f ]\n", seq, structure, mfe);
+    
+      /* cleanup memory */
+      free(seq);
+      free(structure);
+      :ref:`vrna_fold_compound_free <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>`(fc);
+    
+      return 0;
+    }
+
+.. _doxid-examples_c_1ex_c_other:
+
+Other Examples
+--------------
+
+
+.. rubric:: example1.c
+
+A more extensive example including MFE, Partition Function, and Centroid structure prediction.
+
+.. ref-code-block:: cpp
+
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    
+    #include  <ViennaRNA/data_structures.h>
+    #include  <ViennaRNA/params.h>
+    #include  <ViennaRNA/utils.h>
+    #include  <ViennaRNA/eval.h>
+    #include  <ViennaRNA/fold.h>
+    #include  <ViennaRNA/part_func.h>
+    
+    
+    int
+    main(int  argc,
+         char *argv[])
+    {
+      char                  *seq =
+        "AGACGACAAGGUUGAAUCGCACCCACAGUCUAUGAGUCGGUGACAACAUUACGAAAGGCUGUAAAAUCAAUUAUUCACCACAGGGGGCCCCCGUGUCUAG";
+      char                  *mfe_structure  = :ref:`vrna_alloc <doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99>`(sizeof(char) * (strlen(seq) + 1));
+      char                  *prob_string    = :ref:`vrna_alloc <doxid-group__utils_1gaf37a0979367c977edfb9da6614eebe99>`(sizeof(char) * (strlen(seq) + 1));
+    
+      /* get a vrna_fold_compound with default settings */
+      :ref:`vrna_fold_compound_t <doxid-structvrna__fc__s>`  *vc = :ref:`vrna_fold_compound <doxid-group__fold__compound_1ga6601d994ba32b11511b36f68b08403be>`(seq, NULL, :ref:`VRNA_OPTION_DEFAULT <doxid-group__fold__compound_1gacea5b7ee6181c485f36e2afa0e9089e4>`);
+    
+      /* call MFE function */
+      double                mfe = (double):ref:`vrna_mfe <doxid-group__mfe__fold_1gabd3b147371ccf25c577f88bbbaf159fd>`(vc, mfe_structure);
+    
+      printf("%s\n%s (%6.2f)\n", seq, mfe_structure, mfe);
+    
+      /* rescale parameters for Boltzmann factors */
+      :ref:`vrna_exp_params_rescale <doxid-group__energy__parameters_1gad607bc3a5b5da16400e2ca4ea5560233>`(vc, &mfe);
+    
+      /* call PF function */
+      :ref:`FLT_OR_DBL <doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>` en = :ref:`vrna_pf <doxid-group__pf__fold_1ga29e256d688ad221b78d37f427e0e99bc>`(vc, prob_string);
+    
+      /* print probability string and free energy of ensemble */
+      printf("%s (%6.2f)\n", prob_string, en);
+    
+      /* compute centroid structure */
+      double  dist;
+      char    *cent = :ref:`vrna_centroid <doxid-group__centroid__fold_1ga0e64bb67e51963dc71cbd4d30b80a018>`(vc, &dist);
+    
+      /* print centroid structure, its free energy and mean distance to the ensemble */
+      printf("%s (%6.2f d=%6.2f)\n", cent, :ref:`vrna_eval_structure <doxid-group__eval_1ga58f199f1438d794a265f3b27fc8ea631>`(vc, cent), dist);
+    
+      /* free centroid structure */
+      free(cent);
+    
+      /* free pseudo dot-bracket probability string */
+      free(prob_string);
+    
+      /* free mfe structure */
+      free(mfe_structure);
+    
+      /* free memory occupied by vrna_fold_compound */
+      :ref:`vrna_fold_compound_free <doxid-group__fold__compound_1gadded6039d63f5d6509836e20321534ad>`(vc);
+    
+      return EXIT_SUCCESS;
+    }
+
+.. _doxid-examples_c_1ex_c_deprecated:
+
+Deprecated Examples
+-------------------
+
+
+.. ref-code-block:: cpp
+
+    #include  <stdio.h>
+    #include  <stdlib.h>
+    #include  <math.h>
+    #include  <string.h>
+    #include  "utils.h"
+    #include  "fold_vars.h"
+    #include  "fold.h"
+    #include  "part_func.h"
+    #include  "inverse.h"
+    #include  "RNAstruct.h"
+    #include  "treedist.h"
+    #include  "stringdist.h"
+    #include  "profiledist.h"
+    
+    void
+    main()
+    {
+      char        *seq1 = "CGCAGGGAUACCCGCG", *seq2 = "GCGCCCAUAGGGACGC",
+                  *struct1, *struct2, *xstruc;
+      float       e1, e2, tree_dist, string_dist, profile_dist, kT;
+      :ref:`Tree <doxid-struct_tree>`        *T1, *T2;
+      :ref:`swString <doxid-structsw_string>`    *S1, *S2;
+      float       *pf1, *pf2;
+      :ref:`FLT_OR_DBL <doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`  *bppm;
+    
+      /* fold at 30C instead of the default 37C */
+      :ref:`temperature <doxid-group__model__details_1gab4b11c8d9c758430960896bc3fe82ead>` = 30.;       /* must be set *before* initializing  */
+    
+      /* allocate memory for structure and fold */
+      struct1 = (char *):ref:`space <doxid-utils_8h_1ad7e1e137b3bf1f7108933d302a7f0177>`(sizeof(char) * (strlen(seq1) + 1));
+      e1      = :ref:`fold <doxid-group__mfe__fold__single_1gaadafcb0f140795ae62e5ca027e335a9b>`(seq1, struct1);
+    
+      struct2 = (char *):ref:`space <doxid-utils_8h_1ad7e1e137b3bf1f7108933d302a7f0177>`(sizeof(char) * (strlen(seq2) + 1));
+      e2      = :ref:`fold <doxid-group__mfe__fold__single_1gaadafcb0f140795ae62e5ca027e335a9b>`(seq2, struct2);
+    
+      :ref:`free_arrays <doxid-group__mfe__fold__single_1ga107fdfe5fd641868156bfd849f6866c7>`();      /* free arrays used in fold() */
+    
+      /* produce tree and string representations for comparison */
+      xstruc  = :ref:`expand_Full <doxid-group__struct__utils_1ga78d73cd54a068ef2812812771cdddc6f>`(struct1);
+      T1      = :ref:`make_tree <doxid-treedist_8h_1a08fe4d5afd385dce593b86eaf010c6e3>`(xstruc);
+      S1      = :ref:`Make_swString <doxid-stringdist_8h_1a3125991b3a403b3f89230474deb3f22e>`(xstruc);
+      free(xstruc);
+    
+      xstruc  = :ref:`expand_Full <doxid-group__struct__utils_1ga78d73cd54a068ef2812812771cdddc6f>`(struct2);
+      T2      = :ref:`make_tree <doxid-treedist_8h_1a08fe4d5afd385dce593b86eaf010c6e3>`(xstruc);
+      S2      = :ref:`Make_swString <doxid-stringdist_8h_1a3125991b3a403b3f89230474deb3f22e>`(xstruc);
+      free(xstruc);
+    
+      /* calculate tree edit distance and aligned structures with gaps */
+      :ref:`edit_backtrack <doxid-dist__vars_8h_1aa03194c513af6b860e7b33e370b82bdb>`  = 1;
+      tree_dist       = :ref:`tree_edit_distance <doxid-treedist_8h_1a3b21f1925f7071f46d93431a835217bb>`(T1, T2);
+      :ref:`free_tree <doxid-treedist_8h_1acbc1cb9bce582ea945e4a467c76a57aa>`(T1);
+      :ref:`free_tree <doxid-treedist_8h_1acbc1cb9bce582ea945e4a467c76a57aa>`(T2);
+      :ref:`unexpand_aligned_F <doxid-group__struct__utils_1ga1054c4477d53b31d79d4cb132100e87a>`(:ref:`aligned_line <doxid-dist__vars_8h_1ac1605fe3448ad0a0b809c4fb8f6a854a>`);
+      printf("%s\n%s  %3.2f\n", :ref:`aligned_line <doxid-dist__vars_8h_1ac1605fe3448ad0a0b809c4fb8f6a854a>`[0], :ref:`aligned_line <doxid-dist__vars_8h_1ac1605fe3448ad0a0b809c4fb8f6a854a>`[1], tree_dist);
+    
+      /* same thing using string edit (alignment) distance */
+      string_dist = :ref:`string_edit_distance <doxid-stringdist_8h_1a89e3c335ef17780576d7c0e713830db9>`(S1, S2);
+      free(S1);
+      free(S2);
+      printf("%s  mfe=%5.2f\n%s  mfe=%5.2f  dist=%3.2f\n",
+             :ref:`aligned_line <doxid-dist__vars_8h_1ac1605fe3448ad0a0b809c4fb8f6a854a>`[0], e1, :ref:`aligned_line <doxid-dist__vars_8h_1ac1605fe3448ad0a0b809c4fb8f6a854a>`[1], e2, string_dist);
+    
+      /* for longer sequences one should also set a scaling factor for
+       * partition function folding, e.g: */
+      kT        = (:ref:`temperature <doxid-group__model__details_1gab4b11c8d9c758430960896bc3fe82ead>` + 273.15) * 1.98717 / 1000.; /* kT in kcal/mol */
+      :ref:`pf_scale <doxid-group__model__details_1gad3b22044065acc6dee0af68931b52cfd>`  = exp(-e1 / kT / strlen(seq1));
+    
+      /* calculate partition function and base pair probabilities */
+      e1 = :ref:`pf_fold <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>`(seq1, struct1);
+      /* get the base pair probability matrix for the previous run of pf_fold() */
+      bppm  = :ref:`export_bppm <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>`();
+      pf1   = :ref:`Make_bp_profile_bppm <doxid-profiledist_8h_1a3dff26e707a2a2e65a0f759caabde6e7>`(bppm, strlen(seq1));
+    
+      e2 = :ref:`pf_fold <doxid-group__pf__fold_1gadc3db3d98742427e7001a7fd36ef28c2>`(seq2, struct2);
+      /* get the base pair probability matrix for the previous run of pf_fold() */
+      bppm  = :ref:`export_bppm <doxid-group__pf__fold_1gac5ac7ee281aae1c5cc5898a841178073>`();
+      pf2   = :ref:`Make_bp_profile_bppm <doxid-profiledist_8h_1a3dff26e707a2a2e65a0f759caabde6e7>`(bppm, strlen(seq2));
+    
+      :ref:`free_pf_arrays <doxid-group__pf__fold_1gae73db3f49a94f0f72e067ecd12681dbd>`();   /* free space allocated for pf_fold() */
+    
+      profile_dist = :ref:`profile_edit_distance <doxid-profiledist_8h_1abe75e90e00a1e5dd8862944ed53dad5d>`(pf1, pf2);
+      printf("%s  free energy=%5.2f\n%s  free energy=%5.2f  dist=%3.2f\n",
+             :ref:`aligned_line <doxid-dist__vars_8h_1ac1605fe3448ad0a0b809c4fb8f6a854a>`[0], e1, :ref:`aligned_line <doxid-dist__vars_8h_1ac1605fe3448ad0a0b809c4fb8f6a854a>`[1], e2, profile_dist);
+    
+      :ref:`free_profile <doxid-profiledist_8h_1a9b0b84a5a45761bf42d7c835dcdb3b85>`(pf1);
+      :ref:`free_profile <doxid-profiledist_8h_1a9b0b84a5a45761bf42d7c835dcdb3b85>`(pf2);
+    }
+
+
+
+.. admonition:: See also:
+
+    ``examples/helloworld_mfe.c`` in the source code tarball
+
+    ``examples/helloworld_mfe_comparative.c`` in the source code tarball
+
+    ``examples/helloworld_probabilities.c`` in the source code tarball
+
+    ``examples/fold_compound_mfe.c`` in the source code tarball
+
+    ``examples/fold_compound_md.c`` in the source code tarball
+
+    ``examples/callback_subopt.c`` in the source code tarball
+
+    ``examples/soft_constraints_up.c`` in the source code tarball
+
+    ``examples/example1.c`` in the source code tarball
+
+    ``examples/example_old.c`` in the source code tarball
+

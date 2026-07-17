@@ -1,0 +1,12 @@
+.. index:: pair: page; Sequence and Structure Data
+.. _doxid-sequence_structure_data:
+
+Sequence and Structure Data
+===========================
+
+
+
+.. admonition:: See also:
+
+    :ref:`Parsing, converting, comparing secondary structures <doxid-group__struct__utils>`
+

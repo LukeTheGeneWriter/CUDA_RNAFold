@@ -1,0 +1,233 @@
+.. index:: pair: struct; vrna_exp_param_s
+.. _doxid-structvrna__exp__param__s:
+.. _cid-vrna_exp_param_s:
+
+struct vrna_exp_param_s
+=======================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/params.h>
+
+
+Overview
+--------
+
+The data structure that contains temperature scaled Boltzmann weights of the energy parameters. :ref:`More...<details-doxid-structvrna__exp__param__s>`
+
+.. _doxid-structvrna__exp__param__s_1a0b288e466e25d1c4f45d138236b5a544:
+.. _cid-vrna_exp_param_s::expstack:
+.. _doxid-structvrna__exp__param__s_1a7d770c6dbf7bd37b91f56600d387b0cd:
+.. _cid-vrna_exp_param_s::exphairpin:
+.. _doxid-structvrna__exp__param__s_1a7f2f16246bbfc5b009e4c34113dcacd7:
+.. _cid-vrna_exp_param_s::expbulge:
+.. _doxid-structvrna__exp__param__s_1aa98c3f4a62b997c9a460876c75d2d1ea:
+.. _cid-vrna_exp_param_s::expinternal:
+.. _doxid-structvrna__exp__param__s_1a2fe9cc842350991d96b341804522a0d1:
+.. _cid-vrna_exp_param_s::expmismatchext:
+.. _doxid-structvrna__exp__param__s_1aac2d7b3c327c7125be000e8328fca606:
+.. _cid-vrna_exp_param_s::expmismatchi:
+.. _doxid-structvrna__exp__param__s_1afed2655b9a16a362fc22d270bfe3a5ab:
+.. _cid-vrna_exp_param_s::expmismatch23i:
+.. _doxid-structvrna__exp__param__s_1ae64727c998a64d8a6f958ef364eda821:
+.. _cid-vrna_exp_param_s::expmismatch1ni:
+.. _doxid-structvrna__exp__param__s_1a3638d270ea7979d80a75a7199a19717e:
+.. _cid-vrna_exp_param_s::expmismatchh:
+.. _doxid-structvrna__exp__param__s_1ac6ed6415250369dd10fe392c7460a5c9:
+.. _cid-vrna_exp_param_s::expmismatchm:
+.. _doxid-structvrna__exp__param__s_1ad013274ab70d044e382000eec41fea09:
+.. _cid-vrna_exp_param_s::expdangle5:
+.. _doxid-structvrna__exp__param__s_1a4dd91ccea8929e4779be114b9b76b28f:
+.. _cid-vrna_exp_param_s::expdangle3:
+.. _doxid-structvrna__exp__param__s_1ae58abb197b8bfb624513cb28858a8dab:
+.. _cid-vrna_exp_param_s::expint11:
+.. _doxid-structvrna__exp__param__s_1acb992a6f846f0d1720b111606d819164:
+.. _cid-vrna_exp_param_s::expint21:
+.. _doxid-structvrna__exp__param__s_1aa8e5d06b019fb91bf7f1b866e5349fb6:
+.. _cid-vrna_exp_param_s::expint22:
+.. _doxid-structvrna__exp__param__s_1aa02a086c6fce358c984a9685d0c4ece7:
+.. _cid-vrna_exp_param_s::expninio:
+.. _doxid-structvrna__exp__param__s_1acbceb6027e4aa73cf216712617d8ab02:
+.. _cid-vrna_exp_param_s::lxc:
+.. _doxid-structvrna__exp__param__s_1aef32ae2492725def74065fcc0f0a5f04:
+.. _cid-vrna_exp_param_s::expmlbase:
+.. _doxid-structvrna__exp__param__s_1acb1b64f42c607ada107e05262eb3d3c7:
+.. _cid-vrna_exp_param_s::expmlintern:
+.. _doxid-structvrna__exp__param__s_1afdfbc240dc615d45fa5e9f0e8d4f8026:
+.. _cid-vrna_exp_param_s::expmlclosing:
+.. _doxid-structvrna__exp__param__s_1a9040df20dfcfeabaef375edb88a15326:
+.. _cid-vrna_exp_param_s::exptermau:
+.. _doxid-structvrna__exp__param__s_1ad6206b8edd6bdb01887c905423e2abb9:
+.. _cid-vrna_exp_param_s::expduplexinit:
+.. _doxid-structvrna__exp__param__s_1ad2751af5816c82fcceacf9d496b1e9c9:
+.. _cid-vrna_exp_param_s::exptetra:
+.. _doxid-structvrna__exp__param__s_1a076792cfccdc10ace2dbe2b7a8d3c5df:
+.. _cid-vrna_exp_param_s::exptri:
+.. _doxid-structvrna__exp__param__s_1a193c26eb7ea79e91b4dcb89b87e7926e:
+.. _cid-vrna_exp_param_s::exphex:
+.. _doxid-structvrna__exp__param__s_1aff2006d0ead3d1de216a9a7f0680fdc2:
+.. _cid-vrna_exp_param_s::tetraloops:
+.. _doxid-structvrna__exp__param__s_1a91650cc682967f5914097c9a99e4f693:
+.. _cid-vrna_exp_param_s::exptriloop:
+.. _doxid-structvrna__exp__param__s_1a309a8d464478a36963c36d91110920b6:
+.. _cid-vrna_exp_param_s::triloops:
+.. _doxid-structvrna__exp__param__s_1a771e437bb84e669d7a561f342ebbed33:
+.. _cid-vrna_exp_param_s::hexaloops:
+.. _doxid-structvrna__exp__param__s_1ab31a5df72a249faea0ce4a8e95c18244:
+.. _cid-vrna_exp_param_s::exptriplec:
+.. _doxid-structvrna__exp__param__s_1abf12e9cdf6688361080e70c29bc15133:
+.. _cid-vrna_exp_param_s::expmultipleca:
+.. _doxid-structvrna__exp__param__s_1a0b5a9b6ce171cd239250b4287f57aa23:
+.. _cid-vrna_exp_param_s::expmultiplecb:
+.. _doxid-structvrna__exp__param__s_1a8a230c75cd0fae888aedd45f488b4ff7:
+.. _cid-vrna_exp_param_s::expgquad:
+.. _doxid-structvrna__exp__param__s_1aee22f89eac71caf2bac24cc795de17aa:
+.. _cid-vrna_exp_param_s::kt:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int :ref:`id<doxid-structvrna__exp__param__s_1a378d5bcf2bae1f3ec84c912c7d3908d2>`
+	double expstack[NBPAIRS+1][NBPAIRS+1]
+	double exphairpin[31]
+	double expbulge[MAXLOOP+1]
+	double expinternal[MAXLOOP+1]
+	double expmismatchExt[NBPAIRS+1][5][5]
+	double expmismatchI[NBPAIRS+1][5][5]
+	double expmismatch23I[NBPAIRS+1][5][5]
+	double expmismatch1nI[NBPAIRS+1][5][5]
+	double expmismatchH[NBPAIRS+1][5][5]
+	double expmismatchM[NBPAIRS+1][5][5]
+	double expdangle5[NBPAIRS+1][5]
+	double expdangle3[NBPAIRS+1][5]
+	double expint11[NBPAIRS+1][NBPAIRS+1][5][5]
+	double expint21[NBPAIRS+1][NBPAIRS+1][5][5][5]
+	double expint22[NBPAIRS+1][NBPAIRS+1][5][5][5][5]
+	double expninio[5][MAXLOOP+1]
+	double lxc
+	double expMLbase
+	double expMLintern[NBPAIRS+1]
+	double expMLclosing
+	double expTermAU
+	double expDuplexInit
+	double exptetra[40]
+	double exptri[40]
+	double exphex[40]
+	char Tetraloops[1401]
+	double expTriloop[40]
+	char Triloops[241]
+	char Hexaloops[1801]
+	double expTripleC
+	double expMultipleCA
+	double expMultipleCB
+	double expgquad[VRNA_GQUAD_MAX_STACK_SIZE+1][3 *VRNA_GQUAD_MAX_LINKER_LENGTH+1]
+	double kT
+	double :ref:`pf_scale<doxid-structvrna__exp__param__s_1a53c12f0d74f94ce371e0471a8ab5a377>`
+	double :ref:`temperature<doxid-structvrna__exp__param__s_1a674656d65ea957ddbeff8bd146b7fc16>`
+	double :ref:`alpha<doxid-structvrna__exp__param__s_1a77145830b7bb01b36c3217b363310ef0>`
+	:ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` :ref:`model_details<doxid-structvrna__exp__param__s_1ac18055127bccc27c1223f1d2f3b01b53>`
+	char :ref:`param_file<doxid-structvrna__exp__param__s_1a8e1b02a4753a9b64c3c9ae8529b9d75c>`[256]
+
+.. _details-doxid-structvrna__exp__param__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    The data structure that contains temperature scaled Boltzmann weights of the energy parameters.
+
+Fields
+------
+
+.. _doxid-structvrna__exp__param__s_1a378d5bcf2bae1f3ec84c912c7d3908d2:
+.. _cid-vrna_exp_param_s::id:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int id
+
+    .. container:: brief-description
+
+        An identifier for the data structure.
+
+    .. container:: detailed-description
+
+        Deprecated This attribute will be removed in version 3
+
+.. _doxid-structvrna__exp__param__s_1a53c12f0d74f94ce371e0471a8ab5a377:
+.. _cid-vrna_exp_param_s::pf_scale:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double pf_scale
+
+    .. container:: brief-description
+
+        Scaling factor to avoid over-/underflows.
+
+.. _doxid-structvrna__exp__param__s_1a674656d65ea957ddbeff8bd146b7fc16:
+.. _cid-vrna_exp_param_s::temperature:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double temperature
+
+    .. container:: brief-description
+
+        Temperature used for loop contribution scaling.
+
+.. _doxid-structvrna__exp__param__s_1a77145830b7bb01b36c3217b363310ef0:
+.. _cid-vrna_exp_param_s::alpha:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double alpha
+
+    .. container:: brief-description
+
+        Scaling factor for the thermodynamic temperature.
+
+    .. container:: detailed-description
+
+        This allows for temperature scaling in Boltzmann factors independently from the energy contributions. The resulting Boltzmann factors are then computed by :math:` e^{-E/(\alpha \cdot K \cdot T)} `
+
+.. _doxid-structvrna__exp__param__s_1ac18055127bccc27c1223f1d2f3b01b53:
+.. _cid-vrna_exp_param_s::model_details:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_md_t<doxid-group__model__details_1ga1f8a10e12a0a1915f2a4eff0b28ea17c>` model_details
+
+    .. container:: brief-description
+
+        Model details to be used in the recursions.
+
+.. _doxid-structvrna__exp__param__s_1a8e1b02a4753a9b64c3c9ae8529b9d75c:
+.. _cid-vrna_exp_param_s::param_file:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char param_file [256]
+
+    .. container:: brief-description
+
+        The filename the parameters were derived from, or empty string if they represent the default.
+

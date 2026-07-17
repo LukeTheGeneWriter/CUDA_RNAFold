@@ -1,0 +1,39 @@
+.. index:: pair: struct; vrna_sc_motif_s
+.. _doxid-structvrna__sc__motif__s:
+.. _cid-vrna_sc_motif_s:
+
+struct vrna_sc_motif_s
+======================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/constraints_ligand.h>
+
+
+
+
+.. _doxid-structvrna__sc__motif__s_1abd830969e3c6339bb6a803a37e40f948:
+.. _cid-vrna_sc_motif_s::i:
+.. _doxid-structvrna__sc__motif__s_1a74979b222e2894636f21d95784ce834d:
+.. _cid-vrna_sc_motif_s::j:
+.. _doxid-structvrna__sc__motif__s_1a9af97e01f420a4d58f6417665319bba8:
+.. _cid-vrna_sc_motif_s::k:
+.. _doxid-structvrna__sc__motif__s_1a398f193e77654a7b0f95e419b0609e46:
+.. _cid-vrna_sc_motif_s::l:
+.. _doxid-structvrna__sc__motif__s_1aa0e0d0d6f318220f557b6cd75db7f386:
+.. _cid-vrna_sc_motif_s::number:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int i
+	int j
+	int k
+	int l
+	int number
+

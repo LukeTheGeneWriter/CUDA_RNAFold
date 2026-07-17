@@ -1,0 +1,429 @@
+.. index:: pair: struct; vrna_mx_mfe_s
+.. _doxid-structvrna__mx__mfe__s:
+.. _cid-vrna_mx_mfe_s:
+
+struct vrna_mx_mfe_s
+====================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/dp_matrices.h>
+
+
+Overview
+--------
+
+Minimum Free Energy (MFE) Dynamic Programming (DP) matrices data structure required within the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` . :ref:`More...<details-doxid-structvrna__mx__mfe__s>`
+
+.. _doxid-structvrna__mx__mfe__s_1a468680aa937b664d453075108d976ae2:
+.. _cid-vrna_mx_mfe_s::type:
+.. _doxid-structvrna__mx__mfe__s_1a1ba03c53ee2a32eaf8b46c0eb259e0c4:
+.. _cid-vrna_mx_mfe_s::fch:
+.. _doxid-structvrna__mx__mfe__s_1a96ac173770c9745a30823fa17fe0b7f4:
+.. _cid-vrna_mx_mfe_s::fci:
+.. _doxid-structvrna__mx__mfe__s_1a9a4bf70926f79372388eccc7e73759e9:
+.. _cid-vrna_mx_mfe_s::fcm:
+.. _doxid-structvrna__mx__mfe__s_1ab917aa1e2b069af7fb5d11c5d067cdf0:
+.. _cid-vrna_mx_mfe_s::e_f5:
+.. _doxid-structvrna__mx__mfe__s_1a4035d3c6a9e23e388ddec18a9fdc2315:
+.. _cid-vrna_mx_mfe_s::l_min_f5:
+.. _doxid-structvrna__mx__mfe__s_1a794ba42ca5afa5320a2da88554928516:
+.. _cid-vrna_mx_mfe_s::l_max_f5:
+.. _doxid-structvrna__mx__mfe__s_1aad6fc641a5815149b8d938ca277019a5:
+.. _cid-vrna_mx_mfe_s::k_min_f5:
+.. _doxid-structvrna__mx__mfe__s_1a321a00180a1d046796328d0a9b66ec81:
+.. _cid-vrna_mx_mfe_s::k_max_f5:
+.. _doxid-structvrna__mx__mfe__s_1a4d055707928eb6f3147c962141cc70e8:
+.. _cid-vrna_mx_mfe_s::e_f3:
+.. _doxid-structvrna__mx__mfe__s_1abf0389ece58e97652f580d7dc1e133d8:
+.. _cid-vrna_mx_mfe_s::l_min_f3:
+.. _doxid-structvrna__mx__mfe__s_1afadce4435141575c7275b1e0b75e8eba:
+.. _cid-vrna_mx_mfe_s::l_max_f3:
+.. _doxid-structvrna__mx__mfe__s_1a063fb9477172048bd24786ef363315db:
+.. _cid-vrna_mx_mfe_s::k_min_f3:
+.. _doxid-structvrna__mx__mfe__s_1a1e20cd5b9d422f547b3366e74b59b1bd:
+.. _cid-vrna_mx_mfe_s::k_max_f3:
+.. _doxid-structvrna__mx__mfe__s_1af7007bfa68981a0d7a7a2186c357eb4f:
+.. _cid-vrna_mx_mfe_s::e_c:
+.. _doxid-structvrna__mx__mfe__s_1a33f9c476304c568c78918a5bcc3e2c2f:
+.. _cid-vrna_mx_mfe_s::l_min_c:
+.. _doxid-structvrna__mx__mfe__s_1afb0db136ff9fd3c78ad30816aa276ed3:
+.. _cid-vrna_mx_mfe_s::l_max_c:
+.. _doxid-structvrna__mx__mfe__s_1a37d2df63ba2ae973059279f325b0e617:
+.. _cid-vrna_mx_mfe_s::k_min_c:
+.. _doxid-structvrna__mx__mfe__s_1a9bb98ec849469ab7dda8042384a0114e:
+.. _cid-vrna_mx_mfe_s::k_max_c:
+.. _doxid-structvrna__mx__mfe__s_1aace1bc1fb8f3e0e83296a91e40bda7a5:
+.. _cid-vrna_mx_mfe_s::e_m:
+.. _doxid-structvrna__mx__mfe__s_1a48afd9784e58e427fcbe4694d4670c57:
+.. _cid-vrna_mx_mfe_s::l_min_m:
+.. _doxid-structvrna__mx__mfe__s_1a59641489689bf8ba2236466b4a9be82a:
+.. _cid-vrna_mx_mfe_s::l_max_m:
+.. _doxid-structvrna__mx__mfe__s_1a7a723bdda23a431fa498b6e46f71de05:
+.. _cid-vrna_mx_mfe_s::k_min_m:
+.. _doxid-structvrna__mx__mfe__s_1a45f8584d5a51e734de9376889e9a890e:
+.. _cid-vrna_mx_mfe_s::k_max_m:
+.. _doxid-structvrna__mx__mfe__s_1a2a0eccd64e94962e9ec7c0652c5adcf2:
+.. _cid-vrna_mx_mfe_s::e_m1:
+.. _doxid-structvrna__mx__mfe__s_1a83ceae2cd2fa2a478fbc917419f4f43c:
+.. _cid-vrna_mx_mfe_s::l_min_m1:
+.. _doxid-structvrna__mx__mfe__s_1abacc2eb5bd2798188191693d562941fe:
+.. _cid-vrna_mx_mfe_s::l_max_m1:
+.. _doxid-structvrna__mx__mfe__s_1a31b0f5d774d868d3723b0e98a64ab4c2:
+.. _cid-vrna_mx_mfe_s::k_min_m1:
+.. _doxid-structvrna__mx__mfe__s_1ad7aa8ad7e4246927b79f0e69cfdb20b2:
+.. _cid-vrna_mx_mfe_s::k_max_m1:
+.. _doxid-structvrna__mx__mfe__s_1a84f072a7e5a9d1dc978e92b3a78f53f8:
+.. _cid-vrna_mx_mfe_s::e_m2:
+.. _doxid-structvrna__mx__mfe__s_1a0ee034810d6ece4cd0f4604ec4c94c22:
+.. _cid-vrna_mx_mfe_s::l_min_m2:
+.. _doxid-structvrna__mx__mfe__s_1a0d78bbbc4621247d97f00160803a05b0:
+.. _cid-vrna_mx_mfe_s::l_max_m2:
+.. _doxid-structvrna__mx__mfe__s_1a27eede8de57b179fc24839bc25e96be0:
+.. _cid-vrna_mx_mfe_s::k_min_m2:
+.. _doxid-structvrna__mx__mfe__s_1ac3bc074f2b291247b65d34e336ef064f:
+.. _cid-vrna_mx_mfe_s::k_max_m2:
+.. _doxid-structvrna__mx__mfe__s_1ac81b8edd7d1297b43af1c163214ec95b:
+.. _cid-vrna_mx_mfe_s::e_fc:
+.. _doxid-structvrna__mx__mfe__s_1a64f1fdc523370d4d27f4e74db37ec3f2:
+.. _cid-vrna_mx_mfe_s::l_min_fc:
+.. _doxid-structvrna__mx__mfe__s_1a253b64237c811ef8587de8a714658365:
+.. _cid-vrna_mx_mfe_s::l_max_fc:
+.. _doxid-structvrna__mx__mfe__s_1a3b381c1a816112c9557056a52db5d104:
+.. _cid-vrna_mx_mfe_s::k_min_fc:
+.. _doxid-structvrna__mx__mfe__s_1a2aa2123340602899bd7a61d82db95a3f:
+.. _cid-vrna_mx_mfe_s::k_max_fc:
+.. _doxid-structvrna__mx__mfe__s_1a366499237acdae5e4f422e4bc82bfc0d:
+.. _cid-vrna_mx_mfe_s::e_fch:
+.. _doxid-structvrna__mx__mfe__s_1a5d0a6a5cd45a42d23fc0eabf0763caa8:
+.. _cid-vrna_mx_mfe_s::l_min_fch:
+.. _doxid-structvrna__mx__mfe__s_1a89192a2ab2c8de9f5b702edc9fe68613:
+.. _cid-vrna_mx_mfe_s::l_max_fch:
+.. _doxid-structvrna__mx__mfe__s_1aa3f7198e3c6207737934088d27639911:
+.. _cid-vrna_mx_mfe_s::k_min_fch:
+.. _doxid-structvrna__mx__mfe__s_1a8e94d63c103c7effce55652619b3b469:
+.. _cid-vrna_mx_mfe_s::k_max_fch:
+.. _doxid-structvrna__mx__mfe__s_1a3e9793de5245f038ed83c2a607b37970:
+.. _cid-vrna_mx_mfe_s::e_fci:
+.. _doxid-structvrna__mx__mfe__s_1abc4dd9942f140f91adb52d2719e78bc4:
+.. _cid-vrna_mx_mfe_s::l_min_fci:
+.. _doxid-structvrna__mx__mfe__s_1a41cb6dbbda30f5d7bafd6b0ea62bca8c:
+.. _cid-vrna_mx_mfe_s::l_max_fci:
+.. _doxid-structvrna__mx__mfe__s_1acbf5d0bd27435ad5328482f9b4b32833:
+.. _cid-vrna_mx_mfe_s::k_min_fci:
+.. _doxid-structvrna__mx__mfe__s_1a6b13abef4bee7a08fd28b0780535373e:
+.. _cid-vrna_mx_mfe_s::k_max_fci:
+.. _doxid-structvrna__mx__mfe__s_1aad18f800b7bc0f26d012b9bc36aa5382:
+.. _cid-vrna_mx_mfe_s::e_fcm:
+.. _doxid-structvrna__mx__mfe__s_1a7ee24b747cf1d4ecc1cdc7380cf39594:
+.. _cid-vrna_mx_mfe_s::l_min_fcm:
+.. _doxid-structvrna__mx__mfe__s_1a0d419ae5a7e10b98734d42f5391d25f5:
+.. _cid-vrna_mx_mfe_s::l_max_fcm:
+.. _doxid-structvrna__mx__mfe__s_1a36089cee4d38f465f79db7e3589693a7:
+.. _cid-vrna_mx_mfe_s::k_min_fcm:
+.. _doxid-structvrna__mx__mfe__s_1aa5a4d2fd78e38c82ee666f9bdc911e66:
+.. _cid-vrna_mx_mfe_s::k_max_fcm:
+.. _doxid-structvrna__mx__mfe__s_1af286d9ea990a98a33c065b4e16eaa311:
+.. _cid-vrna_mx_mfe_s::e_f5_rem:
+.. _doxid-structvrna__mx__mfe__s_1afa8e42da47467e098bab0c6f1c16bea4:
+.. _cid-vrna_mx_mfe_s::e_f3_rem:
+.. _doxid-structvrna__mx__mfe__s_1a00f20c8bd9eda2ebcd99267cce52909c:
+.. _cid-vrna_mx_mfe_s::e_c_rem:
+.. _doxid-structvrna__mx__mfe__s_1a92b0234e1e3cdaba2dea416e37904a09:
+.. _cid-vrna_mx_mfe_s::e_m_rem:
+.. _doxid-structvrna__mx__mfe__s_1a89dddd61f360292fddcc9b25e7cbc699:
+.. _cid-vrna_mx_mfe_s::e_m1_rem:
+.. _doxid-structvrna__mx__mfe__s_1a5fc042fba42b3676226b64fb4ab80ad2:
+.. _cid-vrna_mx_mfe_s::e_m2_rem:
+.. _doxid-structvrna__mx__mfe__s_1aec03a4d7538bfa0e1113ba2825175428:
+.. _cid-vrna_mx_mfe_s::e_fc_rem:
+.. _doxid-structvrna__mx__mfe__s_1a120dc87d9b5f452b12ab796046a0f704:
+.. _cid-vrna_mx_mfe_s::e_fch_rem:
+.. _doxid-structvrna__mx__mfe__s_1add53b23599a083140d0ddbd158a84d1d:
+.. _cid-vrna_mx_mfe_s::e_fci_rem:
+.. _doxid-structvrna__mx__mfe__s_1ad821cb861e772e1c0fd4efddb44380c7:
+.. _cid-vrna_mx_mfe_s::e_fcm_rem:
+.. _doxid-structvrna__mx__mfe__s_1af259a2550e8a16c61c009b5385c2ca95:
+.. _cid-vrna_mx_mfe_s::@13:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	:ref:`vrna_mx_type_e<doxid-group__dp__matrices_1ga6042ea1d58d01931e959791be6d89343>` type
+	unsigned int :ref:`length<doxid-structvrna__mx__mfe__s_1a1f92a8406fc1fb721dbf9193c34ad826>`
+	int* :ref:`c<doxid-structvrna__mx__mfe__s_1a60a511fd42905ee4f046c56a76865bf9>`
+	int* :ref:`f5<doxid-structvrna__mx__mfe__s_1abebad693be987c2701d64477ab858039>`
+	int* :ref:`f3<doxid-structvrna__mx__mfe__s_1a4ea4595a93733adef047ece8e6f5da52>`
+	int* :ref:`fc<doxid-structvrna__mx__mfe__s_1a8ee6b6cefe20cfbf1f6bef5c788b6667>`
+	int* :ref:`fML<doxid-structvrna__mx__mfe__s_1a103995e4ab8e21e7f8bc36a6edcb1331>`
+	int* :ref:`fM1<doxid-structvrna__mx__mfe__s_1ae4e598d601f5ece6b8b4ffffcae2db06>`
+	int* :ref:`fM2<doxid-structvrna__mx__mfe__s_1ad29106e37d485b3f20b7be468e6c179c>`
+	int* :ref:`ggg<doxid-structvrna__mx__mfe__s_1a0b7b86a5c75c96eabb89eb53a13e7164>`
+	int :ref:`Fc<doxid-structvrna__mx__mfe__s_1ac6a22d71c6a0eccedf978372b19b458a>`
+	int FcH
+	int FcI
+	int FcM
+	int** :ref:`c_local<doxid-structvrna__mx__mfe__s_1a116c677ece0832e6ab9cc2fd1ebfe452>`
+	int* :ref:`f3_local<doxid-structvrna__mx__mfe__s_1a6eae0a2b696b0c63bbaa78a70b950600>`
+	int** :ref:`fML_local<doxid-structvrna__mx__mfe__s_1ad37d705240a8e6b1e9a4e4ea19e74003>`
+	int** :ref:`ggg_local<doxid-structvrna__mx__mfe__s_1afd3ea65bc8f06559f7f1ea79072fa385>`
+	int*** E_F5
+	int** l_min_F5
+	int** l_max_F5
+	int* k_min_F5
+	int* k_max_F5
+	int*** E_F3
+	int** l_min_F3
+	int** l_max_F3
+	int* k_min_F3
+	int* k_max_F3
+	int*** E_C
+	int** l_min_C
+	int** l_max_C
+	int* k_min_C
+	int* k_max_C
+	int*** E_M
+	int** l_min_M
+	int** l_max_M
+	int* k_min_M
+	int* k_max_M
+	int*** E_M1
+	int** l_min_M1
+	int** l_max_M1
+	int* k_min_M1
+	int* k_max_M1
+	int*** E_M2
+	int** l_min_M2
+	int** l_max_M2
+	int* k_min_M2
+	int* k_max_M2
+	int** E_Fc
+	int* l_min_Fc
+	int* l_max_Fc
+	int k_min_Fc
+	int k_max_Fc
+	int** E_FcH
+	int* l_min_FcH
+	int* l_max_FcH
+	int k_min_FcH
+	int k_max_FcH
+	int** E_FcI
+	int* l_min_FcI
+	int* l_max_FcI
+	int k_min_FcI
+	int k_max_FcI
+	int** E_FcM
+	int* l_min_FcM
+	int* l_max_FcM
+	int k_min_FcM
+	int k_max_FcM
+	int* E_F5_rem
+	int* E_F3_rem
+	int* E_C_rem
+	int* E_M_rem
+	int* E_M1_rem
+	int* E_M2_rem
+	int E_Fc_rem
+	int E_FcH_rem
+	int E_FcI_rem
+	int E_FcM_rem
+
+.. _details-doxid-structvrna__mx__mfe__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    Minimum Free Energy (MFE) Dynamic Programming (DP) matrices data structure required within the :ref:`vrna_fold_compound_t <doxid-group__fold__compound_1ga1b0cef17fd40466cef5968eaeeff6166>` .
+
+Fields
+------
+
+.. _doxid-structvrna__mx__mfe__s_1a1f92a8406fc1fb721dbf9193c34ad826:
+.. _cid-vrna_mx_mfe_s::length:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned int length
+
+    .. container:: brief-description
+
+        Length of the sequence, therefore an indicator of the size of the DP matrices.
+
+.. _doxid-structvrna__mx__mfe__s_1a60a511fd42905ee4f046c56a76865bf9:
+.. _cid-vrna_mx_mfe_s::c:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* c
+
+    .. container:: brief-description
+
+        Energy array, given that i-j pair.
+
+.. _doxid-structvrna__mx__mfe__s_1abebad693be987c2701d64477ab858039:
+.. _cid-vrna_mx_mfe_s::f5:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* f5
+
+    .. container:: brief-description
+
+        Energy of 5' end.
+
+.. _doxid-structvrna__mx__mfe__s_1a4ea4595a93733adef047ece8e6f5da52:
+.. _cid-vrna_mx_mfe_s::f3:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* f3
+
+    .. container:: brief-description
+
+        Energy of 3' end.
+
+.. _doxid-structvrna__mx__mfe__s_1a8ee6b6cefe20cfbf1f6bef5c788b6667:
+.. _cid-vrna_mx_mfe_s::fc:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* fc
+
+    .. container:: brief-description
+
+        Energy from i to cutpoint (and vice versa if i>cut)
+
+.. _doxid-structvrna__mx__mfe__s_1a103995e4ab8e21e7f8bc36a6edcb1331:
+.. _cid-vrna_mx_mfe_s::fml:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* fML
+
+    .. container:: brief-description
+
+        Multi-loop auxiliary energy array.
+
+.. _doxid-structvrna__mx__mfe__s_1ae4e598d601f5ece6b8b4ffffcae2db06:
+.. _cid-vrna_mx_mfe_s::fm1:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* fM1
+
+    .. container:: brief-description
+
+        Second ML array, only for unique multibrnach loop decomposition.
+
+.. _doxid-structvrna__mx__mfe__s_1ad29106e37d485b3f20b7be468e6c179c:
+.. _cid-vrna_mx_mfe_s::fm2:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* fM2
+
+    .. container:: brief-description
+
+        Energy for a multibranch loop region with exactly two stems, extending to 3' end.
+
+.. _doxid-structvrna__mx__mfe__s_1a0b7b86a5c75c96eabb89eb53a13e7164:
+.. _cid-vrna_mx_mfe_s::ggg:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* ggg
+
+    .. container:: brief-description
+
+        Energies of g-quadruplexes.
+
+.. _doxid-structvrna__mx__mfe__s_1ac6a22d71c6a0eccedf978372b19b458a:
+.. _cid-vrna_mx_mfe_s::fc-2:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int Fc
+
+    .. container:: brief-description
+
+        Minimum Free Energy of entire circular RNA.
+
+.. _doxid-structvrna__mx__mfe__s_1a116c677ece0832e6ab9cc2fd1ebfe452:
+.. _cid-vrna_mx_mfe_s::c_local:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int** c_local
+
+    .. container:: brief-description
+
+        Energy array, given that i-j pair.
+
+.. _doxid-structvrna__mx__mfe__s_1a6eae0a2b696b0c63bbaa78a70b950600:
+.. _cid-vrna_mx_mfe_s::f3_local:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* f3_local
+
+    .. container:: brief-description
+
+        Energy of 5' end.
+
+.. _doxid-structvrna__mx__mfe__s_1ad37d705240a8e6b1e9a4e4ea19e74003:
+.. _cid-vrna_mx_mfe_s::fml_local:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int** fML_local
+
+    .. container:: brief-description
+
+        Multi-loop auxiliary energy array.
+
+.. _doxid-structvrna__mx__mfe__s_1afd3ea65bc8f06559f7f1ea79072fa385:
+.. _cid-vrna_mx_mfe_s::ggg_local:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int** ggg_local
+
+    .. container:: brief-description
+
+        Energies of g-quadruplexes.
+

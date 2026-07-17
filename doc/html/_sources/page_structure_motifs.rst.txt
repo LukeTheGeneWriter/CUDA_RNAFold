@@ -1,0 +1,23 @@
+.. index:: pair: page; (Tertiary) Structure Motifs
+.. _doxid-structure_motifs:
+
+(Tertiary) Structure Motifs
+===========================
+
+.. _doxid-structure_motifs_1structure_motifs_intro:
+
+Incorporating Higher-Order (Tertiary) Structure Motifs
+------------------------------------------------------
+
+
+.. _doxid-structure_motifs_1structure_motif_gquad:
+
+RNA G-Quadruplexes
+------------------
+
+
+.. _doxid-structure_motifs_1structure_motif_api:
+
+(Tertiary) Structure Motif API
+------------------------------
+

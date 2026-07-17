@@ -1,0 +1,27 @@
+.. index:: pair: struct; vrna_structured_domains_s
+.. _doxid-structvrna__structured__domains__s:
+.. _cid-vrna_structured_domains_s:
+
+struct vrna_structured_domains_s
+================================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/structured_domains.h>
+
+
+
+
+.. _doxid-structvrna__structured__domains__s_1acba7ee206068db17beb69ac438935aeb:
+.. _cid-vrna_structured_domains_s::__placeholder:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	char __placeholder
+

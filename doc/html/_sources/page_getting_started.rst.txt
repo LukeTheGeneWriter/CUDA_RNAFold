@@ -1,0 +1,18 @@
+.. index:: pair: page; Getting Started
+.. _doxid-getting_started:
+
+Getting Started
+===============
+
+* :ref:`Installation and Configuration <doxid-install>` describes how to install and configure ``RNAlib`` for your requirements
+
+* :ref:`HelloWorld <doxid-helloworld>` presents some small example programs to get a first impression on how to use this library
+
+* :ref:`HelloWorld (Perl/Python) <doxid-helloworld_swig>` contains small examples that show how to use RNAlib even without C/C++ programming skills from within your favorite scripting language
+
+.. toctree::
+	:hidden:
+
+	page_install.rst
+	page_helloworld.rst
+	page_helloworld_swig.rst

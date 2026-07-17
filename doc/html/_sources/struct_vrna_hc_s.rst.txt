@@ -1,0 +1,196 @@
+.. index:: pair: struct; vrna_hc_s
+.. _doxid-structvrna__hc__s:
+.. _cid-vrna_hc_s:
+
+struct vrna_hc_s
+================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/constraints_hard.h>
+
+
+Overview
+--------
+
+The hard constraints data structure. :ref:`More...<details-doxid-structvrna__hc__s>`
+
+.. _doxid-structvrna__hc__s_1a4b1666cfd4f6653832ae350dc5e52505:
+.. _cid-vrna_hc_s::type:
+.. _doxid-structvrna__hc__s_1ac5cedc9a5f819afe75bba2db712033c9:
+.. _cid-vrna_hc_s::n:
+.. _doxid-structvrna__hc__s_1a7a3a6e27f6a45447a6a3e4d294d0b90a:
+.. _cid-vrna_hc_s::matrix_local:
+.. _doxid-structvrna__hc__s_1a83a7cae4063588b31be775724ffccff7:
+.. _cid-vrna_hc_s::up_storage:
+.. _doxid-structvrna__hc__s_1ab8760aed745e6d50e7982ff9a0c52ca9:
+.. _cid-vrna_hc_s::bp_storage:
+.. _doxid-structvrna__hc__s_1a0025a2ac95c18617b958d60ca5ab7e9f:
+.. _cid-vrna_hc_s::@1:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	:ref:`vrna_hc_type_e<doxid-constraints__hard_8h_1a0fcb8bda9b3712e14f8f513def112435>` type
+	unsigned int n
+	unsigned char* :ref:`matrix<doxid-structvrna__hc__s_1a6ff99f530ca7ca9719e164321d051bde>`
+	unsigned char** matrix_local
+	unsigned char* up_storage
+	:ref:`vrna_hc_bp_storage_t<doxid-structvrna__hc__bp__storage__t>`** bp_storage
+	int* :ref:`up_ext<doxid-structvrna__hc__s_1a60094038af04093b2fee9b883266ff75>`
+	int* :ref:`up_hp<doxid-structvrna__hc__s_1a853255558e7e7d9eb382ac142ac8de3d>`
+	int* :ref:`up_int<doxid-structvrna__hc__s_1a455f994af0ec892d84fee1bf60d14a81>`
+	int* :ref:`up_ml<doxid-structvrna__hc__s_1aa318079c2e3cfaca8dc589cc478d3b29>`
+	:ref:`vrna_callback_hc_evaluate<doxid-group__hard__constraints_1gae465f1d4a3d8b6592b38ecbb0d9f613d>`* :ref:`f<doxid-structvrna__hc__s_1a85714afbf27012165ec80c564bd62931>`
+	void* :ref:`data<doxid-structvrna__hc__s_1acef3d722142cb5f4a8e114e5fbce3b1a>`
+	:ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* :ref:`free_data<doxid-structvrna__hc__s_1a970e0e202c9e46ebc7640ddc43357ba6>`
+
+.. _details-doxid-structvrna__hc__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    The hard constraints data structure.
+
+.. container:: detailed-description
+
+    The content of this data structure determines the decomposition pattern used in the folding recursions. Attribute 'matrix' is used as source for the branching pattern of the decompositions during all folding recursions. Any entry in matrix[i,j] consists of the 6 LSB that allows one to distinguish the following types of base pairs:
+    
+    * in the exterior loop ( :ref:`VRNA_CONSTRAINT_CONTEXT_EXT_LOOP <doxid-group__hard__constraints_1ga9418eda62a5dec070896702c279d2548>` )
+    
+    * enclosing a hairpin ( :ref:`VRNA_CONSTRAINT_CONTEXT_HP_LOOP <doxid-group__hard__constraints_1ga79203702b197b6b9d3b78eed40663eb1>` )
+    
+    * enclosing an interior loop ( :ref:`VRNA_CONSTRAINT_CONTEXT_INT_LOOP <doxid-group__hard__constraints_1ga21feeab3a9e5fa5a9e3d9ac0fcf5994f>` )
+    
+    * enclosed by an exterior loop ( :ref:`VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC <doxid-group__hard__constraints_1ga0536288e04ff6332ecdc23ca4705402b>` )
+    
+    * enclosing a multi branch loop ( :ref:`VRNA_CONSTRAINT_CONTEXT_MB_LOOP <doxid-group__hard__constraints_1ga456ecd2ff00056bb64da8dd4f61bbfc5>` )
+    
+    * enclosed by a multi branch loop ( :ref:`VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC <doxid-group__hard__constraints_1ga02a3d703ddbcfce393e4bbfcb9db7077>` )
+    
+    The four linear arrays 'up_xxx' provide the number of available unpaired nucleotides (including position i) 3' of each position in the sequence.
+    
+    
+    
+    .. admonition:: See also:
+    
+        :ref:`vrna_hc_init() <doxid-group__hard__constraints_1ga36ff456c43bf920629cee5a236e4f0ff>` , :ref:`vrna_hc_free() <doxid-group__hard__constraints_1ga696dcf77887d856c6f21ea266d8b9ca2>` , :ref:`VRNA_CONSTRAINT_CONTEXT_EXT_LOOP <doxid-group__hard__constraints_1ga9418eda62a5dec070896702c279d2548>` , :ref:`VRNA_CONSTRAINT_CONTEXT_HP_LOOP <doxid-group__hard__constraints_1ga79203702b197b6b9d3b78eed40663eb1>` , :ref:`VRNA_CONSTRAINT_CONTEXT_INT_LOOP <doxid-group__hard__constraints_1ga21feeab3a9e5fa5a9e3d9ac0fcf5994f>` , :ref:`VRNA_CONSTRAINT_CONTEXT_MB_LOOP <doxid-group__hard__constraints_1ga456ecd2ff00056bb64da8dd4f61bbfc5>` , :ref:`VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC <doxid-group__hard__constraints_1ga02a3d703ddbcfce393e4bbfcb9db7077>`
+
+Fields
+------
+
+.. _doxid-structvrna__hc__s_1a6ff99f530ca7ca9719e164321d051bde:
+.. _cid-vrna_hc_s::matrix:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned char* matrix
+
+    .. container:: brief-description
+
+        Upper triangular matrix that encodes where a base pair or unpaired nucleotide is allowed.
+
+.. _doxid-structvrna__hc__s_1a60094038af04093b2fee9b883266ff75:
+.. _cid-vrna_hc_s::up_ext:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* up_ext
+
+    .. container:: brief-description
+
+        A linear array that holds the number of allowed unpaired nucleotides in an exterior loop.
+
+.. _doxid-structvrna__hc__s_1a853255558e7e7d9eb382ac142ac8de3d:
+.. _cid-vrna_hc_s::up_hp:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* up_hp
+
+    .. container:: brief-description
+
+        A linear array that holds the number of allowed unpaired nucleotides in a hairpin loop.
+
+.. _doxid-structvrna__hc__s_1a455f994af0ec892d84fee1bf60d14a81:
+.. _cid-vrna_hc_s::up_int:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* up_int
+
+    .. container:: brief-description
+
+        A linear array that holds the number of allowed unpaired nucleotides in an interior loop.
+
+.. _doxid-structvrna__hc__s_1aa318079c2e3cfaca8dc589cc478d3b29:
+.. _cid-vrna_hc_s::up_ml:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* up_ml
+
+    .. container:: brief-description
+
+        A linear array that holds the number of allowed unpaired nucleotides in a multi branched loop.
+
+.. _doxid-structvrna__hc__s_1a85714afbf27012165ec80c564bd62931:
+.. _cid-vrna_hc_s::f:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_callback_hc_evaluate<doxid-group__hard__constraints_1gae465f1d4a3d8b6592b38ecbb0d9f613d>`* f
+
+    .. container:: brief-description
+
+        A function pointer that returns whether or not a certain decomposition may be evaluated.
+
+.. _doxid-structvrna__hc__s_1acef3d722142cb5f4a8e114e5fbce3b1a:
+.. _cid-vrna_hc_s::data:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void* data
+
+    .. container:: brief-description
+
+        A pointer to some structure where the user may store necessary data to evaluate its generic hard constraint function.
+
+.. _doxid-structvrna__hc__s_1a970e0e202c9e46ebc7640ddc43357ba6:
+.. _cid-vrna_hc_s::free_data:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* free_data
+
+    .. container:: brief-description
+
+        A pointer to a function to free memory occupied by auxiliary data.
+
+    .. container:: detailed-description
+
+        The function this pointer is pointing to will be called upon destruction of the :ref:`vrna_hc_s <doxid-structvrna__hc__s>` , and provided with the :ref:`vrna_hc_s.data <doxid-structvrna__hc__s_1acef3d722142cb5f4a8e114e5fbce3b1a>` pointer that may hold auxiliary data. Hence, to avoid leaking memory, the user may use this pointer to free memory occupied by auxiliary data.
+

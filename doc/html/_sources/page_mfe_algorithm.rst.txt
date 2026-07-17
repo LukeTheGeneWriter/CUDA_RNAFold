@@ -1,0 +1,46 @@
+.. index:: pair: page; Minimum Free Energy Algorithm(s)
+.. _doxid-mfe_algorithm:
+
+Minimum Free Energy Algorithm(s)
+================================
+
+Computing the Minimum Free Energy (MFE), i.e. the most stable conformation in thermodynamic equilibrium.
+
+Computing the Minimum Free Energy (MFE), i.e. the most stable conformation in thermodynamic equilibrium
+
+.. _doxid-mfe_algorithm_1zuker_algorithm:
+
+Zuker's Algorithm
+-----------------
+
+
+Our library provides fast dynamic programming Minimum Free Energy (MFE) folding algorithms derived from the decomposition scheme as described by "Zuker & Stiegler (1981)" :ref:`[23] <doxid-citelist_1CITEREF_zuker:1981>` .
+
+.. _doxid-mfe_algorithm_1circular_folding:
+
+MFE for circular RNAs
+---------------------
+
+
+Folding of *circular* RNA sequences is handled as a post-processing step of the forward recursions. See :ref:`[7] <doxid-citelist_1CITEREF_hofacker:2006>` for further details.
+
+.. _doxid-mfe_algorithm_1mfe_algorithm_api:
+
+MFE Algorithm API
+-----------------
+
+
+We provide interfaces for the prediction of
+
+* MFE and corresponding secondary structure for single sequences,
+
+* consensus MFE structures of sequence alignments, and
+
+* MFE structure for two hybridized RNA strands
+
+
+
+.. admonition:: See also:
+
+    :ref:`Minimum Free Energy (MFE) algorithms <doxid-group__mfe__fold>` , :ref:`MFE Consensus Structures for Sequence Alignment(s) <doxid-group__consensus__mfe__fold>` , :ref:`MFE Structures of two hybridized Sequences <doxid-group__mfe__cofold>` , :ref:`Calculating MFE representatives of a Distance Based Partitioning <doxid-group__kl__neighborhood__mfe>`
+

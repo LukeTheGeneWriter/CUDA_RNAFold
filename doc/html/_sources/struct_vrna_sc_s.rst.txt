@@ -1,0 +1,273 @@
+.. index:: pair: struct; vrna_sc_s
+.. _doxid-structvrna__sc__s:
+.. _cid-vrna_sc_s:
+
+struct vrna_sc_s
+================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/constraints_soft.h>
+
+
+Overview
+--------
+
+The soft constraints data structure. :ref:`More...<details-doxid-structvrna__sc__s>`
+
+.. _doxid-structvrna__sc__s_1a57cecd53f01168c71834a93277dc73c6:
+.. _cid-vrna_sc_s::type:
+.. _doxid-structvrna__sc__s_1ab47470efd4ee0211ca78641f57009def:
+.. _cid-vrna_sc_s::n:
+.. _doxid-structvrna__sc__s_1a0b46b319b627a4de54deabf2358368a9:
+.. _cid-vrna_sc_s::state:
+.. _doxid-structvrna__sc__s_1a49576d21f334eceaee2eab242f694ca2:
+.. _cid-vrna_sc_s::@7:
+.. _doxid-structvrna__sc__s_1a05031f5e9e1db014cbae7e8c08048291:
+.. _cid-vrna_sc_s::free_data:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	:ref:`vrna_sc_type_e<doxid-constraints__soft_8h_1ab926b4d8c342aa5fb2f8f007200635a8>` type
+	unsigned int n
+	unsigned char state
+	int** :ref:`energy_up<doxid-structvrna__sc__s_1a57e4dbb924ab11f304e3762a3a9b07a1>`
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** :ref:`exp_energy_up<doxid-structvrna__sc__s_1ad3b4972d3b6c23865587e4ac56a37375>`
+	int* :ref:`up_storage<doxid-structvrna__sc__s_1a16c564d3170b7357620860de1e5faed6>`
+	:ref:`vrna_sc_bp_storage_t<doxid-structvrna__sc__bp__storage__t>`** :ref:`bp_storage<doxid-structvrna__sc__s_1a8e261e29462f6bdba3259e5eb61e48e8>`
+	int* :ref:`energy_bp<doxid-structvrna__sc__s_1ad139b8e06632e00cbcf3909815d0d03d>`
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* :ref:`exp_energy_bp<doxid-structvrna__sc__s_1a62c22be478cd630541c91f73e6cb0d75>`
+	int** :ref:`energy_bp_local<doxid-structvrna__sc__s_1ad939d2511afe7b3db9b802fdeff2bac4>`
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** :ref:`exp_energy_bp_local<doxid-structvrna__sc__s_1a6d882019efc1e09d385ef751765b3a80>`
+	int* :ref:`energy_stack<doxid-structvrna__sc__s_1ac20dded6068e81acd0f1139092f66a22>`
+	:ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* :ref:`exp_energy_stack<doxid-structvrna__sc__s_1a4a0058fe3d5ba3416f0aaab677610115>`
+	:ref:`vrna_callback_sc_energy<doxid-group__soft__constraints_1ga88a266695d9e25cc12114dceb7b4565e>`* :ref:`f<doxid-structvrna__sc__s_1a32dc86090237888c75491bbd4861a04b>`
+	:ref:`vrna_callback_sc_backtrack<doxid-group__soft__constraints_1gaeb6448da6c593d4c489c7fbadcb99499>`* :ref:`bt<doxid-structvrna__sc__s_1a2a2aca01782c2b980d7b7fd05b9be89c>`
+	:ref:`vrna_callback_sc_exp_energy<doxid-group__soft__constraints_1ga4099978d410513edeeff8f3db13144c5>`* :ref:`exp_f<doxid-structvrna__sc__s_1a0de08a09f3ccf2f97974d23192668ab0>`
+	void* :ref:`data<doxid-structvrna__sc__s_1a7574680143df97b9029146c2150bf06d>`
+	:ref:`vrna_callback_free_auxdata<doxid-group__fold__compound_1ga7806651f51b195013839a218b3bbd5a3>`* free_data
+
+.. _details-doxid-structvrna__sc__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    The soft constraints data structure.
+
+Fields
+------
+
+.. _doxid-structvrna__sc__s_1a57e4dbb924ab11f304e3762a3a9b07a1:
+.. _cid-vrna_sc_s::energy_up:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int** energy_up
+
+    .. container:: brief-description
+
+        Energy contribution for stretches of unpaired nucleotides.
+
+.. _doxid-structvrna__sc__s_1ad3b4972d3b6c23865587e4ac56a37375:
+.. _cid-vrna_sc_s::exp_energy_up:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** exp_energy_up
+
+    .. container:: brief-description
+
+        Boltzmann Factors of the energy contributions for unpaired sequence stretches.
+
+.. _doxid-structvrna__sc__s_1a16c564d3170b7357620860de1e5faed6:
+.. _cid-vrna_sc_s::up_storage:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* up_storage
+
+    .. container:: brief-description
+
+        Storage container for energy contributions per unpaired nucleotide.
+
+.. _doxid-structvrna__sc__s_1a8e261e29462f6bdba3259e5eb61e48e8:
+.. _cid-vrna_sc_s::bp_storage:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_sc_bp_storage_t<doxid-structvrna__sc__bp__storage__t>`** bp_storage
+
+    .. container:: brief-description
+
+        Storage container for energy contributions per base pair.
+
+.. _doxid-structvrna__sc__s_1ad139b8e06632e00cbcf3909815d0d03d:
+.. _cid-vrna_sc_s::energy_bp:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* energy_bp
+
+    .. container:: brief-description
+
+        Energy contribution for base pairs.
+
+.. _doxid-structvrna__sc__s_1a62c22be478cd630541c91f73e6cb0d75:
+.. _cid-vrna_sc_s::exp_energy_bp:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* exp_energy_bp
+
+    .. container:: brief-description
+
+        Boltzmann Factors of the energy contribution for base pairs.
+
+.. _doxid-structvrna__sc__s_1ad939d2511afe7b3db9b802fdeff2bac4:
+.. _cid-vrna_sc_s::energy_bp_local:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int** energy_bp_local
+
+    .. container:: brief-description
+
+        Energy contribution for base pairs (sliding window approach)
+
+.. _doxid-structvrna__sc__s_1a6d882019efc1e09d385ef751765b3a80:
+.. _cid-vrna_sc_s::exp_energy_bp_local:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`** exp_energy_bp_local
+
+    .. container:: brief-description
+
+        Boltzmann Factors of the energy contribution for base pairs (sliding window approach)
+
+.. _doxid-structvrna__sc__s_1ac20dded6068e81acd0f1139092f66a22:
+.. _cid-vrna_sc_s::energy_stack:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int* energy_stack
+
+    .. container:: brief-description
+
+        Pseudo Energy contribution per base pair involved in a stack.
+
+.. _doxid-structvrna__sc__s_1a4a0058fe3d5ba3416f0aaab677610115:
+.. _cid-vrna_sc_s::exp_energy_stack:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`FLT_OR_DBL<doxid-group__data__structures_1ga31125aeace516926bf7f251f759b6126>`* exp_energy_stack
+
+    .. container:: brief-description
+
+        Boltzmann weighted pseudo energy contribution per nucleotide involved in a stack.
+
+.. _doxid-structvrna__sc__s_1a32dc86090237888c75491bbd4861a04b:
+.. _cid-vrna_sc_s::f:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_callback_sc_energy<doxid-group__soft__constraints_1ga88a266695d9e25cc12114dceb7b4565e>`* f
+
+    .. container:: brief-description
+
+        A function pointer used for pseudo energy contribution in MFE calculations.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_add_f() <doxid-group__soft__constraints_1ga8c7d907ec0125cd61c04e0908010a4e9>`
+
+.. _doxid-structvrna__sc__s_1a2a2aca01782c2b980d7b7fd05b9be89c:
+.. _cid-vrna_sc_s::bt:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_callback_sc_backtrack<doxid-group__soft__constraints_1gaeb6448da6c593d4c489c7fbadcb99499>`* bt
+
+    .. container:: brief-description
+
+        A function pointer used to obtain backtraced base pairs in loop regions that were altered by soft constrained pseudo energy contributions.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_add_bt() <doxid-group__soft__constraints_1gabde7d07a79bb9a8f4721aee247b674ea>`
+
+.. _doxid-structvrna__sc__s_1a0de08a09f3ccf2f97974d23192668ab0:
+.. _cid-vrna_sc_s::exp_f:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_callback_sc_exp_energy<doxid-group__soft__constraints_1ga4099978d410513edeeff8f3db13144c5>`* exp_f
+
+    .. container:: brief-description
+
+        A function pointer used for pseudo energy contribution boltzmann factors in PF calculations.
+
+    .. container:: detailed-description
+
+        
+        
+        .. admonition:: See also:
+        
+            :ref:`vrna_sc_add_exp_f() <doxid-group__soft__constraints_1ga87e382b5d0c9b7d9ce1b79c0473ff700>`
+
+.. _doxid-structvrna__sc__s_1a7574680143df97b9029146c2150bf06d:
+.. _cid-vrna_sc_s::data:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        void* data
+
+    .. container:: brief-description
+
+        A pointer to the data object provided for for pseudo energy contribution functions of the generic soft constraints feature.
+

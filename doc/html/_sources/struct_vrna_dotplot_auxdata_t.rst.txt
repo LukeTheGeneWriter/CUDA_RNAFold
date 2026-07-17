@@ -1,0 +1,54 @@
+.. index:: pair: struct; vrna_dotplot_auxdata_t
+.. _doxid-structvrna__dotplot__auxdata__t:
+.. _cid-vrna_dotplot_auxdata_t:
+
+struct vrna_dotplot_auxdata_t
+=============================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/PS_dot.h>
+
+
+
+
+.. _doxid-structvrna__dotplot__auxdata__t_1a244ff5044623adbb46db61f89a812f4c:
+.. _cid-vrna_dotplot_auxdata_t::comment:
+.. _doxid-structvrna__dotplot__auxdata__t_1a651c8b62c91f07056a2018219f9e3834:
+.. _cid-vrna_dotplot_auxdata_t::title:
+.. _doxid-structvrna__dotplot__auxdata__t_1a5834cd1f871a38c76c91560679864a44:
+.. _cid-vrna_dotplot_auxdata_t::top:
+.. _doxid-structvrna__dotplot__auxdata__t_1a9614c3ff559137f289d318b5a90bab05:
+.. _cid-vrna_dotplot_auxdata_t::top_title:
+.. _doxid-structvrna__dotplot__auxdata__t_1a60035f57164299f6f164d6c7a4dcfd08:
+.. _cid-vrna_dotplot_auxdata_t::bottom:
+.. _doxid-structvrna__dotplot__auxdata__t_1a0afcf35613891c523b9934c563fe4ede:
+.. _cid-vrna_dotplot_auxdata_t::bottom_title:
+.. _doxid-structvrna__dotplot__auxdata__t_1a249418dc916bf2609186240c86dd3f66:
+.. _cid-vrna_dotplot_auxdata_t::left:
+.. _doxid-structvrna__dotplot__auxdata__t_1a69c277c5aae30fae6454933ee29a8123:
+.. _cid-vrna_dotplot_auxdata_t::left_title:
+.. _doxid-structvrna__dotplot__auxdata__t_1aa22630b90143fb534cd68301cb852095:
+.. _cid-vrna_dotplot_auxdata_t::right:
+.. _doxid-structvrna__dotplot__auxdata__t_1acb6f56b185c7c27573ea4a2dfcc15f4d:
+.. _cid-vrna_dotplot_auxdata_t::right_title:
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	char* comment
+	char* title
+	:ref:`vrna_data_lin_t<doxid-group__data__structures_1gaab843d6cdafd5433e3f6fa3b834d12f9>`** top
+	char** top_title
+	:ref:`vrna_data_lin_t<doxid-group__data__structures_1gaab843d6cdafd5433e3f6fa3b834d12f9>`** bottom
+	char** bottom_title
+	:ref:`vrna_data_lin_t<doxid-group__data__structures_1gaab843d6cdafd5433e3f6fa3b834d12f9>`** left
+	char** left_title
+	:ref:`vrna_data_lin_t<doxid-group__data__structures_1gaab843d6cdafd5433e3f6fa3b834d12f9>`** right
+	char** right_title
+

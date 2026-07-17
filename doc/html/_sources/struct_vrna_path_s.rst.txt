@@ -1,0 +1,75 @@
+.. index:: pair: struct; vrna_path_s
+.. _doxid-structvrna__path__s:
+.. _cid-vrna_path_s:
+
+struct vrna_path_s
+==================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/findpath.h>
+
+
+Overview
+--------
+
+An element of a refolding path list. :ref:`More...<details-doxid-structvrna__path__s>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	double :ref:`en<doxid-structvrna__path__s_1ac25160bf31d28097358278f367e41227>`
+	char* :ref:`s<doxid-structvrna__path__s_1a141b70a59cb81d10bc65bbb7a0f6db77>`
+
+.. _details-doxid-structvrna__path__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    An element of a refolding path list.
+
+.. container:: detailed-description
+
+    
+    
+    .. admonition:: See also:
+    
+        :ref:`vrna_path_findpath() <doxid-group__direct__paths_1ga4b2283c4142cafd99678495585fcc842>`
+
+Fields
+------
+
+.. _doxid-structvrna__path__s_1ac25160bf31d28097358278f367e41227:
+.. _cid-vrna_path_s::en:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        double en
+
+    .. container:: brief-description
+
+        Free energy of current structure.
+
+.. _doxid-structvrna__path__s_1a141b70a59cb81d10bc65bbb7a0f6db77:
+.. _cid-vrna_path_s::s:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char* s
+
+    .. container:: brief-description
+
+        Secondary structure in dot-bracket notation.
+

@@ -1,0 +1,54 @@
+.. index:: pair: page; Partition Function and Equilibrium Probabilitiy Algorithm(s)
+.. _doxid-pf_algorithm:
+
+Partition Function and Equilibrium Probabilitiy Algorithm(s)
+============================================================
+
+.. _doxid-pf_algorithm_1sec_pf_intro:
+
+Equilibrium Ensemble Statistics
+-------------------------------
+
+
+In contrast to methods that compute the property of a single structure in the ensemble, e.g. :ref:`Minimum Free Energy Algorithm(s) <doxid-mfe_algorithm>` , the partition function algorithms always consider the entire equilibrium ensemble. For that purpose, the McCaskill algorithm :ref:`[15] <doxid-citelist_1CITEREF_mccaskill:1990>` and its variants can be used to efficiently compute
+
+* the partition function, and from that
+
+* various equilibrium probabilities, for instance base pair probabilities, probabilities of individual structure motifs, and many more.
+
+The principal idea behind this approach is that in equilibrium, statistical mechanics and polymer theory tells us that the frequency or probability :math:`p(s)` of a particular state :math:`s` depends on its energy :math:`E(s)` and follows a Boltzmann distribution, i.e.
+
+.. math::
+
+    p(s) \propto e^{-\beta E(s)} \text{ with } \beta = \frac{1}{kT}
+
+where :math:`k \approx 1.987 \cdot 10^{-3} \frac{kcal}{mol~K}` is the Boltzmann constant, and :math:`T` the thermodynamic temperature. From that relation, the actual probability of state :math:`s` can then be obtained using a proper scaling factor, the *canonical partition function*
+
+.. math::
+
+    Z = \sum_{s \in \Omega} e^{-\beta E(s)}
+
+where :math:`\Omega` is the finite set of all states. Finally, the equilibrium probability of state :math:`s` can be computed as
+
+.. math::
+
+    p(s) = \frac{e^{-\beta E(s)}}{Z}
+
+Instead of enumerating all states exhaustively to compute :math:`Z` one can apply the :ref:`Secondary Structure Folding Recurrences <doxid-folding_grammar_1sec_recursions>` again for an efficient computation in cubic time. An *outside* variant of the same recursions is then used to compute probabilities for base pairs, stretches of consecutive unpaired nucleotides, or structural motifs.
+
+.. _doxid-pf_algorithm_1sec_pf_api:
+
+Partition Function and Equilibrium Probability API
+--------------------------------------------------
+
+
+We implement a wide variety of variants of the partition function algorithm according to McCaskill 1990 :ref:`[15] <doxid-citelist_1CITEREF_mccaskill:1990>` . See the corresponding submodules for specific implementation details.
+
+
+
+.. admonition:: See also:
+
+    Further details of the Partition function and Base Pair Probability algorithm can be obtained from McCaskill 1990 :ref:`[15] <doxid-citelist_1CITEREF_mccaskill:1990>`
+
+    :ref:`Partition function and equilibrium properties <doxid-group__pf__fold>` , :ref:`Partition Function and Base Pair Probabilities for Sequence Alignment(s) <doxid-group__consensus__pf__fold>` , :ref:`Partition Function for two hybridized Sequences <doxid-group__pf__cofold>` , :ref:`Partition Function for two hybridized Sequences as a stepwise Process <doxid-group__up__cofold>` , :ref:`Partition Function and Equilibrium Probabilities for Locally Stable Secondary Structures <doxid-group__local__pf__fold>` , :ref:`Calculate Partition Functions of a Distance Based Partitioning <doxid-group__kl__neighborhood__pf>`
+

@@ -1,0 +1,12 @@
+.. index:: pair: page; Model Details
+.. _doxid-model_settings:
+
+Model Details
+=============
+
+
+
+.. admonition:: See also:
+
+    :ref:`Fine-tuning of the implemented models <doxid-group__model__details>`
+

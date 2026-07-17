@@ -1,0 +1,30 @@
+.. index:: pair: page; Suboptimals and (other) Representative Structures
+.. _doxid-suboptimal_structures:
+
+Suboptimals and (other) Representative Structures
+=================================================
+
+.. _doxid-suboptimal_structures_1sec_suboptimals:
+
+Suboptimal Secondary Structures
+-------------------------------
+
+
+.. _doxid-suboptimal_structures_1sec_samples:
+
+Sampling Secondary Structures from the Ensemble
+-----------------------------------------------
+
+
+.. _doxid-suboptimal_structures_1sec_suboptimals_api:
+
+Structure Enumeration and Sampling API
+--------------------------------------
+
+
+
+
+.. admonition:: See also:
+
+    :ref:`Suboptimal structures sensu Stiegler et al. 1984 / Zuker et al. 1989 <doxid-group__subopt__zuker>` , :ref:`Suboptimal structures within an energy band arround the MFE <doxid-group__subopt__wuchty>` , :ref:`Structure sampling from the ensemble <doxid-group__subopt__stochbt>` , :ref:`Compute the structure with maximum expected accuracy (MEA) <doxid-group__mea__fold>` , :ref:`Compute the centroid structure <doxid-group__centroid__fold>`
+

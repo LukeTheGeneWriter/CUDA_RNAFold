@@ -1,0 +1,87 @@
+.. index:: pair: struct; vrna_move_s
+.. _doxid-structvrna__move__s:
+.. _cid-vrna_move_s:
+
+struct vrna_move_s
+==================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/neighbor.h>
+
+
+Overview
+--------
+
+An atomic representation of the transition / move from one structure to its neighbor. :ref:`More...<details-doxid-structvrna__move__s>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	int :ref:`pos_5<doxid-structvrna__move__s_1a8af908c74786675a456d0f20cc8fcb9b>`
+	int :ref:`pos_3<doxid-structvrna__move__s_1a3849db905a45c4e399991df38705a36b>`
+	:ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* :ref:`next<doxid-structvrna__move__s_1a181681bc3aab907d93e340df4777e759>`
+
+.. _details-doxid-structvrna__move__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    An atomic representation of the transition / move from one structure to its neighbor.
+
+.. container:: detailed-description
+
+    An atomic transition / move may be (a) the insertion of a base pair (both fields are positive), (b) the deletion of a base pair (both fields are negative), or (c) a base pair shift where one position stays constant while the other is allowed to shift along the same loop it resides in (one field position and the other negative, where the positive field indicates the constant position and the absolute value of the negative field is the new position of the pairing partner).
+    
+    A value of 0 is either field is typically used to indicate the lists last element.
+
+Fields
+------
+
+.. _doxid-structvrna__move__s_1a8af908c74786675a456d0f20cc8fcb9b:
+.. _cid-vrna_move_s::pos_5:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int pos_5
+
+    .. container:: detailed-description
+
+        The 5' position of a base pair, or any position of a shifted pair
+
+.. _doxid-structvrna__move__s_1a3849db905a45c4e399991df38705a36b:
+.. _cid-vrna_move_s::pos_3:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        int pos_3
+
+    .. container:: detailed-description
+
+        The 3' position of a base pair, or any position of a shifted pair
+
+.. _doxid-structvrna__move__s_1a181681bc3aab907d93e340df4777e759:
+.. _cid-vrna_move_s::next:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        :ref:`vrna_move_t<doxid-group__neighbors_1ga08630e00206cd163ea29c462bf5f4755>`* next
+
+    .. container:: detailed-description
+
+        The next base pair (if an elementary move changes more than one base pair) Has to be terminated with move 0,0
+

@@ -1,0 +1,18 @@
+.. index:: pair: page; Basic Data Structures
+.. _doxid-data_structures:
+
+Basic Data Structures
+=====================
+
+* :ref:`Sequence and Structure Data <doxid-sequence_structure_data>` shows the most common types for sequence or structure data
+
+* :ref:`The 'Fold Compound' <doxid-fold_compound_container>` is the basic, central container for our implementations of prediction-, evaluation, and other algorithms
+
+* :ref:`Model Details <doxid-model_settings>` provides the means to store the different model parameters
+
+.. toctree::
+	:hidden:
+
+	page_sequence_structure_data.rst
+	page_fold_compound_container.rst
+	page_model_settings.rst

@@ -1,0 +1,137 @@
+.. index:: pair: struct; vrna_pinfo_s
+.. _doxid-structvrna__pinfo__s:
+.. _cid-vrna_pinfo_s:
+
+struct vrna_pinfo_s
+===================
+
+.. toctree::
+	:hidden:
+
+.. code-block:: cpp
+	:class: overview-code-block
+
+	#include <ViennaRNA/aln_util.h>
+
+
+Overview
+--------
+
+A base pair info structure. :ref:`More...<details-doxid-structvrna__pinfo__s>`
+
+.. ref-code-block:: cpp
+	:class: overview-code-block
+
+	// fields
+
+	unsigned :ref:`i<doxid-structvrna__pinfo__s_1ab91db0a87ef8402dc151795ba5a64c6f>`
+	unsigned :ref:`j<doxid-structvrna__pinfo__s_1a4142e38d6ba127acccdf680300a88e1f>`
+	float :ref:`p<doxid-structvrna__pinfo__s_1a71990eae41fa100db8b557e4512ec281>`
+	float :ref:`ent<doxid-structvrna__pinfo__s_1a5ab2a63f3da8e12c6d54d8e9dd9e3e73>`
+	short :ref:`bp<doxid-structvrna__pinfo__s_1aa5feac5559b36dcd7cb38111c45d444d>`[8]
+	char :ref:`comp<doxid-structvrna__pinfo__s_1a0720ae74ce53802a759ee9f98e9c8c43>`
+
+.. _details-doxid-structvrna__pinfo__s:
+
+Detailed Documentation
+----------------------
+
+.. container:: brief-description
+
+    A base pair info structure.
+
+.. container:: detailed-description
+
+    For each base pair (i,j) with i,j in [0, n-1] the structure lists:
+    
+    * its probability 'p'
+    
+    * an entropy-like measure for its well-definedness 'ent'
+    
+    * the frequency of each type of pair in 'bp[]'
+      
+      * 'bp[0]' contains the number of non-compatible sequences
+      
+      * 'bp[1]' the number of CG pairs, etc.
+
+Fields
+------
+
+.. _doxid-structvrna__pinfo__s_1ab91db0a87ef8402dc151795ba5a64c6f:
+.. _cid-vrna_pinfo_s::i:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned i
+
+    .. container:: brief-description
+
+        nucleotide position i
+
+.. _doxid-structvrna__pinfo__s_1a4142e38d6ba127acccdf680300a88e1f:
+.. _cid-vrna_pinfo_s::j:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        unsigned j
+
+    .. container:: brief-description
+
+        nucleotide position j
+
+.. _doxid-structvrna__pinfo__s_1a71990eae41fa100db8b557e4512ec281:
+.. _cid-vrna_pinfo_s::p:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float p
+
+    .. container:: brief-description
+
+        Probability.
+
+.. _doxid-structvrna__pinfo__s_1a5ab2a63f3da8e12c6d54d8e9dd9e3e73:
+.. _cid-vrna_pinfo_s::ent:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        float ent
+
+    .. container:: brief-description
+
+        Pseudo entropy for :math:` p(i,j) = S_i + S_j - p_ij*ln(p_ij) ` .
+
+.. _doxid-structvrna__pinfo__s_1aa5feac5559b36dcd7cb38111c45d444d:
+.. _cid-vrna_pinfo_s::bp:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        short bp [8]
+
+    .. container:: brief-description
+
+        Frequencies of pair_types.
+
+.. _doxid-structvrna__pinfo__s_1a0720ae74ce53802a759ee9f98e9c8c43:
+.. _cid-vrna_pinfo_s::comp:
+.. container:: fields-container
+
+    .. ref-code-block:: cpp
+        :class: title-code-block
+
+        char comp
+
+    .. container:: brief-description
+
+        1 iff pair is in mfe structure
+

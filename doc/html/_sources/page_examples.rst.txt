@@ -1,0 +1,18 @@
+.. index:: pair: page; Examples
+.. _doxid-examples:
+
+Examples
+========
+
+* :ref:`C Examples <doxid-examples_c>`
+
+* :ref:`Perl5 Examples <doxid-examples_perl5>`
+
+* :ref:`Python Examples <doxid-examples_python>`
+
+.. toctree::
+	:hidden:
+
+	page_examples_c.rst
+	page_examples_perl5.rst
+	page_examples_python.rst

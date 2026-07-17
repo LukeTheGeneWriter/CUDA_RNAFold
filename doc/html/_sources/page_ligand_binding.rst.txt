@@ -1,0 +1,34 @@
+.. index:: pair: page; Ligand Binding
+.. _doxid-ligand_binding:
+
+Ligand Binding
+==============
+
+.. _doxid-ligand_binding_1ligand_binding_intro:
+
+Small Molecules and Proteins that bind to specific RNA Structures
+-----------------------------------------------------------------
+
+
+.. _doxid-ligand_binding_1ligand_binding_api:
+
+ligand_binding_api
+------------------
+
+
+In our library, we provide two different ways to incorporate ligand binding to RNA structures:
+
+* :ref:`Ligands binding to unstructured domains <doxid-group__ligands__up>` , and
+
+* :ref:`Incorporating ligands binding to specific sequence/structure motifs using soft constraints <doxid-group__constraints__ligand>`
+
+The first approach is implemented as an actual extension of the folding grammar. It adds auxiliary derivation rules for each case when consecutive unpaired nucleotides are evaluated. Therefore, this model is applicable to ligand binding to any loop context.
+
+The second approach, on the other hand, uses the soft-constraints feature to change the energy evaluation of hairpin- or interior-loops. Hence, it can only be appleid when a ligand binds to a hairpin-like, or interior-loop like motif.
+
+
+
+.. admonition:: See also:
+
+    :ref:`Ligands binding to unstructured domains <doxid-group__ligands__up>` , :ref:`Incorporating ligands binding to specific sequence/structure motifs using soft constraints <doxid-group__constraints__ligand>`
+
