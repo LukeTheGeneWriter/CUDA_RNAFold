@@ -1,0 +1,63 @@
+\hypertarget{char__stream_8h}{}\section{Vienna\+R\+N\+A/char\+\_\+stream.h File Reference}
+\label{char__stream_8h}\index{Vienna\+R\+N\+A/char\+\_\+stream.\+h@{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}
+
+
+Implementation of a dynamic, buffered character stream.  
+
+
+Include dependency graph for char\+\_\+stream.\+h\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=214pt]{char__stream_8h__incl}
+\end{center}
+\end{figure}
+\subsection*{Typedefs}
+\begin{DoxyCompactItemize}
+\item 
+typedef struct vrna\+\_\+cstr\+\_\+s $\ast$ \mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}}
+\end{DoxyCompactItemize}
+\subsection*{Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} \mbox{\hyperlink{group__buffer__utils_gadb2818f368e10a3b60a96bb3c80228d2}{vrna\+\_\+cstr}} (size\+\_\+t size, F\+I\+LE $\ast$output)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga7ec48ec280f699928c70428cc245dc77}{vrna\+\_\+cstr\+\_\+free}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga5a3f6a0a73b3d2d38fe011cdaed0ad28}{vrna\+\_\+cstr\+\_\+close}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gab59ad4781f7de960bdd1af5b1965c94b}{vrna\+\_\+cstr\+\_\+fflush}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf)
+\item 
+const char $\ast$ \mbox{\hyperlink{group__buffer__utils_ga05a1326d7fe8250cb81899f3f875531e}{vrna\+\_\+cstr\+\_\+string}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf)
+\item 
+int \mbox{\hyperlink{group__buffer__utils_ga35fdc69cf004aa57784f1764a31b20a6}{vrna\+\_\+cstr\+\_\+vprintf}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$format, va\+\_\+list args)
+\item 
+int \mbox{\hyperlink{group__buffer__utils_ga3c7eaa46b1e74c4641e4fa5927079462}{vrna\+\_\+cstr\+\_\+printf}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gaa0da077cf03f29808229ab8c0e1e63eb}{vrna\+\_\+cstr\+\_\+message\+\_\+info}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga791a25424f0bc9769ec16a22794c7137}{vrna\+\_\+cstr\+\_\+message\+\_\+vinfo}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$format, va\+\_\+list args)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga0a320b027c942dc85c508788272dd861}{vrna\+\_\+cstr\+\_\+print\+\_\+fasta\+\_\+header}} (\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\+\_\+cstr\+\_\+t}} buf, const char $\ast$head)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga29af50810807da04d6a244f8801728f9}{vrna\+\_\+cstr\+\_\+printf\+\_\+structure}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$structure, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gad4cd97b8943fdb83652cb6b46d91bb44}{vrna\+\_\+cstr\+\_\+vprintf\+\_\+structure}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$structure, const char $\ast$format, va\+\_\+list args)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga31409fdd5c038ee488bdf1ffcc630253}{vrna\+\_\+cstr\+\_\+printf\+\_\+comment}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga9824160bbe620784fcca5f10c4ff247c}{vrna\+\_\+cstr\+\_\+vprintf\+\_\+comment}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format, va\+\_\+list args)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gae5e551ba77b488a728d7e1700ecb0df8}{vrna\+\_\+cstr\+\_\+printf\+\_\+thead}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga6455c968e6190156267d5afdb8f211a0}{vrna\+\_\+cstr\+\_\+vprintf\+\_\+thead}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format, va\+\_\+list args)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_ga525e2673039eb2967cfcb118281ece3c}{vrna\+\_\+cstr\+\_\+printf\+\_\+tbody}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format,...)
+\item 
+void \mbox{\hyperlink{group__buffer__utils_gab10cb243cdf925c41d6d84a5a1df9760}{vrna\+\_\+cstr\+\_\+vprintf\+\_\+tbody}} (struct vrna\+\_\+cstr\+\_\+s $\ast$buf, const char $\ast$format, va\+\_\+list args)
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Implementation of a dynamic, buffered character stream. 
+

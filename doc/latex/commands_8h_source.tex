@@ -1,0 +1,62 @@
+\hypertarget{commands_8h_source}{}\section{commands.\+h}
+\label{commands_8h_source}\index{Vienna\+R\+N\+A/commands.\+h@{Vienna\+R\+N\+A/commands.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_COMMANDS\_H}
+00002 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_COMMANDS\_H}
+00003 
+\Hypertarget{commands_8h_source_l00017}\mbox{\hyperlink{group__file__utils_ga92cb3b5952352b103bcb32e5a99e0e5a}{00017}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\mbox{\hyperlink{group__file__utils_structvrna__command__s}{vrna\_command\_s}} \mbox{\hyperlink{group__file__utils_structvrna__command__s}{vrna\_cmd\_t}};
+00018 
+00019 
+00020 \textcolor{preprocessor}{#include <\mbox{\hyperlink{data__structures_8h}{ViennaRNA/data\_structures.h}}>}
+00021 
+\Hypertarget{commands_8h_source_l00026}\mbox{\hyperlink{group__file__utils_gac54dec838d7b6bebd5df85f71702d324}{00026}} \textcolor{preprocessor}{#define VRNA\_CMD\_PARSE\_HC      1U}
+00027 
+\Hypertarget{commands_8h_source_l00031}\mbox{\hyperlink{group__file__utils_ga8cad3c1f83e6f149829c49a186a83e21}{00031}} \textcolor{preprocessor}{#define VRNA\_CMD\_PARSE\_SC      2U}
+00032 
+\Hypertarget{commands_8h_source_l00036}\mbox{\hyperlink{group__file__utils_ga6c6409780698826b04ebfed9151d7649}{00036}} \textcolor{preprocessor}{#define VRNA\_CMD\_PARSE\_UD      4U}
+00037 
+\Hypertarget{commands_8h_source_l00041}\mbox{\hyperlink{group__file__utils_gaf5e20210173cdb83bf70256a454f284b}{00041}} \textcolor{preprocessor}{#define VRNA\_CMD\_PARSE\_SD      8U}
+00042 
+\Hypertarget{commands_8h_source_l00046}\mbox{\hyperlink{group__file__utils_ga0a6c88e21e366dca14958d69cd024008}{00046}} \textcolor{preprocessor}{#define VRNA\_CMD\_PARSE\_DEFAULTS (VRNA\_CMD\_PARSE\_HC \(\backslash\)}
+00047 \textcolor{preprocessor}{                                 | VRNA\_CMD\_PARSE\_SC \(\backslash\)}
+00048 \textcolor{preprocessor}{                                 | VRNA\_CMD\_PARSE\_UD \(\backslash\)}
+00049 \textcolor{preprocessor}{                                 | VRNA\_CMD\_PARSE\_SD \(\backslash\)}
+00050 \textcolor{preprocessor}{                                 )}
+00051 
+\Hypertarget{commands_8h_source_l00052}\mbox{\hyperlink{group__file__utils_ga8d6c5d6d2936464a11f542b843bd1610}{00052}} \textcolor{preprocessor}{#define VRNA\_CMD\_PARSE\_SILENT   16U}
+00053 
+\Hypertarget{commands_8h_source_l00057}\mbox{\hyperlink{group__file__utils_ga2ea3e452bf3b3f3ca513b3b081a86137}{00057}} \textcolor{keyword}{typedef} \textcolor{keyword}{enum} \{
+\Hypertarget{commands_8h_source_l00058}\mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137a3c0a225034da3be5566da27701106896}{00058}}   \mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137a3c0a225034da3be5566da27701106896}{VRNA\_CMD\_ERROR}}  = -1,
+\Hypertarget{commands_8h_source_l00059}\mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137a6a856bc3495c61ccf9c3cd4fd8eb148c}{00059}}   \mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137a6a856bc3495c61ccf9c3cd4fd8eb148c}{VRNA\_CMD\_LAST}}   = 0,
+\Hypertarget{commands_8h_source_l00060}\mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137afce8f1dd47f4eeb20010b1dbffa1a388}{00060}}   \mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137afce8f1dd47f4eeb20010b1dbffa1a388}{VRNA\_CMD\_HC}},
+\Hypertarget{commands_8h_source_l00061}\mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137a1083bb6aca26bb24de0a66739974e87a}{00061}}   \mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137a1083bb6aca26bb24de0a66739974e87a}{VRNA\_CMD\_SC}},
+\Hypertarget{commands_8h_source_l00062}\mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137a3eb2d309976ff8a8910a747bc9994899}{00062}}   \mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137a3eb2d309976ff8a8910a747bc9994899}{VRNA\_CMD\_MOTIF}},
+\Hypertarget{commands_8h_source_l00063}\mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137adc843a9673ba5ee6e2bff4877c911010}{00063}}   \mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137adc843a9673ba5ee6e2bff4877c911010}{VRNA\_CMD\_UD}},
+\Hypertarget{commands_8h_source_l00064}\mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137aab834c524f6a3d4b51dd5a5f132471b9}{00064}}   \mbox{\hyperlink{group__file__utils_gga2ea3e452bf3b3f3ca513b3b081a86137aab834c524f6a3d4b51dd5a5f132471b9}{VRNA\_CMD\_SD}}
+00065 \} \mbox{\hyperlink{group__file__utils_ga2ea3e452bf3b3f3ca513b3b081a86137}{vrna\_command\_e}};
+00066 
+\Hypertarget{commands_8h_source_l00071}\mbox{\hyperlink{group__file__utils}{00071}} \textcolor{keyword}{struct }\mbox{\hyperlink{group__file__utils_structvrna__command__s}{vrna\_command\_s}} \{
+\Hypertarget{commands_8h_source_l00072}\mbox{\hyperlink{group__file__utils_ab269c4ae50d6bbd3802effcb9837956a}{00072}}   \mbox{\hyperlink{group__file__utils_ga2ea3e452bf3b3f3ca513b3b081a86137}{vrna\_command\_e}}  \mbox{\hyperlink{group__file__utils_ab269c4ae50d6bbd3802effcb9837956a}{type}};
+\Hypertarget{commands_8h_source_l00073}\mbox{\hyperlink{group__file__utils_ad02d33315933a2d62434a759036892a9}{00073}}   \textcolor{keywordtype}{void}            *\mbox{\hyperlink{group__file__utils_ad02d33315933a2d62434a759036892a9}{data}};
+00074 \};
+00075 
+00089 \mbox{\hyperlink{group__file__utils_structvrna__command__s}{vrna\_cmd\_t}} *\mbox{\hyperlink{group__file__utils_ga5d2a64331cff5b1059e7d327545d8a63}{vrna\_file\_commands\_read}}(\textcolor{keyword}{const} \textcolor{keywordtype}{char}    *filename,
+00090                                     \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}  options);
+00091 
+00092 
+00106 \textcolor{keywordtype}{int} \mbox{\hyperlink{group__file__utils_gadbe8c9622f7bcc6dcbe3448b98df8656}{vrna\_file\_commands\_apply}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc,
+00107                              \textcolor{keyword}{const} \textcolor{keywordtype}{char}           *filename,
+00108                              \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}         options);
+00109 
+00110 
+00119 \textcolor{keywordtype}{int} \mbox{\hyperlink{group__file__utils_ga5e993fc4b9602af73aaaab4d3b3cd9a9}{vrna\_commands\_apply}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *vc,
+00120                         \mbox{\hyperlink{group__file__utils_structvrna__command__s}{vrna\_cmd\_t}}            *commands,
+00121                         \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}          options);
+00122 
+00123 
+00130 \textcolor{keywordtype}{void} \mbox{\hyperlink{group__file__utils_ga926fd7632e68f3da2e2069402b80b1ab}{vrna\_commands\_free}}(\mbox{\hyperlink{group__file__utils_structvrna__command__s}{vrna\_cmd\_t}} *commands);
+00131 
+00132 
+00137 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}

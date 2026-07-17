@@ -1,0 +1,140 @@
+\hypertarget{exterior__loops_8h_source}{}\section{exterior\+\_\+loops.\+h}
+\label{exterior__loops_8h_source}\index{Vienna\+R\+N\+A/exterior\+\_\+loops.\+h@{Vienna\+R\+N\+A/exterior\+\_\+loops.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_EXTERIOR\_LOOPS\_H}
+00002 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_EXTERIOR\_LOOPS\_H}
+00003 
+00004 \textcolor{preprocessor}{#include <\mbox{\hyperlink{data__structures_8h}{ViennaRNA/data\_structures.h}}>}
+00005 \textcolor{preprocessor}{#include <\mbox{\hyperlink{params_8h}{ViennaRNA/params.h}}>}
+00006 
+00007 \textcolor{preprocessor}{#ifdef VRNA\_WARN\_DEPRECATED}
+00008 \textcolor{preprocessor}{# if defined(\_\_clang\_\_)}
+00009 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func \_\_attribute\_\_ ((deprecated("", msg)))}
+00010 \textcolor{preprocessor}{# elif defined(\_\_GNUC\_\_)}
+00011 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func \_\_attribute\_\_ ((deprecated(msg)))}
+00012 \textcolor{preprocessor}{# else}
+00013 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func}
+00014 \textcolor{preprocessor}{# endif}
+00015 \textcolor{preprocessor}{#else}
+\Hypertarget{exterior__loops_8h_source_l00016}\mbox{\hyperlink{exterior__loops_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{00016}} \textcolor{preprocessor}{# define DEPRECATED(func, msg) func}
+00017 \textcolor{preprocessor}{#endif}
+00018 
+\Hypertarget{exterior__loops_8h_source_l00037}\mbox{\hyperlink{group__loops_gaf9d5160c11ffad3ec258124a77fee13c}{00037}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }vrna\_mx\_pf\_aux\_el\_s *\mbox{\hyperlink{group__loops_gaf9d5160c11ffad3ec258124a77fee13c}{vrna\_mx\_pf\_aux\_el\_t}};
+00038 
+00039 
+00057 \textcolor{keywordtype}{int}
+00058 \mbox{\hyperlink{group__loops_gaa0c313c90da11aa741dcd62746d85337}{vrna\_E\_ext\_stem}}(\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}  type,
+00059                 \textcolor{keywordtype}{int}           n5d,
+00060                 \textcolor{keywordtype}{int}           n3d,
+00061                 \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}}  *p);
+00062 
+00063 
+00081 \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}}
+00082 \mbox{\hyperlink{group__loops_ga357484958d3cd677f88f16c75c8a5730}{vrna\_exp\_E\_ext\_stem}}(\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}      type,
+00083                     \textcolor{keywordtype}{int}               n5d,
+00084                     \textcolor{keywordtype}{int}               n3d,
+00085                     \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}}  *p);
+00086 
+00087 
+00107 \textcolor{keywordtype}{int}
+00108 \mbox{\hyperlink{group__loops_gafe7e94269aaae793a09427364ebb1ec0}{vrna\_E\_ext\_loop}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *vc,
+00109                 \textcolor{keywordtype}{int}                   i,
+00110                 \textcolor{keywordtype}{int}                   j);
+00111 
+00112 
+00113 \textcolor{keywordtype}{int}
+00114 \mbox{\hyperlink{group__loops_ga5dfb0f165d3a69a1a1ba82ace3002f0d}{vrna\_E\_ext\_loop\_5}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc);
+00115 
+00116 
+00117 \textcolor{keywordtype}{int}
+00118 \mbox{\hyperlink{group__loops_ga6e57363a8ff3597cc69181c33fbb8196}{vrna\_E\_ext\_loop\_3}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *fc,
+00119                   \textcolor{keywordtype}{int}                   i);
+00120 
+00121 
+00122 \textcolor{keywordtype}{int}
+00123 \mbox{\hyperlink{group__loops_ga55074e49f49ac4cd71395b1bb7a35f5b}{vrna\_BT\_ext\_loop\_f5}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *vc,
+00124                     \textcolor{keywordtype}{int}                   *k,
+00125                     \textcolor{keywordtype}{int}                   *i,
+00126                     \textcolor{keywordtype}{int}                   *j,
+00127                     \mbox{\hyperlink{group__data__structures_structvrna__bp__stack__s}{vrna\_bp\_stack\_t}}       *bp\_stack,
+00128                     \textcolor{keywordtype}{int}                   *stack\_count);
+00129 
+00130 
+00131 \textcolor{keywordtype}{int}
+00132 \mbox{\hyperlink{group__loops_gaf80500114aa4eed8f9dba1e98a1056a7}{vrna\_BT\_ext\_loop\_f3}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *vc,
+00133                     \textcolor{keywordtype}{int}                   *k,
+00134                     \textcolor{keywordtype}{int}                   maxdist,
+00135                     \textcolor{keywordtype}{int}                   *i,
+00136                     \textcolor{keywordtype}{int}                   *j,
+00137                     \mbox{\hyperlink{group__data__structures_structvrna__bp__stack__s}{vrna\_bp\_stack\_t}}       *bp\_stack,
+00138                     \textcolor{keywordtype}{int}                   *stack\_count);
+00139 
+00140 
+00141 \textcolor{keywordtype}{int}
+00142 \mbox{\hyperlink{group__loops_gaf5360c7f7f85f5d557592a3336bef945}{vrna\_BT\_ext\_loop\_f3\_pp}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *fc,
+00143                        \textcolor{keywordtype}{int}                  *i,
+00144                        \textcolor{keywordtype}{int}                  maxdist);
+00145 
+00146 
+00147 \textcolor{keyword}{struct }vrna\_mx\_pf\_aux\_el\_s *
+00148 \mbox{\hyperlink{group__loops_ga3da479a5c627d50530d81f028c181731}{vrna\_exp\_E\_ext\_fast\_init}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc);
+00149 
+00150 
+00151 \textcolor{keywordtype}{void}
+00152 \mbox{\hyperlink{group__loops_gabe4ed7e3d6152a3b9db4e4ed762aa1ba}{vrna\_exp\_E\_ext\_fast\_rotate}}(\textcolor{keyword}{struct} vrna\_mx\_pf\_aux\_el\_s *aux\_mx);
+00153 
+00154 
+00155 \textcolor{keywordtype}{void}
+00156 \mbox{\hyperlink{group__loops_ga4357b7937f1b840f063e44b859332f98}{vrna\_exp\_E\_ext\_fast\_free}}(\textcolor{keyword}{struct} vrna\_mx\_pf\_aux\_el\_s *aux\_mx);
+00157 
+00158 
+00159 \mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}}
+00160 \mbox{\hyperlink{group__loops_ga1c40acdc5e007f72d37a404127e9bcfb}{vrna\_exp\_E\_ext\_fast}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}        *vc,
+00161                     \textcolor{keywordtype}{int}                         i,
+00162                     \textcolor{keywordtype}{int}                         j,
+00163                     \textcolor{keyword}{struct} vrna\_mx\_pf\_aux\_el\_s  *aux\_mx);
+00164 
+00165 
+00166 \textcolor{keywordtype}{void}
+00167 \mbox{\hyperlink{group__loops_gaceb115e3d8855129797620b3b26882d5}{vrna\_exp\_E\_ext\_fast\_update}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}       *fc,
+00168                            \textcolor{keywordtype}{int}                        j,
+00169                            \textcolor{keyword}{struct} vrna\_mx\_pf\_aux\_el\_s *aux\_mx);
+00170 
+00171 
+00172 \textcolor{preprocessor}{#ifndef VRNA\_DISABLE\_BACKWARD\_COMPATIBILITY}
+00173 
+00220 \mbox{\hyperlink{exterior__loops_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\textcolor{keywordtype}{int} \mbox{\hyperlink{group__loops_ga51f9851f3500c2aae66674142a6a2dd5}{E\_Stem}}(\textcolor{keywordtype}{int}           type,
+00221                       \textcolor{keywordtype}{int}           si1,
+00222                       \textcolor{keywordtype}{int}           sj1,
+00223                       \textcolor{keywordtype}{int}           extLoop,
+00224                       \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}}  *P),
+00225            \textcolor{stringliteral}{"This function is obsolete"});
+00226 
+00227 
+00228 \mbox{\hyperlink{exterior__loops_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\textcolor{keywordtype}{int} \mbox{\hyperlink{group__loops_ga05c6288c5a79d3bd5ad6d33c1bb34bd0}{E\_ExtLoop}}(\textcolor{keywordtype}{int}          type,
+00229                          \textcolor{keywordtype}{int}          si1,
+00230                          \textcolor{keywordtype}{int}          sj1,
+00231                          \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}} *P),
+00232            \textcolor{stringliteral}{"Use vrna\_E\_ext\_stem() instead"});
+00233 
+00234 
+00242 \mbox{\hyperlink{exterior__loops_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__loops_ga446828a191c127861e76e2c84055f672}{exp\_E\_ExtLoop}}(\textcolor{keywordtype}{int}               type,
+00243                                     \textcolor{keywordtype}{int}               si1,
+00244                                     \textcolor{keywordtype}{int}               sj1,
+00245                                     \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}}  *P),
+00246            \textcolor{stringliteral}{"Use vrna\_exp\_E\_ext\_stem() instead"});
+00247 
+00248 
+00257 \mbox{\hyperlink{exterior__loops_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__data__structures_ga31125aeace516926bf7f251f759b6126}{FLT\_OR\_DBL}} \mbox{\hyperlink{group__loops_gab0aa9833ab41875a91a9be8a5ffd7092}{exp\_E\_Stem}}(\textcolor{keywordtype}{int}              type,
+00258                                  \textcolor{keywordtype}{int}              si1,
+00259                                  \textcolor{keywordtype}{int}              sj1,
+00260                                  \textcolor{keywordtype}{int}              extLoop,
+00261                                  \mbox{\hyperlink{group__energy__parameters_structvrna__exp__param__s}{vrna\_exp\_param\_t}} *P),
+00262            \textcolor{stringliteral}{"This function is obsolete"});
+00263 
+00264 
+00265 \textcolor{preprocessor}{#endif}
+00266 
+00272 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}

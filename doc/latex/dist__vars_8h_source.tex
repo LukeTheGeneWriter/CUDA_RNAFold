@@ -1,0 +1,35 @@
+\hypertarget{dist__vars_8h_source}{}\section{dist\+\_\+vars.\+h}
+\label{dist__vars_8h_source}\index{Vienna\+R\+N\+A/dist\+\_\+vars.\+h@{Vienna\+R\+N\+A/dist\+\_\+vars.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_DIST\_VARS\_H}
+00002 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_DIST\_VARS\_H}
+00003 
+00015 \textcolor{keyword}{extern} \textcolor{keywordtype}{int}   \mbox{\hyperlink{dist__vars_8h_aa03194c513af6b860e7b33e370b82bdb}{edit\_backtrack}};
+00016 
+00021 \textcolor{keyword}{extern} \textcolor{keywordtype}{char} *\mbox{\hyperlink{dist__vars_8h_ac1605fe3448ad0a0b809c4fb8f6a854a}{aligned\_line}}[4];
+00022 
+00029 \textcolor{keyword}{extern} \textcolor{keywordtype}{int}  \mbox{\hyperlink{dist__vars_8h_ab65d8ff14c6937612212526a60f59b3c}{cost\_matrix}};
+00030 
+00031 \textcolor{comment}{/*  Global type defs for Distance-Package */}
+00032 
+\Hypertarget{dist__vars_8h_source_l00036}\mbox{\hyperlink{struct_postorder__list}{00036}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\{
+\Hypertarget{dist__vars_8h_source_l00037}\mbox{\hyperlink{struct_postorder__list_ad343960ea507b59bdca376ac0526e47e}{00037}}                  \textcolor{keywordtype}{int}  \mbox{\hyperlink{struct_postorder__list_ad343960ea507b59bdca376ac0526e47e}{type}};
+\Hypertarget{dist__vars_8h_source_l00038}\mbox{\hyperlink{struct_postorder__list_a3e51b5eb1abf664a859e19112280abb4}{00038}}                  \textcolor{keywordtype}{int}  \mbox{\hyperlink{struct_postorder__list_a3e51b5eb1abf664a859e19112280abb4}{weight}};
+\Hypertarget{dist__vars_8h_source_l00039}\mbox{\hyperlink{struct_postorder__list_ab41ab9f9394007a89d316e75b76acfab}{00039}}                  \textcolor{keywordtype}{int}  \mbox{\hyperlink{struct_postorder__list_ab41ab9f9394007a89d316e75b76acfab}{father}};
+\Hypertarget{dist__vars_8h_source_l00040}\mbox{\hyperlink{struct_postorder__list_a058d36bce140d937db829fcd2067af9f}{00040}}                  \textcolor{keywordtype}{int}  \mbox{\hyperlink{struct_postorder__list_a058d36bce140d937db829fcd2067af9f}{sons}};
+\Hypertarget{dist__vars_8h_source_l00041}\mbox{\hyperlink{struct_postorder__list_a23626266a53e5d2860905d1f16658afc}{00041}}                  \textcolor{keywordtype}{int}  \mbox{\hyperlink{struct_postorder__list_a23626266a53e5d2860905d1f16658afc}{leftmostleaf}};
+00042                \} \mbox{\hyperlink{struct_postorder__list}{Postorder\_list}};
+00043 
+\Hypertarget{dist__vars_8h_source_l00047}\mbox{\hyperlink{struct_tree}{00047}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\{
+\Hypertarget{dist__vars_8h_source_l00048}\mbox{\hyperlink{struct_tree_a11e6daf12b69525b6ecb02650e01a6a5}{00048}}                  \mbox{\hyperlink{struct_postorder__list}{Postorder\_list}} *\mbox{\hyperlink{struct_tree_a11e6daf12b69525b6ecb02650e01a6a5}{postorder\_list}};
+\Hypertarget{dist__vars_8h_source_l00049}\mbox{\hyperlink{struct_tree_ae5771e9ab03f7d22aacd67e04069147d}{00049}}                  \textcolor{keywordtype}{int}            *\mbox{\hyperlink{struct_tree_ae5771e9ab03f7d22aacd67e04069147d}{keyroots}};
+00050                \} \mbox{\hyperlink{struct_tree}{Tree}};
+00051 
+\Hypertarget{dist__vars_8h_source_l00055}\mbox{\hyperlink{structsw_string}{00055}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\{
+\Hypertarget{dist__vars_8h_source_l00056}\mbox{\hyperlink{structsw_string_addebb11cfebe93604a0ee3ac05e743ad}{00056}}                  \textcolor{keywordtype}{int}    \mbox{\hyperlink{structsw_string_addebb11cfebe93604a0ee3ac05e743ad}{type}};
+\Hypertarget{dist__vars_8h_source_l00057}\mbox{\hyperlink{structsw_string_a6a55abcf6f7a4f0b4f8a01e0fd9a2d02}{00057}}                  \textcolor{keywordtype}{int}    \mbox{\hyperlink{structsw_string_a6a55abcf6f7a4f0b4f8a01e0fd9a2d02}{sign}};
+\Hypertarget{dist__vars_8h_source_l00058}\mbox{\hyperlink{structsw_string_a59272a18126fcf037501e0c80982949a}{00058}}                  \textcolor{keywordtype}{float}  \mbox{\hyperlink{structsw_string_a59272a18126fcf037501e0c80982949a}{weight}};
+00059                \} \mbox{\hyperlink{structsw_string}{swString}};
+00060 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}

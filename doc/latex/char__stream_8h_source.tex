@@ -1,0 +1,114 @@
+\hypertarget{char__stream_8h_source}{}\section{char\+\_\+stream.\+h}
+\label{char__stream_8h_source}\index{Vienna\+R\+N\+A/char\+\_\+stream.\+h@{Vienna\+R\+N\+A/char\+\_\+stream.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_CHAR\_STREAM\_H}
+00002 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_CHAR\_STREAM\_H}
+00003 
+00015 \textcolor{preprocessor}{#include <stdarg.h>}
+00016 
+00017 \textcolor{comment}{/* below is our own implementation of a dynamic char * stream */}
+\Hypertarget{char__stream_8h_source_l00018}\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{00018}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }vrna\_cstr\_s *\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}};
+00019 
+00020 \mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}}
+00021 \mbox{\hyperlink{group__buffer__utils_gadb2818f368e10a3b60a96bb3c80228d2}{vrna\_cstr}}(\textcolor{keywordtype}{size\_t}  size,
+00022           FILE    *output);
+00023 
+00024 
+00025 \textcolor{keywordtype}{void}
+00026 \mbox{\hyperlink{group__buffer__utils_ga7ec48ec280f699928c70428cc245dc77}{vrna\_cstr\_free}}(\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}} buf);
+00027 
+00028 
+00029 \textcolor{keywordtype}{void}
+00030 \mbox{\hyperlink{group__buffer__utils_ga5a3f6a0a73b3d2d38fe011cdaed0ad28}{vrna\_cstr\_close}}(\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}} buf);
+00031 
+00032 
+00033 \textcolor{keywordtype}{void}
+00034 \mbox{\hyperlink{group__buffer__utils_gab59ad4781f7de960bdd1af5b1965c94b}{vrna\_cstr\_fflush}}(\textcolor{keyword}{struct} vrna\_cstr\_s *buf);
+00035 
+00036 
+00037 \textcolor{keyword}{const} \textcolor{keywordtype}{char} *
+00038 \mbox{\hyperlink{group__buffer__utils_ga05a1326d7fe8250cb81899f3f875531e}{vrna\_cstr\_string}}(\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}} buf);
+00039 
+00040 
+00041 \textcolor{keywordtype}{int}
+00042 \mbox{\hyperlink{group__buffer__utils_ga35fdc69cf004aa57784f1764a31b20a6}{vrna\_cstr\_vprintf}}(\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}} buf,
+00043                   \textcolor{keyword}{const} \textcolor{keywordtype}{char}  *format,
+00044                   va\_list     args);
+00045 
+00046 
+00047 \textcolor{keywordtype}{int}
+00048 \mbox{\hyperlink{group__buffer__utils_ga3c7eaa46b1e74c4641e4fa5927079462}{vrna\_cstr\_printf}}(\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}}  buf,
+00049                  \textcolor{keyword}{const} \textcolor{keywordtype}{char}   *format,
+00050                  ...);
+00051 
+00052 
+00053 \textcolor{keywordtype}{void}
+00054 \mbox{\hyperlink{group__buffer__utils_gaa0da077cf03f29808229ab8c0e1e63eb}{vrna\_cstr\_message\_info}}(\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}}  buf,
+00055                        \textcolor{keyword}{const} \textcolor{keywordtype}{char}   *format,
+00056                        ...);
+00057 
+00058 
+00059 \textcolor{keywordtype}{void}
+00060 \mbox{\hyperlink{group__buffer__utils_ga791a25424f0bc9769ec16a22794c7137}{vrna\_cstr\_message\_vinfo}}(\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}} buf,
+00061                         \textcolor{keyword}{const} \textcolor{keywordtype}{char}  *format,
+00062                         va\_list     args);
+00063 
+00064 
+00065 \textcolor{keywordtype}{void}
+00066 \mbox{\hyperlink{group__buffer__utils_ga0a320b027c942dc85c508788272dd861}{vrna\_cstr\_print\_fasta\_header}}(\mbox{\hyperlink{group__buffer__utils_ga445bbbcfca238a956bbc11862892adc8}{vrna\_cstr\_t}}  buf,
+00067                              \textcolor{keyword}{const} \textcolor{keywordtype}{char}   *head);
+00068 
+00069 
+00070 \textcolor{keywordtype}{void}
+00071 \mbox{\hyperlink{group__buffer__utils_ga29af50810807da04d6a244f8801728f9}{vrna\_cstr\_printf\_structure}}(\textcolor{keyword}{struct} vrna\_cstr\_s *buf,
+00072                            \textcolor{keyword}{const} \textcolor{keywordtype}{char}         *structure,
+00073                            \textcolor{keyword}{const} \textcolor{keywordtype}{char}         *format,
+00074                            ...);
+00075 
+00076 
+00077 \textcolor{keywordtype}{void}
+00078 \mbox{\hyperlink{group__buffer__utils_gad4cd97b8943fdb83652cb6b46d91bb44}{vrna\_cstr\_vprintf\_structure}}(\textcolor{keyword}{struct} vrna\_cstr\_s  *buf,
+00079                             \textcolor{keyword}{const} \textcolor{keywordtype}{char}          *structure,
+00080                             \textcolor{keyword}{const} \textcolor{keywordtype}{char}          *format,
+00081                             va\_list             args);
+00082 
+00083 
+00084 \textcolor{keywordtype}{void}
+00085 \mbox{\hyperlink{group__buffer__utils_ga31409fdd5c038ee488bdf1ffcc630253}{vrna\_cstr\_printf\_comment}}(\textcolor{keyword}{struct} vrna\_cstr\_s *buf,
+00086                          \textcolor{keyword}{const} \textcolor{keywordtype}{char}         *format,
+00087                          ...);
+00088 
+00089 
+00090 \textcolor{keywordtype}{void}
+00091 \mbox{\hyperlink{group__buffer__utils_ga9824160bbe620784fcca5f10c4ff247c}{vrna\_cstr\_vprintf\_comment}}(\textcolor{keyword}{struct} vrna\_cstr\_s  *buf,
+00092                           \textcolor{keyword}{const} \textcolor{keywordtype}{char}          *format,
+00093                           va\_list             args);
+00094 
+00095 
+00096 \textcolor{keywordtype}{void}
+00097 \mbox{\hyperlink{group__buffer__utils_gae5e551ba77b488a728d7e1700ecb0df8}{vrna\_cstr\_printf\_thead}}(\textcolor{keyword}{struct} vrna\_cstr\_s *buf,
+00098                        \textcolor{keyword}{const} \textcolor{keywordtype}{char}         *format,
+00099                        ...);
+00100 
+00101 
+00102 \textcolor{keywordtype}{void}
+00103 \mbox{\hyperlink{group__buffer__utils_ga6455c968e6190156267d5afdb8f211a0}{vrna\_cstr\_vprintf\_thead}}(\textcolor{keyword}{struct} vrna\_cstr\_s  *buf,
+00104                         \textcolor{keyword}{const} \textcolor{keywordtype}{char}          *format,
+00105                         va\_list             args);
+00106 
+00107 
+00108 \textcolor{keywordtype}{void}
+00109 \mbox{\hyperlink{group__buffer__utils_ga525e2673039eb2967cfcb118281ece3c}{vrna\_cstr\_printf\_tbody}}(\textcolor{keyword}{struct} vrna\_cstr\_s *buf,
+00110                        \textcolor{keyword}{const} \textcolor{keywordtype}{char}         *format,
+00111                        ...);
+00112 
+00113 
+00114 \textcolor{keywordtype}{void}
+00115 \mbox{\hyperlink{group__buffer__utils_gab10cb243cdf925c41d6d84a5a1df9760}{vrna\_cstr\_vprintf\_tbody}}(\textcolor{keyword}{struct} vrna\_cstr\_s  *buf,
+00116                         \textcolor{keyword}{const} \textcolor{keywordtype}{char}          *format,
+00117                         va\_list             args);
+00118 
+00119 
+00124 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}

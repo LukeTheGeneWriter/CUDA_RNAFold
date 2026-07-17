@@ -1,0 +1,105 @@
+\hypertarget{energy__par_8h_source}{}\section{energy\+\_\+par.\+h}
+\label{energy__par_8h_source}\index{Vienna\+R\+N\+A/energy\+\_\+par.\+h@{Vienna\+R\+N\+A/energy\+\_\+par.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{comment}{/*}
+00002 \textcolor{comment}{   prototypes for energy\_par.c}
+00003 \textcolor{comment}{*/}
+00004 
+00005 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_ENERGY\_PAR\_H}
+00006 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_ENERGY\_PAR\_H}
+00007 
+00008 \textcolor{preprocessor}{#include <\mbox{\hyperlink{energy__const_8h}{ViennaRNA/energy\_const.h}}>}
+00009 
+\Hypertarget{energy__par_8h_source_l00010}\mbox{\hyperlink{energy__par_8h_ad17d551e31d1828c68acf40684849b7e}{00010}} \textcolor{preprocessor}{#define PUBLIC}
+00011 
+00012 
+00013 \textcolor{keyword}{extern} \textcolor{keywordtype}{double} \mbox{\hyperlink{energy__par_8h_aafe1fdfc28a6d9f8b3fa96f20120f58d}{lxc37}};   \textcolor{comment}{/* parameter for logarithmic loop}
+00014 \textcolor{comment}{        energy extrapolation            */}
+00015 
+00016 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a07a05f9225f7a323223bb8138dbedcfd}{stack37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1];
+00017 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ab566ac95a165c30ba85a189e70687d87}{stackdH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1]; \textcolor{comment}{/* stack enthalpies */}
+00018 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a82e8c7aace13cea7e8191577dd79d2ea}{entropies}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1];  \textcolor{comment}{/* not used anymore */}
+00019 
+00020 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a385c984b1d7cf08a4eeab97ae4e1cbce}{hairpin37}}[31];
+00021 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a7eb4ad4fa5cf8de2d7c942c8a1da08cf}{hairpindH}}[31];
+00022 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_aa0b2593fdbc61b69d236d886cfdfd5b0}{bulge37}}[31];
+00023 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a9a7cad63ed3bd7c23edf6d25b60028c7}{bulgedH}}[31];
+00024 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_aacdb90754d3a81411f3f57c31d1228f1}{internal\_loop37}}[31];
+00025 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_aa3c3b0adf0821cb767383770b1874792}{internal\_loopdH}}[31];
+00026 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a49ad0dffac0fe7323dde8ff26529221e}{internal2\_energy}};
+00027 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ac050a937dab557b92f8d31d5e8716e04}{old\_mismatch\_37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];
+00028 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a4c3b4831cf1d81dd9b115953ff922a16}{mismatchI37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* interior loop mismatches */}
+00029 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a210a7f90df521bf90ec8280e4395d341}{mismatchIdH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* interior loop mismatches */}
+00030 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a739c0ba2201cc4e33885850c62310b67}{mismatch1nI37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* interior loop mismatches */}
+00031 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a89d4a2152a5de4636fa7ed5b070203d5}{mismatch23I37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* interior loop mismatches */}
+00032 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a8b78de1f4c400b7a88a66437e8efa92e}{mismatch1nIdH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* interior loop mismatches */}
+00033 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ad170148d56b74f45bf81f4cceb0523d6}{mismatch23IdH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* interior loop mismatches */}
+00034 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a27b5f33cb18607c75a59c0f5e353c637}{mismatchH37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* same for hairpins */}
+00035 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a1b963918207036d0b61d71795d35f75e}{mismatchM37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* same for multiloops */}
+00036 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a0f54bc1972bdc95863efef7fb501dbce}{mismatchHdH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* same for hairpins */}
+00037 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ae715b2cbeacb0d96d1df9947d2decfa2}{mismatchMdH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];  \textcolor{comment}{/* same for multiloops */}
+00038 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ae36f09c9aa6d5b27fa5597ac4fb96ecc}{mismatchExt37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];
+00039 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ab74c0893fa1c97253ac3ceb2d3fc6123}{mismatchExtdH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];
+00040 
+00041 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a8e6d72a8737d5c7b46212770c2e6c994}{dangle5\_37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5];      \textcolor{comment}{/* 5' dangle exterior of pair */}
+00042 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a25a3b27c4a4b9c24c57660d0676e3d99}{dangle3\_37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5];      \textcolor{comment}{/* 3' dangle */}
+00043 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a0188b404d5cffcc8c8087f95a172fad8}{dangle3\_dH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5];       \textcolor{comment}{/* corresponding enthalpies */}
+00044 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a09c983df2bf3d30166970616810ebc85}{dangle5\_dH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5];
+00045 
+00046 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a5ce407e35ea8eb31a879ef3af03a4a20}{int11\_37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5]; \textcolor{comment}{/* 1x1 interior loops */}
+00047 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_af9c5d0b1c33e90220ae3fc6fd84386fe}{int11\_dH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5];
+00048 
+00049 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_aa8df09eca1201cc4dccea2832d27232f}{int21\_37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5][5]; \textcolor{comment}{/* 2x1 interior loops */}
+00050 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a5b6ac29162181b178d2f58f91450f06b}{int21\_dH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5][5];
+00051 
+00052 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ada543e3b3216d02bba5eff14da07e952}{int22\_37}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5][5][5]; \textcolor{comment}{/* 2x2 interior loops */}
+00053 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_adc1c62b577f34801bd926069a4115d04}{int22\_dH}}[\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][\mbox{\hyperlink{1_88_84__epars_8h_a5e75221c779d618eab81e096f37e32ce}{NBPAIRS}}+1][5][5][5][5];
+00054 
+00055 \textcolor{comment}{/* constants for linearly destabilizing contributions for multi-loops}
+00056 \textcolor{comment}{   F = ML\_closing + ML\_intern*(k-1) + ML\_BASE*u  */}
+00057 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_aa208d0b2c88f80e41fe7ad48fa71eb3e}{ML\_BASE37}};
+00058 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a23693e84606198c3a49e9e8b775feba4}{ML\_BASEdH}};
+00059 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_aa6bafab290cbd455c69ed85d12b4fe59}{ML\_closing37}};
+00060 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ae9d3b8022f5f0dd76abeee016957ab65}{ML\_closingdH}};
+00061 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a902a08f1f11b5158ebb3859416eca595}{ML\_intern37}};
+00062 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ad1f20f24a24df9469f64ac98978dda64}{ML\_interndH}};
+00063 
+00064 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a6cd50355c8c726458ea5775aa890c9d4}{TripleC37}};
+00065 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ac4520a5c733b4a9d31db08d727254acc}{TripleCdH}};
+00066 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_afcf54e03dc6ce27256074033fb0c9c74}{MultipleCA37}};
+00067 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_abb119521c43c3f76e10da98cf7ae2700}{MultipleCAdH}};
+00068 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a162240e45cfcc172bca85bf538ddacaf}{MultipleCB37}};
+00069 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a5d695905709b5efbe2442d78b42c3a38}{MultipleCBdH}};
+00070 
+00071 \textcolor{comment}{/* Ninio-correction for asymmetric internal loops with branches n1 and n2 */}
+00072 \textcolor{comment}{/*    ninio\_energy = min\{max\_ninio, |n1-n2|*F\_ninio[min\{4.0, n1, n2\}] \} */}
+00073 \textcolor{keyword}{extern} \textcolor{keywordtype}{int}  \mbox{\hyperlink{energy__par_8h_a700828dfe2f8687d005949773c9c7e7c}{MAX\_NINIO}};                   \textcolor{comment}{/* maximum correction */}
+00074 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a0d906e1d41378f9b53bb45f7426f4695}{ninio37}};
+00075 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a2994846e448f1f93ac799740e3fbffe0}{niniodH}};
+00076 \textcolor{comment}{/* penalty for helices terminated by AU (actually not GC) */}
+00077 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a829cfda827f4106da89eb38fee4a1118}{TerminalAU37}};
+00078 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_acf677f5416b5d1947f9355b127899429}{TerminalAUdH}};
+00079 \textcolor{comment}{/* penalty for forming bi-molecular duplex */}
+00080 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a07e600c35015232425bad8f157a9dae7}{DuplexInit37}};
+00081 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a05b319b999e2e343a658eb360fd20e19}{DuplexInitdH}};
+00082 \textcolor{comment}{/* stabilizing contribution due to special hairpins of size 4 (tetraloops) */}
+00083 \textcolor{keyword}{extern} \textcolor{keywordtype}{char} \mbox{\hyperlink{energy__par_8h_a44ee027652e844fbaa8d617e0b623bf4}{Tetraloops}}[];  \textcolor{comment}{/* string containing the special tetraloops */}
+00084 \textcolor{keyword}{extern} \textcolor{keywordtype}{int}  \mbox{\hyperlink{energy__par_8h_aad56dbee12daa1782525c019321e0dad}{Tetraloop37}}[];  \textcolor{comment}{/* Bonus energy for special tetraloops */}
+00085 \textcolor{keyword}{extern} \textcolor{keywordtype}{int}  \mbox{\hyperlink{energy__par_8h_af6e7903d043cbb6e2f5a036a81e76744}{TetraloopdH}}[];
+00086 \textcolor{keyword}{extern} \textcolor{keywordtype}{char} \mbox{\hyperlink{energy__par_8h_acafd63416e68ac8cd304bc1fd833549d}{Triloops}}[];    \textcolor{comment}{/* string containing the special triloops */}
+00087 \textcolor{keyword}{extern} \textcolor{keywordtype}{int}  \mbox{\hyperlink{energy__par_8h_aeb4b563deb88f83178b04bcecfe079eb}{Triloop37}}[]; \textcolor{comment}{/* Bonus energy for special Triloops */}
+00088 \textcolor{keyword}{extern} \textcolor{keywordtype}{int}  \mbox{\hyperlink{energy__par_8h_aa2ba6cfc2792e7548582604cc2694e2d}{TriloopdH}}[]; \textcolor{comment}{/* Bonus energy for special Triloops */}
+00089 \textcolor{keyword}{extern} \textcolor{keywordtype}{char} \mbox{\hyperlink{energy__par_8h_a39f1faa8f4874e87af1eb36a5bde77ec}{Hexaloops}}[];    \textcolor{comment}{/* string containing the special triloops */}
+00090 \textcolor{keyword}{extern} \textcolor{keywordtype}{int}  \mbox{\hyperlink{energy__par_8h_a24584e8f48b8ed9ac2cd67a097847f04}{Hexaloop37}}[]; \textcolor{comment}{/* Bonus energy for special Triloops */}
+00091 \textcolor{keyword}{extern} \textcolor{keywordtype}{int}  \mbox{\hyperlink{energy__par_8h_a020d6f12c061a49847e5920cc9d3c7d8}{HexaloopdH}}[]; \textcolor{comment}{/* Bonus energy for special Triloops */}
+00092 
+00093 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_ae59cb71ab3875ffb430b248b27ddafce}{GQuadAlpha37}};
+00094 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_aeed9cba1ca77df8741c82c03d430620f}{GQuadAlphadH}};
+00095 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_a2a88f9ab6aa2f9bedb4af447884ad0ad}{GQuadBeta37}};
+00096 \textcolor{keyword}{extern} \textcolor{keywordtype}{int} \mbox{\hyperlink{energy__par_8h_af15ca174237e95339a43d2d0490c6e0d}{GQuadBetadH}};
+00097 
+00098 \textcolor{keyword}{extern} \textcolor{keywordtype}{double} \mbox{\hyperlink{energy__par_8h_a53bd6754053bb074657c05a0c06e73c1}{Tmeasure}};       \textcolor{comment}{/* temperature of param measurements */}
+00099 
+00100 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}

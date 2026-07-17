@@ -1,0 +1,188 @@
+\hypertarget{2_dfold_8h_source}{}\section{2\+Dfold.h}
+\label{2_dfold_8h_source}\index{Vienna\+R\+N\+A/2\+Dfold.\+h@{Vienna\+R\+N\+A/2\+Dfold.\+h}}
+
+\begin{DoxyCode}
+00001 \textcolor{preprocessor}{#ifndef VIENNA\_RNA\_PACKAGE\_TWO\_D\_FOLD\_H}
+00002 \textcolor{preprocessor}{#define VIENNA\_RNA\_PACKAGE\_TWO\_D\_FOLD\_H}
+00003 
+00004 \textcolor{preprocessor}{#ifdef VRNA\_WARN\_DEPRECATED}
+00005 \textcolor{preprocessor}{# if defined(\_\_clang\_\_)}
+00006 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func \_\_attribute\_\_ ((deprecated("", msg)))}
+00007 \textcolor{preprocessor}{# elif defined(\_\_GNUC\_\_)}
+00008 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func \_\_attribute\_\_ ((deprecated(msg)))}
+00009 \textcolor{preprocessor}{# else}
+00010 \textcolor{preprocessor}{#  define DEPRECATED(func, msg) func}
+00011 \textcolor{preprocessor}{# endif}
+00012 \textcolor{preprocessor}{#else}
+\Hypertarget{2_dfold_8h_source_l00013}\mbox{\hyperlink{2_dfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{00013}} \textcolor{preprocessor}{# define DEPRECATED(func, msg) func}
+00014 \textcolor{preprocessor}{#endif}
+00015 
+00035 \textcolor{preprocessor}{#include <\mbox{\hyperlink{data__structures_8h}{ViennaRNA/data\_structures.h}}>}
+00036 \textcolor{preprocessor}{#include <\mbox{\hyperlink{params_8h}{ViennaRNA/params.h}}>}
+00037 
+\Hypertarget{2_dfold_8h_source_l00052}\mbox{\hyperlink{group__kl__neighborhood__mfe}{00052}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\mbox{\hyperlink{group__kl__neighborhood__mfe_structvrna__sol___two_d__t}{vrna\_sol\_TwoD\_t}} \{
+\Hypertarget{2_dfold_8h_source_l00053}\mbox{\hyperlink{group__kl__neighborhood__mfe_ac111e850bb3b3a11b6b5707912cfa1b8}{00053}}   \textcolor{keywordtype}{int}   \mbox{\hyperlink{group__kl__neighborhood__mfe_ac111e850bb3b3a11b6b5707912cfa1b8}{k}};        
+\Hypertarget{2_dfold_8h_source_l00054}\mbox{\hyperlink{group__kl__neighborhood__mfe_ab8e95cd920901175a2cc8de726ab1d36}{00054}}   \textcolor{keywordtype}{int}   \mbox{\hyperlink{group__kl__neighborhood__mfe_ab8e95cd920901175a2cc8de726ab1d36}{l}};        
+\Hypertarget{2_dfold_8h_source_l00055}\mbox{\hyperlink{group__kl__neighborhood__mfe_a7577863a6a84224dfee39b321c03cab1}{00055}}   \textcolor{keywordtype}{float} \mbox{\hyperlink{group__kl__neighborhood__mfe_a7577863a6a84224dfee39b321c03cab1}{en}};       
+\Hypertarget{2_dfold_8h_source_l00056}\mbox{\hyperlink{group__kl__neighborhood__mfe_ac5942d2505a6cd7e4a8073a321d5d2d5}{00056}}   \textcolor{keywordtype}{char}  *\mbox{\hyperlink{group__kl__neighborhood__mfe_ac5942d2505a6cd7e4a8073a321d5d2d5}{s}};       
+00057 \} \mbox{\hyperlink{group__kl__neighborhood__mfe_ga6a81a58268d250309712549a3fa0aab2}{vrna\_sol\_TwoD\_t}};
+00058 
+00059 
+00087 \mbox{\hyperlink{group__kl__neighborhood__mfe_structvrna__sol___two_d__t}{vrna\_sol\_TwoD\_t}} *
+00088 \mbox{\hyperlink{group__kl__neighborhood__mfe_ga243c288b463147352829df04de6a2f77}{vrna\_mfe\_TwoD}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *vc,
+00089               \textcolor{keywordtype}{int}                   distance1,
+00090               \textcolor{keywordtype}{int}                   distance2);
+00091 
+00092 
+00111 \textcolor{keywordtype}{char} *
+00112 \mbox{\hyperlink{group__kl__neighborhood__mfe_ga15a96fc96f4f4c2e01a11b3e17d1ef43}{vrna\_backtrack5\_TwoD}}(\mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}} *vc,
+00113                      \textcolor{keywordtype}{int}                  k,
+00114                      \textcolor{keywordtype}{int}                  l,
+00115                      \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}         j);
+00116 
+00117 
+00118 \textcolor{preprocessor}{#ifndef VRNA\_DISABLE\_BACKWARD\_COMPATIBILITY}
+00119 
+\Hypertarget{2_dfold_8h_source_l00120}\mbox{\hyperlink{group__kl__neighborhood__mfe_ga09e71024abb1a2bd19d9137596376e15}{00120}} \textcolor{preprocessor}{#define TwoDfold\_solution       vrna\_sol\_TwoD\_t         }\textcolor{comment}{/* restore compatibility of struct rename */}\textcolor{preprocessor}{}
+00121 
+\Hypertarget{2_dfold_8h_source_l00129}\mbox{\hyperlink{group__kl__neighborhood__mfe}{00129}} \textcolor{keyword}{typedef} \textcolor{keyword}{struct }\mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{TwoDfold\_vars}} \{
+\Hypertarget{2_dfold_8h_source_l00130}\mbox{\hyperlink{group__kl__neighborhood__mfe_a70da9e83ad87c37013b4bf0b265dd307}{00130}}   \mbox{\hyperlink{group__energy__parameters_structvrna__param__s}{vrna\_param\_t}}          *\mbox{\hyperlink{group__kl__neighborhood__mfe_a70da9e83ad87c37013b4bf0b265dd307}{P}};           
+\Hypertarget{2_dfold_8h_source_l00131}\mbox{\hyperlink{group__kl__neighborhood__mfe_ade5c7e9337a458ae20bac75abdc52d64}{00131}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_ade5c7e9337a458ae20bac75abdc52d64}{do\_backtrack}}; 
+\Hypertarget{2_dfold_8h_source_l00132}\mbox{\hyperlink{group__kl__neighborhood__mfe_aedf60b8b26dae05ad266d3e098d18208}{00132}}   \textcolor{keywordtype}{char}                  *\mbox{\hyperlink{group__kl__neighborhood__mfe_aedf60b8b26dae05ad266d3e098d18208}{ptype}};       
+\Hypertarget{2_dfold_8h_source_l00133}\mbox{\hyperlink{group__kl__neighborhood__mfe_a3596f3d4d320318c4b8428e2abc7ab56}{00133}}   \textcolor{keywordtype}{char}                  *\mbox{\hyperlink{group__kl__neighborhood__mfe_a3596f3d4d320318c4b8428e2abc7ab56}{sequence}};    
+\Hypertarget{2_dfold_8h_source_l00134}\mbox{\hyperlink{group__kl__neighborhood__mfe_ab9ee459ffbfb5d2c138a033516056cdc}{00134}}   \textcolor{keywordtype}{short}                 *\mbox{\hyperlink{group__kl__neighborhood__mfe_adcf49c88c890de55d2215532bf22006c}{S}}, *\mbox{\hyperlink{group__kl__neighborhood__mfe_ab9ee459ffbfb5d2c138a033516056cdc}{S1}};      
+\Hypertarget{2_dfold_8h_source_l00135}\mbox{\hyperlink{group__kl__neighborhood__mfe_a621ed2ab02116f3f8f5e7120dec429eb}{00135}}   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}          \mbox{\hyperlink{group__kl__neighborhood__mfe_a621ed2ab02116f3f8f5e7120dec429eb}{maxD1}};        
+\Hypertarget{2_dfold_8h_source_l00136}\mbox{\hyperlink{group__kl__neighborhood__mfe_a03f198a4abdb3b784486d2ba5c533aa4}{00136}}   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}          \mbox{\hyperlink{group__kl__neighborhood__mfe_a03f198a4abdb3b784486d2ba5c533aa4}{maxD2}};        
+\Hypertarget{2_dfold_8h_source_l00139}\mbox{\hyperlink{group__kl__neighborhood__mfe_aa11f5bcd8c4fe70a91c155c877c855d5}{00139}}   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}          *\mbox{\hyperlink{group__kl__neighborhood__mfe_aa11f5bcd8c4fe70a91c155c877c855d5}{mm1}};       
+\Hypertarget{2_dfold_8h_source_l00140}\mbox{\hyperlink{group__kl__neighborhood__mfe_a2eaa93316b6beb17531f0c078806036c}{00140}}   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}          *\mbox{\hyperlink{group__kl__neighborhood__mfe_a2eaa93316b6beb17531f0c078806036c}{mm2}};       
+\Hypertarget{2_dfold_8h_source_l00142}\mbox{\hyperlink{group__kl__neighborhood__mfe_a1a20cb06b58b75d1a3dbdbc8bc60d0a7}{00142}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a1a20cb06b58b75d1a3dbdbc8bc60d0a7}{my\_iindx}};  
+\Hypertarget{2_dfold_8h_source_l00144}\mbox{\hyperlink{group__kl__neighborhood__mfe_aaaecad48586cf29db9cfe78ba0d03e64}{00144}}   \textcolor{keywordtype}{double}                \mbox{\hyperlink{group__kl__neighborhood__mfe_aaaecad48586cf29db9cfe78ba0d03e64}{temperature}};
+00145 
+\Hypertarget{2_dfold_8h_source_l00146}\mbox{\hyperlink{group__kl__neighborhood__mfe_a536525b98c1b633d4c5f2da4f8d78c18}{00146}}   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}          *\mbox{\hyperlink{group__kl__neighborhood__mfe_a536525b98c1b633d4c5f2da4f8d78c18}{referenceBPs1}}; 
+\Hypertarget{2_dfold_8h_source_l00147}\mbox{\hyperlink{group__kl__neighborhood__mfe_aa7abf73c3114cb5f0dc90e702fa9dd0f}{00147}}   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}          *\mbox{\hyperlink{group__kl__neighborhood__mfe_aa7abf73c3114cb5f0dc90e702fa9dd0f}{referenceBPs2}}; 
+\Hypertarget{2_dfold_8h_source_l00148}\mbox{\hyperlink{group__kl__neighborhood__mfe_af1106e1a592e2dccc92b3452340549e0}{00148}}   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}          *\mbox{\hyperlink{group__kl__neighborhood__mfe_af1106e1a592e2dccc92b3452340549e0}{bpdist}};        
+\Hypertarget{2_dfold_8h_source_l00150}\mbox{\hyperlink{group__kl__neighborhood__mfe_ac3d9b7ee368f1cd0be1bd06dbfb8afe7}{00150}}   \textcolor{keywordtype}{short}                 *\mbox{\hyperlink{group__kl__neighborhood__mfe_ac3d9b7ee368f1cd0be1bd06dbfb8afe7}{reference\_pt1}};
+\Hypertarget{2_dfold_8h_source_l00151}\mbox{\hyperlink{group__kl__neighborhood__mfe_a1cfef43ced426d71c2c4ffe32e82343b}{00151}}   \textcolor{keywordtype}{short}                 *\mbox{\hyperlink{group__kl__neighborhood__mfe_a1cfef43ced426d71c2c4ffe32e82343b}{reference\_pt2}};
+\Hypertarget{2_dfold_8h_source_l00152}\mbox{\hyperlink{group__kl__neighborhood__mfe_ae3a4308de89bdaa394375718c894c977}{00152}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_ae3a4308de89bdaa394375718c894c977}{circ}};
+\Hypertarget{2_dfold_8h_source_l00153}\mbox{\hyperlink{group__kl__neighborhood__mfe_a2344e233bfc046e7261d8c5bea534153}{00153}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_a2344e233bfc046e7261d8c5bea534153}{dangles}};
+\Hypertarget{2_dfold_8h_source_l00154}\mbox{\hyperlink{group__kl__neighborhood__mfe_a4016860ccba7e21fdccd500446731696}{00154}}   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}          \mbox{\hyperlink{group__kl__neighborhood__mfe_a4016860ccba7e21fdccd500446731696}{seq\_length}};
+00155 
+\Hypertarget{2_dfold_8h_source_l00156}\mbox{\hyperlink{group__kl__neighborhood__mfe_a0962f20b286965412ded96cf24db8024}{00156}}   \textcolor{keywordtype}{int}                   ***\mbox{\hyperlink{group__kl__neighborhood__mfe_a0962f20b286965412ded96cf24db8024}{E\_F5}};
+\Hypertarget{2_dfold_8h_source_l00157}\mbox{\hyperlink{group__kl__neighborhood__mfe_a11b9d64797932fc1994b5b0064f13468}{00157}}   \textcolor{keywordtype}{int}                   ***\mbox{\hyperlink{group__kl__neighborhood__mfe_a11b9d64797932fc1994b5b0064f13468}{E\_F3}};
+\Hypertarget{2_dfold_8h_source_l00158}\mbox{\hyperlink{group__kl__neighborhood__mfe_a93d2182608ed62830adfc456b0ce5681}{00158}}   \textcolor{keywordtype}{int}                   ***\mbox{\hyperlink{group__kl__neighborhood__mfe_a93d2182608ed62830adfc456b0ce5681}{E\_C}};
+\Hypertarget{2_dfold_8h_source_l00159}\mbox{\hyperlink{group__kl__neighborhood__mfe_aa6964c9af06773c3026a0f5d682f9fd8}{00159}}   \textcolor{keywordtype}{int}                   ***\mbox{\hyperlink{group__kl__neighborhood__mfe_aa6964c9af06773c3026a0f5d682f9fd8}{E\_M}};
+\Hypertarget{2_dfold_8h_source_l00160}\mbox{\hyperlink{group__kl__neighborhood__mfe_af52b99762db1c3bf20a3284c5f3ed6c3}{00160}}   \textcolor{keywordtype}{int}                   ***\mbox{\hyperlink{group__kl__neighborhood__mfe_af52b99762db1c3bf20a3284c5f3ed6c3}{E\_M1}};
+\Hypertarget{2_dfold_8h_source_l00161}\mbox{\hyperlink{group__kl__neighborhood__mfe_a6a5669cfcd3565d339f57a125dcb5e06}{00161}}   \textcolor{keywordtype}{int}                   ***\mbox{\hyperlink{group__kl__neighborhood__mfe_a6a5669cfcd3565d339f57a125dcb5e06}{E\_M2}};
+00162 
+\Hypertarget{2_dfold_8h_source_l00163}\mbox{\hyperlink{group__kl__neighborhood__mfe_a4eb4d9478bceacf9ad8bd38e41c943f9}{00163}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a4eb4d9478bceacf9ad8bd38e41c943f9}{E\_Fc}};
+\Hypertarget{2_dfold_8h_source_l00164}\mbox{\hyperlink{group__kl__neighborhood__mfe_a8becf4cbe447676dd299b2232337cd3e}{00164}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a8becf4cbe447676dd299b2232337cd3e}{E\_FcH}};
+\Hypertarget{2_dfold_8h_source_l00165}\mbox{\hyperlink{group__kl__neighborhood__mfe_abaf57df415bd53e0189d4430c59eb22c}{00165}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_abaf57df415bd53e0189d4430c59eb22c}{E\_FcI}};
+\Hypertarget{2_dfold_8h_source_l00166}\mbox{\hyperlink{group__kl__neighborhood__mfe_aa64e1390f197b238f49c6ffb37992eb2}{00166}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_aa64e1390f197b238f49c6ffb37992eb2}{E\_FcM}};
+00167 
+\Hypertarget{2_dfold_8h_source_l00168}\mbox{\hyperlink{group__kl__neighborhood__mfe_aa2f2e9bd13105d15a657e71f5261256b}{00168}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_aa2f2e9bd13105d15a657e71f5261256b}{l\_min\_values}};
+\Hypertarget{2_dfold_8h_source_l00169}\mbox{\hyperlink{group__kl__neighborhood__mfe_a6df00730e6359d27b26290c95e3cf0fd}{00169}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a6df00730e6359d27b26290c95e3cf0fd}{l\_max\_values}};
+\Hypertarget{2_dfold_8h_source_l00170}\mbox{\hyperlink{group__kl__neighborhood__mfe_aed74c3f883cab18bac7d9c66d8cff110}{00170}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_aed74c3f883cab18bac7d9c66d8cff110}{k\_min\_values}};
+\Hypertarget{2_dfold_8h_source_l00171}\mbox{\hyperlink{group__kl__neighborhood__mfe_adf0b5de14ba5fc0ab3788bc0ff4f9d88}{00171}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_adf0b5de14ba5fc0ab3788bc0ff4f9d88}{k\_max\_values}};
+00172 
+\Hypertarget{2_dfold_8h_source_l00173}\mbox{\hyperlink{group__kl__neighborhood__mfe_a0c688cbbb88902a6642dad7fb41ca9f3}{00173}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a0c688cbbb88902a6642dad7fb41ca9f3}{l\_min\_values\_m}};
+\Hypertarget{2_dfold_8h_source_l00174}\mbox{\hyperlink{group__kl__neighborhood__mfe_a3bf30e9fb08b16e7c6a2706581a2e5cb}{00174}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a3bf30e9fb08b16e7c6a2706581a2e5cb}{l\_max\_values\_m}};
+\Hypertarget{2_dfold_8h_source_l00175}\mbox{\hyperlink{group__kl__neighborhood__mfe_a9e942b87356975775dea195841fcf847}{00175}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a9e942b87356975775dea195841fcf847}{k\_min\_values\_m}};
+\Hypertarget{2_dfold_8h_source_l00176}\mbox{\hyperlink{group__kl__neighborhood__mfe_a85df676ac4b99098d72f6e8e48d6afc5}{00176}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a85df676ac4b99098d72f6e8e48d6afc5}{k\_max\_values\_m}};
+00177 
+\Hypertarget{2_dfold_8h_source_l00178}\mbox{\hyperlink{group__kl__neighborhood__mfe_a80f9152af7100a3c24d48cdf7639378b}{00178}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a80f9152af7100a3c24d48cdf7639378b}{l\_min\_values\_m1}};
+\Hypertarget{2_dfold_8h_source_l00179}\mbox{\hyperlink{group__kl__neighborhood__mfe_afd0de56d6593a46ae805d0ec8d3651a2}{00179}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_afd0de56d6593a46ae805d0ec8d3651a2}{l\_max\_values\_m1}};
+\Hypertarget{2_dfold_8h_source_l00180}\mbox{\hyperlink{group__kl__neighborhood__mfe_a5cc247c342c307157d972103602b011f}{00180}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a5cc247c342c307157d972103602b011f}{k\_min\_values\_m1}};
+\Hypertarget{2_dfold_8h_source_l00181}\mbox{\hyperlink{group__kl__neighborhood__mfe_a252a584f7f74c8b2787a128f05c9113d}{00181}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a252a584f7f74c8b2787a128f05c9113d}{k\_max\_values\_m1}};
+00182 
+\Hypertarget{2_dfold_8h_source_l00183}\mbox{\hyperlink{group__kl__neighborhood__mfe_a4a39ccf97d767d6bb62f34d6b1d10717}{00183}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a4a39ccf97d767d6bb62f34d6b1d10717}{l\_min\_values\_f}};
+\Hypertarget{2_dfold_8h_source_l00184}\mbox{\hyperlink{group__kl__neighborhood__mfe_a8a566aec285da022ff58f128044fd560}{00184}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a8a566aec285da022ff58f128044fd560}{l\_max\_values\_f}};
+\Hypertarget{2_dfold_8h_source_l00185}\mbox{\hyperlink{group__kl__neighborhood__mfe_a01d07ecba1cfdf7f0c06d870368ebbab}{00185}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a01d07ecba1cfdf7f0c06d870368ebbab}{k\_min\_values\_f}};
+\Hypertarget{2_dfold_8h_source_l00186}\mbox{\hyperlink{group__kl__neighborhood__mfe_a88bee3289b67c7d86f421670a43bf3af}{00186}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a88bee3289b67c7d86f421670a43bf3af}{k\_max\_values\_f}};
+00187 
+\Hypertarget{2_dfold_8h_source_l00188}\mbox{\hyperlink{group__kl__neighborhood__mfe_a8d646363b251672235b7c4169b71c4b0}{00188}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a8d646363b251672235b7c4169b71c4b0}{l\_min\_values\_f3}};
+\Hypertarget{2_dfold_8h_source_l00189}\mbox{\hyperlink{group__kl__neighborhood__mfe_a361ec8bdefe30a1046f383a5eeac4968}{00189}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a361ec8bdefe30a1046f383a5eeac4968}{l\_max\_values\_f3}};
+\Hypertarget{2_dfold_8h_source_l00190}\mbox{\hyperlink{group__kl__neighborhood__mfe_ab25721e4aefc57087242f587de8e80ab}{00190}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_ab25721e4aefc57087242f587de8e80ab}{k\_min\_values\_f3}};
+\Hypertarget{2_dfold_8h_source_l00191}\mbox{\hyperlink{group__kl__neighborhood__mfe_a799795b75fefc94c7d88a04cf32dab72}{00191}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a799795b75fefc94c7d88a04cf32dab72}{k\_max\_values\_f3}};
+00192 
+\Hypertarget{2_dfold_8h_source_l00193}\mbox{\hyperlink{group__kl__neighborhood__mfe_a4253d7631384345b004bc82b8403eb77}{00193}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a4253d7631384345b004bc82b8403eb77}{l\_min\_values\_m2}};
+\Hypertarget{2_dfold_8h_source_l00194}\mbox{\hyperlink{group__kl__neighborhood__mfe_a1915aa04bfdea4692bd5c3aceab74e45}{00194}}   \textcolor{keywordtype}{int}                   **\mbox{\hyperlink{group__kl__neighborhood__mfe_a1915aa04bfdea4692bd5c3aceab74e45}{l\_max\_values\_m2}};
+\Hypertarget{2_dfold_8h_source_l00195}\mbox{\hyperlink{group__kl__neighborhood__mfe_a78592d73ab65ca433ecb773a83c9b582}{00195}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a78592d73ab65ca433ecb773a83c9b582}{k\_min\_values\_m2}};
+\Hypertarget{2_dfold_8h_source_l00196}\mbox{\hyperlink{group__kl__neighborhood__mfe_ad80cc03831c345b789dad446d5e260fe}{00196}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_ad80cc03831c345b789dad446d5e260fe}{k\_max\_values\_m2}};
+00197 
+\Hypertarget{2_dfold_8h_source_l00198}\mbox{\hyperlink{group__kl__neighborhood__mfe_a2852dd3d4f444b08dfebbc053cac983d}{00198}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a2852dd3d4f444b08dfebbc053cac983d}{l\_min\_values\_fc}};
+\Hypertarget{2_dfold_8h_source_l00199}\mbox{\hyperlink{group__kl__neighborhood__mfe_a6debaf91b138e5e086ac6863dad01919}{00199}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a6debaf91b138e5e086ac6863dad01919}{l\_max\_values\_fc}};
+\Hypertarget{2_dfold_8h_source_l00200}\mbox{\hyperlink{group__kl__neighborhood__mfe_a39ee4a1728c0d80e11c8a4694c8629d5}{00200}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_a39ee4a1728c0d80e11c8a4694c8629d5}{k\_min\_values\_fc}};
+\Hypertarget{2_dfold_8h_source_l00201}\mbox{\hyperlink{group__kl__neighborhood__mfe_aed3b5efc50bb9453942277f96626665f}{00201}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_aed3b5efc50bb9453942277f96626665f}{k\_max\_values\_fc}};
+00202 
+\Hypertarget{2_dfold_8h_source_l00203}\mbox{\hyperlink{group__kl__neighborhood__mfe_ac13b16138da81ff2b0c69fc4e6ab6dd4}{00203}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_ac13b16138da81ff2b0c69fc4e6ab6dd4}{l\_min\_values\_fcH}};
+\Hypertarget{2_dfold_8h_source_l00204}\mbox{\hyperlink{group__kl__neighborhood__mfe_a8588fe680089b986a90913bc72a7c6c8}{00204}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a8588fe680089b986a90913bc72a7c6c8}{l\_max\_values\_fcH}};
+\Hypertarget{2_dfold_8h_source_l00205}\mbox{\hyperlink{group__kl__neighborhood__mfe_a125e8cde969ce3347f19e825dbcec07b}{00205}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_a125e8cde969ce3347f19e825dbcec07b}{k\_min\_values\_fcH}};
+\Hypertarget{2_dfold_8h_source_l00206}\mbox{\hyperlink{group__kl__neighborhood__mfe_a8f1fade15528029e22fd3efc1d0a871b}{00206}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_a8f1fade15528029e22fd3efc1d0a871b}{k\_max\_values\_fcH}};
+00207 
+\Hypertarget{2_dfold_8h_source_l00208}\mbox{\hyperlink{group__kl__neighborhood__mfe_ab08a49838984eb8fe427730bc8154b43}{00208}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_ab08a49838984eb8fe427730bc8154b43}{l\_min\_values\_fcI}};
+\Hypertarget{2_dfold_8h_source_l00209}\mbox{\hyperlink{group__kl__neighborhood__mfe_a98cd89c6459c18bd647a18a9b17bfb93}{00209}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a98cd89c6459c18bd647a18a9b17bfb93}{l\_max\_values\_fcI}};
+\Hypertarget{2_dfold_8h_source_l00210}\mbox{\hyperlink{group__kl__neighborhood__mfe_aceb32df051435d3ecc25910688585e7b}{00210}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_aceb32df051435d3ecc25910688585e7b}{k\_min\_values\_fcI}};
+\Hypertarget{2_dfold_8h_source_l00211}\mbox{\hyperlink{group__kl__neighborhood__mfe_a860e9a6784233960a1d45e711de381d8}{00211}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_a860e9a6784233960a1d45e711de381d8}{k\_max\_values\_fcI}};
+00212 
+\Hypertarget{2_dfold_8h_source_l00213}\mbox{\hyperlink{group__kl__neighborhood__mfe_a2073680dc7da5be8a404fd4036687973}{00213}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a2073680dc7da5be8a404fd4036687973}{l\_min\_values\_fcM}};
+\Hypertarget{2_dfold_8h_source_l00214}\mbox{\hyperlink{group__kl__neighborhood__mfe_a80385035862e790db8ffb1e81438ec2a}{00214}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a80385035862e790db8ffb1e81438ec2a}{l\_max\_values\_fcM}};
+\Hypertarget{2_dfold_8h_source_l00215}\mbox{\hyperlink{group__kl__neighborhood__mfe_a482a03df6cd5ef76ae591d4686a051d7}{00215}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_a482a03df6cd5ef76ae591d4686a051d7}{k\_min\_values\_fcM}};
+\Hypertarget{2_dfold_8h_source_l00216}\mbox{\hyperlink{group__kl__neighborhood__mfe_a89e4d533071054720a83ea70a97a4105}{00216}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_a89e4d533071054720a83ea70a97a4105}{k\_max\_values\_fcM}};
+00217 
+00218   \textcolor{comment}{/* auxilary arrays for remaining set of coarse graining (k,l) > (k\_max, l\_max) */}
+\Hypertarget{2_dfold_8h_source_l00219}\mbox{\hyperlink{group__kl__neighborhood__mfe_af414b6e4fc8a32e323998504cbdf3db8}{00219}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_af414b6e4fc8a32e323998504cbdf3db8}{E\_F5\_rem}};
+\Hypertarget{2_dfold_8h_source_l00220}\mbox{\hyperlink{group__kl__neighborhood__mfe_ae4b7da33649295a9c835a6f29c3f2fab}{00220}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_ae4b7da33649295a9c835a6f29c3f2fab}{E\_F3\_rem}};
+\Hypertarget{2_dfold_8h_source_l00221}\mbox{\hyperlink{group__kl__neighborhood__mfe_a5da3f78defa76f754b726aac74104b9d}{00221}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a5da3f78defa76f754b726aac74104b9d}{E\_C\_rem}};
+\Hypertarget{2_dfold_8h_source_l00222}\mbox{\hyperlink{group__kl__neighborhood__mfe_a14c12c19248fd07a78e0e1d15c9ead83}{00222}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a14c12c19248fd07a78e0e1d15c9ead83}{E\_M\_rem}};
+\Hypertarget{2_dfold_8h_source_l00223}\mbox{\hyperlink{group__kl__neighborhood__mfe_a18476d051e6bb22c3339cc1c6fedbb2c}{00223}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_a18476d051e6bb22c3339cc1c6fedbb2c}{E\_M1\_rem}};
+\Hypertarget{2_dfold_8h_source_l00224}\mbox{\hyperlink{group__kl__neighborhood__mfe_af68fca5278bdefe01539e4e59816554d}{00224}}   \textcolor{keywordtype}{int}                   *\mbox{\hyperlink{group__kl__neighborhood__mfe_af68fca5278bdefe01539e4e59816554d}{E\_M2\_rem}};
+00225 
+\Hypertarget{2_dfold_8h_source_l00226}\mbox{\hyperlink{group__kl__neighborhood__mfe_a8f69e0e4572dae4bf862eb0d5f25b95f}{00226}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_a8f69e0e4572dae4bf862eb0d5f25b95f}{E\_Fc\_rem}};
+\Hypertarget{2_dfold_8h_source_l00227}\mbox{\hyperlink{group__kl__neighborhood__mfe_aa0e78a2b1e48a2545abb5e008f4d92c9}{00227}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_aa0e78a2b1e48a2545abb5e008f4d92c9}{E\_FcH\_rem}};
+\Hypertarget{2_dfold_8h_source_l00228}\mbox{\hyperlink{group__kl__neighborhood__mfe_ace876be5e864db1f26967dc8f05a2b89}{00228}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_ace876be5e864db1f26967dc8f05a2b89}{E\_FcI\_rem}};
+\Hypertarget{2_dfold_8h_source_l00229}\mbox{\hyperlink{group__kl__neighborhood__mfe_a2ea4f8e3d9f3047c4983ed0e299a4f8d}{00229}}   \textcolor{keywordtype}{int}                   \mbox{\hyperlink{group__kl__neighborhood__mfe_a2ea4f8e3d9f3047c4983ed0e299a4f8d}{E\_FcM\_rem}};
+00230 
+00231 \textcolor{preprocessor}{#ifdef COUNT\_STATES}
+00232   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{long}         ***N\_F5;
+00233   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{long}         ***N\_C;
+00234   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{long}         ***N\_M;
+00235   \textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{long}         ***N\_M1;
+00236 \textcolor{preprocessor}{#endif}
+00237 
+\Hypertarget{2_dfold_8h_source_l00238}\mbox{\hyperlink{group__kl__neighborhood__mfe_a2f12b3838cfdb8d3c769d36cb517459d}{00238}}   \mbox{\hyperlink{group__fold__compound_structvrna__fc__s}{vrna\_fold\_compound\_t}}  *\mbox{\hyperlink{group__kl__neighborhood__mfe_a2f12b3838cfdb8d3c769d36cb517459d}{compatibility}};
+00239 \} \mbox{\hyperlink{group__kl__neighborhood__mfe_gaf4f514010a14f9d59d850742b3e96954}{TwoDfold\_vars}};
+00240 
+00259 \mbox{\hyperlink{2_dfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{TwoDfold\_vars}} *
+00260            \mbox{\hyperlink{group__kl__neighborhood__mfe_gac9284f132cf0eaa0a2f43590eda05488}{get\_TwoDfold\_variables}}(\textcolor{keyword}{const} \textcolor{keywordtype}{char}  *seq,
+00261                                   \textcolor{keyword}{const} \textcolor{keywordtype}{char}  *structure1,
+00262                                   \textcolor{keyword}{const} \textcolor{keywordtype}{char}  *structure2,
+00263                                   \textcolor{keywordtype}{int}         \mbox{\hyperlink{group__model__details_gaf9202a1a09f5828dc731e2d9a10fa111}{circ}}),
+00264            \textcolor{stringliteral}{"Use the new API and corresponding functions vrna\_fold\_compound\_TwoD(), etc. instead"});
+00265 
+00276 \mbox{\hyperlink{2_dfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\textcolor{keywordtype}{void}
+00277            \mbox{\hyperlink{group__kl__neighborhood__mfe_ga05bf4f31d216b1b160fd2d3d68e9b487}{destroy\_TwoDfold\_variables}}(\mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{TwoDfold\_vars}} *our\_variables),
+00278            \textcolor{stringliteral}{"Use the new API and vrna\_fold\_compound\_free() instead"});
+00279 
+00305 \mbox{\hyperlink{2_dfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__kl__neighborhood__mfe_ga09e71024abb1a2bd19d9137596376e15}{TwoDfold\_solution}} *
+00306            \mbox{\hyperlink{group__kl__neighborhood__mfe_ga7fc5e3e92fe97914ca4eccd33c01c2a7}{TwoDfoldList}}(\mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{TwoDfold\_vars}} *vars,
+00307                         \textcolor{keywordtype}{int}           distance1,
+00308                         \textcolor{keywordtype}{int}           distance2),
+00309           \textcolor{stringliteral}{"Use the new API and vrna\_mfe\_TwoD() instead"});
+00310 
+00331 \mbox{\hyperlink{2_dfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\textcolor{keywordtype}{char} *\mbox{\hyperlink{group__kl__neighborhood__mfe_gaf4dc05bf8fc1ea53acd7aeb798ba80c2}{TwoDfold\_backtrack\_f5}}(\textcolor{keywordtype}{unsigned} \textcolor{keywordtype}{int}   j,
+00332                                        \textcolor{keywordtype}{int}            k,
+00333                                        \textcolor{keywordtype}{int}            l,
+00334                                        \mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{TwoDfold\_vars}}  *vars),
+00335           \textcolor{stringliteral}{"Use the new API and vrna\_backtrack5\_TwoD() instead"});
+00336 
+00340 \mbox{\hyperlink{2_dfold_8h_aab347a3c03fbe8e7319551b9fa0cce4a}{DEPRECATED}}(\mbox{\hyperlink{group__kl__neighborhood__mfe_ga09e71024abb1a2bd19d9137596376e15}{TwoDfold\_solution}} **\mbox{\hyperlink{group__kl__neighborhood__mfe_ga9827e1deba983a95d0509d36b61fb0e2}{TwoDfold}}(
+      \mbox{\hyperlink{group__kl__neighborhood__mfe_struct_two_dfold__vars}{TwoDfold\_vars}} *our\_variables,
+00341                                         \textcolor{keywordtype}{int}           distance1,
+00342                                         \textcolor{keywordtype}{int}           distance2),
+00343           \textcolor{stringliteral}{"Use the new API and vrna\_mfe\_TwoD() instead"});
+00344 
+00345 
+00346 \textcolor{preprocessor}{#endif}
+00347 
+00352 \textcolor{preprocessor}{#endif}
+\end{DoxyCode}
