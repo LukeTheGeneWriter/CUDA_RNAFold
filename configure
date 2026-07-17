@@ -5,6 +5,7 @@
 if grep -q $'\r' "$0" 2>/dev/null; then
   tmp="$(mktemp /tmp/configure.XXXXXX)" || tmp="/tmp/configure.$$"
   sed 's/\r$//' "$0" > "$tmp"
+  chmod +x "$tmp"
   exec /bin/sh "$tmp" "$@"
 fi
 # Guess values for system-dependent variables and create Makefiles.
@@ -32,9 +33,9 @@ if test -n "${ZSH_VERSION+set}" && (emulate sh) >/dev/null 2>&1; then :
   alias -g '${1+"$@"}'='"$@"'
   setopt NO_GLOB_SUBST
 else
-  case `(set -o) 2>/dev/null` in #(
+  case `(set -o) 2>/dev/null` in (
   *posix*) :
-    set -o posix ;; #(
+    set -o posix ;; (
   *) :
      ;;
 esac
