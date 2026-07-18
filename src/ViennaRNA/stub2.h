@@ -46,6 +46,19 @@ modular_decomposition_i(const int nfiles,
 		      //const int* my_fML,
 			int* DMLi);
 
+// CUDA-graph-captured fusion of load_fML() + modular_decomposition_i() +
+// load_min_fML() -- see definition in modular_decomposition.cu for why these
+// three (and only these three) can be captured as a single graph.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+load_fML_modular_decomposition_load_min_fML(const int nfiles,
+					     const int i, const int turn, const int length,
+					     const int* energy_min, //in
+					     int* DMLi);            //out
+
 PUBLIC int
 extend_fm_3p( const int i,
               const int j,

@@ -232,6 +232,21 @@ void int_Memcpy(int* out, const int* in, const size_t size, const cudaMemcpyKind
   }
 }
 
+// Async twin of int_Memcpy for use inside captured CUDA graph regions.
+// NB: a cudaSuccess return here only means the copy was recorded (or, outside
+// capture, enqueued) successfully -- NOT that it will succeed when the graph
+// is later replayed. Real data/runtime errors from replayed graph work only
+// surface at the cudaStreamSynchronize() after cudaGraphLaunch().
+void int_MemcpyAsync(int* out, const int* in, const size_t size, const cudaMemcpyKind dir, cudaStream_t stream, const int error_report) {
+  const cudaError_t error = cudaMemcpyAsync(out, in, size*sizeof(int), dir, stream);
+  if (error != cudaSuccess)  {
+    printf("cudaMemcpyAsync(%p,%p,%zu,%d) returned error %s (code %d), %s line(%d)\n",
+	   out,in,
+	   size*sizeof(int),dir,cudaGetErrorString(error), error, __FILE__, error_report);
+    exit(EXIT_FAILURE);
+  }
+}
+
 int first = 1;
 //int* d_indx; //indx no longer used
 int* d_energy_min;
@@ -242,11 +257,23 @@ int* d_dml;  //DMLi
 //unsigned int mem_size_buf; //bytes in h_dml and d_dml
 //int* fml_j;  //my_fML
 
+// CUDA Graph plumbing for the load_fML -> modular_decomposition -> load_min_fML
+// chain (fill_arrays_loop.c has no host CPU logic between those three calls,
+// which is what makes them capturable as a single graph). graph_stream must
+// stay a *blocking* stream (not cudaStreamNonBlocking): that's what makes the
+// legacy-default-stream ordering rule implicitly wait for int_loop_i()'s /
+// load_my_c()'s still-fully-synchronous NULL-stream work before the captured
+// chain runs each iteration, with no extra synchronization code needed.
+cudaStream_t    graph_stream     = 0;
+cudaGraphExec_t graph_exec       = NULL;
+int             graph_exec_valid = 0;
+
 PUBLIC void
 init_gpu(const int nfiles, const int length) {
   if(!first) return;
   fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
   cudaError_t error;
+  gpuErrchk( cudaStreamCreate(&graph_stream) );
   const size_t mem_size_len = (size_t)nfiles*(length+1) * sizeof(int); //starts at 1 not 0 // 32-bit signed integer overflow bug fix
   const size_t ijsize_len   = (size_t)nfiles*((length+1)*(length+2)/2) * sizeof(int); // 32-bit signed integer overflow bug fix
 
@@ -339,22 +366,21 @@ load_fML(const int nfiles,
 //for(int k=start; k<start+10 && k<=length; k++) { printf("energy_min[%d]%d ",k,energy_min[k]);}
 //printf("\n");
 
-#ifdef NDEBUG
-  //make sure init_fML_kernel is done, 
-  //check here in case of earlier errors
-  gpuErrchk( cudaDeviceSynchronize() );
-#endif
+  // NB: the old #ifdef NDEBUG pre-sync here was dead code -- this build never
+  // defines NDEBUG -- and is superseded anyway: everything in this function
+  // now runs on graph_stream, a *blocking* stream, so the legacy-default-
+  // stream ordering rule already guarantees init_fML_kernel (NULL stream) has
+  // completed before any of this is issued.
   //for simplicity transfer all energy_min, even though only need H * [start:length]
-  int_Memcpy(d_energy_min,energy_min, nfiles*(length+1), cudaMemcpyHostToDevice,__LINE__);
+  int_MemcpyAsync(d_energy_min,energy_min, (size_t)nfiles*(length+1), cudaMemcpyHostToDevice, graph_stream, __LINE__);
 
   /* Setup execution parameters for helper kernel */
   const int nblocks = (size + BLOCK_SIZE - 1)/BLOCK_SIZE;
   dim3 blocks(nblocks,nfiles);
-  load_fML_kernel<<<blocks,BLOCK_SIZE>>>(i, turn, length,
+  load_fML_kernel<<<blocks,BLOCK_SIZE,0,graph_stream>>>(i, turn, length,
 					  d_energy_min,  //in
 					  d_fml_j); //out
   gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
 }
 
 __global__ void
@@ -404,12 +430,11 @@ load_min_fML(const int nfiles,
 /* Setup execution parameters for helper kernel */
   const int nblocks = (side + BLOCK_SIZE - 1)/BLOCK_SIZE;
   dim3 blocks(nblocks,nfiles);
-  load_min_fML_kernel<<<blocks,BLOCK_SIZE>>>(i, turn, length,
+  load_min_fML_kernel<<<blocks,BLOCK_SIZE,0,graph_stream>>>(i, turn, length,
 					  d_energy_min,  //in
 					  d_dml,    //in
 					  d_fml_j); //out
   gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
 //printf("\n");
 }
 
@@ -627,11 +652,10 @@ void modular_decomposition_cuda(const int nfiles,
     const int block_size = BLOCK_SIZE;
     const int nblocks = (side + block_size - 1)/block_size;
     dim3 blocks(nblocks,nfiles);
-    fmli_kernel<<<blocks,block_size>>>(i, turn, length,
-					d_fml_i,  //Out 
+    fmli_kernel<<<blocks,block_size,0,graph_stream>>>(i, turn, length,
+					d_fml_i,  //Out
 					d_fml_j); //In
     gpuErrchk( cudaPeekAtLastError() );
-    gpuErrchk( cudaDeviceSynchronize() );
   }
 
 //const int todo = side*(side+1)/2;
@@ -655,18 +679,17 @@ void modular_decomposition_cuda(const int nfiles,
 //	 nblocks*block_size,todo);
 
   dim3 blocks(nblocks,nfiles);
-  modular_decomposition_kernel<<<blocks,block_size>>>(i, turn, length,
-					   d_fml_i, d_fml_j, 
+  modular_decomposition_kernel<<<blocks,block_size,0,graph_stream>>>(i, turn, length,
+					   d_fml_i, d_fml_j,
 					   d_dml); //Out
 
   gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
 
   //for effiency transfer all of DMLi rather that just those part that have been calculated
-  int_Memcpy(DMLi,d_dml, nfiles*(length+1), cudaMemcpyDeviceToHost,__LINE__);
-  gpuErrchk( cudaDeviceSynchronize() );
-//printf("done\n");
-  
+  int_MemcpyAsync(DMLi,d_dml, (size_t)nfiles*(length+1), cudaMemcpyDeviceToHost, graph_stream, __LINE__);
+  // no sync here -- the one remaining sync happens once, after the whole
+  // captured chain is launched, in the new orchestration function.
+
   //free(fml_j);
   //free(fml_i);
 }
@@ -766,4 +789,78 @@ modular_decomposition_i(const int nfiles,
     free(c_DMLi);
   }
   */
+}
+
+// Captures load_fML() -> modular_decomposition_i() -> load_min_fML() as a
+// single CUDA graph and replays it, instead of issuing 6 separate blocking
+// driver calls (fill_arrays_loop.c calls these three back-to-back with no
+// host CPU logic between them, which is what makes this legal to capture).
+// Recaptured every call rather than captured once, for two reasons: (1) i
+// and turn change every call, which changes grid dims (nblocks/side) for the
+// underlying kernels -- cudaGraphExecUpdate() handles that as a params
+// update, not a topology change; and (2) modular_decomposition_cuda() and
+// load_min_fML() both take a host-only early-return branch (side<=0) for the
+// first few iterations near the diagonal, which produces a *different*
+// node topology (fewer GPU nodes) than later iterations -- recapturing
+// means cudaGraphExecUpdate() naturally fails exactly once at that
+// transition and falls back to a fresh cudaGraphInstantiate(), rather than
+// needing to special-case that boundary by hand.
+extern "C" /*PUBLIC*/ void
+load_fML_modular_decomposition_load_min_fML(const int nfiles,
+					     const int i, const int turn, const int length,
+					     const int* energy_min, //in
+					     int* DMLi) {           //out
+  // RNA_CUDA_GRAPH=0 disables capture/replay and just issues the same
+  // (now-async, graph_stream-targeted) calls directly, with one sync at the
+  // end -- lets a whole fold be re-run graph-off vs graph-on and diffed
+  // end-to-end (structure/MFE output) to validate the graph path, without
+  // needing a second parallel set of device buffers threaded through every
+  // kernel just for this A/B check.
+  static int use_graph = -1;
+  if(use_graph == -1) {
+    const char* env = getenv("RNA_CUDA_GRAPH");
+    use_graph = (env && env[0]=='0') ? 0 : 1;
+    fprintf(stderr,"%-24s CUDA graph capture for load_fML/modular_decomposition/load_min_fML: %s\n",
+	    __FILE__, use_graph? "enabled" : "disabled (RNA_CUDA_GRAPH=0)");
+  }
+
+  if(!use_graph) {
+    load_fML(nfiles,i,turn,length,energy_min);
+    modular_decomposition_i(nfiles,i,turn,length,DMLi);
+    load_min_fML(nfiles,i,turn,length);
+    gpuErrchk( cudaStreamSynchronize(graph_stream) );
+    return;
+  }
+
+  cudaGraph_t graph = NULL;
+  gpuErrchk( cudaStreamBeginCapture(graph_stream, cudaStreamCaptureModeThreadLocal) );
+
+  load_fML(nfiles,i,turn,length,energy_min);
+  modular_decomposition_i(nfiles,i,turn,length,DMLi);
+  load_min_fML(nfiles,i,turn,length);
+
+  gpuErrchk( cudaStreamEndCapture(graph_stream, &graph) );
+
+  if(graph_exec_valid) {
+    cudaGraphExecUpdateResultInfo update_result;
+    const cudaError_t update_error = cudaGraphExecUpdate(graph_exec, graph, &update_result);
+    if(update_error != cudaSuccess) {
+      //topology changed (e.g. the side<=0 boundary above) -- stale exec can't
+      //be patched in place, drop it and instantiate fresh below
+      gpuErrchk( cudaGraphExecDestroy(graph_exec) );
+      graph_exec_valid = 0;
+    }
+  }
+  if(!graph_exec_valid) {
+    gpuErrchk( cudaGraphInstantiate(&graph_exec, graph, 0) );
+    graph_exec_valid = 1;
+  }
+
+  gpuErrchk( cudaGraphDestroy(graph) ); //transient capture object, not graph_exec (the persistent one) -- leaks every iteration if skipped
+
+  gpuErrchk( cudaGraphLaunch(graph_exec, graph_stream) );
+  //the one sync that remains: also the only point where a real runtime/data
+  //error from the replayed graph (bad address, illegal access, device-side
+  //assert()) becomes observable, since a graph gives no per-node attribution
+  gpuErrchk( cudaStreamSynchronize(graph_stream) );
 }

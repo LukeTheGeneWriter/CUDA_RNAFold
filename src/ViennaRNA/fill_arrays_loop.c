@@ -133,11 +133,11 @@
     } /* end of j-loop */
     }//endfor H
 
-    load_fML(nfiles,i,turn,length,energy_min); //update my_fML GPU
-
-    modular_decomposition_i(nfiles,i,turn,length,/*indx,ijsize,my_fML,*/ DMLi);
-
-    load_min_fML(nfiles,i,turn,length); //update my_fML GPU = MIN2(energy_min[j], DMLi[j])
+    //load_fML + modular_decomposition_i + load_min_fML fused into one CUDA
+    //graph capture/replay (no host CPU logic runs between these three calls,
+    //which is what makes that legal) -- updates my_fML GPU, then
+    //my_fML GPU = MIN2(energy_min[j], DMLi[j])
+    load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi);
 
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) {
