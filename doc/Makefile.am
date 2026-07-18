@@ -97,8 +97,8 @@ vrna_htmlrefman_inst: installdirs html
 	{ for i in $(builddir)/html/*; do cp -r "$$i" "$(DESTDIR)$(htmldir)/"; done }
 	{ for i in "$(DESTDIR)$(htmldir)"/*; do test -f "$$i" && chmod 644 "$$i"; done }
 	chmod 755 "$(DESTDIR)$(htmldir)"
-	{ for i in "$(DESTDIR)$(htmldir)"/search/*; do test -f "$$i" && chmod 644 "$$i"; done }
-	chmod 755 "$(DESTDIR)$(htmldir)"/search
+	test ! -d "$(DESTDIR)$(htmldir)"/search || { for i in "$(DESTDIR)$(htmldir)"/search/*; do test -f "$$i" && chmod 644 "$$i"; done }
+	test ! -d "$(DESTDIR)$(htmldir)"/search || chmod 755 "$(DESTDIR)$(htmldir)"/search
 	{ test ! -h $(builddir)/html || rm -f $(builddir)/html; }
 
 vrna_htmlrefman_uninst:
