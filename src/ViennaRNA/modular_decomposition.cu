@@ -222,10 +222,10 @@ choose_gpu(int argc, char **argv) {
 	use_cuda = 1;
 }
 
-void int_Memcpy(int* out, const int* in, const unsigned int size, const cudaMemcpyKind dir, const int error_report) {
+void int_Memcpy(int* out, const int* in, const size_t size, const cudaMemcpyKind dir, const int error_report) { // 32-bit signed integer overflow bug fix
   const cudaError_t error = cudaMemcpy(out, in, size*sizeof(int), dir);
   if (error != cudaSuccess)  {
-    printf("cudaMemcpy(%p,%p,%lu,%d) returned error %s (code %d), %s line(%d)\n", 
+    printf("cudaMemcpy(%p,%p,%zu,%d) returned error %s (code %d), %s line(%d)\n", // 32-bit signed integer overflow bug fix
 	   out,in,
 	   size*sizeof(int),dir,cudaGetErrorString(error), error, __FILE__, error_report);
     exit(EXIT_FAILURE);
@@ -247,30 +247,30 @@ init_gpu(const int nfiles, const int length) {
   if(!first) return;
   fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
   cudaError_t error;
-  const unsigned int mem_size_len = nfiles*(length+1) * sizeof(int); //starts at 1 not 0
-  const unsigned int ijsize_len   = nfiles*((length+1)*(length+2)/2) * sizeof(int);
+  const size_t mem_size_len = (size_t)nfiles*(length+1) * sizeof(int); //starts at 1 not 0 // 32-bit signed integer overflow bug fix
+  const size_t ijsize_len   = (size_t)nfiles*((length+1)*(length+2)/2) * sizeof(int); // 32-bit signed integer overflow bug fix
 
   error = cudaMalloc((void **) &d_energy_min, mem_size_len);
   if (error != cudaSuccess)  {
-      printf("cudaMalloc d_energy_min %d returned error %s (code %d), line(%d)\n",
+      printf("cudaMalloc d_energy_min %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
 	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
 
   error = cudaMalloc((void **) &d_fml_i, mem_size_len);
   if (error != cudaSuccess)  {
-      printf("cudaMalloc d_fml_i %d returned error %s (code %d), line(%d)\n",
+      printf("cudaMalloc d_fml_i %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
 	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
 
   error = cudaMalloc((void **) &d_fml_j, ijsize_len);
   if (error != cudaSuccess)  {
-      printf("cudaMalloc d_fml_j %d returned error %s (code %d), line(%d)\n",
+      printf("cudaMalloc d_fml_j %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
 	     ijsize_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
 
   error = cudaMalloc((void **) &d_dml, mem_size_len);
   if (error != cudaSuccess)  {
-      printf("cudaMalloc d_dml %d returned error %s (code %d), line(%d)\n",
+      printf("cudaMalloc d_dml %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
 	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
 
@@ -280,9 +280,9 @@ init_gpu(const int nfiles, const int length) {
 
 /* prefill matrices with init contributions */
 __global__ void
-init_fML_kernel(const int ijsize,
+init_fML_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
 		int* __restrict__ fml_j) { //out d_fml_j
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
+  const size_t m = blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
   if(m>=ijsize) return;
   fml_j[m] = INF;
 }
@@ -291,15 +291,15 @@ PUBLIC void
 init_fML(const int nfiles, const int length) {
   const int first_ = first;
   if(first) init_gpu(nfiles,length);
-  const int ijsize = nfiles*(length+1)*(length+2)/2;
+  const size_t ijsize = (size_t)nfiles*(length+1)*(length+2)/2; // 32-bit signed integer overflow bug fix
   /* Setup execution parameters for helper kernel */
-  const int nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  const size_t nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
   init_fML_kernel<<<nblocks,BLOCK_SIZE>>>(ijsize, d_fml_j);
   gpuErrchk2( cudaPeekAtLastError(),  first_ );
 
   //To aid debug etc initialise d_dml (DMLi)
-  const int hsize = nfiles*(length+1);
-  const int nblock2 = (hsize + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  const size_t hsize = (size_t)nfiles*(length+1); // 32-bit signed integer overflow bug fix
+  const size_t nblock2 = (hsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
   init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, d_dml);
   gpuErrchk( cudaPeekAtLastError() );
 

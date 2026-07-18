@@ -140,17 +140,17 @@ inline void Assert_(bool test, const char *file, const int line) {
 
 /* prefill matrices with init contributions */
 __global__ void
-init_my_c_kernel(const int ijsize,
+init_my_c_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
 		 int* __restrict__ my_c) {
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
+  const size_t m = blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
   if(m>=ijsize) return;
   my_c[m] = INF;
 }
 
 PUBLIC void
-init_my_c(const int ijsize) {
+init_my_c(const size_t ijsize) { // 32-bit signed integer overflow bug fix
   /* Setup execution parameters for helper kernel */
-  const int nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  const size_t nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
   init_my_c_kernel<<<nblocks,BLOCK_SIZE>>>(ijsize, d_my_c);
   gpuErrchk2( cudaPeekAtLastError(),  first2 );
 #ifndef NDEBUG
@@ -241,13 +241,13 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     }
     else assert(md->pair[x][y]==0);
   }}
-  int size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char);
+  size_t size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char); // 32-bit signed integer overflow bug fix
   gpuErrchk( cudaMalloc((void **) &d_pair, size) );
   gpuErrchk( cudaMemcpy(d_pair,pair_,size,cudaMemcpyHostToDevice) );
 
-  size = nfiles*Hc_ints(length)*sizeof(unsigned int);
+  size = (size_t)nfiles*Hc_ints(length)*sizeof(unsigned int); // 32-bit signed integer overflow bug fix
   gpuErrchk( cudaMalloc((void **) &d_hccc, size) );
-  unsigned int* hccc   = (unsigned int*) calloc(nfiles*Hc_ints(length),sizeof(unsigned int));
+  unsigned int* hccc   = (unsigned int*) calloc((size_t)nfiles*Hc_ints(length),sizeof(unsigned int)); // 32-bit signed integer overflow bug fix
   for(int H=0;H<nfiles;H++){
     assert(bitsperint==(1+0x1f));
     unsigned int mask;
@@ -257,10 +257,10 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC) hccc[I] |= mask;
     }
   }
-  gpuErrchk( cudaMemcpy(d_hccc,hccc,nfiles*Hc_ints(length)*sizeof(unsigned int),cudaMemcpyHostToDevice) );
+  gpuErrchk( cudaMemcpy(d_hccc,hccc,(size_t)nfiles*Hc_ints(length)*sizeof(unsigned int),cudaMemcpyHostToDevice) ); // 32-bit signed integer overflow bug fix
   free(hccc);
 
-  size = nfiles*(length+2)*sizeof(short);
+  size = (size_t)nfiles*(length+2)*sizeof(short); // 32-bit signed integer overflow bug fix
   gpuErrchk( cudaMalloc((void **) &d_S, size) );
   short* buff = (short*) malloc(size); //could use cudaMallocHost
   for(int H=0;H<nfiles;H++){
@@ -270,11 +270,11 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMemcpy(d_S,buff,size,cudaMemcpyHostToDevice) );
   free(buff);
 
-  size = nfiles*((length+1)*(length+2)/2)*sizeof(int);
+  size = (size_t)nfiles*((length+1)*(length+2)/2)*sizeof(int); // 32-bit signed integer overflow bug fix
   gpuErrchk( cudaMalloc((void **) &d_my_c, size) );
-  init_my_c(nfiles*(length+1)*(length+2)/2);
+  init_my_c((size_t)nfiles*(length+1)*(length+2)/2); // 32-bit signed integer overflow bug fix
 
-  size = nfiles*(length+1)*sizeof(int);
+  size = (size_t)nfiles*(length+1)*sizeof(int); // 32-bit signed integer overflow bug fix
   gpuErrchk( cudaMalloc((void **) &d_new_e, size) );
 
   gpuErrchk( cudaMalloc((void **) &d_energy_min2, size) );
