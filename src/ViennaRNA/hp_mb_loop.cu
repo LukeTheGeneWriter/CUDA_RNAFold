@@ -294,7 +294,13 @@ hp_mb_3p_kernel(const int i, const int turn, const int length,
   const unsigned int* Hccc_mb    = &hccc_mb[H*Hc_ints2(length)];
   const unsigned int* Hccc_mbenc = &hccc_mbenc[H*Hc_ints2(length)];
 
-  int type = (int)Ptype2(S_H,pair,i,j);
+  //raw_type: the 0->7 fixup must NOT be applied before the rtype[] lookup in
+  //energy_mb below -- mb_loop_fast.c:74,105 uses the raw (possibly-0) type as
+  //the rtype[] index and only fixes up the *result*. energy_hp/energy_3p_00
+  //DO use the fixed-up type directly (hairpin_loops.c:252-255,
+  //fill_arrays.c's old type_ local) -- see `type` below.
+  const int raw_type = (int)Ptype2(S_H,pair,i,j);
+  int type = raw_type;
   if(type == 0) type = 7;
 
   //energy_hp: vrna_E_hp_loop()/vrna_eval_hp_loop() do no hc check of their
@@ -312,7 +318,7 @@ hp_mb_3p_kernel(const int i, const int turn, const int length,
   {
     int decomp = 0;
     if(Hc2(ij,Hccc_mb)){
-      int tt = P->rtype[type];
+      int tt = P->rtype[raw_type]; //raw_type, NOT type -- see comment above
       if(tt == 0) tt = 7;
       decomp = E_MLstem_device(tt, S_H[j-1], S_H[i+1], P) + P->MLclosing;
     }
