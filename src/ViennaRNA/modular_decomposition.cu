@@ -846,7 +846,16 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
     const cudaError_t update_error = cudaGraphExecUpdate(graph_exec, graph, &update_result);
     if(update_error != cudaSuccess) {
       //topology changed (e.g. the side<=0 boundary above) -- stale exec can't
-      //be patched in place, drop it and instantiate fresh below
+      //be patched in place, drop it and instantiate fresh below.
+      //This is an *expected*, handled outcome (not a real fault), but every
+      //CUDA runtime call -- success or failure -- updates the thread-local
+      //"last error" slot that cudaPeekAtLastError()/cudaGetLastError() read.
+      //Left uncleared, this failure would sit there and get misattributed to
+      //the next unrelated cudaPeekAtLastError() check anywhere downstream
+      //(e.g. inside int_loop_i() on the next iteration). cudaGetLastError()
+      //(not Peek) both reads AND resets it, so call it to consume/clear this
+      //one now that we've handled it.
+      cudaGetLastError();
       gpuErrchk( cudaGraphExecDestroy(graph_exec) );
       graph_exec_valid = 0;
     }
