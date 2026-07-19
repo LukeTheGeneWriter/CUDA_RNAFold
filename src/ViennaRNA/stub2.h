@@ -84,6 +84,26 @@ extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
+init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size);
+
+// Per-row (fixed i, all j, all H) hairpin/multibranch/3'-extension energy
+// kernel -- see hp_mb_loop.cu for why these three (and only these three) can
+// be computed fresh each i instead of precomputed as a full nfiles*ijsize
+// array.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
+	   const int i, const int turn, const int length,
+	   int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row); //all out
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
 load_my_c(const int nfiles,
 	  const int i, const int turn, const int length,
 	  const int* min_e); //in
