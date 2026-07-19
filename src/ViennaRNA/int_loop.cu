@@ -292,15 +292,16 @@ __global__ void
 load_my_c_kernel(const int i, /*const int turn,*/ const int length,
 		 const int* __restrict__ new_e,
 	               int* __restrict__ my_c) { //out
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug
   const int m = blockIdx.x*blockDim.x+threadIdx.x;
-  const int j = m + i+turn+1; 
+  const int j = m + i+turn+1;
   if(j>length) return;
 
   const int ij = j*(j-1)/2+i;
-  assert(ij>=0 && ij<(length+1)*(length+2)/2);
-  assert(my_c[H*((length+1)*(length+2)/2)+ij] == INF);
-         my_c[H*((length+1)*(length+2)/2)+ij] = new_e[H*(length+1)+j];
+  const size_t ijsize = (size_t)(length+1)*(length+2)/2; // Langdon's 2026 indexing bug
+  assert(ij>=0 && (size_t)ij<ijsize);
+  assert(my_c[H*ijsize+ij] == INF); // Langdon's 2026 indexing bug
+         my_c[H*ijsize+ij] = new_e[H*(length+1)+j]; // Langdon's 2026 indexing bug
 }
 
 PUBLIC void
@@ -619,7 +620,9 @@ int_loop_ns0_kernel(const int i, /*const int turn,*/ const int length,
   assert(blockDim.x > 2*(MAXLOOP+1));
   //using up to 2*MAXLOOP+1 threads so BLOCK_SIZE=64
   //might as well use Grid to determine H
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug -- widening H to
+  //size_t promotes every H*(...) product below to size_t arithmetic
+  //automatically, per C's usual arithmetic conversions
   const int j = blockIdx.x + i+turn+1;
 
   int energy = INF;
@@ -658,7 +661,7 @@ int_loop_ns0_kernel(const int i, /*const int turn,*/ const int length,
       assert(nl >  0);
       assert(nl <= MAXLOOP);
       if(Hc(pq,Hccc)) {
-      const int hpq = pq + H*((length+1)*(length+2)/2);
+      const size_t hpq = pq + H*((length+1)*(length+2)/2); // Langdon's 2026 indexing bug -- hpq itself must be size_t too, not just H, or the correctly-widened RHS truncates right back on assignment
       energy = my_c[hpq];
       if(energy != INF) {
 
@@ -717,7 +720,9 @@ int_loop_1xn_kernel(const int i, /*const int turn,*/ const int length,
   assert(blockDim.x > 2*(MAXLOOP+1));
   //using up to 2*(MAXLOOP-2) threads so BLOCK_SIZE=64
   //might as well use Grid to determine H
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug -- widening H to
+  //size_t promotes every H*(...) product below to size_t arithmetic
+  //automatically, per C's usual arithmetic conversions
   const int j = blockIdx.x + i+turn+1;
 
   int energy = INF;
@@ -741,7 +746,7 @@ int_loop_1xn_kernel(const int i, /*const int turn,*/ const int length,
       assert(nl >  0);
       assert(nl <= MAXLOOP);
       if(Hc(pq,Hccc)) {
-      const int hpq = pq + H*((length+1)*(length+2)/2);
+      const size_t hpq = pq + H*((length+1)*(length+2)/2); // Langdon's 2026 indexing bug -- hpq itself must be size_t too, not just H, or the correctly-widened RHS truncates right back on assignment
       energy = my_c[hpq];
       if(energy != INF) {
 
@@ -1029,7 +1034,9 @@ int_loop_I_kernel(const int i, /*const int turn,*/ const int length,
 		        int* __restrict__ out_I) {
   //using up to 29*29-3 threads, for simpliciity BLOCK_SIZE=1024
   //might as well use Grid to determine H
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug -- widening H to
+  //size_t promotes every H*(...) product below to size_t arithmetic
+  //automatically, per C's usual arithmetic conversions
   const int j = blockIdx.x + i+turn+1;
 
   int energy = INF;
@@ -1067,7 +1074,7 @@ int_loop_I_kernel(const int i, /*const int turn,*/ const int length,
       assert(nl >  0);
       assert(nl <= MAXLOOP);
       if(Hc(pq,Hccc)) {
-      const int hpq = pq + H*((length+1)*(length+2)/2);
+      const size_t hpq = pq + H*((length+1)*(length+2)/2); // Langdon's 2026 indexing bug -- hpq itself must be size_t too, not just H, or the correctly-widened RHS truncates right back on assignment
       energy = my_c[hpq];
       if(energy != INF) {
 
@@ -1144,7 +1151,9 @@ int_loop_I1_kernel(const int dj, //2...MAXLOOP
 
   //using up to 29 threads, for simpliciity BLOCK_SIZE=32
   //might as well use Grid to determine H
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug -- widening H to
+  //size_t promotes every H*(...) product below to size_t arithmetic
+  //automatically, per C's usual arithmetic conversions
   const int j = blockIdx.x + i+turn+1;
 
   const int ij = Indx(i,j);
@@ -1184,7 +1193,7 @@ int_loop_I1_kernel(const int dj, //2...MAXLOOP
       assert(nl >  0);
       assert(nl <= MAXLOOP);
       if(Hc(pq,Hccc)) {
-      const int hpq = pq + H*((length+1)*(length+2)/2);
+      const size_t hpq = pq + H*((length+1)*(length+2)/2); // Langdon's 2026 indexing bug -- hpq itself must be size_t too, not just H, or the correctly-widened RHS truncates right back on assignment
       energy = my_c[hpq];
       if(energy != INF) {
 	flag = 1;
@@ -1311,7 +1320,7 @@ int_loop_min_kernel(const int dp, const int dq, //0,0, 1,1 (int11) or 2,2 (int22
   const int min_q = Min_q(i,j,turn);
   const int max_p = Max_p(i,j,q,turn);
   if(q >= min_q && q<=length && p <= max_p) {
-    const int pq   = Indx(p,q) + H*((length+1)*(length+2)/2);
+    const size_t pq   = Indx(p,q) + (size_t)H*((length+1)*(length+2)/2); // Langdon's 2026 indexing bug
     const int c_   = my_c[pq];
     const int delta = energy_in[m];
     if(c_ != INF && delta != INF) {
@@ -1376,7 +1385,8 @@ int_loop_kernel(const int i, /*const int turn,*/ const int length,
 		      int* __restrict__ energy_min) { //out
 
   int energy = INF;
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug -- widens the
+  //&my_c[H*((length+1)*(length+2)/2)] subscript below to size_t arithmetic
   const int j = blockIdx.x + i+turn+1;
 
 

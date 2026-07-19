@@ -372,14 +372,15 @@ load_fML_kernel(const int i, const int turn, const int length,
 		const int* __restrict__ energy_min,
 	              int* __restrict__ fml_j) { //out d_fml_j my_fML
   const int m = blockIdx.x*blockDim.x+threadIdx.x;
-  const int j = m + i+turn+1; 
+  const int j = m + i+turn+1;
   if(j>length) return;
 
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug
   const int ij = j*(j-1)/2+i;
-  assert(ij>=0 && ij<(length+1)*(length+2)/2);
-  assert(fml_j[H*((length+1)*(length+2)/2)+ij] == INF);
-         fml_j[H*((length+1)*(length+2)/2)+ij] = energy_min[H*(length+1)+j];
+  const size_t ijsize = (size_t)(length+1)*(length+2)/2; // Langdon's 2026 indexing bug
+  assert(ij>=0 && (size_t)ij<ijsize);
+  assert(fml_j[H*ijsize+ij] == INF); // Langdon's 2026 indexing bug
+         fml_j[H*ijsize+ij] = energy_min[H*(length+1)+j]; // Langdon's 2026 indexing bug
 }
 
 PUBLIC void
@@ -425,15 +426,16 @@ load_min_fML_kernel(const int i, const int turn, const int length,
   const int m = blockIdx.x*blockDim.x+threadIdx.x;
   if(m>=side) return;
 
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug
 
   const int j  = m + (i + 2*(turn+1)) + 1;
   const int ij = j*(j-1)/2+i;
+  const size_t ijsize = (size_t)(length+1)*(length+2)/2; // Langdon's 2026 indexing bug
 
   assert(j >=0 && j<=length);
-  assert(ij>=0 && ij<(length+1)*(length+2)/2);
+  assert(ij>=0 && (size_t)ij<ijsize);
 
-  fml_j[H*((length+1)*(length+2)/2)+ij] = MIN2(energy_min[H*(length+1)+j],dml[H*(length+1)+j]);
+  fml_j[H*ijsize+ij] = MIN2(energy_min[H*(length+1)+j],dml[H*(length+1)+j]); // Langdon's 2026 indexing bug
 
 //  printf("load_min_fML_kernel(i=%d,%d,%d,*,*,*) block %d,%d energy_min[%d]%d dml[%d]%d fml_j[%d]%d\n",
 //	 i,turn,length,
@@ -483,11 +485,12 @@ fmli_kernel(
 
   const int m = blockIdx.x*blockDim.x+threadIdx.x;
   if(m>=side) return;
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug
 
   const int k  = start + m;
   const int ik = k*(k-1)/2 + i;
-  fml_i[H*(length+1)+m] = fml_j[H*((length+1)*(length+2)/2)+ik]; //ith column
+  const size_t ijsize = (size_t)(length+1)*(length+2)/2; // Langdon's 2026 indexing bug
+  fml_i[H*(length+1)+m] = fml_j[H*ijsize+ik]; //ith column // Langdon's 2026 indexing bug
 
   //printf("fmli_kernel(%d,%d,%d,fml_i,my_fML) fml_i[%d]%d <= my_fML[%d]\n",
   //	   i,turn,length,
@@ -501,7 +504,8 @@ modular_decomposition_kernel(
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,  //In  d_dml_i, d_fml_j
   int* __restrict__ dml) {                          //Out d_dml (h_dml)
 
-  const int H = blockIdx.y;
+  const size_t H = blockIdx.y; // Langdon's 2026 indexing bug
+  const size_t ijsize = (size_t)(length+1)*(length+2)/2; // Langdon's 2026 indexing bug
   const int x = blockIdx.x;
   const int j = x + (i + 2*(turn+1)) + 1;
         int y = threadIdx.x;
@@ -518,7 +522,7 @@ modular_decomposition_kernel(
     //https://devtalk.nvidia.com/default/topic/1028130/cuda-programming-and-performance/best-way-to-find-many-minimums/
     //https://devtalk.nvidia.com/default/topic/1012969/cuda-programming-and-performance/texture-unit-in-pascal-architecture/2
     //value = MIN2(((fml_i[y] != INF ) && (fml_j[thread] != INF))? fml_i[y] + fml_j[thread] : INF, value);
-    value = MIN2(fml_i[H*(length+1)+y] + fml_j[H*((length+1)*(length+2)/2)+thread], value);
+    value = MIN2(fml_i[H*(length+1)+y] + fml_j[H*ijsize+thread], value); // Langdon's 2026 indexing bug
 
     //printf("modular_decomposition_kernel(i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d j %d y %d fml_i[%d] %d fml_j[%d] %d value %d\n",
     // 	   i,turn,length,
