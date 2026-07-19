@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
+#include <time.h>
 
 #include "ViennaRNA/utils.h"
 #include "ViennaRNA/energy_par.h"
@@ -267,6 +268,35 @@ int* d_dml;  //DMLi
 cudaStream_t    graph_stream     = 0;
 cudaGraphExec_t graph_exec       = NULL;
 int             graph_exec_valid = 0;
+
+// Diagnostic-only counters/timer for the graph exec update-vs-reinstantiate
+// path, to measure (rather than guess) how often cudaGraphExecUpdate() is
+// actually cheap-patching vs. falling back to a full destroy+instantiate,
+// and how much cumulative CPU time that bookkeeping (capture+update/
+// instantiate+destroy, NOT the launch+sync of the real GPU work) costs
+// across a whole fold. Printed once at process exit via atexit(). Remove
+// once the CUDA-graph-vs-old-branch timing question is settled.
+long   graph_update_success_count      = 0;
+long   graph_first_instantiate_count   = 0;
+long   graph_forced_reinstantiate_count = 0;
+double graph_mgmt_seconds              = 0.0;
+
+static void
+print_graph_update_stats(void) {
+  fprintf(stderr,
+    "%-24s CUDA graph stats: %ld update() succeeded, %ld first-time instantiate, "
+    "%ld forced reinstantiate (update failed), %.3f s cumulative capture/update/"
+    "instantiate/destroy overhead (excludes launch+sync)\n",
+    __FILE__, graph_update_success_count, graph_first_instantiate_count,
+    graph_forced_reinstantiate_count, graph_mgmt_seconds);
+}
+
+static inline double
+graph_now_seconds(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
 
 PUBLIC void
 init_gpu(const int nfiles, const int length) {
@@ -822,6 +852,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
     use_graph = (env && env[0]=='0') ? 0 : 1;
     fprintf(stderr,"%-24s CUDA graph capture for load_fML/modular_decomposition/load_min_fML: %s\n",
 	    __FILE__, use_graph? "enabled" : "disabled (RNA_CUDA_GRAPH=0)");
+    if(use_graph) atexit(print_graph_update_stats);
   }
 
   if(!use_graph) {
@@ -841,6 +872,8 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 
   gpuErrchk( cudaStreamEndCapture(graph_stream, &graph) );
 
+  const double mgmt_start = graph_now_seconds(); //diagnostic-only
+
   if(graph_exec_valid) {
     cudaGraphExecUpdateResultInfo update_result;
     const cudaError_t update_error = cudaGraphExecUpdate(graph_exec, graph, &update_result);
@@ -858,7 +891,12 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
       cudaGetLastError();
       gpuErrchk( cudaGraphExecDestroy(graph_exec) );
       graph_exec_valid = 0;
+      graph_forced_reinstantiate_count++; //diagnostic-only
+    } else {
+      graph_update_success_count++; //diagnostic-only
     }
+  } else {
+    graph_first_instantiate_count++; //diagnostic-only
   }
   if(!graph_exec_valid) {
     gpuErrchk( cudaGraphInstantiate(&graph_exec, graph, 0) );
@@ -866,6 +904,8 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   }
 
   gpuErrchk( cudaGraphDestroy(graph) ); //transient capture object, not graph_exec (the persistent one) -- leaks every iteration if skipped
+
+  graph_mgmt_seconds += graph_now_seconds() - mgmt_start; //diagnostic-only
 
   gpuErrchk( cudaGraphLaunch(graph_exec, graph_stream) );
   //the one sync that remains: also the only point where a real runtime/data
