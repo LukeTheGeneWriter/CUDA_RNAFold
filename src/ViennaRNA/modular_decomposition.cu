@@ -303,7 +303,11 @@ init_gpu(const int nfiles, const int length) {
   if(!first) return;
   fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
   cudaError_t error;
-  gpuErrchk( cudaStreamCreate(&graph_stream) );
+  // graph_stream is nfiles/length-independent -- guarded on its own initial
+  // value (0), not on `first`, so teardown_gpu() can reset first=1 between
+  // GPU batches without this recreating (and leaking the handle to) a fresh
+  // stream every batch. Created exactly once for the whole process.
+  if(graph_stream == 0) gpuErrchk( cudaStreamCreate(&graph_stream) );
   const size_t mem_size_len = (size_t)nfiles*(length+1) * sizeof(int); //starts at 1 not 0 // 32-bit signed integer overflow bug fix
   const size_t ijsize_len   = (size_t)nfiles*((length+1)*(length+2)/2) * sizeof(int); // 32-bit signed integer overflow bug fix
 
@@ -333,6 +337,80 @@ init_gpu(const int nfiles, const int length) {
 
   first = 0;
   return;
+}
+
+// Frees the 4 nfiles/length-scaled device buffers allocated by init_gpu()
+// and resets `first` so the next init_gpu() call actually re-runs (rather
+// than no-op'ing) at a new batch's nfiles. graph_stream is deliberately left
+// alone -- cheap to keep, no reason to tear it down between batches (see the
+// comment on its creation above). Defensively destroys graph_exec if valid,
+// since its captured nodes reference the buffers freed right below --
+// belt-and-suspenders per the multi-batch design doc; the existing
+// update-or-reinstantiate fallback in
+// load_fML_modular_decomposition_load_min_fML() would likely self-heal even
+// without this, but there's no reason to leave a stale exec referencing
+// about-to-be-freed memory during the "GPU unloaded" window between batches.
+PUBLIC void
+teardown_gpu(void) {
+  if(first) return; // never initialized (or already torn down) -- nothing to free
+  gpuErrchk( cudaFree(d_energy_min) );
+  gpuErrchk( cudaFree(d_fml_i) );
+  gpuErrchk( cudaFree(d_fml_j) );
+  gpuErrchk( cudaFree(d_dml) );
+  if(graph_exec_valid) {
+    gpuErrchk( cudaGraphExecDestroy(graph_exec) );
+    graph_exec_valid = 0;
+  }
+  first = 1;
+}
+
+// Bytes of device memory this file needs for one additional sequence at the
+// given length -- the 3 mem_size_len-scale buffers (d_energy_min, d_fml_i,
+// d_dml) plus the dominant ijsize_len-scale one (d_fml_j), mirroring
+// init_gpu()'s own size formulas exactly.
+PUBLIC size_t
+modular_decomposition_bytes_per_file(const int length) {
+  const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 3;
+  const size_t ijsize_len   = (size_t)(length+1)*(length+2)/2 * sizeof(int);
+  return mem_size_len + ijsize_len;
+}
+
+// CUDA caps gridDim.y/z at 65535 -- nfiles is used directly as gridDim.y in
+// this file's kernels (and int_loop.cu's/hp_mb_loop.cu's), which is exactly
+// why RNAfold.c's MAXCUDAPAR exists as a hard ceiling on a single par_mfe()
+// call. compute_max_gpu_batch() must respect the same limit -- otherwise a
+// short-sequence run with abundant free VRAM could compute a batch size
+// larger than the grid can address. Keep in sync with RNAfold.c's
+// MAXCUDAPAR if that ever changes.
+#define MAX_GPU_BATCH_GRID_LIMIT 65535
+
+// Queries free VRAM and computes the largest nfiles that fits within a
+// safety margin of it at the given fold length, summing the per-file cost
+// across all three GPU-resident files (this one, int_loop.cu, hp_mb_loop.cu)
+// -- owned here since this file already has the dominant-cost buffer and the
+// `first`-guard pattern this whole feature extends.
+// Returns 0 if even min_batch sequences wouldn't fit -- signal to the caller
+// to route everything remaining to the CPU queue instead of attempting an
+// undersized (or outright failing) GPU batch.
+// TODO: the 80% safety margin below is a placeholder, not yet validated
+// against real multi-batch timing/fragmentation data -- flagged for
+// follow-up tuning once this is running on Colab.
+PUBLIC int
+compute_max_gpu_batch(const int length, const int min_batch) {
+  size_t free_bytes = 0, total_bytes = 0;
+  gpuErrchk( cudaMemGetInfo(&free_bytes, &total_bytes) );
+
+  const size_t bytes_per_file = modular_decomposition_bytes_per_file(length)
+                               + int_loop_bytes_per_file(length)
+                               + hp_mb_loop_bytes_per_file(length);
+
+  const double safety_margin = 0.80; // TODO: tune
+  const size_t usable_bytes  = (size_t)((double)free_bytes * safety_margin);
+
+  size_t max_batch = (bytes_per_file == 0) ? 0 : usable_bytes / bytes_per_file;
+  if(max_batch > MAX_GPU_BATCH_GRID_LIMIT) max_batch = MAX_GPU_BATCH_GRID_LIMIT;
+
+  return ((int)max_batch < min_batch) ? 0 : (int)max_batch;
 }
 
 /* prefill matrices with init contributions */

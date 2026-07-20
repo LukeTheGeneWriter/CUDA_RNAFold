@@ -86,6 +86,72 @@ PUBLIC void
 #endif
 init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size);
 
+// teardown_gpu()/teardown_gpu2()/teardown_gpu3(): free the nfiles/length-
+// scaled device buffers allocated by init_gpu()/init_gpu2()/init_gpu3() and
+// reset each file's one-time-init guard, so the next batch's init_gpu*()
+// call actually re-allocates at the new nfiles instead of no-op'ing. One per
+// .cu file, mirroring each file's own init_gpu*() -- see modular_decomposition.cu/
+// int_loop.cu/hp_mb_loop.cu for what each frees and what it deliberately
+// leaves allocated (the fixed-size, nfiles/length-independent buffers).
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+teardown_gpu(void);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+teardown_gpu2(void);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+teardown_gpu3(void);
+
+// *_bytes_per_file(): bytes of device memory the owning file needs for one
+// additional sequence at the given length -- used by compute_max_gpu_batch()
+// to size a GPU batch against free VRAM. Each file owns its own formula
+// (mirrors its init_gpu*() cudaMalloc sizes exactly) rather than duplicating
+// it elsewhere.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ size_t
+#else
+PUBLIC size_t
+#endif
+modular_decomposition_bytes_per_file(const int length);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ size_t
+#else
+PUBLIC size_t
+#endif
+int_loop_bytes_per_file(const int length);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ size_t
+#else
+PUBLIC size_t
+#endif
+hp_mb_loop_bytes_per_file(const int length);
+
+// Queries free VRAM (cudaMemGetInfo) and returns the largest nfiles that
+// fits within a safety margin of it at the given length, summing all three
+// files' per-file costs -- or 0 if even min_batch sequences wouldn't fit
+// (signal: route the remainder to the CPU queue instead). See
+// modular_decomposition.cu for the safety-margin/grid-limit details.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ int
+#else
+PUBLIC int
+#endif
+compute_max_gpu_batch(const int length, const int min_batch);
+
 // Per-row (fixed i, all j, all H) hairpin/multibranch/3'-extension energy
 // kernel -- see hp_mb_loop.cu for why these three (and only these three) can
 // be computed fresh each i instead of precomputed as a full nfiles*ijsize

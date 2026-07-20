@@ -486,9 +486,46 @@ int main(int argc, char *argv[]){
   # begin actual computations
   ########################################################
   */
-  par_mfe(nfiles,VC,Structure,EN);
+  /* Multi-batch GPU pipeline with dynamic VRAM-aware sizing: cycle through
+   * sequential GPU batches (each sized against free VRAM via
+   * compute_max_gpu_batch()) instead of one par_mfe() call across all of
+   * nfiles, so runs too large for one GPU batch (see the 500-sequence OOM
+   * that motivated this) complete via multiple smaller batches instead of
+   * failing outright. Each batch's device buffers are torn down before the
+   * next batch's init_gpu*() resizes them -- see teardown_gpu()/
+   * teardown_gpu2()/teardown_gpu3() (modular_decomposition.cu/int_loop.cu/
+   * hp_mb_loop.cu). The CPU worker pool keeps draining its own queue
+   * throughout, unaffected by which GPU batch is in flight.
+   * MIN_GPU_BATCH=10 and compute_max_gpu_batch()'s 80% VRAM safety margin
+   * are both placeholders -- TODO: tune both from real multi-batch timing
+   * data once this is running on Colab. */
+  const int MIN_GPU_BATCH = 10;
+  int offset = 0;
+  while(offset < nfiles) {
+    const int remaining = nfiles - offset;
+    const int max_batch = compute_max_gpu_batch(VC[offset]->length, MIN_GPU_BATCH);
 
-  for(int i=0;i<nfiles;i++) {
+    if(cpu_queue_threads > 0 && (max_batch == 0 || remaining < MIN_GPU_BATCH)) {
+      /* Not worth a GPU batch (or nothing fits at all right now) -- hand the
+       * remainder to the CPU queue instead of forcing an inefficient
+       * tiny/failed GPU run. Only takes this path when the CPU queue is
+       * actually active; otherwise falls through and runs the remainder on
+       * the GPU regardless of size (still correct, just not optimally
+       * efficient) since there's nowhere else for these sequences to go. */
+      for(int k=offset; k<nfiles; k++) {
+        rnafold_cpu_queue_submit(SEQ_IDs[k], Orig_sequence[k], VC[k]->sequence);
+        vrna_fold_compound_free(VC[k]);
+        free(SEQ_IDs[k]);
+        free(Orig_sequence[k]);
+        free(Structure[k]);
+      }
+      break;
+    }
+
+    const int chunk_len = (max_batch > 0 && max_batch < remaining) ? max_batch : remaining;
+    par_mfe(chunk_len, &VC[offset], &Structure[offset], &EN[offset]);
+
+  for(int i=offset;i<offset+chunk_len;i++) {
     const char* SEQ_ID             = SEQ_IDs[i];
     const vrna_fold_compound_t *vc = VC[i];
     const char* orig_sequence      = Orig_sequence[i];
@@ -879,6 +916,12 @@ int main(int argc, char *argv[]){
       else vrna_message_input_seq_simple();
     }*/
   }
+
+    teardown_gpu();
+    teardown_gpu2();
+    teardown_gpu3();
+    offset += chunk_len;
+  } /* end GPU batch-cycle while */
 
   /* Drain and join the CPU worker pool (no-op if it was never enabled) --
    * must happen after the GPU batch's own output loop above so the two

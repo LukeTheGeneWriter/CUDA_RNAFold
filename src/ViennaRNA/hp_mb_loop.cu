@@ -127,24 +127,30 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   if(!first3) return;
   fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
-  gpuErrchk( cudaMalloc((void **) &d_param2, sizeof(cuda_param2_t)) );
-  load_param2(VC[0]->params);
+  // d_param2/d_pair2 are nfiles/length-independent -- guarded on their own
+  // one-time check (d_param2 starts NULL, a zero-initialized global) rather
+  // than on first3, so teardown_gpu3() can reset first3=1 between GPU
+  // batches without this block re-allocating (and leaking) them every batch.
+  if(!d_param2) {
+    gpuErrchk( cudaMalloc((void **) &d_param2, sizeof(cuda_param2_t)) );
+    load_param2(VC[0]->params);
 
-  char pair_[NBPAIRS+1][NBPAIRS+1];
-  for(int x=0;x<21;x++){
-  for(int y=0;y<21;y++) {
-    const vrna_md_t *md = &(VC[0]->params->model_details);
-    if(x < NBPAIRS+1 && y < NBPAIRS+1) pair_[x][y] = md->pair[x][y];
-  }}
-  size_t size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char);
-  gpuErrchk( cudaMalloc((void **) &d_pair2, size) );
-  gpuErrchk( cudaMemcpy(d_pair2,pair_,size,cudaMemcpyHostToDevice) );
+    char pair_[NBPAIRS+1][NBPAIRS+1];
+    for(int x=0;x<21;x++){
+    for(int y=0;y<21;y++) {
+      const vrna_md_t *md = &(VC[0]->params->model_details);
+      if(x < NBPAIRS+1 && y < NBPAIRS+1) pair_[x][y] = md->pair[x][y];
+    }}
+    const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char);
+    gpuErrchk( cudaMalloc((void **) &d_pair2, pair_size) );
+    gpuErrchk( cudaMemcpy(d_pair2,pair_,pair_size,cudaMemcpyHostToDevice) );
+  }
 
   //VRNA_CONSTRAINT_CONTEXT_MB_LOOP / _ENC bitmasks, same packing technique as
   //int_loop.cu's d_hccc (which only packs the INT_LOOP_ENC bit) -- see
   //init_gpu2() there. hc->matrix packs several independent context bits into
   //the same byte (constraints_hard.h), so this is just extracting two more.
-  size = (size_t)nfiles*Hc_ints2(length)*sizeof(unsigned int);
+  size_t size = (size_t)nfiles*Hc_ints2(length)*sizeof(unsigned int);
   gpuErrchk( cudaMalloc((void **) &d_hccc_mb,    size) );
   gpuErrchk( cudaMalloc((void **) &d_hccc_mbenc, size) );
   unsigned int* hccc_mb    = (unsigned int*) calloc((size_t)nfiles*Hc_ints2(length),sizeof(unsigned int));
@@ -187,6 +193,43 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMalloc((void **) &d_energy_3p00_row, size) );
 
   first3 = 0;
+}
+
+// Frees the 7 nfiles/length-scaled device buffers allocated by init_gpu3()
+// and resets first3 so the next init_gpu3() call re-runs at a new batch's
+// nfiles. d_param2/d_pair2 are deliberately left allocated -- they're
+// nfiles/length-independent (see the one-time guard in init_gpu3() above)
+// and never need resizing between batches.
+PUBLIC void
+teardown_gpu3(void) {
+  if(first3) return; // never initialized (or already torn down) -- nothing to free
+  gpuErrchk( cudaFree(d_hccc_mb) );
+  gpuErrchk( cudaFree(d_hccc_mbenc) );
+  gpuErrchk( cudaFree(d_S2) );
+  gpuErrchk( cudaFree(d_sequence) );
+  gpuErrchk( cudaFree(d_energy_hp_row) );
+  gpuErrchk( cudaFree(d_energy_mb_row) );
+  gpuErrchk( cudaFree(d_energy_3p00_row) );
+  first3 = 1;
+}
+
+// Bytes of device memory this file needs for one additional sequence at the
+// given length -- all row-scale (O(length), not O(length^2)) by the
+// GPU-energy-precompute design this file already uses, so this is small
+// relative to modular_decomposition.cu's/int_loop.cu's per-file costs.
+// d_param2/d_pair2 excluded -- fixed-size, paid once regardless of batch
+// count.
+PUBLIC size_t
+hp_mb_loop_bytes_per_file(const int length) {
+  const size_t hccc_mb_bytes    = Hc_ints2(length)*sizeof(unsigned int);
+  const size_t hccc_mbenc_bytes = Hc_ints2(length)*sizeof(unsigned int);
+  const size_t s2_bytes         = (size_t)(length+2)*sizeof(short);
+  const size_t sequence_bytes   = (size_t)(length+2)*sizeof(char);
+  const size_t hp_row_bytes     = (size_t)(length+1)*sizeof(int);
+  const size_t mb_row_bytes     = (size_t)(length+1)*sizeof(int);
+  const size_t p3p00_row_bytes  = (size_t)(length+1)*sizeof(int);
+  return hccc_mb_bytes + hccc_mbenc_bytes + s2_bytes + sequence_bytes
+       + hp_row_bytes + mb_row_bytes + p3p00_row_bytes;
 }
 
 __device__ inline unsigned char

@@ -228,24 +228,30 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   //printf("%s %s d_param is %lu bytes, NBPAIRS %d MAXLOOP %d BLOCK_SIZE %d\n",
   //	 __FILE__,Version,sizeof(cuda_param_s),NBPAIRS,MAXLOOP,block_size);
 
-  gpuErrchk( cudaMalloc((void **) &d_param, sizeof(cuda_param_s)) );
-  load_param(VC[0]->params);
+  // d_param/d_pair are nfiles/length-independent -- guarded on their own
+  // one-time check (d_param starts NULL, a zero-initialized global) rather
+  // than on first2, so teardown_gpu2() can reset first2=1 between GPU
+  // batches without this block re-allocating (and leaking) them every batch.
+  if(!d_param) {
+    gpuErrchk( cudaMalloc((void **) &d_param, sizeof(cuda_param_s)) );
+    load_param(VC[0]->params);
 
-  char pair_[NBPAIRS+1][NBPAIRS+1];
-  for(int x=0;x<21;x++){
-  for(int y=0;y<21;y++) {
-    const vrna_md_t *md = &(VC[0]->params->model_details);
-    if(x < NBPAIRS+1 && y < NBPAIRS+1) {
-      pair_[x][y] = md->pair[x][y];
-      assert(pair_[x][y] >= 0 && pair_[x][y] < 8);
-    }
-    else assert(md->pair[x][y]==0);
-  }}
-  size_t size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char); // 32-bit signed integer overflow bug fix
-  gpuErrchk( cudaMalloc((void **) &d_pair, size) );
-  gpuErrchk( cudaMemcpy(d_pair,pair_,size,cudaMemcpyHostToDevice) );
+    char pair_[NBPAIRS+1][NBPAIRS+1];
+    for(int x=0;x<21;x++){
+    for(int y=0;y<21;y++) {
+      const vrna_md_t *md = &(VC[0]->params->model_details);
+      if(x < NBPAIRS+1 && y < NBPAIRS+1) {
+        pair_[x][y] = md->pair[x][y];
+        assert(pair_[x][y] >= 0 && pair_[x][y] < 8);
+      }
+      else assert(md->pair[x][y]==0);
+    }}
+    const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char); // 32-bit signed integer overflow bug fix
+    gpuErrchk( cudaMalloc((void **) &d_pair, pair_size) );
+    gpuErrchk( cudaMemcpy(d_pair,pair_,pair_size,cudaMemcpyHostToDevice) );
+  }
 
-  size = (size_t)nfiles*Hc_ints(length)*sizeof(unsigned int); // 32-bit signed integer overflow bug fix
+  size_t size = (size_t)nfiles*Hc_ints(length)*sizeof(unsigned int); // 32-bit signed integer overflow bug fix
   gpuErrchk( cudaMalloc((void **) &d_hccc, size) );
   unsigned int* hccc   = (unsigned int*) calloc((size_t)nfiles*Hc_ints(length),sizeof(unsigned int)); // 32-bit signed integer overflow bug fix
   for(int H=0;H<nfiles;H++){
@@ -278,13 +284,43 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMalloc((void **) &d_new_e, size) );
 
   gpuErrchk( cudaMalloc((void **) &d_energy_min2, size) );
-  /*no longer in use 
+  /*no longer in use
   gpuErrchk( cudaMalloc((void **) &d_energy_min20,size) );
 
   size = nfiles*length*sizeof(int);
   gpuErrchk( cudaMalloc((void **) &d_buf, size) );
   */
   first2 = 0;
+}
+
+// Frees the 5 nfiles/length-scaled device buffers allocated by init_gpu2()
+// and resets first2 so the next init_gpu2() call re-runs at a new batch's
+// nfiles. d_param/d_pair are deliberately left allocated -- they're
+// nfiles/length-independent (see the one-time guard in init_gpu2() above)
+// and never need resizing between batches.
+PUBLIC void
+teardown_gpu2(void) {
+  if(first2) return; // never initialized (or already torn down) -- nothing to free
+  gpuErrchk( cudaFree(d_hccc) );
+  gpuErrchk( cudaFree(d_S) );
+  gpuErrchk( cudaFree(d_my_c) );
+  gpuErrchk( cudaFree(d_new_e) );
+  gpuErrchk( cudaFree(d_energy_min2) );
+  first2 = 1;
+}
+
+// Bytes of device memory this file needs for one additional sequence at the
+// given length -- d_hccc/d_S/d_my_c/d_new_e/d_energy_min2, mirroring
+// init_gpu2()'s own size formulas exactly. d_param/d_pair are excluded --
+// fixed-size, paid once regardless of batch count.
+PUBLIC size_t
+int_loop_bytes_per_file(const int length) {
+  const size_t hccc_bytes         = Hc_ints(length)*sizeof(unsigned int);
+  const size_t s_bytes            = (size_t)(length+2)*sizeof(short);
+  const size_t my_c_bytes         = (size_t)(length+1)*(length+2)/2*sizeof(int);
+  const size_t new_e_bytes        = (size_t)(length+1)*sizeof(int);
+  const size_t energy_min2_bytes  = (size_t)(length+1)*sizeof(int);
+  return hccc_bytes + s_bytes + my_c_bytes + new_e_bytes + energy_min2_bytes;
 }
 
 //perhaps this can be combined with other kernels?
