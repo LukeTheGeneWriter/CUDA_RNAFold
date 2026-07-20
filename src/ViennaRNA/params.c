@@ -383,7 +383,15 @@ get_scaled_params(vrna_md_t *md){
   strncpy(params->Triloops, Triloops, 241);
   strncpy(params->Hexaloops, Hexaloops, 361);
 
-  params->id = ++id;
+  // Heterogeneous GPU+CPU dispatch (RNAfold_cpu_queue.c) calls
+  // vrna_fold_compound() concurrently from multiple worker threads, and
+  // get_scaled_params() runs on every such call -- ++id here was an
+  // unsynchronized read-modify-write on a file-scope static, a genuine data
+  // race under concurrent callers. __sync_add_and_fetch is a GCC/Clang
+  // builtin (matches ++id's prefix-increment semantics exactly) and needs
+  // no -pthread/<pthread.h>, so this fix doesn't touch this shared file's
+  // build flags at all.
+  params->id = __sync_add_and_fetch(&id, 1);
   return params;
 }
 

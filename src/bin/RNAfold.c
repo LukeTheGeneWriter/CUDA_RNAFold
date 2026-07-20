@@ -45,6 +45,7 @@
 #include "RNAfold_cmdl.h"
 #include "gengetopt_helper.h"
 #include "input_id_helper.h"
+#include "RNAfold_cpu_queue.h"
 
 #include "ViennaRNA/color_output.inc"
 
@@ -268,6 +269,46 @@ int main(int argc, char *argv[]){
   float*                 EN = (float*)                malloc(MAXCUDAPAR*sizeof(float*));
   int nfiles = 0;
 
+  /* Heterogeneous GPU+CPU dispatch: fold short/off-batch sequences on a CPU
+   * thread pool concurrently with the GPU batch below, instead of leaving
+   * CPU cores idle while the GPU works. RNA_CPU_THREADS=0 (or unset,
+   * default here) disables it -- pure GPU-only behavior, unchanged from
+   * before this feature existed. RNA_CPU_THRESHOLD sets the sequence-length
+   * cutoff (default 200): sequences shorter than this go to the CPU queue.
+   *
+   * The v1 CPU path only replicates plain MFE folding (vrna_mfe_cpu(),
+   * mirroring RNAfold's default output format) -- it does NOT apply
+   * constraints/SHAPE/ligand-motifs the way the GPU path's per-record setup
+   * below does (RNAfold.c:~330-365), and it always prints to stdout rather
+   * than replicating outfile's per-record (fname-dependent) output-file
+   * selection (RNAfold.c:~364-377 -- `output` isn't actually resolved to
+   * its real per-record destination until inside the read loop, so it
+   * can't be snapshotted here). Rather than silently drop that semantics
+   * for CPU-routed sequences, disable the queue entirely whenever this run
+   * uses any of those features -- falls back to the exact pre-existing
+   * GPU-only behavior automatically.
+   */
+  int cpu_queue_threads = 0;
+  {
+    const char *env_threads = getenv("RNA_CPU_THREADS");
+    if(env_threads) {
+      if(fold_constrained || with_shapes || ligandMotif || commands || outfile) {
+        fprintf(stderr, "RNA_CPU_THREADS set but disabled: constraints/SHAPE/ligand-motifs/"
+                         "outfile are in use and the CPU queue's v1 output path doesn't "
+                         "replicate them yet -- falling back to GPU-only.\n");
+      } else {
+        cpu_queue_threads = atoi(env_threads);
+        if(cpu_queue_threads < 0) cpu_queue_threads = 0;
+      }
+    }
+  }
+  int cpu_queue_threshold = 200;
+  {
+    const char *env_threshold = getenv("RNA_CPU_THRESHOLD");
+    if(env_threshold) cpu_queue_threshold = atoi(env_threshold);
+  }
+  rnafold_cpu_queue_init(cpu_queue_threads, &md, stdout);
+
   while(
     !((rec_type = vrna_file_fasta_read_record(&rec_id, &rec_sequence, &rec_rest, input, read_opt))
         & (VRNA_INPUT_ERROR | VRNA_INPUT_QUIT))){
@@ -318,6 +359,25 @@ int main(int argc, char *argv[]){
     vrna_fold_compound_t *vc = vrna_fold_compound(rec_sequence, &md, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
 
     length    = vc->length;
+
+    /* Heterogeneous GPU+CPU dispatch: route this sequence to the CPU queue
+     * instead of the GPU batch array below if it's short enough, or --
+     * pragmatically -- if its length differs from the batch's first
+     * sequence, which would otherwise hard-exit at the same-length check a
+     * few lines down; routing length-mismatched sequences to the CPU queue
+     * instead removes that pre-existing crash as a side effect. Disabled
+     * entirely (cpu_queue_threads==0) whenever constraints/SHAPE/ligand-
+     * motifs/outfile are in play -- see the queue-init comment above. */
+    const int route_to_cpu = cpu_queue_threads > 0 &&
+                              (length < cpu_queue_threshold ||
+                               (nfiles > 0 && length != VC[0]->length));
+
+    if(route_to_cpu){
+      rnafold_cpu_queue_submit(SEQ_ID, orig_sequence, rec_sequence);
+      vrna_fold_compound_free(vc);
+      free(SEQ_ID);
+      free(orig_sequence);
+    } else {
 
     structure = (char *) vrna_alloc(sizeof(char) * (length+1));
 
@@ -391,6 +451,8 @@ int main(int argc, char *argv[]){
     Orig_sequence[nfiles] = orig_sequence;
     Structure[nfiles]     = structure;
     nfiles++;
+
+    } /* end else (!route_to_cpu) */
 
     free(rec_sequence);
     free(cstruc);
@@ -817,6 +879,13 @@ int main(int argc, char *argv[]){
       else vrna_message_input_seq_simple();
     }*/
   }
+
+  /* Drain and join the CPU worker pool (no-op if it was never enabled) --
+   * must happen after the GPU batch's own output loop above so the two
+   * don't print interleaved (see the v1 output-ordering scope note in
+   * RNAfold_cpu_queue.h). */
+  rnafold_cpu_queue_shutdown();
+
     if(outfile && output){
       fclose(output);
       output = NULL;

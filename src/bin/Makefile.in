@@ -182,7 +182,8 @@ RNAeval_OBJECTS = $(am_RNAeval_OBJECTS)
 RNAeval_LDADD = $(LDADD)
 RNAeval_DEPENDENCIES = $(top_builddir)/src/ViennaRNA/libRNA_conv.la
 am_RNAfold_OBJECTS = RNAfold-RNAfold_cmdl.$(OBJEXT) \
-	RNAfold-RNAfold.$(OBJEXT)
+	RNAfold-RNAfold.$(OBJEXT) \
+	RNAfold-RNAfold_cpu_queue.$(OBJEXT)
 RNAfold_OBJECTS = $(am_RNAfold_OBJECTS)
 RNAfold_LDADD = $(LDADD)
 RNAfold_DEPENDENCIES = $(top_builddir)/src/ViennaRNA/libRNA_conv.la
@@ -316,7 +317,7 @@ am__DIST_COMMON = $(srcdir)/Makefile.in $(top_srcdir)/config/depcomp
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
-AM_CFLAGS = $(RNA_CFLAGS)
+AM_CFLAGS = $(RNA_CFLAGS) -pthread
 AM_CPPFLAGS = $(RNA_CPPFLAGS) -I$(top_srcdir)/src
 AM_CXXFLAGS = $(RNA_CXXFLAGS)
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
@@ -562,7 +563,8 @@ nvld_verbose_ = $(nvld_verbose_@AM_DEFAULT_V@)
 nvld_verbose_0 = @echo "  NVLD     $@";
 LDADD = $(top_builddir)/src/ViennaRNA/libRNA_conv.la
 HELPER_FILES = gengetopt_helper.h \
-                input_id_helper.h
+                input_id_helper.h \
+                RNAfold_cpu_queue.h
 
 SUFFIXES = _cmdl.c _cmdl.h .ggo
 
@@ -604,7 +606,7 @@ EXTRA_DIST = ${GENGETOPT_FILES} \
               ${GENGETOPT_CMDL} \
               ${HELPER_FILES}
 
-RNAfold_SOURCES = RNAfold_cmdl.c RNAfold.c
+RNAfold_SOURCES = RNAfold_cmdl.c RNAfold.c RNAfold_cpu_queue.c
 RNAfold_CPPFLAGS = ${AM_CPPFLAGS} -DCUDA
 RNAsubopt_SOURCES = RNAsubopt_cmdl.c RNAsubopt.c
 RNAalifold_SOURCES = RNAalifold_cmdl.c RNAalifold.c
@@ -901,6 +903,20 @@ RNAfold-RNAfold.obj: RNAfold.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(RNAfold_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o RNAfold-RNAfold.obj `if test -f 'RNAfold.c'; then $(CYGPATH_W) 'RNAfold.c'; else $(CYGPATH_W) '$(srcdir)/RNAfold.c'; fi`
 
+RNAfold-RNAfold_cpu_queue.o: RNAfold_cpu_queue.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(RNAfold_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT RNAfold-RNAfold_cpu_queue.o -MD -MP -MF $(DEPDIR)/RNAfold-RNAfold_cpu_queue.Tpo -c -o RNAfold-RNAfold_cpu_queue.o `test -f 'RNAfold_cpu_queue.c' || echo '$(srcdir)/'`RNAfold_cpu_queue.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/RNAfold-RNAfold_cpu_queue.Tpo $(DEPDIR)/RNAfold-RNAfold_cpu_queue.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='RNAfold_cpu_queue.c' object='RNAfold-RNAfold_cpu_queue.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(RNAfold_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o RNAfold-RNAfold_cpu_queue.o `test -f 'RNAfold_cpu_queue.c' || echo '$(srcdir)/'`RNAfold_cpu_queue.c
+
+RNAfold-RNAfold_cpu_queue.obj: RNAfold_cpu_queue.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(RNAfold_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT RNAfold-RNAfold_cpu_queue.obj -MD -MP -MF $(DEPDIR)/RNAfold-RNAfold_cpu_queue.Tpo -c -o RNAfold-RNAfold_cpu_queue.obj `if test -f 'RNAfold_cpu_queue.c'; then $(CYGPATH_W) 'RNAfold_cpu_queue.c'; else $(CYGPATH_W) '$(srcdir)/RNAfold_cpu_queue.c'; fi`
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/RNAfold-RNAfold_cpu_queue.Tpo $(DEPDIR)/RNAfold-RNAfold_cpu_queue.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='RNAfold_cpu_queue.c' object='RNAfold-RNAfold_cpu_queue.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(RNAfold_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o RNAfold-RNAfold_cpu_queue.obj `if test -f 'RNAfold_cpu_queue.c'; then $(CYGPATH_W) 'RNAfold_cpu_queue.c'; else $(CYGPATH_W) '$(srcdir)/RNAfold_cpu_queue.c'; fi`
+
 mostlyclean-libtool:
 	-rm -f *.lo
 
@@ -1127,10 +1143,11 @@ _cmdl.c_cmdl.h :
 maintainer-clean-local:
 	rm -rf $(GENGETOPT_CMDL)
 
-RNAfold$(EXEEXT):  RNAfold.o RNAfold_cmdl.o
-	$(nvld_verbose)${NVCC_LN} ${NVCC_LDFLAGS} -o RNAfold$(EXEEXT) \
+RNAfold$(EXEEXT):  RNAfold.o RNAfold_cmdl.o RNAfold_cpu_queue.o
+	$(nvld_verbose)${NVCC_LN} ${NVCC_LDFLAGS} -Xcompiler -pthread -o RNAfold$(EXEEXT) \
         RNAfold.o \
         RNAfold_cmdl.o \
+        RNAfold_cpu_queue.o \
         ${top_builddir}/src/ViennaRNA/modular_decomposition.o \
         ${top_builddir}/src/ViennaRNA/int_loop.o \
         ${top_builddir}/src/ViennaRNA/hp_mb_loop.o \

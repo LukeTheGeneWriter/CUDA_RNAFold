@@ -36,6 +36,24 @@ vrna_mfe(vrna_fold_compound_t *vc,
           char *structure);
 
 /**
+ *  @brief CPU-worker-pool entry point (RNAfold heterogeneous GPU+CPU
+ *  dispatch, src/bin/RNAfold_cpu_queue.c). Identical semantics to
+ *  vrna_mfe() -- exists only under a distinct name because the RNAfold
+ *  binary links an object (mfe_cuda.o) that defines its own vrna_mfe()
+ *  which is NOT safe to call for VRNA_FC_TYPE_SINGLE fold compounds.
+ *  Always resolves to this file's (mfe.c's) real implementation.
+ *
+ *  @param vc             fold compound
+ *  @param structure      A pointer to the character array where the
+ *                        secondary structure in dot-bracket notation will be written to (Maybe NULL)
+ *
+ *  @return the minimum free energy (MFE) in kcal/mol
+ */
+float
+vrna_mfe_cpu(vrna_fold_compound_t *vc,
+             char *structure);
+
+/**
  *  @brief Compute the minimum free energy of two interacting RNA molecules
  *
  *  The code is analog to the vrna_mfe() function.
