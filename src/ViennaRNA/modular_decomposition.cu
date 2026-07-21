@@ -392,9 +392,12 @@ modular_decomposition_bytes_per_file(const int length) {
 // Returns 0 if even min_batch sequences wouldn't fit -- signal to the caller
 // to route everything remaining to the CPU queue instead of attempting an
 // undersized (or outright failing) GPU batch.
-// TODO: the 80% safety margin below is a placeholder, not yet validated
-// against real multi-batch timing/fragmentation data -- flagged for
-// follow-up tuning once this is running on Colab.
+// TODO: the 95% safety margin below was bumped up from an initial 80% after
+// a 400-sequence/length-5601 multi-batch stress test on Colab showed lots of
+// VRAM/system-RAM headroom to spare -- still not derived from a systematic
+// study of allocator fragmentation/CUDA context overhead across many batch
+// sizes, just empirically fine so far. Revisit if a future run OOMs closer
+// to the edge than this one did.
 PUBLIC int
 compute_max_gpu_batch(const int length, const int min_batch) {
   size_t free_bytes = 0, total_bytes = 0;
@@ -404,7 +407,7 @@ compute_max_gpu_batch(const int length, const int min_batch) {
                                + int_loop_bytes_per_file(length)
                                + hp_mb_loop_bytes_per_file(length);
 
-  const double safety_margin = 0.80; // TODO: tune
+  const double safety_margin = 0.95; // TODO: tune further if a tighter margin ever OOMs
   const size_t usable_bytes  = (size_t)((double)free_bytes * safety_margin);
 
   size_t max_batch = (bytes_per_file == 0) ? 0 : usable_bytes / bytes_per_file;

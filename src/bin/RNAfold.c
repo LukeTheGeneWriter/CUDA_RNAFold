@@ -496,9 +496,10 @@ int main(int argc, char *argv[]){
    * teardown_gpu2()/teardown_gpu3() (modular_decomposition.cu/int_loop.cu/
    * hp_mb_loop.cu). The CPU worker pool keeps draining its own queue
    * throughout, unaffected by which GPU batch is in flight.
-   * MIN_GPU_BATCH=10 and compute_max_gpu_batch()'s 80% VRAM safety margin
-   * are both placeholders -- TODO: tune both from real multi-batch timing
-   * data once this is running on Colab. */
+   * MIN_GPU_BATCH=10 is still a placeholder -- TODO: tune from real
+   * multi-batch timing data. compute_max_gpu_batch()'s VRAM safety margin
+   * was bumped to 95% after an initial 400-sequence/length-5601 stress test
+   * showed plenty of headroom to spare (see modular_decomposition.cu). */
   const int MIN_GPU_BATCH = 10;
   int offset = 0;
   while(offset < nfiles) {
