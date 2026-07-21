@@ -40,9 +40,11 @@ int rnafold_cpu_queue_submit(const char *seq_id, const char *orig_sequence, cons
 
 /* Signals shutdown, joins all worker threads (draining whatever's still
  * queued first), then prints CPU-folded results. Must be called exactly
- * once, after the read loop AND the GPU batch's own output loop are both
- * done (see the v1 output-ordering scope note above). Safe to call even if
- * the queue was disabled (n_threads<=0) -- no-op in that case.
+ * once, after every GPU chunk (RNAfold.c streams the input and folds/
+ * prints/frees it in chunks rather than all at once -- see
+ * process_gpu_chunk() there) has finished printing its own output (see the
+ * v1 output-ordering scope note above). Safe to call even if the queue was
+ * disabled (n_threads<=0) -- no-op in that case.
  */
 void rnafold_cpu_queue_shutdown(void);
 

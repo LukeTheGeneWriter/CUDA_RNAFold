@@ -378,13 +378,14 @@ modular_decomposition_bytes_per_file(const int length) {
 // CUDA caps gridDim.y/z at 65535 -- nfiles is used directly as gridDim.y in
 // this file's kernels (and int_loop.cu's/hp_mb_loop.cu's). This is a real
 // hardware limit on any single par_mfe() call, independent of how many
-// sequences the caller reads in total: RNAfold.c's read-loop arrays grow
-// dynamically now (no fixed ceiling there any more), so this is the only
-// place a per-call nfiles limit is still enforced -- compute_max_gpu_batch()
-// must clamp to it, otherwise a short-sequence run with abundant free VRAM
-// could compute a batch size larger than the grid can address. This is a
-// hardware constant, not a tunable -- don't raise it without also changing
-// how nfiles is mapped onto grid dimensions in the kernels themselves.
+// sequences the caller reads in total: RNAfold.c now streams the input in
+// chunks (process_gpu_chunk(), RNAfold.c) rather than reading everything
+// into memory first, and each chunk is already sized by this function --
+// this clamp is what keeps a chunk's size from exceeding what the grid can
+// address even when free VRAM alone would allow a larger one (e.g. a
+// short-sequence run with abundant free VRAM). This is a hardware constant,
+// not a tunable -- don't raise it without also changing how nfiles is
+// mapped onto grid dimensions in the kernels themselves.
 #define MAX_GPU_BATCH_GRID_LIMIT 65535
 
 // Queries free VRAM and computes the largest nfiles that fits within a

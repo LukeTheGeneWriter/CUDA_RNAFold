@@ -68,490 +68,48 @@ annotate_ud_motif(vrna_fold_compound_t *vc,
                   const char *structure_name,
                   int verbose);
 
-/*--------------------------------------------------------------------------*/
+/* Folds, prints, and frees one GPU chunk's worth of already-built fold
+ * compounds -- called from main()'s read loop below either mid-stream (when
+ * the chunk being filled is full, or the next record's length differs from
+ * it -- multi-length support) or once at EOF for whatever's left over.
+ * Streaming chunks (instead of reading the whole input into memory before
+ * any folding starts) is what bounds peak host RAM to roughly one chunk's
+ * worth of fold compounds, independent of total input size -- previously
+ * every fold compound for the entire run was built and held simultaneously,
+ * which is what caused a 1,000,000-sequence run to exhaust host RAM before
+ * ever reaching the GPU. Freeing VC[i]/Orig_sequence[i]/Structure[i] here
+ * (SEQ_IDs[i] was already freed by the pre-existing code this was lifted
+ * from) closes a pre-existing leak that only mattered once runs grew into
+ * the hundreds of thousands of sequences.
+ * If fewer than min_gpu_batch records were accumulated (and the CPU queue
+ * is active), reroutes them to the CPU queue instead of running an
+ * undersized GPU batch -- mirrors the old single-batch design's tail-case
+ * fallback, now evaluated per chunk since streaming can't know the total
+ * record count in advance. */
+static void
+process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
+                   char **Orig_sequence, char **Structure, float *EN,
+                   int cpu_queue_threads, int min_gpu_batch,
+                   int fold_constrained, const char *constraints_file, vrna_cmd_t *commands,
+                   FILE *output, int lucky, int istty,
+                   char *fname, char *ffname, int noPS, const char *ligandMotif,
+                   int verbose, const vrna_md_t *md, int pf) {
+  if(nfiles <= 0) return;
 
-int main(int argc, char *argv[]){
-  FILE            *input, *output;
-  struct          RNAfold_args_info args_info;
-  char            *buf, *rec_sequence, *rec_id, **rec_rest, *structure, *cstruc, *orig_sequence,
-                  *constraints_file, *shape_file, *shape_method, *shape_conversion,
-                  fname[FILENAME_MAX_LENGTH], ffname[FILENAME_MAX_LENGTH], *infile, *outfile,
-                  *ligandMotif, *id_prefix, *command_file;
-  unsigned int    rec_type, read_opt;
-  int             i, length, l, cl, istty, pf, noPS, noconv, enforceConstraints,
-                  batch, auto_id, id_digits, doMEA, lucky, with_shapes,
-                  verbose, istty_in, istty_out;
-  long int        seq_number;
-  double          energy, min_en, kT, MEAgamma, bppmThreshold;
-  vrna_cmd_t      *commands;
-  vrna_md_t       md;
-
-  rec_type            = read_opt = 0;
-  rec_id              = buf = rec_sequence = structure = cstruc = orig_sequence = NULL;
-  rec_rest            = NULL;
-  pf                  = 0;
-  noPS                = 0;
-  noconv              = 0;
-  cl                  = l = length = 0;
-  MEAgamma            = 1.;
-  bppmThreshold       = 1e-5;
-  lucky               = 0;
-  doMEA               = 0;
-  verbose             = 0;
-  auto_id             = 0;
-  outfile             = NULL;
-  infile              = NULL;
-  input               = NULL;
-  output              = NULL;
-  ligandMotif         = NULL;
-  command_file        = NULL;
-  commands            = NULL;
-
-  /* for GPU version */
-#ifdef CUDA
-  choose_gpu(argc,argv);
-#endif /*CUDA*/
-
-  /* apply default model details */
-  set_model_details(&md);
-
-
-  /*
-  #############################################
-  # check the command line parameters
-  #############################################
-  */
-  if(RNAfold_cmdline_parser (argc, argv, &args_info) != 0)
-    exit(1);
-
-  /* get basic set of model details */
-  ggo_get_md_eval(args_info, md);
-  ggo_get_md_fold(args_info, md);
-  ggo_get_md_part(args_info, md);
-  ggo_get_circ(args_info, md.circ);
-
-  /* check dangle model */
-  if((md.dangles < 0) || (md.dangles > 3)){
-      vrna_message_warning("required dangle model not implemented, falling back to default dangles=2");
-      md.dangles = dangles = 2;
-  }
-
-  /* SHAPE reactivity data */
-  ggo_get_SHAPE(args_info, with_shapes, shape_file, shape_method, shape_conversion);
-
-  /* parse options for ID manipulation */
-  ggo_get_ID_manipulation(args_info,
-                          auto_id,
-                          id_prefix, "sequence",
-                          id_digits, 4,
-                          seq_number, 1);
-
-  ggo_get_constraints_settings( args_info,
-                                fold_constrained,
-                                constraints_file,
-                                enforceConstraints,
-                                batch);
-
-  /* enforce canonical base pairs in any case? */
-  if(args_info.canonicalBPonly_given)
-    md.canonicalBPonly = canonicalBPonly = 1;
-
-  /* do not convert DNA nucleotide "T" to appropriate RNA "U" */
-  if(args_info.noconv_given)
-    noconv = 1;
-
-  /* always look on the bright side of life */
-  if(args_info.ImFeelingLucky_given)
-    md.uniq_ML = lucky = pf = st_back = 1;
-
-  /* set the bppm threshold for the dotplot */
-  if(args_info.bppmThreshold_given)
-    bppmThreshold = MIN2(1., MAX2(0.,args_info.bppmThreshold_arg));
-
-  /* do not produce postscript output */
-  if(args_info.noPS_given)
-    noPS=1;
-
-  /* partition function settings */
-  if(args_info.partfunc_given){
-    pf = 1;
-    if(args_info.partfunc_arg != 1)
-      md.compute_bpp = do_backtrack = args_info.partfunc_arg;
-    else
-      md.compute_bpp = do_backtrack = 1;
-  }
-  /* MEA (maximum expected accuracy) settings */
-  if(args_info.MEA_given){
-    pf = doMEA = 1;
-    if(args_info.MEA_arg != -1)
-      MEAgamma = args_info.MEA_arg;
-  }
-
-  if(args_info.layout_type_given)
-    rna_plot_type = args_info.layout_type_arg;
-
-  if(args_info.verbose_given){
-    verbose = 1;
-  }
-
-  if(args_info.outfile_given){
-    outfile = strdup(args_info.outfile_arg);
-  }
-
-  if(args_info.infile_given){
-    infile = strdup(args_info.infile_arg);
-  }
-
-  if(args_info.motif_given){
-    ligandMotif = strdup(args_info.motif_arg);
-  }
-
-  if(args_info.commands_given){
-    command_file = strdup(args_info.commands_arg);
-  }
-
-  /* free allocated memory of command line data structure */
-  RNAfold_cmdline_parser_free (&args_info);
-
-
-  /*
-  #############################################
-  # begin initializing
-  #############################################
-  */
-  if(infile){
-    input = fopen((const char *)infile, "r");
-    if(!input)
-      vrna_message_error("Could not read input file");
-  }
-
-  if(md.circ && md.gquad){
-    vrna_message_error("G-Quadruplex support is currently not available for circular RNA structures");
-    exit(EXIT_FAILURE);
-  }
-
-  if (md.circ && md.noLP)
-    vrna_message_warning( "depending on the origin of the circular sequence, some structures may be missed when using --noLP\n"
-                          "Try rotating your sequence a few times");
-
-  if (command_file != NULL) {
-    commands = vrna_file_commands_read(command_file, VRNA_CMD_PARSE_DEFAULTS);
-  }
-
-  istty_in  = isatty(fileno(stdin));
-  istty_out = isatty(fileno(stdout)) && (!outfile);
-  istty = (!infile) && isatty(fileno(stdout)) && isatty(fileno(stdin));
-
-  /* print user help if we get input from tty */
-  if(istty){
-    if(fold_constrained){
-      vrna_message_constraint_options_all();
-      vrna_message_input_seq("Input sequence (upper or lower case) followed by structure constraint");
+  if(cpu_queue_threads > 0 && nfiles < min_gpu_batch){
+    for(int k=0;k<nfiles;k++){
+      rnafold_cpu_queue_submit(SEQ_IDs[k], Orig_sequence[k], VC[k]->sequence);
+      vrna_fold_compound_free(VC[k]);
+      free(SEQ_IDs[k]);
+      free(Orig_sequence[k]);
+      free(Structure[k]);
     }
-    else vrna_message_input_seq_simple();
+    return;
   }
 
-  /* set options we wanna pass to vrna_file_fasta_read_record() */
-  if(istty)             read_opt |= VRNA_INPUT_NOSKIP_BLANK_LINES;
-  if(!fold_constrained) read_opt |= VRNA_INPUT_NO_REST;
+  par_mfe(nfiles, VC, Structure, EN);
 
-  /*
-  #############################################
-  # main loop: continue until end of file
-  #############################################
-  */
-  /* arrays_capacity used to be a hard ceiling (MAXCUDAPAR=65535, tied to
-   * CUDA's gridDim.y limit -- nfiles was passed straight through as a single
-   * kernel launch's grid dimension). That hardware constraint still exists,
-   * but it's now enforced per-batch by compute_max_gpu_batch()'s own
-   * MAX_GPU_BATCH_GRID_LIMIT clamp (modular_decomposition.cu), independently
-   * of how many sequences are read in total. So this is just a growable
-   * buffer now -- doubles (via realloc, see the read loop below) whenever
-   * nfiles reaches capacity, rather than exit(1)'ing, so total input size is
-   * bounded only by host RAM. Starting capacity kept at the old ceiling's
-   * value so small/typical runs see no change in behavior or footprint. */
-  int arrays_capacity = 65535;
-  char**            SEQ_IDs = (char**)                malloc((size_t)arrays_capacity*sizeof(char*));
-  vrna_fold_compound_t** VC = (vrna_fold_compound_t**)malloc((size_t)arrays_capacity*sizeof(vrna_fold_compound_t*));
-  char**      Orig_sequence = (char**)                malloc((size_t)arrays_capacity*sizeof(char*));
-  char**          Structure = (char**)                malloc((size_t)arrays_capacity*sizeof(char*));
-  float*                 EN = (float*)                malloc((size_t)arrays_capacity*sizeof(float*));
-  int nfiles = 0;
-
-  /* Heterogeneous GPU+CPU dispatch: fold short/off-batch sequences on a CPU
-   * thread pool concurrently with the GPU batch below, instead of leaving
-   * CPU cores idle while the GPU works. RNA_CPU_THREADS=0 (or unset,
-   * default here) disables it -- pure GPU-only behavior, unchanged from
-   * before this feature existed. RNA_CPU_THRESHOLD sets the sequence-length
-   * cutoff (default 200): sequences shorter than this go to the CPU queue.
-   *
-   * The v1 CPU path only replicates plain MFE folding (vrna_mfe_cpu(),
-   * mirroring RNAfold's default output format) -- it does NOT apply
-   * constraints/SHAPE/ligand-motifs the way the GPU path's per-record setup
-   * below does (RNAfold.c:~330-365), and it always prints to stdout rather
-   * than replicating outfile's per-record (fname-dependent) output-file
-   * selection (RNAfold.c:~364-377 -- `output` isn't actually resolved to
-   * its real per-record destination until inside the read loop, so it
-   * can't be snapshotted here). Rather than silently drop that semantics
-   * for CPU-routed sequences, disable the queue entirely whenever this run
-   * uses any of those features -- falls back to the exact pre-existing
-   * GPU-only behavior automatically.
-   */
-  int cpu_queue_threads = 0;
-  {
-    const char *env_threads = getenv("RNA_CPU_THREADS");
-    if(env_threads) {
-      if(fold_constrained || with_shapes || ligandMotif || commands || outfile) {
-        fprintf(stderr, "RNA_CPU_THREADS set but disabled: constraints/SHAPE/ligand-motifs/"
-                         "outfile are in use and the CPU queue's v1 output path doesn't "
-                         "replicate them yet -- falling back to GPU-only.\n");
-      } else {
-        cpu_queue_threads = atoi(env_threads);
-        if(cpu_queue_threads < 0) cpu_queue_threads = 0;
-      }
-    }
-  }
-  int cpu_queue_threshold = 200;
-  {
-    const char *env_threshold = getenv("RNA_CPU_THRESHOLD");
-    if(env_threshold) cpu_queue_threshold = atoi(env_threshold);
-  }
-  rnafold_cpu_queue_init(cpu_queue_threads, &md, stdout);
-
-  while(
-    !((rec_type = vrna_file_fasta_read_record(&rec_id, &rec_sequence, &rec_rest, input, read_opt))
-        & (VRNA_INPUT_ERROR | VRNA_INPUT_QUIT))){
-
-    char *prefix      = NULL;
-    char *v_file_name = NULL;
-    char *SEQ_ID      = NULL;
-
-    /*
-    ########################################################
-    # init everything according to the data we've read
-    ########################################################
-    */
-    if(rec_id){
-      (void) sscanf(rec_id, ">%" XSTR(FILENAME_ID_LENGTH) "s", fname);
-    }
-    else fname[0] = '\0';
-
-    /* construct the sequence ID */
-    ID_generate(SEQ_ID, fname, auto_id, id_prefix, id_digits, seq_number);
-
-    if(outfile && (SEQ_ID != NULL)){
-      char *tmp_id = SEQ_ID;
-      SEQ_ID = vrna_strdup_printf("%s_%s", outfile, tmp_id);
-      free(tmp_id);
-    }
-
-    if(outfile){
-      /* prepare the file prefix */
-      if(fname[0] != '\0'){
-        prefix = (char *)vrna_alloc(sizeof(char) * (strlen(fname) + strlen(outfile) + 2));
-        strcpy(prefix, outfile);
-        strcat(prefix, "_");
-        strcat(prefix, fname);
-      } else {
-        prefix = (char *)vrna_alloc(sizeof(char) * (strlen(outfile) + 1));
-        strcpy(prefix, outfile);
-      }
-    }
-
-    /* convert DNA alphabet to RNA if not explicitely switched off */
-    if(!noconv) vrna_seq_toRNA(rec_sequence);
-    /* store case-unmodified sequence */
-    orig_sequence = strdup(rec_sequence);
-    /* convert sequence to uppercase letters only */
-    vrna_seq_toupper(rec_sequence);
-
-    vrna_fold_compound_t *vc = vrna_fold_compound(rec_sequence, &md, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
-
-    length    = vc->length;
-
-    /* Heterogeneous GPU+CPU dispatch: route this sequence to the CPU queue
-     * instead of the GPU batch array below if it's short enough, or --
-     * pragmatically -- if its length differs from the batch's first
-     * sequence, which would otherwise hard-exit at the same-length check a
-     * few lines down; routing length-mismatched sequences to the CPU queue
-     * instead removes that pre-existing crash as a side effect. Disabled
-     * entirely (cpu_queue_threads==0) whenever constraints/SHAPE/ligand-
-     * motifs/outfile are in play -- see the queue-init comment above. */
-    const int route_to_cpu = cpu_queue_threads > 0 &&
-                              (length < cpu_queue_threshold ||
-                               (nfiles > 0 && length != VC[0]->length));
-
-    if(route_to_cpu){
-      rnafold_cpu_queue_submit(SEQ_ID, orig_sequence, rec_sequence);
-      vrna_fold_compound_free(vc);
-      free(SEQ_ID);
-      free(orig_sequence);
-    } else {
-
-    structure = (char *) vrna_alloc(sizeof(char) * (length+1));
-
-    /* parse the rest of the current dataset to obtain a structure constraint */
-    if(fold_constrained){
-      if(constraints_file){
-        /** [Adding hard constraints from file] */
-        vrna_constraints_add(vc, constraints_file, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
-        /** [Adding hard constraints from file] */
-      } else {
-        cstruc = NULL;
-        unsigned int coptions = (rec_id) ? VRNA_OPTION_MULTILINE : 0;
-        cstruc = vrna_extract_record_rest_structure((const char **)rec_rest, 0, coptions);
-        cl = (cstruc) ? (int)strlen(cstruc) : 0;
-
-        if(cl == 0)           vrna_message_warning("structure constraint is missing");
-        else if(cl < length)  vrna_message_warning("structure constraint is shorter than sequence");
-        else if(cl > length)  vrna_message_error("structure constraint is too long");
-        if(cstruc){
-          strncpy(structure, cstruc, sizeof(char)*(cl+1));
-
-          /** [Adding hard constraints from pseudo dot-bracket] */
-          unsigned int constraint_options = VRNA_CONSTRAINT_DB_DEFAULT;
-          if(enforceConstraints)
-            constraint_options |= VRNA_CONSTRAINT_DB_ENFORCE_BP;
-          vrna_constraints_add(vc, (const char *)structure, constraint_options);
-          /** [Adding hard constraints from pseudo dot-bracket] */
-        }
-      }
-    }
-
-    if(with_shapes)
-      vrna_constraints_add_SHAPE(vc, shape_file, shape_method, shape_conversion, verbose, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
-
-    if(ligandMotif)
-      add_ligand_motif(vc, ligandMotif, verbose, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
-
-    if(istty)
-      vrna_message_info(stdout, "length = %d\n", length);
-
-    if(commands)
-      vrna_commands_apply(vc, commands, VRNA_CMD_PARSE_DEFAULTS);
-
-    if(outfile){
-      v_file_name = (char *)vrna_alloc(sizeof(char) * (strlen(prefix) + 8));
-      strcpy(v_file_name, prefix);
-      strcat(v_file_name, ".fold");
-
-      if(infile && !strcmp(infile, v_file_name))
-        vrna_message_error("Input and output file names are identical");
-
-      output = fopen((const char *)v_file_name, "a");
-      if(!output)
-        vrna_message_error("Failed to open file for writing");
-    } else {
-      output = stdout;
-    }
-    if(nfiles>=arrays_capacity){
-      /* Grow all 5 parallel arrays in lockstep, doubling capacity. Safe to
-       * realloc here (may move the blocks) -- the read loop is still the
-       * only thing holding pointers into these arrays; nothing takes a
-       * pointer into VC[]/Structure[]/etc. for GPU batching until after the
-       * whole read loop finishes (see the batch-cycle loop below), so no
-       * stale pointer risk from the move. */
-      const int new_capacity = arrays_capacity*2;
-      char**                 tmp_ids   = (char**)                realloc(SEQ_IDs,       (size_t)new_capacity*sizeof(char*));
-      vrna_fold_compound_t** tmp_vc    = (vrna_fold_compound_t**) realloc(VC,            (size_t)new_capacity*sizeof(vrna_fold_compound_t*));
-      char**                 tmp_orig  = (char**)                realloc(Orig_sequence, (size_t)new_capacity*sizeof(char*));
-      char**                 tmp_struc = (char**)                realloc(Structure,     (size_t)new_capacity*sizeof(char*));
-      float*                 tmp_en    = (float*)                realloc(EN,            (size_t)new_capacity*sizeof(float*));
-      if(!tmp_ids || !tmp_vc || !tmp_orig || !tmp_struc || !tmp_en){
-        fprintf(stderr,"Failed to grow sequence arrays past %d entries (out of host memory?)\n",
-	        arrays_capacity);
-        exit(1);
-      }
-      SEQ_IDs = tmp_ids; VC = tmp_vc; Orig_sequence = tmp_orig; Structure = tmp_struc; EN = tmp_en;
-      arrays_capacity = new_capacity;
-    }
-    //for simplicity in first version require all structures to be the same length
-    if(nfiles>0 && vc->length != VC[0]->length) {
-      fprintf(stderr,"Current version of CUDA code requires all RNA sequences to be the same size file %d, length %d != %d\n",
-	      nfiles+1, vc->length,VC[0]->length);
-      exit(1);
-    }
-    SEQ_IDs[nfiles]       = SEQ_ID;
-    VC[nfiles]            = vc;
-    Orig_sequence[nfiles] = orig_sequence;
-    Structure[nfiles]     = structure;
-    nfiles++;
-
-    } /* end else (!route_to_cpu) */
-
-    free(rec_sequence);
-    free(cstruc);
-    free(rec_id);
-
-    /* free the rest of current dataset */
-    if(rec_rest){
-      for(i=0;rec_rest[i];i++) free(rec_rest[i]);
-      free(rec_rest);
-    }
-    rec_id = rec_sequence = structure = cstruc = NULL;
-    rec_rest = NULL;
-
-    if(with_shapes || (constraints_file && (!batch)))
-      break;
-
-    ID_number_increase(seq_number, "Sequence");
-
-    /* print user help for the next round if we get input from tty */
-    if(istty){
-      if(fold_constrained){
-        vrna_message_constraint_options_all();
-        vrna_message_input_seq("Input sequence (upper or lower case) followed by structure constraint");
-      }
-      else vrna_message_input_seq_simple();
-    }
-  }//end while
-
-  /*
-  ########################################################
-  # begin actual computations
-  ########################################################
-  */
-  /* Multi-batch GPU pipeline with dynamic VRAM-aware sizing: cycle through
-   * sequential GPU batches (each sized against free VRAM via
-   * compute_max_gpu_batch()) instead of one par_mfe() call across all of
-   * nfiles, so runs too large for one GPU batch (see the 500-sequence OOM
-   * that motivated this) complete via multiple smaller batches instead of
-   * failing outright. Each batch's device buffers are torn down before the
-   * next batch's init_gpu*() resizes them -- see teardown_gpu()/
-   * teardown_gpu2()/teardown_gpu3() (modular_decomposition.cu/int_loop.cu/
-   * hp_mb_loop.cu). The CPU worker pool keeps draining its own queue
-   * throughout, unaffected by which GPU batch is in flight.
-   * MIN_GPU_BATCH=10 is still a placeholder -- TODO: tune from real
-   * multi-batch timing data. compute_max_gpu_batch()'s VRAM safety margin
-   * was bumped to 95% after an initial 400-sequence/length-5601 stress test
-   * showed plenty of headroom to spare (see modular_decomposition.cu). */
-  const int MIN_GPU_BATCH = 10;
-  int offset = 0;
-  while(offset < nfiles) {
-    const int remaining = nfiles - offset;
-    const int max_batch = compute_max_gpu_batch(VC[offset]->length, MIN_GPU_BATCH);
-
-    if(cpu_queue_threads > 0 && (max_batch == 0 || remaining < MIN_GPU_BATCH)) {
-      /* Not worth a GPU batch (or nothing fits at all right now) -- hand the
-       * remainder to the CPU queue instead of forcing an inefficient
-       * tiny/failed GPU run. Only takes this path when the CPU queue is
-       * actually active; otherwise falls through and runs the remainder on
-       * the GPU regardless of size (still correct, just not optimally
-       * efficient) since there's nowhere else for these sequences to go. */
-      for(int k=offset; k<nfiles; k++) {
-        rnafold_cpu_queue_submit(SEQ_IDs[k], Orig_sequence[k], VC[k]->sequence);
-        vrna_fold_compound_free(VC[k]);
-        free(SEQ_IDs[k]);
-        free(Orig_sequence[k]);
-        free(Structure[k]);
-      }
-      break;
-    }
-
-    const int chunk_len = (max_batch > 0 && max_batch < remaining) ? max_batch : remaining;
-    par_mfe(chunk_len, &VC[offset], &Structure[offset], &EN[offset]);
-
-  for(int i=offset;i<offset+chunk_len;i++) {
+  for(int i=0;i<nfiles;i++) {
     const char* SEQ_ID             = SEQ_IDs[i];
     const vrna_fold_compound_t *vc = VC[i];
     const char* orig_sequence      = Orig_sequence[i];
@@ -610,14 +168,16 @@ int main(int argc, char *argv[]){
           free(a);
         }
 
-        (void) vrna_file_PS_rnaplot_a(orig_sequence, structure, filename_plot, annotation, NULL, &md);
+        (void) vrna_file_PS_rnaplot_a(orig_sequence, structure, filename_plot, annotation, NULL, md);
 
         free(annotation);
         free(filename_plot);
       }
     }
 
-    if (length>2000)
+    if (vc->length>2000)  // fixed: was bare `length` (a stale shared variable, harmless only
+                          // while every sequence in a run shared one length -- see the
+                          // multi-length chunking this function now supports)
       vrna_mx_mfe_free(vc);
 
     if (pf) {
@@ -930,6 +490,9 @@ int main(int argc, char *argv[]){
     */
 
     free(SEQ_ID);
+    vrna_fold_compound_free(VC[i]);
+    free(Orig_sequence[i]);
+    free(Structure[i]);
 
     //ID_number_increase(seq_number, "Sequence");
 
@@ -943,16 +506,509 @@ int main(int argc, char *argv[]){
     }*/
   }
 
-    teardown_gpu();
-    teardown_gpu2();
-    teardown_gpu3();
-    offset += chunk_len;
-  } /* end GPU batch-cycle while */
+  teardown_gpu();
+  teardown_gpu2();
+  teardown_gpu3();
+}
+
+/*--------------------------------------------------------------------------*/
+
+int main(int argc, char *argv[]){
+  FILE            *input, *output;
+  struct          RNAfold_args_info args_info;
+  char            *buf, *rec_sequence, *rec_id, **rec_rest, *structure, *cstruc, *orig_sequence,
+                  *constraints_file, *shape_file, *shape_method, *shape_conversion,
+                  fname[FILENAME_MAX_LENGTH], ffname[FILENAME_MAX_LENGTH], *infile, *outfile,
+                  *ligandMotif, *id_prefix, *command_file;
+  unsigned int    rec_type, read_opt;
+  int             i, length, l, cl, istty, pf, noPS, noconv, enforceConstraints,
+                  batch, auto_id, id_digits, doMEA, lucky, with_shapes,
+                  verbose, istty_in, istty_out;
+  long int        seq_number;
+  double          energy, min_en, kT, MEAgamma, bppmThreshold;
+  vrna_cmd_t      *commands;
+  vrna_md_t       md;
+
+  rec_type            = read_opt = 0;
+  rec_id              = buf = rec_sequence = structure = cstruc = orig_sequence = NULL;
+  rec_rest            = NULL;
+  pf                  = 0;
+  noPS                = 0;
+  noconv              = 0;
+  cl                  = l = length = 0;
+  MEAgamma            = 1.;
+  bppmThreshold       = 1e-5;
+  lucky               = 0;
+  doMEA               = 0;
+  verbose             = 0;
+  auto_id             = 0;
+  outfile             = NULL;
+  infile              = NULL;
+  input               = NULL;
+  output              = NULL;
+  ligandMotif         = NULL;
+  command_file        = NULL;
+  commands            = NULL;
+
+  /* for GPU version */
+#ifdef CUDA
+  choose_gpu(argc,argv);
+#endif /*CUDA*/
+
+  /* apply default model details */
+  set_model_details(&md);
+
+
+  /*
+  #############################################
+  # check the command line parameters
+  #############################################
+  */
+  if(RNAfold_cmdline_parser (argc, argv, &args_info) != 0)
+    exit(1);
+
+  /* get basic set of model details */
+  ggo_get_md_eval(args_info, md);
+  ggo_get_md_fold(args_info, md);
+  ggo_get_md_part(args_info, md);
+  ggo_get_circ(args_info, md.circ);
+
+  /* check dangle model */
+  if((md.dangles < 0) || (md.dangles > 3)){
+      vrna_message_warning("required dangle model not implemented, falling back to default dangles=2");
+      md.dangles = dangles = 2;
+  }
+
+  /* SHAPE reactivity data */
+  ggo_get_SHAPE(args_info, with_shapes, shape_file, shape_method, shape_conversion);
+
+  /* parse options for ID manipulation */
+  ggo_get_ID_manipulation(args_info,
+                          auto_id,
+                          id_prefix, "sequence",
+                          id_digits, 4,
+                          seq_number, 1);
+
+  ggo_get_constraints_settings( args_info,
+                                fold_constrained,
+                                constraints_file,
+                                enforceConstraints,
+                                batch);
+
+  /* enforce canonical base pairs in any case? */
+  if(args_info.canonicalBPonly_given)
+    md.canonicalBPonly = canonicalBPonly = 1;
+
+  /* do not convert DNA nucleotide "T" to appropriate RNA "U" */
+  if(args_info.noconv_given)
+    noconv = 1;
+
+  /* always look on the bright side of life */
+  if(args_info.ImFeelingLucky_given)
+    md.uniq_ML = lucky = pf = st_back = 1;
+
+  /* set the bppm threshold for the dotplot */
+  if(args_info.bppmThreshold_given)
+    bppmThreshold = MIN2(1., MAX2(0.,args_info.bppmThreshold_arg));
+
+  /* do not produce postscript output */
+  if(args_info.noPS_given)
+    noPS=1;
+
+  /* partition function settings */
+  if(args_info.partfunc_given){
+    pf = 1;
+    if(args_info.partfunc_arg != 1)
+      md.compute_bpp = do_backtrack = args_info.partfunc_arg;
+    else
+      md.compute_bpp = do_backtrack = 1;
+  }
+  /* MEA (maximum expected accuracy) settings */
+  if(args_info.MEA_given){
+    pf = doMEA = 1;
+    if(args_info.MEA_arg != -1)
+      MEAgamma = args_info.MEA_arg;
+  }
+
+  if(args_info.layout_type_given)
+    rna_plot_type = args_info.layout_type_arg;
+
+  if(args_info.verbose_given){
+    verbose = 1;
+  }
+
+  if(args_info.outfile_given){
+    outfile = strdup(args_info.outfile_arg);
+  }
+
+  if(args_info.infile_given){
+    infile = strdup(args_info.infile_arg);
+  }
+
+  if(args_info.motif_given){
+    ligandMotif = strdup(args_info.motif_arg);
+  }
+
+  if(args_info.commands_given){
+    command_file = strdup(args_info.commands_arg);
+  }
+
+  /* free allocated memory of command line data structure */
+  RNAfold_cmdline_parser_free (&args_info);
+
+
+  /*
+  #############################################
+  # begin initializing
+  #############################################
+  */
+  if(infile){
+    input = fopen((const char *)infile, "r");
+    if(!input)
+      vrna_message_error("Could not read input file");
+  }
+
+  if(md.circ && md.gquad){
+    vrna_message_error("G-Quadruplex support is currently not available for circular RNA structures");
+    exit(EXIT_FAILURE);
+  }
+
+  if (md.circ && md.noLP)
+    vrna_message_warning( "depending on the origin of the circular sequence, some structures may be missed when using --noLP\n"
+                          "Try rotating your sequence a few times");
+
+  if (command_file != NULL) {
+    commands = vrna_file_commands_read(command_file, VRNA_CMD_PARSE_DEFAULTS);
+  }
+
+  istty_in  = isatty(fileno(stdin));
+  istty_out = isatty(fileno(stdout)) && (!outfile);
+  istty = (!infile) && isatty(fileno(stdout)) && isatty(fileno(stdin));
+
+  /* print user help if we get input from tty */
+  if(istty){
+    if(fold_constrained){
+      vrna_message_constraint_options_all();
+      vrna_message_input_seq("Input sequence (upper or lower case) followed by structure constraint");
+    }
+    else vrna_message_input_seq_simple();
+  }
+
+  /* set options we wanna pass to vrna_file_fasta_read_record() */
+  if(istty)             read_opt |= VRNA_INPUT_NOSKIP_BLANK_LINES;
+  if(!fold_constrained) read_opt |= VRNA_INPUT_NO_REST;
+
+  /*
+  #############################################
+  # main loop: continue until end of file
+  #############################################
+  */
+  /* GPU sequences are folded in streaming chunks rather than reading the
+   * entire input into memory before any folding starts (see
+   * process_gpu_chunk() above for why: peak host RAM used to scale with
+   * total input size, which is what made a 1,000,000-sequence run exhaust
+   * host RAM before ever reaching the GPU). chunk_length/chunk_capacity
+   * describe the chunk currently being filled; chunk_array_size is how big
+   * SEQ_IDs/VC/Orig_sequence/Structure/EN are actually allocated to (a
+   * high-water mark -- only grows, never shrinks, to avoid realloc
+   * thrashing if compute_max_gpu_batch() fluctuates chunk to chunk).
+   * nfiles here means "records in the chunk currently being filled", not
+   * "records in the whole run" as it did before streaming. */
+  int chunk_length     = -1; // -1 == no chunk in progress
+  int chunk_capacity   = 0;
+  int chunk_array_size = 0;
+  char**            SEQ_IDs = NULL;
+  vrna_fold_compound_t** VC = NULL;
+  char**      Orig_sequence = NULL;
+  char**          Structure = NULL;
+  float*                 EN = NULL;
+  int nfiles = 0;
+  const int MIN_GPU_BATCH = 10; // TODO: tune from real multi-batch timing data
+
+  /* Heterogeneous GPU+CPU dispatch: fold short/off-batch sequences on a CPU
+   * thread pool concurrently with the GPU batch below, instead of leaving
+   * CPU cores idle while the GPU works. RNA_CPU_THREADS=0 (or unset,
+   * default here) disables it -- pure GPU-only behavior, unchanged from
+   * before this feature existed. RNA_CPU_THRESHOLD sets the sequence-length
+   * cutoff (default 200): sequences shorter than this go to the CPU queue.
+   *
+   * The v1 CPU path only replicates plain MFE folding (vrna_mfe_cpu(),
+   * mirroring RNAfold's default output format) -- it does NOT apply
+   * constraints/SHAPE/ligand-motifs the way the GPU path's per-record setup
+   * below does (RNAfold.c:~330-365), and it always prints to stdout rather
+   * than replicating outfile's per-record (fname-dependent) output-file
+   * selection (RNAfold.c:~364-377 -- `output` isn't actually resolved to
+   * its real per-record destination until inside the read loop, so it
+   * can't be snapshotted here). Rather than silently drop that semantics
+   * for CPU-routed sequences, disable the queue entirely whenever this run
+   * uses any of those features -- falls back to the exact pre-existing
+   * GPU-only behavior automatically.
+   */
+  int cpu_queue_threads = 0;
+  {
+    const char *env_threads = getenv("RNA_CPU_THREADS");
+    if(env_threads) {
+      if(fold_constrained || with_shapes || ligandMotif || commands || outfile) {
+        fprintf(stderr, "RNA_CPU_THREADS set but disabled: constraints/SHAPE/ligand-motifs/"
+                         "outfile are in use and the CPU queue's v1 output path doesn't "
+                         "replicate them yet -- falling back to GPU-only.\n");
+      } else {
+        cpu_queue_threads = atoi(env_threads);
+        if(cpu_queue_threads < 0) cpu_queue_threads = 0;
+      }
+    }
+  }
+  int cpu_queue_threshold = 200;
+  {
+    const char *env_threshold = getenv("RNA_CPU_THRESHOLD");
+    if(env_threshold) cpu_queue_threshold = atoi(env_threshold);
+  }
+  rnafold_cpu_queue_init(cpu_queue_threads, &md, stdout);
+
+  while(
+    !((rec_type = vrna_file_fasta_read_record(&rec_id, &rec_sequence, &rec_rest, input, read_opt))
+        & (VRNA_INPUT_ERROR | VRNA_INPUT_QUIT))){
+
+    char *prefix      = NULL;
+    char *v_file_name = NULL;
+    char *SEQ_ID      = NULL;
+
+    /*
+    ########################################################
+    # init everything according to the data we've read
+    ########################################################
+    */
+    if(rec_id){
+      (void) sscanf(rec_id, ">%" XSTR(FILENAME_ID_LENGTH) "s", fname);
+    }
+    else fname[0] = '\0';
+
+    /* construct the sequence ID */
+    ID_generate(SEQ_ID, fname, auto_id, id_prefix, id_digits, seq_number);
+
+    if(outfile && (SEQ_ID != NULL)){
+      char *tmp_id = SEQ_ID;
+      SEQ_ID = vrna_strdup_printf("%s_%s", outfile, tmp_id);
+      free(tmp_id);
+    }
+
+    if(outfile){
+      /* prepare the file prefix */
+      if(fname[0] != '\0'){
+        prefix = (char *)vrna_alloc(sizeof(char) * (strlen(fname) + strlen(outfile) + 2));
+        strcpy(prefix, outfile);
+        strcat(prefix, "_");
+        strcat(prefix, fname);
+      } else {
+        prefix = (char *)vrna_alloc(sizeof(char) * (strlen(outfile) + 1));
+        strcpy(prefix, outfile);
+      }
+    }
+
+    /* convert DNA alphabet to RNA if not explicitely switched off */
+    if(!noconv) vrna_seq_toRNA(rec_sequence);
+    /* store case-unmodified sequence */
+    orig_sequence = strdup(rec_sequence);
+    /* convert sequence to uppercase letters only */
+    vrna_seq_toupper(rec_sequence);
+
+    vrna_fold_compound_t *vc = vrna_fold_compound(rec_sequence, &md, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
+
+    length    = vc->length;
+
+    /* Heterogeneous GPU+CPU dispatch: route this sequence to the CPU queue
+     * instead of the GPU batch below if it's short enough. Length
+     * MISMATCHES no longer route here (that used to be the only way to
+     * avoid a hard-exit) -- a length change now just flushes the current
+     * GPU chunk and starts a fresh one instead (see the chunk-boundary
+     * check below), so multiple distinct lengths in one run are handled
+     * without involving the CPU queue at all. Disabled entirely
+     * (cpu_queue_threads==0) whenever constraints/SHAPE/ligand-motifs/
+     * outfile are in play -- see the queue-init comment above. */
+    const int route_to_cpu = cpu_queue_threads > 0 && length < cpu_queue_threshold;
+
+    if(route_to_cpu){
+      rnafold_cpu_queue_submit(SEQ_ID, orig_sequence, rec_sequence);
+      vrna_fold_compound_free(vc);
+      free(SEQ_ID);
+      free(orig_sequence);
+    } else {
+
+    structure = (char *) vrna_alloc(sizeof(char) * (length+1));
+
+    /* parse the rest of the current dataset to obtain a structure constraint */
+    if(fold_constrained){
+      if(constraints_file){
+        /** [Adding hard constraints from file] */
+        vrna_constraints_add(vc, constraints_file, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
+        /** [Adding hard constraints from file] */
+      } else {
+        cstruc = NULL;
+        unsigned int coptions = (rec_id) ? VRNA_OPTION_MULTILINE : 0;
+        cstruc = vrna_extract_record_rest_structure((const char **)rec_rest, 0, coptions);
+        cl = (cstruc) ? (int)strlen(cstruc) : 0;
+
+        if(cl == 0)           vrna_message_warning("structure constraint is missing");
+        else if(cl < length)  vrna_message_warning("structure constraint is shorter than sequence");
+        else if(cl > length)  vrna_message_error("structure constraint is too long");
+        if(cstruc){
+          strncpy(structure, cstruc, sizeof(char)*(cl+1));
+
+          /** [Adding hard constraints from pseudo dot-bracket] */
+          unsigned int constraint_options = VRNA_CONSTRAINT_DB_DEFAULT;
+          if(enforceConstraints)
+            constraint_options |= VRNA_CONSTRAINT_DB_ENFORCE_BP;
+          vrna_constraints_add(vc, (const char *)structure, constraint_options);
+          /** [Adding hard constraints from pseudo dot-bracket] */
+        }
+      }
+    }
+
+    if(with_shapes)
+      vrna_constraints_add_SHAPE(vc, shape_file, shape_method, shape_conversion, verbose, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
+
+    if(ligandMotif)
+      add_ligand_motif(vc, ligandMotif, verbose, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
+
+    if(istty)
+      vrna_message_info(stdout, "length = %d\n", length);
+
+    if(commands)
+      vrna_commands_apply(vc, commands, VRNA_CMD_PARSE_DEFAULTS);
+
+    if(outfile){
+      v_file_name = (char *)vrna_alloc(sizeof(char) * (strlen(prefix) + 8));
+      strcpy(v_file_name, prefix);
+      strcat(v_file_name, ".fold");
+
+      if(infile && !strcmp(infile, v_file_name))
+        vrna_message_error("Input and output file names are identical");
+
+      output = fopen((const char *)v_file_name, "a");
+      if(!output)
+        vrna_message_error("Failed to open file for writing");
+    } else {
+      output = stdout;
+    }
+    {
+    /* This record doesn't belong to the chunk currently being filled --
+     * either no chunk has been started yet, the chunk is full, or (multi-
+     * length support) this record's length differs from it. Flush what's
+     * accumulated so far (process_gpu_chunk() no-ops if nfiles==0, e.g. on
+     * the very first record) before starting fresh at this record's
+     * length. */
+    int accept_into_chunk = 1;
+    if(chunk_length == -1 || vc->length != chunk_length || nfiles >= chunk_capacity){
+      process_gpu_chunk(nfiles, SEQ_IDs, VC, Orig_sequence, Structure, EN,
+                         cpu_queue_threads, MIN_GPU_BATCH,
+                         fold_constrained, constraints_file, commands,
+                         output, lucky, istty, fname, ffname, noPS, ligandMotif,
+                         verbose, &md, pf);
+      nfiles = 0;
+
+      chunk_length   = vc->length;
+      chunk_capacity = compute_max_gpu_batch(chunk_length, MIN_GPU_BATCH);
+      if(chunk_capacity == 0){
+        if(cpu_queue_threads > 0){
+          /* Not even MIN_GPU_BATCH sequences of this length fit in free
+           * VRAM right now -- route this one record to the CPU queue
+           * instead of starting a doomed/undersized GPU chunk, and try the
+           * next record fresh (it may be a different, GPU-viable length). */
+          rnafold_cpu_queue_submit(SEQ_ID, orig_sequence, vc->sequence);
+          vrna_fold_compound_free(vc);
+          free(SEQ_ID);
+          free(orig_sequence);
+          free(structure);
+          chunk_length = -1;
+          accept_into_chunk = 0;
+        } else {
+          /* CPU queue disabled -- nowhere else for this sequence to go.
+           * Best-effort: attempt a single-sequence GPU batch anyway, same
+           * risk-acceptance as the pre-multi-batch code (might OOM, but
+           * that's a loud, honest failure, not a silent drop). */
+          chunk_capacity = 1;
+        }
+      }
+      if(accept_into_chunk && chunk_capacity > chunk_array_size){
+        char**                 tmp_ids   = (char**)                realloc(SEQ_IDs,       (size_t)chunk_capacity*sizeof(char*));
+        vrna_fold_compound_t** tmp_vc    = (vrna_fold_compound_t**) realloc(VC,            (size_t)chunk_capacity*sizeof(vrna_fold_compound_t*));
+        char**                 tmp_orig  = (char**)                realloc(Orig_sequence, (size_t)chunk_capacity*sizeof(char*));
+        char**                 tmp_struc = (char**)                realloc(Structure,     (size_t)chunk_capacity*sizeof(char*));
+        float*                 tmp_en    = (float*)                realloc(EN,            (size_t)chunk_capacity*sizeof(float*));
+        if(!tmp_ids || !tmp_vc || !tmp_orig || !tmp_struc || !tmp_en){
+          fprintf(stderr,"Failed to allocate GPU chunk arrays for %d entries (out of host memory?)\n",
+	          chunk_capacity);
+          exit(1);
+        }
+        SEQ_IDs = tmp_ids; VC = tmp_vc; Orig_sequence = tmp_orig; Structure = tmp_struc; EN = tmp_en;
+        chunk_array_size = chunk_capacity;
+      }
+    }
+
+    if(accept_into_chunk){
+      SEQ_IDs[nfiles]       = SEQ_ID;
+      VC[nfiles]            = vc;
+      Orig_sequence[nfiles] = orig_sequence;
+      Structure[nfiles]     = structure;
+      nfiles++;
+    }
+    }
+
+    } /* end else (!route_to_cpu) */
+
+    free(rec_sequence);
+    free(cstruc);
+    free(rec_id);
+
+    /* free the rest of current dataset */
+    if(rec_rest){
+      for(i=0;rec_rest[i];i++) free(rec_rest[i]);
+      free(rec_rest);
+    }
+    rec_id = rec_sequence = structure = cstruc = NULL;
+    rec_rest = NULL;
+
+    if(with_shapes || (constraints_file && (!batch)))
+      break;
+
+    ID_number_increase(seq_number, "Sequence");
+
+    /* print user help for the next round if we get input from tty */
+    if(istty){
+      if(fold_constrained){
+        vrna_message_constraint_options_all();
+        vrna_message_input_seq("Input sequence (upper or lower case) followed by structure constraint");
+      }
+      else vrna_message_input_seq_simple();
+    }
+  }//end while
+
+  /*
+  ########################################################
+  # begin actual computations
+  ########################################################
+  */
+  /* Flush whatever's left in the final (possibly partial) chunk -- every
+   * earlier chunk was already folded/printed/freed inline by
+   * process_gpu_chunk() as soon as its boundary was detected in the read
+   * loop above (chunk full, length changed, or the VRAM-too-tight/
+   * undersized-remainder fallbacks). */
+  process_gpu_chunk(nfiles, SEQ_IDs, VC, Orig_sequence, Structure, EN,
+                     cpu_queue_threads, MIN_GPU_BATCH,
+                     fold_constrained, constraints_file, commands,
+                     output, lucky, istty, fname, ffname, noPS, ligandMotif,
+                     verbose, &md, pf);
+  free(SEQ_IDs);
+  free(VC);
+  free(Orig_sequence);
+  free(Structure);
+  free(EN);
 
   /* Drain and join the CPU worker pool (no-op if it was never enabled) --
-   * must happen after the GPU batch's own output loop above so the two
-   * don't print interleaved (see the v1 output-ordering scope note in
-   * RNAfold_cpu_queue.h). */
+   * must happen after every GPU chunk has printed its output (all of them,
+   * across the whole read loop above, plus the final flush just above this
+   * comment) so the two don't print interleaved (see the v1 output-ordering
+   * scope note in RNAfold_cpu_queue.h). */
   rnafold_cpu_queue_shutdown();
 
     if(outfile && output){
