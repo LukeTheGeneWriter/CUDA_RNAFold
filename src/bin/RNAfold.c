@@ -260,13 +260,22 @@ int main(int argc, char *argv[]){
   # main loop: continue until end of file
   #############################################
   */
-  const int MAXCUDAPAR = 65535; //small changes to .cu grid nfiles addressing would be need to increase this
-                                //alternatively just process files in MAXCUDAPAR batches
-  char**            SEQ_IDs = (char**)                malloc(MAXCUDAPAR*sizeof(char*));
-  vrna_fold_compound_t** VC = (vrna_fold_compound_t**)malloc(MAXCUDAPAR*sizeof(vrna_fold_compound_t*));
-  char**      Orig_sequence = (char**)                malloc(MAXCUDAPAR*sizeof(char*));
-  char**          Structure = (char**)                malloc(MAXCUDAPAR*sizeof(char*));
-  float*                 EN = (float*)                malloc(MAXCUDAPAR*sizeof(float*));
+  /* arrays_capacity used to be a hard ceiling (MAXCUDAPAR=65535, tied to
+   * CUDA's gridDim.y limit -- nfiles was passed straight through as a single
+   * kernel launch's grid dimension). That hardware constraint still exists,
+   * but it's now enforced per-batch by compute_max_gpu_batch()'s own
+   * MAX_GPU_BATCH_GRID_LIMIT clamp (modular_decomposition.cu), independently
+   * of how many sequences are read in total. So this is just a growable
+   * buffer now -- doubles (via realloc, see the read loop below) whenever
+   * nfiles reaches capacity, rather than exit(1)'ing, so total input size is
+   * bounded only by host RAM. Starting capacity kept at the old ceiling's
+   * value so small/typical runs see no change in behavior or footprint. */
+  int arrays_capacity = 65535;
+  char**            SEQ_IDs = (char**)                malloc((size_t)arrays_capacity*sizeof(char*));
+  vrna_fold_compound_t** VC = (vrna_fold_compound_t**)malloc((size_t)arrays_capacity*sizeof(vrna_fold_compound_t*));
+  char**      Orig_sequence = (char**)                malloc((size_t)arrays_capacity*sizeof(char*));
+  char**          Structure = (char**)                malloc((size_t)arrays_capacity*sizeof(char*));
+  float*                 EN = (float*)                malloc((size_t)arrays_capacity*sizeof(float*));
   int nfiles = 0;
 
   /* Heterogeneous GPU+CPU dispatch: fold short/off-batch sequences on a CPU
@@ -435,10 +444,26 @@ int main(int argc, char *argv[]){
     } else {
       output = stdout;
     }
-    if(nfiles>=MAXCUDAPAR){
-      fprintf(stderr,"Current GPU code limits number of files processed in parallel to %d\n",
-	      MAXCUDAPAR);
-      exit(1);
+    if(nfiles>=arrays_capacity){
+      /* Grow all 5 parallel arrays in lockstep, doubling capacity. Safe to
+       * realloc here (may move the blocks) -- the read loop is still the
+       * only thing holding pointers into these arrays; nothing takes a
+       * pointer into VC[]/Structure[]/etc. for GPU batching until after the
+       * whole read loop finishes (see the batch-cycle loop below), so no
+       * stale pointer risk from the move. */
+      const int new_capacity = arrays_capacity*2;
+      char**                 tmp_ids   = (char**)                realloc(SEQ_IDs,       (size_t)new_capacity*sizeof(char*));
+      vrna_fold_compound_t** tmp_vc    = (vrna_fold_compound_t**) realloc(VC,            (size_t)new_capacity*sizeof(vrna_fold_compound_t*));
+      char**                 tmp_orig  = (char**)                realloc(Orig_sequence, (size_t)new_capacity*sizeof(char*));
+      char**                 tmp_struc = (char**)                realloc(Structure,     (size_t)new_capacity*sizeof(char*));
+      float*                 tmp_en    = (float*)                realloc(EN,            (size_t)new_capacity*sizeof(float*));
+      if(!tmp_ids || !tmp_vc || !tmp_orig || !tmp_struc || !tmp_en){
+        fprintf(stderr,"Failed to grow sequence arrays past %d entries (out of host memory?)\n",
+	        arrays_capacity);
+        exit(1);
+      }
+      SEQ_IDs = tmp_ids; VC = tmp_vc; Orig_sequence = tmp_orig; Structure = tmp_struc; EN = tmp_en;
+      arrays_capacity = new_capacity;
     }
     //for simplicity in first version require all structures to be the same length
     if(nfiles>0 && vc->length != VC[0]->length) {
