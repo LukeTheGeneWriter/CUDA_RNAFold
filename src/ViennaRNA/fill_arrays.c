@@ -57,12 +57,29 @@ void min_fml(const int i, const int j, const int* my_fML, const int* DMLi, const
 PRIVATE void
 par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) {
 
+  {
+    static int phase_timing_registered = 0;
+    if(!phase_timing_registered) {
+      atexit(print_phase_timing_stats);
+      phase_timing_registered = 1;
+    }
+  }
+
   unsigned char     type;
 //char              *ptype, *hard_constraints;
   int               i, j, ij, length, /*energy,*/ new_c, /*stackEnergy,*/ no_close, turn,
                     noGUclosure, /*noLP,*/ uniq_ML, /*dangle_model, *indx, *my_f5,
                     my_c, *my_fML, *my_fM1,*/ hc_decompose, /* *cc, *cc1, *Fmi,*/ *DMLi,
                     *DMLi1, *DMLi2;
+  // New Jul 2026: hoisted out of fill_arrays_loop.c's per-row loop (were
+  // malloc()'d/free()'d every row there -- see that file's history) and
+  // page-locked (cuda_host_alloc_ints(), modular_decomposition.cu) since
+  // all 5 are cudaMemcpy source/destination every row too. Safe to reuse
+  // across rows unchanged: every element actually read each row is
+  // unconditionally overwritten that same row before use, same as
+  // DMLi/DMLi1/DMLi2's existing rotate-in-place pattern below.
+  int               *energy_min, *energy_hp_row, *energy_mb_row,
+                    *energy_3p00_row, *new_C;
   vrna_param_t      *P;
 //vrna_mx_mfe_t     *matrices;
 //vrna_hc_t         *hc;
@@ -104,9 +121,9 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   //cc    = (int *) vrna_alloc(sizeof(int)*(length + 2)); /* auxilary arrays for canonical structures     */
   //cc1   = (int *) vrna_alloc(sizeof(int)*(length + 2)); /* auxilary arrays for canonical structures     */
   //Fmi   = (int *) vrna_alloc(sizeof(int)*(length + 1)); /* holds row i of fML (avoids jumps in memory)  */
-  DMLi  = (int *) vrna_alloc(nfiles*sizeof(int)*(length + 1)); /* DMLi[j] holds  MIN(fML[i,k]+fML[k+1,j])      */
-  DMLi1 = (int *) vrna_alloc(nfiles*sizeof(int)*(length + 1)); /*                MIN(fML[i+1,k]+fML[k+1,j])    */
-  DMLi2 = (int *) vrna_alloc(nfiles*sizeof(int)*(length + 1)); /*                MIN(fML[i+2,k]+fML[k+1,j])    */
+  DMLi  = cuda_host_alloc_ints((size_t)nfiles*(length + 1)); /* DMLi[j] holds  MIN(fML[i,k]+fML[k+1,j])      */ // 32-bit signed integer overflow bug fix
+  DMLi1 = cuda_host_alloc_ints((size_t)nfiles*(length + 1)); /*                MIN(fML[i+1,k]+fML[k+1,j])    */ // 32-bit signed integer overflow bug fix
+  DMLi2 = cuda_host_alloc_ints((size_t)nfiles*(length + 1)); /*                MIN(fML[i+2,k]+fML[k+1,j])    */ // 32-bit signed integer overflow bug fix
 
   if((turn < 0) || (turn > length))
     turn = length; /* does this make any sense? */
@@ -146,9 +163,9 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     //free(cc);
     //free(cc1);
     //free(Fmi);
-    free(DMLi);
-    free(DMLi1);
-    free(DMLi2);
+    cuda_host_free(DMLi);
+    cuda_host_free(DMLi1);
+    cuda_host_free(DMLi2);
     /* return free energy of unfolded chain */
     for(int H=0;H<nfiles;H++) {
       Energy[H] = 0;
@@ -174,6 +191,18 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   // vrna_E_ml_stems_fast2() always returned INF, contributing nothing at its
   // one read site.
 
+  // New Jul 2026: allocated once here (page-locked, see DMLi above) rather
+  // than malloc()'d/free()'d every row inside fill_arrays_loop.c's loop --
+  // see the field declarations up top for why reuse across rows is safe.
+  // 32-bit signed integer overflow bug fix: (size_t) cast must apply to
+  // nfiles, the first operand -- casting the product after the fact would
+  // already have overflowed in 32-bit int arithmetic by then.
+  energy_min       = cuda_host_alloc_ints((size_t)nfiles*(length+1));
+  energy_hp_row    = cuda_host_alloc_ints((size_t)nfiles*(length+1));
+  energy_mb_row    = cuda_host_alloc_ints((size_t)nfiles*(length+1));
+  energy_3p00_row  = cuda_host_alloc_ints((size_t)nfiles*(length+1));
+  new_C            = cuda_host_alloc_ints((size_t)nfiles*(length+1));
+
 #include "fill_arrays_loop.c"
 
   /* calculate energies of 5' fragments */
@@ -187,8 +216,13 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   //free(cc);
   //free(cc1);
   //free(Fmi);
-  free(DMLi);
-  free(DMLi1);
-  free(DMLi2);
+  cuda_host_free(DMLi);
+  cuda_host_free(DMLi1);
+  cuda_host_free(DMLi2);
+  cuda_host_free(energy_min);
+  cuda_host_free(energy_hp_row);
+  cuda_host_free(energy_mb_row);
+  cuda_host_free(energy_3p00_row);
+  cuda_host_free(new_C);
 
 }

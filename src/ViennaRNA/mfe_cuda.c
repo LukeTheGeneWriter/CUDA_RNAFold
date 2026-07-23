@@ -32,6 +32,7 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 #include <limits.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "ViennaRNA/utils.h"
 #include "ViennaRNA/energy_par.h"
@@ -68,6 +69,46 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 # PRIVATE VARIABLES             #
 #################################
 */
+
+// New Jul 2026: per-row phase timing for par_fill_arrays()'s row loop
+// (fill_arrays_loop.c) -- answers, with real numbers instead of guesses,
+// how much of a fold's wall-clock is GPU kernel+transfer time
+// (int_loop/hp_mb/load_my_c/modular_decomp) vs. pure host-side CPU time
+// (the three nested for(H) for(j) combination loops that stitch GPU
+// outputs together into my_c/my_fML each row). Same
+// accumulate-and-print-once-at-exit shape as modular_decomposition.cu's
+// existing graph_mgmt_seconds/print_graph_update_stats() -- duplicated
+// here rather than shared across the two translation units, matching this
+// codebase's established per-file self-containment convention.
+static inline double
+now_seconds(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
+
+static double phase_int_loop_s          = 0.0;
+static double phase_hp_mb_s             = 0.0;
+static double phase_new_c_host_s        = 0.0;
+static double phase_load_my_c_s         = 0.0;
+static double phase_fml_host_s          = 0.0;
+static double phase_modular_decomp_s    = 0.0;
+static double phase_my_fml_update_host_s = 0.0;
+
+static void
+print_phase_timing_stats(void) {
+  const double gpu_transfer_total = phase_int_loop_s + phase_hp_mb_s
+                                   + phase_load_my_c_s + phase_modular_decomp_s;
+  const double host_combine_total = phase_new_c_host_s + phase_fml_host_s
+                                   + phase_my_fml_update_host_s;
+  fprintf(stderr,
+    "%-24s phase timing (s): int_loop=%.3f hp_mb=%.3f load_my_c=%.3f "
+    "modular_decomp=%.3f | new_c_host=%.3f fml_host=%.3f my_fml_update_host=%.3f "
+    "|| GPU+transfer total=%.3f host-combine total=%.3f\n",
+    __FILE__, phase_int_loop_s, phase_hp_mb_s, phase_load_my_c_s,
+    phase_modular_decomp_s, phase_new_c_host_s, phase_fml_host_s,
+    phase_my_fml_update_host_s, gpu_transfer_total, host_combine_total);
+}
 
 /*
 #################################

@@ -248,6 +248,29 @@ void int_MemcpyAsync(int* out, const int* in, const size_t size, const cudaMemcp
   }
 }
 
+// New Jul 2026: page-locked host allocation for buffers that are the
+// direct source/destination of a cudaMemcpy every row (DMLi/DMLi1/DMLi2
+// here, and fill_arrays.c's energy_min/energy_hp_row/energy_mb_row/
+// energy_3p00_row/new_C) -- pageable host memory forces the CUDA driver to
+// stage every one of those transfers through an internal pinned buffer
+// first; allocating these ourselves as pinned skips that copy. Hard-fails
+// on allocation failure via gpuErrchk, matching every other CUDA
+// allocation in this codebase -- see compute_max_gpu_batch()'s
+// safety_margin, tightened alongside this change specifically to keep
+// pinned-memory pressure down at the largest batch sizes rather than
+// adding a fallback-to-pageable path here.
+PUBLIC int*
+cuda_host_alloc_ints(const size_t n) {
+  int* p;
+  gpuErrchk( cudaHostAlloc((void **) &p, n*sizeof(int), cudaHostAllocDefault) );
+  return p;
+}
+
+PUBLIC void
+cuda_host_free(void* p) {
+  gpuErrchk( cudaFreeHost(p) );
+}
+
 int first = 1;
 //int* d_indx; //indx no longer used
 int* d_energy_min;
@@ -411,7 +434,16 @@ compute_max_gpu_batch(const int length, const int min_batch) {
                                + int_loop_bytes_per_file(length)
                                + hp_mb_loop_bytes_per_file(length);
 
-  const double safety_margin = 0.95; // TODO: tune further if a tighter margin ever OOMs
+  // New Jul 2026: tightened from 0.95 -- the row buffers in fill_arrays.c
+  // (DMLi/DMLi1/DMLi2 + 5 more) are now page-locked (see
+  // cuda_host_alloc_ints() above), which is a more constrained host
+  // resource than pageable RAM (can't be swapped, often has a stricter OS
+  // limit, especially in containerized environments). Pinned allocation
+  // hard-fails rather than falling back, so this margin is the actual
+  // safety net for that -- smaller nfiles per batch means smaller pinned
+  // allocations. Revisit (raise back toward 0.95) once real headroom at
+  // the largest tested batch sizes is confirmed on Colab.
+  const double safety_margin = 0.85; // TODO: tune further if a tighter margin ever OOMs
   const size_t usable_bytes  = (size_t)((double)free_bytes * safety_margin);
 
   size_t max_batch = (bytes_per_file == 0) ? 0 : usable_bytes / bytes_per_file;

@@ -27,26 +27,30 @@
     //}endfor H
 
 
-    int* energy_min = (int*)malloc(nfiles*(length+1)*sizeof(int));
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) energy_min[H*(length+1)+j] = INF;
     }
 
-    int_loop_i(nfiles,VC,i,turn,length,/*indx,ijsize,
-	       hard_constraints, my_c,*/
-	       energy_min); //replaces vrna_E_int_loop(vc, i, j);
+    {
+      const double t0 = now_seconds();
+      int_loop_i(nfiles,VC,i,turn,length,/*indx,ijsize,
+		 hard_constraints, my_c,*/
+		 energy_min); //replaces vrna_E_int_loop(vc, i, j);
+      phase_int_loop_s += now_seconds() - t0;
+    }
 
     //hairpin-loop / multibranch-loop / 3'-extension energies for this row,
     //computed fresh on GPU each i rather than precomputed as a full
     //nfiles*ijsize array (see fill_arrays.c) -- same row-buffer pattern as
     //energy_min/int_loop_i above.
-    int* energy_hp_row   = (int*)malloc(nfiles*(length+1)*sizeof(int));
-    int* energy_mb_row   = (int*)malloc(nfiles*(length+1)*sizeof(int));
-    int* energy_3p00_row = (int*)malloc(nfiles*(length+1)*sizeof(int));
-    hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row);
+    {
+      const double t0 = now_seconds();
+      hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row);
+      phase_hp_mb_s += now_seconds() - t0;
+    }
 
     //could pack new_C more tightly for load_my_c_kernel but expect modest savings
-    int* new_C = malloc(nfiles*(length+1)*sizeof(int)); //for GPU
+    const double new_c_host_t0 = now_seconds();
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) {
       new_C[H*(length+1)+j] = INF;
@@ -104,9 +108,15 @@
 
     } /* end of j-loop */
     }//endfor H
+    phase_new_c_host_s += now_seconds() - new_c_host_t0;
 
-    load_my_c(nfiles,i,turn,length,new_C); //keep my_c on GPU instep with my_c
+    {
+      const double t0 = now_seconds();
+      load_my_c(nfiles,i,turn,length,new_C); //keep my_c on GPU instep with my_c
+      phase_load_my_c_s += now_seconds() - t0;
+    }
 
+    const double fml_host_t0 = now_seconds();
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) {
       ij            = Indx(H,i,j);
@@ -146,13 +156,19 @@
       My_fML(H,ij) = energy_min[H*(length+1)+j];
     } /* end of j-loop */
     }//endfor H
+    phase_fml_host_s += now_seconds() - fml_host_t0;
 
     //load_fML + modular_decomposition_i + load_min_fML fused into one CUDA
     //graph capture/replay (no host CPU logic runs between these three calls,
     //which is what makes that legal) -- updates my_fML GPU, then
     //my_fML GPU = MIN2(energy_min[j], DMLi[j])
-    load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi);
+    {
+      const double t0 = now_seconds();
+      load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi);
+      phase_modular_decomp_s += now_seconds() - t0;
+    }
 
+    const double my_fml_update_host_t0 = now_seconds();
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) {
       ij            = Indx(H,i,j);
@@ -176,17 +192,12 @@
       */
     } /* end of j-loop */
     }//endfor H
+    phase_my_fml_update_host_s += now_seconds() - my_fml_update_host_t0;
 
     {
       int *FF; /* rotate the auxilliary arrays */
       FF = DMLi2; DMLi2 = DMLi1; DMLi1 = DMLi; DMLi = FF;
     }
-
-    free(new_C);
-    free(energy_min);//optimise malloc and free later
-    free(energy_hp_row);
-    free(energy_mb_row);
-    free(energy_3p00_row);
   } /* end of i-loop */
 
 

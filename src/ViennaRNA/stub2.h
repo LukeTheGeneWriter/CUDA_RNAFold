@@ -11,6 +11,24 @@ PUBLIC void
 #endif
 choose_gpu(int argc, char **argv); //updates argc and argv
 
+// Page-locked host allocation -- see cuda_host_alloc_ints()/cuda_host_free()
+// definitions in modular_decomposition.cu for why. Lets plain .c files
+// (fill_arrays.c) get pinned buffers without needing to #include
+// <cuda_runtime.h> themselves, same as every other .c<->.cu boundary here.
+#ifdef __cplusplus
+extern "C" int*
+#else
+PUBLIC int*
+#endif
+cuda_host_alloc_ints(const size_t n);
+
+#ifdef __cplusplus
+extern "C" void
+#else
+PUBLIC void
+#endif
+cuda_host_free(void* p);
+
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
 #else
