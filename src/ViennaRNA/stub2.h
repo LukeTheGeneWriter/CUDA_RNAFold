@@ -191,7 +191,8 @@ PUBLIC void
 par_mfe(const int nfiles,
 	const vrna_fold_compound_t** VC,
 	const char** Structure,
-	float* EN); //out
+	float* EN, //out
+	const int cpu_queue_threads); //RNAfold.c's already-resolved RNA_CPU_THREADS count, for RNA_BACKTRACK_THREADS=auto sizing
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void

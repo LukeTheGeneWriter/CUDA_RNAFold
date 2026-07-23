@@ -30,6 +30,8 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 #include <ctype.h>
 #include <string.h>
 #include <limits.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #include "ViennaRNA/utils.h"
 #include "ViennaRNA/energy_par.h"
@@ -137,12 +139,77 @@ callback_backtrack(const vrna_fold_compound_t* vc,
   return mfe;
 }
 
-//except par_fill_arrays(), do each file sequentially as before 
+/* New Jul 2026: parallelizes the backtrack loop below across CPU threads.
+ * Each sequence's backtrack only reads that sequence's own vc (already
+ * fully filled in host memory by par_fill_arrays()) and writes its own
+ * bt_stack (thread-local, declared inside backtrack_worker) and Structure[i]/
+ * EN[i] slot -- verified no shared mutable state anywhere in backtrack()'s
+ * call chain (exterior_loops.c/multibranch_loops.c/hairpin_loops.c/
+ * interior_loops.c), so no locking is needed beyond the atomic work-claim
+ * counter below.
+ *
+ * RNA_BACKTRACK_THREADS is deliberately a separate knob from RNA_CPU_THREADS
+ * (RNAfold_cpu_queue.c's pool for whole off-batch sequences) -- "auto"
+ * sizing subtracts cpu_queue_threads (RNAfold.c's already-resolved
+ * RNA_CPU_THREADS count, passed in) from hardware concurrency so the two
+ * pools don't oversubscribe cores when both are active at once, without
+ * this file re-deriving RNA_CPU_THREADS' own parsing/disable-condition
+ * logic.
+ *   unset or "0" -> disabled, exactly the original serial loop.
+ *   "auto"       -> max(1, min(nfiles, hw_concurrency - cpu_queue_threads)).
+ *   "<N>"        -> exactly N threads, capped at nfiles.
+ */
+PRIVATE int
+backtrack_thread_count(const int nfiles, const int cpu_queue_threads) {
+  static int        env_read = 0;
+  static const char *env     = NULL;
+  if(!env_read) {
+    env      = getenv("RNA_BACKTRACK_THREADS");
+    env_read = 1;
+  }
+  if(!env || !env[0] || !strcmp(env, "0")) return 1;
+
+  int n;
+  if(!strcmp(env, "auto")) {
+    long hw = sysconf(_SC_NPROCESSORS_ONLN);
+    if(hw < 1) hw = 1;
+    n = (int)hw - cpu_queue_threads;
+  } else {
+    n = atoi(env);
+  }
+  if(n < 1) n = 1;
+  if(n > nfiles) n = nfiles;
+  return n;
+}
+
+typedef struct {
+  const vrna_fold_compound_t **VC;
+  const char                 **Structure;
+  const int                   *energy;
+  float                        *EN;
+  int                           nfiles;
+  int                          *next_i; /* shared work-claim counter */
+} backtrack_pool_args_t;
+
+PRIVATE void *
+backtrack_worker(void *arg) {
+  backtrack_pool_args_t *a = (backtrack_pool_args_t *) arg;
+  int idx;
+  while((idx = __sync_fetch_and_add(a->next_i, 1)) < a->nfiles) {
+    assert(a->VC[idx]->type == VRNA_FC_TYPE_SINGLE);
+    sect bt_stack[MAXSECTORS]; /* stack of partial structures for backtracking, thread-local */
+    a->EN[idx] = callback_backtrack(a->VC[idx], 0, a->energy[idx], a->Structure[idx], bt_stack);
+  }
+  return NULL;
+}
+
+//except par_fill_arrays(), do each file sequentially as before
 PUBLIC void
 par_mfe(const int nfiles,
 	const vrna_fold_compound_t** VC,
 	const char** Structure,
-	float* EN) { //out
+	float* EN, //out
+	const int cpu_queue_threads) {
 
   //start GPU as early as possible so allow maximise overlap GPU with CPU
   const int length    = VC[0]->length;
@@ -167,10 +234,37 @@ par_mfe(const int nfiles,
     int energy[nfiles];
     par_fill_arrays(nfiles,VC,energy);
 
-    for(i=0;i<nfiles;i++) {
-      assert(VC[i]->type == VRNA_FC_TYPE_SINGLE);
-      sect bt_stack[MAXSECTORS]; /* stack of partial structures for backtracking */
-      EN[i] = callback_backtrack(VC[i], 0, energy[i],Structure[i],bt_stack); 
+    const int n_bt_threads = backtrack_thread_count(nfiles, cpu_queue_threads);
+    if(n_bt_threads <= 1) {
+      for(i=0;i<nfiles;i++) {
+        assert(VC[i]->type == VRNA_FC_TYPE_SINGLE);
+        sect bt_stack[MAXSECTORS]; /* stack of partial structures for backtracking */
+        EN[i] = callback_backtrack(VC[i], 0, energy[i],Structure[i],bt_stack);
+      }
+    } else {
+      int next_i = 0;
+      backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i };
+      pthread_t *bt_threads = (pthread_t *) vrna_alloc(sizeof(pthread_t) * n_bt_threads);
+      int started = 0;
+      for(; started < n_bt_threads; started++) {
+        if(pthread_create(&bt_threads[started], NULL, backtrack_worker, &targ) != 0) {
+          fprintf(stderr, "mfe_cuda.c: pthread_create failed for backtrack worker %d, "
+                           "continuing with fewer threads\n", started);
+          break;
+        }
+      }
+      if(started == 0) {
+        /* pthread_create failed on the very first thread -- fall back to serial */
+        for(i=0;i<nfiles;i++) {
+          assert(VC[i]->type == VRNA_FC_TYPE_SINGLE);
+          sect bt_stack[MAXSECTORS];
+          EN[i] = callback_backtrack(VC[i], 0, energy[i],Structure[i],bt_stack);
+        }
+      } else {
+        for(int t=0; t<started; t++)
+          pthread_join(bt_threads[t], NULL);
+      }
+      free(bt_threads);
     }
   } else {
   for(int i=0;i<nfiles;i++) {
