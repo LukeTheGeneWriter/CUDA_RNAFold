@@ -1,4 +1,5 @@
-/* Modifications for eventual CUDA version $Revision: 1.13 $
+/* Modifications for eventual CUDA version $Revision: 1.14 $
+WBL 19 Jul 2026 Allow arrays to exceed two billion elements
 WBL  8 Jan 2018 Extend linkage for CUDA interface in modular_decomposition.cu
 WBL  3 Dec 2017 investigate data dependence in E_mb_loop_fast
   split off multibranch_loops.c r1.10 for time being
@@ -108,3 +109,20 @@ int
 mb_loop_fast( vrna_fold_compound_t *vc,
                 int i,
                 int j);
+
+//inline functions needed by both int_loop.cu and modular_decomposition.cu
+#ifdef __CUDACC__
+__host__ __device__
+inline long long Indx(const int i, const int j) { //j*(j-1)/2+i
+  const long long j_1 = j-1; //force 64 bit calculation for my_c
+  return j*j_1/2+i;
+}
+
+__host__ __device__
+inline long long
+Hoff(const int H, const int length){ //H*((length+1)*(length+2)/2);
+  const long long l1 = length+1;
+  const long long l2 = length+2;
+  return H*(l1*l2)/2;
+}
+#endif /*__CUDACC__*/
