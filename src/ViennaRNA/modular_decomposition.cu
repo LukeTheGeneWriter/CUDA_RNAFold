@@ -1,10 +1,13 @@
-//WBL 11 Dec 2017 $Revision: 1.89 $ CUDA GGGP ViennaRNA-2.3.0 rf/rf/
+//WBL 11 Dec 2017 $Revision: 1.94 $ CUDA GGGP ViennaRNA-2.3.0 rf/rf/
 //Helper for fill_arrays.c 
 //based on fill_arrays_loop.c r1.10
 
 //Plan is to have all CUDA code here.
 //Atleast whilst only convert modular decomposition to CUDA
 
+//WBL 28 Jul 2026 Merge LukeTheGeneWriter/CUDA_RNAFold Commit 6da6612
+//WBL 19 Jul 2026 Allow arrays to exceed two billion elements
+//WBL 12 Jul 2026 Add/restore "<<<" printf. Add getbs
 //LAW 14 Jul 2026 added WBL diff till 2026
 //WBL  5 Jul 2026 see if can get to compile with CUDA 13.*
 //WBL 15 May 2023 add use_cuda
@@ -14,7 +17,6 @@
 //WBL 31 Dec 2017 try without atomicMin by use of one block per column
 //WBL 30 Dec 2017 for debug make modular_decomposition_ij as in modular_decomposition.c r1.6
 //WBL 29 Dec 2017 ../rf_cuda try tuning
-
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -64,6 +66,11 @@
 //#include <helper_functions.h> //Commented out in 2026, nothing here is used
 //#include <helper_cuda.h> //Commented out in 2026 to get started
 
+extern int load_min_fML_kernel_bs = 64;
+extern int fmli_kernel_bs = 64;
+extern int modular_decomposition_kernel_bs = 64;
+extern int load_fML_kernel_bs = 64;
+
 //BLOCK_SIZE must be power of two 32 or greater
 #define BLOCK_SIZE 64
 
@@ -108,7 +115,7 @@ inline int getCmdLineArgumentInt(int argc, char **argv, const char *string_ref)
                     value = atoi(&string_argv[length + auto_inc]);
 		    //WBL 15 Dec 2017 remove argv[i]
 		    //for(int k=i; k < argc-1; k++) argv[k] = argv[k+1];
-		    /* fails for unknown reason
+		    ** fails for unknown reason
 		      for(int k=i; k < argc-1; k++){
 		      printf("getCmdLineArgumentInt(%d,%s) argv[%d]%s becomes %s\n",
 			     argc,argv[0],k,argv[k],argv[k+1]);
@@ -162,7 +169,7 @@ choose_gpu(int argc, char **argv) {
     {
         persistence = getCmdLineArgumentInt(argc, argv, "persistence");
     }
-	*/
+    */
     cudaError_t error;
     cudaDeviceProp deviceProp;
     error = cudaGetDevice(&devID);
@@ -173,13 +180,13 @@ choose_gpu(int argc, char **argv) {
     }
 
     error = cudaGetDeviceProperties(&deviceProp, devID);
-	/*
+    /*
     if (deviceProp.computeMode == cudaComputeModeProhibited)
     {
         fprintf(stderr, "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n");
         exit(EXIT_SUCCESS);
     }
-	*/
+    */
     if (error != cudaSuccess)
     {
         printf("cudaGetDeviceProperties returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
@@ -219,7 +226,7 @@ choose_gpu(int argc, char **argv) {
                      errno, __FILE__,__LINE__);
       exit(errno);
     }*/
-	use_cuda = 1;
+    use_cuda = 1;
 }
 
 void int_Memcpy(int* out, const int* in, const size_t size, const cudaMemcpyKind dir, const int error_report) { // 32-bit signed integer overflow bug fix
@@ -245,10 +252,10 @@ int* d_dml;  //DMLi
 PUBLIC void
 init_gpu(const int nfiles, const int length) {
   if(!first) return;
-  fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
+    fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
   cudaError_t error;
   const size_t mem_size_len = (size_t)nfiles*(length+1) * sizeof(int); //starts at 1 not 0 // 32-bit signed integer overflow bug fix
-  const size_t ijsize_len   = (size_t)nfiles*((length+1)*(length+2)/2) * sizeof(int); // 32-bit signed integer overflow bug fix
+  const size_t   ijsize_len = Hoff(nfiles,length) * sizeof(int);
 
   error = cudaMalloc((void **) &d_energy_min, mem_size_len);
   if (error != cudaSuccess)  {
@@ -275,6 +282,7 @@ init_gpu(const int nfiles, const int length) {
       exit(EXIT_FAILURE);}
 
   first = 0;
+  //printf("%-24s init_gpu done\n",__FILE__);fflush(NULL);
   return;
 }
 
@@ -291,15 +299,22 @@ PUBLIC void
 init_fML(const int nfiles, const int length) {
   const int first_ = first;
   if(first) init_gpu(nfiles,length);
-  const size_t ijsize = (size_t)nfiles*(length+1)*(length+2)/2; // 32-bit signed integer overflow bug fix
+  const long long ijsize = Hoff(nfiles,length);
   /* Setup execution parameters for helper kernel */
-  const size_t nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
+  const int nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE;
+#ifndef NDEBUG
+  printf("init_fML_kernel<<<%d,%d>>>",nblocks,BLOCK_SIZE);
+  printf("(%lld,d_fml_j=%p)\n",ijsize, d_fml_j);
+#endif
   init_fML_kernel<<<nblocks,BLOCK_SIZE>>>(ijsize, d_fml_j);
   gpuErrchk2( cudaPeekAtLastError(),  first_ );
 
   //To aid debug etc initialise d_dml (DMLi)
-  const size_t hsize = (size_t)nfiles*(length+1); // 32-bit signed integer overflow bug fix
-  const size_t nblock2 = (hsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
+  const int hsize = nfiles*(length+1);
+  const int nblock2 = (hsize + BLOCK_SIZE - 1)/BLOCK_SIZE;
+#ifndef NDEBUG
+  printf("init_fML_kernel<<<%d,%d>>>(%d,d_dml)\n",nblock2,BLOCK_SIZE,hsize);
+#endif
   init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, d_dml);
   gpuErrchk( cudaPeekAtLastError() );
 
@@ -314,15 +329,16 @@ __global__ void
 load_fML_kernel(const int i, const int turn, const int length,
 		const int* __restrict__ energy_min,
 	              int* __restrict__ fml_j) { //out d_fml_j my_fML
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
-  const int j = m + i+turn+1; 
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long j = m + i+turn+1; 
   if(j>length) return;
 
   const int H = blockIdx.y;
-  const int ij = j*(j-1)/2+i;
-  assert(ij>=0 && ij<(length+1)*(length+2)/2);
-  assert(fml_j[H*((length+1)*(length+2)/2)+ij] == INF);
-         fml_j[H*((length+1)*(length+2)/2)+ij] = energy_min[H*(length+1)+j];
+  const long long H2 = Hoff(H,length);
+  const long long ij = Indx(i,j);
+  assert(ij>=0 && ij<Hoff(1,length));
+  assert(fml_j[H2+ij] == INF);
+         fml_j[H2+ij] = energy_min[H*(length+1)+j];
 }
 
 PUBLIC void
@@ -348,9 +364,13 @@ load_fML(const int nfiles,
   int_Memcpy(d_energy_min,energy_min, nfiles*(length+1), cudaMemcpyHostToDevice,__LINE__);
 
   /* Setup execution parameters for helper kernel */
-  const int nblocks = (size + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  const int nblocks = (size + load_fML_kernel_bs - 1)/load_fML_kernel_bs;
   dim3 blocks(nblocks,nfiles);
-  load_fML_kernel<<<blocks,BLOCK_SIZE>>>(i, turn, length,
+#ifndef NDEBUG
+  printf("load_fML_kernel<<<[%d,%d],%d>>>",nblocks,nfiles,load_fML_kernel_bs);
+  printf("(%d,%d,%d,d_energy_min,d_fml_j)\n",i, turn, length);
+#endif
+  load_fML_kernel<<<blocks,load_fML_kernel_bs>>>(i, turn, length,
 					  d_energy_min,  //in
 					  d_fml_j); //out
   gpuErrchk( cudaPeekAtLastError() );
@@ -366,18 +386,18 @@ load_min_fML_kernel(const int i, const int turn, const int length,
   const int stop  = length - 2 - turn;
   const int side  = stop - start + 1;
 
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   if(m>=side) return;
 
   const int H = blockIdx.y;
 
   const int j  = m + (i + 2*(turn+1)) + 1;
-  const int ij = j*(j-1)/2+i;
+  const long long ij = Indx(i,j);
 
   assert(j >=0 && j<=length);
-  assert(ij>=0 && ij<(length+1)*(length+2)/2);
+  assert(ij>=0 && ij<Hoff(1,length)); //(length+1)*(length+2)/2
 
-  fml_j[H*((length+1)*(length+2)/2)+ij] = MIN2(energy_min[H*(length+1)+j],dml[H*(length+1)+j]);
+  fml_j[Hoff(H,length)+ij] = MIN2(energy_min[H*(length+1)+j],dml[H*(length+1)+j]);
 
 //  printf("load_min_fML_kernel(i=%d,%d,%d,*,*,*) block %d,%d energy_min[%d]%d dml[%d]%d fml_j[%d]%d\n",
 //	 i,turn,length,
@@ -398,13 +418,15 @@ load_min_fML(const int nfiles,
   const int side  = stop - start + 1;
   if(side<=0) return;
 
-//printf("load_min_fML(i=%d,%d,%d) start %d side %d\n",
-//	 i,turn,length,start,side);
-
 /* Setup execution parameters for helper kernel */
-  const int nblocks = (side + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  const int nblocks = (side + load_min_fML_kernel_bs - 1)/load_min_fML_kernel_bs;
   dim3 blocks(nblocks,nfiles);
-  load_min_fML_kernel<<<blocks,BLOCK_SIZE>>>(i, turn, length,
+#ifndef NDEBUG
+  printf("load_min_fML_kernel<<<[%d,%d],%d>>>",nblocks,nfiles,load_min_fML_kernel_bs);
+  printf("(i=%d,%d,%d,d_energy_min,d_dml,d_fml_j) start=%d size=%d\n",
+	 i,turn,length,start,side);
+#endif
+  load_min_fML_kernel<<<blocks,load_min_fML_kernel_bs>>>(i, turn, length,
 					  d_energy_min,  //in
 					  d_dml,    //in
 					  d_fml_j); //out
@@ -426,13 +448,13 @@ fmli_kernel(
   const int stop  = length - 2 - turn;
   const int side  = stop - start + 1;
 
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   if(m>=side) return;
   const int H = blockIdx.y;
 
   const int k  = start + m;
-  const int ik = k*(k-1)/2 + i;
-  fml_i[H*(length+1)+m] = fml_j[H*((length+1)*(length+2)/2)+ik]; //ith column
+  const long long ik = Indx(i,k);
+  fml_i[H*(length+1)+m] = fml_j[Hoff(H,length)+ik]; //ith column
 
   //printf("fmli_kernel(%d,%d,%d,fml_i,my_fML) fml_i[%d]%d <= my_fML[%d]\n",
   //	   i,turn,length,
@@ -450,7 +472,7 @@ modular_decomposition_kernel(
   const int x = blockIdx.x;
   const int j = x + (i + 2*(turn+1)) + 1;
         int y = threadIdx.x;
-        int thread = j*(j-1)/2 + threadIdx.x + i + (turn+1) + 1;
+  long long thread = Indx(threadIdx.x + i,j) + (turn+1) + 1;
   int value = INF;
   for(; y <= x; thread+=blockDim.x, y+=blockDim.x) {
     //assert(x>=0 && x<=length);
@@ -463,7 +485,7 @@ modular_decomposition_kernel(
     //https://devtalk.nvidia.com/default/topic/1028130/cuda-programming-and-performance/best-way-to-find-many-minimums/
     //https://devtalk.nvidia.com/default/topic/1012969/cuda-programming-and-performance/texture-unit-in-pascal-architecture/2
     //value = MIN2(((fml_i[y] != INF ) && (fml_j[thread] != INF))? fml_i[y] + fml_j[thread] : INF, value);
-    value = MIN2(fml_i[H*(length+1)+y] + fml_j[H*((length+1)*(length+2)/2)+thread], value);
+    value = MIN2(fml_i[H*(length+1)+y] + fml_j[Hoff(H,length)+thread], value);
 
     //printf("modular_decomposition_kernel(i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d j %d y %d fml_i[%d] %d fml_j[%d] %d value %d\n",
     // 	   i,turn,length,
@@ -624,9 +646,13 @@ void modular_decomposition_cuda(const int nfiles,
 //gpuErrchk( cudaDeviceSynchronize() );
 
   { /* Setup execution parameters for helper kernel */
-    const int block_size = BLOCK_SIZE;
+    const int block_size = fmli_kernel_bs;
     const int nblocks = (side + block_size - 1)/block_size;
     dim3 blocks(nblocks,nfiles);
+#ifndef NDEBUG
+    printf("fmli_kernel<<<[%d,%d],%d>>>",nblocks,nfiles,block_size);
+    printf("(i=%d,%d,%d,d_fml_i,d_fml_j)\n",i,turn,length);
+#endif
     fmli_kernel<<<blocks,block_size>>>(i, turn, length,
 					d_fml_i,  //Out 
 					d_fml_j); //In
@@ -644,17 +670,19 @@ void modular_decomposition_cuda(const int nfiles,
   //modular_decomposition_kernel(side,i,turn,length,fml_i,fml_j); //host testing
 
   /* Setup execution parameters */
-  const int block_size = BLOCK_SIZE;
+  assert(modular_decomposition_kernel_bs == BLOCK_SIZE); //reduction etc. assumes compiler knows block size :-(
+  const int block_size = modular_decomposition_kernel_bs;
   //const int nblocks = (todo + block_size - 1)/block_size; //for time being waste many blocks
   //const int nblocks = side;
   const int nblocks = length - (i + 2*(turn+1));
   
-//  printf("launch modular_decomposition_kernel<<<%d,%d>>>(side=%d,i=%d,%d,%d... threads %d todo %d\n",
-//	 nblocks,block_size,
-//	 side,i,turn,length,
-//	 nblocks*block_size,todo);
-
   dim3 blocks(nblocks,nfiles);
+#ifndef NDEBUG
+  printf("modular_decomposition_kernel<<<[%d,%d],%d>>>",
+	 nblocks,nfiles,block_size);
+  printf("i=%d,%d,%d,d_fml_i,d_fml_j,d_dml) side=%d\n",i,turn,length,side);
+#endif
+  //threads %d todo %d\n",
   modular_decomposition_kernel<<<blocks,block_size>>>(i, turn, length,
 					   d_fml_i, d_fml_j, 
 					   d_dml); //Out

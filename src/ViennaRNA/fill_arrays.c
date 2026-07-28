@@ -1,5 +1,7 @@
-//WBL Dec 2017 include file for mfe.c $Revision: 1.20 $
+//WBL Dec 2017 include file for mfe.c $Revision: 1.24 $
 
+//WBL 20 Jul 2026 make sanity() depend on NDEBUG
+//WBL 19 Jul 2026 Allow par_fill_arrays() arrays to exceed two billion elements
 //WBL 27 Jan 2018 Add par_fill_arrays
 
 //try and help compiler by inlining
@@ -368,7 +370,9 @@ void min_fml(const int i, const int j, const int* my_fML, const int* DMLi, const
 
 PRIVATE void
 par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) {
-
+#ifndef NDEBUG
+  printf("par_fill_arrays(%d,VC,Energy)\n",nfiles);fflush(NULL);
+#endif
   unsigned char     type;
 //char              *ptype, *hard_constraints;
   int               i, j, ij, length, /*energy,*/ new_c, /*stackEnergy,*/ no_close, turn,
@@ -410,8 +414,10 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   if((turn < 0) || (turn > length))
     turn = length; /* does this make any sense? */
 
+#ifndef NDEBUG
  for(int H=1;H<nfiles;H++) sanity(VC[0],VC[H]);
-
+ printf("par_fill_arrays(%d,VC,Energy) line %d\n",nfiles,__LINE__);fflush(NULL);
+#endif
  for(int H=0;H<nfiles;H++) {
    domains_up        = VC[H]->domains_up;
   /* pre-processing ligand binding production rule(s) */
@@ -424,20 +430,27 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     DMLi[H*(length+1)+j] = DMLi1[H*(length+1)+j] = DMLi2[H*(length+1)+j] = INF;
   }
  }//endfor H
-
-
+#ifndef NDEBUG
+ printf("par_fill_arrays(%d,VC,Energy) line %d\n",nfiles,__LINE__);fflush(NULL);
+#endif
   /* prefill matrices with init contributions */
  for(int H=0;H<nfiles;H++) {
   for(j = 1; j <= length; j++)
     //for(i = (j > turn ? (j - turn) : 1); i <= j; i++){
     for(i = 1; i <= j; i++){
+      //printf("Indx(%d,%d,%d)=%d\n",H,i,j,Indx(H,i,j));
       My_c(H,Indx(H,i,j)) = My_fML(H,Indx(H,i,j)) = INF;
       if(uniq_ML)
         My_fM1(H,Indx(H,i,j)) = INF;
     }
  }//endfor H
-  init_fML(nfiles,length);//on GPU
-
+#ifndef NDEBUG
+ printf("par_fill_arrays(%d,VC,Energy) line %d\n",nfiles,__LINE__);fflush(NULL);
+#endif
+ init_fML(nfiles,length);//on GPU
+#ifndef NDEBUG
+ printf("par_fill_arrays(%d,VC,Energy) line %d\n",nfiles,__LINE__);fflush(NULL);
+#endif
   /* start recursion */
 
   if (length <= turn){
@@ -452,10 +465,14 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     for(int H=0;H<nfiles;H++) {
       Energy[H] = 0;
     }//endfor H
+#ifndef NDEBUG
+    printf("end par_fill_arrays(%d,VC,Energy) length=% turn=%d\n",
+	   nfiles,length,turn);fflush(NULL);
+#endif
     return;
   }
 
-  const int ijsize = (length+1)*(length+2)/2;
+  const long long ijsize = (length+1)*(length+2)/2;
   //fprintf(stderr,"fill_arrays(vc) length %d, ijsize %d\n",length,ijsize);
 
   int* energy_hp    = calloc(nfiles*ijsize,sizeof(int));
@@ -485,7 +502,9 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     }
  }
  }//endfor H
-
+#ifndef NDEBUG
+ printf("par_fill_arrays(%d,VC,Energy) line %d\n",nfiles,__LINE__);fflush(NULL);
+#endif
   /*We can move energy_mb out of loop if we calculate change in energy */
  for(int H=0;H<nfiles;H++) {
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
@@ -508,7 +527,9 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 
   } /* end of i-loop */
  }//endfor H
-
+#ifndef NDEBUG
+ printf("par_fill_arrays(%d,VC,Energy) line %d\n",nfiles,__LINE__);fflush(NULL);
+#endif
  /* take union of above c to fake my_c for vrna_E_int_loop() */
  /* fails because DMLi1 is not set up */
 
@@ -530,7 +551,9 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     }
  }
  }//endfor H
-
+#ifndef NDEBUG
+ printf("par_fill_arrays(%d,VC,Energy) line %d\n",nfiles,__LINE__);fflush(NULL);
+#endif
 
   /* Can we move extend_fm_3p()... out of loop? */
  for(int H=0;H<nfiles;H++) {
@@ -575,7 +598,9 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     }
  }
  }//endfor H
-
+#ifndef NDEBUG
+ printf("par_fill_arrays(%d,VC,Energy) line %d\n",nfiles,__LINE__);fflush(NULL);
+#endif
 
 #include "fill_arrays_loop.c"
 
@@ -583,7 +608,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
  for(int H=0;H<nfiles;H++) {
    E_ext_loop_5(VC[H]);
    Energy[H] = VC[H]->matrices->f5[length];
-   //printf("Energy[%d]%d\n",H,Energy[H]);
+   printf("Energy[%d]%d\n",H,Energy[H]);
  }//endfor H
 
   /* clean up memory */
@@ -599,5 +624,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   free(DMLi);
   free(DMLi1);
   free(DMLi2);
-
+#ifndef NDEBUG
+  printf("end par_fill_arrays(%d,VC,Energy)\n",nfiles);fflush(NULL);
+#endif
 }

@@ -1,13 +1,18 @@
-#define Version "$Revision: 1.110 $ "
-//WBL 11 Jan 2018 CUDA GGGP ViennaRNA-2.3.0 rf/rf_cuda2
+#define Version "$Revision: 1.125 $ "
 //Helper for fill_arrays.c 
 //based on ViennaRNA-2.3.0/src/ViennaRNA/interior_loops.c (Nov  1  2016) 
 
+//Modifications (reverse order):
+//WBL 28 Jul 2026 Merge LukeTheGeneWriter/CUDA_RNAFold Commit 6da6612
+//WBL 19 Jul 2026 Reorder d_new_e
+//WBL 19 Jul 2026 Allow arrays to exceed two billion elements
+//WBL 12 Jul 2026 for CUDA 13 Luke Williams
 //WBL 17 Feb 2018 clean for production (cf r1.75), remove tick
 //    keep source code of small unused kernels for the timebeing but remove calling them.
 //WBL 11 Feb 2018 use own timing rather than nvidia profiling tools
 //WBL  6 Feb 2018 split interior_loopx.h into separate non-divergent kernels
 //WBL 28 Jan 2018 process nfiles in one go
+//WBL 11 Jan 2018 CUDA GGGP ViennaRNA-2.3.0 rf/rf_cuda2
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -126,7 +131,7 @@ inline void gpuAssert(cudaError_t code, const char *file, const int line, const 
    if (code != cudaSuccess) 
    {
      fprintf(stderr,"CUDA error: %s (code %d) %s %d\n", cudaGetErrorString(code), code, file, line);
-     if(first) fprintf(stderr,"CUDA error: on first kernel.\n", file);
+     if(first) fprintf(stderr,"CUDA error: on first kernel. %s\n", file);
      if (abort) exit(code);
    }
 }
@@ -140,22 +145,27 @@ inline void Assert_(bool test, const char *file, const int line) {
 
 /* prefill matrices with init contributions */
 __global__ void
-init_my_c_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
+init_my_c_kernel(const long long ijsize,
 		 int* __restrict__ my_c) {
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   if(m>=ijsize) return;
   my_c[m] = INF;
 }
 
 PUBLIC void
-init_my_c(const size_t ijsize) { // 32-bit signed integer overflow bug fix
+init_my_c(const long long ijsize) {
   /* Setup execution parameters for helper kernel */
-  const size_t nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
+  const long long nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE;
+#ifndef NDEBUG
+  printf("init_my_c_kernel<<<%lld,%d>>>(%lld,%p)\n",
+	 nblocks,BLOCK_SIZE,ijsize, d_my_c);fflush(NULL);
+#endif
   init_my_c_kernel<<<nblocks,BLOCK_SIZE>>>(ijsize, d_my_c);
   gpuErrchk2( cudaPeekAtLastError(),  first2 );
 #ifndef NDEBUG
   gpuErrchk2( cudaDeviceSynchronize(),first2 );
   //may pickup errors later if dont sync now
+  printf("init_my_c_kernel<<<%lld,%d>>> ok\n",nblocks,BLOCK_SIZE);fflush(NULL);
 #endif
 }
 
@@ -216,7 +226,26 @@ void load_param(const vrna_param_t *P){
 #define bitsperint (8*sizeof(unsigned int))
 
 //make hccc oversized to simplify bounds checks in nthsetindex
-#define Hc_ints(length) (((length*(length+1))/2+2 + (MAXLOOP+1)*(MAXLOOP+2)/2 + bitsperint - 1)/bitsperint)
+//#define Hc_ints(length) (((length*(length+1))/2+2 + (MAXLOOP+1)*(MAXLOOP+2)/2 + bitsperint - 1)/bitsperint)
+__host__ __device__ inline
+long long Hc_ints(const int length) {
+  const long long l1 = length+1; //force 64 bit calculation
+  return ((length*l1)/2+2 + (MAXLOOP+1)*(MAXLOOP+2)/2 + bitsperint - 1)/bitsperint;
+}
+
+int getbs(const char* envname, const int def) {
+  const char* s = getenv(envname);
+  if(s==NULL) return def;
+  const int i = atoi(s);
+  return (i)? i : def;
+}
+
+extern int load_min_fML_kernel_bs;
+extern int fmli_kernel_bs;
+extern int modular_decomposition_kernel_bs;
+extern int load_fML_kernel_bs;
+int int_loop_kernel_bs = 32;
+int load_my_c_kernel_bs = 512;
 
 PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size) {
@@ -227,6 +256,23 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   assert(MAX_NINIO == 300); //ViennaRNA/energy_par.c
   //printf("%s %s d_param is %lu bytes, NBPAIRS %d MAXLOOP %d BLOCK_SIZE %d\n",
   //	 __FILE__,Version,sizeof(cuda_param_s),NBPAIRS,MAXLOOP,block_size);
+
+  load_min_fML_kernel_bs =          getbs("load_min_fML_kernel",64);
+  fmli_kernel_bs =                  getbs("fmli_kernel",64);
+  modular_decomposition_kernel_bs = getbs("modular_decomposition_kernel",64);
+  load_fML_kernel_bs =              getbs("load_fML_kernel",64);
+  int_loop_kernel_bs =              getbs("int_loop_kernel",32);
+  load_my_c_kernel_bs =             getbs("load_my_c_kernel",512);
+
+  if(modular_decomposition_kernel_bs != 64) {
+    fprintf(stderr,"variable modular_decomposition_kernel_bs not implemented %d\n",
+	    modular_decomposition_kernel_bs); exit(99);}
+  if(int_loop_kernel_bs != 32) {
+    fprintf(stderr,"variable int_loop_kernel_bs not implemented %d\n",
+	    int_loop_kernel_bs); exit(99);}
+  /*if (load_my_c_kernel_bs != 512) {
+    fprintf(stderr,"variable load_my_c_kernel_bs %d now disabled (d_new_e)\n",
+	    load_my_c_kernel_bs); exit(99);}*/
 
   gpuErrchk( cudaMalloc((void **) &d_param, sizeof(cuda_param_s)) );
   load_param(VC[0]->params);
@@ -241,7 +287,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     }
     else assert(md->pair[x][y]==0);
   }}
-  size_t size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char); // 32-bit signed integer overflow bug fix
+  size_t size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char);
   gpuErrchk( cudaMalloc((void **) &d_pair, size) );
   gpuErrchk( cudaMemcpy(d_pair,pair_,size,cudaMemcpyHostToDevice) );
 
@@ -251,9 +297,11 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   for(int H=0;H<nfiles;H++){
     assert(bitsperint==(1+0x1f));
     unsigned int mask;
-    for(int i=0;i<(length*(length+1))/2+2;i++){ //leave padding as zero
+    const long long l1  = length+1;
+    const long long top = length*l1/2+2;
+    for(long long i=0;i<top;i++){ //leave padding as zero
       mask = ((i & 0x1f) == 0)? 1 : mask << 1;
-      const int I = H*Hc_ints(length)+i/bitsperint;
+      const long long I = H*Hc_ints(length)+i/bitsperint;
       if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC) hccc[I] |= mask;
     }
   }
@@ -270,9 +318,9 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMemcpy(d_S,buff,size,cudaMemcpyHostToDevice) );
   free(buff);
 
-  size = (size_t)nfiles*((length+1)*(length+2)/2)*sizeof(int); // 32-bit signed integer overflow bug fix
-  gpuErrchk( cudaMalloc((void **) &d_my_c, size) );
-  init_my_c((size_t)nfiles*(length+1)*(length+2)/2); // 32-bit signed integer overflow bug fix
+  size = Hoff(nfiles,length); //nfiles*(length+1)*(length+2)/2
+  gpuErrchk( cudaMalloc((void **) &d_my_c, size*sizeof(int)) );
+  init_my_c(size);
 
   size = (size_t)nfiles*(length+1)*sizeof(int); // 32-bit signed integer overflow bug fix
   gpuErrchk( cudaMalloc((void **) &d_new_e, size) );
@@ -285,22 +333,31 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMalloc((void **) &d_buf, size) );
   */
   first2 = 0;
+  //printf("%-24s init_gpu2 done\n",__FILE__);fflush(NULL);
 }
 
 //perhaps this can be combined with other kernels?
+/*now define const int turn,*/
 __global__ void
-load_my_c_kernel(const int i, /*const int turn,*/ const int length,
+load_my_c_kernel(const int i, const int length, const int nfiles,
 		 const int* __restrict__ new_e,
 	               int* __restrict__ my_c) { //out
-  const int H = blockIdx.y;
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
-  const int j = m + i+turn+1; 
-  if(j>length) return;
+  const long long m  = blockIdx.x*blockDim.x + threadIdx.x;
+  const long long mj = m / nfiles;
+  const int       H  = m - mj * nfiles;
+  const long long j  = mj + i+turn+1; 
+  if(j < i+turn+1 || j > length) return;
 
-  const int ij = j*(j-1)/2+i;
-  assert(ij>=0 && ij<(length+1)*(length+2)/2);
-  assert(my_c[H*((length+1)*(length+2)/2)+ij] == INF);
-         my_c[H*((length+1)*(length+2)/2)+ij] = new_e[H*(length+1)+j];
+  assert(H >= 0 && H < nfiles);
+  const long long ij = Indx(i,j);
+  const long long indx = Hoff(H,length)+ij;
+  assert(ij>=0 && ij<Hoff(1,length)); //(length+1)*(length+2)/2
+  assert(my_c[indx] == INF);
+  const int eindx = m;
+  assert(eindx == H + (j-(i+turn+1))*nfiles);
+  assert(eindx < nfiles*(length - (i+turn+1) + 1));
+  assert(eindx < nfiles*(length -   (turn+1)));
+         my_c[indx] = new_e[eindx];
 }
 
 PUBLIC void
@@ -312,20 +369,24 @@ load_my_c(const int nfiles,
   const int size  = length - start + 1;
   if(size<=0) return;
 
+  assert(turn_ == turn);
 #ifdef NDEBUG
   //check here in case of earlier errors
   gpuErrchk( cudaDeviceSynchronize() );
 #endif
-  //for simplicity transfer all new_e, even though only need H * [start:length]
-  gpuErrchk( cudaMemcpy(d_new_e,new_e,nfiles*(length+1)*sizeof(int),cudaMemcpyHostToDevice) );
-
+  //transfer only used part of new_e
+  gpuErrchk( cudaMemcpy(d_new_e,new_e,nfiles*size*sizeof(int),cudaMemcpyHostToDevice) );
 
   /* Setup execution parameters for helper kernel */
-  const int nblocks = (size + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  const int nblocks = (nfiles*size + load_my_c_kernel_bs - 1)/load_my_c_kernel_bs;
 
-  dim3 blocks(nblocks,nfiles);
+  //dim3 blocks(nblocks,nfiles);
 
-  load_my_c_kernel<<<blocks,BLOCK_SIZE>>>(i, /*turn,*/ length,
+#ifndef NDEBUG
+  printf("load_my_c_kernel<<<%d,%d>>>(%d,%d,%d,d_new_e,d_my_c)\n",
+	 nblocks,load_my_c_kernel_bs,i,length,nfiles);//,d_new_e,d_my_c);
+#endif
+  load_my_c_kernel<<<nblocks,load_my_c_kernel_bs>>>(i, /*turn,*/ length, nfiles,
 					   d_new_e,  //in
 					   d_my_c); //out
   gpuErrchk( cudaPeekAtLastError() );
@@ -387,10 +448,6 @@ Max_p(const int i, const int j, const int q,
   return MIN2(max_p, tmp);
 }
 
-__device__ inline int
-Indx(const int i, const int j) { 
-  return j*(j-1)/2+i;
-}
 
 #undef BLOCK_SIZE
 //Like modular_decomposition.cu have one block per j value
@@ -400,8 +457,8 @@ Indx(const int i, const int j) {
 
 //emulate hc[pq] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC;
 __device__ inline
-int Hc(const int ij, const unsigned int* __restrict__ hccc){
-  const int I = ij/bitsperint;
+int Hc(const long long ij, const unsigned int* __restrict__ hccc){
+  const long long I = ij/bitsperint;
   const unsigned int m = hccc[I];
   //const int shift = (ij - I*bitsperint);
   const int ans = (m >> (ij - I*bitsperint)) & 1;
@@ -446,9 +503,9 @@ do {
   assert(mask_size>0);
   assert(mask_size<=bitsperint+1);
   if(row_start == 0) {
-    const int pq = Indx(i,j+column);
-    const int I =     pq/bitsperint;
-    const int x = pq - I*bitsperint;
+    const long long pq = Indx(i,j+column);
+    const long long I =     pq/bitsperint;
+    const long long x = pq - I*bitsperint;
     mask = hccc[I];
     mask = mask >> x; //remove bits below pq
     if(mask_size+x > 32 ) {//get top bits
@@ -517,7 +574,7 @@ Energy(const int i, const int j, const int q, const int p,
 	  const int pp = p -(i+1);
 
 
-	  const int pq = Indx(p,q);
+	  const long long pq = Indx(p,q);
 	  assert(pp == p-(i+1));
 	  //assert(pq+pp == pq);
 	  //assert(pq > 0 && pq < (length*(length+1))/2+2);
@@ -581,13 +638,13 @@ int_loop_nl0_kernel(const int nfiles,
   const int j = m - H*stride + i+turn+1;
 
   int energy = INF;
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   const unsigned int* Hccc = &hccc[H*Hc_ints(length)];
   if(Hc(ij,Hccc)) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
     //ensure nl==0
     const int p = i+1;
     const int q = j-1;
-    const int pq = Indx(p,q);
+    const long long pq = Indx(p,q);
     if(Hc(pq,Hccc)) {
       //do energy = my_c[pq] if(energy != INF) and energy += in xxx_kernel
 
@@ -623,7 +680,7 @@ int_loop_ns0_kernel(const int i, /*const int turn,*/ const int length,
   const int j = blockIdx.x + i+turn+1;
 
   int energy = INF;
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   const unsigned int* Hccc = &hccc[H*Hc_ints(length)];
   const int nl = (threadIdx.x & 0x1f);
   if(nl>0 && nl<=MAXLOOP && // nl==0 done elsewhere
@@ -647,7 +704,7 @@ int_loop_ns0_kernel(const int i, /*const int turn,*/ const int length,
     }
     */
     if(q >= min_q && q<=length && p <= max_p) {
-      const int pq = Indx(p,q);
+      const long long pq = Indx(p,q);
       //printf("%d.%d,%d int_loop_ns0_kernel(%d,%d,%d,...) H %d j %d q %d p %d pq %d\n",
       //     blockIdx.x,blockIdx.y,threadIdx.x,
       //     i,turn,length,H,j,q,p,pq);
@@ -658,7 +715,7 @@ int_loop_ns0_kernel(const int i, /*const int turn,*/ const int length,
       assert(nl >  0);
       assert(nl <= MAXLOOP);
       if(Hc(pq,Hccc)) {
-      const int hpq = pq + H*((length+1)*(length+2)/2);
+	const int hpq = pq + Hoff(H,length);
       energy = my_c[hpq];
       if(energy != INF) {
 
@@ -721,7 +778,7 @@ int_loop_1xn_kernel(const int i, /*const int turn,*/ const int length,
   const int j = blockIdx.x + i+turn+1;
 
   int energy = INF;
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   const unsigned int* Hccc = &hccc[H*Hc_ints(length)];
   const int nl = (threadIdx.x & 0x1f);
   if(nl>2 && nl<=MAXLOOP && // nl==0,1,2, done elsewhere
@@ -733,7 +790,7 @@ int_loop_1xn_kernel(const int i, /*const int turn,*/ const int length,
     const int min_q = Min_q(i,j,turn);
     const int max_p = Max_p(i,j,q,turn);
     if(q >= min_q && q<=length && p <= max_p) {
-      const int pq = Indx(p,q);
+      const long long pq = Indx(p,q);
       assert(q >= min_q);
       assert(p <= max_p);
       assert(q <= length);
@@ -741,7 +798,7 @@ int_loop_1xn_kernel(const int i, /*const int turn,*/ const int length,
       assert(nl >  0);
       assert(nl <= MAXLOOP);
       if(Hc(pq,Hccc)) {
-      const int hpq = pq + H*((length+1)*(length+2)/2);
+	const long long hpq = pq + Hoff(H,length);
       energy = my_c[hpq];
       if(energy != INF) {
 
@@ -800,7 +857,7 @@ int_loop_int11_kernel(const int nfiles,
   const int j = m - H*stride + i+turn+1;
 
   int energy = INF;
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   const unsigned int* Hccc = &hccc[H*Hc_ints(length)];
   if(Hc(ij,Hccc)) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
     //ensure ns==1 and nl==1
@@ -809,7 +866,7 @@ int_loop_int11_kernel(const int nfiles,
     const int min_q = Min_q(i,j,turn);
     const int max_p = Max_p(i,j,q,turn);
     if(q >= min_q && q<=length && p <= max_p) {
-    const int pq = Indx(p,q);
+    const long long pq = Indx(p,q);
     assert(q >= min_q);
     assert(p <= max_p);
     assert(q <= length);
@@ -853,7 +910,7 @@ int_loop_int21_kernel(const int n1, //n1==1 or n1!=1
   const int j = m - H*stride + i+turn+1;
 
   int energy = INF;
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   const unsigned int* Hccc = &hccc[H*Hc_ints(length)];
   if(Hc(ij,Hccc)) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
     //ensure ns==1 and nl==2 (n1 == 1 given by input)
@@ -862,7 +919,7 @@ int_loop_int21_kernel(const int n1, //n1==1 or n1!=1
     const int min_q = Min_q(i,j,turn);
     const int max_p = Max_p(i,j,q,turn);
     if(q >= min_q && q<=length && p <= max_p) {
-    const int pq = Indx(p,q);
+    const long long pq = Indx(p,q);
     assert(q >= min_q);
     assert(p <= max_p);
     assert(q <= length);
@@ -916,7 +973,7 @@ int_loop_int22_kernel(const int nfiles, /* 2x2 loop */
   const int j = m - H*stride + i+turn+1;
 
   int energy = INF;
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   const unsigned int* Hccc = &hccc[H*Hc_ints(length)];
   if(Hc(ij,Hccc)) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
     //ensure ns==2 and nl==2
@@ -925,7 +982,7 @@ int_loop_int22_kernel(const int nfiles, /* 2x2 loop */
     const int min_q = Min_q(i,j,turn);
     const int max_p = Max_p(i,j,q,turn);
     if(q >= min_q && q<=length && p <= max_p) {
-    const int pq = Indx(p,q);
+    const long long pq = Indx(p,q);
     assert(q >= min_q);
     assert(p <= max_p);
     assert(q <= length);
@@ -973,7 +1030,7 @@ int_loop_nl3_kernel(const int n1, //n1==2 or n1==3 flag
   const int j = m - H*stride + i+turn+1;
 
   int energy = INF;
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   const unsigned int* Hccc = &hccc[H*Hc_ints(length)];
   if(Hc(ij,Hccc)) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
     //ensure ns==2 and nl==3 (n1 == 3 given by input)
@@ -982,7 +1039,7 @@ int_loop_nl3_kernel(const int n1, //n1==2 or n1==3 flag
     const int min_q = Min_q(i,j,turn);
     const int max_p = Max_p(i,j,q,turn);
     if(q >= min_q && q<=length && p <= max_p) {
-    const int pq = Indx(p,q);
+    const long long pq = Indx(p,q);
     assert(q >= min_q);
     assert(p <= max_p);
     assert(q <= length);
@@ -1033,7 +1090,7 @@ int_loop_I_kernel(const int i, /*const int turn,*/ const int length,
   const int j = blockIdx.x + i+turn+1;
 
   int energy = INF;
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   const unsigned int* Hccc = &hccc[H*Hc_ints(length)];
 
   if(!Hc(ij,Hccc)) {
@@ -1059,7 +1116,7 @@ int_loop_I_kernel(const int i, /*const int turn,*/ const int length,
     const int ns = (u1>u2)? u2 : u1;
     const int nl = (u1>u2)? u1 : u2;
     if(ns>2 || (ns==2 && nl>3)) { //avoid data calculated by other kernels     
-      const int pq = Indx(p,q);
+      const long long pq = Indx(p,q);
       assert(q >= min_q);
       assert(p <= max_p);
       assert(q <= length);
@@ -1067,7 +1124,7 @@ int_loop_I_kernel(const int i, /*const int turn,*/ const int length,
       assert(nl >  0);
       assert(nl <= MAXLOOP);
       if(Hc(pq,Hccc)) {
-      const int hpq = pq + H*((length+1)*(length+2)/2);
+	const long long hpq = pq + Hoff(H,length);
       energy = my_c[hpq];
       if(energy != INF) {
 
@@ -1147,7 +1204,7 @@ int_loop_I1_kernel(const int dj, //2...MAXLOOP
   const int H = blockIdx.y;
   const int j = blockIdx.x + i+turn+1;
 
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   const unsigned int* Hccc = &hccc[H*Hc_ints(length)];
 
   //if(gridDim.x>=2000) return;
@@ -1176,7 +1233,7 @@ int_loop_I1_kernel(const int dj, //2...MAXLOOP
     const int ns = (u1>u2)? u2 : u1;
     const int nl = (u1>u2)? u1 : u2;
     if(ns>2 || (ns==2 && nl>3)) { //avoid data calculated by other kernels     
-      const int pq = Indx(p,q);
+      const long long pq = Indx(p,q);
       assert(q >= min_q);
       assert(p <= max_p);
       assert(q <= length);
@@ -1184,7 +1241,7 @@ int_loop_I1_kernel(const int dj, //2...MAXLOOP
       assert(nl >  0);
       assert(nl <= MAXLOOP);
       if(Hc(pq,Hccc)) {
-      const int hpq = pq + H*((length+1)*(length+2)/2);
+	const long long hpq = pq + Hoff(H,length);
       energy = my_c[hpq];
       if(energy != INF) {
 	flag = 1;
@@ -1311,7 +1368,7 @@ int_loop_min_kernel(const int dp, const int dq, //0,0, 1,1 (int11) or 2,2 (int22
   const int min_q = Min_q(i,j,turn);
   const int max_p = Max_p(i,j,q,turn);
   if(q >= min_q && q<=length && p <= max_p) {
-    const int pq   = Indx(p,q) + H*((length+1)*(length+2)/2);
+    const long long pq = Indx(p,q) + Hoff(H,length);
     const int c_   = my_c[pq];
     const int delta = energy_in[m];
     if(c_ != INF && delta != INF) {
@@ -1320,7 +1377,7 @@ int_loop_min_kernel(const int dp, const int dq, //0,0, 1,1 (int11) or 2,2 (int22
 #ifdef CHECK
       const int sanity = energy_min0[hj];
       if(energy<sanity) {
-	printf("%d,%d int_loop_min_kernel(%d,%d,%d,i=%d,%d,%d...) stride %d H %d j %d p %d q %d my_c[%d]%d energy_in[%d]%d energy_min0[%d]%d energy_min[%d]%d\n",
+	printf("%d,%d int_loop_min_kernel(%d,%d,%d,i=%d,%d,%d...) stride %d H %d j %d p %d q %d my_c[%lld]%d energy_in[%d]%d energy_min0[%d]%d energy_min[%d]%d\n",
 	       blockIdx.x,threadIdx.x,
 	       dp,dq,nfiles,i,turn,length,	 
 	       stride,H,j,p,q,
@@ -1380,7 +1437,7 @@ int_loop_kernel(const int i, /*const int turn,*/ const int length,
   const int j = blockIdx.x + i+turn+1;
 
 
-  const int ij = Indx(i,j);
+  const long long ij = Indx(i,j);
   if(Hc(ij,&hccc[H*Hc_ints(length)])) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
     /* we evaluate this pair */
     unsigned int mask; //search context
@@ -1395,7 +1452,7 @@ int_loop_kernel(const int i, /*const int turn,*/ const int length,
       const int p = p0 + row;
       const int q = q0 + column;
       const int energy2 = Energy(i,j,q,p,
-		    &my_c[H*((length+1)*(length+2)/2)],
+		    &my_c[Hoff(H,length)],
 		    &S[H*(length+2)],pair_,P,
 		    TerminalAU,ninio2,
 		    P->bulge,P->internal_loop,lxc,
@@ -1459,8 +1516,14 @@ int_loop_cuda(const int nfiles,
 
   //Using gridDim for convenience but imposes a 65535 limit on length (or nfiles)
   dim3 blocks(nblocks,nfiles);
-
-  int_loop_kernel<<<blocks,BLOCK_SIZE>>>(i, /*turn,*/ length,
+#ifndef NDEBUG
+  printf("int_loop_kernel<<<[%d,%d],%d>>>(i=%d,length=%d,TerminalAU=%d,ninio2=%d,...)\n",
+	 nblocks,nfiles,int_loop_kernel_bs,
+	 i, /*turn,*/ length,
+	 P->TerminalAU,P->ninio[2]);
+  assert(int_loop_kernel_bs == BLOCK_SIZE); //assumes compiler knows block size
+#endif
+  int_loop_kernel<<<blocks,int_loop_kernel_bs>>>(i, /*turn,*/ length,
 					  P->TerminalAU,P->ninio[2],
 					  d_param,P->lxc,
 					  d_pair,
@@ -1531,206 +1594,10 @@ int_loop_i(const int nfiles,
 */
 }
 
-//Unused to host C code to check answers given by GPU code
+/*Unused to host C code to check answers given by GPU code
 PRIVATE int
 E_int_loop( const vrna_fold_compound_t *vc,
             const int i,
             const int j){
-
-  unsigned char     type, type_2;
-  char              *hc, *hc_pq, eval_loop;
-  char              *ptype, *ptype_pq;
-  short             *S, S_i1, S_j1, *S_p1, *S_q1;
-  int               q, p, j_q, p_i, pq, *c_pq, max_q, max_p, tmp,
-                    *rtype, /*noGUclosure, **no_close,*/ energy, cp, //en,
-                    *indx, *hc_up, ij, hc_decompose, e, *c, //*ggg,
-                    //with_gquad, 
-                    turn;
-  vrna_sc_t         *sc;
-  vrna_param_t      *P;
-  vrna_md_t         *md;
-  vrna_mx_mfe_t     *matrices;
-//vrna_ud_t         *domains_up;
-//#ifdef WITH_GEN_HC
-//vrna_callback_hc_evaluate *f;
-//#endif
-
-  cp            = vc->cutpoint;
-  indx          = vc->jindx;
-  hc            = vc->hc->matrix;
-  hc_up         = vc->hc->up_int;
-  P             = vc->params;
-  matrices      = vc->matrices;
-  ij            = indx[j] + i;
-  hc_decompose  = hc[ij];
-  e             = INF;
-  c             = vc->matrices->c;
-//ggg           = vc->matrices->ggg;
-  md            = &(P->model_details);
-//with_gquad    = md->gquad;
-  turn          = md->min_loop_size;
-//domains_up    = vc->domains_up;
-
-//#ifdef WITH_GEN_HC
-//f = vc->hc->f;
-//#endif
-
-  /* CONSTRAINED INTERIOR LOOP start */
-  if(hc_decompose & VRNA_CONSTRAINT_CONTEXT_INT_LOOP){
-    /* prepare necessary variables */
-    rtype       = &(md->rtype[0]);
-//  noGUclosure = md->noGUclosure;
-    max_q       = i+turn+2;
-    max_q       = MAX2(max_q, j - MAXLOOP - 1);
-
-    ptype     = vc->ptype;
-    type      = (unsigned char)ptype[ij];
-//  no_close  = (((type==3)||(type==4))&&noGUclosure);
-    S         = vc->sequence_encoding;
-
-    S_i1      = S[i+1];
-    S_j1      = S[j-1];
-    sc        = vc->sc;
-
-  /*if(type == 0) gcov says branch never taken
-      type = 7;*/
-
-  /*if(domains_up && domains_up->energy_cb){
-      exit(1); gcov says branch never taken
-      for(q = j - 1; q >= max_q; q--){
-        j_q = j - q - 1;
-
-        if(hc_up[q+1] < j_q) break;
-
-        pq        = indx[q] + i + 1;
-        p_i       = 0;
-        max_p     = i + 1;
-        tmp       = i + 1 + MAXLOOP - j_q;
-        max_p     = MAX2(max_p, tmp);
-        tmp       = q - turn;
-        max_p     = MIN2(max_p, tmp);
-        tmp       = i + 1 + hc_up[i + 1];
-        max_p     = MIN2(max_p, tmp);
-        hc_pq     = hc + pq;
-        c_pq      = c + pq;
-
-        ptype_pq  = ptype + pq;
-        S_p1      = S + i;
-        S_q1      = S + q + 1;
-
-        for(p = i+1; p <= max_p; p++){
-          eval_loop = *hc_pq & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC;
-#ifdef WITH_GEN_HC
-          if(f)
-            eval_loop = (f(i, j, p, q, VRNA_DECOMP_PAIR_IL, vc->hc->data)) ? eval_loop : (char)0;
-#endif
-          ** discard this configuration if (p,q) is not allowed to be enclosed pair of an interior loop **
-          if(eval_loop){
-            energy = *c_pq;
-            if(energy != INF){
-              type_2 = rtype[(unsigned char)*ptype_pq];
-
-              if(type_2 == 0)
-                type_2 = 7;
-
-              if (noGUclosure)
-                if (no_close||(type_2==3)||(type_2==4))
-                  if ((p>i+1)||(q<j-1)) continue;  ** continue unless stack **
-
-              energy += eval_interior_loop( vc, i, j, p, q);
-              e = MIN2(e, energy);
-            }
-          }
-          hc_pq++;    ** get hc[pq + 1] **
-          c_pq++;     ** get c[pq + 1] **
-          p_i++;      ** increase unpaired region [i+1...p-1] **
-
-          ptype_pq++; ** get ptype[pq + 1] **
-          S_p1++;
-
-          pq++;
-        } ** end q-loop **
-      } ** end p-loop **
-    } else */{
-
-      for(q = j - 1; q >= max_q; q--){
-        j_q = j - q - 1;
-
-        if(hc_up[q+1] < j_q) break; //appears to be needed despite that gcov says it has no impact
-
-        pq        = indx[q] + i + 1;
-        p_i       = 0;
-        max_p     = i + 1;
-        tmp       = i + 1 + MAXLOOP - j_q;
-        max_p     = MAX2(max_p, tmp);
-        tmp       = q - turn;
-        max_p     = MIN2(max_p, tmp);
-        tmp       = i + 1 + hc_up[i + 1];
-        max_p     = MIN2(max_p, tmp);
-        hc_pq     = hc + pq;
-        c_pq      = c + pq;
-
-        ptype_pq  = ptype + pq;
-        S_p1      = S + i;
-        S_q1      = S + q + 1;
-
-        for(p = i+1; p <= max_p; p++){
-          eval_loop = *hc_pq & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC;
-//#ifdef WITH_GEN_HC
-//        if(f)
-//          eval_loop = (f(i, j, p, q, VRNA_DECOMP_PAIR_IL, vc->hc->data)) ? eval_loop : (char)0;
-//#endif
-          /* discard this configuration if (p,q) is not allowed to be enclosed pair of an interior loop */
-          if(eval_loop){
-            energy = *c_pq;
-            if(energy != INF){
-              type_2 = rtype[(unsigned char)*ptype_pq];
-
-	      /* gcov says if never taken
-              if (noGUclosure)
-		exit(1);
-                if (no_close||(type_2==3)||(type_2==4))
-                  if ((p>i+1)||(q<j-1)) continue;  ** continue unless stack **
-
-              if(type_2 == 0)
-                type_2 = 7;
-			 */
-              energy += ubf_eval_int_loop(i, j, p, q,
-                                          i + 1, j - 1, p - 1, q + 1,
-                                          S_i1, S_j1, *S_p1, *S_q1,
-                                          type, type_2, rtype,
-                                          ij, cp,
-                                          P, sc);
-	      /*
-	      printf("ubf_eval_int_loop( %d %d %d %d ...) %d %d %d c[%d]%d gives %d\n",
-		     i, j, p, q, p-(i+1), q-max_q, (p-(i+1))+(q-max_q),int(c_pq-c),*c_pq,energy);
-	      stop = 1;
-	      */
-              e = MIN2(e, energy);
-            }
-          }
-          hc_pq++;    /* get hc[pq + 1] */
-          c_pq++;     /* get c[pq + 1] */
-          p_i++;      /* increase unpaired region [i+1...p-1] */
-
-          ptype_pq++; /* get ptype[pq + 1] */
-          S_p1++;
-
-          pq++;
-        } /* end q-loop */
-      } /* end p-loop */
-    }
-
-    /*gcov says branch never taken
-    if(with_gquad){
-      ** include all cases where a g-quadruplex may be enclosed by base pair (i,j) **
-      if ((!no_close) && ((cp < 0) || ON_SAME_STRAND(i, j, cp))) {
-        energy = E_GQuad_IntLoop(i, j, type, S, ggg, indx, P);
-        e = MIN2(e, energy);
-      }
-    }
-    */
-  }
-
-  return e;
 }
+*/

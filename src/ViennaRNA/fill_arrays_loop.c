@@ -1,7 +1,11 @@
-//WBL 10 Dec 2017 $Revision: 1.24 $ GGGP ViennaRNA-2.3.0 rf/rf/
+//WBL 10 Dec 2017 $Revision: 1.25 $ GGGP ViennaRNA-2.3.0 rf/rf/
 //Helper for fill_arrays.c -> mfe.c for eventual CUDA version
 
+//WBL 20 Jul 2026 make H tightest index
 //WBL 27 Jan 2018 Add loop H for nfiles different structures
+
+//now new_C packed tightly for load_my_c_kernel
+int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
 
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
 
@@ -36,11 +40,12 @@
 	       hard_constraints, my_c,*/
 	       energy_min); //replaces vrna_E_int_loop(vc, i, j);
 
-    //could pack new_C more tightly for load_my_c_kernel but expect modest savings
-    int* new_C = malloc(nfiles*(length+1)*sizeof(int)); //for GPU
+    //int* new_C = calloc(nfiles*(length+1),sizeof(int)); //for GPU
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) {
-      new_C[H*(length+1)+j] = INF;
+      const int new_c_indx = H + (j-(i+turn+1))*nfiles; //H*(length+1)+j;
+      assert(new_c_indx < nfiles*(length-(turn+1)));
+      new_C[new_c_indx] = INF;
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
       type          = (unsigned char)Ptype(H,ij);
@@ -84,7 +89,9 @@
         /* gcov says not used  remember stack energy for --noLP option * if(noLP) vrna_E_stack(vc, i, j) cc[j] = new_c */
 	assert(My_c(H,ij) == INF);
           My_c(H,ij)    = new_c;
-	  new_C[H*(length+1)+j]    = new_c;
+	  //assert(new_c != 0);
+	  assert(new_C[new_c_indx] == INF);
+	  new_C[new_c_indx] = new_c;
       } /* end >> if (pair) << */
 
       else {
@@ -168,8 +175,8 @@
       FF = DMLi2; DMLi2 = DMLi1; DMLi1 = DMLi; DMLi = FF;
     }
 
-    free(new_C);
     free(energy_min);//optimise malloc and free later
   } /* end of i-loop */
+ free(new_C);
 
 
