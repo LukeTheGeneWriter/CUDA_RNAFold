@@ -1,11 +1,46 @@
-//WBL Dec 2017 include file for mfe.c $Revision: 1.24 $
+//WBL Dec 2017 include file for mfe.c $Revision: 1.29 $
 
+//WBL  1 Aug 2026 make H tightest index DMLi,DMLi1,DMLi2
 //WBL 20 Jul 2026 make sanity() depend on NDEBUG
 //WBL 19 Jul 2026 Allow par_fill_arrays() arrays to exceed two billion elements
 //WBL 27 Jan 2018 Add par_fill_arrays
 
 //try and help compiler by inlining
 //#include "modular_decomposition.c"
+
+#ifdef CHECK
+int print_energy_min_first = 1;
+void print_energy_min(const char* text, const int nfiles, const int length, const int jmin, const int* energy_min){
+  int min[nfiles], max[nfiles],n[nfiles];
+  long long sum[nfiles];
+  for(int i=0;i<nfiles;i++){min[i] = INF*2; max[i] = -INF*2;sum[i] = 0;n[i]=0;}
+
+  for (int H = 0;    H <  nfiles; H++) {
+  for (int j = jmin; j <= length; j++) {
+    if(print_energy_min_first){
+#ifdef FAST_H
+      printf("energy_min FAST_H    \n");}
+    const int e = energy_min[H+j*nfiles];
+#else
+    printf("energy_min Original H\n");}
+    const int e = energy_min[H*(length+1)+j];
+#endif
+    print_energy_min_first = 0;
+    if(e < min[H]) min[H] = e;
+    //if(e > max[H]) max[H] = e; alwys INF? so dont print
+    if(e != INF) n[H]++;
+    sum[H] += e;
+  }}
+  printf("%-23s %4d ",text,jmin);
+  for(int i=0;i<nfiles;i++){
+    printf("%4d %7d %11lld ",
+	   n[i],min[i],/*max[i],*/ sum[i]);
+  }
+  printf("\n");
+}
+#else
+#define print_energy_min(text,nfiles,length,jmin,energy_min) {;}
+#endif
 
 /*taken from multibranch_loops.c r1.37 */
 PRIVATE int
@@ -427,7 +462,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   /* prefill helper arrays */
   for(j = 0; j <= length; j++){
     //Fmi[j] = 
-    DMLi[H*(length+1)+j] = DMLi1[H*(length+1)+j] = DMLi2[H*(length+1)+j] = INF;
+    DMLi[H+j*nfiles] = DMLi1[H+j*nfiles] = DMLi2[H+j*nfiles] = INF;
   }
  }//endfor H
 #ifndef NDEBUG

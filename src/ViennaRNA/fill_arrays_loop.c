@@ -1,6 +1,8 @@
-//WBL 10 Dec 2017 $Revision: 1.25 $ GGGP ViennaRNA-2.3.0 rf/rf/
+//WBL 10 Dec 2017 $Revision: 1.32 $ GGGP ViennaRNA-2.3.0 rf/rf/
 //Helper for fill_arrays.c -> mfe.c for eventual CUDA version
 
+//WBL  1 Aug 2026 make H tightest index DMLi,DMLi1
+//WBL 31 Jul 2026 make H tightest index energy_min
 //WBL 20 Jul 2026 make H tightest index
 //WBL 27 Jan 2018 Add loop H for nfiles different structures
 
@@ -39,12 +41,13 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
     int_loop_i(nfiles,VC,i,turn,length,/*indx,ijsize,
 	       hard_constraints, my_c,*/
 	       energy_min); //replaces vrna_E_int_loop(vc, i, j);
+    print_energy_min("int_loop_i",nfiles,length,i+turn+1,energy_min);
 
     //int* new_C = calloc(nfiles*(length+1),sizeof(int)); //for GPU
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) {
       const int new_c_indx = H + (j-(i+turn+1))*nfiles; //H*(length+1)+j;
-      assert(new_c_indx < nfiles*(length-(turn+1)));
+      assert(new_c_indx >= 0 && new_c_indx < nfiles*(length-(turn+1)));
       new_C[new_c_indx] = INF;
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
@@ -71,7 +74,7 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
       } ** end >> if (pair) << */
 
       if (hc_decompose) {   /* we evaluate this pair */
-	new_c = energy_min[H*(length+1)+j];
+	new_c = energy_min[H+j*nfiles];
 
         if(!no_close){
           /* check for hairpin loop */
@@ -80,7 +83,7 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
 
           /* check for multibranch loops */
           //energy  = vrna_E_mb_loop_fast(vc, i, j, DMLi1, DMLi2);
-	  const int e_mb = (DMLi1[H*(length+1)+j-1] != INF)? DMLi1[H*(length+1)+j-1] + energy_mb[H*ijsize+ij] : INF;
+	  const int e_mb = (DMLi1[H+(j-1)*nfiles] != INF)? DMLi1[H+(j-1)*nfiles] + energy_mb[H*ijsize+ij] : INF;
           new_c   = MIN2(new_c, e_mb);
         }
 
@@ -102,8 +105,10 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
 
     } /* end of j-loop */
     }//endfor H
+    print_energy_min("endfor H",nfiles,length,i+turn+1,energy_min);
 
     load_my_c(nfiles,i,turn,length,new_C); //keep my_c on GPU instep with my_c
+    print_energy_min("load_my_c",nfiles,length,i+turn+1,energy_min);
 
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) {
@@ -132,25 +137,37 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
 
 
 //    const int e1 = MIN2(e3,energy_mls[H*ijsize+ij]); //e31
-      energy_min[H*(length+1)+j] = MIN2(e00,MIN2(e3,energy_mls[H*ijsize+ij])); //e1 e31
+      energy_min[H+j*nfiles] = MIN2(e00,MIN2(e3,energy_mls[H*ijsize+ij])); //e1 e31
 //    } /* end of j-loop */
 //
       assert(My_fML(H,ij) == INF);
-      My_fML(H,ij) = energy_min[H*(length+1)+j];
+      My_fML(H,ij) = energy_min[H+j*nfiles];
+#ifdef CHECK
+      if(length - (i+turn+1) + 1 <= 20)
+	printf("My_fML(H=%d,%d)=%d en=%d en0=%d e00=%d e3=%d energy_mls[H=%d,ij=%d]=%d energy_min[H=%d,j=%d]=%d\n",
+	       H,ij + 1,My_fML(H,ij + 1),
+	       en,en0,e00,e3,
+	       H,ij,energy_mls[H*ijsize+ij],
+	       H,j, energy_min[H+j*nfiles]);
+#endif /*CHECK*/
     } /* end of j-loop */
     }//endfor H
+    print_energy_min("end2ndfor H",nfiles,length,i+turn+1,energy_min);
 
     load_fML(nfiles,i,turn,length,energy_min); //update my_fML GPU
+    print_energy_min("load_fML",nfiles,length,i+turn+1,energy_min);
 
     modular_decomposition_i(nfiles,i,turn,length,/*indx,ijsize,my_fML,*/ DMLi);
+    print_energy_min("modular_decomposition_i",nfiles,length,i+turn+1,energy_min);
 
     load_min_fML(nfiles,i,turn,length); //update my_fML GPU = MIN2(energy_min[j], DMLi[j])
+    print_energy_min("load_min_fML",nfiles,length,i+turn+1,energy_min);
 
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) {
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
-      My_fML(H,ij) = MIN2(energy_min[H*(length+1)+j], DMLi[H*(length+1)+j]);
+      My_fML(H,ij) = MIN2(energy_min[H+j*nfiles], DMLi[H+j*nfiles]);
 
       /* gcov says not used
       if(uniq_ML){  ** compute fM1 for unique decomposition **
