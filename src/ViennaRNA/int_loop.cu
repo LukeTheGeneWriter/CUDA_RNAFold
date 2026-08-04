@@ -1,8 +1,10 @@
-#define Version "$Revision: 1.131 $ "
+#define Version "$Revision: 1.134 $ "
 //Helper for fill_arrays.c 
 //based on ViennaRNA-2.3.0/src/ViennaRNA/interior_loops.c (Nov  1  2016) 
 
 //Modifications (reverse order):
+//WBL  4 Aug 2026
+//  int_loop_kernel Maxwell (GTX TITAN X) noticibly slower than Ada Lovelace
 //WBL 31 Jul 2026 make H tightest index d_energy_min2/energy_min
 //WBL 30 Jul 2026 swap H,j blockIdx x,y in int_loop_kernel
 //WBL 29 Jul 2026 for int_loop_kernel, pack d_S ten per word H fastest index
@@ -276,9 +278,9 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   int_loop_kernel_bs =              getbs("int_loop_kernel",32);
   load_my_c_kernel_bs =             getbs("load_my_c_kernel",512);
 
-  if(modular_decomposition_kernel_bs != 64) {
+  /*if(modular_decomposition_kernel_bs != 64) {
     fprintf(stderr,"variable modular_decomposition_kernel_bs not implemented %d\n",
-	    modular_decomposition_kernel_bs); exit(99);}
+	    modular_decomposition_kernel_bs); exit(99);}*/
   if(int_loop_kernel_bs != 32) {
     fprintf(stderr,"variable int_loop_kernel_bs not implemented %d\n",
 	    int_loop_kernel_bs); exit(99);}

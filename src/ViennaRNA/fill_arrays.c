@@ -1,5 +1,6 @@
-//WBL Dec 2017 include file for mfe.c $Revision: 1.29 $
+//WBL Dec 2017 include file for mfe.c $Revision: 1.35 $
 
+//WBL  4 Aug 2026 for github (remove Print_times etc)
 //WBL  1 Aug 2026 make H tightest index DMLi,DMLi1,DMLi2
 //WBL 20 Jul 2026 make sanity() depend on NDEBUG
 //WBL 19 Jul 2026 Allow par_fill_arrays() arrays to exceed two billion elements
@@ -8,8 +9,8 @@
 //try and help compiler by inlining
 //#include "modular_decomposition.c"
 
-#ifdef CHECK
 int print_energy_min_first = 1;
+#ifdef CHECK
 void print_energy_min(const char* text, const int nfiles, const int length, const int jmin, const int* energy_min){
   int min[nfiles], max[nfiles],n[nfiles];
   long long sum[nfiles];
@@ -501,7 +502,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
       Energy[H] = 0;
     }//endfor H
 #ifndef NDEBUG
-    printf("end par_fill_arrays(%d,VC,Energy) length=% turn=%d\n",
+    printf("end par_fill_arrays(%d,VC,Energy) length=%d turn=%d\n",
 	   nfiles,length,turn);fflush(NULL);
 #endif
     return;

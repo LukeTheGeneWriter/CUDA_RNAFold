@@ -1,10 +1,8 @@
-//WBL 11 Dec 2017 $Revision: 1.102 $ CUDA GGGP ViennaRNA-2.3.0 rf/rf/
+//WBL 11 Dec 2017 $Revision: 1.108 $ CUDA GGGP ViennaRNA-2.3.0 rf/rf/
 //Helper for fill_arrays.c 
 //based on fill_arrays_loop.c r1.10
 
-//Plan is to have all CUDA code here.
-//Atleast whilst only convert modular decomposition to CUDA
-
+//WBL  3 Aug 2026 Revert 1.103 replace reduction in modular_decomposition_kernel
 //WBL  1 Aug 2026 make H tightest index fml_j,fml_i,dml/DMLi
 //WBL 31 Jul 2026 make H tightest index d_energy_min/energy_min
 //WBL 28 Jul 2026 Merge LukeTheGeneWriter/CUDA_RNAFold Commit 6da6612
@@ -436,7 +434,6 @@ load_min_fML(const int nfiles,
 					  d_fml_j); //out
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
-//printf("\n");
 }
 
 //indx[n] = n*(n-1)/2
@@ -470,108 +467,33 @@ fmli_kernel(
 }
 
 //Use __restrict__ to give compiler best chance
-/*template <int BLOCK_SIZE>*/ __global__ void
+__global__ void
 modular_decomposition_kernel(
   const int nfiles, const int i, const int turn, const int length,
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,  //In  d_dml_i, d_fml_j
   int* __restrict__ dml) {                          //Out d_dml (h_dml)
 
-  const int H = blockIdx.y;
-  const int x = blockIdx.x;
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long mj = m / nfiles;
+  const int       H  = m - mj * nfiles;
+
+  const int x = mj;
+  if(x >= (length - (i + 2*(turn+1)))) return;
   const int j = x + (i + 2*(turn+1)) + 1;
-        int y = threadIdx.x;
-  long long thread = Indx(threadIdx.x + i,j) + (turn+1) + 1;
+  const long long ij0 = Indx(i,j) + (turn+1) + 1;
+
+  //typically values in fml_i read many times, assume many !=INF and that GPU cache will cope
   int value = INF;
-  for(; y <= x; thread+=blockDim.x, y+=blockDim.x) {
-    //assert(x>=0 && x<=length);
-    //assert(y>=0 && y<=length);
-    //assert(y<=x);
-
-    //const int en_i   = fml_i[y];
-    //const int en_j   = fml_j[thread];
-    //const int decomp = ((en_i != INF ) && (en_j != INF))? en_i + en_j : INF;
-    //https://devtalk.nvidia.com/default/topic/1028130/cuda-programming-and-performance/best-way-to-find-many-minimums/
-    //https://devtalk.nvidia.com/default/topic/1012969/cuda-programming-and-performance/texture-unit-in-pascal-architecture/2
-    //value = MIN2(((fml_i[y] != INF ) && (fml_j[thread] != INF))? fml_i[y] + fml_j[thread] : INF, value);
-    value = MIN2(fml_i[H+y*nfiles] + fml_j[H+thread*nfiles], value);
-
-    //printf("modular_decomposition_kernel(i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d j %d y %d fml_i[%d] %d fml_j[%d] %d value %d\n",
-    // 	   i,turn,length,
-    //	   blockIdx.x,threadIdx.x, j,y,
-    //	   y,fml_i[y], thread,fml_j[thread], value);
-  }//endfor whole of column
-  volatile __shared__ int en[BLOCK_SIZE];
-  en[threadIdx.x] = value; //must set whole of en
-
-//Ok try to make a reduction, require power of two block size
-//__syncthreads();
-  //assert(BLOCK_SIZE==32 || BLOCK_SIZE==64 || BLOCK_SIZE==128 || BLOCK_SIZE==256 || BLOCK_SIZE==512 || BLOCK_SIZE==1024 || BLOCK_SIZE==2048);
-//#if BLOCK_SIZE > 32
-//#define SYNC32 __syncthreads()
-//#else
-//nuffa points to lack of volatile bug https://stackoverflow.com/questions/10729185/removing-syncthreads-in-cuda-warp-level-reduction
-//also https://stackoverflow.com/questions/10729185/removing-syncthreads-in-cuda-warp-level-reduction
-//http://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
-//#define SYNC32
-//#endif
-
-  //Does thread group straddle block boundary?
-
-  //if(i==2895)
-  //printf("modular_decomposition_kernel(side=%d,i=%d,%d,%d,fml_i,fml_j,dml,dummy) block %d thread %d x %d y %d\n",
-  //	   side,i,turn,length,
-  //	   blockIdx.x,thread,x,y);
-    const int ix = threadIdx.x;
-    //const int ix_stop  = MIN2(x-y+threadIdx.x, blockDim.x - 1);
-      //assert(ix_stop >= 0 && ix_stop < blockDim.x);
-      //assert(en[ix] > -INF && en[ix] <= INF);
-      //assert(en[ix] != 0);   //for testing only
-    //printf("modular_decomposition_kernel(i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d y %d fml_i[%d] %d fml_j[%d] %d decomp %d en[%d] %d j %d ix_stop %d\n",
-    //	   i,turn,length,
-    //	   blockIdx.x,threadIdx.x,y,
-    //	   y,debugi, thread,debugj, decomp, threadIdx.x,en[threadIdx.x],j,ix_stop);
-    //if(i==2818)
-    //printf("modular_decomposition_kernel(side=%d,i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d y %d thread %d ix_stop %d en[%d] %d\n",
-    //	   side,i,turn,length,
-    //	   blockIdx.x,threadIdx.x,y,
-    //	   thread,ix_stop, ix,en[ix]);
-#if BLOCK_SIZE >=1024
-  __syncthreads(); if(ix < 512) en[ix] = MIN2(en[ix], en[ix+512]);
-#endif
-#if BLOCK_SIZE >=512
-  __syncthreads(); if(ix < 256) en[ix] = MIN2(en[ix], en[ix+256]);
-#endif
-#if BLOCK_SIZE >=256
-  __syncthreads(); if(ix < 128) en[ix] = MIN2(en[ix], en[ix+128]);
-#endif
-#if BLOCK_SIZE >=128
-  __syncthreads(); if(ix <  64) en[ix] = MIN2(en[ix], en[ix+ 64]);
-#endif
-  if(ix < 32) {
-#if BLOCK_SIZE >=64
-    __syncthreads();            en[ix] = MIN2(en[ix], en[ix+ 32]);
-#endif
-    en[ix] = MIN2(en[ix], en[ix+ 16]);
-    en[ix] = MIN2(en[ix], en[ix+  8]);
-    en[ix] = MIN2(en[ix], en[ix+  4]);
-    en[ix] = MIN2(en[ix], en[ix+  2]);
-    en[ix] = MIN2(en[ix], en[ix+  1]);
+  for(int y=0; y <= x; y++) {
+    assert(x>=0 && x<=length);
+    assert(y>=0 && y<=length);
+    assert(y<=x);
+    const long long yij = y + ij0;
+    assert(yij < Hoff(nfiles,length));
+    value = MIN2(fml_i[H+y*nfiles] + fml_j[H+yij*nfiles], value);
   }
-
-  if(threadIdx.x==0){
-    dml[H+j*nfiles] = en[0];
-  //if(i==2818)
-    //printf("modular_decomposition_kernel(side=%d,i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d x %d y %d thread %d j %d decomp %d\n",
-    //	   side,i,turn,length,
-    //	   blockIdx.x,threadIdx.x,x,y,thread,
-    //	   j, decomp);
-      //CUDA 9.0 programming guide B.12.1.4. atomicMin()
-      //atomicMin(&dml[j],en[ix]);
-      //const int old = atomicMin(&dml[j],en[ix]); //old value only for sanity check
-      //if(!(old > -INF && old <= INF)) dml[j] = -999999;
-      //assert(old > -INF && old <= INF);
-      // assert(old != 0); //for testing only
-  }
+  dml[H+j*nfiles] = value;
+  //Aug 2026 reduction code replaced as assume nfiles large so have many threads  
 }
 
 void modular_decomposition_cuda(const int nfiles,
@@ -678,20 +600,16 @@ void modular_decomposition_cuda(const int nfiles,
   //modular_decomposition_kernel(side,i,turn,length,fml_i,fml_j); //host testing
 
   /* Setup execution parameters */
-  assert(modular_decomposition_kernel_bs == BLOCK_SIZE); //reduction etc. assumes compiler knows block size :-(
   const int block_size = modular_decomposition_kernel_bs;
-  //const int nblocks = (todo + block_size - 1)/block_size; //for time being waste many blocks
-  //const int nblocks = side;
-  const int nblocks = length - (i + 2*(turn+1));
+  const int nblocks = ((length - (i + 2*(turn+1)))*nfiles + block_size - 1)/block_size;
   
-  dim3 blocks(nblocks,nfiles);
+  //dim3 blocks(nblocks,nfiles);
 #ifndef NDEBUG
-  printf("modular_decomposition_kernel<<<[%d,%d],%d>>>",
-	 nblocks,nfiles,block_size);
+  printf("modular_decomposition_kernel<<<%d,%d>>>",
+	 nblocks,block_size);
   printf("%d,i=%d,%d,%d,d_fml_i,d_fml_j,d_dml) side=%d\n",nfiles,i,turn,length,side);
 #endif
-  //threads %d todo %d\n",
-  modular_decomposition_kernel<<<blocks,block_size>>>(nfiles, i, turn, length,
+  modular_decomposition_kernel<<<nblocks,block_size>>>(nfiles, i, turn, length,
 					   d_fml_i, d_fml_j, 
 					   d_dml); //Out
 
