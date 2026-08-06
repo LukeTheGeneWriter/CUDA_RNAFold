@@ -1,4 +1,5 @@
-/* Modifications for eventual CUDA version $Revision: 1.13 $
+/* Modifications for eventual CUDA version $Revision: 1.14 $
+WBL  5 Aug 2026 Allow arrays to exceed two billion elements (shared Indx()/Hoff())
 WBL  8 Jan 2018 Extend linkage for CUDA interface in modular_decomposition.cu
 WBL  3 Dec 2017 investigate data dependence in E_mb_loop_fast
   split off multibranch_loops.c r1.10 for time being
@@ -226,3 +227,24 @@ int
 mb_loop_fast( vrna_fold_compound_t *vc,
                 int i,
                 int j);
+
+// Shared by int_loop.cu and modular_decomposition.cu (previously each
+// defined its own, or open-coded j*(j-1)/2+i / H*((length+1)*(length+2)/2)
+// in 32-bit int -- see "Langdon's 2026 indexing bug" in 2f35ecc). Widened to
+// long long here so nfiles*ijsize can exceed 2^31 without every call site
+// needing its own size_t/long long cast.
+#ifdef __CUDACC__
+__host__ __device__
+inline long long Indx(const int i, const int j) { //j*(j-1)/2+i
+  const long long j_1 = j-1; //force 64 bit calculation
+  return j*j_1/2+i;
+}
+
+__host__ __device__
+inline long long
+Hoff(const int H, const int length){ //H*((length+1)*(length+2)/2)
+  const long long l1 = length+1;
+  const long long l2 = length+2;
+  return H*(l1*l2)/2;
+}
+#endif /*__CUDACC__*/
