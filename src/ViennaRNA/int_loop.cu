@@ -108,7 +108,7 @@ struct cuda_param_s {
 cuda_param_t* d_param;
 char*         d_pair; //[NBPAIRS+1][NBPAIRS+1];
 unsigned int* d_hccc; //read via Hc
-short*        d_S;    //S[length+2]
+unsigned int* d_S;    //S[length+2] packed 10 bases (3 bits each) per word
 int*          d_my_c;
 int*          d_energy_min2; //share with modular_decomposition.cu ?
 int*          d_new_e;
@@ -218,6 +218,19 @@ void load_param(const vrna_param_t *P){
 //make hccc oversized to simplify bounds checks in nthsetindex
 #define Hc_ints(length) (((length*(length+1))/2+2 + (MAXLOOP+1)*(MAXLOOP+2)/2 + bitsperint - 1)/bitsperint)
 
+// Pack ten sequence bases (each 0..4, so 3 bits suffices) per 32-bit word,
+// H fastest-varying -- word for host position i, files H0..H0+9 -- so that
+// unpack() below is called with adjacent-H threads reading the same word.
+// Per Dr. Langdon's Aug 2026 main-branch work (54b7c31): was 1 base per
+// short (2 bytes) before.
+void put10(const unsigned int word, const int H, const int nfiles, const int i, const int size, unsigned int* out){
+  assert(word <= 04444444444); //max legit value in octal (ten 3-bit fields)
+  const int I = (H + nfiles*i)/10;
+  assert(I>=0 && I < size);
+  assert(out[I] == 0xffffffff);
+  out[I] = word;
+}
+
 PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size) {
   if(!first2) return;
@@ -266,13 +279,37 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMemcpy(d_hccc,hccc,(size_t)nfiles*Hc_ints(length)*sizeof(unsigned int),cudaMemcpyHostToDevice) ); // 32-bit signed integer overflow bug fix
   free(hccc);
 
-  size = (size_t)nfiles*(length+2)*sizeof(short); // 32-bit signed integer overflow bug fix
+  // Ten bases per word, H fastest index (see put10()/unpack()).
+  assert(sizeof(unsigned int) == 4);
+  size = ((size_t)nfiles * (length+2) + 9)/10 * sizeof(unsigned int);
   gpuErrchk( cudaMalloc((void **) &d_S, size) );
-  short* buff = (short*) malloc(size); //could use cudaMallocHost
-  for(int H=0;H<nfiles;H++){
+  unsigned int* buff = (unsigned int*) malloc(size); //could use cudaMallocHost
+#ifndef NDEBUG
+  memset(buff,0xff,size);
+#endif
+  {
     const int len = (length+2);
-    memcpy(&buff[H*len],VC[H]->sequence_encoding,len*sizeof(short));
+    int H0 = 0;
+    int i0 = 0;
+    int j = 0; //0 to 9
+    unsigned int word = 0;
+    for(int i=0;i<len;i++){
+    for(int H=0;H<nfiles;H++){
+      if(j==0) {word = 0; H0 = H; i0 = i;}
+      const unsigned int s = VC[H]->sequence_encoding[i];
+      assert(s <= 4);
+      assert(j >= 0 && j < 10);
+      word = word | (s << (j*3));
+      j++;
+      if(j >= 10) {
+        j=0; put10(word,H, nfiles,i, size/4,buff);
+      }
+    }}
+    if(j>0) put10(word,H0,nfiles,i0,size/4,buff);
   }
+#ifndef NDEBUG
+  for(size_t i=0;i<size/4;i++) assert(buff[i] <= 04444444444);
+#endif
   gpuErrchk( cudaMemcpy(d_S,buff,size,cudaMemcpyHostToDevice) );
   free(buff);
 
@@ -318,7 +355,10 @@ teardown_gpu2(void) {
 PUBLIC size_t
 int_loop_bytes_per_file(const int length) {
   const size_t hccc_bytes         = Hc_ints(length)*sizeof(unsigned int);
-  const size_t s_bytes            = (size_t)(length+2)*sizeof(short);
+  // Ten bases packed per word now (put10()/unpack() in init_gpu2()) --
+  // marginal cost per file is ~1/10th of one unsigned int per base, rounded
+  // up to stay a conservative (over-, not under-) estimate.
+  const size_t s_bytes            = ((size_t)(length+2)*sizeof(unsigned int) + 9)/10;
   const size_t my_c_bytes         = (size_t)(length+1)*(length+2)/2*sizeof(int);
   const size_t new_e_bytes        = (size_t)(length+1)*sizeof(int);
   const size_t energy_min2_bytes  = (size_t)(length+1)*sizeof(int);
@@ -370,6 +410,20 @@ load_my_c(const int nfiles,
   gpuErrchk( cudaDeviceSynchronize() );
 }
 
+// Unpack one base (0..4) from d_S's ten-per-word, H-fastest packing -- see
+// put10() in init_gpu2().
+__device__ inline
+int unpack(const unsigned int* S, const int H, const int nfiles, const int i){
+  assert(H>=0 && H < nfiles);
+  const int k = H + nfiles*i;
+  const int I = k/10;
+  const int shift = (k - I*10)*3;
+  assert(shift >= 0 && shift <= 32-3);
+  const int out = (S[I] >> shift) & 7;
+  assert(out>=0 && out <= 4);
+  return out;
+}
+
 //#include "ptype.cu"
 //Was
 //WBL 13 Jan 2018 From ViennaRNA-2.3.0/src/ViennaRNA/alphabet.c Revision: 1.9
@@ -380,15 +434,17 @@ load_my_c(const int nfiles,
 //Based on ViennaRNA-2.3.0/src/ViennaRNA/utils.c
 //replace ptypes array
 __device__ inline unsigned char
-Ptype(const short* __restrict__ S, const char* __restrict__ pair,//[8][8],
-      const int i, const int j) {
+Ptype(const unsigned int* __restrict__ S, const char* __restrict__ pair,//[8][8],
+      const int H, const int nfiles, const int i, const int j) {
 
+  const int si = unpack(S,H,nfiles,i);
+  const int sj = unpack(S,H,nfiles,j);
   //assert(i>=0 && i<=length);
   //assert(j>=0 && j<=length);
-  assert(S[i]>=0 && S[i]<8);
-  assert(S[j]>=0 && S[j]<8);
+  assert(si>=0 && si<8);
+  assert(sj>=0 && sj<8);
 
-  return pair[S[i]*8 + S[j]];
+  return pair[si*8 + sj];
 
   //assert(ptype>=0 && ptype<8);
   /*
@@ -514,10 +570,10 @@ do {
 
 //interface to interior_loopx.h via IntLoop_X()
 __device__ inline int
-Energy(const int i, const int j, const int q, const int p, 
+Energy(const int H, const int nfiles, const int i, const int j, const int q, const int p,
 	  /*const char* hard_constraints,*/ const int* my_c,
 	  /*const int* hc_up, const char* hc, const unsigned int* __restrict__ hccc,*/
-	  const short* __restrict__ S, const char* __restrict__ pair_,//[NBPAIRS+1][NBPAIRS+1],
+	  const unsigned int* __restrict__ S, const char* __restrict__ pair_,//[NBPAIRS+1][NBPAIRS+1],
 	  const cuda_param_t __restrict__ *P,
 	  //const int n1,
           //const int ns,
@@ -569,10 +625,10 @@ Energy(const int i, const int j, const int q, const int p,
 	    if(energy != INF){
 	      //assert(ptype[pq]>=0 && ptype[pq]<8);
 	      //const unsigned char type_2 = rtype[(unsigned char)ptype[pq]];
-	      const unsigned char type   = Ptype(S,pair_,i,j);
-	      //assert(type == Ptype(S,pair_,i,j));
+	      const unsigned char type   = Ptype(S,pair_,H,nfiles,i,j);
+	      //assert(type == Ptype(S,pair_,H,nfiles,i,j));
 	      assert(type<8);
-	      const unsigned char type_2 = Ptype(S,pair_,q,p);
+	      const unsigned char type_2 = Ptype(S,pair_,H,nfiles,q,p);
 	      assert(type_2<8);
 	      //assert(i+pp  >=0 && i+pp  <length+2);
 
@@ -582,8 +638,13 @@ Energy(const int i, const int j, const int q, const int p,
 	      const int ns = (u1>u2)? u2 : u1;
 	      const int nl = (u1>u2)? u1 : u2;
 
-	      energy += IntLoop_X(u1, ns, nl, type, type_2, 
-				  S[i+1], S[j-1], S[i+pp], S[q + 1],
+	      const int si1 = unpack(S,H,nfiles,i+1);
+	      const int sj1 = unpack(S,H,nfiles,j-1);
+	      const int sp1 = unpack(S,H,nfiles,i+pp);
+	      const int sq1 = unpack(S,H,nfiles,q+1);
+
+	      energy += IntLoop_X(u1, ns, nl, type, type_2,
+				  si1, sj1, sp1, sq1,
 				  TerminalAU,ninio2,
 				  P->bulge,P->internal_loop,lxc,
 				  mismatchI,
@@ -608,11 +669,11 @@ Energy(const int i, const int j, const int q, const int p,
   called. Restore from git history (2f35ecc or earlier) if needed.*/
 
 __global__ void
-int_loop_kernel(const int i, /*const int turn,*/ const int length,
+int_loop_kernel(const int nfiles, const int i, /*const int turn,*/ const int length,
 		const int TerminalAU, const int ninio2,
 		const cuda_param_t* __restrict__ P, const float lxc,
 		const char* __restrict__ pair_, //[NBPAIRS+1][NBPAIRS+1],
-		const short* __restrict__ S,    //[length+2]
+		const unsigned int* __restrict__ S,    //[length+2] packed
 		const unsigned int* __restrict__ hccc,//bit array hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
 		const int* __restrict__ my_c,
 		      int* __restrict__ energy_min) { //out
@@ -635,9 +696,9 @@ int_loop_kernel(const int i, /*const int turn,*/ const int length,
     for(int work = threadIdx.x; setpq(p0,q0,maxcol,&hccc[H*Hc_ints(length)],work,mask,row_start,done,column,row); work += BLOCK_SIZE) {
       const int p = p0 + row;
       const int q = q0 + column;
-      const int energy2 = Energy(i,j,q,p,
+      const int energy2 = Energy(H,nfiles,i,j,q,p,
 		    &my_c[Hoff(H,length)],
-		    &S[H*(length+2)],pair_,P,
+		    S,pair_,P,
 		    TerminalAU,ninio2,
 		    P->bulge,P->internal_loop,lxc,
 		    P->mismatchI,
@@ -685,7 +746,10 @@ int_loop_kernel(const int i, /*const int turn,*/ const int length,
   energy = en[0];
 #undef ix
   }//endif VRNA_CONSTRAINT_CONTEXT_INT_LOOP
-  if(threadIdx.x==0) energy_min[H*(length+1)+j] = energy;
+  // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
+  // -- must match fill_arrays_loop.c's energy_min[H+j*nfiles] convention,
+  // since int_loop_cuda() below copies this whole buffer to the host flat.
+  if(threadIdx.x==0) energy_min[H+j*nfiles] = energy;
 }
 
 //Host (ie non-GPU) code
@@ -701,12 +765,12 @@ int_loop_cuda(const int nfiles,
   //Using gridDim for convenience but imposes a 65535 limit on length (or nfiles)
   dim3 blocks(nblocks,nfiles);
 
-  int_loop_kernel<<<blocks,BLOCK_SIZE>>>(i, /*turn,*/ length,
+  int_loop_kernel<<<blocks,BLOCK_SIZE>>>(nfiles, i, /*turn,*/ length,
 					  P->TerminalAU,P->ninio[2],
 					  d_param,P->lxc,
 					  d_pair,
 					  d_S,
-					  d_hccc, 
+					  d_hccc,
 					  d_my_c,
 					  d_energy_min2); //Out
 

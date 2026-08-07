@@ -139,7 +139,8 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   /* prefill helper arrays */
   for(j = 0; j <= length; j++){
     //Fmi[j] =
-    DMLi[H*(length+1)+j] = DMLi1[H*(length+1)+j] = DMLi2[H*(length+1)+j] = INF;
+    // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
+    DMLi[H+j*nfiles] = DMLi1[H+j*nfiles] = DMLi2[H+j*nfiles] = INF;
   }
  }//endfor H
 

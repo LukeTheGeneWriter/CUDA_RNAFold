@@ -485,18 +485,23 @@ init_fML(const int nfiles, const int length) {
 
 //perhaps this can be combined with fmli_kernel?
 __global__ void
-load_fML_kernel(const int i, const int turn, const int length,
+load_fML_kernel(const int nfiles, const int i, const int turn, const int length,
 		const int* __restrict__ energy_min,
 	              int* __restrict__ fml_j) { //out d_fml_j my_fML
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
-  const int j = m + i+turn+1;
+  // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
+  // -- flattened grid: consecutive threads are consecutive H at fixed j, so
+  // consecutive threads hit consecutive fml_j/energy_min addresses.
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long mj = m / nfiles;
+  const int       H  = m - mj * nfiles;
+  const long long j  = mj + i+turn+1;
   if(j>length) return;
 
-  const int H = blockIdx.y;
+  assert(H >= 0 && H < nfiles);
   const long long ij = Indx(i,j);
   assert(ij>=0 && ij<Hoff(1,length));
-  assert(fml_j[Hoff(H,length)+ij] == INF);
-         fml_j[Hoff(H,length)+ij] = energy_min[H*(length+1)+j];
+  assert(fml_j[H+ij*nfiles] == INF);
+         fml_j[H+ij*nfiles] = energy_min[H+j*nfiles];
 }
 
 PUBLIC void
@@ -504,7 +509,7 @@ load_fML(const int nfiles,
 	 const int i, const int turn, const int length,
 	 const int* energy_min) {   //in
   //out d_fml_j
-  const int start = i+turn+1; 
+  const int start = i+turn+1;
   const int size  = length - start + 1;
   if(size<=0) return;
 
@@ -522,16 +527,15 @@ load_fML(const int nfiles,
   int_MemcpyAsync(d_energy_min,energy_min, (size_t)nfiles*(length+1), cudaMemcpyHostToDevice, graph_stream, __LINE__);
 
   /* Setup execution parameters for helper kernel */
-  const int nblocks = (size + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  dim3 blocks(nblocks,nfiles);
-  load_fML_kernel<<<blocks,BLOCK_SIZE,0,graph_stream>>>(i, turn, length,
+  const int nblocks = (size*nfiles + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  load_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, i, turn, length,
 					  d_energy_min,  //in
 					  d_fml_j); //out
   gpuErrchk( cudaPeekAtLastError() );
 }
 
 __global__ void
-load_min_fML_kernel(const int i, const int turn, const int length,
+load_min_fML_kernel(const int nfiles, const int i, const int turn, const int length,
 		    const int* __restrict__ energy_min,
 		    const int* __restrict__ dml,     //in  d_dml   DMLi
 		          int* __restrict__ fml_j) { //out d_fml_j my_fML
@@ -539,18 +543,19 @@ load_min_fML_kernel(const int i, const int turn, const int length,
   const int stop  = length - 2 - turn;
   const int side  = stop - start + 1;
 
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
-  if(m>=side) return;
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  if(m >= (long long)side*nfiles) return;
+  const long long mj = m / nfiles;
+  const int       H  = m - mj * nfiles;
 
-  const int H = blockIdx.y;
-
-  const int j  = m + (i + 2*(turn+1)) + 1;
+  const int j  = mj + (i + 2*(turn+1)) + 1;
   const long long ij = Indx(i,j);
 
+  assert(H >= 0 && H < nfiles);
   assert(j >=0 && j<=length);
   assert(ij>=0 && ij<Hoff(1,length));
 
-  fml_j[Hoff(H,length)+ij] = MIN2(energy_min[H*(length+1)+j],dml[H*(length+1)+j]);
+  fml_j[H+ij*nfiles] = MIN2(energy_min[H+j*nfiles],dml[H+j*nfiles]);
 
 //  printf("load_min_fML_kernel(i=%d,%d,%d,*,*,*) block %d,%d energy_min[%d]%d dml[%d]%d fml_j[%d]%d\n",
 //	 i,turn,length,
@@ -575,9 +580,8 @@ load_min_fML(const int nfiles,
 //	 i,turn,length,start,side);
 
 /* Setup execution parameters for helper kernel */
-  const int nblocks = (side + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  dim3 blocks(nblocks,nfiles);
-  load_min_fML_kernel<<<blocks,BLOCK_SIZE,0,graph_stream>>>(i, turn, length,
+  const int nblocks = (side*nfiles + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  load_min_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, i, turn, length,
 					  d_energy_min,  //in
 					  d_dml,    //in
 					  d_fml_j); //out
@@ -590,7 +594,7 @@ load_min_fML(const int nfiles,
 //perhaps also fml_j access pattern may not suit texture anyway
 __global__ void
 fmli_kernel(
-  const int i, const int turn, const int length,
+  const int nfiles, const int i, const int turn, const int length,
         int* __restrict__ fml_i,   //out
   const int* __restrict__ fml_j) { //In  d_fml_j
 
@@ -598,13 +602,16 @@ fmli_kernel(
   const int stop  = length - 2 - turn;
   const int side  = stop - start + 1;
 
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
-  if(m>=side) return;
-  const int H = blockIdx.y;
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  if(m >= (long long)side*nfiles) return;
+  const long long mj = m / nfiles;
+  const int       H  = m - mj * nfiles;
 
-  const int k  = start + m;
+  const int k  = start + mj;
   const long long ik = Indx(i,k);
-  fml_i[H*(length+1)+m] = fml_j[Hoff(H,length)+ik]; //ith column
+  assert(H >= 0 && H < nfiles);
+  // H tightest index: fml_i[m] == fml_i[H+mj*nfiles] by construction of m
+  fml_i[m] = fml_j[H+ik*nfiles]; //ith column
 
   //printf("fmli_kernel(%d,%d,%d,fml_i,my_fML) fml_i[%d]%d <= my_fML[%d]\n",
   //	   i,turn,length,
@@ -612,108 +619,42 @@ fmli_kernel(
 }
 
 //Use __restrict__ to give compiler best chance
-/*template <int BLOCK_SIZE>*/ __global__ void
+// Rewritten 5 Aug 2026 (per Dr. Langdon's Aug 2026 main-branch work, 1893825)
+// to exploit the H-tightest layout: one thread per (H,j) output cell doing a
+// serial scan over y, dropping the old block-per-j/reduction-per-block
+// scheme entirely. That scheme made sense when parallelism came only from
+// splitting one sequence's column sum across a block; with nfiles sequences
+// batched and H the fastest-varying index, there's now enough independent
+// thread-level parallelism across H alone (and every read is contiguous
+// across a warp -- see fml_i[H+y*nfiles]/fml_j[H+yij*nfiles] below) that the
+// reduction/shared-memory machinery is no longer needed.
+__global__ void
 modular_decomposition_kernel(
-  const int i, const int turn, const int length,
+  const int nfiles, const int i, const int turn, const int length,
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,  //In  d_dml_i, d_fml_j
   int* __restrict__ dml) {                          //Out d_dml (h_dml)
 
-  const int H = blockIdx.y;
-  const int x = blockIdx.x;
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long mj = m / nfiles;
+  const int       H  = m - mj * nfiles;
+
+  const int x = mj;
+  if(x >= (length - (i + 2*(turn+1)))) return;
   const int j = x + (i + 2*(turn+1)) + 1;
-        int y = threadIdx.x;
-        long long thread = Indx(threadIdx.x + i,j) + (turn+1) + 1;
+  const long long ij0 = Indx(i,j) + (turn+1) + 1;
+
+  assert(H >= 0 && H < nfiles);
+  //typically values in fml_i read many times, assume many !=INF and that GPU cache will cope
   int value = INF;
-  for(; y <= x; thread+=blockDim.x, y+=blockDim.x) {
-    //assert(x>=0 && x<=length);
-    //assert(y>=0 && y<=length);
-    //assert(y<=x);
-
-    //const int en_i   = fml_i[y];
-    //const int en_j   = fml_j[thread];
-    //const int decomp = ((en_i != INF ) && (en_j != INF))? en_i + en_j : INF;
-    //https://devtalk.nvidia.com/default/topic/1028130/cuda-programming-and-performance/best-way-to-find-many-minimums/
-    //https://devtalk.nvidia.com/default/topic/1012969/cuda-programming-and-performance/texture-unit-in-pascal-architecture/2
-    //value = MIN2(((fml_i[y] != INF ) && (fml_j[thread] != INF))? fml_i[y] + fml_j[thread] : INF, value);
-    value = MIN2(fml_i[H*(length+1)+y] + fml_j[Hoff(H,length)+thread], value);
-
-    //printf("modular_decomposition_kernel(i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d j %d y %d fml_i[%d] %d fml_j[%d] %d value %d\n",
-    // 	   i,turn,length,
-    //	   blockIdx.x,threadIdx.x, j,y,
-    //	   y,fml_i[y], thread,fml_j[thread], value);
-  }//endfor whole of column
-  volatile __shared__ int en[BLOCK_SIZE];
-  en[threadIdx.x] = value; //must set whole of en
-
-//Ok try to make a reduction, require power of two block size
-//__syncthreads();
-  //assert(BLOCK_SIZE==32 || BLOCK_SIZE==64 || BLOCK_SIZE==128 || BLOCK_SIZE==256 || BLOCK_SIZE==512 || BLOCK_SIZE==1024 || BLOCK_SIZE==2048);
-//#if BLOCK_SIZE > 32
-//#define SYNC32 __syncthreads()
-//#else
-//nuffa points to lack of volatile bug https://stackoverflow.com/questions/10729185/removing-syncthreads-in-cuda-warp-level-reduction
-//also https://stackoverflow.com/questions/10729185/removing-syncthreads-in-cuda-warp-level-reduction
-//http://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
-//#define SYNC32
-//#endif
-
-  //Does thread group straddle block boundary?
-
-  //if(i==2895)
-  //printf("modular_decomposition_kernel(side=%d,i=%d,%d,%d,fml_i,fml_j,dml,dummy) block %d thread %d x %d y %d\n",
-  //	   side,i,turn,length,
-  //	   blockIdx.x,thread,x,y);
-    const int ix = threadIdx.x;
-    //const int ix_stop  = MIN2(x-y+threadIdx.x, blockDim.x - 1);
-      //assert(ix_stop >= 0 && ix_stop < blockDim.x);
-      //assert(en[ix] > -INF && en[ix] <= INF);
-      //assert(en[ix] != 0);   //for testing only
-    //printf("modular_decomposition_kernel(i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d y %d fml_i[%d] %d fml_j[%d] %d decomp %d en[%d] %d j %d ix_stop %d\n",
-    //	   i,turn,length,
-    //	   blockIdx.x,threadIdx.x,y,
-    //	   y,debugi, thread,debugj, decomp, threadIdx.x,en[threadIdx.x],j,ix_stop);
-    //if(i==2818)
-    //printf("modular_decomposition_kernel(side=%d,i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d y %d thread %d ix_stop %d en[%d] %d\n",
-    //	   side,i,turn,length,
-    //	   blockIdx.x,threadIdx.x,y,
-    //	   thread,ix_stop, ix,en[ix]);
-#if BLOCK_SIZE >=1024
-  __syncthreads(); if(ix < 512) en[ix] = MIN2(en[ix], en[ix+512]);
-#endif
-#if BLOCK_SIZE >=512
-  __syncthreads(); if(ix < 256) en[ix] = MIN2(en[ix], en[ix+256]);
-#endif
-#if BLOCK_SIZE >=256
-  __syncthreads(); if(ix < 128) en[ix] = MIN2(en[ix], en[ix+128]);
-#endif
-#if BLOCK_SIZE >=128
-  __syncthreads(); if(ix <  64) en[ix] = MIN2(en[ix], en[ix+ 64]);
-#endif
-  if(ix < 32) {
-#if BLOCK_SIZE >=64
-    __syncthreads();            en[ix] = MIN2(en[ix], en[ix+ 32]);
-#endif
-    en[ix] = MIN2(en[ix], en[ix+ 16]);
-    en[ix] = MIN2(en[ix], en[ix+  8]);
-    en[ix] = MIN2(en[ix], en[ix+  4]);
-    en[ix] = MIN2(en[ix], en[ix+  2]);
-    en[ix] = MIN2(en[ix], en[ix+  1]);
+  for(int y=0; y <= x; y++) {
+    assert(x>=0 && x<=length);
+    assert(y>=0 && y<=length);
+    assert(y<=x);
+    const long long yij = y + ij0;
+    assert(yij < Hoff(nfiles,length));
+    value = MIN2(fml_i[H+y*nfiles] + fml_j[H+yij*nfiles], value);
   }
-
-  if(threadIdx.x==0){
-    dml[H*(length+1)+j] = en[0];
-  //if(i==2818)
-    //printf("modular_decomposition_kernel(side=%d,i=%d,%d,%d,fml_i,fml_j,dml) block %d,%d x %d y %d thread %d j %d decomp %d\n",
-    //	   side,i,turn,length,
-    //	   blockIdx.x,threadIdx.x,x,y,thread,
-    //	   j, decomp);
-      //CUDA 9.0 programming guide B.12.1.4. atomicMin()
-      //atomicMin(&dml[j],en[ix]);
-      //const int old = atomicMin(&dml[j],en[ix]); //old value only for sanity check
-      //if(!(old > -INF && old <= INF)) dml[j] = -999999;
-      //assert(old > -INF && old <= INF);
-      // assert(old != 0); //for testing only
-  }
+  dml[H+j*nfiles] = value;
 }
 
 void modular_decomposition_cuda(const int nfiles,
@@ -731,7 +672,7 @@ void modular_decomposition_cuda(const int nfiles,
   if(side <= 0 ) {
     for(int H=0; H<nfiles;H++) {
     for (int j = i+turn+1; j <= length; j++) {
-      DMLi[H*(length+1)+j] = INF;
+      DMLi[H+j*nfiles] = INF; // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
     }}
     return;
   }
@@ -797,9 +738,8 @@ void modular_decomposition_cuda(const int nfiles,
 
   { /* Setup execution parameters for helper kernel */
     const int block_size = BLOCK_SIZE;
-    const int nblocks = (side + block_size - 1)/block_size;
-    dim3 blocks(nblocks,nfiles);
-    fmli_kernel<<<blocks,block_size,0,graph_stream>>>(i, turn, length,
+    const int nblocks = (side*nfiles + block_size - 1)/block_size;
+    fmli_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, i, turn, length,
 					d_fml_i,  //Out
 					d_fml_j); //In
     gpuErrchk( cudaPeekAtLastError() );
@@ -818,15 +758,14 @@ void modular_decomposition_cuda(const int nfiles,
   const int block_size = BLOCK_SIZE;
   //const int nblocks = (todo + block_size - 1)/block_size; //for time being waste many blocks
   //const int nblocks = side;
-  const int nblocks = length - (i + 2*(turn+1));
-  
+  const int nblocks = ((length - (i + 2*(turn+1)))*nfiles + block_size - 1)/block_size;
+
 //  printf("launch modular_decomposition_kernel<<<%d,%d>>>(side=%d,i=%d,%d,%d... threads %d todo %d\n",
 //	 nblocks,block_size,
 //	 side,i,turn,length,
 //	 nblocks*block_size,todo);
 
-  dim3 blocks(nblocks,nfiles);
-  modular_decomposition_kernel<<<blocks,block_size,0,graph_stream>>>(i, turn, length,
+  modular_decomposition_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, i, turn, length,
 					   d_fml_i, d_fml_j,
 					   d_dml); //Out
 

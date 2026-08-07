@@ -27,8 +27,9 @@
     //}endfor H
 
 
+    // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
     for (int H=0;H<nfiles; H++) {
-    for (j = i+turn+1; j <= length; j++) energy_min[H*(length+1)+j] = INF;
+    for (j = i+turn+1; j <= length; j++) energy_min[H+j*nfiles] = INF;
     }
 
     {
@@ -79,7 +80,7 @@
       } ** end >> if (pair) << */
 
       if (hc_decompose) {   /* we evaluate this pair */
-	new_c = energy_min[H*(length+1)+j];
+	new_c = energy_min[H+j*nfiles];
 
         if(!no_close){
           /* check for hairpin loop */
@@ -88,7 +89,7 @@
 
           /* check for multibranch loops */
           //energy  = vrna_E_mb_loop_fast(vc, i, j, DMLi1, DMLi2);
-	  const int e_mb = (DMLi1[H*(length+1)+j-1] != INF)? DMLi1[H*(length+1)+j-1] + energy_mb_row[H*(length+1)+j] : INF;
+	  const int e_mb = (DMLi1[H+(j-1)*nfiles] != INF)? DMLi1[H+(j-1)*nfiles] + energy_mb_row[H*(length+1)+j] : INF;
           new_c   = MIN2(new_c, e_mb);
         }
 
@@ -149,11 +150,11 @@
       //energy_mls (multiloop-stems-fast) deleted: under dangle_model==2
       //(enforced in fill_arrays.c) it always evaluated to INF, so
       //MIN2(e3,energy_mls[...]) always reduced to e3 -- see fill_arrays.c.
-      energy_min[H*(length+1)+j] = MIN2(e00,e3); //e1 e31
+      energy_min[H+j*nfiles] = MIN2(e00,e3); //e1 e31
 //    } /* end of j-loop */
 //
       assert(My_fML(H,ij) == INF);
-      My_fML(H,ij) = energy_min[H*(length+1)+j];
+      My_fML(H,ij) = energy_min[H+j*nfiles];
     } /* end of j-loop */
     }//endfor H
     phase_fml_host_s += now_seconds() - fml_host_t0;
@@ -173,7 +174,7 @@
     for (j = i+turn+1; j <= length; j++) {
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
-      My_fML(H,ij) = MIN2(energy_min[H*(length+1)+j], DMLi[H*(length+1)+j]);
+      My_fML(H,ij) = MIN2(energy_min[H+j*nfiles], DMLi[H+j*nfiles]);
 
       /* gcov says not used
       if(uniq_ML){  ** compute fM1 for unique decomposition **
