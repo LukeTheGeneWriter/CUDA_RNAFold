@@ -247,4 +247,29 @@ Hoff(const int H, const int length){ //H*((length+1)*(length+2)/2)
   const long long l2 = length+2;
   return H*(l1*l2)/2;
 }
+
+// Suggests a block size for `kernel` via CUDA's own occupancy heuristic
+// (cudaOccupancyMaxPotentialBlockSize) instead of a hardcoded #define, so
+// launch configuration adapts to whatever GPU is actually present rather
+// than whichever one the constant was tuned against. Host-only -- the
+// occupancy calculator isn't callable from device code. Falls back to
+// `fallback` (the caller's previous hardcoded value) if the query itself
+// fails, so a startup error here degrades to the old fixed behavior instead
+// of an uninitialized/zero block size reaching a kernel launch.
+template <typename KernelT>
+__host__ inline int
+rnafold_choose_block_size(KernelT kernel, const int fallback,
+                           const size_t dynamic_smem_bytes = 0,
+                           const int block_size_limit = 0) {
+  int min_grid_size = 0, block_size = 0;
+  const cudaError_t error = cudaOccupancyMaxPotentialBlockSize(
+      &min_grid_size, &block_size, kernel, dynamic_smem_bytes, block_size_limit);
+  if (error != cudaSuccess || block_size <= 0) {
+    fprintf(stderr, "rnafold_choose_block_size: cudaOccupancyMaxPotentialBlockSize "
+            "returned error %s (code %d) -- falling back to block size %d\n",
+            cudaGetErrorString(error), error, fallback);
+    return fallback;
+  }
+  return block_size;
+}
 #endif /*__CUDACC__*/

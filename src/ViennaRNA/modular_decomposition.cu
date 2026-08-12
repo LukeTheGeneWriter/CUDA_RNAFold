@@ -272,6 +272,33 @@ cuda_host_free(void* p) {
 }
 
 int first = 1;
+
+// Forward declarations so init_gpu() (below) can probe fmli_kernel's/
+// modular_decomposition_kernel's occupancy before they're defined further
+// down this file, and so that probe runs once, up front, rather than lazily
+// at first launch like this file's other kernels get further down. That's
+// deliberate, not just style: both are launched from inside a CUDA-graph
+// capture region (load_fML_modular_decomposition_load_min_fML() below).
+// cudaOccupancyMax*() take no stream argument and don't enqueue anything, so
+// they should be legal regardless of another stream's capture state -- but
+// init_gpu() already runs once per batch, well before any capture begins,
+// so there's no reason to lean on that instead.
+__global__ void fmli_kernel(
+  const int nfiles, const int i, const int turn, const int length,
+        int* __restrict__ fml_i,
+  const int* __restrict__ fml_j);
+__global__ void modular_decomposition_kernel(
+  const int nfiles, const int i, const int turn, const int length,
+  const int* __restrict__ fml_i, const int* __restrict__ fml_j,
+  int* __restrict__ dml);
+
+// Block sizes for the above, chosen once in init_gpu() below instead of the
+// BLOCK_SIZE=64 constant these used to hardcode (tuned against one GPU, the
+// L4). Neither kernel has shared memory or a reduction tying it to a
+// specific size.
+static int g_block_size_fmli = 0;
+static int g_block_size_md   = 0;
+
 //int* d_indx; //indx no longer used
 int* d_energy_min;
 int* d_fml_i;  //my_fML
@@ -357,6 +384,13 @@ init_gpu(const int nfiles, const int length) {
       printf("cudaMalloc d_dml %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
 	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
+
+  // See the forward declarations above for why this happens here rather
+  // than lazily at first launch.
+  g_block_size_fmli = rnafold_choose_block_size(fmli_kernel, BLOCK_SIZE);
+  g_block_size_md   = rnafold_choose_block_size(modular_decomposition_kernel, BLOCK_SIZE);
+  fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d)\n",
+	  __FILE__, g_block_size_fmli, g_block_size_md, BLOCK_SIZE);
 
   first = 0;
   return;
@@ -737,7 +771,9 @@ void modular_decomposition_cuda(const int nfiles,
 //gpuErrchk( cudaDeviceSynchronize() );
 
   { /* Setup execution parameters for helper kernel */
-    const int block_size = BLOCK_SIZE;
+    // g_block_size_fmli: chosen once in init_gpu() -- see the forward
+    // declarations near the top of this file for why.
+    const int block_size = g_block_size_fmli;
     const int nblocks = (side*nfiles + block_size - 1)/block_size;
     fmli_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, i, turn, length,
 					d_fml_i,  //Out
@@ -755,7 +791,11 @@ void modular_decomposition_cuda(const int nfiles,
   //modular_decomposition_kernel(side,i,turn,length,fml_i,fml_j); //host testing
 
   /* Setup execution parameters */
-  const int block_size = BLOCK_SIZE;
+  // g_block_size_md: chosen once in init_gpu() -- see the forward
+  // declarations near the top of this file for why. (The serial per-thread
+  // `for y` scan below is a separate, algorithmic imbalance this doesn't
+  // address -- see the NCU report follow-up.)
+  const int block_size = g_block_size_md;
   //const int nblocks = (todo + block_size - 1)/block_size; //for time being waste many blocks
   //const int nblocks = side;
   const int nblocks = ((length - (i + 2*(turn+1)))*nfiles + block_size - 1)/block_size;

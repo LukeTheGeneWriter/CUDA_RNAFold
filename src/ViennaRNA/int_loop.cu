@@ -399,11 +399,22 @@ load_my_c(const int nfiles,
 
 
   /* Setup execution parameters for helper kernel */
-  const int nblocks = (size + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  // Block size picked once from the actual GPU present (see stub2.h's
+  // rnafold_choose_block_size()) instead of the BLOCK_SIZE constant this
+  // used to hardcode -- BLOCK_SIZE=512 was tuned against one GPU (the L4);
+  // this kernel has no shared memory or reduction tying it to a specific
+  // size, so there's no reason not to let CUDA pick per-device.
+  static int block_size = 0;
+  if(!block_size) {
+    block_size = rnafold_choose_block_size(load_my_c_kernel, BLOCK_SIZE);
+    fprintf(stderr,"%-24s load_my_c_kernel block size %d (was hardcoded %d)\n",
+	    __FILE__, block_size, BLOCK_SIZE);
+  }
+  const int nblocks = (size + block_size - 1)/block_size;
 
   dim3 blocks(nblocks,nfiles);
 
-  load_my_c_kernel<<<blocks,BLOCK_SIZE>>>(i, /*turn,*/ length,
+  load_my_c_kernel<<<blocks,block_size>>>(i, /*turn,*/ length,
 					   d_new_e,  //in
 					   d_my_c); //out
   gpuErrchk( cudaPeekAtLastError() );
@@ -487,6 +498,9 @@ Max_p(const int i, const int j, const int q,
 //Like modular_decomposition.cu have one block per j value
 //each block has (MAXLOOP+1)*(MAXLOOP+2)/2 worker threads
 //present reduction code needs BLOCK_SIZE to be at least 32 and a power of 2
+//
+// BLOCK_SIZE=32 below is now just the fallback/default -- Hc()/setpq()/Energy()
+// above are shared by every instantiation regardless of block size.
 #define BLOCK_SIZE 32
 
 //emulate hc[pq] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC;
@@ -668,88 +682,56 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
   path through IntLoop_X(), superseded by int_loop_kernel below and never
   called. Restore from git history (2f35ecc or earlier) if needed.*/
 
-__global__ void
-int_loop_kernel(const int nfiles, const int i, /*const int turn,*/ const int length,
-		const int TerminalAU, const int ninio2,
-		const cuda_param_t* __restrict__ P, const float lxc,
-		const char* __restrict__ pair_, //[NBPAIRS+1][NBPAIRS+1],
-		const unsigned int* __restrict__ S,    //[length+2] packed
-		const unsigned int* __restrict__ hccc,//bit array hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
-		const int* __restrict__ my_c,
-		      int* __restrict__ energy_min) { //out
+// Four instantiations of int_loop_kernel, one per candidate block size --
+// see int_loop_kernel_body.inc for why this is a repeated #include rather
+// than a single definition or a C++ template.
+#define BLOCK_SIZE 32
+#include "int_loop_kernel_body.inc"
+#undef BLOCK_SIZE
 
-  int energy = INF;
-  const int H = blockIdx.y;
-  const int j = blockIdx.x + i+turn+1;
+#define BLOCK_SIZE 64
+#include "int_loop_kernel_body.inc"
+#undef BLOCK_SIZE
 
-  const long long ij = Indx(i,j);
-  if(Hc(ij,&hccc[H*Hc_ints(length)])) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
-    /* we evaluate this pair */
-    unsigned int mask; //search context
-    int row_start = 0; //search context
-    int done = 0;      //search context
-    int column = 0;
-    int row = 0;
-    const int p0 = i+1;
-    const int q0 = Min_q(i,j,turn);
-    const int maxcol = MIN2(MAXLOOP,(j - 1) - q0);
-    for(int work = threadIdx.x; setpq(p0,q0,maxcol,&hccc[H*Hc_ints(length)],work,mask,row_start,done,column,row); work += BLOCK_SIZE) {
-      const int p = p0 + row;
-      const int q = q0 + column;
-      const int energy2 = Energy(H,nfiles,i,j,q,p,
-		    &my_c[Hoff(H,length)],
-		    S,pair_,P,
-		    TerminalAU,ninio2,
-		    P->bulge,P->internal_loop,lxc,
-		    P->mismatchI,
-		    P->mismatch1nI,
-		    P->mismatch23I,
-		    P->stack,
-		    P->int11,
-		    P->int21,
-		    P->int22);
+#define BLOCK_SIZE 128
+#include "int_loop_kernel_body.inc"
+#undef BLOCK_SIZE
 
-    energy = MIN2(energy,energy2);
-  }//endfor
+#define BLOCK_SIZE 256
+#include "int_loop_kernel_body.inc"
+// leave BLOCK_SIZE defined as the fallback/default (32) used below
+#define BLOCK_SIZE 32
 
-#if NDEBUG || BLOCK_SIZE >=64
-  volatile __shared__ int en[BLOCK_SIZE];
-#else
-  //avoid cuda-memcheck reporting addressing errors although en[32..47] contains junk
-  volatile __shared__ int en[BLOCK_SIZE+16];
-#endif
-  en[threadIdx.x] = energy; //must set whole of en
+// Picks a block size for int_loop_kernel by directly probing achievable
+// occupancy on the actual GPU present (cudaOccupancyMaxActiveBlocksPerMultiprocessor),
+// rather than guessing -- the shared-memory reduction in
+// int_loop_kernel_body.inc needs a compile-time power-of-two size, so unlike
+// this file's other kernels it can't just take an arbitrary int back from
+// cudaOccupancyMaxPotentialBlockSize() (see stub2.h). Falls back to 32 --
+// the original hardcoded value -- if every probe fails.
+static int
+int_loop_choose_block_size(void) {
+  int best_block_size = BLOCK_SIZE; // fallback: the original hardcoded value
+  long best_threads_per_sm = 0;
+  int blocks_per_sm = 0;
 
-#define ix threadIdx.x
-#if BLOCK_SIZE >=1024
-  __syncthreads(); if(ix < 512) en[ix] = MIN2(en[ix], en[ix+512]);
-#endif
-#if BLOCK_SIZE >=512
-  __syncthreads(); if(ix < 256) en[ix] = MIN2(en[ix], en[ix+256]);
-#endif
-#if BLOCK_SIZE >=256
-  __syncthreads(); if(ix < 128) en[ix] = MIN2(en[ix], en[ix+128]);
-#endif
-#if BLOCK_SIZE >=128
-  __syncthreads(); if(ix <  64) en[ix] = MIN2(en[ix], en[ix+ 64]);
-#endif
-  if(ix < 32) {
-#if BLOCK_SIZE >=64
-    __syncthreads();            en[ix] = MIN2(en[ix], en[ix+ 32]);
-#endif
-    en[ix] = MIN2(en[ix], en[ix+ 16]);
-    en[ix] = MIN2(en[ix], en[ix+  8]);
-    en[ix] = MIN2(en[ix], en[ix+  4]);
-    en[ix] = MIN2(en[ix], en[ix+  2]);
-    en[ix] = MIN2(en[ix], en[ix+  1]);
+  if(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, int_loop_kernel_32, 32, 0) == cudaSuccess
+     && (long)blocks_per_sm*32 > best_threads_per_sm) {
+    best_threads_per_sm = (long)blocks_per_sm*32; best_block_size = 32;
   }
-  energy = en[0];
-#undef ix
-  }//endif VRNA_CONSTRAINT_CONTEXT_INT_LOOP
-  // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
-  // -- must match fill_arrays_loop.c's energy_min[H+j*nfiles] convention,
-  // since int_loop_cuda() below copies this whole buffer to the host flat.
-  if(threadIdx.x==0) energy_min[H+j*nfiles] = energy;
+  if(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, int_loop_kernel_64, 64, 0) == cudaSuccess
+     && (long)blocks_per_sm*64 > best_threads_per_sm) {
+    best_threads_per_sm = (long)blocks_per_sm*64; best_block_size = 64;
+  }
+  if(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, int_loop_kernel_128, 128, 0) == cudaSuccess
+     && (long)blocks_per_sm*128 > best_threads_per_sm) {
+    best_threads_per_sm = (long)blocks_per_sm*128; best_block_size = 128;
+  }
+  if(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, int_loop_kernel_256, 256, 0) == cudaSuccess
+     && (long)blocks_per_sm*256 > best_threads_per_sm) {
+    best_threads_per_sm = (long)blocks_per_sm*256; best_block_size = 256;
+  }
+  return best_block_size;
 }
 
 //Host (ie non-GPU) code
@@ -765,18 +747,56 @@ int_loop_cuda(const int nfiles,
   //Using gridDim for convenience but imposes a 65535 limit on length (or nfiles)
   dim3 blocks(nblocks,nfiles);
 
-  int_loop_kernel<<<blocks,BLOCK_SIZE>>>(nfiles, i, /*turn,*/ length,
-					  P->TerminalAU,P->ninio[2],
-					  d_param,P->lxc,
-					  d_pair,
-					  d_S,
-					  d_hccc,
-					  d_my_c,
-					  d_energy_min2); //Out
+  // Block size picked once from the actual GPU present -- see
+  // int_loop_choose_block_size() above. BLOCK_SIZE=32 was tuned against one
+  // GPU (the L4); nothing here was crash-prone at other SM counts (CUDA
+  // queues extra blocks regardless of grid/SM ratio), but it also wasn't
+  // going to be *right* for a different device without this.
+  static int block_size = 0;
+  if(!block_size) {
+    block_size = int_loop_choose_block_size();
+    fprintf(stderr,"%-24s int_loop_kernel block size %d (was hardcoded %d)\n",
+	    __FILE__, block_size, BLOCK_SIZE);
+  }
+
+  switch(block_size) {
+    case 256: int_loop_kernel_256<<<blocks,256>>>(nfiles, i, /*turn,*/ length,
+						  P->TerminalAU,P->ninio[2],
+						  d_param,P->lxc,
+						  d_pair,
+						  d_S,
+						  d_hccc,
+						  d_my_c,
+						  d_energy_min2); break; //Out
+    case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, i, /*turn,*/ length,
+						  P->TerminalAU,P->ninio[2],
+						  d_param,P->lxc,
+						  d_pair,
+						  d_S,
+						  d_hccc,
+						  d_my_c,
+						  d_energy_min2); break; //Out
+    case  64: int_loop_kernel_64<<<blocks, 64>>>(nfiles, i, /*turn,*/ length,
+						  P->TerminalAU,P->ninio[2],
+						  d_param,P->lxc,
+						  d_pair,
+						  d_S,
+						  d_hccc,
+						  d_my_c,
+						  d_energy_min2); break; //Out
+    default:  int_loop_kernel_32<<<blocks, 32>>>(nfiles, i, /*turn,*/ length,
+						  P->TerminalAU,P->ninio[2],
+						  d_param,P->lxc,
+						  d_pair,
+						  d_S,
+						  d_hccc,
+						  d_my_c,
+						  d_energy_min2); break; //Out
+  }
 
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
-  //printf("int_loop_kernel<<<%d.%d,%d>>>(i=%d...) ok\n",blocks.x,blocks.y,BLOCK_SIZE,i);
+  //printf("int_loop_kernel<<<%d.%d,%d>>>(i=%d...) ok\n",blocks.x,blocks.y,block_size,i);
   
   gpuErrchk( cudaMemcpy(energy_min,d_energy_min2, nfiles*(length+1)*sizeof(int),cudaMemcpyDeviceToHost) );
   gpuErrchk( cudaDeviceSynchronize() );

@@ -392,9 +392,21 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   //guard load_fML() carries for the identical reason, kept for symmetry.
   if(size<=0) return;
 
-  const int nblocks = (size + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  // Block size picked once from the actual GPU present (see stub2.h's
+  // rnafold_choose_block_size()) instead of the BLOCK_SIZE constant this
+  // used to hardcode -- BLOCK_SIZE=512 was tuned against one GPU (the L4);
+  // this kernel has no shared memory or reduction tying it to a specific
+  // size, so there's no reason not to let CUDA pick per-device.
+  static int block_size = 0;
+  if(!block_size) {
+    block_size = rnafold_choose_block_size(hp_mb_3p_kernel, BLOCK_SIZE);
+    fprintf(stderr,"%-24s hp_mb_3p_kernel block size %d (was hardcoded %d)\n",
+	    __FILE__, block_size, BLOCK_SIZE);
+  }
+
+  const int nblocks = (size + block_size - 1)/block_size;
   dim3 blocks(nblocks,nfiles);
-  hp_mb_3p_kernel<<<blocks,BLOCK_SIZE>>>(i, turn, length,
+  hp_mb_3p_kernel<<<blocks,block_size>>>(i, turn, length,
                                           d_S2, d_sequence, d_pair2,
                                           d_hccc_mb, d_hccc_mbenc, d_param2,
                                           d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row);
