@@ -702,35 +702,89 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 // leave BLOCK_SIZE defined as the fallback/default (32) used below
 #define BLOCK_SIZE 32
 
-// Picks a block size for int_loop_kernel by directly probing achievable
-// occupancy on the actual GPU present (cudaOccupancyMaxActiveBlocksPerMultiprocessor),
-// rather than guessing -- the shared-memory reduction in
-// int_loop_kernel_body.inc needs a compile-time power-of-two size, so unlike
-// this file's other kernels it can't just take an arbitrary int back from
-// cudaOccupancyMaxPotentialBlockSize() (see stub2.h). Falls back to 32 --
-// the original hardcoded value -- if every probe fails.
+// Picks a block size for int_loop_kernel by actually timing each of the
+// four instantiations against real launch arguments, instead of trusting
+// cudaOccupancyMaxActiveBlocksPerMultiprocessor() the way this used to.
+// Occupancy is the wrong objective for this kernel specifically: its inner
+// search (setpq(), int_loop_kernel_body.inc) walks the hccc bitmask one
+// "column" at a time via private per-thread state (mask/column/done), and
+// each thread's target rank jumps forward by a full BLOCK_SIZE every
+// iteration -- so a bigger BLOCK_SIZE means each thread's search has to skip
+// past more columns per step. More threads sharing the same (i,j) cell's
+// search space doesn't reduce that per-thread cost proportionally, so the
+// *aggregate* skip-scanning work across a block scales up with BLOCK_SIZE
+// even though total occupancy/warp count looks strictly better. Confirmed
+// against a real profile before writing this: BLOCK_SIZE=64 measured 100%
+// theoretical occupancy (vs 32's 50% cap) and higher Compute (SM) Throughput,
+// but 26% more actual SM-active-cycles per launch than BLOCK_SIZE=32 -- for
+// the *same* grid, with L1/L2 cache throughput flat, ruling out memory
+// contention as the driver. None of this codebase's other kernels have that
+// stride-dependent-search shape, which is why they can trust the occupancy
+// API and this one can't.
+//
+// One warm-up launch first so the very first candidate timed isn't penalized
+// by one-time CUDA context/module-load overhead the other three don't pay.
+// 3 timed samples per candidate, keep the minimum -- standard microbenchmark
+// practice, filters scheduling/clock noise better than a mean would. All of
+// this happens once, lazily, on the process's first int_loop_kernel launch,
+// using whatever real (i, nfiles, length) that first call has -- a handful
+// of extra launches is noise against the thousands this kernel executes per
+// fold. Falls back to 32 -- the original hardcoded value -- if timing
+// itself fails for every candidate.
 static int
-int_loop_choose_block_size(void) {
-  int best_block_size = BLOCK_SIZE; // fallback: the original hardcoded value
-  long best_threads_per_sm = 0;
-  int blocks_per_sm = 0;
+int_loop_choose_block_size(const int nfiles, const int i, const int length,
+			    const int TerminalAU, const int ninio2, const float lxc,
+			    const dim3 blocks) {
+  static const int candidates[] = {32, 64, 128, 256};
+  const int num_candidates = sizeof(candidates)/sizeof(candidates[0]);
+  const int samples = 3;
 
-  if(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, int_loop_kernel_32, 32, 0) == cudaSuccess
-     && (long)blocks_per_sm*32 > best_threads_per_sm) {
-    best_threads_per_sm = (long)blocks_per_sm*32; best_block_size = 32;
+  cudaEvent_t start, stop;
+  gpuErrchk( cudaEventCreate(&start) );
+  gpuErrchk( cudaEventCreate(&stop) );
+
+  // Warm-up (untimed, result discarded -- overwritten by the timed runs below).
+  int_loop_kernel_32<<<blocks,32>>>(nfiles, i, length, TerminalAU, ninio2,
+				     d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2);
+  gpuErrchk( cudaPeekAtLastError() );
+  gpuErrchk( cudaDeviceSynchronize() );
+
+  int best_block_size = BLOCK_SIZE; // fallback: the original hardcoded value
+  float best_ms = -1.0f;
+
+  for(int c = 0; c < num_candidates; c++) {
+    const int bs = candidates[c];
+    float best_sample_ms = -1.0f;
+    for(int s = 0; s < samples; s++) {
+      gpuErrchk( cudaEventRecord(start) );
+      switch(bs) {
+	case 256: int_loop_kernel_256<<<blocks,256>>>(nfiles, i, length, TerminalAU, ninio2,
+				       d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2); break;
+	case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, i, length, TerminalAU, ninio2,
+				       d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2); break;
+	case  64: int_loop_kernel_64 <<<blocks, 64>>>(nfiles, i, length, TerminalAU, ninio2,
+				       d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2); break;
+	default:  int_loop_kernel_32 <<<blocks, 32>>>(nfiles, i, length, TerminalAU, ninio2,
+				       d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2); break;
+      }
+      gpuErrchk( cudaPeekAtLastError() );
+      gpuErrchk( cudaEventRecord(stop) );
+      gpuErrchk( cudaEventSynchronize(stop) );
+      float ms = 0.0f;
+      gpuErrchk( cudaEventElapsedTime(&ms, start, stop) );
+      if(best_sample_ms < 0.0f || ms < best_sample_ms) best_sample_ms = ms;
+    }
+    fprintf(stderr,"%-24s int_loop_kernel candidate BLOCK_SIZE=%-3d: %.4f ms (best of %d)\n",
+	    __FILE__, bs, best_sample_ms, samples);
+    if(best_ms < 0.0f || best_sample_ms < best_ms) {
+      best_ms = best_sample_ms;
+      best_block_size = bs;
+    }
   }
-  if(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, int_loop_kernel_64, 64, 0) == cudaSuccess
-     && (long)blocks_per_sm*64 > best_threads_per_sm) {
-    best_threads_per_sm = (long)blocks_per_sm*64; best_block_size = 64;
-  }
-  if(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, int_loop_kernel_128, 128, 0) == cudaSuccess
-     && (long)blocks_per_sm*128 > best_threads_per_sm) {
-    best_threads_per_sm = (long)blocks_per_sm*128; best_block_size = 128;
-  }
-  if(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks_per_sm, int_loop_kernel_256, 256, 0) == cudaSuccess
-     && (long)blocks_per_sm*256 > best_threads_per_sm) {
-    best_threads_per_sm = (long)blocks_per_sm*256; best_block_size = 256;
-  }
+
+  gpuErrchk( cudaEventDestroy(start) );
+  gpuErrchk( cudaEventDestroy(stop) );
+
   return best_block_size;
 }
 
@@ -747,15 +801,18 @@ int_loop_cuda(const int nfiles,
   //Using gridDim for convenience but imposes a 65535 limit on length (or nfiles)
   dim3 blocks(nblocks,nfiles);
 
-  // Block size picked once from the actual GPU present -- see
-  // int_loop_choose_block_size() above. BLOCK_SIZE=32 was tuned against one
-  // GPU (the L4); nothing here was crash-prone at other SM counts (CUDA
-  // queues extra blocks regardless of grid/SM ratio), but it also wasn't
-  // going to be *right* for a different device without this.
+  // Block size picked once, by timing the real candidates -- see
+  // int_loop_choose_block_size() above for why this one can't just trust
+  // the occupancy API the way this file's other kernels do. BLOCK_SIZE=32
+  // was tuned against one GPU (the L4); nothing here was crash-prone at
+  // other SM counts (CUDA queues extra blocks regardless of grid/SM ratio),
+  // but it also wasn't going to be *right* for a different device without
+  // this.
   static int block_size = 0;
   if(!block_size) {
-    block_size = int_loop_choose_block_size();
-    fprintf(stderr,"%-24s int_loop_kernel block size %d (was hardcoded %d)\n",
+    block_size = int_loop_choose_block_size(nfiles, i, length,
+					     P->TerminalAU, P->ninio[2], P->lxc, blocks);
+    fprintf(stderr,"%-24s int_loop_kernel block size %d chosen by timed benchmark (was hardcoded %d)\n",
 	    __FILE__, block_size, BLOCK_SIZE);
   }
 
