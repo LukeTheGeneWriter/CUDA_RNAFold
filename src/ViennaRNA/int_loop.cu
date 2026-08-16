@@ -499,8 +499,9 @@ Max_p(const int i, const int j, const int q,
 //each block has (MAXLOOP+1)*(MAXLOOP+2)/2 worker threads
 //present reduction code needs BLOCK_SIZE to be at least 32 and a power of 2
 //
-// BLOCK_SIZE=32 below is now just the fallback/default -- Hc()/setpq()/Energy()
-// above are shared by every instantiation regardless of block size.
+// BLOCK_SIZE=32 below is now just the fallback/default -- Hc()/
+// decode_column()/Energy() above are shared by every instantiation
+// regardless of block size.
 #define BLOCK_SIZE 32
 
 //emulate hc[pq] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC;
@@ -518,68 +519,48 @@ int Hc(const int ij, const unsigned int* __restrict__ hccc){
   return ans;
 }
 
-//setpq to minimise number of threads prevented by hccc from doing anything
-//but then threads tend to take different paths through Energy() leading to
-//divergence. ALternative small kernels minimise thread divergence but tend
-//to each have too little work to be efficient. 
 #include "nth.h"
-//output the location of the rankth set bit in hccc
-//return false if no such bit (inside mask_size)
-__device__ inline
-int setpq(const int i,
-	  const int j,
-	  const int maxcol,
-	  const unsigned int* __restrict__ hccc,
-	  const int work,  //0...31..511 assumed to step forward
-	  unsigned int& mask, //search context
-	  int& row_start,  //search context
-	  int& done,       //search context
-	  int& column,     //output
-	  int& row) {      //output
-  assert(bitsperint==32);
-  assert(maxcol<=MAXLOOP);
-do {
-  const int rank = work - done;
-  if(row_start > 0 && mask == 0) {
-    column++;
-    row_start = 0;
-  }
-  if(column > maxcol) {
-    return false;
-  }
-  const int mask_size = column + 1;
-  assert(mask_size>0);
-  assert(mask_size<=bitsperint+1);
-  if(row_start == 0) {
-    const int pq = Indx(i,j+column);
-    const int I =     pq/bitsperint;
-    const int x = pq - I*bitsperint;
-    mask = hccc[I];
-    mask = mask >> x; //remove bits below pq
-    if(mask_size+x > 32 ) {//get top bits
-      unsigned int m2 = hccc[I+1];
-      m2 = m2 & (~((~0) << (mask_size+x-32))); //clear bits above mask_size
-      m2 = m2 << (32-x);                       //avoid over writing lower bits in mask already in use
-      mask = mask | m2;                        //splice two parts of column mask together
-    } else {
-      mask = mask & (~((~0)<< mask_size));     //clear bits above mask_size
-    }
-  }//endif read new column mask
 
-  int popc;
-  row = find_nth_set_bit(mask,rank,popc);
-  if(row>=0) {
-    row_start = row + 1;
-    done += 1+rank;
-    mask = mask & (~((1 << row_start) - 1));//clear self and bits below row
-    return true;
-  }//else did not find, try next column
-  assert(popc <= mask_size);
-  assert(mask_size<32); assert(mask < (1 << mask_size));
-  done += popc;
-  column++;
-  row_start = 0;
- } while (true);
+// Cooperative-scan design (replaces the old setpq(), removed here --
+// recoverable from git history, commit 50cfa8a, if wanted for reference).
+// setpq() gave every thread its own *private*, incremental walk through the
+// candidate bitmask -- correct, but redundant: since MAXLOOP=30 bounds this
+// per-(i,j)-cell search space to at most 31 columns, and thread ranks are
+// handed round-robin across that space, nearly every thread ended up
+// re-walking almost the whole thing independently, so aggregate scanning
+// work scaled with BLOCK_SIZE instead of staying flat (this is what made
+// BLOCK_SIZE selection for int_loop_kernel actively unsafe -- see the
+// STOPGAP comment below and the "Cooperative Column Scan" design doc).
+//
+// decode_column() is the same per-column bit-extraction setpq() used to do
+// lazily/incrementally, but now called cooperatively: int_loop_kernel_body
+// .inc has up to MAXLOOP+1 (<=31, always within one warp) threads each
+// decode exactly one column, once, into shared memory, then builds a
+// shared prefix-sum-of-popcounts table. Every thread's rank lookup then
+// becomes stateless -- binary-search-free linear scan over that small
+// shared table (<=31 entries) to find its column, then a single
+// find_nth_set_bit() call -- with no per-thread incremental state (mask/
+// row_start/done) left to carry between iterations at all.
+__device__ inline
+unsigned int decode_column(const int p0, const int q0, const int column,
+			    const unsigned int* __restrict__ hccc) {
+  assert(bitsperint==32);
+  const int mask_size = column + 1;
+  assert(mask_size>0 && mask_size<=bitsperint+1);
+  const int pq = Indx(p0, q0+column);
+  const int I  = pq/bitsperint;
+  const int x  = pq - I*bitsperint;
+  unsigned int mask = hccc[I];
+  mask = mask >> x; //remove bits below pq
+  if(mask_size+x > 32) { //get top bits
+    unsigned int m2 = hccc[I+1];
+    m2 = m2 & (~((~0) << (mask_size+x-32))); //clear bits above mask_size
+    m2 = m2 << (32-x);                       //avoid over writing lower bits in mask already in use
+    mask = mask | m2;                        //splice two parts of column mask together
+  } else {
+    mask = mask & (~((~0)<< mask_size));     //clear bits above mask_size
+  }
+  return mask;
 }
 
 //interface to interior_loopx.h via IntLoop_X()
@@ -702,91 +683,23 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 // leave BLOCK_SIZE defined as the fallback/default (32) used below
 #define BLOCK_SIZE 32
 
-// Picks a block size for int_loop_kernel by actually timing each of the
-// four instantiations against real launch arguments, instead of trusting
-// cudaOccupancyMaxActiveBlocksPerMultiprocessor() the way this used to.
-// Occupancy is the wrong objective for this kernel specifically: its inner
-// search (setpq(), int_loop_kernel_body.inc) walks the hccc bitmask one
-// "column" at a time via private per-thread state (mask/column/done), and
-// each thread's target rank jumps forward by a full BLOCK_SIZE every
-// iteration -- so a bigger BLOCK_SIZE means each thread's search has to skip
-// past more columns per step. More threads sharing the same (i,j) cell's
-// search space doesn't reduce that per-thread cost proportionally, so the
-// *aggregate* skip-scanning work across a block scales up with BLOCK_SIZE
-// even though total occupancy/warp count looks strictly better. Confirmed
-// against a real profile before writing this: BLOCK_SIZE=64 measured 100%
-// theoretical occupancy (vs 32's 50% cap) and higher Compute (SM) Throughput,
-// but 26% more actual SM-active-cycles per launch than BLOCK_SIZE=32 -- for
-// the *same* grid, with L1/L2 cache throughput flat, ruling out memory
-// contention as the driver. None of this codebase's other kernels have that
-// stride-dependent-search shape, which is why they can trust the occupancy
-// API and this one can't.
-//
-// One warm-up launch first so the very first candidate timed isn't penalized
-// by one-time CUDA context/module-load overhead the other three don't pay.
-// 3 timed samples per candidate, keep the minimum -- standard microbenchmark
-// practice, filters scheduling/clock noise better than a mean would. All of
-// this happens once, lazily, on the process's first int_loop_kernel launch,
-// using whatever real (i, nfiles, length) that first call has -- a handful
-// of extra launches is noise against the thousands this kernel executes per
-// fold. Falls back to 32 -- the original hardcoded value -- if timing
-// itself fails for every candidate.
-static int
-int_loop_choose_block_size(const int nfiles, const int i, const int length,
-			    const int TerminalAU, const int ninio2, const float lxc,
-			    const dim3 blocks) {
-  static const int candidates[] = {32, 64, 128, 256};
-  const int num_candidates = sizeof(candidates)/sizeof(candidates[0]);
-  const int samples = 3;
-
-  cudaEvent_t start, stop;
-  gpuErrchk( cudaEventCreate(&start) );
-  gpuErrchk( cudaEventCreate(&stop) );
-
-  // Warm-up (untimed, result discarded -- overwritten by the timed runs below).
-  int_loop_kernel_32<<<blocks,32>>>(nfiles, i, length, TerminalAU, ninio2,
-				     d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2);
-  gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
-
-  int best_block_size = BLOCK_SIZE; // fallback: the original hardcoded value
-  float best_ms = -1.0f;
-
-  for(int c = 0; c < num_candidates; c++) {
-    const int bs = candidates[c];
-    float best_sample_ms = -1.0f;
-    for(int s = 0; s < samples; s++) {
-      gpuErrchk( cudaEventRecord(start) );
-      switch(bs) {
-	case 256: int_loop_kernel_256<<<blocks,256>>>(nfiles, i, length, TerminalAU, ninio2,
-				       d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2); break;
-	case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, i, length, TerminalAU, ninio2,
-				       d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2); break;
-	case  64: int_loop_kernel_64 <<<blocks, 64>>>(nfiles, i, length, TerminalAU, ninio2,
-				       d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2); break;
-	default:  int_loop_kernel_32 <<<blocks, 32>>>(nfiles, i, length, TerminalAU, ninio2,
-				       d_param, lxc, d_pair, d_S, d_hccc, d_my_c, d_energy_min2); break;
-      }
-      gpuErrchk( cudaPeekAtLastError() );
-      gpuErrchk( cudaEventRecord(stop) );
-      gpuErrchk( cudaEventSynchronize(stop) );
-      float ms = 0.0f;
-      gpuErrchk( cudaEventElapsedTime(&ms, start, stop) );
-      if(best_sample_ms < 0.0f || ms < best_sample_ms) best_sample_ms = ms;
-    }
-    fprintf(stderr,"%-24s int_loop_kernel candidate BLOCK_SIZE=%-3d: %.4f ms (best of %d)\n",
-	    __FILE__, bs, best_sample_ms, samples);
-    if(best_ms < 0.0f || best_sample_ms < best_ms) {
-      best_ms = best_sample_ms;
-      best_block_size = bs;
-    }
-  }
-
-  gpuErrchk( cudaEventDestroy(start) );
-  gpuErrchk( cudaEventDestroy(stop) );
-
-  return best_block_size;
-}
+// Block-size history: int_loop_choose_block_size() (timed microbenchmark,
+// tried the occupancy API before that) was removed after both proved
+// actively harmful -- they only ever sampled the kernel's first
+// (always-tiny, nblocks=1) launch, so they couldn't see that aggregate
+// scanning work in the old setpq()-based search scaled with BLOCK_SIZE
+// instead of staying flat (confirmed via NCU: the timed benchmark picked
+// BLOCK_SIZE=256, and total measured GPU time came out 2.3-2.9x worse than
+// plain BLOCK_SIZE=32). That per-thread incremental scan is gone now --
+// setpq() was replaced by decode_column() plus the cooperative
+// decode/prefix-sum/lookup in int_loop_kernel_body.inc (see the
+// "Cooperative Column Scan" design doc) -- so aggregate work no longer
+// scales with BLOCK_SIZE and a larger block size is a normal occupancy
+// trade-off again, not a liability. Not yet re-measured against real
+// hardware as of this writing, which is why the default below is still the
+// conservative BLOCK_SIZE=32 rather than a new auto-tuned pick -- see
+// RNA_INT_LOOP_BLOCK_SIZE just below for how to test the other three
+// candidates directly, without reintroducing an in-process benchmark.
 
 //Host (ie non-GPU) code
 PRIVATE void
@@ -801,19 +714,31 @@ int_loop_cuda(const int nfiles,
   //Using gridDim for convenience but imposes a 65535 limit on length (or nfiles)
   dim3 blocks(nblocks,nfiles);
 
-  // Block size picked once, by timing the real candidates -- see
-  // int_loop_choose_block_size() above for why this one can't just trust
-  // the occupancy API the way this file's other kernels do. BLOCK_SIZE=32
-  // was tuned against one GPU (the L4); nothing here was crash-prone at
-  // other SM counts (CUDA queues extra blocks regardless of grid/SM ratio),
-  // but it also wasn't going to be *right* for a different device without
-  // this.
+  // Default is still the conservative STOPGAP (BLOCK_SIZE==32, hardcoded
+  // not auto-tuned) -- see the comment above this kernel's four #include
+  // instantiations. RNA_INT_LOOP_BLOCK_SIZE lets a live run force any of
+  // the four candidates directly (32/64/128/256) to measure the
+  // cooperative-scan rewrite against real hardware, same pattern as this
+  // file's other RNA_*-prefixed env knobs (e.g. RNA_CUDA_GRAPH in
+  // modular_decomposition.cu) -- deliberately *not* an in-process
+  // benchmark picking automatically, since that's exactly the mechanism
+  // that caused the last two regressions.
   static int block_size = 0;
   if(!block_size) {
-    block_size = int_loop_choose_block_size(nfiles, i, length,
-					     P->TerminalAU, P->ninio[2], P->lxc, blocks);
-    fprintf(stderr,"%-24s int_loop_kernel block size %d chosen by timed benchmark (was hardcoded %d)\n",
-	    __FILE__, block_size, BLOCK_SIZE);
+    block_size = BLOCK_SIZE; // == 32, the STOPGAP default
+    const char* env = getenv("RNA_INT_LOOP_BLOCK_SIZE");
+    if(env) {
+      const int requested = atoi(env);
+      if(requested==32 || requested==64 || requested==128 || requested==256) {
+	block_size = requested;
+      } else {
+	fprintf(stderr,"%-24s RNA_INT_LOOP_BLOCK_SIZE=%s not one of 32/64/128/256 -- ignoring, using %d\n",
+		__FILE__, env, block_size);
+      }
+    }
+    fprintf(stderr,"%-24s int_loop_kernel block size %d%s\n",
+	    __FILE__, block_size,
+	    env ? " (from RNA_INT_LOOP_BLOCK_SIZE)" : " (STOPGAP default -- see comment above)");
   }
 
   switch(block_size) {
