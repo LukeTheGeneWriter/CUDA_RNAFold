@@ -226,6 +226,7 @@ BUILT_SOURCES = libRNA.a \
                 mfe_cuda.o \
                 modular_decomposition.o \
                 int_loop.o \
+                hp_mb_loop.o \
                 mb_loop_fast.o
 
 libRNA.a: libRNA.la
@@ -245,6 +246,9 @@ modular_decomposition.o:  modular_decomposition.cu stub2.h
 
 int_loop.o:	int_loop.cu stub2.h interior_loopx.h nth.h #tick.h
 	$(nvcc_verbose)$(NVCC_BIN) -ccbin ${NVCC_HOST_CC} -I${top_srcdir}/src -c $(NVCC_FLAGS) -o int_loop.o ${srcdir}/int_loop.cu
+
+hp_mb_loop.o:  hp_mb_loop.cu stub2.h
+	$(nvcc_verbose)$(NVCC_BIN) -ccbin ${NVCC_HOST_CC} -I${top_srcdir}/src -c $(NVCC_FLAGS) -o hp_mb_loop.o ${srcdir}/hp_mb_loop.cu
 
 clean-local:
 	-rm -f libRNA.a
@@ -269,6 +273,7 @@ EXTRA_DIST =  $(pkginclude_HEADERS) \
               fill_arrays_loop.c \
               modular_decomposition.cu \
               int_loop.cu \
+              hp_mb_loop.cu \
               interior_loopx.h \
               nth.h \
               mb_loop_fast.c

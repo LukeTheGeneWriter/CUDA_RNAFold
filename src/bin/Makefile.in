@@ -1133,6 +1133,7 @@ RNAfold$(EXEEXT):  RNAfold.o RNAfold_cmdl.o
         RNAfold_cmdl.o \
         ${top_builddir}/src/ViennaRNA/modular_decomposition.o \
         ${top_builddir}/src/ViennaRNA/int_loop.o \
+        ${top_builddir}/src/ViennaRNA/hp_mb_loop.o \
         ${top_builddir}/src/ViennaRNA/mb_loop_fast.o \
         ${top_builddir}/src/ViennaRNA/mfe_cuda.o \
         -L${top_builddir}/src/ViennaRNA -lRNA

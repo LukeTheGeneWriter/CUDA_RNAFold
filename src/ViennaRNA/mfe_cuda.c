@@ -149,6 +149,7 @@ par_mfe(const int nfiles,
   const int turn      = md->min_loop_size;
   init_gpu(nfiles,length);
   init_gpu2(nfiles,VC, turn, length, 512);
+  init_gpu3(nfiles,VC, turn, length, 512);
 
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {
     int i;

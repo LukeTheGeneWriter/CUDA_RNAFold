@@ -36,6 +36,15 @@
 	       hard_constraints, my_c,*/
 	       energy_min); //replaces vrna_E_int_loop(vc, i, j);
 
+    //hairpin-loop / multibranch-loop / 3'-extension energies for this row,
+    //computed fresh on GPU each i rather than precomputed as a full
+    //nfiles*ijsize array (see fill_arrays.c) -- same row-buffer pattern as
+    //energy_min/int_loop_i above.
+    int* energy_hp_row   = (int*)malloc(nfiles*(length+1)*sizeof(int));
+    int* energy_mb_row   = (int*)malloc(nfiles*(length+1)*sizeof(int));
+    int* energy_3p00_row = (int*)malloc(nfiles*(length+1)*sizeof(int));
+    hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row);
+
     //could pack new_C more tightly for load_my_c_kernel but expect modest savings
     int* new_C = malloc(nfiles*(length+1)*sizeof(int)); //for GPU
     for (int H=0;H<nfiles; H++) {
@@ -71,11 +80,11 @@
         if(!no_close){
           /* check for hairpin loop */
           /*energy_hp[ij] = energy = vrna_E_hp_loop(vc, i, j); */
-          new_c = MIN2(new_c, energy_hp[H*ijsize+ij]);
+          new_c = MIN2(new_c, energy_hp_row[H*(length+1)+j]);
 
           /* check for multibranch loops */
           //energy  = vrna_E_mb_loop_fast(vc, i, j, DMLi1, DMLi2);
-	  const int e_mb = (DMLi1[H*(length+1)+j-1] != INF)? DMLi1[H*(length+1)+j-1] + energy_mb[H*ijsize+ij] : INF;
+	  const int e_mb = (DMLi1[H*(length+1)+j-1] != INF)? DMLi1[H*(length+1)+j-1] + energy_mb_row[H*(length+1)+j] : INF;
           new_c   = MIN2(new_c, e_mb);
         }
 
@@ -114,8 +123,11 @@
       int  e00           = INF;
       int  en0           = INF;
 
-  e00 = (energy_3p_00[H*ijsize+ij] != INF)? My_c(H,ij) + energy_3p_00[H*ijsize+ij] : INF;
-  en0 = ((My_fML(H,Indx(H,i,j - 1)) != INF) && (energy_3p_en[H*ijsize+ij] != INF))? My_fML(H,Indx(H,i,j - 1)) + energy_3p_en[H*ijsize+ij] : INF;
+  e00 = (energy_3p00_row[H*(length+1)+j] != INF)? My_c(H,ij) + energy_3p00_row[H*(length+1)+j] : INF;
+  //energy_3p_en is just P->MLbase behind a hard-constraint check on
+  //already-host-resident data -- not worth a GPU kernel, computed inline
+  const int energy_3p_en_j = (VC[H]->hc->up_ml[j] > 0) ? P->MLbase : INF;
+  en0 = ((My_fML(H,Indx(H,i,j - 1)) != INF) && (energy_3p_en_j != INF))? My_fML(H,Indx(H,i,j - 1)) + energy_3p_en_j : INF;
   e00 = MIN2(e00, en0);
       //end from extend_fm_3p()...
 
@@ -124,8 +136,10 @@
       const int e3 = (My_fML(H,ij + 1) != INF)? My_fML(H,ij + 1) + en : INF;
 
 
-//    const int e1 = MIN2(e3,energy_mls[H*ijsize+ij]); //e31
-      energy_min[H*(length+1)+j] = MIN2(e00,MIN2(e3,energy_mls[H*ijsize+ij])); //e1 e31
+      //energy_mls (multiloop-stems-fast) deleted: under dangle_model==2
+      //(enforced in fill_arrays.c) it always evaluated to INF, so
+      //MIN2(e3,energy_mls[...]) always reduced to e3 -- see fill_arrays.c.
+      energy_min[H*(length+1)+j] = MIN2(e00,e3); //e1 e31
 //    } /* end of j-loop */
 //
       assert(My_fML(H,ij) == INF);
@@ -170,6 +184,9 @@
 
     free(new_C);
     free(energy_min);//optimise malloc and free later
+    free(energy_hp_row);
+    free(energy_mb_row);
+    free(energy_3p00_row);
   } /* end of i-loop */
 
 
