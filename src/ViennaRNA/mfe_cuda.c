@@ -80,6 +80,7 @@ PRIVATE void          backtrack(vrna_fold_compound_t *vc, vrna_bp_stack_t *bp_st
 PRIVATE int           fill_arrays_comparative(vrna_fold_compound_t *vc);
 PRIVATE void          fill_arrays_comparative_circ(vrna_fold_compound_t *vc, sect bt_stack[], int *bt);
 PRIVATE void          backtrack_comparative(vrna_fold_compound_t *vc, vrna_bp_stack_t *bp_stack, sect bt_stack[], int s);
+PRIVATE float          mfe_cuda_vrna_mfe(vrna_fold_compound_t *vc, char *structure); // renamed from vrna_mfe, see definition
 
 /*
 #################################
@@ -173,12 +174,26 @@ par_mfe(const int nfiles,
     }
   } else {
   for(int i=0;i<nfiles;i++) {
-    EN[i] = vrna_mfe(VC[i], Structure[i]);
+    EN[i] = mfe_cuda_vrna_mfe(VC[i], Structure[i]);
   }}
 }
 
-PUBLIC float
-vrna_mfe(vrna_fold_compound_t *vc,
+/* New Jul 2026: renamed from vrna_mfe + made PRIVATE (static). This file's
+ * mfe.h include declares the real vrna_mfe() as an external PUBLIC symbol;
+ * this file used to define ANOTHER external vrna_mfe() of its own (same
+ * name), which happened to not conflict only because nothing previously
+ * forced the linker to also pull mfe.c's real vrna_mfe() into RNAfold's
+ * link. Adding vrna_mfe_cpu() to mfe.c (for the CPU worker queue) changed
+ * that -- satisfying its own undefined-symbol requirement drags the whole
+ * mfe.o archive member in, including mfe.c's real vrna_mfe(), which then
+ * collided with this one at link time ("multiple definition"). Renaming +
+ * making this PRIVATE removes the collision entirely: it's only ever
+ * called from this file's own par_mfe() (the VRNA_FC_TYPE_COMPARATIVE
+ * branch just above), so it never needed external linkage in the first
+ * place. NOT safe to call for VRNA_FC_TYPE_SINGLE -- see fill_arrays()
+ * stub below (exit(99)); still only exercised via the comparative branch. */
+PRIVATE float
+mfe_cuda_vrna_mfe(vrna_fold_compound_t *vc,
           char *structure){
 #ifdef GA
   modify_params(vc);
@@ -482,22 +497,14 @@ fill_arrays_comparative(vrna_fold_compound_t *vc){
 
 #include "ViennaRNA/alicircfold.inc"
 
-PUBLIC void
-vrna_backtrack_from_intervals(vrna_fold_compound_t *vc,
-                              vrna_bp_stack_t *bp_stack,
-                              sect bt_stack[],
-                              int s){
-
-  if(vc){
-    switch(vc->type){
-      case VRNA_FC_TYPE_SINGLE:       backtrack(vc, bp_stack, bt_stack, s);
-                                      break;
-
-      case VRNA_FC_TYPE_COMPARATIVE:  backtrack_comparative(vc, bp_stack, bt_stack, s);
-                                      break;
-    }
-  }
-}
+/* New Jul 2026: removed this file's own vrna_backtrack_from_intervals --
+ * confirmed dead code (nothing in this file called it; callback_backtrack
+ * below uses its own backtrack()/backtrack_comparative() directly), and its
+ * externally-linked duplicate of mfe.c's real vrna_backtrack_from_intervals
+ * (same name, same signature) caused a "multiple definition" link error
+ * once mfe.o started getting pulled into RNAfold's link (for
+ * vrna_mfe_cpu(), added for the CPU worker queue -- see mfe.c). The real
+ * one (mfe.c) is still reachable via -lRNA for anything that needs it. */
 
 /**
 *** trace back through the "c", "f5" and "fML" arrays to get the

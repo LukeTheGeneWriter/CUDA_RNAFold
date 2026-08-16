@@ -2,7 +2,15 @@ nvld_verbose = $(nvld_verbose_@AM_V@)
 nvld_verbose_ = $(nvld_verbose_@AM_DEFAULT_V@)
 nvld_verbose_0 = @echo "  NVLD     $@";
 
-AM_CFLAGS = $(RNA_CFLAGS)
+
+# -pthread here (not scoped to a RNAfold_CFLAGS per-target override) because
+# RNAfold's custom NVCC-based link recipe below references the unprefixed
+# RNAfold.o/RNAfold_cpu_queue.o, which -- unlike automake's normal
+# RNAfold-RNAfold.o per-target-flagged naming -- falls through to the
+# generic .c.o suffix rule and would NOT pick up a per-target CFLAGS
+# override. Safe to widen: -pthread is inert for the other RNA* binaries
+# here, which don't use threads.
+AM_CFLAGS = $(RNA_CFLAGS) -pthread
 AM_CXXFLAGS = $(RNA_CXXFLAGS)
 AM_CPPFLAGS = $(RNA_CPPFLAGS) -I$(top_srcdir)/src
 AM_LDFLAGS = $(RNA_LDFLAGS)
@@ -15,7 +23,8 @@ bin_PROGRAMS = RNAfold RNAeval RNAheat RNApdist RNAdistance RNAinverse \
 LDADD = $(top_builddir)/src/ViennaRNA/libRNA_conv.la
 
 HELPER_FILES =  gengetopt_helper.h \
-                input_id_helper.h
+                input_id_helper.h \
+                RNAfold_cpu_queue.h
 
 SUFFIXES = _cmdl.c _cmdl.h .ggo
 
@@ -75,13 +84,14 @@ _cmdl.c_cmdl.h :
 maintainer-clean-local:
 	rm -rf $(GENGETOPT_CMDL)
 
-RNAfold_SOURCES=RNAfold_cmdl.c RNAfold.c
+RNAfold_SOURCES=RNAfold_cmdl.c RNAfold.c RNAfold_cpu_queue.c
 RNAfold_CPPFLAGS = ${AM_CPPFLAGS} -DCUDA
 
-RNAfold$(EXEEXT):  RNAfold.o RNAfold_cmdl.o
-	$(nvld_verbose)${NVCC_LN} ${NVCC_LDFLAGS} -o RNAfold$(EXEEXT) \
+RNAfold$(EXEEXT):  RNAfold.o RNAfold_cmdl.o RNAfold_cpu_queue.o
+	$(nvld_verbose)${NVCC_LN} ${NVCC_LDFLAGS} -Xcompiler -pthread -o RNAfold$(EXEEXT) \
         RNAfold.o \
         RNAfold_cmdl.o \
+        RNAfold_cpu_queue.o \
         ${top_builddir}/src/ViennaRNA/modular_decomposition.o \
         ${top_builddir}/src/ViennaRNA/int_loop.o \
         ${top_builddir}/src/ViennaRNA/hp_mb_loop.o \

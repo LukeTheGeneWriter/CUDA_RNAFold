@@ -156,6 +156,24 @@ vrna_mfe( vrna_fold_compound_t *vc,
   return mfe;
 }
 
+// New Jul 2026: CPU-worker-pool entry point for RNAfold's heterogeneous
+// GPU+CPU dispatch. RNAfold links mfe_cuda.o directly, which defines its own
+// externally-linked vrna_mfe() (mfe_cuda.c) that wins the link over this
+// file's real implementation -- and mfe_cuda.c's version calls exit(99) for
+// VRNA_FC_TYPE_SINGLE fold compounds (see mfe_cuda.c's fill_arrays stub).
+// This wrapper gives RNAfold's CPU queue an unambiguous, differently-named
+// entry point into THIS file's real vrna_mfe(): the call below resolves at
+// compile time to this translation unit's own vrna_mfe (intra-file calls
+// aren't subject to the link-time symbol collision -- that only affects
+// callers in other files resolving the symbol via extern declaration), and
+// since nothing else in the link defines vrna_mfe_cpu, the linker pulls this
+// object out of libRNA.a specifically to satisfy it. Purely additive --
+// mfe_cuda.c and the comparative-fold path it serves are untouched.
+PUBLIC float
+vrna_mfe_cpu(vrna_fold_compound_t *vc, char *structure) {
+  return vrna_mfe(vc, structure);
+}
+
 /**
 *** fill "c", "fML" and "f5" arrays and return  optimal energy
 **/
