@@ -5,28 +5,6 @@
 
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
 
-    //Identical calculation for all of H, so do only once
-    //int en0;
-    int en = INF;
-    //for (int H=0;H<nfiles; H++) {
-      /*  extension with one unpaired nucleotide at 5' site
-	  and all other variants which are needed for odd
-	  dangle models
-      */
-      const int cp = -1;
-      //const int cp = -1;
-      if(ON_SAME_STRAND(i - 1, i, cp)){
-	if(ON_SAME_STRAND(i, i + 1, cp)){
-	  if(VC[0]->hc->up_ml[i] > 0){ //eval_loop = () ? (char)1 : (char)0;
-	      en = P->MLbase;
-	  }
-	}
-      }
-      //if(H==0) en0 = en;
-      //else assert(en0==en);
-    //}endfor H
-
-
     // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) energy_min[H+j*nfiles] = INF;
@@ -119,6 +97,16 @@
 
     const double fml_host_t0 = now_seconds();
     for (int H=0;H<nfiles; H++) {
+      /*  extension with one unpaired nucleotide at 5' site
+	  and all other variants which are needed for odd
+	  dangle models -- per-H (was incorrectly computed once from
+	  VC[0] only and reused for every H, see energy_3p_en_j below
+	  for the already-correct per-H sibling of this check)
+      */
+      const int cp = -1;
+      const int en_i = (ON_SAME_STRAND(i - 1, i, cp) &&
+                         ON_SAME_STRAND(i, i + 1, cp) &&
+                         VC[H]->hc->up_ml[i] > 0) ? P->MLbase : INF;
     for (j = i+turn+1; j <= length; j++) {
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
@@ -144,7 +132,7 @@
 
       //const int e0 = extend_fm_3p(i, j, my_fML, vc);
 
-      const int e3 = (My_fML(H,ij + 1) != INF)? My_fML(H,ij + 1) + en : INF;
+      const int e3 = (My_fML(H,ij + 1) != INF)? My_fML(H,ij + 1) + en_i : INF;
 
 
       //energy_mls (multiloop-stems-fast) deleted: under dangle_model==2
