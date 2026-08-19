@@ -779,7 +779,7 @@ int_loop_cuda(const int nfiles,
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
   //printf("int_loop_kernel<<<%d.%d,%d>>>(i=%d...) ok\n",blocks.x,blocks.y,block_size,i);
-  
+
   gpuErrchk( cudaMemcpy(energy_min,d_energy_min2, nfiles*(length+1)*sizeof(int),cudaMemcpyDeviceToHost) );
   gpuErrchk( cudaDeviceSynchronize() );
 

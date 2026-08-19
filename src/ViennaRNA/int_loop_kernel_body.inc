@@ -80,7 +80,18 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i, /*const int turn
     // the prefix table built above -- unlike the old setpq(), there's no
     // per-thread incremental search state carried between loop iterations
     // at all, so aggregate work no longer scales with BLOCK_SIZE.
-    const int total = prefix[maxcol+1];
+    // maxcol can go negative (q0 computed by Min_q() can exceed j-1 for
+    // short/tight (i,j) spans) -- maxcol==-1 safely reads prefix[0] (always
+    // zeroed above), but maxcol<=-2 would read prefix[maxcol+1] at a
+    // negative index, one or more slots *before* this array in shared
+    // memory. Shared memory isn't cleared between kernel launches, so that
+    // read returns whatever garbage the previous block/launch left on this
+    // SM -- harmless-looking on a fresh process, but a real memory-safety
+    // bug: it was observed returning garbage total counts in the billions,
+    // which then drove the search loop below into billions of iterations
+    // and intermittently tripped the row/column bounds asserts. Clamp
+    // explicitly rather than relying on prefix[0] happening to be in range.
+    const int total = (maxcol >= 0) ? prefix[maxcol+1] : 0;
     for(int work = threadIdx.x; work < total; work += BLOCK_SIZE) {
       int column = 0;
       while(column <= maxcol && prefix[column+1] <= work) column++;
