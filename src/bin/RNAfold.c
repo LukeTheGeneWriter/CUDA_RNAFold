@@ -904,6 +904,19 @@ int main(int argc, char *argv[]){
                          fold_constrained, constraints_file, commands,
                          output, lucky, istty, fname, ffname, noPS, ligandMotif,
                          verbose, &md, pf);
+      /* Free the just-flushed chunk's GPU buffers before the next chunk (a
+       * different nfiles/length shape) accumulates. Without this,
+       * init_gpu()/init_gpu2()/init_gpu3()'s one-shot `first`/first2/first3
+       * guards silently skip reallocation on the next par_mfe() call,
+       * reusing buffers sized for this chunk -- undersized for a larger
+       * next chunk, corrupting GPU memory (occasionally caught by an
+       * in-kernel assert, otherwise silent). Also lets compute_max_gpu_batch()
+       * below see accurate free VRAM instead of counting this chunk's
+       * (otherwise still-resident) buffers as unavailable.
+       * GPU teardown rewrite to handle variable length sequences */
+      teardown_gpu();
+      teardown_gpu2();
+      teardown_gpu3();
       nfiles = 0;
 
       chunk_length   = vc->length;
