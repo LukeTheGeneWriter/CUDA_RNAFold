@@ -95,6 +95,14 @@ int* d_energy_3p00_row;
 // int_loop.cu/modular_decomposition.cu) -- replaces H*(length+1) wherever
 // the 3 row buffers above are indexed.
 size_t* d_row_off_H;
+// Staggered_Row_Batching Phase 2e: d_hccc_mb/d_hccc_mbenc's per-H block
+// start (own shape, Hc_ints2()-scaled -- no MAXLOOP padding, unlike
+// int_loop.cu's Hc_ints(), so this can't reuse that file's d_hc_off_H) and
+// d_S2/d_sequence's per-H block start (length+2 stride, distinct from
+// row_off_H's length+1). Both computed locally in init_gpu3(), same
+// reasoning as int_loop.cu's d_hc_off_H.
+size_t* d_hc2_off_H;
+size_t* d_seq_off_H;
 //NB: energy_hp needs no hard-constraint bitmask at all -- E_Hairpin() has no
 //hc dependency, and fill_arrays_loop.c's read site already gates on
 //hc_decompose/no_close identically to how fill_arrays.c used to gate the
@@ -159,39 +167,55 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   //int_loop.cu's d_hccc (which only packs the INT_LOOP_ENC bit) -- see
   //init_gpu2() there. hc->matrix packs several independent context bits into
   //the same byte (constraints_hard.h), so this is just extracting two more.
-  size_t size = (size_t)nfiles*Hc_ints2(length)*sizeof(unsigned int);
+  // Staggered_Row_Batching Phase 2e: table-driven per-H block start,
+  // replacing the uniform Hc_ints2(length) multiply.
+  size_t hc2_off_H[nfiles+1];
+  hc2_off_H[0] = 0;
+  for(int H=0;H<nfiles;H++) hc2_off_H[H+1] = hc2_off_H[H] + Hc_ints2(VC[H]->length);
+  gpuErrchk( cudaMalloc((void **) &d_hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  gpuErrchk( cudaMemcpy(d_hc2_off_H, hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+  size_t size = hc2_off_H[nfiles]*sizeof(unsigned int);
   gpuErrchk( cudaMalloc((void **) &d_hccc_mb,    size) );
   gpuErrchk( cudaMalloc((void **) &d_hccc_mbenc, size) );
-  unsigned int* hccc_mb    = (unsigned int*) calloc((size_t)nfiles*Hc_ints2(length),sizeof(unsigned int));
-  unsigned int* hccc_mbenc = (unsigned int*) calloc((size_t)nfiles*Hc_ints2(length),sizeof(unsigned int));
+  unsigned int* hccc_mb    = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
+  unsigned int* hccc_mbenc = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   for(int H=0;H<nfiles;H++){
     unsigned int mask_mb, mask_mbenc;
     for(int i=0;i<(length*(length+1))/2+2;i++){
       mask_mb    = ((i & 0x1f) == 0)? 1 : mask_mb    << 1;
       mask_mbenc = ((i & 0x1f) == 0)? 1 : mask_mbenc << 1;
-      const int I = H*Hc_ints2(length)+i/bitsperint;
+      const size_t I = hc2_off_H[H]+i/bitsperint;
       if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP)     hccc_mb[I]    |= mask_mb;
       if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC) hccc_mbenc[I] |= mask_mbenc;
     }
   }
-  gpuErrchk( cudaMemcpy(d_hccc_mb,   hccc_mb,   (size_t)nfiles*Hc_ints2(length)*sizeof(unsigned int),cudaMemcpyHostToDevice) );
-  gpuErrchk( cudaMemcpy(d_hccc_mbenc,hccc_mbenc,(size_t)nfiles*Hc_ints2(length)*sizeof(unsigned int),cudaMemcpyHostToDevice) );
+  gpuErrchk( cudaMemcpy(d_hccc_mb,   hccc_mb,   hc2_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
+  gpuErrchk( cudaMemcpy(d_hccc_mbenc,hccc_mbenc,hc2_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
   free(hccc_mb);
   free(hccc_mbenc);
 
-  size = (size_t)nfiles*(length+2)*sizeof(short);
+  // Staggered_Row_Batching Phase 2e: table-driven per-H block start (own
+  // shape, length+2 stride -- distinct from row_off_H's length+1).
+  size_t seq_off_H[nfiles+1];
+  seq_off_H[0] = 0;
+  for(int H=0;H<nfiles;H++) seq_off_H[H+1] = seq_off_H[H] + ((size_t)VC[H]->length+2);
+  gpuErrchk( cudaMalloc((void **) &d_seq_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  gpuErrchk( cudaMemcpy(d_seq_off_H, seq_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+  size = seq_off_H[nfiles]*sizeof(short);
   gpuErrchk( cudaMalloc((void **) &d_S2, size) );
   short* Sbuff = (short*) malloc(size);
-  for(int H=0;H<nfiles;H++) memcpy(&Sbuff[H*(length+2)],VC[H]->sequence_encoding,(length+2)*sizeof(short));
+  for(int H=0;H<nfiles;H++) memcpy(&Sbuff[seq_off_H[H]],VC[H]->sequence_encoding,(length+2)*sizeof(short));
   gpuErrchk( cudaMemcpy(d_S2,Sbuff,size,cudaMemcpyHostToDevice) );
   free(Sbuff);
 
-  size = (size_t)nfiles*(length+2)*sizeof(char);
+  size = seq_off_H[nfiles]*sizeof(char);
   gpuErrchk( cudaMalloc((void **) &d_sequence, size) );
-  char* seqbuff = (char*) calloc((size_t)nfiles*(length+2),sizeof(char));
+  char* seqbuff = (char*) calloc(seq_off_H[nfiles],sizeof(char));
   for(int H=0;H<nfiles;H++) {
     const size_t len = strlen(VC[H]->sequence);
-    memcpy(&seqbuff[H*(length+2)],VC[H]->sequence,len);
+    memcpy(&seqbuff[seq_off_H[H]],VC[H]->sequence,len);
   }
   gpuErrchk( cudaMemcpy(d_sequence,seqbuff,size,cudaMemcpyHostToDevice) );
   free(seqbuff);
@@ -220,6 +244,8 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_energy_mb_row) );
   gpuErrchk( cudaFree(d_energy_3p00_row) );
   gpuErrchk( cudaFree(d_row_off_H) );
+  gpuErrchk( cudaFree(d_hc2_off_H) );
+  gpuErrchk( cudaFree(d_seq_off_H) );
   first3 = 1;
 }
 
@@ -265,7 +291,7 @@ Hc2(const int ij, const unsigned int* __restrict__ hccc){
 //easy-to-get-backwards asymmetry where a triloop (size==3) miss returns
 //early, *skipping* the mismatchH add below, while tetraloop/hexaloop misses
 //fall through *to* it. `seq` points at the same offset E_Hairpin's host
-//caller passes (vc->sequence+i-1) -- device equivalent is &d_sequence[H*(length+2)+i-1].
+//caller passes (vc->sequence+i-1) -- device equivalent is &d_sequence[seq_off_H[H]+i-1].
 __device__ inline int
 E_Hairpin_device(const int size, const int type, const int si1, const int sj1,
                   const char* __restrict__ seq, const cuda_param2_t* __restrict__ P) {
@@ -336,17 +362,19 @@ hp_mb_3p_kernel(const int i, const int turn, const int length,
                        int* __restrict__ energy_hp_row,
                        int* __restrict__ energy_mb_row,
                        int* __restrict__ energy_3p00_row,
-                 const size_t* __restrict__ row_off_H) {
+                 const size_t* __restrict__ row_off_H,
+                 const size_t* __restrict__ hc2_off_H,
+                 const size_t* __restrict__ seq_off_H) {
   const size_t H = blockIdx.y;
   const int m = blockIdx.x*blockDim.x+threadIdx.x;
   const int j = m + i+turn+1;
   if(j>length) return;
 
-  const short* S_H   = &S[H*(length+2)];
-  const char*  seq_H = &seq[H*(length+2)];
+  const short* S_H   = &S[seq_off_H[H]];
+  const char*  seq_H = &seq[seq_off_H[H]];
   const int ij = Indx2(i,j);
-  const unsigned int* Hccc_mb    = &hccc_mb[H*Hc_ints2(length)];
-  const unsigned int* Hccc_mbenc = &hccc_mbenc[H*Hc_ints2(length)];
+  const unsigned int* Hccc_mb    = &hccc_mb[hc2_off_H[H]];
+  const unsigned int* Hccc_mbenc = &hccc_mbenc[hc2_off_H[H]];
 
   //raw_type: the 0->7 fixup must NOT be applied before the rtype[] lookup in
   //energy_mb below -- mb_loop_fast.c:74,105 uses the raw (possibly-0) type as
@@ -421,7 +449,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
                                           d_S2, d_sequence, d_pair2,
                                           d_hccc_mb, d_hccc_mbenc, d_param2,
                                           d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row,
-                                          d_row_off_H);
+                                          d_row_off_H, d_hc2_off_H, d_seq_off_H);
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
 

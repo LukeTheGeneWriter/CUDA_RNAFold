@@ -121,6 +121,11 @@ size_t*       d_tri_off_H;
 // Staggered_Row_Batching Phase 2c: device copy of row_off_H[] -- d_new_e's
 // per-H row start, replacing H*(length+1) wherever d_new_e is indexed.
 size_t*       d_row_off_H;
+// Staggered_Row_Batching Phase 2e: d_hccc's per-H block start. Computed
+// locally in init_gpu2() (not compute_batch_offsets()) since Hc_ints()'s
+// MAXLOOP padding is a private detail of this file's bit-packing, not a
+// general row/triangle shape shared elsewhere.
+size_t*       d_hc_off_H;
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
@@ -282,19 +287,29 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     gpuErrchk( cudaMemcpy(d_pair,pair_,pair_size,cudaMemcpyHostToDevice) );
   }
 
-  size_t size = (size_t)nfiles*Hc_ints(length)*sizeof(unsigned int); // 32-bit signed integer overflow bug fix
+  // Staggered_Row_Batching Phase 2e: per-H table (own shape -- Hc_ints()'s
+  // padding is this file's own private constant, not row_off_H/tri_off_H's
+  // shape) built from each H's real length, table-driven instead of a
+  // uniform Hc_ints(length) multiply.
+  size_t hc_off_H[nfiles+1];
+  hc_off_H[0] = 0;
+  for(int H=0;H<nfiles;H++) hc_off_H[H+1] = hc_off_H[H] + Hc_ints(VC[H]->length);
+  gpuErrchk( cudaMalloc((void **) &d_hc_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  gpuErrchk( cudaMemcpy(d_hc_off_H, hc_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+  size_t size = hc_off_H[nfiles]*sizeof(unsigned int);
   gpuErrchk( cudaMalloc((void **) &d_hccc, size) );
-  unsigned int* hccc   = (unsigned int*) calloc((size_t)nfiles*Hc_ints(length),sizeof(unsigned int)); // 32-bit signed integer overflow bug fix
+  unsigned int* hccc   = (unsigned int*) calloc(hc_off_H[nfiles],sizeof(unsigned int));
   for(int H=0;H<nfiles;H++){
     assert(bitsperint==(1+0x1f));
     unsigned int mask;
     for(int i=0;i<(length*(length+1))/2+2;i++){ //leave padding as zero
       mask = ((i & 0x1f) == 0)? 1 : mask << 1;
-      const long long I = (long long)H*Hc_ints(length)+i/bitsperint; // Langdon's 2026 indexing bug -- host-side hccc population, missed by 2f35ecc's kernel-scoped fix
+      const long long I = (long long)hc_off_H[H]+i/bitsperint; // Langdon's 2026 indexing bug -- host-side hccc population, missed by 2f35ecc's kernel-scoped fix
       if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC) hccc[I] |= mask;
     }
   }
-  gpuErrchk( cudaMemcpy(d_hccc,hccc,(size_t)nfiles*Hc_ints(length)*sizeof(unsigned int),cudaMemcpyHostToDevice) ); // 32-bit signed integer overflow bug fix
+  gpuErrchk( cudaMemcpy(d_hccc,hccc,hc_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
   free(hccc);
 
   // Ten bases per word, H fastest index (see put10()/unpack()).
@@ -369,6 +384,7 @@ teardown_gpu2(void) {
   gpuErrchk( cudaFree(d_energy_min2) );
   gpuErrchk( cudaFree(d_tri_off_H) );
   gpuErrchk( cudaFree(d_row_off_H) );
+  gpuErrchk( cudaFree(d_hc_off_H) );
   first2 = 1;
 }
 
@@ -779,6 +795,7 @@ int_loop_cuda(const int nfiles,
 						  d_my_c,
 						  d_tri_off_H,
 						  d_row_off_H,
+						  d_hc_off_H,
 						  d_energy_min2); break; //Out
     case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -789,6 +806,7 @@ int_loop_cuda(const int nfiles,
 						  d_my_c,
 						  d_tri_off_H,
 						  d_row_off_H,
+						  d_hc_off_H,
 						  d_energy_min2); break; //Out
     case  64: int_loop_kernel_64<<<blocks, 64>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -799,6 +817,7 @@ int_loop_cuda(const int nfiles,
 						  d_my_c,
 						  d_tri_off_H,
 						  d_row_off_H,
+						  d_hc_off_H,
 						  d_energy_min2); break; //Out
     default:  int_loop_kernel_32<<<blocks, 32>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -809,6 +828,7 @@ int_loop_cuda(const int nfiles,
 						  d_my_c,
 						  d_tri_off_H,
 						  d_row_off_H,
+						  d_hc_off_H,
 						  d_energy_min2); break; //Out
   }
 

@@ -34,6 +34,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i, /*const int turn
 		const int* __restrict__ my_c,
 		const size_t* __restrict__ tri_off_H, //in, d_my_c's per-H block start
 		const size_t* __restrict__ row_off_H, //in, energy_min's per-H row start
+		const size_t* __restrict__ hc_off_H,  //in, d_hccc's per-H block start
 		      int* __restrict__ energy_min) { //out
 
   int energy = INF;
@@ -41,12 +42,12 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i, /*const int turn
   const int j = blockIdx.x + i+turn+1;
 
   const long long ij = Indx(i,j);
-  if(Hc(ij,&hccc[H*Hc_ints(length)])) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
+  if(Hc(ij,&hccc[hc_off_H[H]])) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
     /* we evaluate this pair */
     const int p0 = i+1;
     const int q0 = Min_q(i,j,turn);
     const int maxcol = MIN2(MAXLOOP,(j - 1) - q0);
-    const unsigned int* __restrict__ hccc_H = &hccc[H*Hc_ints(length)];
+    const unsigned int* __restrict__ hccc_H = &hccc[hc_off_H[H]];
 
     // Cooperative decode + prefix-sum (see decode_column(), int_loop.cu,
     // and the "Cooperative Column Scan" design doc). maxcol+1 <= MAXLOOP+1
