@@ -126,6 +126,16 @@ size_t*       d_row_off_H;
 // MAXLOOP padding is a private detail of this file's bit-packing, not a
 // general row/triangle shape shared elsewhere.
 size_t*       d_hc_off_H;
+// Staggered_Row_Batching Phase 5: per-row block-count table shared by
+// int_loop_kernel and load_my_c_kernel (both this file, same "size"
+// formula reused verbatim from Phase 4's load_fML) -- allocated once per
+// chunk here, uploaded fresh by whichever of int_loop_cuda()/load_my_c()
+// runs first each row (each uploads independently rather than assuming
+// the other already did, since -- unlike Phase 4's graph-captured
+// load_fML/modular_decomposition/load_min_fML sequence -- these two are
+// separate synchronous launches with no fixed relative ordering guarantee
+// worth depending on).
+size_t*       d_size_off_H;
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
@@ -297,6 +307,11 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMalloc((void **) &d_hc_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
   gpuErrchk( cudaMemcpy(d_hc_off_H, hc_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
+  // Staggered_Row_Batching Phase 5: allocated here (fixed size for the whole
+  // chunk), not populated here -- this changes every sweep row i, uploaded
+  // fresh per-row by int_loop_cuda()/load_my_c() instead.
+  gpuErrchk( cudaMalloc((void **) &d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+
   size_t size = hc_off_H[nfiles]*sizeof(unsigned int);
   gpuErrchk( cudaMalloc((void **) &d_hccc, size) );
   unsigned int* hccc   = (unsigned int*) calloc(hc_off_H[nfiles],sizeof(unsigned int));
@@ -385,6 +400,7 @@ teardown_gpu2(void) {
   gpuErrchk( cudaFree(d_tri_off_H) );
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_hc_off_H) );
+  gpuErrchk( cudaFree(d_size_off_H) );
   first2 = 1;
 }
 
@@ -407,15 +423,17 @@ int_loop_bytes_per_file(const int length) {
 
 //perhaps this can be combined with other kernels?
 __global__ void
-load_my_c_kernel(const int i, /*const int turn,*/ const int length,
+load_my_c_kernel(const int nfiles, const int i, /*const int turn,*/ const int length,
 		 const int* __restrict__ new_e,
 	               int* __restrict__ my_c,
 		 const size_t* __restrict__ tri_off_H, //in
-		 const size_t* __restrict__ row_off_H) { //in
-  const int H = blockIdx.y;
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
-  const int j = m + i+turn+1;
-  if(j>length) return;
+		 const size_t* __restrict__ row_off_H, //in
+		 const size_t* __restrict__ size_off_H, const size_t total) { //in
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  if((size_t)m >= total) return;
+  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  const long long mj = (long long)m - (long long)size_off_H[H];
+  const long long j  = mj + i+turn+1;
 
   const long long ij = Indx(i,j);
   assert(ij>=0 && ij<Hoff(1,length));
@@ -426,11 +444,11 @@ load_my_c_kernel(const int i, /*const int turn,*/ const int length,
 PUBLIC void
 load_my_c(const int nfiles,
 	  const int i, const int turn_, const int length,
-	  const int* new_e) {   //in
+	  const int* new_e,
+	  const size_t* size_off_H) {   //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
   //out d_my_c
-  const int start = i+turn+1; 
-  const int size  = length - start + 1;
-  if(size<=0) return;
+  const size_t total = size_off_H[nfiles];
+  if(total==0) return;
 
 #ifdef NDEBUG
   //check here in case of earlier errors
@@ -438,6 +456,7 @@ load_my_c(const int nfiles,
 #endif
   //for simplicity transfer all new_e, even though only need H * [start:length]
   gpuErrchk( cudaMemcpy(d_new_e,new_e,nfiles*(length+1)*sizeof(int),cudaMemcpyHostToDevice) );
+  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
 
   /* Setup execution parameters for helper kernel */
@@ -452,15 +471,14 @@ load_my_c(const int nfiles,
     fprintf(stderr,"%-24s load_my_c_kernel block size %d (was hardcoded %d)\n",
 	    __FILE__, block_size, BLOCK_SIZE);
   }
-  const int nblocks = (size + block_size - 1)/block_size;
+  const int nblocks = (total + block_size - 1)/block_size;
 
-  dim3 blocks(nblocks,nfiles);
-
-  load_my_c_kernel<<<blocks,block_size>>>(i, /*turn,*/ length,
+  load_my_c_kernel<<<nblocks,block_size>>>(nfiles, i, /*turn,*/ length,
 					   d_new_e,  //in
 					   d_my_c,   //out
 					   d_tri_off_H,  //in
-					   d_row_off_H); //in
+					   d_row_off_H,  //in
+					   d_size_off_H, total);
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
 }
@@ -750,13 +768,20 @@ PRIVATE void
 int_loop_cuda(const int nfiles,
 	      const int i, /*const int turn,*/ const int length,
 	      const vrna_param_t *P,
-	      int* energy_min) { //out
+	      int* energy_min,
+	      const size_t* size_off_H) { //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
   //cf modular_decomposition.cu r1.79
-  const int nblocks = length - (i+turn);
-  if(nblocks<=0) return;
+  // Staggered_Row_Batching Phase 5: size_off_H[nfiles] replaces the old
+  // scalar nblocks<=0 check -- numerically identical while every H shares
+  // one length (today). Flat 1-D grid instead of dim3(nblocks,nfiles) --
+  // also lifts the old implicit nfiles<=65535 sub-limit from using nfiles
+  // as gridDim.y (gridDim.x supports far more).
+  const size_t flat_nblocks = size_off_H[nfiles];
+  if(flat_nblocks==0) return;
 
-  //Using gridDim for convenience but imposes a 65535 limit on length (or nfiles)
-  dim3 blocks(nblocks,nfiles);
+  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+  dim3 blocks((unsigned int)flat_nblocks);
 
   // Default is still the conservative STOPGAP (BLOCK_SIZE==32, hardcoded
   // not auto-tuned) -- see the comment above this kernel's four #include
@@ -796,6 +821,7 @@ int_loop_cuda(const int nfiles,
 						  d_tri_off_H,
 						  d_row_off_H,
 						  d_hc_off_H,
+						  d_size_off_H,
 						  d_energy_min2); break; //Out
     case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -807,6 +833,7 @@ int_loop_cuda(const int nfiles,
 						  d_tri_off_H,
 						  d_row_off_H,
 						  d_hc_off_H,
+						  d_size_off_H,
 						  d_energy_min2); break; //Out
     case  64: int_loop_kernel_64<<<blocks, 64>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -818,6 +845,7 @@ int_loop_cuda(const int nfiles,
 						  d_tri_off_H,
 						  d_row_off_H,
 						  d_hc_off_H,
+						  d_size_off_H,
 						  d_energy_min2); break; //Out
     default:  int_loop_kernel_32<<<blocks, 32>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -829,6 +857,7 @@ int_loop_cuda(const int nfiles,
 						  d_tri_off_H,
 						  d_row_off_H,
 						  d_hc_off_H,
+						  d_size_off_H,
 						  d_energy_min2); break; //Out
   }
 
@@ -858,7 +887,8 @@ int_loop_i(const int nfiles,
 	   const int i, const int turn_, const int length,
 	   /*const int* indx, const int ijsize,
 	   const char* hard_constraints, const int* my_c,*/
-	   int* energy_min ) { //out
+	   int* energy_min,
+	   const size_t* size_off_H ) { //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
   // Staggered_Row_Batching Phase 2b: this used to have a defensive
   // `if(first2) init_gpu2(...)` fallback here, but int_loop_i() is only ever
   // reached via fill_arrays_loop.c -> par_fill_arrays() -> par_mfe(), which
@@ -868,7 +898,7 @@ int_loop_i(const int nfiles,
   // given a fabricated tri_off_H it has no access to here.
   assert(!first2);
 
-  int_loop_cuda(nfiles,i,/*turn,*/length,VC[0]->params, energy_min);
+  int_loop_cuda(nfiles,i,/*turn,*/length,VC[0]->params, energy_min, size_off_H);
   return;
   /* normal code to run calculation on host to check answers given by GPU
   int new_e[length+1];

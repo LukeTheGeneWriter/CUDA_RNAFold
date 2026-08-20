@@ -35,11 +35,22 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i, /*const int turn
 		const size_t* __restrict__ tri_off_H, //in, d_my_c's per-H block start
 		const size_t* __restrict__ row_off_H, //in, energy_min's per-H row start
 		const size_t* __restrict__ hc_off_H,  //in, d_hccc's per-H block start
+		const size_t* __restrict__ size_off_H, //in, this launch's per-H block-count table
 		      int* __restrict__ energy_min) { //out
 
   int energy = INF;
-  const int H = blockIdx.y;
-  const int j = blockIdx.x + i+turn+1;
+  // Staggered_Row_Batching Phase 5: one block per (H,j) cell, same as
+  // before -- only how blockIdx.x maps to (H,j) changed. blockIdx.x is now
+  // a flat block index across every H's own block range (replacing the old
+  // 2-D dim3(nblocks,nfiles) grid with blockIdx.y==H directly), via the
+  // same flatten_index_to_H() mechanism Phase 4 used at thread granularity.
+  // Every thread in the block redoes this lookup redundantly rather than
+  // computing once and broadcasting -- cheap (O(log nfiles)) next to the
+  // block's actual cooperative-scan work below, and keeps this diff to
+  // exactly the top-of-kernel H/j derivation, per the plan's own scoping
+  // for this phase.
+  const int H = flatten_index_to_H((size_t)blockIdx.x, size_off_H, nfiles);
+  const int j = ((int)blockIdx.x - (int)size_off_H[H]) + i+turn+1;
 
   const long long ij = Indx(i,j);
   if(Hc(ij,&hccc[hc_off_H[H]])) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP

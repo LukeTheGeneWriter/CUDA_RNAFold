@@ -103,6 +103,12 @@ size_t* d_row_off_H;
 // reasoning as int_loop.cu's d_hc_off_H.
 size_t* d_hc2_off_H;
 size_t* d_seq_off_H;
+// Staggered_Row_Batching Phase 5: per-row block-count table for
+// hp_mb_3p_kernel -- own copy (per this file's established convention),
+// same "size" formula as int_loop.cu's/modular_decomposition.cu's
+// (length_H[H]-i-turn, reused verbatim from Phase 4's load_fML). Allocated
+// once per chunk, uploaded fresh each row by hp_mb_3p_i().
+size_t* d_size_off_H;
 //NB: energy_hp needs no hard-constraint bitmask at all -- E_Hairpin() has no
 //hc dependency, and fill_arrays_loop.c's read site already gates on
 //hc_decompose/no_close identically to how fill_arrays.c used to gate the
@@ -203,6 +209,10 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMalloc((void **) &d_seq_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
   gpuErrchk( cudaMemcpy(d_seq_off_H, seq_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
+  // Staggered_Row_Batching Phase 5: allocated here, not populated here --
+  // changes every sweep row i, uploaded fresh per-row by hp_mb_3p_i().
+  gpuErrchk( cudaMalloc((void **) &d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+
   size = seq_off_H[nfiles]*sizeof(short);
   gpuErrchk( cudaMalloc((void **) &d_S2, size) );
   short* Sbuff = (short*) malloc(size);
@@ -246,6 +256,7 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_hc2_off_H) );
   gpuErrchk( cudaFree(d_seq_off_H) );
+  gpuErrchk( cudaFree(d_size_off_H) );
   first3 = 1;
 }
 
@@ -352,7 +363,7 @@ E_MLstem_device(const int type, const int si1, const int sj1, const cuda_param2_
 }
 
 __global__ void
-hp_mb_3p_kernel(const int i, const int turn, const int length,
+hp_mb_3p_kernel(const int nfiles, const int i, const int turn, const int length,
                  const short* __restrict__ S,
                  const char*  __restrict__ seq,
                  const char*  __restrict__ pair,
@@ -364,11 +375,13 @@ hp_mb_3p_kernel(const int i, const int turn, const int length,
                        int* __restrict__ energy_3p00_row,
                  const size_t* __restrict__ row_off_H,
                  const size_t* __restrict__ hc2_off_H,
-                 const size_t* __restrict__ seq_off_H) {
-  const size_t H = blockIdx.y;
-  const int m = blockIdx.x*blockDim.x+threadIdx.x;
-  const int j = m + i+turn+1;
-  if(j>length) return;
+                 const size_t* __restrict__ seq_off_H,
+                 const size_t* __restrict__ size_off_H, const size_t total) {
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  if((size_t)m >= total) return;
+  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  const long long mj = (long long)m - (long long)size_off_H[H];
+  const int j = mj + i+turn+1;
 
   const short* S_H   = &S[seq_off_H[H]];
   const char*  seq_H = &seq[seq_off_H[H]];
@@ -423,13 +436,13 @@ hp_mb_3p_kernel(const int i, const int turn, const int length,
 PUBLIC void
 hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
            const int i, const int turn, const int length,
-           int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row) { //all out, size nfiles*(length+1)
-  const int start = i+turn+1;
-  const int size  = length - start + 1;
-  //size<=0 is unreachable for the i range fill_arrays_loop.c's main loop
+           int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row, //all out, size nfiles*(length+1)
+           const size_t* size_off_H) { //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+  const size_t total = size_off_H[nfiles];
+  //total==0 is unreachable for the i range fill_arrays_loop.c's main loop
   //actually uses (start=i+turn+1 <= length always holds there) -- same dead
   //guard load_fML() carries for the identical reason, kept for symmetry.
-  if(size<=0) return;
+  if(total==0) return;
 
   // Block size picked once from the actual GPU present (see stub2.h's
   // rnafold_choose_block_size()) instead of the BLOCK_SIZE constant this
@@ -443,13 +456,15 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
 	    __FILE__, block_size, BLOCK_SIZE);
   }
 
-  const int nblocks = (size + block_size - 1)/block_size;
-  dim3 blocks(nblocks,nfiles);
-  hp_mb_3p_kernel<<<blocks,block_size>>>(i, turn, length,
+  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+  const int nblocks = (total + block_size - 1)/block_size;
+  hp_mb_3p_kernel<<<nblocks,block_size>>>(nfiles, i, turn, length,
                                           d_S2, d_sequence, d_pair2,
                                           d_hccc_mb, d_hccc_mbenc, d_param2,
                                           d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row,
-                                          d_row_off_H, d_hc2_off_H, d_seq_off_H);
+                                          d_row_off_H, d_hc2_off_H, d_seq_off_H,
+                                          d_size_off_H, total);
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
 

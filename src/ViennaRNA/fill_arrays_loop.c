@@ -11,11 +11,27 @@
     for (j = i+turn+1; j <= length; j++) energy_min[row_off_H[H]+j] = INF;
     }
 
+    // Staggered_Row_Batching Phase 5: this row's "size" active-width table
+    // (length_H[H]-i-turn, clamped >=0) -- built once here, up front, since
+    // it's now shared by int_loop_i()/hp_mb_3p_i()/load_my_c() (the 3
+    // "rectangular" kernels, Phase 5) as well as load_fML() (Phase 4, still
+    // computed separately below for side_off_H, which nothing here needs).
+    size_t size_off_H[nfiles+1];
+    {
+      size_t size_H[nfiles];
+      for(int H=0;H<nfiles;H++) {
+        const int size_raw = (int)VC[H]->length - i - turn;
+        size_H[H] = (size_raw>0) ? (size_t)size_raw : 0;
+      }
+      compute_flatten_offsets(nfiles, size_H, size_off_H);
+    }
+
     {
       const double t0 = now_seconds();
       int_loop_i(nfiles,VC,i,turn,length,/*indx,ijsize,
 		 hard_constraints, my_c,*/
-		 energy_min); //replaces vrna_E_int_loop(vc, i, j);
+		 energy_min, //replaces vrna_E_int_loop(vc, i, j);
+		 size_off_H);
       phase_int_loop_s += now_seconds() - t0;
     }
 
@@ -25,7 +41,7 @@
     //energy_min/int_loop_i above.
     {
       const double t0 = now_seconds();
-      hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row);
+      hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row,size_off_H);
       phase_hp_mb_s += now_seconds() - t0;
     }
 
@@ -92,7 +108,7 @@
 
     {
       const double t0 = now_seconds();
-      load_my_c(nfiles,i,turn,length,new_C); //keep my_c on GPU instep with my_c
+      load_my_c(nfiles,i,turn,length,new_C,size_off_H); //keep my_c on GPU instep with my_c
       phase_load_my_c_s += now_seconds() - t0;
     }
 
@@ -154,22 +170,20 @@
     //my_fML GPU = MIN2(energy_min[j], DMLi[j])
     {
       const double t0 = now_seconds();
-      // Staggered_Row_Batching Phase 4: per-H "active width" tables for
-      // load_fML/fmli/modular_decomposition/load_min_fML's flat grids,
-      // rebuilt every row since they depend on i. Only two distinct shapes
-      // needed: size_H (load_fML's own) and side_H (shared by the other
-      // three -- their pre-Phase-4 bound-check formulas are algebraically
-      // identical, verified by hand against each kernel).
-      size_t size_H[nfiles], side_H[nfiles];
-      for(int H=0;H<nfiles;H++) {
-        const int size_raw = (int)VC[H]->length - i - turn;
-        const int side_raw = (int)VC[H]->length - i - 2*turn - 2;
-        size_H[H] = (size_raw>0) ? (size_t)size_raw : 0;
-        side_H[H] = (side_raw>0) ? (size_t)side_raw : 0;
+      // Staggered_Row_Batching Phase 4: side_off_H (shared by fmli/
+      // modular_decomposition/load_min_fML) is the only table still built
+      // here -- size_off_H was already built at the top of this row's loop
+      // body (Phase 5), where int_loop_i()/hp_mb_3p_i()/load_my_c() now need
+      // it too.
+      size_t side_off_H[nfiles+1];
+      {
+        size_t side_H[nfiles];
+        for(int H=0;H<nfiles;H++) {
+          const int side_raw = (int)VC[H]->length - i - 2*turn - 2;
+          side_H[H] = (side_raw>0) ? (size_t)side_raw : 0;
+        }
+        compute_flatten_offsets(nfiles, side_H, side_off_H);
       }
-      size_t size_off_H[nfiles+1], side_off_H[nfiles+1];
-      compute_flatten_offsets(nfiles, size_H, size_off_H);
-      compute_flatten_offsets(nfiles, side_H, side_off_H);
 
       load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H);
       phase_modular_decomp_s += now_seconds() - t0;

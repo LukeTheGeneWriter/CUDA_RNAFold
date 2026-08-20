@@ -199,7 +199,8 @@ PUBLIC void
 #endif
 hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
 	   const int i, const int turn, const int length,
-	   int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row); //all out
+	   int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row, //all out
+	   const size_t* size_off_H); //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -208,7 +209,8 @@ PUBLIC void
 #endif
 load_my_c(const int nfiles,
 	  const int i, const int turn, const int length,
-	  const int* min_e); //in
+	  const int* min_e, //in
+	  const size_t* size_off_H); //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -220,7 +222,8 @@ int_loop_i(const int nfiles,
 	   const int i, const int turn, const int length,
 	   /*const int* indx, const int ijsize,
 	   const char* hard_constraints, const int* my_c,*/
-	   int* energy_min ); //out
+	   int* energy_min, //out
+	   const size_t* size_off_H); //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
 
 
 PUBLIC void
