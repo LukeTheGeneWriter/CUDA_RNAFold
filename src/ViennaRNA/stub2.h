@@ -97,14 +97,15 @@ extern "C" /*PUBLIC*/ void
 PUBLIC void
 #endif
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
-          const size_t* tri_off_H); //in, nfiles+1 entries -- see compute_batch_offsets()
+          const size_t* tri_off_H, const size_t* row_off_H); //in, both nfiles+1 entries -- see compute_batch_offsets()
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size);
+init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
+          const size_t* row_off_H); //in, nfiles+1 entries -- see compute_batch_offsets()
 
 // teardown_gpu()/teardown_gpu2()/teardown_gpu3(): free the nfiles/length-
 // scaled device buffers allocated by init_gpu()/init_gpu2()/init_gpu3() and

@@ -89,6 +89,13 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 //ptype             = vc->ptype;
 //indx              = vc->jindx;
   P                 = VC[0]->params;
+  // Staggered_Row_Batching Phase 2c: recomputed here (redundant with
+  // par_mfe()'s own copy, mfe_cuda.c) rather than threaded down as
+  // parameters -- keeps par_fill_arrays()'s signature/stub2.h declaration
+  // unchanged, and the cost is negligible (O(nfiles)). fill_arrays_loop.c
+  // (#include'd below) uses these directly, same function scope.
+  size_t row_off_H[nfiles+1], tri_off_H[nfiles+1];
+  compute_batch_offsets(nfiles, VC, row_off_H, tri_off_H);
   // The GPU-accelerated hairpin/multibranch energy precompute (hp_mb_3p_i(),
   // hp_mb_loop.cu) hardcodes the dangle_model==2 simplifications already
   // assumed throughout this CUDA fork's fill_arrays_loop.c/mb_loop_fast.c
@@ -198,11 +205,11 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   // 32-bit signed integer overflow bug fix: (size_t) cast must apply to
   // nfiles, the first operand -- casting the product after the fact would
   // already have overflowed in 32-bit int arithmetic by then.
-  energy_min       = cuda_host_alloc_ints((size_t)nfiles*(length+1));
-  energy_hp_row    = cuda_host_alloc_ints((size_t)nfiles*(length+1));
-  energy_mb_row    = cuda_host_alloc_ints((size_t)nfiles*(length+1));
-  energy_3p00_row  = cuda_host_alloc_ints((size_t)nfiles*(length+1));
-  new_C            = cuda_host_alloc_ints((size_t)nfiles*(length+1));
+  energy_min       = cuda_host_alloc_ints((size_t)nfiles*(length+1)); // scheme A, unchanged (Phase 2d)
+  energy_hp_row    = cuda_host_alloc_ints(row_off_H[nfiles]);
+  energy_mb_row    = cuda_host_alloc_ints(row_off_H[nfiles]);
+  energy_3p00_row  = cuda_host_alloc_ints(row_off_H[nfiles]);
+  new_C            = cuda_host_alloc_ints(row_off_H[nfiles]);
 
 #include "fill_arrays_loop.c"
 

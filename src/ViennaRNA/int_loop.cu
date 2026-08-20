@@ -118,6 +118,9 @@ int*          d_new_e;
 // Hoff(H,length) wherever d_my_c is indexed on-device: Hoff() assumes every
 // H shares one length, tri_off_H[] doesn't.
 size_t*       d_tri_off_H;
+// Staggered_Row_Batching Phase 2c: device copy of row_off_H[] -- d_new_e's
+// per-H row start, replacing H*(length+1) wherever d_new_e is indexed.
+size_t*       d_row_off_H;
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
@@ -242,7 +245,7 @@ void put10(const unsigned int word, const int H, const int nfiles, const int i, 
 
 PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
-          const size_t* tri_off_H) { //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
+          const size_t* tri_off_H, const size_t* row_off_H) { //in, nfiles+1 entries each, mfe_cuda.c
   if(!first2) return;
   fprintf(stderr,"%-24s init_gpu2(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
@@ -251,6 +254,8 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 
   gpuErrchk( cudaMalloc((void **) &d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
   gpuErrchk( cudaMemcpy(d_tri_off_H, tri_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+  gpuErrchk( cudaMalloc((void **) &d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
   //printf("%s %s d_param is %lu bytes, NBPAIRS %d MAXLOOP %d BLOCK_SIZE %d\n",
   //	 __FILE__,Version,sizeof(cuda_param_s),NBPAIRS,MAXLOOP,block_size);
 
@@ -359,6 +364,7 @@ teardown_gpu2(void) {
   gpuErrchk( cudaFree(d_new_e) );
   gpuErrchk( cudaFree(d_energy_min2) );
   gpuErrchk( cudaFree(d_tri_off_H) );
+  gpuErrchk( cudaFree(d_row_off_H) );
   first2 = 1;
 }
 
@@ -384,7 +390,8 @@ __global__ void
 load_my_c_kernel(const int i, /*const int turn,*/ const int length,
 		 const int* __restrict__ new_e,
 	               int* __restrict__ my_c,
-		 const size_t* __restrict__ tri_off_H) { //in
+		 const size_t* __restrict__ tri_off_H, //in
+		 const size_t* __restrict__ row_off_H) { //in
   const int H = blockIdx.y;
   const int m = blockIdx.x*blockDim.x+threadIdx.x;
   const int j = m + i+turn+1;
@@ -393,7 +400,7 @@ load_my_c_kernel(const int i, /*const int turn,*/ const int length,
   const long long ij = Indx(i,j);
   assert(ij>=0 && ij<Hoff(1,length));
   assert(my_c[tri_off_H[H]+ij] == INF);
-         my_c[tri_off_H[H]+ij] = new_e[H*(length+1)+j];
+         my_c[tri_off_H[H]+ij] = new_e[row_off_H[H]+j];
 }
 
 PUBLIC void
@@ -432,7 +439,8 @@ load_my_c(const int nfiles,
   load_my_c_kernel<<<blocks,block_size>>>(i, /*turn,*/ length,
 					   d_new_e,  //in
 					   d_my_c,   //out
-					   d_tri_off_H); //in
+					   d_tri_off_H,  //in
+					   d_row_off_H); //in
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
 }

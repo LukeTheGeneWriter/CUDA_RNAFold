@@ -90,6 +90,11 @@ unsigned int* d_hccc_mbenc; //bit-packed VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC per
 int* d_energy_hp_row;
 int* d_energy_mb_row;
 int* d_energy_3p00_row;
+// Staggered_Row_Batching Phase 2c: device copy of row_off_H[] (own copy,
+// per this file's established convention of not sharing device state with
+// int_loop.cu/modular_decomposition.cu) -- replaces H*(length+1) wherever
+// the 3 row buffers above are indexed.
+size_t* d_row_off_H;
 //NB: energy_hp needs no hard-constraint bitmask at all -- E_Hairpin() has no
 //hc dependency, and fill_arrays_loop.c's read site already gates on
 //hc_decompose/no_close identically to how fill_arrays.c used to gate the
@@ -123,9 +128,13 @@ void load_param2(const vrna_param_t *P){
 }
 
 PUBLIC void
-init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size) {
+init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
+          const size_t* row_off_H) { //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
   if(!first3) return;
   fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
+
+  gpuErrchk( cudaMalloc((void **) &d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   // d_param2/d_pair2 are nfiles/length-independent -- guarded on their own
   // one-time check (d_param2 starts NULL, a zero-initialized global) rather
@@ -210,6 +219,7 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_energy_hp_row) );
   gpuErrchk( cudaFree(d_energy_mb_row) );
   gpuErrchk( cudaFree(d_energy_3p00_row) );
+  gpuErrchk( cudaFree(d_row_off_H) );
   first3 = 1;
 }
 
@@ -325,7 +335,8 @@ hp_mb_3p_kernel(const int i, const int turn, const int length,
                  const cuda_param2_t* __restrict__ P,
                        int* __restrict__ energy_hp_row,
                        int* __restrict__ energy_mb_row,
-                       int* __restrict__ energy_3p00_row) {
+                       int* __restrict__ energy_3p00_row,
+                 const size_t* __restrict__ row_off_H) {
   const size_t H = blockIdx.y;
   const int m = blockIdx.x*blockDim.x+threadIdx.x;
   const int j = m + i+turn+1;
@@ -352,7 +363,7 @@ hp_mb_3p_kernel(const int i, const int turn, const int length,
   //gate the write, so compute unconditionally here (see file header comment).
   {
     const int u = j-i-1;
-    energy_hp_row[H*(length+1)+j] =
+    energy_hp_row[row_off_H[H]+j] =
       E_Hairpin_device(u, type, S_H[i+1], S_H[j-1], &seq_H[i-1], P);
   }
 
@@ -365,7 +376,7 @@ hp_mb_3p_kernel(const int i, const int turn, const int length,
       if(tt == 0) tt = 7;
       decomp = E_MLstem_device(tt, S_H[j-1], S_H[i+1], P) + P->MLclosing;
     }
-    energy_mb_row[H*(length+1)+j] = decomp;
+    energy_mb_row[row_off_H[H]+j] = decomp;
   }
 
   //energy_3p_00: inlined extend_fm_3p() fragment, fill_arrays.c:551-565
@@ -377,7 +388,7 @@ hp_mb_3p_kernel(const int i, const int turn, const int length,
       const short s_i1 = (i==1) ? S_H[length] : S_H[i-1];
       e00 = E_MLstem_device(type, s_i1, S_H[j+1], P);
     }
-    energy_3p00_row[H*(length+1)+j] = e00;
+    energy_3p00_row[row_off_H[H]+j] = e00;
   }
 }
 
@@ -409,7 +420,8 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   hp_mb_3p_kernel<<<blocks,block_size>>>(i, turn, length,
                                           d_S2, d_sequence, d_pair2,
                                           d_hccc_mb, d_hccc_mbenc, d_param2,
-                                          d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row);
+                                          d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row,
+                                          d_row_off_H);
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
 

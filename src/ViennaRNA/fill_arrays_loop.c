@@ -32,7 +32,7 @@
     const double new_c_host_t0 = now_seconds();
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) {
-      new_C[H*(length+1)+j] = INF;
+      new_C[row_off_H[H]+j] = INF;
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
       type          = (unsigned char)Ptype(H,ij);
@@ -63,11 +63,11 @@
         if(!no_close){
           /* check for hairpin loop */
           /*energy_hp[ij] = energy = vrna_E_hp_loop(vc, i, j); */
-          new_c = MIN2(new_c, energy_hp_row[H*(length+1)+j]);
+          new_c = MIN2(new_c, energy_hp_row[row_off_H[H]+j]);
 
           /* check for multibranch loops */
           //energy  = vrna_E_mb_loop_fast(vc, i, j, DMLi1, DMLi2);
-	  const int e_mb = (DMLi1[H+(j-1)*nfiles] != INF)? DMLi1[H+(j-1)*nfiles] + energy_mb_row[H*(length+1)+j] : INF;
+	  const int e_mb = (DMLi1[H+(j-1)*nfiles] != INF)? DMLi1[H+(j-1)*nfiles] + energy_mb_row[row_off_H[H]+j] : INF;
           new_c   = MIN2(new_c, e_mb);
         }
 
@@ -76,7 +76,7 @@
         /* gcov says not used  remember stack energy for --noLP option * if(noLP) vrna_E_stack(vc, i, j) cc[j] = new_c */
 	assert(My_c(H,ij) == INF);
           My_c(H,ij)    = new_c;
-	  new_C[H*(length+1)+j]    = new_c;
+	  new_C[row_off_H[H]+j]    = new_c;
       } /* end >> if (pair) << */
 
       else {
@@ -122,7 +122,7 @@
       int  e00           = INF;
       int  en0           = INF;
 
-  e00 = (energy_3p00_row[H*(length+1)+j] != INF)? My_c(H,ij) + energy_3p00_row[H*(length+1)+j] : INF;
+  e00 = (energy_3p00_row[row_off_H[H]+j] != INF)? My_c(H,ij) + energy_3p00_row[row_off_H[H]+j] : INF;
   //energy_3p_en is just P->MLbase behind a hard-constraint check on
   //already-host-resident data -- not worth a GPU kernel, computed inline
   const int energy_3p_en_j = (VC[H]->hc->up_ml[j] > 0) ? P->MLbase : INF;
