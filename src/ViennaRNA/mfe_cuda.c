@@ -271,6 +271,35 @@ compute_batch_offsets(const int nfiles, const vrna_fold_compound_t **VC,
 #endif
 }
 
+// Staggered_Row_Batching Phase 4: see stub2.h for the full explanation of
+// why this is declared there (near compute_batch_offsets()) and defined
+// here rather than inline next to flatten_index_to_H() -- fill_arrays_loop.c
+// calls this from a plain .c translation unit that never sees anything
+// inside stub2.h's __CUDACC__ guard, so this function (and its self-check)
+// can't reference flatten_index_to_H() the way an in-.cu-file caller could.
+// Debug-build self-check: monotonic non-decreasing (guaranteed by width_H
+// being size_t, i.e. non-negative, but cheap to assert explicitly) and the
+// final total matches an independently-recomputed sum -- catches a
+// duplicated/dropped term, the main way a loop like this actually breaks.
+// flatten_index_to_H()'s own binary-search correctness was already verified
+// separately (a standalone throwaway test, 8 cases, every flat index
+// cross-checked against a brute-force reference) when it was first written.
+PUBLIC void
+compute_flatten_offsets(const int nfiles, const size_t* width_H, size_t* flat_off_H) {
+  flat_off_H[0] = 0;
+  for(int H=0; H<nfiles; H++) flat_off_H[H+1] = flat_off_H[H] + width_H[H];
+#ifndef NDEBUG
+  {
+    size_t independent_total = 0;
+    for(int H=0; H<nfiles; H++) {
+      assert(flat_off_H[H+1] >= flat_off_H[H]);
+      independent_total += width_H[H];
+    }
+    assert(flat_off_H[nfiles] == independent_total);
+  }
+#endif
+}
+
 //except par_fill_arrays(), do each file sequentially as before
 PUBLIC void
 par_mfe(const int nfiles,

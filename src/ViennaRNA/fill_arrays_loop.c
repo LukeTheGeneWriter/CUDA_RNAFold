@@ -154,7 +154,24 @@
     //my_fML GPU = MIN2(energy_min[j], DMLi[j])
     {
       const double t0 = now_seconds();
-      load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H);
+      // Staggered_Row_Batching Phase 4: per-H "active width" tables for
+      // load_fML/fmli/modular_decomposition/load_min_fML's flat grids,
+      // rebuilt every row since they depend on i. Only two distinct shapes
+      // needed: size_H (load_fML's own) and side_H (shared by the other
+      // three -- their pre-Phase-4 bound-check formulas are algebraically
+      // identical, verified by hand against each kernel).
+      size_t size_H[nfiles], side_H[nfiles];
+      for(int H=0;H<nfiles;H++) {
+        const int size_raw = (int)VC[H]->length - i - turn;
+        const int side_raw = (int)VC[H]->length - i - 2*turn - 2;
+        size_H[H] = (size_raw>0) ? (size_t)size_raw : 0;
+        side_H[H] = (side_raw>0) ? (size_t)side_raw : 0;
+      }
+      size_t size_off_H[nfiles+1], side_off_H[nfiles+1];
+      compute_flatten_offsets(nfiles, size_H, size_off_H);
+      compute_flatten_offsets(nfiles, side_H, side_off_H);
+
+      load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H);
       phase_modular_decomp_s += now_seconds() - t0;
     }
 
