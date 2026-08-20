@@ -286,7 +286,7 @@ par_mfe(const int nfiles,
   size_t row_off_H[nfiles+1], tri_off_H[nfiles+1]; //Phase 2a, see compute_batch_offsets() above
   compute_batch_offsets(nfiles, VC, row_off_H, tri_off_H);
   init_gpu(nfiles,length);
-  init_gpu2(nfiles,VC, turn, length, 512);
+  init_gpu2(nfiles,VC, turn, length, 512, tri_off_H);
   init_gpu3(nfiles,VC, turn, length, 512);
 
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {

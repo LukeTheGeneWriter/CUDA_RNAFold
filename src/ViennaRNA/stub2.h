@@ -96,7 +96,8 @@ extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size);
+init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
+          const size_t* tri_off_H); //in, nfiles+1 entries -- see compute_batch_offsets()
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void

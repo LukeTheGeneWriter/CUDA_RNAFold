@@ -112,6 +112,12 @@ unsigned int* d_S;    //S[length+2] packed 10 bases (3 bits each) per word
 int*          d_my_c;
 int*          d_energy_min2; //share with modular_decomposition.cu ?
 int*          d_new_e;
+// Staggered_Row_Batching Phase 2b: device copy of compute_batch_offsets()'s
+// tri_off_H[] (mfe_cuda.c/stub2.h) -- d_my_c's per-H triangle-block start,
+// nfiles+1 entries, uploaded once per chunk in init_gpu2(). Replaces
+// Hoff(H,length) wherever d_my_c is indexed on-device: Hoff() assumes every
+// H shares one length, tri_off_H[] doesn't.
+size_t*       d_tri_off_H;
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
@@ -235,12 +241,16 @@ void put10(const unsigned int word, const int H, const int nfiles, const int i, 
 }
 
 PUBLIC void
-init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size) {
+init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
+          const size_t* tri_off_H) { //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
   if(!first2) return;
   fprintf(stderr,"%-24s init_gpu2(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
   assert(turn_ == turn);
   assert(MAX_NINIO == 300); //ViennaRNA/energy_par.c
+
+  gpuErrchk( cudaMalloc((void **) &d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  gpuErrchk( cudaMemcpy(d_tri_off_H, tri_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
   //printf("%s %s d_param is %lu bytes, NBPAIRS %d MAXLOOP %d BLOCK_SIZE %d\n",
   //	 __FILE__,Version,sizeof(cuda_param_s),NBPAIRS,MAXLOOP,block_size);
 
@@ -316,7 +326,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMemcpy(d_S,buff,size,cudaMemcpyHostToDevice) );
   free(buff);
 
-  { const long long my_c_elems = Hoff(nfiles,length); //nfiles*(length+1)*(length+2)/2
+  { const size_t my_c_elems = tri_off_H[nfiles]; //sum of each H's own triangle size
     size = my_c_elems*sizeof(int);
     gpuErrchk( cudaMalloc((void **) &d_my_c, size) );
     init_my_c(my_c_elems);
@@ -348,6 +358,7 @@ teardown_gpu2(void) {
   gpuErrchk( cudaFree(d_my_c) );
   gpuErrchk( cudaFree(d_new_e) );
   gpuErrchk( cudaFree(d_energy_min2) );
+  gpuErrchk( cudaFree(d_tri_off_H) );
   first2 = 1;
 }
 
@@ -372,7 +383,8 @@ int_loop_bytes_per_file(const int length) {
 __global__ void
 load_my_c_kernel(const int i, /*const int turn,*/ const int length,
 		 const int* __restrict__ new_e,
-	               int* __restrict__ my_c) { //out
+	               int* __restrict__ my_c,
+		 const size_t* __restrict__ tri_off_H) { //in
   const int H = blockIdx.y;
   const int m = blockIdx.x*blockDim.x+threadIdx.x;
   const int j = m + i+turn+1;
@@ -380,8 +392,8 @@ load_my_c_kernel(const int i, /*const int turn,*/ const int length,
 
   const long long ij = Indx(i,j);
   assert(ij>=0 && ij<Hoff(1,length));
-  assert(my_c[Hoff(H,length)+ij] == INF);
-         my_c[Hoff(H,length)+ij] = new_e[H*(length+1)+j];
+  assert(my_c[tri_off_H[H]+ij] == INF);
+         my_c[tri_off_H[H]+ij] = new_e[H*(length+1)+j];
 }
 
 PUBLIC void
@@ -419,7 +431,8 @@ load_my_c(const int nfiles,
 
   load_my_c_kernel<<<blocks,block_size>>>(i, /*turn,*/ length,
 					   d_new_e,  //in
-					   d_my_c); //out
+					   d_my_c,   //out
+					   d_tri_off_H); //in
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
 }
@@ -752,6 +765,7 @@ int_loop_cuda(const int nfiles,
 						  d_S,
 						  d_hccc,
 						  d_my_c,
+						  d_tri_off_H,
 						  d_energy_min2); break; //Out
     case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -760,6 +774,7 @@ int_loop_cuda(const int nfiles,
 						  d_S,
 						  d_hccc,
 						  d_my_c,
+						  d_tri_off_H,
 						  d_energy_min2); break; //Out
     case  64: int_loop_kernel_64<<<blocks, 64>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -768,6 +783,7 @@ int_loop_cuda(const int nfiles,
 						  d_S,
 						  d_hccc,
 						  d_my_c,
+						  d_tri_off_H,
 						  d_energy_min2); break; //Out
     default:  int_loop_kernel_32<<<blocks, 32>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -776,6 +792,7 @@ int_loop_cuda(const int nfiles,
 						  d_S,
 						  d_hccc,
 						  d_my_c,
+						  d_tri_off_H,
 						  d_energy_min2); break; //Out
   }
 
@@ -806,8 +823,14 @@ int_loop_i(const int nfiles,
 	   /*const int* indx, const int ijsize,
 	   const char* hard_constraints, const int* my_c,*/
 	   int* energy_min ) { //out
-  if(first2) init_gpu2(nfiles,VC, turn_, length, BLOCK_SIZE);
-
+  // Staggered_Row_Batching Phase 2b: this used to have a defensive
+  // `if(first2) init_gpu2(...)` fallback here, but int_loop_i() is only ever
+  // reached via fill_arrays_loop.c -> par_fill_arrays() -> par_mfe(), which
+  // unconditionally calls init_gpu2() (with the real tri_off_H table) before
+  // par_fill_arrays() ever runs -- first2 is always already 0 by the time
+  // this line executes, so the fallback was dead code. Removed rather than
+  // given a fabricated tri_off_H it has no access to here.
+  assert(!first2);
 
   int_loop_cuda(nfiles,i,/*turn,*/length,VC[0]->params, energy_min);
   return;
