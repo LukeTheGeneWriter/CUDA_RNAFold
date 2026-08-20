@@ -220,6 +220,20 @@ PUBLIC void
 #endif
 sanity(const vrna_fold_compound_t* vc0, const vrna_fold_compound_t* vc);
 
+// Staggered_Row_Batching Phase 2a: builds row_off_H[]/tri_off_H[] (each
+// nfiles+1 entries, exclusive prefix sums over VC[]'s real per-H lengths) --
+// row_off_H[H] is where H's row-shaped data (length_H[H]+1 ints) starts
+// within a flattened H-block buffer; tri_off_H[H] is where H's
+// triangle-shaped data (Hoff(1,length_H[H]) ints) starts. See mfe_cuda.c for
+// the exact formulas and the degenerate-under-uniform-length self-check.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+compute_batch_offsets(const int nfiles, const vrna_fold_compound_t **VC,
+                       size_t* row_off_H, size_t* tri_off_H); //out, both nfiles+1
+
 PRIVATE void
 par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy);
 

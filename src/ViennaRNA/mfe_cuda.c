@@ -244,6 +244,33 @@ backtrack_worker(void *arg) {
   return NULL;
 }
 
+// Staggered_Row_Batching Phase 2a: see stub2.h for what row_off_H/tri_off_H
+// mean. While every chunk RNAfold.c hands us is still built uniform-length
+// (its flush trigger hasn't been relaxed yet), these tables are numerically
+// identical to the old H*(length+1)/Hoff(H,length) formulas -- asserted
+// below as a regression gate on the table-building logic itself, ahead of
+// any real consumer switching over to it in a later phase.
+PUBLIC void
+compute_batch_offsets(const int nfiles, const vrna_fold_compound_t **VC,
+                       size_t* row_off_H, size_t* tri_off_H) {
+  row_off_H[0] = 0;
+  tri_off_H[0] = 0;
+  for(int H=0; H<nfiles; H++) {
+    const size_t len = (size_t)VC[H]->length;
+    row_off_H[H+1] = row_off_H[H] + (len + 1);
+    tri_off_H[H+1] = tri_off_H[H] + (len + 1)*(len + 2)/2;
+  }
+#ifndef NDEBUG
+  {
+    const size_t length = (size_t)VC[0]->length;
+    for(int H=0; H<=nfiles; H++) {
+      assert(row_off_H[H] == (size_t)H*(length+1));
+      assert(tri_off_H[H] == (size_t)H*(length+1)*(length+2)/2);
+    }
+  }
+#endif
+}
+
 //except par_fill_arrays(), do each file sequentially as before
 PUBLIC void
 par_mfe(const int nfiles,
@@ -256,6 +283,8 @@ par_mfe(const int nfiles,
   const int length    = VC[0]->length;
   const vrna_md_t* md = &(VC[0]->params->model_details);
   const int turn      = md->min_loop_size;
+  size_t row_off_H[nfiles+1], tri_off_H[nfiles+1]; //Phase 2a, see compute_batch_offsets() above
+  compute_batch_offsets(nfiles, VC, row_off_H, tri_off_H);
   init_gpu(nfiles,length);
   init_gpu2(nfiles,VC, turn, length, 512);
   init_gpu3(nfiles,VC, turn, length, 512);
