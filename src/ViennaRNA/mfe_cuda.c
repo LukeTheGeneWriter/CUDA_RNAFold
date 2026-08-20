@@ -285,7 +285,7 @@ par_mfe(const int nfiles,
   const int turn      = md->min_loop_size;
   size_t row_off_H[nfiles+1], tri_off_H[nfiles+1]; //Phase 2a, see compute_batch_offsets() above
   compute_batch_offsets(nfiles, VC, row_off_H, tri_off_H);
-  init_gpu(nfiles,length);
+  init_gpu(nfiles,length,tri_off_H,row_off_H);
   init_gpu2(nfiles,VC, turn, length, 512, tri_off_H, row_off_H);
   init_gpu3(nfiles,VC, turn, length, 512, row_off_H);
 

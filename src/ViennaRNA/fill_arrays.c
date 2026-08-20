@@ -128,9 +128,9 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   //cc    = (int *) vrna_alloc(sizeof(int)*(length + 2)); /* auxilary arrays for canonical structures     */
   //cc1   = (int *) vrna_alloc(sizeof(int)*(length + 2)); /* auxilary arrays for canonical structures     */
   //Fmi   = (int *) vrna_alloc(sizeof(int)*(length + 1)); /* holds row i of fML (avoids jumps in memory)  */
-  DMLi  = cuda_host_alloc_ints((size_t)nfiles*(length + 1)); /* DMLi[j] holds  MIN(fML[i,k]+fML[k+1,j])      */ // 32-bit signed integer overflow bug fix
-  DMLi1 = cuda_host_alloc_ints((size_t)nfiles*(length + 1)); /*                MIN(fML[i+1,k]+fML[k+1,j])    */ // 32-bit signed integer overflow bug fix
-  DMLi2 = cuda_host_alloc_ints((size_t)nfiles*(length + 1)); /*                MIN(fML[i+2,k]+fML[k+1,j])    */ // 32-bit signed integer overflow bug fix
+  DMLi  = cuda_host_alloc_ints(row_off_H[nfiles]); /* DMLi[j] holds  MIN(fML[i,k]+fML[k+1,j])      */
+  DMLi1 = cuda_host_alloc_ints(row_off_H[nfiles]); /*                MIN(fML[i+1,k]+fML[k+1,j])    */
+  DMLi2 = cuda_host_alloc_ints(row_off_H[nfiles]); /*                MIN(fML[i+2,k]+fML[k+1,j])    */
 
   if((turn < 0) || (turn > length))
     turn = length; /* does this make any sense? */
@@ -146,8 +146,11 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   /* prefill helper arrays */
   for(j = 0; j <= length; j++){
     //Fmi[j] =
-    // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
-    DMLi[H+j*nfiles] = DMLi1[H+j*nfiles] = DMLi2[H+j*nfiles] = INF;
+    // Staggered_Row_Batching Phase 2d: table-driven per-H row offset,
+    // replacing the H-tightest H+j*nfiles convention (see the coalescing
+    // finding in harmonic-swimming-hare.md for why that convention doesn't
+    // survive staggering/mixed lengths).
+    DMLi[row_off_H[H]+j] = DMLi1[row_off_H[H]+j] = DMLi2[row_off_H[H]+j] = INF;
   }
  }//endfor H
 
@@ -162,7 +165,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
         My_fM1(H,Indx(H,i,j)) = INF;
     }
  }//endfor H
-  init_fML(nfiles,length);//on GPU
+  init_fML(nfiles,length,tri_off_H[nfiles],row_off_H[nfiles]);//on GPU
 
   /* start recursion */
 
@@ -205,7 +208,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   // 32-bit signed integer overflow bug fix: (size_t) cast must apply to
   // nfiles, the first operand -- casting the product after the fact would
   // already have overflowed in 32-bit int arithmetic by then.
-  energy_min       = cuda_host_alloc_ints((size_t)nfiles*(length+1)); // scheme A, unchanged (Phase 2d)
+  energy_min       = cuda_host_alloc_ints(row_off_H[nfiles]);
   energy_hp_row    = cuda_host_alloc_ints(row_off_H[nfiles]);
   energy_mb_row    = cuda_host_alloc_ints(row_off_H[nfiles]);
   energy_3p00_row  = cuda_host_alloc_ints(row_off_H[nfiles]);

@@ -35,7 +35,8 @@ extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-init_fML(const int nfiles,const int length);
+init_fML(const int nfiles,const int length,
+         const size_t tri_off_H_total, const size_t row_off_H_total); //tri_off_H[nfiles]/row_off_H[nfiles], compute_batch_offsets()
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -63,7 +64,8 @@ modular_decomposition_i(const int nfiles,
 		      //const int* indx,
 		      //const int ijsize,  //for sanity checks
 		      //const int* my_fML,
-			int* DMLi);
+			int* DMLi,
+			const size_t* row_off_H); //in, nfiles+1 entries -- see compute_batch_offsets()
 
 // CUDA-graph-captured fusion of load_fML() + modular_decomposition_i() +
 // load_min_fML() -- see definition in modular_decomposition.cu for why these
@@ -76,7 +78,8 @@ PUBLIC void
 load_fML_modular_decomposition_load_min_fML(const int nfiles,
 					     const int i, const int turn, const int length,
 					     const int* energy_min, //in
-					     int* DMLi);            //out
+					     int* DMLi,             //out
+					     const size_t* row_off_H); //in, nfiles+1 entries
 
 PUBLIC int
 extend_fm_3p( const int i,
@@ -89,7 +92,8 @@ extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-init_gpu(const int nfiles, const int length);
+init_gpu(const int nfiles, const int length,
+         const size_t* tri_off_H, const size_t* row_off_H); //in, both nfiles+1 entries -- see compute_batch_offsets()
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void

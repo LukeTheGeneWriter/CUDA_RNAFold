@@ -33,6 +33,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i, /*const int turn
 		const unsigned int* __restrict__ hccc,//bit array hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
 		const int* __restrict__ my_c,
 		const size_t* __restrict__ tri_off_H, //in, d_my_c's per-H block start
+		const size_t* __restrict__ row_off_H, //in, energy_min's per-H row start
 		      int* __restrict__ energy_min) { //out
 
   int energy = INF;
@@ -136,10 +137,10 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i, /*const int turn
     }
 #endif
   }//endif VRNA_CONSTRAINT_CONTEXT_INT_LOOP
-  // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
-  // -- must match fill_arrays_loop.c's energy_min[H+j*nfiles] convention,
-  // since int_loop_cuda() below copies this whole buffer to the host flat.
-  if(threadIdx.x==0) energy_min[H+j*nfiles] = energy;
+  // Staggered_Row_Batching Phase 2d: table-driven per-H row offset -- must
+  // match fill_arrays_loop.c's energy_min[row_off_H[H]+j] convention, since
+  // int_loop_cuda() below copies this whole buffer to the host flat.
+  if(threadIdx.x==0) energy_min[row_off_H[H]+j] = energy;
 }
 
 #undef INT_LOOP_KERNEL_NAME

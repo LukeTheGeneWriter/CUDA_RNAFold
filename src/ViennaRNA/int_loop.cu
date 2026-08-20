@@ -340,7 +340,11 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   size = (size_t)nfiles*(length+1)*sizeof(int); // 32-bit signed integer overflow bug fix
   gpuErrchk( cudaMalloc((void **) &d_new_e, size) );
 
-  gpuErrchk( cudaMalloc((void **) &d_energy_min2, size) );
+  // Staggered_Row_Batching Phase 2d: table-driven total (row_off_H[nfiles]),
+  // matching int_loop_kernel_body.inc's row_off_H[H]+j write below -- equals
+  // `size` above exactly while chunks stay uniform-length, diverges once
+  // they don't.
+  gpuErrchk( cudaMalloc((void **) &d_energy_min2, row_off_H[nfiles]*sizeof(int)) );
   /*no longer in use
   gpuErrchk( cudaMalloc((void **) &d_energy_min20,size) );
 
@@ -774,6 +778,7 @@ int_loop_cuda(const int nfiles,
 						  d_hccc,
 						  d_my_c,
 						  d_tri_off_H,
+						  d_row_off_H,
 						  d_energy_min2); break; //Out
     case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -783,6 +788,7 @@ int_loop_cuda(const int nfiles,
 						  d_hccc,
 						  d_my_c,
 						  d_tri_off_H,
+						  d_row_off_H,
 						  d_energy_min2); break; //Out
     case  64: int_loop_kernel_64<<<blocks, 64>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -792,6 +798,7 @@ int_loop_cuda(const int nfiles,
 						  d_hccc,
 						  d_my_c,
 						  d_tri_off_H,
+						  d_row_off_H,
 						  d_energy_min2); break; //Out
     default:  int_loop_kernel_32<<<blocks, 32>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -801,6 +808,7 @@ int_loop_cuda(const int nfiles,
 						  d_hccc,
 						  d_my_c,
 						  d_tri_off_H,
+						  d_row_off_H,
 						  d_energy_min2); break; //Out
   }
 

@@ -286,11 +286,13 @@ int first = 1;
 __global__ void fmli_kernel(
   const int nfiles, const int i, const int turn, const int length,
         int* __restrict__ fml_i,
-  const int* __restrict__ fml_j);
+  const int* __restrict__ fml_j,
+  const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H);
 __global__ void modular_decomposition_kernel(
   const int nfiles, const int i, const int turn, const int length,
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,
-  int* __restrict__ dml);
+  int* __restrict__ dml,
+  const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H);
 
 // Block sizes for the above, chosen once in init_gpu() below instead of the
 // BLOCK_SIZE=64 constant these used to hardcode (tuned against one GPU, the
@@ -304,6 +306,13 @@ int* d_energy_min;
 int* d_fml_i;  //my_fML
 int* d_fml_j;  //my_fML
 int* d_dml;  //DMLi
+// Staggered_Row_Batching Phase 2d: own device copies (per this codebase's
+// established convention of each .cu file owning independent device state)
+// of tri_off_H[]/row_off_H[] -- d_fml_j's per-H triangle-block start and
+// d_energy_min/d_fml_i/d_dml's per-H row-block start, replacing the
+// H-tightest H+X*nfiles convention throughout this file.
+size_t* d_tri_off_H;
+size_t* d_row_off_H;
 //int* h_dml;  //DMLi
 //unsigned int mem_size_buf; //bytes in h_dml and d_dml
 //int* fml_j;  //my_fML
@@ -349,7 +358,8 @@ graph_now_seconds(void) {
 }
 
 PUBLIC void
-init_gpu(const int nfiles, const int length) {
+init_gpu(const int nfiles, const int length,
+         const size_t* tri_off_H, const size_t* row_off_H) {
   if(!first) return;
   fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
   cudaError_t error;
@@ -358,8 +368,17 @@ init_gpu(const int nfiles, const int length) {
   // GPU batches without this recreating (and leaking the handle to) a fresh
   // stream every batch. Created exactly once for the whole process.
   if(graph_stream == 0) gpuErrchk( cudaStreamCreate(&graph_stream) );
-  const size_t mem_size_len = (size_t)nfiles*(length+1) * sizeof(int); //starts at 1 not 0 // 32-bit signed integer overflow bug fix
-  const size_t ijsize_len   = (size_t)nfiles*((length+1)*(length+2)/2) * sizeof(int); // 32-bit signed integer overflow bug fix
+
+  gpuErrchk( cudaMalloc((void **) &d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  gpuErrchk( cudaMemcpy(d_tri_off_H, tri_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+  gpuErrchk( cudaMalloc((void **) &d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+  // Staggered_Row_Batching Phase 2d: allocation sizes now the real per-H sum
+  // (row_off_H[nfiles]/tri_off_H[nfiles]) instead of a uniform nfiles*(...)
+  // multiply -- see compute_batch_offsets(), mfe_cuda.c.
+  const size_t mem_size_len = row_off_H[nfiles] * sizeof(int);
+  const size_t ijsize_len   = tri_off_H[nfiles] * sizeof(int);
 
   error = cudaMalloc((void **) &d_energy_min, mem_size_len);
   if (error != cudaSuccess)  {
@@ -414,6 +433,8 @@ teardown_gpu(void) {
   gpuErrchk( cudaFree(d_fml_i) );
   gpuErrchk( cudaFree(d_fml_j) );
   gpuErrchk( cudaFree(d_dml) );
+  gpuErrchk( cudaFree(d_tri_off_H) );
+  gpuErrchk( cudaFree(d_row_off_H) );
   if(graph_exec_valid) {
     gpuErrchk( cudaGraphExecDestroy(graph_exec) );
     graph_exec_valid = 0;
@@ -496,17 +517,25 @@ init_fML_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
 }
 
 PUBLIC void
-init_fML(const int nfiles, const int length) {
+init_fML(const int nfiles, const int length,
+         const size_t tri_off_H_total, const size_t row_off_H_total) {
+  // Staggered_Row_Batching Phase 2d: init_fML() is only ever reached via
+  // fill_arrays.c -> par_fill_arrays(), which always runs after par_mfe()
+  // has already unconditionally called init_gpu() -- `first` is always
+  // already 0 here, same reasoning as int_loop_i()'s equivalent dead-code
+  // removal in Phase 2b. The old `if(first) init_gpu(...)` fallback had no
+  // way to supply tri_off_H/row_off_H here anyway (only the two totals are
+  // passed in, not the full tables init_gpu() needs).
+  assert(!first);
   const int first_ = first;
-  if(first) init_gpu(nfiles,length);
-  const size_t ijsize = (size_t)nfiles*(length+1)*(length+2)/2; // 32-bit signed integer overflow bug fix
+  const size_t ijsize = tri_off_H_total;
   /* Setup execution parameters for helper kernel */
   const size_t nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
   init_fML_kernel<<<nblocks,BLOCK_SIZE>>>(ijsize, d_fml_j);
   gpuErrchk2( cudaPeekAtLastError(),  first_ );
 
   //To aid debug etc initialise d_dml (DMLi)
-  const size_t hsize = (size_t)nfiles*(length+1); // 32-bit signed integer overflow bug fix
+  const size_t hsize = row_off_H_total;
   const size_t nblock2 = (hsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
   init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, d_dml);
   gpuErrchk( cudaPeekAtLastError() );
@@ -521,10 +550,12 @@ init_fML(const int nfiles, const int length) {
 __global__ void
 load_fML_kernel(const int nfiles, const int i, const int turn, const int length,
 		const int* __restrict__ energy_min,
-	              int* __restrict__ fml_j) { //out d_fml_j my_fML
-  // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
-  // -- flattened grid: consecutive threads are consecutive H at fixed j, so
-  // consecutive threads hit consecutive fml_j/energy_min addresses.
+	              int* __restrict__ fml_j,
+		const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H) { //out d_fml_j my_fML
+  // Flattened grid: consecutive threads are consecutive H at fixed j (this
+  // grid-decomposition trick is independent of where the data itself lives
+  // -- see row_off_H[]/tri_off_H[] below for the actual per-H storage
+  // location, Staggered_Row_Batching Phase 2d).
   const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   const long long mj = m / nfiles;
   const int       H  = m - mj * nfiles;
@@ -534,8 +565,8 @@ load_fML_kernel(const int nfiles, const int i, const int turn, const int length,
   assert(H >= 0 && H < nfiles);
   const long long ij = Indx(i,j);
   assert(ij>=0 && ij<Hoff(1,length));
-  assert(fml_j[H+ij*nfiles] == INF);
-         fml_j[H+ij*nfiles] = energy_min[H+j*nfiles];
+  assert(fml_j[tri_off_H[H]+ij] == INF);
+         fml_j[tri_off_H[H]+ij] = energy_min[row_off_H[H]+j];
 }
 
 PUBLIC void
@@ -564,7 +595,8 @@ load_fML(const int nfiles,
   const int nblocks = (size*nfiles + BLOCK_SIZE - 1)/BLOCK_SIZE;
   load_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, i, turn, length,
 					  d_energy_min,  //in
-					  d_fml_j); //out
+					  d_fml_j,  //out
+					  d_tri_off_H, d_row_off_H);
   gpuErrchk( cudaPeekAtLastError() );
 }
 
@@ -572,7 +604,8 @@ __global__ void
 load_min_fML_kernel(const int nfiles, const int i, const int turn, const int length,
 		    const int* __restrict__ energy_min,
 		    const int* __restrict__ dml,     //in  d_dml   DMLi
-		          int* __restrict__ fml_j) { //out d_fml_j my_fML
+		          int* __restrict__ fml_j,     //out d_fml_j my_fML
+		    const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H) {
   const int start = i+turn+1;
   const int stop  = length - 2 - turn;
   const int side  = stop - start + 1;
@@ -589,12 +622,7 @@ load_min_fML_kernel(const int nfiles, const int i, const int turn, const int len
   assert(j >=0 && j<=length);
   assert(ij>=0 && ij<Hoff(1,length));
 
-  fml_j[H+ij*nfiles] = MIN2(energy_min[H+j*nfiles],dml[H+j*nfiles]);
-
-//  printf("load_min_fML_kernel(i=%d,%d,%d,*,*,*) block %d,%d energy_min[%d]%d dml[%d]%d fml_j[%d]%d\n",
-//	 i,turn,length,
-//	 blockIdx.x,threadIdx.x,
-//	 j,energy_min[j], j,dml[j], ij,fml_j[ij]);
+  fml_j[tri_off_H[H]+ij] = MIN2(energy_min[row_off_H[H]+j],dml[row_off_H[H]+j]);
 }
 
 PUBLIC void
@@ -618,7 +646,8 @@ load_min_fML(const int nfiles,
   load_min_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, i, turn, length,
 					  d_energy_min,  //in
 					  d_dml,    //in
-					  d_fml_j); //out
+					  d_fml_j,  //out
+					  d_tri_off_H, d_row_off_H);
   gpuErrchk( cudaPeekAtLastError() );
 //printf("\n");
 }
@@ -630,7 +659,8 @@ __global__ void
 fmli_kernel(
   const int nfiles, const int i, const int turn, const int length,
         int* __restrict__ fml_i,   //out
-  const int* __restrict__ fml_j) { //In  d_fml_j
+  const int* __restrict__ fml_j,   //In  d_fml_j
+  const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H) {
 
   const int start = i+turn+1;
   const int stop  = length - 2 - turn;
@@ -644,29 +674,32 @@ fmli_kernel(
   const int k  = start + mj;
   const long long ik = Indx(i,k);
   assert(H >= 0 && H < nfiles);
-  // H tightest index: fml_i[m] == fml_i[H+mj*nfiles] by construction of m
-  fml_i[m] = fml_j[H+ik*nfiles]; //ith column
-
-  //printf("fmli_kernel(%d,%d,%d,fml_i,my_fML) fml_i[%d]%d <= my_fML[%d]\n",
-  //	   i,turn,length,
-  //	   m,fml_i[m],ik);
+  // Staggered_Row_Batching Phase 2d: fml_i is now table-driven (row_off_H),
+  // so it can no longer be written via the flat H-tightest index m -- mj is
+  // fml_i's within-row position (0-based, same value the old H+mj*nfiles
+  // convention used), so row_off_H[H]+mj is the equivalent table-driven cell.
+  fml_i[row_off_H[H]+mj] = fml_j[tri_off_H[H]+ik]; //ith column
 }
 
 //Use __restrict__ to give compiler best chance
 // Rewritten 5 Aug 2026 (per Dr. Langdon's Aug 2026 main-branch work, 1893825)
-// to exploit the H-tightest layout: one thread per (H,j) output cell doing a
+// to exploit H-tightest parallelism: one thread per (H,j) output cell doing a
 // serial scan over y, dropping the old block-per-j/reduction-per-block
 // scheme entirely. That scheme made sense when parallelism came only from
 // splitting one sequence's column sum across a block; with nfiles sequences
-// batched and H the fastest-varying index, there's now enough independent
-// thread-level parallelism across H alone (and every read is contiguous
-// across a warp -- see fml_i[H+y*nfiles]/fml_j[H+yij*nfiles] below) that the
-// reduction/shared-memory machinery is no longer needed.
+// batched, there's now enough independent thread-level parallelism across H
+// alone that the reduction/shared-memory machinery is no longer needed. The
+// *thread-grid* decomposition below (m/nfiles, H-fastest-varying flat index)
+// is still H-tightest for this reason -- only the *data storage* underneath
+// (fml_i[row_off_H[H]+y]/fml_j[tri_off_H[H]+yij] below, Staggered_Row_Batching
+// Phase 2d) moved off H-tightest, since that's what staggering/mixed lengths
+// actually breaks (see the coalescing finding in harmonic-swimming-hare.md).
 __global__ void
 modular_decomposition_kernel(
   const int nfiles, const int i, const int turn, const int length,
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,  //In  d_dml_i, d_fml_j
-  int* __restrict__ dml) {                          //Out d_dml (h_dml)
+  int* __restrict__ dml,                            //Out d_dml (h_dml)
+  const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H) {
 
   const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   const long long mj = m / nfiles;
@@ -686,16 +719,17 @@ modular_decomposition_kernel(
     assert(y<=x);
     const long long yij = y + ij0;
     assert(yij < Hoff(nfiles,length));
-    value = MIN2(fml_i[H+y*nfiles] + fml_j[H+yij*nfiles], value);
+    value = MIN2(fml_i[row_off_H[H]+y] + fml_j[tri_off_H[H]+yij], value);
   }
-  dml[H+j*nfiles] = value;
+  dml[row_off_H[H]+j] = value;
 }
 
 void modular_decomposition_cuda(const int nfiles,
 				const int i, const int turn, const int length,
 			      //const int* indx,
 			      //const int* my_fML,
-				      int* DMLi) {
+				      int* DMLi,
+				const size_t* row_off_H) {
   //printf("\nmodular_decomposition_cuda(%d,%d,%d,indx,my_fML)\n",
   //	 i,turn,length);
 
@@ -706,7 +740,7 @@ void modular_decomposition_cuda(const int nfiles,
   if(side <= 0 ) {
     for(int H=0; H<nfiles;H++) {
     for (int j = i+turn+1; j <= length; j++) {
-      DMLi[H+j*nfiles] = INF; // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
+      DMLi[row_off_H[H]+j] = INF; // Staggered_Row_Batching Phase 2d: table-driven per-H row offset
     }}
     return;
   }
@@ -777,7 +811,8 @@ void modular_decomposition_cuda(const int nfiles,
     const int nblocks = (side*nfiles + block_size - 1)/block_size;
     fmli_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, i, turn, length,
 					d_fml_i,  //Out
-					d_fml_j); //In
+					d_fml_j,  //In
+					d_tri_off_H, d_row_off_H);
     gpuErrchk( cudaPeekAtLastError() );
   }
 
@@ -807,7 +842,8 @@ void modular_decomposition_cuda(const int nfiles,
 
   modular_decomposition_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, i, turn, length,
 					   d_fml_i, d_fml_j,
-					   d_dml); //Out
+					   d_dml,   //Out
+					   d_tri_off_H, d_row_off_H);
 
   gpuErrchk( cudaPeekAtLastError() );
 
@@ -873,11 +909,12 @@ modular_decomposition_i(const int nfiles,
 		      //const int* indx,
 		      //const int ijsize,
 		      //const int* my_fML, //In
-			int* DMLi) {       //Out
+			int* DMLi,         //Out
+			const size_t* row_off_H) {
   //const int max_ij_len = length - 2*(turn+1) - 1;
   //const int ijsize_min = max_ij_len*(max_ij_len+1)/2;
   //if(first) init_gpu(length);
-  modular_decomposition_cuda(nfiles,i,turn,length, DMLi);
+  modular_decomposition_cuda(nfiles,i,turn,length, DMLi, row_off_H);
   return;
 
   /* remove debug** {
@@ -935,7 +972,8 @@ extern "C" /*PUBLIC*/ void
 load_fML_modular_decomposition_load_min_fML(const int nfiles,
 					     const int i, const int turn, const int length,
 					     const int* energy_min, //in
-					     int* DMLi) {           //out
+					     int* DMLi,             //out
+					     const size_t* row_off_H) {
   // RNA_CUDA_GRAPH=0 disables capture/replay and just issues the same
   // (now-async, graph_stream-targeted) calls directly, with one sync at the
   // end -- lets a whole fold be re-run graph-off vs graph-on and diffed
@@ -953,7 +991,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 
   if(!use_graph) {
     load_fML(nfiles,i,turn,length,energy_min);
-    modular_decomposition_i(nfiles,i,turn,length,DMLi);
+    modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H);
     load_min_fML(nfiles,i,turn,length);
     gpuErrchk( cudaStreamSynchronize(graph_stream) );
     return;
@@ -963,7 +1001,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   gpuErrchk( cudaStreamBeginCapture(graph_stream, cudaStreamCaptureModeThreadLocal) );
 
   load_fML(nfiles,i,turn,length,energy_min);
-  modular_decomposition_i(nfiles,i,turn,length,DMLi);
+  modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H);
   load_min_fML(nfiles,i,turn,length);
 
   gpuErrchk( cudaStreamEndCapture(graph_stream, &graph) );

@@ -5,9 +5,10 @@
 
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
 
-    // H tightest index (per Dr. Langdon's Aug 2026 main-branch work, 54b7c31)
+    // Staggered_Row_Batching Phase 2d: table-driven per-H row offset,
+    // replacing the H-tightest H+j*nfiles convention.
     for (int H=0;H<nfiles; H++) {
-    for (j = i+turn+1; j <= length; j++) energy_min[H+j*nfiles] = INF;
+    for (j = i+turn+1; j <= length; j++) energy_min[row_off_H[H]+j] = INF;
     }
 
     {
@@ -58,7 +59,7 @@
       } ** end >> if (pair) << */
 
       if (hc_decompose) {   /* we evaluate this pair */
-	new_c = energy_min[H+j*nfiles];
+	new_c = energy_min[row_off_H[H]+j];
 
         if(!no_close){
           /* check for hairpin loop */
@@ -67,7 +68,7 @@
 
           /* check for multibranch loops */
           //energy  = vrna_E_mb_loop_fast(vc, i, j, DMLi1, DMLi2);
-	  const int e_mb = (DMLi1[H+(j-1)*nfiles] != INF)? DMLi1[H+(j-1)*nfiles] + energy_mb_row[row_off_H[H]+j] : INF;
+	  const int e_mb = (DMLi1[row_off_H[H]+(j-1)] != INF)? DMLi1[row_off_H[H]+(j-1)] + energy_mb_row[row_off_H[H]+j] : INF;
           new_c   = MIN2(new_c, e_mb);
         }
 
@@ -138,11 +139,11 @@
       //energy_mls (multiloop-stems-fast) deleted: under dangle_model==2
       //(enforced in fill_arrays.c) it always evaluated to INF, so
       //MIN2(e3,energy_mls[...]) always reduced to e3 -- see fill_arrays.c.
-      energy_min[H+j*nfiles] = MIN2(e00,e3); //e1 e31
+      energy_min[row_off_H[H]+j] = MIN2(e00,e3); //e1 e31
 //    } /* end of j-loop */
 //
       assert(My_fML(H,ij) == INF);
-      My_fML(H,ij) = energy_min[H+j*nfiles];
+      My_fML(H,ij) = energy_min[row_off_H[H]+j];
     } /* end of j-loop */
     }//endfor H
     phase_fml_host_s += now_seconds() - fml_host_t0;
@@ -153,7 +154,7 @@
     //my_fML GPU = MIN2(energy_min[j], DMLi[j])
     {
       const double t0 = now_seconds();
-      load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi);
+      load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H);
       phase_modular_decomp_s += now_seconds() - t0;
     }
 
@@ -162,7 +163,7 @@
     for (j = i+turn+1; j <= length; j++) {
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
-      My_fML(H,ij) = MIN2(energy_min[H+j*nfiles], DMLi[H+j*nfiles]);
+      My_fML(H,ij) = MIN2(energy_min[row_off_H[H]+j], DMLi[row_off_H[H]+j]);
 
       /* gcov says not used
       if(uniq_ML){  ** compute fM1 for unique decomposition **
