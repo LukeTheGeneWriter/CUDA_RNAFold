@@ -164,7 +164,10 @@ sanity(const vrna_fold_compound_t* vc0, const vrna_fold_compound_t* vc) {
   //check when processing multiple files they have the same parameters
   //in principle could adapt code to cope with differences but not done yet
   //Initially use Assert to make sure compiler does not optimise away checks
-  Assert(vc0->length == vc->length);
+  //length-equality assert removed (Staggered_Row_Batching Phase 1): mixed-length
+  //batches are a real target now, not a bug -- the other 8 checks below still
+  //guard the single shared d_param/d_pair GPU buffers, which genuinely must
+  //match across every H in a batch regardless of per-H length.
   //params assumed to be ok since all loaded from same .par file but some checks anyway
   const vrna_param_t* P0 = vc0->params;
   const vrna_param_t* P  =  vc->params;

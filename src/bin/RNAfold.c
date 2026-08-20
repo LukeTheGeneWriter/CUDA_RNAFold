@@ -722,6 +722,12 @@ int main(int argc, char *argv[]){
   char**      Orig_sequence = NULL;
   char**          Structure = NULL;
   float*                 EN = NULL;
+  // Staggered_Row_Batching Phase 1: per-record length, same realloc lifecycle
+  // as the arrays above. Not consumed anywhere yet (chunks are still built
+  // uniform-length -- see the flush trigger below) -- Phase 2 threads this
+  // into process_gpu_chunk()/par_mfe() once the GPU buffer layout no longer
+  // assumes one shared length across a chunk.
+  int*             length_H = NULL;
   int nfiles = 0;
   const int MIN_GPU_BATCH = 10; // TODO: tune from real multi-batch timing data
 
@@ -948,12 +954,13 @@ int main(int argc, char *argv[]){
         char**                 tmp_orig  = (char**)                realloc(Orig_sequence, (size_t)chunk_capacity*sizeof(char*));
         char**                 tmp_struc = (char**)                realloc(Structure,     (size_t)chunk_capacity*sizeof(char*));
         float*                 tmp_en    = (float*)                realloc(EN,            (size_t)chunk_capacity*sizeof(float*));
-        if(!tmp_ids || !tmp_vc || !tmp_orig || !tmp_struc || !tmp_en){
+        int*                   tmp_len   = (int*)                  realloc(length_H,      (size_t)chunk_capacity*sizeof(int));
+        if(!tmp_ids || !tmp_vc || !tmp_orig || !tmp_struc || !tmp_en || !tmp_len){
           fprintf(stderr,"Failed to allocate GPU chunk arrays for %d entries (out of host memory?)\n",
 	          chunk_capacity);
           exit(1);
         }
-        SEQ_IDs = tmp_ids; VC = tmp_vc; Orig_sequence = tmp_orig; Structure = tmp_struc; EN = tmp_en;
+        SEQ_IDs = tmp_ids; VC = tmp_vc; Orig_sequence = tmp_orig; Structure = tmp_struc; EN = tmp_en; length_H = tmp_len;
         chunk_array_size = chunk_capacity;
       }
     }
@@ -963,6 +970,7 @@ int main(int argc, char *argv[]){
       VC[nfiles]            = vc;
       Orig_sequence[nfiles] = orig_sequence;
       Structure[nfiles]     = structure;
+      length_H[nfiles]      = (int)vc->length;
       nfiles++;
     }
     }
@@ -1016,6 +1024,7 @@ int main(int argc, char *argv[]){
   free(Orig_sequence);
   free(Structure);
   free(EN);
+  free(length_H);
 
   /* Drain and join the CPU worker pool (no-op if it was never enabled) --
    * must happen after every GPU chunk has printed its output (all of them,
