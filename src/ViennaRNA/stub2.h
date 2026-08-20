@@ -5,6 +5,12 @@ WBL  3 Dec 2017 investigate data dependence in E_mb_loop_fast
   split off multibranch_loops.c r1.10 for time being
 */
 
+// Staggered_Row_Batching Phase 3: compute_flatten_offsets() below uses
+// assert() -- int_loop.cu includes this header before its own <assert.h>,
+// so this header needs to be self-sufficient rather than relying on
+// inclusion order in whichever file includes it.
+#include <assert.h>
+
 #ifdef __cplusplus
 extern "C" void
 #else
@@ -266,6 +272,51 @@ Hoff(const int H, const int length){ //H*((length+1)*(length+2)/2)
   const long long l1 = length+1;
   const long long l2 = length+2;
   return H*(l1*l2)/2;
+}
+
+// Staggered_Row_Batching Phase 3: given a flat thread/work index and a
+// per-H offset table (exclusive prefix-sum of each H's "current active
+// width" for whatever launch this is -- built host-side by
+// compute_flatten_offsets() below), returns which H that flat index
+// belongs to. Binary search over the (nfiles+1)-entry table: a standard
+// CSR-row-pointer lookup, O(log nfiles) per thread. The caller computes
+// its position within H via idx - flat_off_H[H]. This is the "flatten-
+// and-offset" building block every kernel launch in Phases 4-5 uses --
+// while every H still shares one uniform active width (today, and through
+// the rest of Phase 2), flat_off_H[] degenerates to H*width exactly like
+// row_off_H[]/tri_off_H[] did before mixed lengths existed.
+__host__ __device__
+inline int flatten_index_to_H(const size_t idx, const size_t* flat_off_H, const int nfiles) {
+  int lo = 0, hi = nfiles;
+  while(lo+1 < hi) {
+    const int mid = lo + (hi-lo)/2;
+    if(flat_off_H[mid] <= idx) lo = mid; else hi = mid;
+  }
+  return lo;
+}
+
+// Host-side builder for flatten_index_to_H()'s table: given any per-H
+// "current active width" array (the formula is caller-specific -- e.g.
+// length_H[H]-(i_H[H]+turn) for int_loop-style kernels, side_H[] for
+// load_min_fML/fmli/modular_decomposition, see harmonic-swimming-hare.md),
+// builds the exclusive-prefix-sum offset table above. No consumer yet --
+// Phase 4 wires this + flatten_index_to_H() into the 4 kernels the plan
+// calls "already-flattened" but which still assume a uniform per-H width
+// today (load_fML, load_min_fML, fmli_kernel, modular_decomposition_kernel).
+// Debug-build self-check round-trips flatten_index_to_H() against every H
+// boundary in the table it just built -- a real correctness gate on the
+// binary search itself, exercised the moment any real caller starts using
+// this in Phase 4, not synthetic test data.
+inline void compute_flatten_offsets(const int nfiles, const size_t* width_H, size_t* flat_off_H) {
+  flat_off_H[0] = 0;
+  for(int H=0; H<nfiles; H++) flat_off_H[H+1] = flat_off_H[H] + width_H[H];
+#ifndef NDEBUG
+  for(int H=0; H<nfiles; H++) {
+    if(width_H[H] == 0) continue; // empty H contributes no flat indices to check
+    assert(flatten_index_to_H(flat_off_H[H],   flat_off_H, nfiles) == H); // first index of H's range
+    assert(flatten_index_to_H(flat_off_H[H+1]-1, flat_off_H, nfiles) == H); // last index of H's range
+  }
+#endif
 }
 
 // Suggests a block size for `kernel` via CUDA's own occupancy heuristic
