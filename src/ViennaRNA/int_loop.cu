@@ -755,13 +755,31 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 // plain BLOCK_SIZE=32). That per-thread incremental scan is gone now --
 // setpq() was replaced by decode_column() plus the cooperative
 // decode/prefix-sum/lookup in int_loop_kernel_body.inc (see the
-// "Cooperative Column Scan" design doc) -- so aggregate work no longer
-// scales with BLOCK_SIZE and a larger block size is a normal occupancy
-// trade-off again, not a liability. Not yet re-measured against real
-// hardware as of this writing, which is why the default below is still the
-// conservative BLOCK_SIZE=32 rather than a new auto-tuned pick -- see
-// RNA_INT_LOOP_BLOCK_SIZE just below for how to test the other three
-// candidates directly, without reintroducing an in-process benchmark.
+// "Cooperative Column Scan" design doc).
+//
+// Re-measured against real hardware 2026-08-20 (local RTX 3050, CC 8.6, via
+// ncu --set basic, RNA_INT_LOOP_BLOCK_SIZE=32 vs 256, sampled across grid
+// sizes from ~40 blocks up to ~54000): BLOCK_SIZE=32 remains the better
+// choice, but for a *different* reason than the old setpq() liability above
+// -- that liability really is gone (aggregate work no longer scales with
+// BLOCK_SIZE), and occupancy at BLOCK_SIZE=256 is indeed dramatically
+// higher (36-62% vs 5-33% depending on grid size) exactly as the old
+// reasoning here predicted. But higher occupancy didn't translate into
+// less time: BLOCK_SIZE=256 was slower at every grid size tested, from
+// 1.07x slower at small grids up to 2.35x slower at grid~500, narrowing
+// back to ~1.09x slower even at grid~54000 (a genuinely large batch of
+// long sequences) -- never faster, at any scale tried. The likely cause:
+// each (i,j) cell's interior-loop search space is inherently small
+// (bounded by MAXLOOP=30), so the cooperative decode/prefix-sum/lookup
+// below only ever needs one warp's worth of work regardless of BLOCK_SIZE
+// -- a bigger block just adds synchronization/scheduling overhead (the
+// extra warp_min combine + __syncthreads() under #if BLOCK_SIZE > 32) for
+// threads that have nothing to do. Real occupancy gains for this kernel
+// come from more *blocks* in flight (bigger batches, more concurrent
+// (H,j) cells -- exactly what staggering/mixed-length batching is for),
+// not from bigger blocks. See RNA_INT_LOOP_BLOCK_SIZE just below to
+// re-test 64/128/256 directly if this ever needs re-checking on different
+// hardware, without reintroducing an in-process benchmark.
 
 //Host (ie non-GPU) code
 PRIVATE void
