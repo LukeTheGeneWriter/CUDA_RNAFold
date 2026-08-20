@@ -107,7 +107,7 @@ process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
     return;
   }
 
-  par_mfe(nfiles, VC, Structure, EN, cpu_queue_threads);
+  par_mfe(nfiles, (const vrna_fold_compound_t**)VC, (const char**)Structure, EN, cpu_queue_threads);
 
   for(int i=0;i<nfiles;i++) {
     const char* SEQ_ID             = SEQ_IDs[i];
