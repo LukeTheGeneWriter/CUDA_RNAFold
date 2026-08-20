@@ -318,7 +318,16 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   for(int H=0;H<nfiles;H++){
     assert(bitsperint==(1+0x1f));
     unsigned int mask;
-    for(int i=0;i<(length*(length+1))/2+2;i++){ //leave padding as zero
+    // Staggered_Row_Batching Phase 6a: bounded by this H's own length, not
+    // the shared `length` scalar -- VC[H]->hc->matrix is only ever sized to
+    // VC[H]->length, so using the shared length here would read past a
+    // shorter H's real allocation the moment `length` stops meaning "every
+    // H's length" (i.e. once mixed lengths actually reach this function).
+    // hccc[] itself is calloc'd, so the untouched tail for a shorter H
+    // (both this triangle's own remaining slots and Hc_ints()'s MAXLOOP
+    // padding) stays correctly zero either way.
+    const int length_H = (int)VC[H]->length;
+    for(int i=0;i<(length_H*(length_H+1))/2+2;i++){ //leave padding as zero
       mask = ((i & 0x1f) == 0)? 1 : mask << 1;
       const long long I = (long long)hc_off_H[H]+i/bitsperint; // Langdon's 2026 indexing bug -- host-side hccc population, missed by 2f35ecc's kernel-scoped fix
       if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC) hccc[I] |= mask;
@@ -344,7 +353,16 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     for(int i=0;i<len;i++){
     for(int H=0;H<nfiles;H++){
       if(j==0) {word = 0; H0 = H; i0 = i;}
-      const unsigned int s = VC[H]->sequence_encoding[i];
+      // Staggered_Row_Batching Phase 6a: guard against reading past a
+      // shorter H's own sequence_encoding (sized to VC[H]->length+2) once
+      // the shared `length`/`len` above can exceed an individual H's real
+      // length -- substitutes 0 (safe: this file's own d_S 10-per-word
+      // repacking for genuinely mixed lengths is deliberately deferred,
+      // Phase 2f, so this is a minimal safety guard only, not a fix for
+      // that packing scheme itself. Phase 6d's active/join mask ensures a
+      // position this far past H's own length is never actually consumed
+      // in a real energy calculation regardless.)
+      const unsigned int s = (i <= (int)VC[H]->length+1) ? VC[H]->sequence_encoding[i] : 0;
       assert(s <= 4);
       assert(j >= 0 && j < 10);
       word = word | (s << (j*3));

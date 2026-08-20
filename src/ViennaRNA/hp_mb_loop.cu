@@ -188,7 +188,13 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   unsigned int* hccc_mbenc = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   for(int H=0;H<nfiles;H++){
     unsigned int mask_mb, mask_mbenc;
-    for(int i=0;i<(length*(length+1))/2+2;i++){
+    // Staggered_Row_Batching Phase 6a: bounded by this H's own length, not
+    // the shared `length` scalar -- same reasoning as int_loop.cu's
+    // hc_off_H population loop (VC[H]->hc->matrix is only ever sized to
+    // VC[H]->length; hccc_mb/hccc_mbenc are calloc'd, so the untouched
+    // tail stays correctly zero).
+    const int length_H = (int)VC[H]->length;
+    for(int i=0;i<(length_H*(length_H+1))/2+2;i++){
       mask_mb    = ((i & 0x1f) == 0)? 1 : mask_mb    << 1;
       mask_mbenc = ((i & 0x1f) == 0)? 1 : mask_mbenc << 1;
       const size_t I = hc2_off_H[H]+i/bitsperint;
@@ -216,7 +222,13 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   size = seq_off_H[nfiles]*sizeof(short);
   gpuErrchk( cudaMalloc((void **) &d_S2, size) );
   short* Sbuff = (short*) malloc(size);
-  for(int H=0;H<nfiles;H++) memcpy(&Sbuff[seq_off_H[H]],VC[H]->sequence_encoding,(length+2)*sizeof(short));
+  // Staggered_Row_Batching Phase 6a: copy each H's own (length+2) elements,
+  // not the shared `length`'s -- seq_off_H[H+1]-seq_off_H[H] already equals
+  // VC[H]->length+2 exactly (Phase 2e sized it per-H), so copying the
+  // shared length here was a double bug once length can exceed a given H's
+  // own: over-reading VC[H]->sequence_encoding *and* over-writing into the
+  // next H's region of Sbuff.
+  for(int H=0;H<nfiles;H++) memcpy(&Sbuff[seq_off_H[H]],VC[H]->sequence_encoding,((size_t)VC[H]->length+2)*sizeof(short));
   gpuErrchk( cudaMemcpy(d_S2,Sbuff,size,cudaMemcpyHostToDevice) );
   free(Sbuff);
 
