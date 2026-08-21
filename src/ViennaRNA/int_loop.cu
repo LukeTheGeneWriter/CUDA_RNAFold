@@ -121,6 +121,13 @@ static size_t*       d_tri_off_H;
 // Staggered_Row_Batching Phase 2c: device copy of row_off_H[] -- d_new_e's
 // per-H row start, replacing H*(length+1) wherever d_new_e is indexed.
 static size_t*       d_row_off_H;
+// Staggered_Row_Batching Phase 6d: row_off_H[nfiles], the true total extent of
+// every row-shaped buffer in this file. Cached at init_gpu2() time because the
+// per-row entry points (load_my_c(), int_loop_cuda()) transfer whole row
+// buffers but never receive the offset table itself. Equals the old
+// nfiles*(length+1) exactly while chunks stay uniform-length; once they don't,
+// that formula over-reads/over-writes past the real allocation.
+static size_t        g_row_total = 0;
 // Staggered_Row_Batching Phase 2e: d_hccc's per-H block start. Computed
 // locally in init_gpu2() (not compute_batch_offsets()) since Hc_ints()'s
 // MAXLOOP padding is a private detail of this file's bit-packing, not a
@@ -385,14 +392,18 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     init_my_c(my_c_elems);
   }
 
-  size = (size_t)nfiles*(length+1)*sizeof(int); // 32-bit signed integer overflow bug fix
+  // Staggered_Row_Batching Phase 6d: cached for the per-row entry points that
+  // transfer these buffers whole but never see the offset table.
+  g_row_total = row_off_H[nfiles];
+
+  size = g_row_total*sizeof(int); // 32-bit signed integer overflow bug fix
   gpuErrchk( cudaMalloc((void **) &d_new_e, size) );
 
   // Staggered_Row_Batching Phase 2d: table-driven total (row_off_H[nfiles]),
   // matching int_loop_kernel_body.inc's row_off_H[H]+j write below -- equals
-  // `size` above exactly while chunks stay uniform-length, diverges once
-  // they don't.
-  gpuErrchk( cudaMalloc((void **) &d_energy_min2, row_off_H[nfiles]*sizeof(int)) );
+  // the old uniform nfiles*(length+1) exactly while chunks stay uniform-length,
+  // diverges once they don't.
+  gpuErrchk( cudaMalloc((void **) &d_energy_min2, g_row_total*sizeof(int)) );
   /*no longer in use
   gpuErrchk( cudaMalloc((void **) &d_energy_min20,size) );
 
@@ -454,7 +465,12 @@ load_my_c_kernel(const int nfiles, const int i, /*const int turn,*/ const int le
   const long long j  = mj + i+turn+1;
 
   const long long ij = Indx(i,j);
-  assert(ij>=0 && ij<Hoff(1,length));
+  // Staggered_Row_Batching Phase 6d: bound the check by THIS H's own triangle
+  // extent. `length` is now max(VC[H]->length) across the batch, so
+  // Hoff(1,length) would let a short H's ij run past its own block undetected
+  // -- the check would still pass while the write below silently landed in the
+  // next H's triangle. Identical to Hoff(1,length) while lengths are uniform.
+  assert(ij>=0 && (size_t)ij < tri_off_H[H+1]-tri_off_H[H]);
   assert(my_c[tri_off_H[H]+ij] == INF);
          my_c[tri_off_H[H]+ij] = new_e[row_off_H[H]+j];
 }
@@ -473,7 +489,7 @@ load_my_c(const int nfiles,
   gpuErrchk( cudaDeviceSynchronize() );
 #endif
   //for simplicity transfer all new_e, even though only need H * [start:length]
-  gpuErrchk( cudaMemcpy(d_new_e,new_e,nfiles*(length+1)*sizeof(int),cudaMemcpyHostToDevice) );
+  gpuErrchk( cudaMemcpy(d_new_e,new_e,g_row_total*sizeof(int),cudaMemcpyHostToDevice) );
   gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
 
@@ -901,7 +917,7 @@ int_loop_cuda(const int nfiles,
   gpuErrchk( cudaDeviceSynchronize() );
   //printf("int_loop_kernel<<<%d.%d,%d>>>(i=%d...) ok\n",blocks.x,blocks.y,block_size,i);
 
-  gpuErrchk( cudaMemcpy(energy_min,d_energy_min2, nfiles*(length+1)*sizeof(int),cudaMemcpyDeviceToHost) );
+  gpuErrchk( cudaMemcpy(energy_min,d_energy_min2, g_row_total*sizeof(int),cudaMemcpyDeviceToHost) );
   gpuErrchk( cudaDeviceSynchronize() );
 
   /*used to have alternative code to launch int_loop_nl0_kernel etc here */

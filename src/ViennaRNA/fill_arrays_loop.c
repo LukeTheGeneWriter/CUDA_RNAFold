@@ -3,12 +3,38 @@
 
 //WBL 27 Jan 2018 Add loop H for nfiles different structures
 
+// Staggered_Row_Batching Phase 6d: the host-side join mask.
+//
+// `length` (fill_arrays.c) is now max(VC[H]->length) over the batch rather
+// than VC[0]'s, so the shared sweep covers the longest sequence and every
+// shorter H *joins late*: it is inactive for rows above its own length and
+// active from i == VC[H]->length-turn-1 down to 1, alongside everyone else.
+// (This is the shared-i + join-mask design, deliberately not independent
+// per-H sweep positions with early retirement -- see the branch notes.)
+//
+// The GPU side already gets this for free: the per-row width tables built
+// below (length_H[H]-i-turn and length_H[H]-i-2*turn-2, both clamped >=0)
+// go to zero for a not-yet-joined H, so flatten_index_to_H() simply never
+// hands a thread to it. The host loops need the check spelled out, and not
+// only for their j bounds -- several of them index by `i` per H before the
+// j-loop even starts (VC[H]->hc->up_ml[i] in the fml_host loop), which reads
+// off the end of a short H's arrays. So skip the whole H, don't just clamp j.
+//
+// Degenerates to "always true" while chunks are uniform-length, which is what
+// keeps this phase a no-op until Phase 6c actually admits mixed lengths.
+#define HAS_JOINED(H) ((i) + (turn) + 1 <= (int)VC[(H)]->length)
+
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
 
     // Staggered_Row_Batching Phase 2d: table-driven per-H row offset,
     // replacing the H-tightest H+j*nfiles convention.
+    // Phase 6d: `length` is now max(VC[H]->length) across the batch, so every
+    // host loop in this row body has to bound itself by its OWN H's length and
+    // skip H entirely on rows above it -- HAS_JOINED() below. The shared bound
+    // would spill past a short H's row into the next H's.
     for (int H=0;H<nfiles; H++) {
-    for (j = i+turn+1; j <= length; j++) energy_min[row_off_H[H]+j] = INF;
+    if(!HAS_JOINED(H)) continue;
+    for (j = i+turn+1; j <= (int)VC[H]->length; j++) energy_min[row_off_H[H]+j] = INF;
     }
 
     // Staggered_Row_Batching Phase 5: this row's "size" active-width table
@@ -48,7 +74,8 @@
     //could pack new_C more tightly for load_my_c_kernel but expect modest savings
     const double new_c_host_t0 = now_seconds();
     for (int H=0;H<nfiles; H++) {
-    for (j = i+turn+1; j <= length; j++) {
+    if(!HAS_JOINED(H)) continue; // Phase 6d
+    for (j = i+turn+1; j <= (int)VC[H]->length; j++) {
       new_C[row_off_H[H]+j] = INF;
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
@@ -114,6 +141,9 @@
 
     const double fml_host_t0 = now_seconds();
     for (int H=0;H<nfiles; H++) {
+    // Phase 6d: must precede the en_i computation below, not just guard the
+    // j-loop -- VC[H]->hc->up_ml[i] reads past a not-yet-joined H's array.
+    if(!HAS_JOINED(H)) continue;
       /*  extension with one unpaired nucleotide at 5' site
 	  and all other variants which are needed for odd
 	  dangle models -- per-H (was incorrectly computed once from
@@ -124,7 +154,7 @@
       const int en_i = (ON_SAME_STRAND(i - 1, i, cp) &&
                          ON_SAME_STRAND(i, i + 1, cp) &&
                          VC[H]->hc->up_ml[i] > 0) ? P->MLbase : INF;
-    for (j = i+turn+1; j <= length; j++) {
+    for (j = i+turn+1; j <= (int)VC[H]->length; j++) {
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
       /* done with c[i,j], now compute fML[i,j] and fM1[i,j] */
@@ -191,7 +221,8 @@
 
     const double my_fml_update_host_t0 = now_seconds();
     for (int H=0;H<nfiles; H++) {
-    for (j = i+turn+1; j <= length; j++) {
+    if(!HAS_JOINED(H)) continue; // Phase 6d
+    for (j = i+turn+1; j <= (int)VC[H]->length; j++) {
       ij            = Indx(H,i,j);
       assert(ij>=0 && ij<ijsize);
       My_fML(H,ij) = MIN2(energy_min[row_off_H[H]+j], DMLi[row_off_H[H]+j]);

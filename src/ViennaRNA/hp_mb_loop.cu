@@ -95,6 +95,12 @@ int* d_energy_3p00_row;
 // int_loop.cu/modular_decomposition.cu) -- replaces H*(length+1) wherever
 // the 3 row buffers above are indexed.
 static size_t* d_row_off_H;
+// Staggered_Row_Batching Phase 6d: row_off_H[nfiles], the true total extent of
+// this file's 3 row buffers. Cached at init_gpu3() time because hp_mb_3p_i()
+// copies them back whole but never receives the offset table. Equals the old
+// nfiles*(length+1) exactly while chunks stay uniform-length; once they don't,
+// that formula runs past the real allocation.
+static size_t  g_row_total = 0;
 // Staggered_Row_Batching Phase 2e: d_hccc_mb/d_hccc_mbenc's per-H block
 // start (own shape, Hc_ints2()-scaled -- no MAXLOOP padding, unlike
 // int_loop.cu's Hc_ints(), so this can't reuse that file's d_hc_off_H) and
@@ -242,7 +248,10 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMemcpy(d_sequence,seqbuff,size,cudaMemcpyHostToDevice) );
   free(seqbuff);
 
-  size = (size_t)nfiles*(length+1)*sizeof(int);
+  // Staggered_Row_Batching Phase 6d: real total extent, not the uniform
+  // nfiles*(length+1); also cached for hp_mb_3p_i()'s copy-back.
+  g_row_total = row_off_H[nfiles];
+  size = g_row_total*sizeof(int);
   gpuErrchk( cudaMalloc((void **) &d_energy_hp_row,   size) );
   gpuErrchk( cudaMalloc((void **) &d_energy_mb_row,   size) );
   gpuErrchk( cudaMalloc((void **) &d_energy_3p00_row, size) );
@@ -480,7 +489,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
 
-  const size_t rowsize = (size_t)nfiles*(length+1)*sizeof(int);
+  const size_t rowsize = g_row_total*sizeof(int);
   gpuErrchk( cudaMemcpy(energy_hp_row,  d_energy_hp_row,  rowsize,cudaMemcpyDeviceToHost) );
   gpuErrchk( cudaMemcpy(energy_mb_row,  d_energy_mb_row,  rowsize,cudaMemcpyDeviceToHost) );
   gpuErrchk( cudaMemcpy(energy_3p00_row,d_energy_3p00_row,rowsize,cudaMemcpyDeviceToHost) );

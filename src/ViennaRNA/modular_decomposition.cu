@@ -315,6 +315,11 @@ int* d_dml;  //DMLi
 // H-tightest H+X*nfiles convention throughout this file.
 static size_t* d_tri_off_H;
 static size_t* d_row_off_H;
+// Staggered_Row_Batching Phase 6d: row_off_H[nfiles], the real total extent of
+// the row-shaped buffers here (d_energy_min, d_dml). Cached at init_gpu() time
+// -- equals the old uniform nfiles*(length+1) only while chunks are
+// uniform-length, and that formula over-runs the allocation once they aren't.
+static size_t  g_row_total = 0;
 // Staggered_Row_Batching Phase 4: per-row "current active width" tables for
 // load_fML/fmli_kernel/modular_decomposition_kernel/load_min_fML_kernel's
 // flat grids -- rebuilt+reuploaded every sweep row i (see fill_arrays_loop.c),
@@ -400,6 +405,10 @@ init_gpu(const int nfiles, const int length,
   // multiply -- see compute_batch_offsets(), mfe_cuda.c.
   const size_t mem_size_len = row_off_H[nfiles] * sizeof(int);
   const size_t ijsize_len   = tri_off_H[nfiles] * sizeof(int);
+  // Staggered_Row_Batching Phase 6d: cached for load_fML()/
+  // modular_decomposition_cuda(), which transfer whole row-shaped buffers each
+  // row but never receive the offset table.
+  g_row_total = row_off_H[nfiles];
 
   error = cudaMalloc((void **) &d_energy_min, mem_size_len);
   if (error != cudaSuccess)  {
@@ -636,7 +645,7 @@ load_fML(const int nfiles,
   // stream ordering rule already guarantees init_fML_kernel (NULL stream) has
   // completed before any of this is issued.
   //for simplicity transfer all energy_min, even though only need H * [start:length]
-  int_MemcpyAsync(d_energy_min,energy_min, (size_t)nfiles*(length+1), cudaMemcpyHostToDevice, graph_stream, __LINE__);
+  int_MemcpyAsync(d_energy_min,energy_min, g_row_total, cudaMemcpyHostToDevice, graph_stream, __LINE__);
   gpuErrchk( cudaMemcpyAsync(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice, graph_stream) );
 
   /* Setup execution parameters for helper kernel */
@@ -782,7 +791,15 @@ void modular_decomposition_cuda(const int nfiles,
 
   if(total == 0) {
     for(int H=0; H<nfiles;H++) {
-    for (int j = i+turn+1; j <= length; j++) {
+    // Staggered_Row_Batching Phase 6d: bound this fill by H's OWN row width,
+    // not the shared `length`. Each H's row slot is exactly
+    // row_off_H[H+1]-row_off_H[H] == VC[H]->length+1 entries (Phase 2a built
+    // the table that way), so the shared bound would run off the end of a
+    // short H's row and into the next H's. VC[] isn't in scope here, so the
+    // per-H length is recovered from the table itself rather than threading a
+    // new parameter through modular_decomposition_i()'s public signature.
+    const int len_H = (int)(row_off_H[H+1] - row_off_H[H]) - 1;
+    for (int j = i+turn+1; j <= len_H; j++) {
       DMLi[row_off_H[H]+j] = INF; // Staggered_Row_Batching Phase 2d: table-driven per-H row offset
     }}
     return;
@@ -894,7 +911,7 @@ void modular_decomposition_cuda(const int nfiles,
   gpuErrchk( cudaPeekAtLastError() );
 
   //for effiency transfer all of DMLi rather that just those part that have been calculated
-  int_MemcpyAsync(DMLi,d_dml, (size_t)nfiles*(length+1), cudaMemcpyDeviceToHost, graph_stream, __LINE__);
+  int_MemcpyAsync(DMLi,d_dml, g_row_total, cudaMemcpyDeviceToHost, graph_stream, __LINE__);
   // no sync here -- the one remaining sync happens once, after the whole
   // captured chain is launched, in the new orchestration function.
 

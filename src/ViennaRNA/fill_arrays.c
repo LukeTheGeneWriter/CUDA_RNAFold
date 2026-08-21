@@ -85,7 +85,19 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 //vrna_hc_t         *hc;
   vrna_ud_t         *domains_up;
 
-  length            = (int)VC[0]->length;
+  // Staggered_Row_Batching Phase 6d: the shared sweep bound is now the LONGEST
+  // sequence in the batch, not VC[0]'s length. With mixed lengths (Phase 6c)
+  // VC[0] is an arbitrary member, and any H longer than it would simply never
+  // have its top rows swept -- silently truncated folding, not a crash.
+  // Taking the max is what makes the sweep cover every H; each H then joins
+  // the sweep on its own row via the per-H width tables built every row in
+  // fill_arrays_loop.c (length_H[H]-i-turn, clamped >=0), which go to zero for
+  // rows above that H's own length and so mask it out of every kernel launch
+  // until it joins. Degenerates to exactly VC[0]->length while chunks are
+  // uniform-length, which is what keeps this phase regression-testable.
+  length            = 0;
+  for(int H=0; H<nfiles; H++)
+    if((int)VC[H]->length > length) length = (int)VC[H]->length;
 //ptype             = vc->ptype;
 //indx              = vc->jindx;
   P                 = VC[0]->params;
@@ -144,7 +156,13 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     domains_up->prod_cb(VC[H], domains_up->data);
 
   /* prefill helper arrays */
-  for(j = 0; j <= length; j++){
+  // Staggered_Row_Batching Phase 6d: per-H bound, not the shared (now maximum)
+  // length -- H's row slot is exactly VC[H]->length+1 entries, so the shared
+  // bound would spill into the next H's row. This prefill is also what makes
+  // the join mask correct: an H that has not joined the sweep yet is never
+  // written by any kernel, so its DMLi1/DMLi2 still hold INF when it finally
+  // does join -- exactly the state a single-sequence fold starts from.
+  for(j = 0; j <= (int)VC[H]->length; j++){
     //Fmi[j] =
     // Staggered_Row_Batching Phase 2d: table-driven per-H row offset,
     // replacing the H-tightest H+j*nfiles convention (see the coalescing
@@ -157,7 +175,10 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 
   /* prefill matrices with init contributions */
  for(int H=0;H<nfiles;H++) {
-  for(j = 1; j <= length; j++)
+  // Staggered_Row_Batching Phase 6d: per-H bound -- Indx(H,i,j) resolves
+  // through VC[H]->jindx into VC[H]'s own matrices, so a j past this H's
+  // length indexes outside them.
+  for(j = 1; j <= (int)VC[H]->length; j++)
     //for(i = (j > turn ? (j - turn) : 1); i <= j; i++){
     for(i = 1; i <= j; i++){
       My_c(H,Indx(H,i,j)) = My_fML(H,Indx(H,i,j)) = INF;
