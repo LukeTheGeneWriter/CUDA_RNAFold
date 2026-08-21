@@ -520,12 +520,40 @@ gpu_bytes_per_file(const int length) {
 // study of allocator fragmentation/CUDA context overhead across many batch
 // sizes, just empirically fine so far -- revisit if a future run OOMs
 // closer to the edge than any tested so far did.
+// RNA_GPU_VRAM_BUDGET_MB caps the budget below what free VRAM would allow.
+// It can only ever *lower* it, never raise it, so setting it can't provoke an
+// OOM that wouldn't have happened anyway. Two uses: forcing multi-chunk
+// behaviour on a machine whose card is big enough to swallow the whole input
+// in one batch (the only way to exercise the incremental budget above --
+// chunks otherwise split on length change alone), and being a polite tenant
+// on a GPU shared with another process. Env var rather than a CLI flag, per
+// this project's convention of avoiding gengetopt regeneration.
 PUBLIC size_t
 compute_gpu_usable_bytes(void) {
   size_t free_bytes = 0, total_bytes = 0;
   gpuErrchk( cudaMemGetInfo(&free_bytes, &total_bytes) );
   const double safety_margin = 0.85; // TODO: tune further if a tighter margin ever OOMs
-  return (size_t)((double)free_bytes * safety_margin);
+  size_t usable = (size_t)((double)free_bytes * safety_margin);
+
+  const char *env_budget = getenv("RNA_GPU_VRAM_BUDGET_MB");
+  if(env_budget && *env_budget) {
+    const long mb = atol(env_budget);
+    if(mb > 0) {
+      const size_t cap = (size_t)mb * 1024u * 1024u;
+      static int announced = 0;
+      if(!announced) { // once per process, matching this file's other config messages
+        fprintf(stderr, "%-24s RNA_GPU_VRAM_BUDGET_MB=%ld capping GPU chunk budget "
+                        "(free VRAM would have allowed %.0f MB)\n",
+                __FILE__, mb, (double)usable/(1024.0*1024.0));
+        announced = 1;
+      }
+      if(cap < usable) usable = cap;
+    } else {
+      fprintf(stderr, "%-24s ignoring RNA_GPU_VRAM_BUDGET_MB=%s (want a positive integer)\n",
+              __FILE__, env_budget);
+    }
+  }
+  return usable;
 }
 
 /* prefill matrices with init contributions */
