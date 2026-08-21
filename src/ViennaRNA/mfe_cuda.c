@@ -262,10 +262,19 @@ compute_batch_offsets(const int nfiles, const vrna_fold_compound_t **VC,
   }
 #ifndef NDEBUG
   {
-    const size_t length = (size_t)VC[0]->length;
-    for(int H=0; H<=nfiles; H++) {
-      assert(row_off_H[H] == (size_t)H*(length+1));
-      assert(tri_off_H[H] == (size_t)H*(length+1)*(length+2)/2);
+    // Staggered_Row_Batching Phase 6c: this used to assert the tables matched
+    // the old uniform H*(length+1) / H*(length+1)*(length+2)/2 formulas
+    // exactly -- a deliberate regression gate on the table logic, valid only
+    // while every chunk was single-length. Chunks are now genuinely mixed, so
+    // that gate would fire on correct input. Replaced with the invariant that
+    // actually still holds: each H's block is exactly its own length's worth,
+    // and both tables are strictly increasing prefix sums.
+    for(int H=0; H<nfiles; H++) {
+      const size_t len = (size_t)VC[H]->length;
+      assert(row_off_H[H+1] - row_off_H[H] == len + 1);
+      assert(tri_off_H[H+1] - tri_off_H[H] == (len + 1)*(len + 2)/2);
+      assert(row_off_H[H+1] > row_off_H[H]);
+      assert(tri_off_H[H+1] > tri_off_H[H]);
     }
   }
 #endif
@@ -309,7 +318,19 @@ par_mfe(const int nfiles,
 	const int cpu_queue_threads) {
 
   //start GPU as early as possible so allow maximise overlap GPU with CPU
-  const int length    = VC[0]->length;
+  // Staggered_Row_Batching Phase 6c/6d: the length handed to init_gpu*() sizes
+  // every whole-batch device buffer that is not already table-driven -- most
+  // importantly int_loop.cu's d_S, whose 10-bases-per-word packing is still
+  // laid out as nfiles*(length+2) (Phase 2f, deliberately deferred). Taking
+  // VC[0]'s length here was correct only while chunks were single-length; with
+  // mixed lengths it under-sizes d_S whenever VC[0] is not the longest record,
+  // and the bases past VC[0]->length of every longer sequence are then never
+  // packed -- which surfaces as unpack()'s `out>=0 && out<=4` device assert
+  // rather than as a wrong answer. Must be the batch maximum, matching
+  // par_fill_arrays()'s sweep bound.
+  int length = 0;
+  for(int H=0; H<nfiles; H++)
+    if((int)VC[H]->length > length) length = (int)VC[H]->length;
   const vrna_md_t* md = &(VC[0]->params->model_details);
   const int turn      = md->min_loop_size;
   size_t row_off_H[nfiles+1], tri_off_H[nfiles+1]; //Phase 2a, see compute_batch_offsets() above

@@ -240,7 +240,13 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   /* calculate energies of 5' fragments */
  for(int H=0;H<nfiles;H++) {
    E_ext_loop_5(VC[H]);
-   Energy[H] = VC[H]->matrices->f5[length];
+   // Staggered_Row_Batching Phase 6c: each H's MFE lives at ITS OWN length in
+   // its own f5, not at the batch maximum. Reading f5[length] gave the right
+   // structure (backtracking is per-H and never consulted this) with a wrong
+   // energy for every record shorter than the longest -- the exact signature
+   // seen on the first genuinely mixed-length run: 60/60 structures identical,
+   // 2/60 energies.
+   Energy[H] = VC[H]->matrices->f5[VC[H]->length];
    //printf("Energy[%d]%d\n",H,Energy[H]);
  }//endfor H
 

@@ -725,12 +725,16 @@ int main(int argc, char *argv[]){
    * entire input into memory before any folding starts (see
    * process_gpu_chunk() above for why: peak host RAM used to scale with
    * total input size, which is what made a 1,000,000-sequence run exhaust
-   * host RAM before ever reaching the GPU). chunk_length describes the
-   * chunk currently being filled (still uniform-length for now -- see the
-   * flush trigger below, unchanged by Phase 6b); chunk_array_size is how
-   * big SEQ_IDs/VC/Orig_sequence/Structure/EN/length_H are actually
-   * allocated to (a high-water mark -- only grows, never shrinks, to avoid
-   * realloc thrashing).
+   * host RAM before ever reaching the GPU). chunk_array_size is how big
+   * SEQ_IDs/VC/Orig_sequence/Structure/EN/length_H are actually allocated
+   * to (a high-water mark -- only grows, never shrinks, to avoid realloc
+   * thrashing).
+   * Staggered_Row_Batching Phase 6c: a chunk no longer has "a length" at
+   * all. The flush trigger's `vc->length != chunk_length` clause is gone,
+   * so records of different lengths now accumulate into one GPU batch and
+   * fold together -- what this whole branch was for. All that remains of
+   * the old chunk_length is chunk_started, the "is a chunk in progress"
+   * sentinel it was doubling as.
    * Staggered_Row_Batching Phase 6b: chunk_capacity (a single record-count
    * ceiling computed once per chunk from one representative length) is
    * retired -- replaced by chunk_bytes_committed/chunk_usable_bytes, an
@@ -747,7 +751,7 @@ int main(int argc, char *argv[]){
    * the flush trigger below.
    * nfiles here means "records in the chunk currently being filled", not
    * "records in the whole run" as it did before streaming. */
-  int chunk_length     = -1; // -1 == no chunk in progress
+  int chunk_started    = 0;  // 0 == no chunk in progress (was chunk_length == -1)
   size_t chunk_bytes_committed = 0; // running VRAM cost of records already accepted this chunk
   size_t chunk_usable_bytes    = 0; // VRAM budget for this chunk, queried once at chunk start
   int chunk_array_size = 0;
@@ -932,20 +936,23 @@ int main(int argc, char *argv[]){
     }
     {
     /* This record doesn't belong to the chunk currently being filled --
-     * either no chunk has been started yet, (multi-length support) this
-     * record's length differs from it, or accepting it would push the
+     * either no chunk has been started yet, or accepting it would push the
      * chunk past its VRAM budget. Flush what's accumulated so far
      * (process_gpu_chunk() no-ops if nfiles==0, e.g. on the very first
-     * record) before starting fresh at this record's length.
-     * Staggered_Row_Batching Phase 6b: "the chunk is full" is now a running
-     * byte budget rather than a record count fixed up front from one
-     * representative length. The dominant term in gpu_bytes_per_file() is
-     * my_c's O(length^2) triangle -- a record twice as long costs roughly
-     * four times as much -- which is exactly why a single length can't
-     * stand in for a chunk whose records differ in length (Phase 6c). */
+     * record) before starting a fresh one.
+     * Staggered_Row_Batching Phase 6c: length is no longer a flush reason.
+     * Records of different lengths now accumulate into one batch and fold
+     * together -- par_fill_arrays() sweeps to max(VC[H]->length) and each
+     * shorter sequence joins the sweep on its own row (Phase 6d), while the
+     * per-H offset tables from Phases 2-5 keep every buffer addressed by
+     * its own length. VRAM is the only thing that still ends a chunk.
+     * Phase 6b's byte budget is what makes that safe: the dominant term in
+     * gpu_bytes_per_file() is my_c's O(length^2) triangle, so a record
+     * twice as long costs roughly four times as much, and a single
+     * representative length could not have stood in for a mixed chunk. */
     const size_t bytes_needed = gpu_bytes_per_file((int)vc->length);
     int accept_into_chunk = 1;
-    if(chunk_length == -1 || vc->length != chunk_length
+    if(!chunk_started
        || chunk_bytes_committed + bytes_needed > chunk_usable_bytes){
       process_gpu_chunk(nfiles, SEQ_IDs, VC, Orig_sequence, Structure, EN,
                          cpu_queue_threads, MIN_GPU_BATCH,
@@ -968,7 +975,7 @@ int main(int argc, char *argv[]){
       teardown_gpu3();
       nfiles = 0;
 
-      chunk_length          = vc->length;
+      chunk_started         = 1;
       chunk_bytes_committed = 0;
       chunk_usable_bytes    = compute_gpu_usable_bytes();
 
@@ -1001,7 +1008,7 @@ int main(int argc, char *argv[]){
         free(SEQ_ID);
         free(orig_sequence);
         free(structure);
-        chunk_length = -1;
+        chunk_started = 0;
         accept_into_chunk = 0;
       }
     }
