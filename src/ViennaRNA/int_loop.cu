@@ -501,7 +501,7 @@ load_my_c(const int nfiles,
   // size, so there's no reason not to let CUDA pick per-device.
   static int block_size = 0;
   if(!block_size) {
-    block_size = rnafold_choose_block_size(load_my_c_kernel, BLOCK_SIZE);
+    block_size = rnafold_choose_block_size(load_my_c_kernel, BLOCK_SIZE, "RNA_LOAD_MY_C_BLOCK_SIZE");
     fprintf(stderr,"%-24s load_my_c_kernel block size %d (was hardcoded %d)\n",
 	    __FILE__, block_size, BLOCK_SIZE);
   }

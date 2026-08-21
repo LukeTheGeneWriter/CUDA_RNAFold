@@ -436,8 +436,8 @@ init_gpu(const int nfiles, const int length,
 
   // See the forward declarations above for why this happens here rather
   // than lazily at first launch.
-  g_block_size_fmli = rnafold_choose_block_size(fmli_kernel, BLOCK_SIZE);
-  g_block_size_md   = rnafold_choose_block_size(modular_decomposition_kernel, BLOCK_SIZE);
+  g_block_size_fmli = rnafold_choose_block_size(fmli_kernel, BLOCK_SIZE, "RNA_FMLI_BLOCK_SIZE");
+  g_block_size_md   = rnafold_choose_block_size(modular_decomposition_kernel, BLOCK_SIZE, "RNA_MD_BLOCK_SIZE");
   fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d)\n",
 	  __FILE__, g_block_size_fmli, g_block_size_md, BLOCK_SIZE);
 

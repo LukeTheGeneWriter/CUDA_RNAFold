@@ -472,7 +472,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   // size, so there's no reason not to let CUDA pick per-device.
   static int block_size = 0;
   if(!block_size) {
-    block_size = rnafold_choose_block_size(hp_mb_3p_kernel, BLOCK_SIZE);
+    block_size = rnafold_choose_block_size(hp_mb_3p_kernel, BLOCK_SIZE, "RNA_HP_MB_BLOCK_SIZE");
     fprintf(stderr,"%-24s hp_mb_3p_kernel block size %d (was hardcoded %d)\n",
 	    __FILE__, block_size, BLOCK_SIZE);
   }

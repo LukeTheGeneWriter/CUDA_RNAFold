@@ -342,11 +342,38 @@ inline int flatten_index_to_H(const size_t idx, const size_t* flat_off_H, const 
 // `fallback` (the caller's previous hardcoded value) if the query itself
 // fails, so a startup error here degrades to the old fixed behavior instead
 // of an uninitialized/zero block size reaching a kernel launch.
+// IMPORTANT CAVEAT, measured 2026-08-21: cudaOccupancyMaxPotentialBlockSize
+// maximises occupancy *per SM*, which silently assumes the grid is large
+// enough to fill the device. Several kernels here launch grids of 8-10 blocks
+// on a 20-SM GPU, and for those the heuristic is actively harmful: a bigger
+// block divides the same total thread count into fewer blocks, so most SMs sit
+// idle. ncu on modular_decomposition_kernel measured block 640 -> grid 10,
+// 9% SM throughput, 24% achieved occupancy -- parallelism-starved, not
+// compute- or bandwidth-bound. This is the same trap that made int_loop_kernel
+// prefer BLOCK_SIZE=32 over 256 despite far lower occupancy (see int_loop.cu).
+// `env_name`, when given, lets a specific kernel's block size be overridden at
+// runtime (RNA_*_BLOCK_SIZE), matching this codebase's env-var convention and
+// making the choice measurable instead of assumed. Must be a power of two in
+// [32,1024]; anything else is reported and ignored.
 template <typename KernelT>
 __host__ inline int
 rnafold_choose_block_size(KernelT kernel, const int fallback,
+                           const char* env_name = NULL,
                            const size_t dynamic_smem_bytes = 0,
                            const int block_size_limit = 0) {
+  if(env_name) {
+    const char* v = getenv(env_name);
+    if(v && *v) {
+      const int want = atoi(v);
+      if(want >= 32 && want <= 1024 && (want & (want-1)) == 0) {
+        fprintf(stderr, "%-24s %s=%d overriding the occupancy heuristic\n",
+                __FILE__, env_name, want);
+        return want;
+      }
+      fprintf(stderr, "%-24s ignoring %s=%s (want a power of two in [32,1024])\n",
+              __FILE__, env_name, v);
+    }
+  }
   int min_grid_size = 0, block_size = 0;
   const cudaError_t error = cudaOccupancyMaxPotentialBlockSize(
       &min_grid_size, &block_size, kernel, dynamic_smem_bytes, block_size_limit);
