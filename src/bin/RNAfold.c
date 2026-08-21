@@ -125,6 +125,23 @@ process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
       }
     }
 
+    /* Heterogeneous-dispatch output synchronization: CPU worker threads
+     * (RNAfold_cpu_queue.c) print their own folds concurrently with this
+     * loop, and their internal mutex only serializes workers against each
+     * other -- not against this thread. Without this lock a worker's
+     * header/sequence/structure block interleaves into the middle of a GPU
+     * record's, leaving output where a reader cannot tell which structure
+     * belongs to which sequence. Held across the whole record so its lines
+     * stay contiguous; released after the final fflush below.
+     * Note this also covers the PS-plot block further down, which writes to
+     * its own file and does not strictly need it -- accepted so that one
+     * lock/unlock pair guarantees per-record atomicity outright. It costs
+     * workers print latency, never fold throughput. If profiling ever shows
+     * that throttling the queue, the fix is to build each record's output
+     * into a buffer and emit it in one locked write, not to narrow the
+     * scope and give up atomicity. Do not add a queue submit() inside this
+     * region -- see the deadlock note in RNAfold_cpu_queue.h. */
+    rnafold_cpu_queue_output_lock();
     if(output){
       print_fasta_header(output, SEQ_ID);
       fprintf(output, "%s\n", orig_sequence);
@@ -463,6 +480,7 @@ process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
 ***end did not get to thinking about pf yet */
     if(output)
       (void) fflush(output);
+    rnafold_cpu_queue_output_unlock();
     /*
     if(outfile && output){
       fclose(output);

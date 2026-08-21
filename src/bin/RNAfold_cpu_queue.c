@@ -153,3 +153,18 @@ rnafold_cpu_queue_shutdown(void) {
   fprintf(stderr, "RNAfold_cpu_queue: %ld sequence(s) folded on %d CPU thread(s)\n",
           queue_n_folded, queue_n_threads);
 }
+
+/* See RNAfold_cpu_queue.h. Deliberately operates on the same print_mutex the
+ * workers already use, so that GPU-path and CPU-path record output are
+ * mutually exclusive rather than merely worker-vs-worker. Unconditional:
+ * print_mutex is statically initialized, so this stays valid (and
+ * uncontended) even when the queue was never started. */
+void
+rnafold_cpu_queue_output_lock(void) {
+  pthread_mutex_lock(&print_mutex);
+}
+
+void
+rnafold_cpu_queue_output_unlock(void) {
+  pthread_mutex_unlock(&print_mutex);
+}

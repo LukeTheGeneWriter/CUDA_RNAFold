@@ -8,10 +8,15 @@
  * NOT vrna_mfe(), which inside this binary resolves to mfe_cuda.c's
  * version and is unsafe for VRNA_FC_TYPE_SINGLE fold compounds.
  *
- * v1 scope, deliberately: CPU-folded results print as their own block
- * after the GPU batch's output (not interleaved back into original input
- * order), and skip PS-plot output. Both are flagged fast-follows, not
- * oversights.
+ * Output ordering: CPU-folded results are printed by the worker threads
+ * as each fold completes, so they interleave with the GPU batch's output
+ * rather than appearing as a trailing block, and they are not restored to
+ * the original input order. (An earlier version of this note claimed they
+ * printed as their own block after the GPU output -- that was never what
+ * the code did.) Each record's header/sequence/structure lines are still
+ * emitted atomically, so no record is ever split by another -- see
+ * rnafold_cpu_queue_output_lock() below. CPU-folded records also skip
+ * PS-plot output. Input-order restoration remains a flagged fast-follow.
  */
 
 #include <stdio.h>
@@ -47,5 +52,25 @@ int rnafold_cpu_queue_submit(const char *seq_id, const char *orig_sequence, cons
  * disabled (n_threads<=0) -- no-op in that case.
  */
 void rnafold_cpu_queue_shutdown(void);
+
+/* Serializes writes to the shared output stream between the CPU worker
+ * threads and the *main* thread's GPU-result printing in
+ * process_gpu_chunk() (RNAfold.c). The workers' own internal mutex only
+ * serializes workers against each other; without these, a worker's
+ * header/sequence/structure block can be emitted in the middle of a GPU
+ * record's, so a reader (or a test harness) can no longer tell which
+ * structure belongs to which sequence.
+ *
+ * Hold across one whole record's output. Safe to call when the queue is
+ * disabled (n_threads<=0): the mutex is statically initialized, so this is
+ * just an uncontended lock/unlock pair.
+ *
+ * Do NOT call rnafold_cpu_queue_submit() while holding this -- submit()
+ * blocks on the bounded queue's not-full condition, and every worker that
+ * could drain it may be blocked on this same lock. No current caller does;
+ * keep it that way.
+ */
+void rnafold_cpu_queue_output_lock(void);
+void rnafold_cpu_queue_output_unlock(void);
 
 #endif
