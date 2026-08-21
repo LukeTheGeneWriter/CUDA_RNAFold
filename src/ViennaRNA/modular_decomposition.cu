@@ -313,8 +313,8 @@ int* d_dml;  //DMLi
 // of tri_off_H[]/row_off_H[] -- d_fml_j's per-H triangle-block start and
 // d_energy_min/d_fml_i/d_dml's per-H row-block start, replacing the
 // H-tightest H+X*nfiles convention throughout this file.
-size_t* d_tri_off_H;
-size_t* d_row_off_H;
+static size_t* d_tri_off_H;
+static size_t* d_row_off_H;
 // Staggered_Row_Batching Phase 4: per-row "current active width" tables for
 // load_fML/fmli_kernel/modular_decomposition_kernel/load_min_fML_kernel's
 // flat grids -- rebuilt+reuploaded every sweep row i (see fill_arrays_loop.c),
@@ -325,8 +325,8 @@ size_t* d_row_off_H;
 // verified algebraically identical across all three from their pre-Phase-4
 // bound-check arithmetic). Both buffers are allocated once per chunk here
 // (init_gpu()) and just overwritten each row, same as d_energy_min already is.
-size_t* d_size_off_H;
-size_t* d_side_off_H;
+static size_t* d_size_off_H;
+static size_t* d_side_off_H;
 //int* h_dml;  //DMLi
 //unsigned int mem_size_buf; //bytes in h_dml and d_dml
 //int* fml_j;  //my_fML

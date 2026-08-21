@@ -117,15 +117,15 @@ int*          d_new_e;
 // nfiles+1 entries, uploaded once per chunk in init_gpu2(). Replaces
 // Hoff(H,length) wherever d_my_c is indexed on-device: Hoff() assumes every
 // H shares one length, tri_off_H[] doesn't.
-size_t*       d_tri_off_H;
+static size_t*       d_tri_off_H;
 // Staggered_Row_Batching Phase 2c: device copy of row_off_H[] -- d_new_e's
 // per-H row start, replacing H*(length+1) wherever d_new_e is indexed.
-size_t*       d_row_off_H;
+static size_t*       d_row_off_H;
 // Staggered_Row_Batching Phase 2e: d_hccc's per-H block start. Computed
 // locally in init_gpu2() (not compute_batch_offsets()) since Hc_ints()'s
 // MAXLOOP padding is a private detail of this file's bit-packing, not a
 // general row/triangle shape shared elsewhere.
-size_t*       d_hc_off_H;
+static size_t*       d_hc_off_H;
 // Staggered_Row_Batching Phase 5: per-row block-count table shared by
 // int_loop_kernel and load_my_c_kernel (both this file, same "size"
 // formula reused verbatim from Phase 4's load_fML) -- allocated once per
@@ -135,7 +135,7 @@ size_t*       d_hc_off_H;
 // load_fML/modular_decomposition/load_min_fML sequence -- these two are
 // separate synchronous launches with no fixed relative ordering guarantee
 // worth depending on).
-size_t*       d_size_off_H;
+static size_t*       d_size_off_H;
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only

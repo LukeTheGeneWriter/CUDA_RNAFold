@@ -94,21 +94,21 @@ int* d_energy_3p00_row;
 // per this file's established convention of not sharing device state with
 // int_loop.cu/modular_decomposition.cu) -- replaces H*(length+1) wherever
 // the 3 row buffers above are indexed.
-size_t* d_row_off_H;
+static size_t* d_row_off_H;
 // Staggered_Row_Batching Phase 2e: d_hccc_mb/d_hccc_mbenc's per-H block
 // start (own shape, Hc_ints2()-scaled -- no MAXLOOP padding, unlike
 // int_loop.cu's Hc_ints(), so this can't reuse that file's d_hc_off_H) and
 // d_S2/d_sequence's per-H block start (length+2 stride, distinct from
 // row_off_H's length+1). Both computed locally in init_gpu3(), same
 // reasoning as int_loop.cu's d_hc_off_H.
-size_t* d_hc2_off_H;
-size_t* d_seq_off_H;
+static size_t* d_hc2_off_H;
+static size_t* d_seq_off_H;
 // Staggered_Row_Batching Phase 5: per-row block-count table for
 // hp_mb_3p_kernel -- own copy (per this file's established convention),
 // same "size" formula as int_loop.cu's/modular_decomposition.cu's
 // (length_H[H]-i-turn, reused verbatim from Phase 4's load_fML). Allocated
 // once per chunk, uploaded fresh each row by hp_mb_3p_i().
-size_t* d_size_off_H;
+static size_t* d_size_off_H;
 //NB: energy_hp needs no hard-constraint bitmask at all -- E_Hairpin() has no
 //hc dependency, and fill_arrays_loop.c's read site already gates on
 //hc_decompose/no_close identically to how fill_arrays.c used to gate the
