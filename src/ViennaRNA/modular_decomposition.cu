@@ -255,7 +255,7 @@ void int_MemcpyAsync(int* out, const int* in, const size_t size, const cudaMemcp
 // stage every one of those transfers through an internal pinned buffer
 // first; allocating these ourselves as pinned skips that copy. Hard-fails
 // on allocation failure via gpuErrchk, matching every other CUDA
-// allocation in this codebase -- see compute_max_gpu_batch()'s
+// allocation in this codebase -- see compute_gpu_usable_bytes()'s
 // safety_margin, tightened alongside this change specifically to keep
 // pinned-memory pressure down at the largest batch sizes rather than
 // adding a fallback-to-pageable path here.
@@ -476,58 +476,56 @@ modular_decomposition_bytes_per_file(const int length) {
   return mem_size_len + ijsize_len;
 }
 
-// CUDA caps gridDim.y/z at 65535 -- nfiles is used directly as gridDim.y in
-// this file's kernels (and int_loop.cu's/hp_mb_loop.cu's). This is a real
-// hardware limit on any single par_mfe() call, independent of how many
-// sequences the caller reads in total: RNAfold.c now streams the input in
-// chunks (process_gpu_chunk(), RNAfold.c) rather than reading everything
-// into memory first, and each chunk is already sized by this function --
-// this clamp is what keeps a chunk's size from exceeding what the grid can
-// address even when free VRAM alone would allow a larger one (e.g. a
-// short-sequence run with abundant free VRAM). This is a hardware constant,
-// not a tunable -- don't raise it without also changing how nfiles is
-// mapped onto grid dimensions in the kernels themselves.
-#define MAX_GPU_BATCH_GRID_LIMIT 65535
+// Staggered_Row_Batching Phase 6b: replaces compute_max_gpu_batch() (which
+// computed a single fixed record-count "capacity" up front from one shared
+// length -- correct only because every chunk was uniform-length, and about
+// to stop being true once Phase 6c drops that constraint). RNAfold.c now
+// tracks a running VRAM budget incrementally as records of potentially
+// different lengths accumulate into a chunk, rather than committing to a
+// count derived from a single representative length. These two functions
+// are the building blocks for that: gpu_bytes_per_file() gives the real
+// per-record cost at any length (RNAfold.c calls this once per candidate
+// record, not once per chunk), and compute_gpu_usable_bytes() gives the
+// VRAM budget for a fresh chunk (called once per chunk start -- the
+// in-progress chunk's own buffers aren't allocated yet at accumulation
+// time, that happens later inside par_mfe(), so free VRAM doesn't
+// meaningfully change as records accumulate on the host).
+//
+// The old MAX_GPU_BATCH_GRID_LIMIT (CUDA's gridDim.y/z 65535 cap) is
+// retired along with compute_max_gpu_batch() -- it existed specifically
+// because nfiles was used directly as gridDim.y in this file's kernels (and
+// int_loop.cu's/hp_mb_loop.cu's); Phases 4-5 flattened every kernel here to
+// a 1-D grid, so that limit's rationale no longer applies (noted but not
+// acted on when Phase 5 shipped -- this is where it's actually retired).
+//
+// Aggregates the per-file VRAM cost across all three GPU-resident files
+// (this one, int_loop.cu, hp_mb_loop.cu) for one record at the given
+// length -- owned here since this file already has the dominant-cost
+// buffer and the `first`-guard pattern this whole feature extends.
+PUBLIC size_t
+gpu_bytes_per_file(const int length) {
+  return modular_decomposition_bytes_per_file(length)
+       + int_loop_bytes_per_file(length)
+       + hp_mb_loop_bytes_per_file(length);
+}
 
-// Queries free VRAM and computes the largest nfiles that fits within a
-// safety margin of it at the given fold length, summing the per-file cost
-// across all three GPU-resident files (this one, int_loop.cu, hp_mb_loop.cu)
-// -- owned here since this file already has the dominant-cost buffer and the
-// `first`-guard pattern this whole feature extends.
-// Returns 0 if even min_batch sequences wouldn't fit -- signal to the caller
-// to route everything remaining to the CPU queue instead of attempting an
-// undersized (or outright failing) GPU batch.
-// TODO: the 95% safety margin below was bumped up from an initial 80% after
-// a 400-sequence/length-5601 multi-batch stress test on Colab showed lots of
-// VRAM/system-RAM headroom to spare -- still not derived from a systematic
+// Queries free VRAM (cudaMemGetInfo) and returns the safety-margined usable
+// budget for a fresh chunk. Call once per chunk start, not per record.
+// TODO: the 85% safety margin was tightened from an initial 95% after the
+// row buffers in fill_arrays.c (DMLi/DMLi1/DMLi2 + 5 more) became
+// page-locked (cuda_host_alloc_ints()) -- pinned host allocation is a more
+// constrained resource than pageable RAM (can't be swapped, often a
+// stricter OS limit) and hard-fails rather than falling back, so this
+// margin is the actual safety net for that. Not derived from a systematic
 // study of allocator fragmentation/CUDA context overhead across many batch
-// sizes, just empirically fine so far. Revisit if a future run OOMs closer
-// to the edge than this one did.
-PUBLIC int
-compute_max_gpu_batch(const int length, const int min_batch) {
+// sizes, just empirically fine so far -- revisit if a future run OOMs
+// closer to the edge than any tested so far did.
+PUBLIC size_t
+compute_gpu_usable_bytes(void) {
   size_t free_bytes = 0, total_bytes = 0;
   gpuErrchk( cudaMemGetInfo(&free_bytes, &total_bytes) );
-
-  const size_t bytes_per_file = modular_decomposition_bytes_per_file(length)
-                               + int_loop_bytes_per_file(length)
-                               + hp_mb_loop_bytes_per_file(length);
-
-  // New Jul 2026: tightened from 0.95 -- the row buffers in fill_arrays.c
-  // (DMLi/DMLi1/DMLi2 + 5 more) are now page-locked (see
-  // cuda_host_alloc_ints() above), which is a more constrained host
-  // resource than pageable RAM (can't be swapped, often has a stricter OS
-  // limit, especially in containerized environments). Pinned allocation
-  // hard-fails rather than falling back, so this margin is the actual
-  // safety net for that -- smaller nfiles per batch means smaller pinned
-  // allocations. Revisit (raise back toward 0.95) once real headroom at
-  // the largest tested batch sizes is confirmed on Colab.
   const double safety_margin = 0.85; // TODO: tune further if a tighter margin ever OOMs
-  const size_t usable_bytes  = (size_t)((double)free_bytes * safety_margin);
-
-  size_t max_batch = (bytes_per_file == 0) ? 0 : usable_bytes / bytes_per_file;
-  if(max_batch > MAX_GPU_BATCH_GRID_LIMIT) max_batch = MAX_GPU_BATCH_GRID_LIMIT;
-
-  return ((int)max_batch < min_batch) ? 0 : (int)max_batch;
+  return (size_t)((double)free_bytes * safety_margin);
 }
 
 /* prefill matrices with init contributions */

@@ -725,15 +725,31 @@ int main(int argc, char *argv[]){
    * entire input into memory before any folding starts (see
    * process_gpu_chunk() above for why: peak host RAM used to scale with
    * total input size, which is what made a 1,000,000-sequence run exhaust
-   * host RAM before ever reaching the GPU). chunk_length/chunk_capacity
-   * describe the chunk currently being filled; chunk_array_size is how big
-   * SEQ_IDs/VC/Orig_sequence/Structure/EN are actually allocated to (a
-   * high-water mark -- only grows, never shrinks, to avoid realloc
-   * thrashing if compute_max_gpu_batch() fluctuates chunk to chunk).
+   * host RAM before ever reaching the GPU). chunk_length describes the
+   * chunk currently being filled (still uniform-length for now -- see the
+   * flush trigger below, unchanged by Phase 6b); chunk_array_size is how
+   * big SEQ_IDs/VC/Orig_sequence/Structure/EN/length_H are actually
+   * allocated to (a high-water mark -- only grows, never shrinks, to avoid
+   * realloc thrashing).
+   * Staggered_Row_Batching Phase 6b: chunk_capacity (a single record-count
+   * ceiling computed once per chunk from one representative length) is
+   * retired -- replaced by chunk_bytes_committed/chunk_usable_bytes, an
+   * incremental running VRAM budget checked per candidate record instead
+   * of a count decided up front. This is a real behavior change in kind
+   * (not just refactoring), but it produces the same chunk boundaries as
+   * the old scheme while chunks stay uniform-length: every record's own
+   * bytes_needed is then identical, so flushing on
+   * (nfiles+1)*bytes > usable is exactly flushing on
+   * nfiles >= floor(usable/bytes), which is what chunk_capacity was.
+   * Mixed lengths (Phase 6c) are where the two genuinely diverge. The one
+   * other deliberate difference is the degraded path where free VRAM
+   * can't hold MIN_GPU_BATCH records and the CPU queue is disabled -- see
+   * the flush trigger below.
    * nfiles here means "records in the chunk currently being filled", not
    * "records in the whole run" as it did before streaming. */
   int chunk_length     = -1; // -1 == no chunk in progress
-  int chunk_capacity   = 0;
+  size_t chunk_bytes_committed = 0; // running VRAM cost of records already accepted this chunk
+  size_t chunk_usable_bytes    = 0; // VRAM budget for this chunk, queried once at chunk start
   int chunk_array_size = 0;
   char**            SEQ_IDs = NULL;
   vrna_fold_compound_t** VC = NULL;
@@ -916,13 +932,21 @@ int main(int argc, char *argv[]){
     }
     {
     /* This record doesn't belong to the chunk currently being filled --
-     * either no chunk has been started yet, the chunk is full, or (multi-
-     * length support) this record's length differs from it. Flush what's
-     * accumulated so far (process_gpu_chunk() no-ops if nfiles==0, e.g. on
-     * the very first record) before starting fresh at this record's
-     * length. */
+     * either no chunk has been started yet, (multi-length support) this
+     * record's length differs from it, or accepting it would push the
+     * chunk past its VRAM budget. Flush what's accumulated so far
+     * (process_gpu_chunk() no-ops if nfiles==0, e.g. on the very first
+     * record) before starting fresh at this record's length.
+     * Staggered_Row_Batching Phase 6b: "the chunk is full" is now a running
+     * byte budget rather than a record count fixed up front from one
+     * representative length. The dominant term in gpu_bytes_per_file() is
+     * my_c's O(length^2) triangle -- a record twice as long costs roughly
+     * four times as much -- which is exactly why a single length can't
+     * stand in for a chunk whose records differ in length (Phase 6c). */
+    const size_t bytes_needed = gpu_bytes_per_file((int)vc->length);
     int accept_into_chunk = 1;
-    if(chunk_length == -1 || vc->length != chunk_length || nfiles >= chunk_capacity){
+    if(chunk_length == -1 || vc->length != chunk_length
+       || chunk_bytes_committed + bytes_needed > chunk_usable_bytes){
       process_gpu_chunk(nfiles, SEQ_IDs, VC, Orig_sequence, Structure, EN,
                          cpu_queue_threads, MIN_GPU_BATCH,
                          fold_constrained, constraints_file, commands,
@@ -934,61 +958,84 @@ int main(int argc, char *argv[]){
        * guards silently skip reallocation on the next par_mfe() call,
        * reusing buffers sized for this chunk -- undersized for a larger
        * next chunk, corrupting GPU memory (occasionally caught by an
-       * in-kernel assert, otherwise silent). Also lets compute_max_gpu_batch()
-       * below see accurate free VRAM instead of counting this chunk's
-       * (otherwise still-resident) buffers as unavailable.
+       * in-kernel assert, otherwise silent). Also lets
+       * compute_gpu_usable_bytes() below see accurate free VRAM instead of
+       * counting this chunk's (otherwise still-resident) buffers as
+       * unavailable.
        * GPU teardown rewrite to handle variable length sequences */
       teardown_gpu();
       teardown_gpu2();
       teardown_gpu3();
       nfiles = 0;
 
-      chunk_length   = vc->length;
-      chunk_capacity = compute_max_gpu_batch(chunk_length, MIN_GPU_BATCH);
-      if(chunk_capacity == 0){
-        if(cpu_queue_threads > 0){
-          /* Not even MIN_GPU_BATCH sequences of this length fit in free
-           * VRAM right now -- route this one record to the CPU queue
-           * instead of starting a doomed/undersized GPU chunk, and try the
-           * next record fresh (it may be a different, GPU-viable length). */
-          rnafold_cpu_queue_submit(SEQ_ID, orig_sequence, vc->sequence);
-          vrna_fold_compound_free(vc);
-          free(SEQ_ID);
-          free(orig_sequence);
-          free(structure);
-          chunk_length = -1;
-          accept_into_chunk = 0;
-        } else {
-          /* CPU queue disabled -- nowhere else for this sequence to go.
-           * Best-effort: attempt a single-sequence GPU batch anyway, same
-           * risk-acceptance as the pre-multi-batch code (might OOM, but
-           * that's a loud, honest failure, not a silent drop). */
-          chunk_capacity = 1;
-        }
-      }
-      if(accept_into_chunk && chunk_capacity > chunk_array_size){
-        char**                 tmp_ids   = (char**)                realloc(SEQ_IDs,       (size_t)chunk_capacity*sizeof(char*));
-        vrna_fold_compound_t** tmp_vc    = (vrna_fold_compound_t**) realloc(VC,            (size_t)chunk_capacity*sizeof(vrna_fold_compound_t*));
-        char**                 tmp_orig  = (char**)                realloc(Orig_sequence, (size_t)chunk_capacity*sizeof(char*));
-        char**                 tmp_struc = (char**)                realloc(Structure,     (size_t)chunk_capacity*sizeof(char*));
-        float*                 tmp_en    = (float*)                realloc(EN,            (size_t)chunk_capacity*sizeof(float*));
-        int*                   tmp_len   = (int*)                  realloc(length_H,      (size_t)chunk_capacity*sizeof(int));
-        if(!tmp_ids || !tmp_vc || !tmp_orig || !tmp_struc || !tmp_en || !tmp_len){
-          fprintf(stderr,"Failed to allocate GPU chunk arrays for %d entries (out of host memory?)\n",
-	          chunk_capacity);
-          exit(1);
-        }
-        SEQ_IDs = tmp_ids; VC = tmp_vc; Orig_sequence = tmp_orig; Structure = tmp_struc; EN = tmp_en; length_H = tmp_len;
-        chunk_array_size = chunk_capacity;
+      chunk_length          = vc->length;
+      chunk_bytes_committed = 0;
+      chunk_usable_bytes    = compute_gpu_usable_bytes();
+
+      /* The retired compute_max_gpu_batch() returned 0 -- "not even
+       * MIN_GPU_BATCH records of this length fit in free VRAM" -- as the
+       * signal to give up on a GPU chunk entirely. Same test, expressed
+       * against the byte budget directly: floor(usable/bytes_needed) <
+       * MIN_GPU_BATCH. Written as a division rather than the equivalent
+       * MIN_GPU_BATCH*bytes_needed so a pathologically long record can't
+       * overflow the multiply; bytes_needed==0 is impossible for any real
+       * length but would make the division meaningless, so it takes the
+       * same "doesn't fit" path the old code's (bytes_per_file == 0) guard
+       * did.
+       * If the CPU queue is disabled there is nowhere else for this
+       * sequence to go, so the chunk starts anyway (best-effort, same
+       * risk-acceptance as the pre-multi-batch code: might OOM, but that's
+       * a loud, honest failure, not a silent drop) and the byte budget
+       * decides how many records actually land in it -- at least this one,
+       * which is accepted unconditionally below. The old code pinned that
+       * case to exactly one record per chunk; admitting however many
+       * genuinely fit is the same risk posture at strictly better
+       * utilisation. */
+      if((bytes_needed == 0 || chunk_usable_bytes / bytes_needed < (size_t)MIN_GPU_BATCH)
+         && cpu_queue_threads > 0){
+        /* Route this one record to the CPU queue instead of starting a
+         * doomed/undersized GPU chunk, and try the next record fresh (it
+         * may be a different, GPU-viable length). */
+        rnafold_cpu_queue_submit(SEQ_ID, orig_sequence, vc->sequence);
+        vrna_fold_compound_free(vc);
+        free(SEQ_ID);
+        free(orig_sequence);
+        free(structure);
+        chunk_length = -1;
+        accept_into_chunk = 0;
       }
     }
 
     if(accept_into_chunk){
+      /* Grow the chunk arrays on demand. Phase 6b removed the up-front
+       * record-count ceiling these used to be sized from, so they double
+       * as the chunk fills instead (O(log nfiles) reallocs). Still a
+       * high-water mark -- only grows, never shrinks, so a big chunk
+       * followed by a small one doesn't realloc-thrash. The initial 64 is
+       * just a starting point below any realistic chunk size, not a
+       * limit. */
+      if(nfiles >= chunk_array_size){
+        const int new_size = (chunk_array_size == 0) ? 64 : chunk_array_size*2;
+        char**                 tmp_ids   = (char**)                realloc(SEQ_IDs,       (size_t)new_size*sizeof(char*));
+        vrna_fold_compound_t** tmp_vc    = (vrna_fold_compound_t**) realloc(VC,            (size_t)new_size*sizeof(vrna_fold_compound_t*));
+        char**                 tmp_orig  = (char**)                realloc(Orig_sequence, (size_t)new_size*sizeof(char*));
+        char**                 tmp_struc = (char**)                realloc(Structure,     (size_t)new_size*sizeof(char*));
+        float*                 tmp_en    = (float*)                realloc(EN,            (size_t)new_size*sizeof(float*));
+        int*                   tmp_len   = (int*)                  realloc(length_H,      (size_t)new_size*sizeof(int));
+        if(!tmp_ids || !tmp_vc || !tmp_orig || !tmp_struc || !tmp_en || !tmp_len){
+          fprintf(stderr,"Failed to allocate GPU chunk arrays for %d entries (out of host memory?)\n",
+	          new_size);
+          exit(1);
+        }
+        SEQ_IDs = tmp_ids; VC = tmp_vc; Orig_sequence = tmp_orig; Structure = tmp_struc; EN = tmp_en; length_H = tmp_len;
+        chunk_array_size = new_size;
+      }
       SEQ_IDs[nfiles]       = SEQ_ID;
       VC[nfiles]            = vc;
       Orig_sequence[nfiles] = orig_sequence;
       Structure[nfiles]     = structure;
       length_H[nfiles]      = (int)vc->length;
+      chunk_bytes_committed += bytes_needed;
       nfiles++;
     }
     }

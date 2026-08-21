@@ -151,8 +151,9 @@ PUBLIC void
 teardown_gpu3(void);
 
 // *_bytes_per_file(): bytes of device memory the owning file needs for one
-// additional sequence at the given length -- used by compute_max_gpu_batch()
-// to size a GPU batch against free VRAM. Each file owns its own formula
+// additional sequence at the given length -- summed by gpu_bytes_per_file()
+// below, which RNAfold.c budgets a GPU chunk against free VRAM with. Each
+// file owns its own formula
 // (mirrors its init_gpu*() cudaMalloc sizes exactly) rather than duplicating
 // it elsewhere.
 #ifdef __cplusplus
@@ -176,17 +177,25 @@ PUBLIC size_t
 #endif
 hp_mb_loop_bytes_per_file(const int length);
 
-// Queries free VRAM (cudaMemGetInfo) and returns the largest nfiles that
-// fits within a safety margin of it at the given length, summing all three
-// files' per-file costs -- or 0 if even min_batch sequences wouldn't fit
-// (signal: route the remainder to the CPU queue instead). See
-// modular_decomposition.cu for the safety-margin/grid-limit details.
+// Staggered_Row_Batching Phase 6b: replaces compute_max_gpu_batch() -- see
+// modular_decomposition.cu for the full explanation. gpu_bytes_per_file()
+// sums all three files' per-record cost at the given length (call once per
+// candidate record); compute_gpu_usable_bytes() queries free VRAM
+// (cudaMemGetInfo) and returns the safety-margined usable budget for a
+// fresh chunk (call once per chunk start, not per record).
 #ifdef __cplusplus
-extern "C" /*PUBLIC*/ int
+extern "C" /*PUBLIC*/ size_t
 #else
-PUBLIC int
+PUBLIC size_t
 #endif
-compute_max_gpu_batch(const int length, const int min_batch);
+gpu_bytes_per_file(const int length);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ size_t
+#else
+PUBLIC size_t
+#endif
+compute_gpu_usable_bytes(void);
 
 // Per-row (fixed i, all j, all H) hairpin/multibranch/3'-extension energy
 // kernel -- see hp_mb_loop.cu for why these three (and only these three) can
