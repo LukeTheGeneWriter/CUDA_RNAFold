@@ -458,6 +458,13 @@ int_loop_bytes_per_file(const int length) {
 // what the host store used to write), the layouts coincide
 // (jindx[j]+i == Indx(i,j), allocation (n+1)*(n+2)/2 == the tri_off_H stride),
 // and nothing on the host reads the triangle until E_ext_loop_5()/backtrack().
+// One record's slice -- the my_c twin of fetch_fML_one(); see there.
+extern "C" /*PUBLIC*/ void
+fetch_my_c_one(int* dst, const size_t tri_lo, const size_t cells) {
+  gpuErrchk( cudaMemcpy(dst, &d_my_c[tri_lo], cells*sizeof(int),
+                        cudaMemcpyDeviceToHost) );
+}
+
 extern "C" /*PUBLIC*/ void
 fetch_my_c(const int nfiles, int** c_H, const size_t* tri_off_H) {
   for(int H=0; H<nfiles; H++) {

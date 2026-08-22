@@ -276,36 +276,17 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 
 #include "fill_arrays_loop.c"
 
-  // Fill each record's host fML and c triangles from the GPU's copies, now
-  // that the sweep is over. my_fml_update_host and new_c_host used to mirror
-  // these a row at a time, at stride ~j; neither matrix has a host reader
-  // until E_ext_loop_5()/backtrack() just below, so once is enough. Must stay
-  // ahead of E_ext_loop_5(), which reads c.
-  {
-    const double fetch_t0 = now_seconds();
-    int* fML_H[nfiles]; //VLAs, same as row_off_H/tri_off_H above
-    int* c_H[nfiles];
-    for(int H=0;H<nfiles;H++) {
-      fML_H[H] = VC[H]->matrices->fML;
-      c_H[H]   = VC[H]->matrices->c;
-    }
-    fetch_fML(nfiles, fML_H, tri_off_H);
-    fetch_my_c(nfiles, c_H, tri_off_H);
-    phase_fetch_mx_s += now_seconds() - fetch_t0;
-  }
-
-  /* calculate energies of 5' fragments */
- for(int H=0;H<nfiles;H++) {
-   E_ext_loop_5(VC[H]);
-   // Staggered_Row_Batching Phase 6c: each H's MFE lives at ITS OWN length in
-   // its own f5, not at the batch maximum. Reading f5[length] gave the right
-   // structure (backtracking is per-H and never consulted this) with a wrong
-   // energy for every record shorter than the longest -- the exact signature
-   // seen on the first genuinely mixed-length run: 60/60 structures identical,
-   // 2/60 energies.
-   Energy[H] = VC[H]->matrices->f5[VC[H]->length];
-   //printf("Energy[%d]%d\n",H,Energy[H]);
- }//endfor H
+  // The bulk fetch that used to sit here is gone, and so is the E_ext_loop_5()
+  // + Energy[] loop that followed it. Both now happen one record at a time in
+  // par_mfe()'s post-processing loop, against a small pool of reusable scratch
+  // matrices, so the host never holds more than a few records' c/fML triangles
+  // at once instead of all nfiles of them. At 5601nt that is 125.6 MB per
+  // record -- about 1:1 with the record's VRAM cost -- so holding a whole
+  // chunk's worth made host RAM as binding a constraint as the GPU's.
+  //
+  // This is only safe because nothing between here and there reads either
+  // triangle: new_c_host stopped writing My_c in a1430bd, fml_host stopped
+  // writing My_fML in 89e5721, and the dead prefill went in 4b2a18b.
 
   /* clean up memory */
   //free(cc);

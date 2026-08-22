@@ -313,6 +313,22 @@ PUBLIC void
 #endif
 fetch_my_c(const int nfiles, int** c_H, const size_t* tri_off_H);
 
+// Per-record variants for the scratch-pool backtracking path (mfe_cuda.c).
+// tri_lo is tri_off_H[H]; cells is tri_off_H[H+1]-tri_off_H[H].
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+fetch_fML_one(int* dst, const size_t tri_lo, const size_t cells);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+fetch_my_c_one(int* dst, const size_t tri_lo, const size_t cells);
+
 // Stage-attribution timers (mfe_cuda.c). The row-loop "phase" timers cover
 // only the sweep; these account for the 20-31% of wall that sits outside it.
 extern double stage_build_s, stage_prepare_s, stage_prefill_s, stage_backtrack_s;

@@ -261,24 +261,83 @@ backtrack_thread_count(const int nfiles, const int cpu_queue_threads) {
   return n;
 }
 
+// One reusable c/fML pair, sized to the longest record in the chunk. This is
+// the point of the whole arrangement: host matrix memory becomes
+// (workers) x 125.6 MB at 5601nt instead of (records in chunk) x 125.6 MB,
+// which at a VRAM-filling chunk width was about as much host RAM as VRAM.
+typedef struct {
+  int    *c;
+  int    *fML;
+  size_t  cells;   /* capacity, in ints, of each of the two above */
+  double  fetch_s; /* per-worker, so the timer needs no lock */
+} bt_scratch_t;
+
+PRIVATE void
+bt_scratch_ensure(bt_scratch_t *sc, const size_t cells) {
+  if(sc->cells >= cells) return;
+  free(sc->c);
+  free(sc->fML);
+  sc->c     = (int *) vrna_alloc(sizeof(int) * cells);
+  sc->fML   = (int *) vrna_alloc(sizeof(int) * cells);
+  sc->cells = cells;
+}
+
 typedef struct {
   const vrna_fold_compound_t **VC;
   const char                 **Structure;
-  const int                   *energy;
+  int                         *energy;  /* now an OUTPUT: filled here, not by par_fill_arrays() */
   float                        *EN;
   int                           nfiles;
   int                          *next_i; /* shared work-claim counter */
+  const size_t                *tri_off_H;
 } backtrack_pool_args_t;
+
+typedef struct {
+  backtrack_pool_args_t *shared;
+  bt_scratch_t          *sc;     /* this worker's own */
+} backtrack_thread_arg_t;
+
+// Post-processing for one record: give it a scratch pair, pull its two
+// triangles off the GPU into that pair, finish the exterior loop, read the
+// MFE, backtrack, then hand the scratch back. VC[]'s own c/fML pointers are
+// NULL outside this window (par_mfe() releases them up front), which is what
+// keeps peak host RAM at one record's worth per worker.
+PRIVATE void
+backtrack_one(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {
+  vrna_fold_compound_t *vc = (vrna_fold_compound_t *) a->VC[idx];
+  const size_t lo    = a->tri_off_H[idx];
+  const size_t cells = a->tri_off_H[idx+1] - lo;
+  assert(vc->type == VRNA_FC_TYPE_SINGLE);
+  assert(cells > 0);
+
+  bt_scratch_ensure(sc, cells);
+  vc->matrices->c   = sc->c;
+  vc->matrices->fML = sc->fML;
+
+  const double t0 = rnafold_now_seconds();
+  fetch_my_c_one(sc->c,   lo, cells);
+  fetch_fML_one (sc->fML, lo, cells);
+  sc->fetch_s += rnafold_now_seconds() - t0;
+
+  E_ext_loop_5(vc);                                  /* fills f5 from c */
+  a->energy[idx] = vc->matrices->f5[vc->length];     /* was par_fill_arrays()'s job */
+
+  sect bt_stack[MAXSECTORS]; /* thread-local */
+  a->EN[idx] = callback_backtrack(vc, 0, a->energy[idx], a->Structure[idx], bt_stack);
+
+  // Detach before anything can free the compound: the scratch outlives it and
+  // is reused, so leaving these set would hand vrna_mx_mfe_free() a pointer it
+  // does not own. free(NULL) in there is a no-op.
+  vc->matrices->c   = NULL;
+  vc->matrices->fML = NULL;
+}
 
 PRIVATE void *
 backtrack_worker(void *arg) {
-  backtrack_pool_args_t *a = (backtrack_pool_args_t *) arg;
+  backtrack_thread_arg_t *t = (backtrack_thread_arg_t *) arg;
   int idx;
-  while((idx = __sync_fetch_and_add(a->next_i, 1)) < a->nfiles) {
-    assert(a->VC[idx]->type == VRNA_FC_TYPE_SINGLE);
-    sect bt_stack[MAXSECTORS]; /* stack of partial structures for backtracking, thread-local */
-    a->EN[idx] = callback_backtrack(a->VC[idx], 0, a->energy[idx], a->Structure[idx], bt_stack);
-  }
+  while((idx = __sync_fetch_and_add(t->shared->next_i, 1)) < t->shared->nfiles)
+    backtrack_one(t->shared, idx, t->sc);
   return NULL;
 }
 
@@ -393,24 +452,42 @@ par_mfe(const int nfiles,
     }
     stage_prepare_s += rnafold_now_seconds() - t_prepare;
 
+    // Release every record's c/fML now. Nothing reads either between here and
+    // backtrack_one(), which reattaches a pooled scratch pair per record --
+    // new_c_host stopped writing My_c in a1430bd, fml_host stopped writing
+    // My_fML in 89e5721, and the dead prefill went in 4b2a18b, so the sweep
+    // never touches them. At 5601nt this is 125.6 MB per record reclaimed,
+    // roughly 1:1 with the record's VRAM, and it is what stops host RAM being
+    // as binding a constraint on chunk width as the GPU's own memory.
+    for(i=0;i<nfiles;i++) {
+      vrna_fold_compound_t *v = (vrna_fold_compound_t *) VC[i];
+      free(v->matrices->c);   v->matrices->c   = NULL;
+      free(v->matrices->fML); v->matrices->fML = NULL;
+    }
+
     int energy[nfiles];
     par_fill_arrays(nfiles,VC,energy);
 
+    // Post-processing. Each record now gets its triangles fetched into a
+    // pooled scratch pair, its exterior loop finished and its MFE read, then
+    // backtracks, then releases the scratch -- see backtrack_one(). One pool
+    // slot per worker, so peak host matrix memory is n_bt_threads records'
+    // worth rather than nfiles.
     const double t_bt = rnafold_now_seconds();
     const int n_bt_threads = backtrack_thread_count(nfiles, cpu_queue_threads);
+    int next_i = 0;
+    backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H };
+    bt_scratch_t *pool = (bt_scratch_t *) vrna_alloc(sizeof(bt_scratch_t) * n_bt_threads);
     if(n_bt_threads <= 1) {
-      for(i=0;i<nfiles;i++) {
-        assert(VC[i]->type == VRNA_FC_TYPE_SINGLE);
-        sect bt_stack[MAXSECTORS]; /* stack of partial structures for backtracking */
-        EN[i] = callback_backtrack(VC[i], 0, energy[i],Structure[i],bt_stack);
-      }
+      for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
     } else {
-      int next_i = 0;
-      backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i };
       pthread_t *bt_threads = (pthread_t *) vrna_alloc(sizeof(pthread_t) * n_bt_threads);
+      backtrack_thread_arg_t *targs =
+        (backtrack_thread_arg_t *) vrna_alloc(sizeof(backtrack_thread_arg_t) * n_bt_threads);
+      for(int t=0; t<n_bt_threads; t++) { targs[t].shared = &targ; targs[t].sc = &pool[t]; }
       int started = 0;
       for(; started < n_bt_threads; started++) {
-        if(pthread_create(&bt_threads[started], NULL, backtrack_worker, &targ) != 0) {
+        if(pthread_create(&bt_threads[started], NULL, backtrack_worker, &targs[started]) != 0) {
           fprintf(stderr, "mfe_cuda.c: pthread_create failed for backtrack worker %d, "
                            "continuing with fewer threads\n", started);
           break;
@@ -418,18 +495,26 @@ par_mfe(const int nfiles,
       }
       if(started == 0) {
         /* pthread_create failed on the very first thread -- fall back to serial */
-        for(i=0;i<nfiles;i++) {
-          assert(VC[i]->type == VRNA_FC_TYPE_SINGLE);
-          sect bt_stack[MAXSECTORS];
-          EN[i] = callback_backtrack(VC[i], 0, energy[i],Structure[i],bt_stack);
-        }
+        for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
       } else {
         for(int t=0; t<started; t++)
           pthread_join(bt_threads[t], NULL);
       }
+      free(targs);
       free(bt_threads);
     }
-    stage_backtrack_s += rnafold_now_seconds() - t_bt;
+    // The fetch is timed per worker so it needs no lock. Fold the slots in and
+    // charge it to transfer rather than to backtracking, which it dwarfs. Note
+    // the local, not the global: phase_fetch_mx_s accumulates across chunks.
+    double fetch_this_chunk = 0.0;
+    for(int t=0; t<n_bt_threads; t++) {
+      fetch_this_chunk += pool[t].fetch_s;
+      free(pool[t].c);
+      free(pool[t].fML);
+    }
+    free(pool);
+    phase_fetch_mx_s  += fetch_this_chunk;
+    stage_backtrack_s += rnafold_now_seconds() - t_bt - fetch_this_chunk;
   } else {
   for(int i=0;i<nfiles;i++) {
     EN[i] = mfe_cuda_vrna_mfe(VC[i], Structure[i]);
