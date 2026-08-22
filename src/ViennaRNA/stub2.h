@@ -284,6 +284,17 @@ PUBLIC void
 #endif
 compute_flatten_offsets(const int nfiles, const size_t* width_H, size_t* flat_off_H); //out, nfiles+1
 
+// Staggered_Row_Batching 2026-08-22: bulk copy of the GPU's my_fML triangle
+// into each record's own matrices->fML after the sweep, replacing
+// my_fml_update_host's per-row mirroring. fML_H is nfiles pointers, one per
+// record; tri_off_H is the nfiles+1 table from compute_batch_offsets().
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+fetch_fML(const int nfiles, int** fML_H, const size_t* tri_off_H);
+
 PRIVATE void
 par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy);
 

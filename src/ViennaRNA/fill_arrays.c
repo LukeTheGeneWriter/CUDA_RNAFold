@@ -70,7 +70,13 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   int               i, j, ij, length, /*energy,*/ new_c, /*stackEnergy,*/ no_close, turn,
                     noGUclosure, /*noLP,*/ uniq_ML, /*dangle_model, *indx, *my_f5,
                     my_c, *my_fML, *my_fM1,*/ hc_decompose, /* *cc, *cc1, *Fmi,*/ *DMLi,
-                    *DMLi1, *DMLi2;
+                    *DMLi1, *DMLi2,
+                    // Staggered_Row_Batching 2026-08-22: row-shaped cache of the
+                    // PREVIOUS row's final fML, the one thing the sweep still
+                    // needed from the host fML triangle once my_fml_update_host's
+                    // per-row triangular mirroring was retired in favour of
+                    // fetch_fML(). Same rotate-free lifetime as DMLi* above.
+                    *fml_prev;
   // New Jul 2026: hoisted out of fill_arrays_loop.c's per-row loop (were
   // malloc()'d/free()'d every row there -- see that file's history) and
   // page-locked (cuda_host_alloc_ints(), modular_decomposition.cu) since
@@ -143,6 +149,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   DMLi  = cuda_host_alloc_ints(row_off_H[nfiles]); /* DMLi[j] holds  MIN(fML[i,k]+fML[k+1,j])      */
   DMLi1 = cuda_host_alloc_ints(row_off_H[nfiles]); /*                MIN(fML[i+1,k]+fML[k+1,j])    */
   DMLi2 = cuda_host_alloc_ints(row_off_H[nfiles]); /*                MIN(fML[i+2,k]+fML[k+1,j])    */
+  fml_prev = cuda_host_alloc_ints(row_off_H[nfiles]); /* previous row's final fML  */
 
   if((turn < 0) || (turn > length))
     turn = length; /* does this make any sense? */
@@ -169,6 +176,10 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     // finding in harmonic-swimming-hare.md for why that convention doesn't
     // survive staggering/mixed lengths).
     DMLi[row_off_H[H]+j] = DMLi1[row_off_H[H]+j] = DMLi2[row_off_H[H]+j] = INF;
+    // Matches the fML prefill this replaces reading: before an H joins the
+    // sweep nothing writes its fml_prev, and the first row it does join reads
+    // cells that no row ever computed. Both must look like INF.
+    fml_prev[row_off_H[H]+j] = INF;
   }
  }//endfor H
 
@@ -198,6 +209,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     cuda_host_free(DMLi);
     cuda_host_free(DMLi1);
     cuda_host_free(DMLi2);
+    cuda_host_free(fml_prev);
     /* return free energy of unfolded chain */
     for(int H=0;H<nfiles;H++) {
       Energy[H] = 0;
@@ -237,6 +249,17 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 
 #include "fill_arrays_loop.c"
 
+  // Fill each record's host fML triangle from the GPU's copy, now that the
+  // sweep is over. my_fml_update_host used to do this a row at a time; the
+  // host matrix has no reader until backtrack(), so once is enough.
+  {
+    const double fetch_t0 = now_seconds();
+    int* fML_H[nfiles]; //VLA, same as row_off_H/tri_off_H above
+    for(int H=0;H<nfiles;H++) fML_H[H] = VC[H]->matrices->fML;
+    fetch_fML(nfiles, fML_H, tri_off_H);
+    phase_fetch_fml_s += now_seconds() - fetch_t0;
+  }
+
   /* calculate energies of 5' fragments */
  for(int H=0;H<nfiles;H++) {
    E_ext_loop_5(VC[H]);
@@ -257,6 +280,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   cuda_host_free(DMLi);
   cuda_host_free(DMLi1);
   cuda_host_free(DMLi2);
+  cuda_host_free(fml_prev);
   cuda_host_free(energy_min);
   cuda_host_free(energy_hp_row);
   cuda_host_free(energy_mb_row);

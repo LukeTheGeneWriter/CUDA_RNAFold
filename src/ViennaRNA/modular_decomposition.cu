@@ -1130,6 +1130,30 @@ modular_decomposition_i(const int nfiles,
   */
 }
 
+// Copies the GPU's my_fML triangle back into each record's own
+// VC[H]->matrices->fML, once, after the whole sweep. Replaces the per-row
+// host mirroring my_fml_update_host used to do (see fill_arrays_loop.c):
+// nothing between rows reads the host triangle, and backtrack() -- the only
+// consumer that does -- runs after this.
+//
+// The copy is contiguous per record, not scattered, because the two layouts
+// already agree: ViennaRNA indexes fML by jindx[j]+i == j*(j-1)/2+i, which is
+// exactly this file's Indx(i,j), and dp_matrices.c sizes the allocation
+// (n+1)*(n+2)/2 == tri_off_H[H+1]-tri_off_H[H] (compute_batch_offsets(),
+// mfe_cuda.c). So H's slice of d_fml_j maps onto its fML one-for-one.
+//
+// Synchronous on the NULL stream: this runs once per chunk, immediately
+// before the host reads the result, so there is nothing to overlap it with.
+extern "C" /*PUBLIC*/ void
+fetch_fML(const int nfiles, int** fML_H, const size_t* tri_off_H) {
+  for(int H=0; H<nfiles; H++) {
+    const size_t n = tri_off_H[H+1] - tri_off_H[H];
+    assert(n > 0);
+    gpuErrchk( cudaMemcpy(fML_H[H], &d_fml_j[tri_off_H[H]], n*sizeof(int),
+                          cudaMemcpyDeviceToHost) );
+  }
+}
+
 // Captures load_fML() -> modular_decomposition_i() -> load_min_fML() as a
 // single CUDA graph and replays it, instead of issuing 6 separate blocking
 // driver calls (fill_arrays_loop.c calls these three back-to-back with no

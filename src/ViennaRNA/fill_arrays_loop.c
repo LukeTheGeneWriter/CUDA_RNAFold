@@ -173,13 +173,30 @@
   //energy_3p_en is just P->MLbase behind a hard-constraint check on
   //already-host-resident data -- not worth a GPU kernel, computed inline
   const int energy_3p_en_j = (VC[H]->hc->up_ml[j] > 0) ? P->MLbase : INF;
-  en0 = ((My_fML(H,Indx(H,i,j - 1)) != INF) && (energy_3p_en_j != INF))? My_fML(H,Indx(H,i,j - 1)) + energy_3p_en_j : INF;
+  // fML(i,j-1), read out of a row buffer instead of the fML triangle. This
+  // loop set My_fML(H,Indx(H,i,j-1)) = energy_min[..j-1] one iteration ago
+  // (the write that used to sit at the bottom of this loop), so the row
+  // buffer already holds it -- and reading it here is sequential where the
+  // triangle walk was stride ~j. j == i+turn+1 is the exception: j-1 is then
+  // i+turn, inside the diagonal band, a cell no row ever computes and which
+  // the fML prefill leaves at INF.
+  const int fml_i_jm1 = (j == i+turn+1) ? INF : energy_min[row_off_H[H]+(j-1)];
+  en0 = ((fml_i_jm1 != INF) && (energy_3p_en_j != INF))? fml_i_jm1 + energy_3p_en_j : INF;
   e00 = MIN2(e00, en0);
       //end from extend_fm_3p()...
 
       //const int e0 = extend_fm_3p(i, j, my_fML, vc);
 
-      const int e3 = (My_fML(H,ij + 1) != INF)? My_fML(H,ij + 1) + en_i : INF;
+      // fML(i+1,j) -- ij+1 == Indx(H,i+1,j) -- out of the previous row's
+      // final-fML row cache instead of the triangle. NB this deliberately is
+      // NOT reconstructed from energy_min[..j] + DMLi1[..j]: energy_min is
+      // reused twice per row (reset at the top of the i-loop, filled with
+      // interior-loop energies by int_loop_i, and only overwritten with the
+      // fML extension value at the bottom of this loop), so at this point it
+      // holds row i's int_loop energies, not row i+1's fML. fml_prev is
+      // written once per row from the values that ARE right, just below.
+      const int fml_i1_j = fml_prev[row_off_H[H]+j];
+      const int e3 = (fml_i1_j != INF)? fml_i1_j + en_i : INF;
 
 
       //energy_mls (multiloop-stems-fast) deleted: under dangle_model==2
@@ -188,8 +205,13 @@
       energy_min[row_off_H[H]+j] = MIN2(e00,e3); //e1 e31
 //    } /* end of j-loop */
 //
-      assert(My_fML(H,ij) == INF);
-      My_fML(H,ij) = energy_min[row_off_H[H]+j];
+      // The provisional `My_fML(H,ij) = energy_min[..j]` that used to be here
+      // is gone. Its only intra-sweep reader was the fml_i_jm1 read above,
+      // now served from the row buffer; the host fML triangle itself is
+      // filled once after the sweep by fetch_fML() from d_fml_j, which the
+      // GPU has been maintaining all along. Dropping this strided store is
+      // worth more than the store itself: it also stops evicting the
+      // neighbouring loops' working set.
     } /* end of j-loop */
     }//endfor H
     phase_fml_host_s += now_seconds() - fml_host_t0;
@@ -219,32 +241,27 @@
       phase_modular_decomp_s += now_seconds() - t0;
     }
 
-    const double my_fml_update_host_t0 = now_seconds();
+    // Was my_fml_update_host, which wrote MIN2(energy_min[..j], DMLi[..j])
+    // into the fML *triangle* at stride ~j. load_min_fML_kernel had already
+    // computed exactly that into d_fml_j a moment earlier on the GPU, and the
+    // host triangle has no reader until backtrack(), so it is now filled once
+    // after the sweep by fetch_fML(). What survives here is only the part the
+    // sweep itself still needs: row i's final fML, cached row-shaped for the
+    // fml_i1_j read one row later. Same arithmetic, contiguous destination
+    // instead of a strided one -- which is what the cost was.
+    const double fml_prev_host_t0 = now_seconds();
     for (int H=0;H<nfiles; H++) {
-    if(!HAS_JOINED(H)) continue; // Phase 6d
-    for (j = i+turn+1; j <= (int)VC[H]->length; j++) {
-      ij            = Indx(H,i,j);
-      assert(ij>=0 && ij<ijsize);
-      My_fML(H,ij) = MIN2(energy_min[row_off_H[H]+j], DMLi[row_off_H[H]+j]);
-
-      /* gcov says not used
-      if(uniq_ML){  ** compute fM1 for unique decomposition **
-        my_fM1[ij] = E_ml_rightmost_stem(i, j, vc);
-      }*/
-
-      //fprintf(stderr,"\n");
-
-      /* does 
-	 DMLi[j] holds  MIN(fML[i,k]+fML[k+1,j])      **
-	 DMLi1          MIN(fML[i+1,k]+fML[k+1,j])    **
-	 DMLi2          MIN(fML[i+2,k]+fML[k+1,j])    **
-      min_fml(i,  j,my_fML,DMLi, " DMLi", turn, indx, length, ijsize);
-      min_fml(i+1,j,my_fML,DMLi1,"DMLi1", turn, indx, length, ijsize);
-      min_fml(i+2,j,my_fML,DMLi2,"DMLi2", turn, indx, length, ijsize);
-      */
-    } /* end of j-loop */
-    }//endfor H
-    phase_my_fml_update_host_s += now_seconds() - my_fml_update_host_t0;
+      if(!HAS_JOINED(H)) continue;
+      // The cell one below this row's first, (i, i+turn), is inside the
+      // diagonal band -- never computed, INF in the fML prefill. Row i-1 will
+      // read it as its own j == i+turn, so write it explicitly rather than
+      // leaving row i+1's value there.
+      fml_prev[row_off_H[H]+(i+turn)] = INF;
+      for (int jj = i+turn+1; jj <= (int)VC[H]->length; jj++)
+        fml_prev[row_off_H[H]+jj] = MIN2(energy_min[row_off_H[H]+jj],
+                                         DMLi[row_off_H[H]+jj]);
+    }
+    phase_fml_prev_host_s += now_seconds() - fml_prev_host_t0;
 
     {
       int *FF; /* rotate the auxilliary arrays */
