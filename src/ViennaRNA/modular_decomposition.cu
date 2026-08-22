@@ -417,6 +417,7 @@ PUBLIC void
 init_gpu(const int nfiles, const int length,
          const size_t* tri_off_H, const size_t* row_off_H) {
   if(!first) return;
+  const double _t_ig1 = rnafold_now_seconds();
   fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
   cudaError_t error;
   // graph_stream is nfiles/length-independent -- guarded on its own initial
@@ -425,17 +426,17 @@ init_gpu(const int nfiles, const int length,
   // stream every batch. Created exactly once for the whole process.
   if(graph_stream == 0) gpuErrchk( cudaStreamCreate(&graph_stream) );
 
-  gpuErrchk( cudaMalloc((void **) &d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_tri_off_H, tri_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
-  gpuErrchk( cudaMalloc((void **) &d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   // Staggered_Row_Batching Phase 4: allocated here (fixed size for the whole
   // chunk), but not populated here -- unlike tri_off_H/row_off_H these change
   // every sweep row i, so the real upload happens per-row in load_fML()/
   // modular_decomposition_cuda() instead.
-  gpuErrchk( cudaMalloc((void **) &d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
-  gpuErrchk( cudaMalloc((void **) &d_side_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  TIMED_CUDAMALLOC(&d_side_off_H, (size_t)(nfiles+1)*sizeof(size_t));
 
   // Staggered_Row_Batching Phase 2d: allocation sizes now the real per-H sum
   // (row_off_H[nfiles]/tri_off_H[nfiles]) instead of a uniform nfiles*(...)
@@ -496,6 +497,7 @@ init_gpu(const int nfiles, const int length,
   fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d), md tile %d\n",
 	  __FILE__, g_block_size_fmli, g_block_size_md, BLOCK_SIZE, g_md_tile);
 
+  stage_ig1_s += rnafold_now_seconds() - _t_ig1;
   first = 0;
   return;
 }

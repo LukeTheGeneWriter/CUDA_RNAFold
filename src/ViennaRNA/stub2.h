@@ -331,9 +331,39 @@ fetch_my_c_one(int* dst, const size_t tri_lo, const size_t cells);
 
 // Stage-attribution timers (mfe_cuda.c). The row-loop "phase" timers cover
 // only the sweep; these account for the 20-31% of wall that sits outside it.
+// extern "C": these live in mfe_cuda.c (compiled as C) but the .cu files use
+// them too, and nvcc compiles those as C++ -- without this the .cu objects ask
+// the linker for mangled names that do not exist.
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern double stage_build_s, stage_prepare_s, stage_prefill_s, stage_backtrack_s;
 extern double stage_output_s, stage_gpuinit_s, stage_teardown_s, stage_free_s;
 double rnafold_now_seconds(void);
+#ifdef __cplusplus
+}
+#endif
+
+// gpuinit attribution (mfe_cuda.c). See there for why.
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern double stage_ig1_s, stage_ig2_s, stage_ig3_s;
+extern double stage_ig_pack_s, stage_ig_malloc_s;
+#ifdef __cplusplus
+}
+#endif
+
+// Wraps the cudaMalloc calls inside init_gpu/2/3 so their cost is separable
+// from the host packing loops. Same gpuErrchk behaviour as the calls it
+// replaces -- only the timing is added.
+#ifdef __CUDACC__
+#define TIMED_CUDAMALLOC(pp, sz) do {                                   \
+    const double _tm = rnafold_now_seconds();                           \
+    gpuErrchk( cudaMalloc((void **)(pp), (sz)) );                       \
+    stage_ig_malloc_s += rnafold_now_seconds() - _tm;                   \
+  } while(0)
+#endif
 
 PRIVATE void
 par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy);

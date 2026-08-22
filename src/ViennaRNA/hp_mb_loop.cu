@@ -161,9 +161,10 @@ PUBLIC void
 init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* row_off_H) { //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
   if(!first3) return;
+  const double _t_ig3 = rnafold_now_seconds();
   fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
-  gpuErrchk( cudaMalloc((void **) &d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   // d_param2/d_pair2 are nfiles/length-independent -- guarded on their own
@@ -171,7 +172,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // than on first3, so teardown_gpu3() can reset first3=1 between GPU
   // batches without this block re-allocating (and leaking) them every batch.
   if(!d_param2) {
-    gpuErrchk( cudaMalloc((void **) &d_param2, sizeof(cuda_param2_t)) );
+    TIMED_CUDAMALLOC(&d_param2, sizeof(cuda_param2_t));
     load_param2(VC[0]->params);
 
     char pair_[NBPAIRS+1][NBPAIRS+1];
@@ -181,7 +182,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       if(x < NBPAIRS+1 && y < NBPAIRS+1) pair_[x][y] = md->pair[x][y];
     }}
     const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char);
-    gpuErrchk( cudaMalloc((void **) &d_pair2, pair_size) );
+    TIMED_CUDAMALLOC(&d_pair2, pair_size);
     gpuErrchk( cudaMemcpy(d_pair2,pair_,pair_size,cudaMemcpyHostToDevice) );
   }
 
@@ -194,18 +195,19 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   size_t hc2_off_H[nfiles+1];
   hc2_off_H[0] = 0;
   for(int H=0;H<nfiles;H++) hc2_off_H[H+1] = hc2_off_H[H] + Hc_ints2(VC[H]->length);
-  gpuErrchk( cudaMalloc((void **) &d_hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_hc2_off_H, hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   size_t size = hc2_off_H[nfiles]*sizeof(unsigned int);
-  gpuErrchk( cudaMalloc((void **) &d_hccc_any,   size) );
-  gpuErrchk( cudaMalloc((void **) &d_hccc_gu,    size) );
-  gpuErrchk( cudaMalloc((void **) &d_hccc_mb,    size) );
-  gpuErrchk( cudaMalloc((void **) &d_hccc_mbenc, size) );
+  TIMED_CUDAMALLOC(&d_hccc_any, size);
+  TIMED_CUDAMALLOC(&d_hccc_gu, size);
+  TIMED_CUDAMALLOC(&d_hccc_mb, size);
+  TIMED_CUDAMALLOC(&d_hccc_mbenc, size);
   unsigned int* hccc_mb    = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   unsigned int* hccc_mbenc = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   unsigned int* hccc_any   = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   unsigned int* hccc_gu    = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
+  const double _t_pk3 = rnafold_now_seconds();
   for(int H=0;H<nfiles;H++){
     unsigned int mask_mb, mask_mbenc, mask2;
     // Staggered_Row_Batching Phase 6a: bounded by this H's own length, not
@@ -232,6 +234,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
         if(pt == 3 || pt == 4)                                       hccc_gu[I]    |= mask2; }
     }
   }
+  stage_ig_pack_s += rnafold_now_seconds() - _t_pk3;
   gpuErrchk( cudaMemcpy(d_hccc_mb,   hccc_mb,   hc2_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
   gpuErrchk( cudaMemcpy(d_hccc_mbenc,hccc_mbenc,hc2_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
   gpuErrchk( cudaMemcpy(d_hccc_any,  hccc_any,  hc2_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
@@ -246,15 +249,15 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   size_t seq_off_H[nfiles+1];
   seq_off_H[0] = 0;
   for(int H=0;H<nfiles;H++) seq_off_H[H+1] = seq_off_H[H] + ((size_t)VC[H]->length+2);
-  gpuErrchk( cudaMalloc((void **) &d_seq_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_seq_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_seq_off_H, seq_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   // Staggered_Row_Batching Phase 5: allocated here, not populated here --
   // changes every sweep row i, uploaded fresh per-row by hp_mb_3p_i().
-  gpuErrchk( cudaMalloc((void **) &d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
 
   size = seq_off_H[nfiles]*sizeof(short);
-  gpuErrchk( cudaMalloc((void **) &d_S2, size) );
+  TIMED_CUDAMALLOC(&d_S2, size);
   short* Sbuff = (short*) malloc(size);
   // Staggered_Row_Batching Phase 6a: copy each H's own (length+2) elements,
   // not the shared `length`'s -- seq_off_H[H+1]-seq_off_H[H] already equals
@@ -267,7 +270,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   free(Sbuff);
 
   size = seq_off_H[nfiles]*sizeof(char);
-  gpuErrchk( cudaMalloc((void **) &d_sequence, size) );
+  TIMED_CUDAMALLOC(&d_sequence, size);
   char* seqbuff = (char*) calloc(seq_off_H[nfiles],sizeof(char));
   for(int H=0;H<nfiles;H++) {
     const size_t len = strlen(VC[H]->sequence);
@@ -280,12 +283,13 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // nfiles*(length+1); also cached for hp_mb_3p_i()'s copy-back.
   g_row_total = row_off_H[nfiles];
   size = g_row_total*sizeof(int);
-  gpuErrchk( cudaMalloc((void **) &d_energy_hp_row,   size) );
-  gpuErrchk( cudaMalloc((void **) &d_energy_mb_row,   size) );
-  gpuErrchk( cudaMalloc((void **) &d_energy_3p00_row, size) );
+  TIMED_CUDAMALLOC(&d_energy_hp_row, size);
+  TIMED_CUDAMALLOC(&d_energy_mb_row, size);
+  TIMED_CUDAMALLOC(&d_energy_3p00_row, size);
   //char, not int: it carries two bits per cell and is copied back every row.
-  gpuErrchk( cudaMalloc((void **) &d_gate_row, g_row_total*sizeof(char)) );
+  TIMED_CUDAMALLOC(&d_gate_row, g_row_total*sizeof(char));
 
+  stage_ig3_s += rnafold_now_seconds() - _t_ig3;
   first3 = 0;
 }
 

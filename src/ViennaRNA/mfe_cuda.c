@@ -101,6 +101,18 @@ double stage_gpuinit_s    = 0.0; //init_gpu/2/3
 double stage_teardown_s   = 0.0; //teardown_gpu/2/3
 double stage_free_s       = 0.0; //vrna_fold_compound_free()
 
+// gpuinit came out at 199 s -- 25.6% of the 776 s Colab benchmark and the
+// second-largest item overall -- with no idea which part of init_gpu/2/3 it
+// is. These split it three ways per function, plus the two cross-cutting
+// suspects: the per-record O(n^2) host bitmask packing loops, and cudaMalloc
+// (which matters here because teardown frees ~20 GB per chunk in a reported
+// 0.000 s, so the cost may simply be deferred into the next chunk's mallocs).
+double stage_ig1_s        = 0.0; //init_gpu   (modular_decomposition.cu)
+double stage_ig2_s        = 0.0; //init_gpu2  (int_loop.cu)
+double stage_ig3_s        = 0.0; //init_gpu3  (hp_mb_loop.cu)
+double stage_ig_pack_s    = 0.0; //host-side bitmask / sequence packing loops
+double stage_ig_malloc_s  = 0.0; //cudaMalloc inside the three init functions
+
 double rnafold_now_seconds(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -116,6 +128,12 @@ print_stage_timing_stats(void) {
     stage_output_s, stage_gpuinit_s, stage_teardown_s, stage_free_s,
     stage_build_s + stage_prepare_s + stage_prefill_s + stage_backtrack_s
     + stage_output_s + stage_gpuinit_s + stage_teardown_s + stage_free_s);
+  fprintf(stderr,
+    "%-24s gpuinit breakdown (s): init_gpu=%.3f init_gpu2=%.3f init_gpu3=%.3f "
+    "|| of which pack=%.3f cudaMalloc=%.3f other=%.3f\n",
+    __FILE__, stage_ig1_s, stage_ig2_s, stage_ig3_s,
+    stage_ig_pack_s, stage_ig_malloc_s,
+    stage_ig1_s + stage_ig2_s + stage_ig3_s - stage_ig_pack_s - stage_ig_malloc_s);
 }
 
 static double phase_int_loop_s          = 0.0;

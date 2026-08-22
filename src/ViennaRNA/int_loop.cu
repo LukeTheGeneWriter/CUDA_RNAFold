@@ -269,14 +269,15 @@ PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* tri_off_H, const size_t* row_off_H) { //in, nfiles+1 entries each, mfe_cuda.c
   if(!first2) return;
+  const double _t_ig2 = rnafold_now_seconds();
   fprintf(stderr,"%-24s init_gpu2(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
   assert(turn_ == turn);
   assert(MAX_NINIO == 300); //ViennaRNA/energy_par.c
 
-  gpuErrchk( cudaMalloc((void **) &d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_tri_off_H, tri_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
-  gpuErrchk( cudaMalloc((void **) &d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
   //printf("%s %s d_param is %lu bytes, NBPAIRS %d MAXLOOP %d BLOCK_SIZE %d\n",
   //	 __FILE__,Version,sizeof(cuda_param_s),NBPAIRS,MAXLOOP,block_size);
@@ -286,7 +287,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // than on first2, so teardown_gpu2() can reset first2=1 between GPU
   // batches without this block re-allocating (and leaking) them every batch.
   if(!d_param) {
-    gpuErrchk( cudaMalloc((void **) &d_param, sizeof(cuda_param_s)) );
+    TIMED_CUDAMALLOC(&d_param, sizeof(cuda_param_s));
     load_param(VC[0]->params);
 
     char pair_[NBPAIRS+1][NBPAIRS+1];
@@ -300,7 +301,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       else assert(md->pair[x][y]==0);
     }}
     const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char); // 32-bit signed integer overflow bug fix
-    gpuErrchk( cudaMalloc((void **) &d_pair, pair_size) );
+    TIMED_CUDAMALLOC(&d_pair, pair_size);
     gpuErrchk( cudaMemcpy(d_pair,pair_,pair_size,cudaMemcpyHostToDevice) );
   }
 
@@ -311,17 +312,18 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   size_t hc_off_H[nfiles+1];
   hc_off_H[0] = 0;
   for(int H=0;H<nfiles;H++) hc_off_H[H+1] = hc_off_H[H] + Hc_ints(VC[H]->length);
-  gpuErrchk( cudaMalloc((void **) &d_hc_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_hc_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_hc_off_H, hc_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   // Staggered_Row_Batching Phase 5: allocated here (fixed size for the whole
   // chunk), not populated here -- this changes every sweep row i, uploaded
   // fresh per-row by int_loop_cuda()/load_my_c() instead.
-  gpuErrchk( cudaMalloc((void **) &d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t)) );
+  TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
 
   size_t size = hc_off_H[nfiles]*sizeof(unsigned int);
-  gpuErrchk( cudaMalloc((void **) &d_hccc, size) );
+  TIMED_CUDAMALLOC(&d_hccc, size);
   unsigned int* hccc   = (unsigned int*) calloc(hc_off_H[nfiles],sizeof(unsigned int));
+  const double _t_pk1 = rnafold_now_seconds();
   for(int H=0;H<nfiles;H++){
     assert(bitsperint==(1+0x1f));
     unsigned int mask;
@@ -340,14 +342,16 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC) hccc[I] |= mask;
     }
   }
+  stage_ig_pack_s += rnafold_now_seconds() - _t_pk1;
   gpuErrchk( cudaMemcpy(d_hccc,hccc,hc_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
   free(hccc);
 
   // Ten bases per word, H fastest index (see put10()/unpack()).
   assert(sizeof(unsigned int) == 4);
   size = ((size_t)nfiles * (length+2) + 9)/10 * sizeof(unsigned int);
-  gpuErrchk( cudaMalloc((void **) &d_S, size) );
+  TIMED_CUDAMALLOC(&d_S, size);
   unsigned int* buff = (unsigned int*) malloc(size); //could use cudaMallocHost
+  const double _t_pk2 = rnafold_now_seconds();
 #ifndef NDEBUG
   memset(buff,0xff,size);
 #endif
@@ -383,12 +387,13 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 #ifndef NDEBUG
   for(size_t i=0;i<size/4;i++) assert(buff[i] <= 04444444444);
 #endif
+  stage_ig_pack_s += rnafold_now_seconds() - _t_pk2;
   gpuErrchk( cudaMemcpy(d_S,buff,size,cudaMemcpyHostToDevice) );
   free(buff);
 
   { const size_t my_c_elems = tri_off_H[nfiles]; //sum of each H's own triangle size
     size = my_c_elems*sizeof(int);
-    gpuErrchk( cudaMalloc((void **) &d_my_c, size) );
+    TIMED_CUDAMALLOC(&d_my_c, size);
     init_my_c(my_c_elems);
   }
 
@@ -397,19 +402,20 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   g_row_total = row_off_H[nfiles];
 
   size = g_row_total*sizeof(int); // 32-bit signed integer overflow bug fix
-  gpuErrchk( cudaMalloc((void **) &d_new_e, size) );
+  TIMED_CUDAMALLOC(&d_new_e, size);
 
   // Staggered_Row_Batching Phase 2d: table-driven total (row_off_H[nfiles]),
   // matching int_loop_kernel_body.inc's row_off_H[H]+j write below -- equals
   // the old uniform nfiles*(length+1) exactly while chunks stay uniform-length,
   // diverges once they don't.
-  gpuErrchk( cudaMalloc((void **) &d_energy_min2, g_row_total*sizeof(int)) );
+  TIMED_CUDAMALLOC(&d_energy_min2, g_row_total*sizeof(int));
   /*no longer in use
-  gpuErrchk( cudaMalloc((void **) &d_energy_min20,size) );
+  TIMED_CUDAMALLOC(&d_energy_min20, size);
 
   size = nfiles*length*sizeof(int);
-  gpuErrchk( cudaMalloc((void **) &d_buf, size) );
+  TIMED_CUDAMALLOC(&d_buf, size);
   */
+  stage_ig2_s += rnafold_now_seconds() - _t_ig2;
   first2 = 0;
 }
 
