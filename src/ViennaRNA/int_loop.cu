@@ -450,6 +450,24 @@ int_loop_bytes_per_file(const int length) {
   return hccc_bytes + s_bytes + my_c_bytes + new_e_bytes + energy_min2_bytes;
 }
 
+// Copies the GPU's my_c triangle back into each record's own
+// VC[H]->matrices->c, once, after the whole sweep -- the my_c twin of
+// modular_decomposition.cu's fetch_fML(), and the same reasoning: d_my_c is an
+// exact mirror (init_my_c() fills it with INF, load_my_c_kernel writes
+// d_my_c[tri_off_H[H]+Indx(i,j)] = new_C[row_off_H[H]+j], which is precisely
+// what the host store used to write), the layouts coincide
+// (jindx[j]+i == Indx(i,j), allocation (n+1)*(n+2)/2 == the tri_off_H stride),
+// and nothing on the host reads the triangle until E_ext_loop_5()/backtrack().
+extern "C" /*PUBLIC*/ void
+fetch_my_c(const int nfiles, int** c_H, const size_t* tri_off_H) {
+  for(int H=0; H<nfiles; H++) {
+    const size_t n = tri_off_H[H+1] - tri_off_H[H];
+    assert(n > 0);
+    gpuErrchk( cudaMemcpy(c_H[H], &d_my_c[tri_off_H[H]], n*sizeof(int),
+                          cudaMemcpyDeviceToHost) );
+  }
+}
+
 //perhaps this can be combined with other kernels?
 __global__ void
 load_my_c_kernel(const int nfiles, const int i, /*const int turn,*/ const int length,

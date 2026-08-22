@@ -249,15 +249,22 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 
 #include "fill_arrays_loop.c"
 
-  // Fill each record's host fML triangle from the GPU's copy, now that the
-  // sweep is over. my_fml_update_host used to do this a row at a time; the
-  // host matrix has no reader until backtrack(), so once is enough.
+  // Fill each record's host fML and c triangles from the GPU's copies, now
+  // that the sweep is over. my_fml_update_host and new_c_host used to mirror
+  // these a row at a time, at stride ~j; neither matrix has a host reader
+  // until E_ext_loop_5()/backtrack() just below, so once is enough. Must stay
+  // ahead of E_ext_loop_5(), which reads c.
   {
     const double fetch_t0 = now_seconds();
-    int* fML_H[nfiles]; //VLA, same as row_off_H/tri_off_H above
-    for(int H=0;H<nfiles;H++) fML_H[H] = VC[H]->matrices->fML;
+    int* fML_H[nfiles]; //VLAs, same as row_off_H/tri_off_H above
+    int* c_H[nfiles];
+    for(int H=0;H<nfiles;H++) {
+      fML_H[H] = VC[H]->matrices->fML;
+      c_H[H]   = VC[H]->matrices->c;
+    }
     fetch_fML(nfiles, fML_H, tri_off_H);
-    phase_fetch_fml_s += now_seconds() - fetch_t0;
+    fetch_my_c(nfiles, c_H, tri_off_H);
+    phase_fetch_mx_s += now_seconds() - fetch_t0;
   }
 
   /* calculate energies of 5' fragments */

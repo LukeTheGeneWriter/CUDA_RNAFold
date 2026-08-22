@@ -98,21 +98,22 @@ static double phase_modular_decomp_s    = 0.0;
 // is genuinely host-combine work. The post-sweep D2H that replaced the rest of
 // it is timed separately below and counted as transfer, not host, time.
 static double phase_fml_prev_host_s     = 0.0;
-static double phase_fetch_fml_s         = 0.0;
+// Both post-sweep triangle fetches, fML and my_c (fetch_fML/fetch_my_c).
+static double phase_fetch_mx_s          = 0.0;
 
 static void
 print_phase_timing_stats(void) {
   const double gpu_transfer_total = phase_int_loop_s + phase_hp_mb_s
                                    + phase_load_my_c_s + phase_modular_decomp_s
-                                   + phase_fetch_fml_s;
+                                   + phase_fetch_mx_s;
   const double host_combine_total = phase_new_c_host_s + phase_fml_host_s
                                    + phase_fml_prev_host_s;
   fprintf(stderr,
     "%-24s phase timing (s): int_loop=%.3f hp_mb=%.3f load_my_c=%.3f "
-    "modular_decomp=%.3f fetch_fML=%.3f | new_c_host=%.3f fml_host=%.3f fml_prev_host=%.3f "
+    "modular_decomp=%.3f fetch_mx=%.3f | new_c_host=%.3f fml_host=%.3f fml_prev_host=%.3f "
     "|| GPU+transfer total=%.3f host-combine total=%.3f\n",
     __FILE__, phase_int_loop_s, phase_hp_mb_s, phase_load_my_c_s,
-    phase_modular_decomp_s, phase_fetch_fml_s, phase_new_c_host_s, phase_fml_host_s,
+    phase_modular_decomp_s, phase_fetch_mx_s, phase_new_c_host_s, phase_fml_host_s,
     phase_fml_prev_host_s, gpu_transfer_total, host_combine_total);
 }
 

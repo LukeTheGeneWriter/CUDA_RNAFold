@@ -295,6 +295,16 @@ PUBLIC void
 #endif
 fetch_fML(const int nfiles, int** fML_H, const size_t* tri_off_H);
 
+// Staggered_Row_Batching 2026-08-22: the my_c twin of fetch_fML(), living in
+// int_loop.cu because that file owns d_my_c. Replaces new_c_host's per-row
+// strided My_c(H,ij) stores.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+fetch_my_c(const int nfiles, int** c_H, const size_t* tri_off_H);
+
 PRIVATE void
 par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy);
 

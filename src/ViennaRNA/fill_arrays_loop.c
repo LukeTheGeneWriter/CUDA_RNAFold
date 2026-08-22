@@ -118,15 +118,19 @@
         /*gov says not used if(dangle_model == 3){ ** coaxial stacking * E_mb_loop_stack(i, j, vc);*/
 
         /* gcov says not used  remember stack energy for --noLP option * if(noLP) vrna_E_stack(vc, i, j) cc[j] = new_c */
-	assert(My_c(H,ij) == INF);
-          My_c(H,ij)    = new_c;
+          // My_c(H,ij) = new_c dropped here: d_my_c already receives exactly
+          // this value from load_my_c_kernel (new_C is uploaded and written to
+          // d_my_c[tri_off_H[H]+Indx(i,j)] a few lines below), and the host
+          // triangle has no reader until E_ext_loop_5()/backtrack() after the
+          // sweep. fetch_my_c() fills it in one contiguous copy per record.
 	  new_C[row_off_H[H]+j]    = new_c;
       } /* end >> if (pair) << */
 
       else {
-	//fprintf(stderr,"\nmy_c[%3d] %d <= %d\n",ij,my_c[ij],INF);
-	assert(My_c(H,ij) == INF);
-	My_c(H,ij) = INF;
+        // Nothing to do: new_C[..j] was set to INF at the top of this
+        // iteration, d_my_c is INF from init_my_c(), and the host triangle is
+        // filled after the sweep by fetch_my_c(). The My_c(H,ij) = INF store
+        // that used to be here was writing INF over INF, at stride ~j.
       }
 
     } /* end of j-loop */
@@ -155,8 +159,11 @@
                          ON_SAME_STRAND(i, i + 1, cp) &&
                          VC[H]->hc->up_ml[i] > 0) ? P->MLbase : INF;
     for (j = i+turn+1; j <= (int)VC[H]->length; j++) {
-      ij            = Indx(H,i,j);
-      assert(ij>=0 && ij<ijsize);
+      // No `ij = Indx(H,i,j)` here any more: this loop's last two triangle
+      // accesses (My_fML(H,ij+1) and My_c(H,ij)) are gone, so the index was
+      // feeding nothing but an assert -- and asserts in this file are
+      // compiled out anyway (-DNDEBUG reaches mfe_cuda.c via the conda
+      // CPPFLAGS; the .cu files escape it). Everything below is row-indexed.
       /* done with c[i,j], now compute fML[i,j] and fM1[i,j] */
 
       //my_fML[ij] = vrna_E_ml_stems_fast(vc, i, j, Fmi, DMLi);
@@ -169,7 +176,12 @@
       int  e00           = INF;
       int  en0           = INF;
 
-  e00 = (energy_3p00_row[row_off_H[H]+j] != INF)? My_c(H,ij) + energy_3p00_row[row_off_H[H]+j] : INF;
+  // c(i,j) out of the row buffer rather than the triangle. new_c_host, a few
+  // dozen lines up, set new_C[..j] to exactly what it set My_c(H,ij) to --
+  // new_c when the pair is evaluated, INF otherwise -- so the two are equal by
+  // construction, and this read is sequential where My_c(H,ij) was stride ~j.
+  // Worth 2.2 s of workload A on its own.
+  e00 = (energy_3p00_row[row_off_H[H]+j] != INF)? new_C[row_off_H[H]+j] + energy_3p00_row[row_off_H[H]+j] : INF;
   //energy_3p_en is just P->MLbase behind a hard-constraint check on
   //already-host-resident data -- not worth a GPU kernel, computed inline
   const int energy_3p_en_j = (VC[H]->hc->up_ml[j] > 0) ? P->MLbase : INF;
