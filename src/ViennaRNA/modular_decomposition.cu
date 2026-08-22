@@ -1154,6 +1154,17 @@ modular_decomposition_i(const int nfiles,
 //
 // Synchronous on the NULL stream: this runs once per chunk, immediately
 // before the host reads the result, so there is nothing to overlap it with.
+// One record's slice, for the scratch-pool path: the caller backtracks records
+// one at a time into a reusable buffer instead of holding every record's
+// triangle at once. Same copy as fetch_fML() does per H, just addressable
+// individually. Safe to call from several host threads -- the CUDA runtime is
+// thread-safe and these serialise on the default stream.
+extern "C" /*PUBLIC*/ void
+fetch_fML_one(int* dst, const size_t tri_lo, const size_t cells) {
+  gpuErrchk( cudaMemcpy(dst, &d_fml_j[tri_lo], cells*sizeof(int),
+                        cudaMemcpyDeviceToHost) );
+}
+
 extern "C" /*PUBLIC*/ void
 fetch_fML(const int nfiles, int** fML_H, const size_t* tri_off_H) {
   for(int H=0; H<nfiles; H++) {
