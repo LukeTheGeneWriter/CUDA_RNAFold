@@ -67,7 +67,7 @@
     //energy_min/int_loop_i above.
     {
       const double t0 = now_seconds();
-      hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row,size_off_H);
+      hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row,gate_row,size_off_H);
       phase_hp_mb_s += now_seconds() - t0;
     }
 
@@ -77,13 +77,17 @@
     if(!HAS_JOINED(H)) continue; // Phase 6d
     for (j = i+turn+1; j <= (int)VC[H]->length; j++) {
       new_C[row_off_H[H]+j] = INF;
-      ij            = Indx(H,i,j);
-      assert(ij>=0 && ij<ijsize);
-      type          = (unsigned char)Ptype(H,ij);
-      hc_decompose  = Hard_constraints(H,ij);
-      //energy      = INF;
-
-      no_close = (((type==3)||(type==4))&&noGUclosure);
+      // Both of these used to be triangle reads -- Ptype(H,ij) and
+      // Hard_constraints(H,ij), each a stride-~j cache miss per (H,j), and
+      // together 3.2 s of workload A. They index static per-(i,j) data, so
+      // unlike the my_c/fML mirrors there was no row buffer already holding
+      // them; hp_mb_3p_kernel now packs both into gate_row as it sweeps the
+      // same j range a moment earlier. Bit 0 is hc->matrix[ij] != 0, bit 1 is
+      // "ptype[ij] is a GU/UG closing pair", both taken from the host's own
+      // arrays at init_gpu3() time, not re-derived.
+      const unsigned char gate = (unsigned char)gate_row[row_off_H[H]+j];
+      hc_decompose  = gate & 1;
+      no_close      = ((gate & 2) != 0) && noGUclosure;
 
       //fprintf(stderr,"i %2d, j %2d, hard_constraints[%3d] %2d, ptype[%3d] %d, no_close %d ",
       //      i,j,ij,hard_constraints[ij],ij,ptype[ij],no_close);

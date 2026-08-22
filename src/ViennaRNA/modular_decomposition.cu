@@ -266,6 +266,16 @@ cuda_host_alloc_ints(const size_t n) {
   return p;
 }
 
+// Byte-sized twin of the above, for row buffers holding flags rather than
+// energies -- see gate_row in hp_mb_loop.cu. Pinned for the same reason the
+// int version is: it is copied back once per sweep row.
+PUBLIC char*
+cuda_host_alloc_bytes(const size_t n) {
+  char* p;
+  gpuErrchk( cudaHostAlloc((void **) &p, n*sizeof(char), cudaHostAllocDefault) );
+  return p;
+}
+
 PUBLIC void
 cuda_host_free(void* p) {
   gpuErrchk( cudaFreeHost(p) );

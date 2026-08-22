@@ -81,6 +81,16 @@ cuda_param2_t* d_param2;
 char*  d_pair2;      //[NBPAIRS+1][NBPAIRS+1], pair-type lookup, same content as int_loop.cu's d_pair
 short* d_S2;          //sequence_encoding, [nfiles][length+2]
 char*  d_sequence;    //raw nucleotide letters, [nfiles][length+2], for the tri/tetra/hexaloop string scan
+// Two more bit-packed per-(H,ij) predicates, added 2026-08-22 so new_c_host
+// stops reading the ptype and hc->matrix triangles itself. Both were costing
+// it a stride-~j cache miss per (H,j) -- 3.2 s of workload A between them,
+// measured by stubbing them out -- and unlike the my_c/fML mirrors there was
+// no row buffer already holding them, because they index *static* per-(i,j)
+// data. Packing them the same way as d_hccc_mb and letting this kernel emit a
+// row-shaped gate moves the random access to the GPU, where it is free.
+unsigned int* d_hccc_any;   //bit-packed (hc->matrix[ij] != 0) per (H,ij)
+unsigned int* d_hccc_gu;    //bit-packed (ptype[ij]==3 || ptype[ij]==4) per (H,ij)
+char*         d_gate_row;   //out, row-shaped: bit0 from d_hccc_any, bit1 from d_hccc_gu
 unsigned int* d_hccc_mb;    //bit-packed VRNA_CONSTRAINT_CONTEXT_MB_LOOP per (H,ij)
 unsigned int* d_hccc_mbenc; //bit-packed VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC per (H,ij)
 //Kernels can only write device memory -- these are the device-side row
@@ -188,12 +198,16 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMemcpy(d_hc2_off_H, hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   size_t size = hc2_off_H[nfiles]*sizeof(unsigned int);
+  gpuErrchk( cudaMalloc((void **) &d_hccc_any,   size) );
+  gpuErrchk( cudaMalloc((void **) &d_hccc_gu,    size) );
   gpuErrchk( cudaMalloc((void **) &d_hccc_mb,    size) );
   gpuErrchk( cudaMalloc((void **) &d_hccc_mbenc, size) );
   unsigned int* hccc_mb    = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   unsigned int* hccc_mbenc = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
+  unsigned int* hccc_any   = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
+  unsigned int* hccc_gu    = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   for(int H=0;H<nfiles;H++){
-    unsigned int mask_mb, mask_mbenc;
+    unsigned int mask_mb, mask_mbenc, mask2;
     // Staggered_Row_Batching Phase 6a: bounded by this H's own length, not
     // the shared `length` scalar -- same reasoning as int_loop.cu's
     // hc_off_H population loop (VC[H]->hc->matrix is only ever sized to
@@ -203,15 +217,29 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     for(int i=0;i<(length_H*(length_H+1))/2+2;i++){
       mask_mb    = ((i & 0x1f) == 0)? 1 : mask_mb    << 1;
       mask_mbenc = ((i & 0x1f) == 0)? 1 : mask_mbenc << 1;
+      mask2      = ((i & 0x1f) == 0)? 1 : mask2      << 1;
       const size_t I = hc2_off_H[H]+i/bitsperint;
       if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP)     hccc_mb[I]    |= mask_mb;
       if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC) hccc_mbenc[I] |= mask_mbenc;
+      // The two new predicates, packed from the host's OWN ptype/hc arrays
+      // rather than recomputed device-side from the sequence: new_c_host used
+      // exactly these values, so re-deriving them (e.g. via Ptype2()) would be
+      // an extra equivalence to prove. This loop already walks hc->matrix
+      // contiguously and ptype has the identical extent -- alphabet.c
+      // allocates it (n*(n+1))/2+2, the same bound as this loop.
+      if(VC[H]->hc->matrix[i])                                       hccc_any[I]   |= mask2;
+      { const char pt = VC[H]->ptype[i];
+        if(pt == 3 || pt == 4)                                       hccc_gu[I]    |= mask2; }
     }
   }
   gpuErrchk( cudaMemcpy(d_hccc_mb,   hccc_mb,   hc2_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
   gpuErrchk( cudaMemcpy(d_hccc_mbenc,hccc_mbenc,hc2_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
+  gpuErrchk( cudaMemcpy(d_hccc_any,  hccc_any,  hc2_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
+  gpuErrchk( cudaMemcpy(d_hccc_gu,   hccc_gu,   hc2_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
   free(hccc_mb);
   free(hccc_mbenc);
+  free(hccc_any);
+  free(hccc_gu);
 
   // Staggered_Row_Batching Phase 2e: table-driven per-H block start (own
   // shape, length+2 stride -- distinct from row_off_H's length+1).
@@ -255,6 +283,8 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMalloc((void **) &d_energy_hp_row,   size) );
   gpuErrchk( cudaMalloc((void **) &d_energy_mb_row,   size) );
   gpuErrchk( cudaMalloc((void **) &d_energy_3p00_row, size) );
+  //char, not int: it carries two bits per cell and is copied back every row.
+  gpuErrchk( cudaMalloc((void **) &d_gate_row, g_row_total*sizeof(char)) );
 
   first3 = 0;
 }
@@ -267,6 +297,9 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 PUBLIC void
 teardown_gpu3(void) {
   if(first3) return; // never initialized (or already torn down) -- nothing to free
+  gpuErrchk( cudaFree(d_hccc_any) );
+  gpuErrchk( cudaFree(d_hccc_gu) );
+  gpuErrchk( cudaFree(d_gate_row) );
   gpuErrchk( cudaFree(d_hccc_mb) );
   gpuErrchk( cudaFree(d_hccc_mbenc) );
   gpuErrchk( cudaFree(d_S2) );
@@ -291,13 +324,17 @@ PUBLIC size_t
 hp_mb_loop_bytes_per_file(const int length) {
   const size_t hccc_mb_bytes    = Hc_ints2(length)*sizeof(unsigned int);
   const size_t hccc_mbenc_bytes = Hc_ints2(length)*sizeof(unsigned int);
+  const size_t hccc_any_bytes   = Hc_ints2(length)*sizeof(unsigned int);
+  const size_t hccc_gu_bytes    = Hc_ints2(length)*sizeof(unsigned int);
+  const size_t gate_row_bytes   = (size_t)(length+1)*sizeof(char);
   const size_t s2_bytes         = (size_t)(length+2)*sizeof(short);
   const size_t sequence_bytes   = (size_t)(length+2)*sizeof(char);
   const size_t hp_row_bytes     = (size_t)(length+1)*sizeof(int);
   const size_t mb_row_bytes     = (size_t)(length+1)*sizeof(int);
   const size_t p3p00_row_bytes  = (size_t)(length+1)*sizeof(int);
-  return hccc_mb_bytes + hccc_mbenc_bytes + s2_bytes + sequence_bytes
-       + hp_row_bytes + mb_row_bytes + p3p00_row_bytes;
+  return hccc_mb_bytes + hccc_mbenc_bytes + hccc_any_bytes + hccc_gu_bytes
+       + s2_bytes + sequence_bytes
+       + hp_row_bytes + mb_row_bytes + p3p00_row_bytes + gate_row_bytes;
 }
 
 __device__ inline unsigned char
@@ -390,10 +427,13 @@ hp_mb_3p_kernel(const int nfiles, const int i, const int turn, const int length,
                  const char*  __restrict__ pair,
                  const unsigned int* __restrict__ hccc_mb,
                  const unsigned int* __restrict__ hccc_mbenc,
+                 const unsigned int* __restrict__ hccc_any,
+                 const unsigned int* __restrict__ hccc_gu,
                  const cuda_param2_t* __restrict__ P,
                        int* __restrict__ energy_hp_row,
                        int* __restrict__ energy_mb_row,
                        int* __restrict__ energy_3p00_row,
+                      char* __restrict__ gate_row,
                  const size_t* __restrict__ row_off_H,
                  const size_t* __restrict__ hc2_off_H,
                  const size_t* __restrict__ seq_off_H,
@@ -409,6 +449,13 @@ hp_mb_3p_kernel(const int nfiles, const int i, const int turn, const int length,
   const int ij = Indx2(i,j);
   const unsigned int* Hccc_mb    = &hccc_mb[hc2_off_H[H]];
   const unsigned int* Hccc_mbenc = &hccc_mbenc[hc2_off_H[H]];
+
+  // The gate new_c_host used to build from Ptype(H,ij)/Hard_constraints(H,ij).
+  // Same two values, same ij (Indx2 here == jindx[j]+i on the host), just read
+  // out of bitmasks by a GPU thread instead of out of two triangles by a host
+  // loop walking them at stride ~j.
+  gate_row[row_off_H[H]+j] = (char)(Hc2(ij,&hccc_any[hc2_off_H[H]])
+                                 | (Hc2(ij,&hccc_gu [hc2_off_H[H]]) << 1));
 
   //raw_type: the 0->7 fixup must NOT be applied before the rtype[] lookup in
   //energy_mb below -- mb_loop_fast.c:74,105 uses the raw (possibly-0) type as
@@ -478,6 +525,7 @@ PUBLIC void
 hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
            const int i, const int turn, const int length,
            int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row, //all out, size nfiles*(length+1)
+           char* gate_row, //out, same shape but one byte per cell
            const size_t* size_off_H) { //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
   const size_t total = size_off_H[nfiles];
   //total==0 is unreachable for the i range fill_arrays_loop.c's main loop
@@ -502,8 +550,10 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   const int nblocks = (total + block_size - 1)/block_size;
   hp_mb_3p_kernel<<<nblocks,block_size>>>(nfiles, i, turn, length,
                                           d_S2, d_sequence, d_pair2,
-                                          d_hccc_mb, d_hccc_mbenc, d_param2,
+                                          d_hccc_mb, d_hccc_mbenc,
+                                          d_hccc_any, d_hccc_gu, d_param2,
                                           d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row,
+                                          d_gate_row,
                                           d_row_off_H, d_hc2_off_H, d_seq_off_H,
                                           d_size_off_H, total);
   gpuErrchk( cudaPeekAtLastError() );
@@ -513,5 +563,6 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   gpuErrchk( cudaMemcpy(energy_hp_row,  d_energy_hp_row,  rowsize,cudaMemcpyDeviceToHost) );
   gpuErrchk( cudaMemcpy(energy_mb_row,  d_energy_mb_row,  rowsize,cudaMemcpyDeviceToHost) );
   gpuErrchk( cudaMemcpy(energy_3p00_row,d_energy_3p00_row,rowsize,cudaMemcpyDeviceToHost) );
+  gpuErrchk( cudaMemcpy(gate_row,       d_gate_row,       g_row_total*sizeof(char),cudaMemcpyDeviceToHost) );
   gpuErrchk( cudaDeviceSynchronize() );
 }

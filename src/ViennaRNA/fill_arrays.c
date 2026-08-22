@@ -86,6 +86,10 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   // DMLi/DMLi1/DMLi2's existing rotate-in-place pattern below.
   int               *energy_min, *energy_hp_row, *energy_mb_row,
                     *energy_3p00_row, *new_C;
+  // Staggered_Row_Batching 2026-08-22: per-row flags hp_mb_3p_kernel now emits
+  // so new_c_host no longer reads the ptype/hc triangles. char, not int -- two
+  // bits per cell, and it is copied back every sweep row.
+  char              *gate_row;
   vrna_param_t      *P;
 //vrna_mx_mfe_t     *matrices;
 //vrna_hc_t         *hc;
@@ -246,6 +250,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   energy_mb_row    = cuda_host_alloc_ints(row_off_H[nfiles]);
   energy_3p00_row  = cuda_host_alloc_ints(row_off_H[nfiles]);
   new_C            = cuda_host_alloc_ints(row_off_H[nfiles]);
+  gate_row         = cuda_host_alloc_bytes(row_off_H[nfiles]);
 
 #include "fill_arrays_loop.c"
 
@@ -293,5 +298,6 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   cuda_host_free(energy_mb_row);
   cuda_host_free(energy_3p00_row);
   cuda_host_free(new_C);
+  cuda_host_free(gate_row);
 
 }

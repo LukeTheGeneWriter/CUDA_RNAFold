@@ -30,6 +30,13 @@ PUBLIC int*
 cuda_host_alloc_ints(const size_t n);
 
 #ifdef __cplusplus
+extern "C" /*PUBLIC*/ char*
+#else
+PUBLIC char*
+#endif
+cuda_host_alloc_bytes(const size_t n);
+
+#ifdef __cplusplus
 extern "C" void
 #else
 PUBLIC void
@@ -209,6 +216,7 @@ PUBLIC void
 hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
 	   const int i, const int turn, const int length,
 	   int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row, //all out
+	   char* gate_row, //out -- bit0 = hc->matrix[ij]!=0, bit1 = ptype[ij] is GU/UG
 	   const size_t* size_off_H); //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
 
 #ifdef __cplusplus
