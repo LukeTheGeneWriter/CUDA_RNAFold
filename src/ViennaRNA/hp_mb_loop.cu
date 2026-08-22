@@ -447,7 +447,27 @@ hp_mb_3p_kernel(const int nfiles, const int i, const int turn, const int length,
   {
     int e00 = INF;
     if(Hc2(ij,Hccc_mbenc)){
-      const short s_i1 = (i==1) ? S_H[length] : S_H[i-1];
+      // Staggered_Row_Batching: the i==1 wrap must land on THIS record's last
+      // base, not the batch's. `length` is max(VC[H]->length) over the chunk,
+      // so S_H[length] indexed a per-H block of only VC[H]->length+2 shorts:
+      // for any H that isn't the longest it silently read the *next* record's
+      // bases, and for the last H in a chunk it ran off the end of d_S2
+      // entirely (illegal access, reproduced with descending-length input at
+      // RNA_GPU_VRAM_BUDGET_MB=8/16 -- the tail chunk there is 13 records with
+      // batch max 560 whose last record is only 80nt). Recovered from the
+      // offset table rather than a new parameter, same technique as
+      // modular_decomposition_cuda()'s len_H: seq_off_H's stride is this
+      // file's own VC[H]->length+2 (see init_gpu3()).
+      const int length_H = (int)(seq_off_H[H+1] - seq_off_H[H]) - 2;
+      // This kernel carried no asserts at all, which is the reason the bug
+      // above survived: every S_H read stayed inside the *whole* d_S2
+      // allocation for all but the last H of a chunk, so nothing trapped. The
+      // two reads below are the only ones in this kernel indexed by anything
+      // other than i or j, so bound them against H's own block. j <= length_H
+      // because size_off_H is built from VC[H]->length - i - turn per H (see
+      // fill_arrays_loop.c), making j < length_H + 1.
+      assert(length_H >= 0 && j <= length_H);
+      const short s_i1 = (i==1) ? S_H[length_H] : S_H[i-1];
       e00 = E_MLstem_device(type, s_i1, S_H[j+1], P);
     }
     energy_3p00_row[row_off_H[H]+j] = e00;
