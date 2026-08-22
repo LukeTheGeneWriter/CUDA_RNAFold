@@ -289,6 +289,11 @@ __global__ void fmli_kernel(
   const int* __restrict__ fml_j,
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total);
+// TILE = how many threads cooperate on one output cell's y-reduction; see the
+// kernel's own comment further down for why that split exists at all. TILE=1
+// is exactly the pre-2026-08-22 one-thread-per-cell kernel, kept reachable
+// via RNA_MD_TILE=1 as an A/B baseline.
+template <int TILE>
 __global__ void modular_decomposition_kernel(
   const int nfiles, const int i, const int turn, const int length,
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,
@@ -302,6 +307,28 @@ __global__ void modular_decomposition_kernel(
 // specific size.
 static int g_block_size_fmli = 0;
 static int g_block_size_md   = 0;
+// How many threads cooperate on one modular_decomposition_kernel output cell
+// (its TILE template parameter). 32 = one warp per cell, the point of the
+// 22 Aug 2026 rewrite; RNA_MD_TILE overrides it for A/B measurement, with
+// RNA_MD_TILE=1 reproducing the previous one-thread-per-cell kernel exactly.
+// Chosen in init_gpu() rather than at launch because the occupancy probe
+// needs the specific template instantiation.
+static int g_md_tile = 32;
+
+// Same shape as rnafold_choose_block_size()'s env handling in stub2.h, but
+// for the tile width -- kept here rather than there because TILE is specific
+// to this one kernel.
+static int
+rnafold_choose_md_tile(void) {
+  const char* v = getenv("RNA_MD_TILE");
+  if(v && *v) {
+    const int want = atoi(v);
+    if(want >= 1 && want <= 32 && (want & (want-1)) == 0) return want;
+    fprintf(stderr, "%-24s ignoring RNA_MD_TILE=%s (want a power of two in [1,32])\n",
+            __FILE__, v);
+  }
+  return 32;
+}
 
 //int* d_indx; //indx no longer used
 int* d_energy_min;
@@ -437,9 +464,27 @@ init_gpu(const int nfiles, const int length,
   // See the forward declarations above for why this happens here rather
   // than lazily at first launch.
   g_block_size_fmli = rnafold_choose_block_size(fmli_kernel, BLOCK_SIZE, "RNA_FMLI_BLOCK_SIZE");
-  g_block_size_md   = rnafold_choose_block_size(modular_decomposition_kernel, BLOCK_SIZE, "RNA_MD_BLOCK_SIZE");
-  fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d)\n",
-	  __FILE__, g_block_size_fmli, g_block_size_md, BLOCK_SIZE);
+  g_md_tile = rnafold_choose_md_tile();
+  // Each instantiation is a distinct kernel with its own register/occupancy
+  // profile, so the probe has to name the one that will actually launch.
+#define MD_BS(T) rnafold_choose_block_size(modular_decomposition_kernel<T>, BLOCK_SIZE, "RNA_MD_BLOCK_SIZE")
+  switch(g_md_tile) {
+    case  1: g_block_size_md = MD_BS(1);  break;
+    case  2: g_block_size_md = MD_BS(2);  break;
+    case  4: g_block_size_md = MD_BS(4);  break;
+    case  8: g_block_size_md = MD_BS(8);  break;
+    case 16: g_block_size_md = MD_BS(16); break;
+    default: g_block_size_md = MD_BS(32); break;
+  }
+#undef MD_BS
+  // The kernel's tile-to-shuffle-group alignment assumes whole warps per
+  // block. rnafold_choose_block_size() only ever yields a power of two >= 32
+  // (occupancy heuristic or env override, both validated), so this holds
+  // today -- asserted so a future change there fails loudly here instead of
+  // silently corrupting the reduction for TILE < 32.
+  assert(g_block_size_md % 32 == 0);
+  fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d), md tile %d\n",
+	  __FILE__, g_block_size_fmli, g_block_size_md, BLOCK_SIZE, g_md_tile);
 
   first = 0;
   return;
@@ -743,6 +788,28 @@ fmli_kernel(
 // (fml_i[row_off_H[H]+y]/fml_j[tri_off_H[H]+yij] below, Staggered_Row_Batching
 // Phase 2d) moved off H-tightest, since that's what staggering/mixed lengths
 // actually breaks (see the coalescing finding in harmonic-swimming-hare.md).
+// Split across TILE threads per output cell, 22 Aug 2026. The Aug 5 rewrite
+// above left each thread walking `for(y=0..x)` alone, so the kernel could
+// only finish when its *longest* thread did -- a serial chain as long as the
+// sequence. ncu confirmed that shape rather than a work shortage: block size
+// 32..640 all gave ~250 us (grid 189 -> 10) because every thread was already
+// resident, duration scaled linearly with length (124/249/574 us at 300/600/
+// 1200) but barely at all with nfiles (239/249/297 us for 5/20/40, i.e. 8x
+// the work for +24% time), and SM throughput sat at 9%. Classic critical-path
+// bound. TILE lanes now stride the same y range (lane, lane+TILE, ...) and
+// combine with a warp shuffle, so the chain shortens to ~x/TILE + log2(TILE)
+// while total work is unchanged.
+//
+// Numerically identical to TILE=1, not merely close: min is associative and
+// commutative over exact ints, and a lane with no y of its own contributes
+// INF -- the same value the serial loop seeds `value` with -- so the set
+// being minimised is identical either way.
+//
+// Coalescing improves as a side effect. Adjacent threads used to hold
+// adjacent j (different cells) and so read fml_j at a stride; now adjacent
+// lanes hold adjacent y within one cell, making both fml_i[row_off_H[H]+y]
+// and fml_j[tri_off_H[H]+y+ij0] unit-stride across the tile.
+template <int TILE>
 __global__ void
 modular_decomposition_kernel(
   const int nfiles, const int i, const int turn, const int length,
@@ -750,28 +817,57 @@ modular_decomposition_kernel(
   int* __restrict__ dml,                            //Out d_dml (h_dml)
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total) {
+  // Power of two <= 32 so a tile is a contiguous, warp-aligned lane group and
+  // __shfl_down_sync()'s `width` can partition the warp for us. The launcher
+  // additionally requires blockDim.x % 32 == 0, which is what makes "same
+  // cell" and "same shuffle group" the same set of threads.
+  static_assert(TILE >= 1 && TILE <= 32 && (TILE & (TILE-1)) == 0,
+                "TILE must be a power of two in [1,32]");
 
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
-  if((size_t)m >= total) return;
-  const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
-  const long long mj = (long long)m - (long long)side_off_H[H];
+  const long long gtid = (long long)blockIdx.x*blockDim.x + threadIdx.x;
+  const long long m    = gtid / TILE;
+  const int       lane = (int)(gtid & (TILE-1));
 
-  const int x = mj;
-  const int j = x + (i + 2*(turn+1)) + 1;
-  const long long ij0 = Indx(i,j) + (turn+1) + 1;
+  // Deliberately NOT an early `return` for out-of-range m (which is what the
+  // TILE=1 version did). With TILE < 32 one warp carries 32/TILE independent
+  // cells, so the grid's tail block can hold live and dead cells in the same
+  // warp; a thread that returned there would still be named by the shuffle
+  // mask below, which is undefined behaviour. Every thread instead runs to
+  // the end, and the dead ones just carry INF through a reduction whose
+  // result is discarded. Costs one tail block's worth of shuffles.
+  const bool active = ((size_t)m < total);
 
-  assert(H >= 0 && H < nfiles);
   //typically values in fml_i read many times, assume many !=INF and that GPU cache will cope
   int value = INF;
-  for(int y=0; y <= x; y++) {
-    assert(x>=0 && x<=length);
-    assert(y>=0 && y<=length);
-    assert(y<=x);
-    const long long yij = y + ij0;
-    assert(yij < Hoff(nfiles,length));
-    value = MIN2(fml_i[row_off_H[H]+y] + fml_j[tri_off_H[H]+yij], value);
+  size_t out = 0;
+  if(active) {
+    const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
+    const long long mj = (long long)m - (long long)side_off_H[H];
+
+    const int x = mj;
+    const int j = x + (i + 2*(turn+1)) + 1;
+    const long long ij0 = Indx(i,j) + (turn+1) + 1;
+
+    assert(H >= 0 && H < nfiles);
+    out = row_off_H[H]+j;
+    for(int y=lane; y <= x; y += TILE) {
+      assert(x>=0 && x<=length);
+      assert(y>=0 && y<=length);
+      assert(y<=x);
+      const long long yij = y + ij0;
+      assert(yij < Hoff(nfiles,length));
+      value = MIN2(fml_i[row_off_H[H]+y] + fml_j[tri_off_H[H]+yij], value);
+    }
   }
-  dml[row_off_H[H]+j] = value;
+
+  // Full 0xffffffff mask is correct precisely because nothing above returns:
+  // all 32 lanes of the warp reach this point. `width=TILE` then confines
+  // each exchange to one cell's lane group. Compiles to nothing when TILE==1.
+#pragma unroll
+  for(int off = TILE/2; off > 0; off >>= 1)
+    value = MIN2(value, __shfl_down_sync(0xffffffff, value, off, TILE));
+
+  if(active && lane == 0) dml[out] = value;
 }
 
 void modular_decomposition_cuda(const int nfiles,
@@ -900,13 +996,29 @@ void modular_decomposition_cuda(const int nfiles,
   const int block_size = g_block_size_md;
   //const int nblocks = (todo + block_size - 1)/block_size; //for time being waste many blocks
   //const int nblocks = side;
-  const int nblocks = (total + block_size - 1)/block_size;
+  // g_md_tile threads per output cell now, not one -- see the kernel comment.
+  // Done in size_t because total already is: at the widest chunks measured so
+  // far (nfiles ~ 2000) total x 32 comfortably exceeds 2^31.
+  const size_t nthreads   = total * (size_t)g_md_tile;
+  const size_t nblocks_sz = (nthreads + (size_t)block_size - 1)/(size_t)block_size;
+  assert(nblocks_sz <= 2147483647u); //gridDim.x limit
+  const int nblocks = (int)nblocks_sz;
 
-  modular_decomposition_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, i, turn, length,
-					   d_fml_i, d_fml_j,
-					   d_dml,   //Out
-					   d_tri_off_H, d_row_off_H,
-					   d_side_off_H, total);
+#define MD_LAUNCH(T) modular_decomposition_kernel<T><<<nblocks,block_size,0,graph_stream>>>( \
+                       nfiles, i, turn, length, \
+                       d_fml_i, d_fml_j, \
+                       d_dml,   /*Out*/ \
+                       d_tri_off_H, d_row_off_H, \
+                       d_side_off_H, total)
+  switch(g_md_tile) {
+    case  1: MD_LAUNCH(1);  break;
+    case  2: MD_LAUNCH(2);  break;
+    case  4: MD_LAUNCH(4);  break;
+    case  8: MD_LAUNCH(8);  break;
+    case 16: MD_LAUNCH(16); break;
+    default: MD_LAUNCH(32); break;
+  }
+#undef MD_LAUNCH
 
   gpuErrchk( cudaPeekAtLastError() );
 
