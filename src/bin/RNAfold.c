@@ -109,6 +109,8 @@ process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
 
   par_mfe(nfiles, (const vrna_fold_compound_t**)VC, (const char**)Structure, EN, cpu_queue_threads);
 
+  const double t_out = rnafold_now_seconds();
+  const double free_at_out_start = stage_free_s; //this loop also frees; don't double-count
   for(int i=0;i<nfiles;i++) {
     const char* SEQ_ID             = SEQ_IDs[i];
     const vrna_fold_compound_t *vc = VC[i];
@@ -507,10 +509,12 @@ process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
       break;
     */
 
+    const double t_free = rnafold_now_seconds();
     free(SEQ_ID);
     vrna_fold_compound_free(VC[i]);
     free(Orig_sequence[i]);
     free(Structure[i]);
+    stage_free_s += rnafold_now_seconds() - t_free;
 
     //ID_number_increase(seq_number, "Sequence");
 
@@ -523,6 +527,7 @@ process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
       else vrna_message_input_seq_simple();
     }*/
   }
+  stage_output_s += (rnafold_now_seconds() - t_out) - (stage_free_s - free_at_out_start);
 
   teardown_gpu();
   teardown_gpu2();
@@ -856,7 +861,9 @@ int main(int argc, char *argv[]){
     /* convert sequence to uppercase letters only */
     vrna_seq_toupper(rec_sequence);
 
+    const double t_build = rnafold_now_seconds();
     vrna_fold_compound_t *vc = vrna_fold_compound(rec_sequence, &md, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
+    stage_build_s += rnafold_now_seconds() - t_build;
 
     length    = vc->length;
 
@@ -970,9 +977,13 @@ int main(int argc, char *argv[]){
        * counting this chunk's (otherwise still-resident) buffers as
        * unavailable.
        * GPU teardown rewrite to handle variable length sequences */
-      teardown_gpu();
-      teardown_gpu2();
-      teardown_gpu3();
+      {
+        const double t_td = rnafold_now_seconds();
+        teardown_gpu();
+        teardown_gpu2();
+        teardown_gpu3();
+        stage_teardown_s += rnafold_now_seconds() - t_td;
+      }
       nfiles = 0;
 
       chunk_started         = 1;

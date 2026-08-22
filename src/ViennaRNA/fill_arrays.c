@@ -61,6 +61,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     static int phase_timing_registered = 0;
     if(!phase_timing_registered) {
       atexit(print_phase_timing_stats);
+      atexit(print_stage_timing_stats);
       phase_timing_registered = 1;
     }
   }
@@ -189,23 +190,44 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 
 
   /* prefill matrices with init contributions */
+ const double t_prefill = rnafold_now_seconds();
  for(int H=0;H<nfiles;H++) {
   // Staggered_Row_Batching Phase 6d: per-H bound -- Indx(H,i,j) resolves
   // through VC[H]->jindx into VC[H]'s own matrices, so a j past this H's
   // length indexes outside them.
   for(j = 1; j <= (int)VC[H]->length; j++)
     //for(i = (j > turn ? (j - turn) : 1); i <= j; i++){
-    for(i = 1; i <= j; i++){
-      My_c(H,Indx(H,i,j)) = My_fML(H,Indx(H,i,j)) = INF;
-      if(uniq_ML)
+    // Staggered_Row_Batching 2026-08-22: the My_c/My_fML halves of this
+    // prefill are gone. Nothing reads either triangle between here and the
+    // end of the sweep any more -- new_c_host stopped writing My_c in
+    // a1430bd and fml_host stopped writing My_fML in 89e5721, and both now
+    // read row buffers instead -- and fetch_my_c()/fetch_fML() then overwrite
+    // each record's triangle in FULL (tri_off_H[H+1]-tri_off_H[H] is exactly
+    // the allocation size dp_matrices.c used). So every value written here was
+    // read by nobody. It measured 2.4 s of E600's 32.7 s wall, 1.1 s of
+    // workload A's 18.2 s -- 5-7%, for nothing.
+    //
+    // fM1 is different and stays: no kernel computes it and nothing fetches
+    // it, so under uniq_ML it genuinely needs to start at INF. The whole loop
+    // therefore only runs when uniq_ML is set, which for MFE folding it is not.
+    if(uniq_ML)
+      for(i = 1; i <= j; i++)
         My_fM1(H,Indx(H,i,j)) = INF;
-    }
  }//endfor H
+  stage_prefill_s += rnafold_now_seconds() - t_prefill;
   init_fML(nfiles,length,tri_off_H[nfiles],row_off_H[nfiles]);//on GPU
 
   /* start recursion */
 
   if (length <= turn){
+    // No sweep and no fetch_my_c()/fetch_fML() on this path, so the triangles
+    // the prefill above no longer touches are still uninitialised here, and
+    // backtrack() is about to read them. Fill them now -- free, because this
+    // branch only triggers when every record is at most `turn` (3) bases.
+    for(int H=0;H<nfiles;H++)
+      for(j = 1; j <= (int)VC[H]->length; j++)
+        for(i = 1; i <= j; i++)
+          My_c(H,Indx(H,i,j)) = My_fML(H,Indx(H,i,j)) = INF;
     /* clean up memory */
     //free(cc);
     //free(cc1);
