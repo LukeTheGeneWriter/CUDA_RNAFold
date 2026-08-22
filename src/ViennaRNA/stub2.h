@@ -313,6 +313,12 @@ PUBLIC void
 #endif
 fetch_my_c(const int nfiles, int** c_H, const size_t* tri_off_H);
 
+// Stage-attribution timers (mfe_cuda.c). The row-loop "phase" timers cover
+// only the sweep; these account for the 20-31% of wall that sits outside it.
+extern double stage_build_s, stage_prepare_s, stage_prefill_s, stage_backtrack_s;
+extern double stage_output_s, stage_gpuinit_s, stage_teardown_s, stage_free_s;
+double rnafold_now_seconds(void);
+
 PRIVATE void
 par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy);
 

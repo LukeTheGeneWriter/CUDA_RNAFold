@@ -87,6 +87,37 @@ now_seconds(void) {
   return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
+// Stage-attribution timers, 2026-08-22. The "phase" timers below only ever
+// covered the sweep's row loop; measurement on Continuous_Flow_Batching showed
+// 20-31% of wall sitting OUTSIDE them on every workload, so these account for
+// the rest. Non-static and declared in stub2.h because RNAfold.c (a separate
+// translation unit) owns the record-building and output stages.
+double stage_build_s      = 0.0; //vrna_fold_compound(): ptype + hc, both O(n^2)
+double stage_prepare_s    = 0.0; //vrna_fold_compound_prepare()
+double stage_prefill_s    = 0.0; //par_fill_arrays()'s pre-sweep host matrix INF fill
+double stage_backtrack_s  = 0.0; //backtrack(), single- or multi-threaded
+double stage_output_s     = 0.0; //printing folds
+double stage_gpuinit_s    = 0.0; //init_gpu/2/3
+double stage_teardown_s   = 0.0; //teardown_gpu/2/3
+double stage_free_s       = 0.0; //vrna_fold_compound_free()
+
+double rnafold_now_seconds(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
+
+PRIVATE void
+print_stage_timing_stats(void) {
+  fprintf(stderr,
+    "%-24s stage timing (s): build=%.3f prepare=%.3f prefill=%.3f backtrack=%.3f "
+    "output=%.3f gpuinit=%.3f teardown=%.3f free=%.3f || non-sweep total=%.3f\n",
+    __FILE__, stage_build_s, stage_prepare_s, stage_prefill_s, stage_backtrack_s,
+    stage_output_s, stage_gpuinit_s, stage_teardown_s, stage_free_s,
+    stage_build_s + stage_prepare_s + stage_prefill_s + stage_backtrack_s
+    + stage_output_s + stage_gpuinit_s + stage_teardown_s + stage_free_s);
+}
+
 static double phase_int_loop_s          = 0.0;
 static double phase_hp_mb_s             = 0.0;
 static double phase_new_c_host_s        = 0.0;
@@ -342,12 +373,15 @@ par_mfe(const int nfiles,
   const int turn      = md->min_loop_size;
   size_t row_off_H[nfiles+1], tri_off_H[nfiles+1]; //Phase 2a, see compute_batch_offsets() above
   compute_batch_offsets(nfiles, VC, row_off_H, tri_off_H);
+  const double t_gpuinit = rnafold_now_seconds();
   init_gpu(nfiles,length,tri_off_H,row_off_H);
   init_gpu2(nfiles,VC, turn, length, 512, tri_off_H, row_off_H);
   init_gpu3(nfiles,VC, turn, length, 512, row_off_H);
+  stage_gpuinit_s += rnafold_now_seconds() - t_gpuinit;
 
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {
     int i;
+    const double t_prepare = rnafold_now_seconds();
     for(i=0;i<nfiles;i++) {
       if(!vrna_fold_compound_prepare(VC[i], VRNA_OPTION_MFE)){
 	vrna_message_warning("vrna_mfe@mfe.c: Failed to prepare vrna_fold_compound");
@@ -357,10 +391,12 @@ par_mfe(const int nfiles,
       /* call user-defined recursion status callback function */
       if(VC[i]->stat_cb){ VC[i]->stat_cb(VRNA_STATUS_MFE_PRE, VC[i]->auxdata);}
     }
+    stage_prepare_s += rnafold_now_seconds() - t_prepare;
 
     int energy[nfiles];
     par_fill_arrays(nfiles,VC,energy);
 
+    const double t_bt = rnafold_now_seconds();
     const int n_bt_threads = backtrack_thread_count(nfiles, cpu_queue_threads);
     if(n_bt_threads <= 1) {
       for(i=0;i<nfiles;i++) {
@@ -393,6 +429,7 @@ par_mfe(const int nfiles,
       }
       free(bt_threads);
     }
+    stage_backtrack_s += rnafold_now_seconds() - t_bt;
   } else {
   for(int i=0;i<nfiles;i++) {
     EN[i] = mfe_cuda_vrna_mfe(VC[i], Structure[i]);
