@@ -113,6 +113,10 @@ double stage_ig3_s        = 0.0; //init_gpu3  (hp_mb_loop.cu)
 double stage_ig_pack_s    = 0.0; //host-side bitmask / sequence packing loops
 double stage_ig_malloc_s  = 0.0; //cudaMalloc inside the three init functions
 
+// See stub2.h. Default 0 = always use the host packing path, so anything that
+// forgets to set it stays correct rather than silently wrong.
+int g_hc_seq_derived = 0;
+
 double rnafold_now_seconds(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);

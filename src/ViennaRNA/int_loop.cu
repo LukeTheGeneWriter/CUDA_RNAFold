@@ -322,6 +322,13 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 
   size_t size = hc_off_H[nfiles]*sizeof(unsigned int);
   TIMED_CUDAMALLOC(&d_hccc, size);
+  // When hc->matrix is sequence-derived, hp_mb_loop.cu's pack_hc_kernel fills
+  // d_hccc for us (it owns the plain sequence encoding and the pair table, and
+  // init_gpu3 runs after this function). Skipping this loop is most of the
+  // point: it and its init_gpu3 twin were 197.4 s of a 769 s Colab run.
+  if(g_hc_seq_derived) {
+    gpuErrchk( cudaMemset(d_hccc, 0, hc_off_H[nfiles]*sizeof(unsigned int)) );
+  } else {
   unsigned int* hccc   = (unsigned int*) calloc(hc_off_H[nfiles],sizeof(unsigned int));
   const double _t_pk1 = rnafold_now_seconds();
   for(int H=0;H<nfiles;H++){
@@ -345,6 +352,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   stage_ig_pack_s += rnafold_now_seconds() - _t_pk1;
   gpuErrchk( cudaMemcpy(d_hccc,hccc,hc_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
   free(hccc);
+  }
 
   // Ten bases per word, H fastest index (see put10()/unpack()).
   assert(sizeof(unsigned int) == 4);
@@ -479,6 +487,17 @@ fetch_my_c(const int nfiles, int** c_H, const size_t* tri_off_H) {
     gpuErrchk( cudaMemcpy(c_H[H], &d_my_c[tri_off_H[H]], n*sizeof(int),
                           cudaMemcpyDeviceToHost) );
   }
+}
+
+// Lets hp_mb_loop.cu's pack_hc_kernel fill this file's d_hccc in the same pass
+// that builds its own four masks -- one evaluation of the hc predicate instead
+// of two, and no duplicate sequence/pair upload here. The extents differ
+// (Hc_ints() pads by MAXLOOP where Hc_ints2() does not), so the offset table
+// goes across too.
+extern "C" /*PUBLIC*/ void
+int_loop_hccc_buffers(unsigned int** d_out, const size_t** off_out) {
+  *d_out   = d_hccc;
+  *off_out = d_hc_off_H;
 }
 
 //perhaps this can be combined with other kernels?
