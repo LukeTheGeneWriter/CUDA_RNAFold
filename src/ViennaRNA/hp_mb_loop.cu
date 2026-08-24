@@ -157,6 +157,61 @@ void load_param2(const vrna_param_t *P){
   free(H);
 }
 
+// Builds all five packed hard-constraint bitmasks straight from the sequence,
+// replacing two O(n^2)-per-record host loops that between them were 197.4 s of
+// a 769 s Colab run -- 25.7% of wall -- to produce 9.81 MB per record of data
+// that is fully determined by an 11 KB sequence.
+//
+// One thread owns one 32-cell output word and assembles it in a register, so
+// there is no atomic and no read-modify-write to memory. The four masks packed
+// here share hc2_off_H/Hc_ints2 extents; int_loop.cu's d_hccc has its own
+// (Hc_ints pads by MAXLOOP), hence the separate offset table.
+__global__ void
+pack_hc_kernel(const int nfiles, const int turn, const int max_bp_span,
+               const int noGU, const int noGUclosure,
+               const short* __restrict__ S, const char* __restrict__ pair,
+               const size_t* __restrict__ hc2_off_H,
+               const size_t* __restrict__ hc_off_H,
+               const size_t* __restrict__ seq_off_H,
+                     unsigned int* __restrict__ mb,
+                     unsigned int* __restrict__ mbenc,
+                     unsigned int* __restrict__ any,
+                     unsigned int* __restrict__ gu,
+                     unsigned int* __restrict__ intenc,
+               const size_t total_words2) {
+  const size_t w = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
+  if(w >= total_words2) return;
+
+  const int H = flatten_index_to_H(w, hc2_off_H, nfiles);
+  const size_t wH = w - hc2_off_H[H];              //word index within this record
+  const short* S_H = &S[seq_off_H[H]];
+  //seq_off_H's stride is this record's length+2 (init_gpu3 builds it that way),
+  //so no separate length table is needed.
+  const int n = (int)(seq_off_H[H+1] - seq_off_H[H]) - 2;
+
+  unsigned int m_mb=0u, m_mbenc=0u, m_any=0u, m_gu=0u, m_int=0u;
+  const long long base = (long long)wH * 32;
+  #pragma unroll
+  for(int b=0; b<32; b++) {
+    const long long f = base + b;
+    const unsigned char opt = rnafold_hc_opt(f, n, turn, max_bp_span,
+                                             noGU, noGUclosure, S_H, pair);
+    const int pt = rnafold_ptype(f, n, turn, S_H, pair);
+    m_mb    |= ((opt & VRNA_CONSTRAINT_CONTEXT_MB_LOOP)      ? 1u : 0u) << b;
+    m_mbenc |= ((opt & VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC)  ? 1u : 0u) << b;
+    m_any   |= (opt                                          ? 1u : 0u) << b;
+    m_gu    |= ((pt == 3 || pt == 4)                         ? 1u : 0u) << b;
+    m_int   |= ((opt & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC) ? 1u : 0u) << b;
+  }
+  mb[w] = m_mb;  mbenc[w] = m_mbenc;  any[w] = m_any;  gu[w] = m_gu;
+
+  // int_loop.cu's mask is the same bits over the same flat cells, but its
+  // per-record blocks are spaced by Hc_ints() (MAXLOOP padding) rather than
+  // Hc_ints2(), so it is addressed through its own table. Words past this
+  // record's Hc_ints2 extent are padding and were memset to zero.
+  intenc[hc_off_H[H] + wH] = m_int;
+}
+
 PUBLIC void
 init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* row_off_H) { //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
@@ -203,6 +258,11 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   TIMED_CUDAMALLOC(&d_hccc_gu, size);
   TIMED_CUDAMALLOC(&d_hccc_mb, size);
   TIMED_CUDAMALLOC(&d_hccc_mbenc, size);
+  // Sequence-derived case: pack_hc_kernel below fills all four of these (and
+  // int_loop.cu's d_hccc) from the sequence once d_S2/d_pair2 exist, so the
+  // O(n^2) host loop is skipped entirely. It measured 126.9 s of a 769 s Colab
+  // run on its own; its int_loop twin another 71.7 s.
+  if(!g_hc_seq_derived) {
   unsigned int* hccc_mb    = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   unsigned int* hccc_mbenc = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   unsigned int* hccc_any   = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
@@ -243,6 +303,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   free(hccc_mbenc);
   free(hccc_any);
   free(hccc_gu);
+  }
 
   // Staggered_Row_Batching Phase 2e: table-driven per-H block start (own
   // shape, length+2 stride -- distinct from row_off_H's length+1).
@@ -288,6 +349,73 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   TIMED_CUDAMALLOC(&d_energy_3p00_row, size);
   //char, not int: it carries two bits per cell and is copied back every row.
   TIMED_CUDAMALLOC(&d_gate_row, g_row_total*sizeof(char));
+
+  // Everything pack_hc_kernel reads (d_S2, d_pair2, and the three offset
+  // tables) exists by this point, which is why the launch sits at the end of
+  // init_gpu3 rather than beside the allocations it fills.
+  if(g_hc_seq_derived) {
+    const double _t_pk = rnafold_now_seconds();
+    unsigned int* d_intenc = NULL;
+    const size_t* d_hcoff  = NULL;
+    int_loop_hccc_buffers(&d_intenc, &d_hcoff);   //init_gpu2 already ran
+    assert(d_intenc && d_hcoff);
+    const vrna_md_t* md_ = &(VC[0]->params->model_details);
+    const size_t total_words2 = hc2_off_H[nfiles];
+    const int    bs  = 256;
+    const size_t nbl = (total_words2 + bs - 1)/bs;
+    assert(nbl <= 2147483647u);
+    pack_hc_kernel<<<(int)nbl,bs>>>(nfiles, turn_, md_->max_bp_span,
+                                    md_->noGU, md_->noGUclosure,
+                                    d_S2, d_pair2,
+                                    d_hc2_off_H, d_hcoff, d_seq_off_H,
+                                    d_hccc_mb, d_hccc_mbenc, d_hccc_any,
+                                    d_hccc_gu, d_intenc, total_words2);
+    gpuErrchk( cudaPeekAtLastError() );
+    gpuErrchk( cudaDeviceSynchronize() );
+    stage_ig_pack_s += rnafold_now_seconds() - _t_pk;  //same timer, for comparability
+
+    // RNA_HC_VERIFY=1: build the masks the old way too and compare bit for
+    // bit. Byte-identical fold output only proves the bits are right where
+    // they are READ (j-i >= turn+1); this proves every word matches, including
+    // cells nothing looks at today, so widening a read range later cannot
+    // quietly expose a wrong bit. Slow by design -- diagnostics only.
+    if(getenv("RNA_HC_VERIFY")) {
+      const size_t nw2 = hc2_off_H[nfiles];
+      unsigned int* h_mb    = (unsigned int*) calloc(nw2,sizeof(unsigned int));
+      unsigned int* h_mbenc = (unsigned int*) calloc(nw2,sizeof(unsigned int));
+      unsigned int* h_any   = (unsigned int*) calloc(nw2,sizeof(unsigned int));
+      unsigned int* h_gu    = (unsigned int*) calloc(nw2,sizeof(unsigned int));
+      for(int H=0;H<nfiles;H++){
+        unsigned int mask;
+        const int length_H = (int)VC[H]->length;
+        for(int i=0;i<(length_H*(length_H+1))/2+2;i++){
+          mask = ((i & 0x1f) == 0)? 1 : mask << 1;
+          const size_t I = hc2_off_H[H]+i/bitsperint;
+          if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP)     h_mb[I]    |= mask;
+          if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC) h_mbenc[I] |= mask;
+          if(VC[H]->hc->matrix[i])                                       h_any[I]   |= mask;
+          { const char pt = VC[H]->ptype[i];
+            if(pt == 3 || pt == 4)                                       h_gu[I]    |= mask; }
+        }
+      }
+      unsigned int* g = (unsigned int*) malloc(nw2*sizeof(unsigned int));
+      const char*   nm[4] = {"hccc_mb","hccc_mbenc","hccc_any","hccc_gu"};
+      unsigned int* dv[4] = {d_hccc_mb,d_hccc_mbenc,d_hccc_any,d_hccc_gu};
+      unsigned int* hv[4] = {h_mb,h_mbenc,h_any,h_gu};
+      int bad = 0;
+      for(int k=0;k<4;k++){
+        gpuErrchk( cudaMemcpy(g,dv[k],nw2*sizeof(unsigned int),cudaMemcpyDeviceToHost) );
+        for(size_t w=0;w<nw2;w++) if(g[w]!=hv[k][w]) {
+          if(bad++ < 8)
+            fprintf(stderr,"RNA_HC_VERIFY MISMATCH %s word %zu: gpu=%08x host=%08x\n",
+                    nm[k],w,g[w],hv[k][w]);
+        }
+      }
+      fprintf(stderr,"%-24s RNA_HC_VERIFY: %zu words x 4 masks, %d mismatching words\n",
+              __FILE__, nw2, bad);
+      free(g); free(h_mb); free(h_mbenc); free(h_any); free(h_gu);
+    }
+  }
 
   stage_ig3_s += rnafold_now_seconds() - _t_ig3;
   first3 = 0;

@@ -340,6 +340,20 @@ extern "C" {
 extern double stage_build_s, stage_prepare_s, stage_prefill_s, stage_backtrack_s;
 extern double stage_output_s, stage_gpuinit_s, stage_teardown_s, stage_free_s;
 double rnafold_now_seconds(void);
+
+// Non-zero when hc->matrix and ptype are pure functions of the sequence, i.e.
+// no user constraints/SHAPE/ligand-motifs/commands and noLP off. Set once by
+// RNAfold.c. When set, init_gpu2/init_gpu3 skip their O(n^2) host packing
+// loops and let the GPU derive the five bitmasks from the sequence instead --
+// that packing measured 197.4 s of a 769 s Colab run, 25.7% of wall.
+extern int g_hc_seq_derived;
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+int_loop_hccc_buffers(unsigned int** d_out, const size_t** off_out);
 #ifdef __cplusplus
 }
 #endif
@@ -405,6 +419,79 @@ Hoff(const int H, const int length){ //H*((length+1)*(length+2)/2)
 // uses -- while every H still shares one uniform active width (today, and
 // through the rest of Phase 2), flat_off_H[] degenerates to H*width
 // exactly like row_off_H[]/tri_off_H[] did before mixed lengths existed.
+// Invert a flat triangular index into (i,j), the inverse of ViennaRNA's
+// jindx[j]+i == j*(j-1)/2+i. Column j occupies flat indices
+// j*(j-1)/2+1 .. j*(j+1)/2, so f determines j uniquely. The sqrt is a seed
+// only -- double has 53 bits of mantissa against the ~1.3e8 argument here, but
+// the two correction loops make the result exact regardless, which matters
+// because a single off-by-one would silently shift every predicate.
+__device__
+inline void rnafold_tri_unflatten(const long long f, int* pi, int* pj) {
+  int j = (int)((1.0 + sqrt(1.0 + 8.0*(double)(f-1))) * 0.5);
+  while((long long)j*(j-1)/2 >= f) j--;
+  while((long long)(j+1)*j/2 <  f) j++;
+  *pj = j;
+  *pi = (int)(f - (long long)j*(j-1)/2);
+}
+
+// Device replica of hc_reset_to_default()'s VRNA_FC_TYPE_SINGLE case
+// (constraints_hard.c:747). Returns the hc->matrix byte for flat index f of a
+// record of length len_H, or 0 for the slack slots the host loop leaves at
+// their calloc value (f==0, and anything past len*(len+1)/2).
+//
+// Deliberately mirrors the host control flow line for line rather than being
+// "simplified": every branch here corresponds to one there, so the two can be
+// compared by eye as well as by memcmp.
+__device__
+inline unsigned char rnafold_hc_opt(const long long f, const int len_H,
+                                    const int turn, const int max_bp_span,
+                                    const int noGU, const int noGUclosure,
+                                    const short* __restrict__ S_H,
+                                    const char*  __restrict__ pair) {
+  const long long cells = (long long)len_H*(len_H+1)/2;
+  if(f < 1 || f > cells) return 0u;                 //slack: calloc'd zero on the host
+  int i, j; rnafold_tri_unflatten(f, &i, &j);
+
+  if(i == j)                                        //loop 1: unpaired, all contexts
+    return (unsigned char)(  VRNA_CONSTRAINT_CONTEXT_EXT_LOOP
+                           | VRNA_CONSTRAINT_CONTEXT_HP_LOOP
+                           | VRNA_CONSTRAINT_CONTEXT_INT_LOOP
+                           | VRNA_CONSTRAINT_CONTEXT_MB_LOOP);
+
+  //loop 2 writes only i in [1, j-turn-1] of columns j > turn+1
+  if(!(j > turn + 1 && i < j - turn)) return 0u;
+
+  int max_span = max_bp_span;
+  if((max_span < 5) || (max_span > len_H)) max_span = len_H;
+  if((j - i + 1) > max_span) return 0u;
+
+  const int t = (int)pair[S_H[i]*8 + S_H[j]];
+  if(t == 0) return 0u;
+  if(t == 3 || t == 4) {
+    if(noGU) return 0u;
+    if(noGUclosure)
+      return (unsigned char)(VRNA_CONSTRAINT_CONTEXT_ALL_LOOPS
+                             & ~(VRNA_CONSTRAINT_CONTEXT_HP_LOOP
+                                 | VRNA_CONSTRAINT_CONTEXT_MB_LOOP));
+  }
+  return (unsigned char)VRNA_CONSTRAINT_CONTEXT_ALL_LOOPS;
+}
+
+// Device replica of vrna_ptypes() (alphabet.c:143) with noLP off. Its
+// anti-diagonal walk covers exactly {(i,j) : j-i >= turn+1} -- verified by
+// simulating the loop for n = 12/20/41/60, zero cells missing or extra -- so
+// the walk order is irrelevant and each cell is just md->pair[S[i]][S[j]].
+__device__
+inline int rnafold_ptype(const long long f, const int len_H, const int turn,
+                         const short* __restrict__ S_H,
+                         const char*  __restrict__ pair) {
+  const long long cells = (long long)len_H*(len_H+1)/2;
+  if(f < 1 || f > cells) return 0;
+  int i, j; rnafold_tri_unflatten(f, &i, &j);
+  if(j - i < turn + 1) return 0;
+  return (int)pair[S_H[i]*8 + S_H[j]];
+}
+
 __host__ __device__
 inline int flatten_index_to_H(const size_t idx, const size_t* flat_off_H, const int nfiles) {
   int lo = 0, hi = nfiles;

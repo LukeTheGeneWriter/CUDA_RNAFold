@@ -793,6 +793,16 @@ int main(int argc, char *argv[]){
    * uses any of those features -- falls back to the exact pre-existing
    * GPU-only behavior automatically.
    */
+  // hc->matrix and ptype are pure functions of the sequence only when nothing
+  // perturbs them afterwards. Constraints/SHAPE/ligand-motifs/commands all
+  // rewrite hc->matrix after hc_reset_to_default(), and noLP zeroes ptype
+  // entries for isolated pairs -- in any of those cases the GPU cannot derive
+  // the bitmasks and init_gpu2/init_gpu3 keep their host packing loops.
+  // outfile is deliberately NOT in this list: it changes where output goes,
+  // not what hc->matrix contains.
+  g_hc_seq_derived = !(fold_constrained || with_shapes || ligandMotif || commands)
+                     && !md.noLP;
+
   int cpu_queue_threads = 0;
   {
     const char *env_threads = getenv("RNA_CPU_THREADS");
