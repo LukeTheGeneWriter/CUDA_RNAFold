@@ -1,16 +1,24 @@
-/* Modifications for eventual CUDA version $Revision: 1.14 $
+/* Modifications for eventual CUDA version $Revision: 1.28 $
+WBL 24 Aug 2026 add struct energy_3p etc (for commit)
+WBL  7 Aug 2026 did not (yet) allow user to select GPU (ie take default)
 WBL 19 Jul 2026 Allow arrays to exceed two billion elements
 WBL  8 Jan 2018 Extend linkage for CUDA interface in modular_decomposition.cu
 WBL  3 Dec 2017 investigate data dependence in E_mb_loop_fast
   split off multibranch_loops.c r1.10 for time being
 */
 
+struct energy_3p {
+  //int c may be reorder my_c later, may be remove energy_3p_en later
+  int energy_3p_00;
+  int energy_3p_en;
+  int energy_mls;
+};
 #ifdef __cplusplus
 extern "C" void
 #else
 PUBLIC void
 #endif
-choose_gpu(int argc, char **argv); //updates argc and argv
+choose_gpu(const int argc, const char **argv); //not yet! updates argc and argv
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -89,6 +97,23 @@ int_loop_i(const int nfiles,
 	   int* energy_min ); //out
 
 
+extern int* d_energy_min;
+extern int* d_fml_j;  //my_fML
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+int_loop_mls(const int nfiles,
+	     const vrna_fold_compound_t **VC,
+	     const int i, /*const int turn,*/ const int length,
+	     const long long ijsize,
+	     const int* my_c,          //contents of My_c(H,ij)
+	     const int en,
+	     const struct energy_3p*,
+	     int* energy_min); //out
+
 PUBLIC void
 par_mfe(const int nfiles,
 	const vrna_fold_compound_t** VC,
@@ -109,6 +134,15 @@ int
 mb_loop_fast( vrna_fold_compound_t *vc,
                 int i,
                 int j);
+
+#ifdef __CUDACC__
+extern "C"
+__host__ __device__
+#else
+extern
+#endif
+long long Hindx(const int H, const int nfiles,
+		const int i, const int j, const int length);
 
 //inline functions needed by both int_loop.cu and modular_decomposition.cu
 #ifdef __CUDACC__

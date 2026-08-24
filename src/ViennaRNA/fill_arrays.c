@@ -1,6 +1,8 @@
-//WBL Dec 2017 include file for mfe.c $Revision: 1.35 $
+//WBL Dec 2017 include file for mfe.c $Revision: 1.45 $
 
-//WBL  4 Aug 2026 for github (remove Print_times etc)
+//WBL 14 Aug 2026 Clean debug for GitHub
+//WBL 11 Aug 2026 Combine int_loop_mls_kernel inputs as struct
+//WBL  8 Aug 2026 remove min_fml as not used
 //WBL  1 Aug 2026 make H tightest index DMLi,DMLi1,DMLi2
 //WBL 20 Jul 2026 make sanity() depend on NDEBUG
 //WBL 19 Jul 2026 Allow par_fill_arrays() arrays to exceed two billion elements
@@ -9,8 +11,8 @@
 //try and help compiler by inlining
 //#include "modular_decomposition.c"
 
-int print_energy_min_first = 1;
 #ifdef CHECK
+int print_energy_min_first = 1;
 void print_energy_min(const char* text, const int nfiles, const int length, const int jmin, const int* energy_min){
   int min[nfiles], max[nfiles],n[nfiles];
   long long sum[nfiles];
@@ -38,6 +40,7 @@ void print_energy_min(const char* text, const int nfiles, const int length, cons
 	   n[i],min[i],/*max[i],*/ sum[i]);
   }
   printf("\n");
+  fflush(NULL);
 }
 #else
 #define print_energy_min(text,nfiles,length,jmin,energy_min) {;}
@@ -355,42 +358,7 @@ vrna_E_ml_stems_fast2( const vrna_fold_compound_t *vc,
   return e;
 }
 
-
-void min_fml(const int i, const int j, const int* my_fML, const int* DMLi, const char* name, const int turn, const int* indx,
-	     const int length, const int ijsize) {
-      {// does DMLi[j] holds  MIN(fML[i,k]+fML[k+1,j])  
-	//Cf. modular_decomposition() in multibranch_loops.c
-	int min=INF; 
-	const int start = i+turn+1; const int stop = j - 2 - turn;
-	//const int start = 1; const int stop = j;
-	int k   = start;
-	//fprintf(stderr,"%s (",name);
-	//fflush(stderr);
-	for(;k<=stop;k++){
-	  const int ik  = indx[k]+i;   //to get fML[i,k]
-	  const int k1j = indx[j]+k+1; //to get fML[k+1,j]
-//	 {const int k1j_= indx[j] + i + turn + 1 + 1 + k - start; //to get fML[i+k+1,j] cf modular_decomposition
-//	  assert(k1j == k1j_);}
-	  assert(i  >0 &&  i <=j);      //starts at 1 not 0
-	  assert(j  >0 &&  j <=length); //starts at 1 not 0
-	  assert(k  >0 &&  k <=j     ); //starts at 1 not 0
-	  assert(k+1>0 && k+1<=j     ); //starts at 1 not 0
-	  assert(ik >0 && ik < ijsize); //starts at 1 not 0
-	  assert(k1j>0 && k1j< ijsize); //starts at 1 not 0
-	  const int fML_i = my_fML[ik];
-	  const int fML_j = my_fML[k1j];
-	  const int add = (fML_i != INF && fML_j != INF)? fML_i + fML_j : INF;
-	  if(/*k>=start && k<=stop && */add<min) min = add;
-	  //fprintf(stderr,"[%d %d,%d]%d [%d %d,%d]%d =%d\n",ik,i,k,fML_i,k1j,k+1,j,fML_j,add);
-	  //fprintf(stderr,"my_fML[%d] %d, ",ik,my_fML[ik]);
-	}
-	//fprintf(stderr,"start %2d stop %2d min %d\n",start,stop,min);
-	//int u;
-	//for(u=1;u<=length;u++) fprintf(stderr,"%s[%2d] %d ",name,u,DMLi[u]);
-	//fflush(stderr);
-	//fprintf(stderr,"\n");
-	assert(DMLi[j] == min);
-      }
+/*no longer used
 }//end min_fml
 
 /**
@@ -403,6 +371,22 @@ void min_fml(const int i, const int j, const int* my_fML, const int* DMLi, const
 #define My_fM1(H,ij)            VC[H]->matrices->fM1[ij]
 //might actually make sense to comput ij, as is done on GPU, but stick with minimal change
 #define Indx(H,i,j)            (VC[H]->jindx[j]+i)
+
+void energies_init(const int H, const int nfiles,
+		   const int i, const int j, const int length,
+		   struct energy_3p out[]) {
+  const long long index  = Hindx(H,nfiles,i,j,length);
+#ifndef NDEBUG
+  const long long ijsize = (length+1)*(length+2)/2;
+  assert(index>=0 && index < nfiles*ijsize);
+  /*printf("energy_inf(%d,%d,%d,%d) %lld %d\n",
+           H,nfiles,i,j,index,out[index].energy_3p_00);fflush(NULL);*/
+  assert(out[index].energy_3p_00 == 0);
+#endif
+  out[index].energy_3p_00 = INF;
+  out[index].energy_3p_en = INF;
+  //out[index].energy_mls   = INF;
+}
 
 PRIVATE void
 par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) {
@@ -513,10 +497,12 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 
   int* energy_hp    = calloc(nfiles*ijsize,sizeof(int));
   int* energy_mb    = calloc(nfiles*ijsize,sizeof(int));
-  int* energy_mls   = calloc(nfiles*ijsize,sizeof(int));
-  int* energy_3p_00 = calloc(nfiles*ijsize,sizeof(int));
-  int* energy_3p_en = calloc(nfiles*ijsize,sizeof(int));
-
+  //for use by int_loop_mls_kernel order fastest H then j
+#ifdef NDEBUG
+  struct energy_3p* energies = malloc(nfiles*ijsize*sizeof(struct energy_3p));
+#else
+  struct energy_3p* energies = calloc(nfiles*ijsize,sizeof(struct energy_3p));
+#endif
   /*We can move energy_hp out of loop */
  for(int H=0;H<nfiles;H++) {
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
@@ -581,9 +567,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
 
     for (j = i+turn+1; j <= length; j++) {
-      ij            = Indx(H,i,j);
-      assert(ij>=0 && ij<ijsize);
-      energy_mls[H*ijsize+ij] = vrna_E_ml_stems_fast2(VC[H], i, j);
+      energies[Hindx(H,nfiles,i,j,length)].energy_mls = vrna_E_ml_stems_fast2(VC[H], i, j);
     }
  }
  }//endfor H
@@ -607,8 +591,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
       //from extend_fm_3p()...
       const int cp = -1;
 
-      energy_3p_00[H*ijsize+ij] = INF;
-      energy_3p_en[H*ijsize+ij] = INF;
+      energies_init(H,nfiles,i,j,length,energies); //energy_3p_00 = INF, energy_3p_en = INF
 
   if(ON_SAME_STRAND(i - 1, i, cp)){
     const short* S   = VC[H]->sequence_encoding;
@@ -620,13 +603,13 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 
         //e00 = my_c[ij]; //<<<<<<<<<<<<<
 	//fprintf(stderr,"extend_fm_3p(%d,%d,*fm,*vc) c[%d] %d\n",i,j,ij,c[ij]);
-            energy_3p_00[H*ijsize+ij] = E_MLstem(type_, (i==1) ? S[length] : S[i-1], S[j+1], P);
+	energies[Hindx(H,nfiles,i,j,length)].energy_3p_00 = E_MLstem(type_, (i==1) ? S[length] : S[i-1], S[j+1], P);
       }
     }
 
     if(ON_SAME_STRAND(j - 1, j, cp)){
       if(hc_up[j] > 0){ //eval_loop = () ? (char)1 : (char)0;
-          energy_3p_en[H*ijsize+ij] = P->MLbase;
+	energies[Hindx(H,nfiles,i,j,length)].energy_3p_en = P->MLbase;
       }
     }
   }
@@ -648,9 +631,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
  }//endfor H
 
   /* clean up memory */
-  free(energy_3p_en);
-  free(energy_3p_00);
-  free(energy_mls);
+  free(energies);
   free(energy_mb);
   free(energy_hp);
 

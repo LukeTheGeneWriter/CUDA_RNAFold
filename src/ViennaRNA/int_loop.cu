@@ -1,16 +1,17 @@
-#define Version "$Revision: 1.134 $ "
+#define Version "$Revision: 1.172 $ "
 //Helper for fill_arrays.c 
 //based on ViennaRNA-2.3.0/src/ViennaRNA/interior_loops.c (Nov  1  2016) 
 
 //Modifications (reverse order):
-//WBL  4 Aug 2026
-//  int_loop_kernel Maxwell (GTX TITAN X) noticibly slower than Ada Lovelace
+//WBL 19 Aug 2026 Add int_loop_mls_kernel2
+//WBL  9 Aug 2026 prepare to use int_loop_mls_kernel
+//WBL  8 Aug 2026 Add int_loop_mls based on part of fill_arrays_loop.c
 //WBL 31 Jul 2026 make H tightest index d_energy_min2/energy_min
 //WBL 30 Jul 2026 swap H,j blockIdx x,y in int_loop_kernel
 //WBL 29 Jul 2026 for int_loop_kernel, pack d_S ten per word H fastest index
 //WBL 28 Jul 2026 Merge LukeTheGeneWriter/CUDA_RNAFold Commit 6da6612
 //    Removed 11 unused int_loop_*_kernel to make maintenance easier
-//WBL 19 Jul 2026 Reorder d_new_e, d_my_c
+//WBL 19 Jul 2026 Reorder d_new_e, (d_my_c still todo)
 //WBL 19 Jul 2026 Allow arrays to exceed two billion elements
 //WBL 12 Jul 2026 for CUDA 13 Luke Williams
 //WBL 17 Feb 2018 clean for production (cf r1.75), remove tick
@@ -123,11 +124,17 @@ unsigned int* d_S;    //S[length+2] pack 10 per word
 int*          d_my_c;
 int*          d_energy_min2; //share with modular_decomposition.cu ?
 int*          d_new_e;
+//int*        d_energy_3p_00;
+//int*        d_energy_3p_en;
+//int*        d_energy_mls;
+struct energy_3p* d_energies; //only one row
+int*          d_prev_fml; //previous i of My_fML
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
 
 #define BLOCK_SIZE 512
+#define BLOCK_SIZE2 1024
 
 //https://stackoverflow.com/questions/14038589/what-is-the-canonical-way-to-check-for-errors-using-the-cuda-runtime-api/14038590#14038590
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -249,9 +256,11 @@ int getbs(const char* envname, const int def) {
 extern int load_min_fML_kernel_bs;
 extern int fmli_kernel_bs;
 extern int modular_decomposition_kernel_bs;
-extern int load_fML_kernel_bs;
+//extern int load_fML_kernel_bs;
 int int_loop_kernel_bs = 32;
 int load_my_c_kernel_bs = 512;
+int int_loop_mls_kernel_bs = 32;
+int int_loop_mls_kernel2_bs = BLOCK_SIZE2;
 
 void put10(const unsigned int word, const int H, const int nfiles, const int i, const int size, unsigned int* out){
   assert(word <= 04444444444); //max legit value in octal
@@ -274,9 +283,11 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   load_min_fML_kernel_bs =          getbs("load_min_fML_kernel",64);
   fmli_kernel_bs =                  getbs("fmli_kernel",64);
   modular_decomposition_kernel_bs = getbs("modular_decomposition_kernel",64);
-  load_fML_kernel_bs =              getbs("load_fML_kernel",64);
+//load_fML_kernel_bs =              getbs("load_fML_kernel",64);
   int_loop_kernel_bs =              getbs("int_loop_kernel",32);
   load_my_c_kernel_bs =             getbs("load_my_c_kernel",512);
+  int_loop_mls_kernel_bs =          getbs("int_loop_mls_kernel",32);
+  int_loop_mls_kernel2_bs =         getbs("int_loop_mls_kernel2",BLOCK_SIZE2);
 
   /*if(modular_decomposition_kernel_bs != 64) {
     fprintf(stderr,"variable modular_decomposition_kernel_bs not implemented %d\n",
@@ -284,6 +295,9 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   if(int_loop_kernel_bs != 32) {
     fprintf(stderr,"variable int_loop_kernel_bs not implemented %d\n",
 	    int_loop_kernel_bs); exit(99);}
+  if(int_loop_mls_kernel2_bs != BLOCK_SIZE2) {
+    fprintf(stderr,"variable int_loop_mls_kernel2_bs not implemented %d\n",
+	    int_loop_mls_kernel2_bs); exit(99);}
 
   gpuErrchk( cudaMalloc((void **) &d_param, sizeof(cuda_param_s)) );
   load_param(VC[0]->params);
@@ -360,12 +374,22 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMalloc((void **) &d_new_e, size) );
 
   gpuErrchk( cudaMalloc((void **) &d_energy_min2, size) );
+  //const long long ijsize = (length+1)*(length+2)/2;
+  //const long long size2  = nfiles*ijsize*sizeof(int);
+  //gpuErrchk( cudaMalloc((void **) &d_energy_3p_00, size2) );
+  //gpuErrchk( cudaMalloc((void **) &d_energy_3p_en, size2) );
+  //gpuErrchk( cudaMalloc((void **) &d_energy_mls,   size2) );
+  const int size3 = nfiles*((length+1) - (1+turn+1))*sizeof(energy_3p);
+  gpuErrchk( cudaMalloc((void **) &d_energies,size3) );
   /*no longer in use 
   gpuErrchk( cudaMalloc((void **) &d_energy_min20,size) );
 
   size = nfiles*length*sizeof(int);
   gpuErrchk( cudaMalloc((void **) &d_buf, size) );
   */
+  //use d_prev_fml pending better intergration of fill_arrays_loop and GPU for My_fML
+  const int mem_size_len = nfiles*(length+1) * sizeof(int); //oversize for simplicity
+  gpuErrchk( cudaMalloc((void **) &d_prev_fml,mem_size_len) );
   first2 = 0;
   //printf("%-24s init_gpu2 done\n",__FILE__);fflush(NULL);
 }
@@ -807,7 +831,6 @@ int_loop_cuda(const int nfiles,
 
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
-  //printf("int_loop_kernel<<<%d.%d,%d>>>(i=%d...) ok\n",blocks.x,blocks.y,BLOCK_SIZE,i);
   
   gpuErrchk( cudaMemcpy(energy_min,d_energy_min2, nfiles*(length+1)*sizeof(int),cudaMemcpyDeviceToHost) );
   gpuErrchk( cudaDeviceSynchronize() );
@@ -823,7 +846,6 @@ int_loop_cuda(const int nfiles,
 #undef MAX2
 //ViennaRNA/utils.h
 #define MAX2(A, B)      ((A) > (B) ? (A) : (B))
-#undef turn
 
 PUBLIC void
 int_loop_i(const int nfiles,
@@ -832,9 +854,263 @@ int_loop_i(const int nfiles,
 	   /*const int* indx, const int ijsize,
 	   const char* hard_constraints, const int* my_c,*/
 	   int* energy_min ) { //out
+  assert(turn_ == turn);
   if(first2) init_gpu2(nfiles,VC, turn_, length, BLOCK_SIZE);
 
 
   int_loop_cuda(nfiles,i,/*turn,*/length,VC[0]->params, energy_min);
   return;
 }
+
+extern "C"
+__host__ __device__
+long long Hindx(const int H, const int nfiles,
+		const int i, const int j, const int length){
+  //(apart from ignoring turn at ends) pack densely
+  assert(H >= 0);
+  assert(nfiles >= 0);
+  assert(i > 0);
+  assert(j >= i);
+  assert(H < nfiles);
+  assert(i <= length);
+  assert(j <= length);
+  const long long I = (i-1)*(length+1) - i*(i-1)/2 + (j-i);
+  return H + I*nfiles;
+}
+
+__global__ void
+int_loop_mls_kernel(const int i, const int length, const int nfiles,
+	         const int* __restrict__ my_c,
+		 const int en,
+	         const struct energy_3p* __restrict__ E,
+		 const int* prev_fml,
+		       int* __restrict__ energy_min) { /*out (incomplete)*/
+
+  const long long m  = blockIdx.x*blockDim.x + threadIdx.x;
+  const long long mj = m / nfiles;
+  const int       H  = m - mj * nfiles;
+  const long long j  = mj + i+turn+1; 
+  if(j < i+turn+1 || j > length) return;
+
+  const int start = i+turn+1; 
+#ifndef NDEBUG
+  const int size  = length - start + 1;
+  assert(size>0);
+  assert(H >= 0 && H < nfiles);
+#endif
+
+      //replace My_fML(H,ij) with prev_fml
+      const int ii = i+1; //previous i (for i counts down)
+
+      /* done with c[i,j], now compute fML[i,j] and fM1[i,j] */
+
+      //my_fML[ij] = vrna_E_ml_stems_fast(vc, i, j, Fmi, DMLi);
+
+      /*  extension with one unpaired nucleotide at the right (3' site)
+	  or full branch of (i,j)
+      */
+      //from extend_fm_3p()...
+
+      //WBL Aug 2026 use single assigment.
+      //although not needed, avoid oddity if My_c(H,ij) == INF
+      //NB ensure large array indexes are wide enough
+      const long long ij      = Indx(i,j);
+#ifndef NDEBUG
+      const long long ijsize  = (length+1)*(length+2)/2;
+      assert(ij>=0 && ij<ijsize);
+#endif
+      const long long cindx   = Hoff(H,length)+ij; //d_my_c_indx my_c H reordering not yet implemented
+      const long long offset  = Hindx(0,nfiles,i,start,length);
+      const int       Hij     = Hindx(H,nfiles,i,j,length) - offset;
+      assert(cindx   >= 0 && cindx   < Hoff(nfiles,length));
+      assert(Hij >= 0     && Hij     < nfiles*size); //size3
+      assert(Hij == m);
+      const int c       = my_c[cindx]; //My_c(H,ij == copy_d_my_c[d_my_c_indx]
+	const long long indx_in  = H+j*nfiles;
+	assert(indx_in >=0 && indx_in < nfiles*(length+1));
+      const int fML_p1  = ((ii <= length-turn-1) && (j >= ii+turn+1 && j <= length))? prev_fml[indx_in] : INF;
+
+      const int e00 = ((c      != INF) && (E[Hij].energy_3p_00 != INF))? c      + E[Hij].energy_3p_00 : INF;
+      //en0 depends on j - 1 so done in 2nd kernel
+      //end from extend_fm_3p()...
+
+      //const int e0 = extend_fm_3p(i, j, my_fML, vc);
+
+      const int e3 = (fML_p1 != INF)? fML_p1 + en : INF;
+
+      const int e4 = E[Hij].energy_mls;
+
+      const int min3 = MIN2(e00,MIN2(e3,e4)); //e1 e31.
+//    } /* end of j-loop */
+//
+      assert(H+j*nfiles >= (i+turn+1)*nfiles && H+j*nfiles < nfiles*(length+1));
+      energy_min[H+j*nfiles] = min3; //save scratch value, perhaps put in shared memory?
+}
+__global__ void
+int_loop_mls_kernel2(const int i, const int length, const int nfiles,
+		     const struct energy_3p* __restrict__ E,
+		                        int* __restrict__ energy_min, /*in out*/
+                                        int* __restrict__ fml_j) { /*out*/
+//r1.165 Wed 19 Aug 13:03:45 BST 2026 disapointing. So:
+//give each H its own block
+//use all threads to put min4 into shared memory, then ripple min
+
+  const int start = i+turn+1; 
+#ifndef NDEBUG
+  const int size  = length - start + 1;
+  assert(size>0);
+#endif
+  const int H = blockIdx.x;
+  
+  assert(H >= 0 && H < nfiles);
+  const long long offset  = Hindx(0,nfiles,i,start,length);
+#ifndef NDEBUG
+  const long long ijsize  = (length+1)*(length+2)/2;
+#endif
+
+  volatile __shared__ int energy_3p_en[BLOCK_SIZE2]; //limit 1024
+  volatile __shared__ int min3[BLOCK_SIZE2];
+  const int ix = threadIdx.x;
+  assert(ix>=0 && ix < BLOCK_SIZE2);
+  assert(blockDim.x == BLOCK_SIZE2);
+  
+/* create second H,j-loop */
+  int fML_m1 = INF; //previous value, use only for thread 0
+
+  for (int j = start+ix; j <= length; j += blockDim.x) {
+    const int       Hij     = Hindx(H,nfiles,i,j,length) - offset;
+    assert(Hij >= 0     && Hij     < nfiles*size); //size3
+    energy_3p_en[ix] = E[Hij].energy_3p_en;
+    assert(H+j*nfiles >= (i+turn+1)*nfiles && H+j*nfiles < nfiles*(length+1));
+    min3[ix] = energy_min[H+j*nfiles]; //use saved scratch value from int_loop_mls_kernel
+    __syncthreads();
+
+    if(ix==0) {//ripple MIN2 so only one thread for this part of j loop
+      const int j0 = j;
+      for (int x = 0; x<blockDim.x && x+j0 <= length; x++) {
+	const int j = x+j0;
+	assert(x>=0 && x < BLOCK_SIZE2);
+	const int en0  = ((fML_m1 != INF) && (energy_3p_en[x] != INF))? fML_m1 + energy_3p_en[x] : INF;
+	const int min4 = MIN2(en0,min3[x]);
+
+	const long long ij      = Indx(i,j);
+	assert(ij>=0 && ij<ijsize);
+	const long long indx    = H+ij*nfiles;
+	assert(fml_j[indx] == INF);
+	//set outputs (overwrite scratch value), save My_fML for next j value
+	energy_min[H+j*nfiles] = min4;
+	fml_j[indx]            = min4;
+	fML_m1 = min4;
+      }//endfor x
+    }//endif thread 0)
+    __syncthreads();
+  }/* end of 2nd H,j-loop */
+}
+void
+int_loop_mls(const int nfiles,
+	     const vrna_fold_compound_t **VC,
+	     const int i, /*const int turn,*/ const int length,
+	     const long long ijsize,
+	     const int* new_C,
+	     const int en,
+	     const struct energy_3p* energies,
+	     int* energy_min) { //out also My_fML
+  //in d_my_c
+  assert(turn == 3);
+  const int start = i+turn+1; 
+  const int size  = length - start + 1;
+  if(size<=0) return;
+
+#ifdef NDEBUG
+  //check here in case of earlier errors
+  gpuErrchk( cudaDeviceSynchronize() );
+#endif
+  {//ugly hack really need to ensure last part of fill_arrays_loop.c is also
+  //done on GPU or atleast its update of My_fML is copied to GPU
+  //for time being do it for previous i here
+#define My_fML(H,ij)            VC[H]->matrices->fML[ij]
+#define Indx(H,i,j)            (VC[H]->jindx[j]+i)
+  //fixed malloc mem_size_len might avoid heap fragmentation?
+  const int mem_size_len = nfiles*(length+1) * sizeof(int); //oversize for simplicity
+  int* prev_fml = (int*) calloc(mem_size_len,1); //partial sync with d_fml_j
+  const int ii = i+1; //previous i (for i counts down)
+  if(ii <= length-turn-1){
+  assert(ii >= 2 && ii <= length-turn-1);
+  for (int j = ii+turn+1; j <= length; j++) {
+  for (int H=0;H<nfiles; H++) {
+    const int ij = Indx(H,ii,j);
+    assert(ij>=0 && ij<Hoff(1,length));
+    assert(H+j*nfiles < mem_size_len/sizeof(int));
+    prev_fml[H+j*nfiles] = My_fML(H,ij);
+  }}}
+  gpuErrchk( cudaMemcpy(d_prev_fml,prev_fml,mem_size_len,cudaMemcpyHostToDevice) );//whole array only for simplicity
+  free(prev_fml);
+  }//endif sync GPU My_fML for previous loop
+
+  const long long offset = Hindx(0,nfiles,i,start,length);
+  const int       size3  = nfiles*size*sizeof(energy_3p);
+#ifndef NDEBUG
+  printf("int_loop_mls offset %lld size3 %d bytes to GPU\n",offset,size3);
+#endif
+  //using &d_energies[offset] CUDA error: invalid argument (code 1) unclear why
+  gpuErrchk( cudaMemcpy(d_energies,&energies[offset],size3,cudaMemcpyHostToDevice) );
+  
+  /* Setup execution parameters for helper kernel */
+  const int nblocks = (nfiles*size + int_loop_mls_kernel_bs - 1)/int_loop_mls_kernel_bs;
+
+#ifndef NDEBUG
+  printf("int_loop_mls_kernel<<<%d,%d>>>",
+	 nblocks,int_loop_mls_kernel_bs);
+  printf("(%d,%d,%d,d_my_c,%d,d_energies(3p_00,mls),d_prev_fml,d_energy_min)\n",
+	 i,length,nfiles,en);
+#endif
+  int_loop_mls_kernel<<<nblocks,int_loop_mls_kernel_bs>>>(i, /*turn,*/ length, nfiles,
+						    d_my_c, en,
+						    d_energies,
+						    d_prev_fml,
+						    d_energy_min); /*out (incomplete)*/
+  gpuErrchk( cudaPeekAtLastError() );
+  gpuErrchk( cudaDeviceSynchronize() );
+
+  //Use second kernel to ensure all threads have finished writing min3 to d_energy_min
+  
+  /* Setup execution parameters for helper kernel */
+  assert(int_loop_mls_kernel2_bs == BLOCK_SIZE2); //for simplicity start with fixed __shared
+  //use of __shared memory sets number of blocks
+
+#ifndef NDEBUG
+  printf("int_loop_mls_kernel2<<<%d,%d>>>",
+	 nfiles,int_loop_mls_kernel2_bs);
+  printf("(%d,%d,%d,d_energies(energy_3p_en),d_energy_min,d_fml_j)\n",
+	 i,length,nfiles);
+#endif
+  int_loop_mls_kernel2<<<nfiles,int_loop_mls_kernel2_bs>>>(i, /*turn,*/ length, nfiles,
+						    d_energies,
+						    d_energy_min, /*in out*/
+						    d_fml_j);     /*out*/
+  gpuErrchk( cudaPeekAtLastError() );
+  gpuErrchk( cudaDeviceSynchronize() );
+  {
+#define My_fML(H,ij)            VC[H]->matrices->fML[ij]
+#define Indx(H,i,j)            (VC[H]->jindx[j]+i)
+  //todo optimise setting My_fML(H,ij) and energy_min
+  //todo move copy to fill_arrays.c
+  //fixed malloc mem_size_len might avoid heap fragmentation?
+  const int mem_size_len = nfiles*(length+1) * sizeof(int); //starts at 1 not 0
+  int* copy_d_energy_min = (int*) malloc(mem_size_len);
+  const int start = (i+turn+1)*nfiles;
+  const int len   = (length+1)*nfiles - start;
+  gpuErrchk( cudaMemcpy(&copy_d_energy_min[start],&d_energy_min[start],len*sizeof(int),cudaMemcpyDeviceToHost) );
+    for (int H=0;H<nfiles; H++) {
+    for (int j = i+turn+1; j <= length; j++) {
+      const int ij = Indx(H,i,j);
+      assert(My_fML(H,ij) == INF);
+      assert(H+j*nfiles < mem_size_len/sizeof(int));
+      My_fML(H,ij) = energy_min[H+j*nfiles] = copy_d_energy_min[H+j*nfiles];
+    }}
+  free(copy_d_energy_min);
+#undef Indx
+#undef My_fML
+  }//end copy to CPU
+}
+#undef turn

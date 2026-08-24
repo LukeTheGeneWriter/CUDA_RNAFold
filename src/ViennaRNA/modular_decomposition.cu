@@ -1,7 +1,9 @@
-//WBL 11 Dec 2017 $Revision: 1.108 $ CUDA GGGP ViennaRNA-2.3.0 rf/rf/
+//WBL 11 Dec 2017 $Revision: 1.114 $ CUDA GGGP ViennaRNA-2.3.0 rf/rf/
 //Helper for fill_arrays.c 
 //based on fill_arrays_loop.c r1.10
 
+//WBL 14 Aug 2026 Clean for GitHub
+//WBL  7 Aug 2026 did not (yet) allow user to select GPU (ie take default)
 //WBL  3 Aug 2026 Revert 1.103 replace reduction in modular_decomposition_kernel
 //WBL  1 Aug 2026 make H tightest index fml_j,fml_i,dml/DMLi
 //WBL 31 Jul 2026 make H tightest index d_energy_min/energy_min
@@ -69,7 +71,6 @@
 extern int load_min_fML_kernel_bs = 64;
 extern int fmli_kernel_bs = 64;
 extern int modular_decomposition_kernel_bs = 64;
-extern int load_fML_kernel_bs = 64;
 
 //BLOCK_SIZE must be power of two 32 or greater
 #define BLOCK_SIZE 64
@@ -152,7 +153,7 @@ inline int getCmdLineArgumentInt(int argc, char **argv, const char *string_ref)
 int use_cuda = 0;
 //C interface to CUDA code
 extern "C" void
-choose_gpu(int argc, char **argv) {
+choose_gpu(const int argc, const char **argv) {
 //based on CUDA 9.0 0Samples/natrixMul.cu
     // By default, we use device 0, otherwise we override the device ID based on what is provided at the command line
     //Eg --device=1 (for second GPU)
@@ -324,59 +325,7 @@ init_fML(const int nfiles, const int length) {
 #endif
 }
 
-//perhaps this can be combined with fmli_kernel?
-__global__ void
-load_fML_kernel(const int nfiles, const int i, const int turn, const int length,
-		const int* __restrict__ energy_min,
-	              int* __restrict__ fml_j) { //out d_fml_j my_fML
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
-  const long long mj = m / nfiles;
-  const int       H  = m - mj * nfiles;
-  const long long j  = mj + i+turn+1; 
-  if(j>length) return;
-
-  assert(H >= 0 && H < nfiles);
-  const long long ij = Indx(i,j);
-  assert(ij>=0 && ij<Hoff(1,length));
-  assert(fml_j[H+ij*nfiles] == INF);
-         fml_j[H+ij*nfiles] = energy_min[H+j*nfiles];
-}
-
-PUBLIC void
-load_fML(const int nfiles,
-	 const int i, const int turn, const int length,
-	 const int* energy_min) {   //in
-  //out d_fml_j
-  const int start = i+turn+1; 
-  const int size  = length - start + 1;
-  if(size<=0) return;
-
-//printf("load_fML(%d,i=%d,%d,%d,energy_min) start %d size %d ",
-//       nfiles,i,turn,length,start,size);
-//for(int k=start; k<start+10 && k<=length; k++) { printf("energy_min[%d]%d ",k,energy_min[k]);}
-//printf("\n");
-
-#ifdef NDEBUG
-  //make sure init_fML_kernel is done, 
-  //check here in case of earlier errors
-  gpuErrchk( cudaDeviceSynchronize() );
-#endif
-  //for simplicity transfer all energy_min, even though only need H * [start:length]
-  int_Memcpy(d_energy_min,energy_min, nfiles*(length+1), cudaMemcpyHostToDevice,__LINE__);
-
-  /* Setup execution parameters for helper kernel */
-  const int nblocks = (size*nfiles + load_fML_kernel_bs - 1)/load_fML_kernel_bs;
-  //dim3 blocks(nblocks,nfiles);
-#ifndef NDEBUG
-  printf("load_fML_kernel<<<%d,%d>>>",nblocks,load_fML_kernel_bs);
-  printf("(%d,%d,%d,%d,d_energy_min,d_fml_j)\n",nfiles, i, turn, length);
-#endif
-  load_fML_kernel<<<nblocks,load_fML_kernel_bs>>>(nfiles, i, turn, length,
-					  d_energy_min,  //in
-					  d_fml_j); //out
-  gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
-}
+//Aug 2026 load_fML_kernel now done in int_loop_mls_kernel
 
 __global__ void
 load_min_fML_kernel(const int nfiles, const int i, const int turn, const int length,

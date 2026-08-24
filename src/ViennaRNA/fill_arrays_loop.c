@@ -1,6 +1,8 @@
-//WBL 10 Dec 2017 $Revision: 1.32 $ GGGP ViennaRNA-2.3.0 rf/rf/
+//WBL 10 Dec 2017 $Revision: 1.43 $ GGGP ViennaRNA-2.3.0 rf/rf/
 //Helper for fill_arrays.c -> mfe.c for eventual CUDA version
 
+//WBL 14 Aug 2026 Clean debug for GitHub
+//WBL  8 Aug 2026 move code to new function int_loop_mls
 //WBL  1 Aug 2026 make H tightest index DMLi,DMLi1
 //WBL 31 Jul 2026 make H tightest index energy_min
 //WBL 20 Jul 2026 make H tightest index
@@ -110,52 +112,17 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
     load_my_c(nfiles,i,turn,length,new_C); //keep my_c on GPU instep with my_c
     print_energy_min("load_my_c",nfiles,length,i+turn+1,energy_min);
 
-    for (int H=0;H<nfiles; H++) {
-    for (j = i+turn+1; j <= length; j++) {
-      ij            = Indx(H,i,j);
-      assert(ij>=0 && ij<ijsize);
-      /* done with c[i,j], now compute fML[i,j] and fM1[i,j] */
+    int_loop_mls(nfiles,VC,//out
+		 i, /*turn,*/ length, ijsize,
+		 new_C,          //contents of My_c(H,ij)
+		 en,
+		 energies,
+		 energy_min); //out
+    print_energy_min("int_loop_mls",nfiles,length,i+turn+1,energy_min);
 
-      //my_fML[ij] = vrna_E_ml_stems_fast(vc, i, j, Fmi, DMLi);
-
-      /*  extension with one unpaired nucleotide at the right (3' site)
-	  or full branch of (i,j)
-      */
-      //from extend_fm_3p()...
-      //const int cp = -1;
-      int  e00           = INF;
-      int  en0           = INF;
-
-  e00 = (energy_3p_00[H*ijsize+ij] != INF)? My_c(H,ij) + energy_3p_00[H*ijsize+ij] : INF;
-  en0 = ((My_fML(H,Indx(H,i,j - 1)) != INF) && (energy_3p_en[H*ijsize+ij] != INF))? My_fML(H,Indx(H,i,j - 1)) + energy_3p_en[H*ijsize+ij] : INF;
-  e00 = MIN2(e00, en0);
-      //end from extend_fm_3p()...
-
-      //const int e0 = extend_fm_3p(i, j, my_fML, vc);
-
-      const int e3 = (My_fML(H,ij + 1) != INF)? My_fML(H,ij + 1) + en : INF;
-
-
-//    const int e1 = MIN2(e3,energy_mls[H*ijsize+ij]); //e31
-      energy_min[H+j*nfiles] = MIN2(e00,MIN2(e3,energy_mls[H*ijsize+ij])); //e1 e31
-//    } /* end of j-loop */
-//
-      assert(My_fML(H,ij) == INF);
-      My_fML(H,ij) = energy_min[H+j*nfiles];
-#ifdef CHECK
-      if(length - (i+turn+1) + 1 <= 20)
-	printf("My_fML(H=%d,%d)=%d en=%d en0=%d e00=%d e3=%d energy_mls[H=%d,ij=%d]=%d energy_min[H=%d,j=%d]=%d\n",
-	       H,ij + 1,My_fML(H,ij + 1),
-	       en,en0,e00,e3,
-	       H,ij,energy_mls[H*ijsize+ij],
-	       H,j, energy_min[H+j*nfiles]);
-#endif /*CHECK*/
-    } /* end of j-loop */
-    }//endfor H
-    print_energy_min("end2ndfor H",nfiles,length,i+turn+1,energy_min);
-
-    load_fML(nfiles,i,turn,length,energy_min); //update my_fML GPU
-    print_energy_min("load_fML",nfiles,length,i+turn+1,energy_min);
+    //Aug 2026 load_fML now done as part of int_loop_mls
+    //load_fML(nfiles,i,turn,length,energy_min); //update my_fML GPU
+    //print_energy_min("load_fML",nfiles,length,i+turn+1,energy_min);
 
     modular_decomposition_i(nfiles,i,turn,length,/*indx,ijsize,my_fML,*/ DMLi);
     print_energy_min("modular_decomposition_i",nfiles,length,i+turn+1,energy_min);
