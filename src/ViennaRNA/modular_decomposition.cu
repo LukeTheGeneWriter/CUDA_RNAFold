@@ -309,8 +309,7 @@ __global__ void modular_decomposition_kernel(
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,
   int* __restrict__ dml,
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-  const size_t* __restrict__ side_off_H,
-  const size_t* __restrict__ blk_off_H);
+  const size_t* __restrict__ side_off_H, const size_t total);
 
 // Block sizes for the above, chosen once in init_gpu() below instead of the
 // BLOCK_SIZE=64 constant these used to hardcode (tuned against one GPU, the
@@ -370,22 +369,6 @@ static size_t  g_row_total = 0;
 // (init_gpu()) and just overwritten each row, same as d_energy_min already is.
 static size_t* d_size_off_H;
 static size_t* d_side_off_H;
-// Staggered_Row_Batching 2026-08-22: block->H table for the shared-memory
-// fml_i cache. Same flatten-and-offset idea as side_off_H, one level up: an
-// exclusive prefix sum of ceil(side_H/CELLS) so a BLOCK (not a thread)
-// resolves its H, which is what lets a block cooperatively load one record's
-// fml_i row. Host side is a persistent buffer, NOT a stack local: this table
-// is uploaded from inside the CUDA-graph capture region and the graph is
-// launched after modular_decomposition_cuda() has returned, so a stack VLA
-// would be dangling by the time the copy actually runs.
-static size_t* d_blk_off_H;
-static size_t* h_blk_off_H = NULL;
-
-// Ints of fml_i staged in shared memory per pass. Must be a multiple of the
-// largest legal TILE (32) so each lane keeps its y == lane (mod TILE) residue
-// across chunk boundaries -- see the kernel. 1024 ints = 4KB, small enough not
-// to bound occupancy (Block Limit Shared Mem was already 11 at 284 bytes).
-#define MD_CHUNK 1024
 //int* h_dml;  //DMLi
 //unsigned int mem_size_buf; //bytes in h_dml and d_dml
 //int* fml_j;  //my_fML
@@ -454,9 +437,6 @@ init_gpu(const int nfiles, const int length,
   // modular_decomposition_cuda() instead.
   TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   TIMED_CUDAMALLOC(&d_side_off_H, (size_t)(nfiles+1)*sizeof(size_t));
-  TIMED_CUDAMALLOC(&d_blk_off_H,  (size_t)(nfiles+1)*sizeof(size_t));
-  free(h_blk_off_H);
-  h_blk_off_H = (size_t*) malloc((size_t)(nfiles+1)*sizeof(size_t));
 
   // Staggered_Row_Batching Phase 2d: allocation sizes now the real per-H sum
   // (row_off_H[nfiles]/tri_off_H[nfiles]) instead of a uniform nfiles*(...)
@@ -544,8 +524,6 @@ teardown_gpu(void) {
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_size_off_H) );
   gpuErrchk( cudaFree(d_side_off_H) );
-  gpuErrchk( cudaFree(d_blk_off_H) );
-  free(h_blk_off_H); h_blk_off_H = NULL;
   if(graph_exec_valid) {
     gpuErrchk( cudaGraphExecDestroy(graph_exec) );
     graph_exec_valid = 0;
@@ -850,8 +828,7 @@ modular_decomposition_kernel(
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,  //In  d_dml_i, d_fml_j
   int* __restrict__ dml,                            //Out d_dml (h_dml)
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-  const size_t* __restrict__ side_off_H,   //per-H cell counts, bounds each block
-  const size_t* __restrict__ blk_off_H) {  //per-H block counts, maps block->H
+  const size_t* __restrict__ side_off_H, const size_t total) {
   // Power of two <= 32 so a tile is a contiguous, warp-aligned lane group and
   // __shfl_down_sync()'s `width` can partition the warp for us. The launcher
   // additionally requires blockDim.x % 32 == 0, which is what makes "same
@@ -859,67 +836,39 @@ modular_decomposition_kernel(
   static_assert(TILE >= 1 && TILE <= 32 && (TILE & (TILE-1)) == 0,
                 "TILE must be a power of two in [1,32]");
 
-  // MD_CHUNK must be a whole number of tiles: each lane resumes at
-  // y0 + lane in every chunk, so unless TILE divides MD_CHUNK a lane would
-  // change residue class at a chunk boundary and cells would be double-counted
-  // or skipped.
-  static_assert(MD_CHUNK % 32 == 0, "MD_CHUNK must be a multiple of the largest TILE");
-  static_assert(MD_CHUNK % TILE == 0, "MD_CHUNK must be a multiple of TILE");
+  const long long gtid = (long long)blockIdx.x*blockDim.x + threadIdx.x;
+  const long long m    = gtid / TILE;
+  const int       lane = (int)(gtid & (TILE-1));
 
-  // One H per BLOCK, resolved from blk_off_H, so the whole block can stage that
-  // record's fml_i row cooperatively. (side_off_H is still what defines each
-  // H's cell count; blk_off_H is just its ceil(side/CELLS) prefix sum.)
-  const int    CELLS = blockDim.x / TILE;            //cells this block owns
-  const int    H     = flatten_index_to_H((size_t)blockIdx.x, blk_off_H, nfiles);
-  const int    kblk  = (int)((size_t)blockIdx.x - blk_off_H[H]);
-  const int    lane  = (int)(threadIdx.x & (TILE-1));
-  const int    slot  = (int)(threadIdx.x / TILE);    //which of this block's cells
-  const long long side_H = (long long)side_off_H[H+1] - (long long)side_off_H[H];
+  // Deliberately NOT an early `return` for out-of-range m (which is what the
+  // TILE=1 version did). With TILE < 32 one warp carries 32/TILE independent
+  // cells, so the grid's tail block can hold live and dead cells in the same
+  // warp; a thread that returned there would still be named by the shuffle
+  // mask below, which is undefined behaviour. Every thread instead runs to
+  // the end, and the dead ones just carry INF through a reduction whose
+  // result is discarded. Costs one tail block's worth of shuffles.
+  const bool active = ((size_t)m < total);
 
-  const long long mj = (long long)kblk*CELLS + slot; //cell index within H
-  assert(H >= 0 && H < nfiles);
-
-  // Deliberately NOT an early `return`: the __syncthreads() below must be
-  // reached by every thread of the block, and with TILE < 32 a warp can carry
-  // both live and dead cells so the shuffle mask needs them all present too.
-  // Dead threads carry INF through a reduction whose result is discarded.
-  const bool active = (mj < side_H);
-
-  const int x = (int)mj;
-  const int j = x + (i + 2*(turn+1)) + 1;
-  const long long ij0 = Indx(i,j) + (turn+1) + 1;
-  const size_t out = active ? row_off_H[H]+j : 0;
-
-  // Block-uniform upper bound on y, so every thread runs the same number of
-  // chunk iterations and hits the same barriers. The block's last cell has the
-  // largest x, clamped to this H's real width.
-  const long long last = (long long)(kblk+1)*CELLS;
-  const int x_max = (int)((last < side_H ? last : side_H) - 1);
-
-  // fml_i[row_off_H[H] + y] is read by EVERY cell of this H with the same y
-  // sequence -- side*(side+1)/2 reads of only `side` distinct ints, a ~1865x
-  // reuse factor on the 5601nt benchmark. L2 cannot hold it because the fml_j
-  // stream (9.2 GB per launch) evicts it continuously, which is what put this
-  // kernel at 92% DRAM throughput. Staging it in shared memory per block drops
-  // fml_i traffic by a factor of CELLS.
-  __shared__ int s_fi[MD_CHUNK];
-
+  //typically values in fml_i read many times, assume many !=INF and that GPU cache will cope
   int value = INF;
-  for(int y0 = 0; y0 <= x_max; y0 += MD_CHUNK) {
-    __syncthreads();                                 //previous chunk fully consumed
-    for(int t = threadIdx.x; t < MD_CHUNK && y0+t <= x_max; t += blockDim.x)
-      s_fi[t] = fml_i[row_off_H[H] + y0 + t];        //coalesced
-    __syncthreads();
+  size_t out = 0;
+  if(active) {
+    const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
+    const long long mj = (long long)m - (long long)side_off_H[H];
 
-    if(active) {
-      const int hi = (y0+MD_CHUNK-1 < x) ? y0+MD_CHUNK-1 : x;
-      for(int y = y0+lane; y <= hi; y += TILE) {
-        assert(x>=0 && x<=length);
-        assert(y>=0 && y<=length && y<=x);
-        const long long yij = y + ij0;
-        assert(yij < Hoff(nfiles,length));
-        value = MIN2(s_fi[y-y0] + fml_j[tri_off_H[H]+yij], value);
-      }
+    const int x = mj;
+    const int j = x + (i + 2*(turn+1)) + 1;
+    const long long ij0 = Indx(i,j) + (turn+1) + 1;
+
+    assert(H >= 0 && H < nfiles);
+    out = row_off_H[H]+j;
+    for(int y=lane; y <= x; y += TILE) {
+      assert(x>=0 && x<=length);
+      assert(y>=0 && y<=length);
+      assert(y<=x);
+      const long long yij = y + ij0;
+      assert(yij < Hoff(nfiles,length));
+      value = MIN2(fml_i[row_off_H[H]+y] + fml_j[tri_off_H[H]+yij], value);
     }
   }
 
@@ -969,22 +918,6 @@ void modular_decomposition_cuda(const int nfiles,
   // load_min_fML()) read the same already-uploaded table, so it's not
   // re-uploaded there.
   gpuErrchk( cudaMemcpyAsync(d_side_off_H, side_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice, graph_stream) );
-
-  // Block->H table for the shared-memory fml_i cache: each H gets
-  // ceil(side_H/CELLS) whole blocks, so no block ever straddles two records
-  // and can therefore stage one record's fml_i row. Built here rather than in
-  // fill_arrays_loop.c because this is the only place that knows
-  // g_block_size_md and g_md_tile. h_blk_off_H is a persistent buffer, not a
-  // stack local -- this copy is captured into a CUDA graph that replays after
-  // this function has returned.
-  const int CELLS_HOST = g_block_size_md / g_md_tile;
-  assert(CELLS_HOST >= 1 && h_blk_off_H != NULL);
-  h_blk_off_H[0] = 0;
-  for(int H=0; H<nfiles; H++) {
-    const size_t side_H = side_off_H[H+1] - side_off_H[H];
-    h_blk_off_H[H+1] = h_blk_off_H[H] + (side_H + CELLS_HOST - 1)/CELLS_HOST;
-  }
-  gpuErrchk( cudaMemcpyAsync(d_blk_off_H, h_blk_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice, graph_stream) );
 
   //for simplicity transfer all to start with
   //perhaps should use cuMemsetD32
@@ -1075,26 +1008,20 @@ void modular_decomposition_cuda(const int nfiles,
   const int block_size = g_block_size_md;
   //const int nblocks = (todo + block_size - 1)/block_size; //for time being waste many blocks
   //const int nblocks = side;
-  // One block per CELLS cells OF A SINGLE H, so the grid is the block table's
-  // total rather than a flat thread count. Slightly more blocks than the old
-  // flat mapping (each H rounds up to a whole block, wasting < CELLS cell
-  // slots per record -- a few thousand against ~800k cells) in exchange for
-  // every block owning exactly one record's fml_i row.
-  const size_t nblocks_sz = h_blk_off_H[nfiles];
+  // g_md_tile threads per output cell now, not one -- see the kernel comment.
+  // Done in size_t because total already is: at the widest chunks measured so
+  // far (nfiles ~ 2000) total x 32 comfortably exceeds 2^31.
+  const size_t nthreads   = total * (size_t)g_md_tile;
+  const size_t nblocks_sz = (nthreads + (size_t)block_size - 1)/(size_t)block_size;
   assert(nblocks_sz <= 2147483647u); //gridDim.x limit
   const int nblocks = (int)nblocks_sz;
-  // Unreachable: total>0 was established at the top of this function, so some
-  // side_H>0, so some ceil(side_H/CELLS)>=1. Asserted rather than handled with
-  // a return -- returning here would drop a node from the captured graph and
-  // change its topology mid-sweep.
-  assert(nblocks > 0);
 
 #define MD_LAUNCH(T) modular_decomposition_kernel<T><<<nblocks,block_size,0,graph_stream>>>( \
                        nfiles, i, turn, length, \
                        d_fml_i, d_fml_j, \
                        d_dml,   /*Out*/ \
                        d_tri_off_H, d_row_off_H, \
-                       d_side_off_H, d_blk_off_H)
+                       d_side_off_H, total)
   switch(g_md_tile) {
     case  1: MD_LAUNCH(1);  break;
     case  2: MD_LAUNCH(2);  break;
