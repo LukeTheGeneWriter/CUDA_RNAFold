@@ -1,4 +1,4 @@
-/* Modifications for eventual CUDA version $Revision: 1.28 $
+/* Modifications for eventual CUDA version $Revision: 1.30 $
 WBL 24 Aug 2026 add struct energy_3p etc (for commit)
 WBL  7 Aug 2026 did not (yet) allow user to select GPU (ie take default)
 WBL 19 Jul 2026 Allow arrays to exceed two billion elements
@@ -99,6 +99,7 @@ int_loop_i(const int nfiles,
 
 extern int* d_energy_min;
 extern int* d_fml_j;  //my_fML
+extern int* d_dml;  //DMLi
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -113,6 +114,18 @@ int_loop_mls(const int nfiles,
 	     const int en,
 	     const struct energy_3p*,
 	     int* energy_min); //out
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+int_loop_DMLi(const int nfiles,
+	      const int i, /*const int turn,*/ const int length,
+	      const long long ijsize,
+	      const int* energy_min,
+	      const int* DMLi,
+	      const vrna_fold_compound_t **VC); //out My_fML
 
 PUBLIC void
 par_mfe(const int nfiles,

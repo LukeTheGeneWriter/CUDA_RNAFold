@@ -1,8 +1,10 @@
-#define Version "$Revision: 1.172 $ "
+#define Version "$Revision: 1.180 $ "
 //Helper for fill_arrays.c 
 //based on ViennaRNA-2.3.0/src/ViennaRNA/interior_loops.c (Nov  1  2016) 
 
 //Modifications (reverse order):
+//WBL 26 Aug 2026 Clean for commit
+//WBL 25 Aug 2026 Add load_min_dmli_kernel, int_loop_mls uses fml_j not prev_fml
 //WBL 19 Aug 2026 Add int_loop_mls_kernel2
 //WBL  9 Aug 2026 prepare to use int_loop_mls_kernel
 //WBL  8 Aug 2026 Add int_loop_mls based on part of fill_arrays_loop.c
@@ -128,7 +130,7 @@ int*          d_new_e;
 //int*        d_energy_3p_en;
 //int*        d_energy_mls;
 struct energy_3p* d_energies; //only one row
-int*          d_prev_fml; //previous i of My_fML
+int*          d_out_fml; //only to transfer part of My_fML
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
@@ -261,6 +263,7 @@ int int_loop_kernel_bs = 32;
 int load_my_c_kernel_bs = 512;
 int int_loop_mls_kernel_bs = 32;
 int int_loop_mls_kernel2_bs = BLOCK_SIZE2;
+int int_loop_dmli_kernel_bs = 32;
 
 void put10(const unsigned int word, const int H, const int nfiles, const int i, const int size, unsigned int* out){
   assert(word <= 04444444444); //max legit value in octal
@@ -288,6 +291,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   load_my_c_kernel_bs =             getbs("load_my_c_kernel",512);
   int_loop_mls_kernel_bs =          getbs("int_loop_mls_kernel",32);
   int_loop_mls_kernel2_bs =         getbs("int_loop_mls_kernel2",BLOCK_SIZE2);
+  int_loop_dmli_kernel_bs =         getbs("int_loop_dmli_kernel",32);
 
   /*if(modular_decomposition_kernel_bs != 64) {
     fprintf(stderr,"variable modular_decomposition_kernel_bs not implemented %d\n",
@@ -387,9 +391,9 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   size = nfiles*length*sizeof(int);
   gpuErrchk( cudaMalloc((void **) &d_buf, size) );
   */
-  //use d_prev_fml pending better intergration of fill_arrays_loop and GPU for My_fML
+  //use d_out_fml pending better intergration of fill_arrays_loop and GPU for My_fML
   const int mem_size_len = nfiles*(length+1) * sizeof(int); //oversize for simplicity
-  gpuErrchk( cudaMalloc((void **) &d_prev_fml,mem_size_len) );
+  gpuErrchk( cudaMalloc((void **) &d_out_fml,mem_size_len) );
   first2 = 0;
   //printf("%-24s init_gpu2 done\n",__FILE__);fflush(NULL);
 }
@@ -883,7 +887,7 @@ int_loop_mls_kernel(const int i, const int length, const int nfiles,
 	         const int* __restrict__ my_c,
 		 const int en,
 	         const struct energy_3p* __restrict__ E,
-		 const int* prev_fml,
+		 const int* __restrict__ fml_j,        /*My_fML*/
 		       int* __restrict__ energy_min) { /*out (incomplete)*/
 
   const long long m  = blockIdx.x*blockDim.x + threadIdx.x;
@@ -899,7 +903,6 @@ int_loop_mls_kernel(const int i, const int length, const int nfiles,
   assert(H >= 0 && H < nfiles);
 #endif
 
-      //replace My_fML(H,ij) with prev_fml
       const int ii = i+1; //previous i (for i counts down)
 
       /* done with c[i,j], now compute fML[i,j] and fM1[i,j] */
@@ -926,9 +929,9 @@ int_loop_mls_kernel(const int i, const int length, const int nfiles,
       assert(Hij >= 0     && Hij     < nfiles*size); //size3
       assert(Hij == m);
       const int c       = my_c[cindx]; //My_c(H,ij == copy_d_my_c[d_my_c_indx]
-	const long long indx_in  = H+j*nfiles;
-	assert(indx_in >=0 && indx_in < nfiles*(length+1));
-      const int fML_p1  = ((ii <= length-turn-1) && (j >= ii+turn+1 && j <= length))? prev_fml[indx_in] : INF;
+      const long long indx_p1 = H+Indx(ii,j)*nfiles;
+      assert(indx_p1 >= 0 && indx_p1 < Hoff(nfiles,length));
+      const int fML_p1  = ((ii <= length-turn-1) && (j >= ii+turn+1 && j <= length))? fml_j[indx_p1] : INF;
 
       const int e00 = ((c      != INF) && (E[Hij].energy_3p_00 != INF))? c      + E[Hij].energy_3p_00 : INF;
       //en0 depends on j - 1 so done in 2nd kernel
@@ -1006,6 +1009,7 @@ int_loop_mls_kernel2(const int i, const int length, const int nfiles,
     __syncthreads();
   }/* end of 2nd H,j-loop */
 }
+#define My_fML(H,ij)            VC[H]->matrices->fML[ij]
 void
 int_loop_mls(const int nfiles,
 	     const vrna_fold_compound_t **VC,
@@ -1025,34 +1029,12 @@ int_loop_mls(const int nfiles,
   //check here in case of earlier errors
   gpuErrchk( cudaDeviceSynchronize() );
 #endif
-  {//ugly hack really need to ensure last part of fill_arrays_loop.c is also
-  //done on GPU or atleast its update of My_fML is copied to GPU
-  //for time being do it for previous i here
-#define My_fML(H,ij)            VC[H]->matrices->fML[ij]
 #define Indx(H,i,j)            (VC[H]->jindx[j]+i)
-  //fixed malloc mem_size_len might avoid heap fragmentation?
-  const int mem_size_len = nfiles*(length+1) * sizeof(int); //oversize for simplicity
-  int* prev_fml = (int*) calloc(mem_size_len,1); //partial sync with d_fml_j
-  const int ii = i+1; //previous i (for i counts down)
-  if(ii <= length-turn-1){
-  assert(ii >= 2 && ii <= length-turn-1);
-  for (int j = ii+turn+1; j <= length; j++) {
-  for (int H=0;H<nfiles; H++) {
-    const int ij = Indx(H,ii,j);
-    assert(ij>=0 && ij<Hoff(1,length));
-    assert(H+j*nfiles < mem_size_len/sizeof(int));
-    prev_fml[H+j*nfiles] = My_fML(H,ij);
-  }}}
-  gpuErrchk( cudaMemcpy(d_prev_fml,prev_fml,mem_size_len,cudaMemcpyHostToDevice) );//whole array only for simplicity
-  free(prev_fml);
-  }//endif sync GPU My_fML for previous loop
-
   const long long offset = Hindx(0,nfiles,i,start,length);
   const int       size3  = nfiles*size*sizeof(energy_3p);
 #ifndef NDEBUG
   printf("int_loop_mls offset %lld size3 %d bytes to GPU\n",offset,size3);
 #endif
-  //using &d_energies[offset] CUDA error: invalid argument (code 1) unclear why
   gpuErrchk( cudaMemcpy(d_energies,&energies[offset],size3,cudaMemcpyHostToDevice) );
   
   /* Setup execution parameters for helper kernel */
@@ -1061,13 +1043,13 @@ int_loop_mls(const int nfiles,
 #ifndef NDEBUG
   printf("int_loop_mls_kernel<<<%d,%d>>>",
 	 nblocks,int_loop_mls_kernel_bs);
-  printf("(%d,%d,%d,d_my_c,%d,d_energies(3p_00,mls),d_prev_fml,d_energy_min)\n",
+  printf("(%d,%d,%d,d_my_c,%d,d_energies(3p_00,mls),d_dml,d_energy_min)\n",
 	 i,length,nfiles,en);
 #endif
   int_loop_mls_kernel<<<nblocks,int_loop_mls_kernel_bs>>>(i, /*turn,*/ length, nfiles,
 						    d_my_c, en,
 						    d_energies,
-						    d_prev_fml,
+						    d_fml_j,       /*My_fML*/
 						    d_energy_min); /*out (incomplete)*/
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
@@ -1091,7 +1073,6 @@ int_loop_mls(const int nfiles,
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
   {
-#define My_fML(H,ij)            VC[H]->matrices->fML[ij]
 #define Indx(H,i,j)            (VC[H]->jindx[j]+i)
   //todo optimise setting My_fML(H,ij) and energy_min
   //todo move copy to fill_arrays.c
@@ -1110,7 +1091,92 @@ int_loop_mls(const int nfiles,
     }}
   free(copy_d_energy_min);
 #undef Indx
-#undef My_fML
   }//end copy to CPU
 }
+
+__global__ void
+int_loop_dmli_kernel(const int i, const int length, const int nfiles,
+		     const int* __restrict__ energy_min,
+		     const int* __restrict__ dml,     //in  d_dml   DMLi
+		           int* __restrict__ fml_j,   /*out*/
+		           int* __restrict__ out_fml) { /*transfer My_fML*/
+
+
+  const int m  = blockIdx.x*blockDim.x + threadIdx.x;
+  const int mj = m / nfiles;
+  const int H  = m - mj * nfiles;
+  const int j  = mj + i+turn+1; 
+  if(j < i+turn+1 || j > length) return;
+
+#ifndef NDEBUG
+  const int start = i+turn+1; 
+  const int size  = length - start + 1;
+  assert(size>0);
+  assert(H >= 0 && H < nfiles);
+  //NB ensure large array indexes are wide enough
+  const long long ijsize  = (length+1)*(length+2)/2;
+#endif
+  const long long ij      = Indx(i,j);
+  assert(ij>=0 && ij<ijsize);
+  const long long indx    = H+ij*nfiles;
+  const int       x       = H+j*nfiles;
+  assert(x >= nfiles*start);
+  assert(x <  nfiles*(length+1));
+  out_fml[x] = fml_j[indx] = MIN2(energy_min[x], dml[x]); //My_fML = MIN2(energy_min[H+j*nfiles],DMLi[H+j*nfiles])
+}
+void
+int_loop_DMLi(const int nfiles,
+	      const int i, /*const int turn,*/ const int length,
+	      const long long ijsize,
+	      const int* energy_min,
+	      const int* DMLi,
+	      const vrna_fold_compound_t **VC) { //out My_fML
+  //in d_my_c
+  assert(turn == 3);
+  const int start = i+turn+1; 
+  const int size  = length - start + 1;
+  if(size<=0) return;
+
+#ifdef NDEBUG
+  //check here in case of earlier errors
+  gpuErrchk( cudaDeviceSynchronize() );
+#endif
+  /* Setup execution parameters for helper kernel */
+  const int nblocks = (nfiles*size + int_loop_dmli_kernel_bs - 1)/int_loop_dmli_kernel_bs;
+
+#ifndef NDEBUG
+  printf("int_loop_dmli_kernel<<<%d,%d>>>",
+	 nblocks,int_loop_dmli_kernel_bs);
+  printf("(%d,%d,%d,d_energy_min,d_dml,d_fml_j)\n",
+	 i,length,nfiles);
+#endif
+  int_loop_dmli_kernel<<<nblocks,int_loop_dmli_kernel_bs>>>(i, /*turn,*/ length, nfiles,
+							   d_energy_min,
+							   d_dml,    //DMLi
+							   d_fml_j, /*My_fML*/
+							   d_out_fml); /*part of My_fML*/
+  gpuErrchk( cudaPeekAtLastError() );
+  gpuErrchk( cudaDeviceSynchronize() );
+  {
+#define Indx(H,i,j)            (VC[H]->jindx[j]+i)
+  //todo optimise setting My_fML(H,ij)
+  const int mem_size_len = nfiles*(length+1) * sizeof(int); //starts at 1 not 0
+  int* out_fml = (int*) malloc(mem_size_len);
+  const int start = (i+turn+1)*nfiles;
+  const int len   = (length+1)*nfiles - start;
+  //copy only updated part of My_fML
+  gpuErrchk( cudaMemcpy(&out_fml[start],&d_out_fml[start],len*sizeof(int),cudaMemcpyDeviceToHost) );
+    for (int H=0;H<nfiles; H++) {
+    for (int j = i+turn+1; j <= length; j++) {
+      const int       ij   = Indx(H,i,j);
+      const int       indx = H+j*nfiles;
+      assert(ij   >= 0 && ij   <        ijsize);
+      assert(indx >= start && indx < start+len);
+      My_fML(H,ij) = out_fml[indx];
+    }}
+  free(out_fml);
+#undef Indx
+  }//end copy to CPU
+}//end int_loop_DMLi
+#undef My_fML
 #undef turn

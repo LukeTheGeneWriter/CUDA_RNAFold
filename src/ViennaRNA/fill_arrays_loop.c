@@ -1,4 +1,4 @@
-//WBL 10 Dec 2017 $Revision: 1.43 $ GGGP ViennaRNA-2.3.0 rf/rf/
+//WBL 10 Dec 2017 $Revision: 1.44 $ GGGP ViennaRNA-2.3.0 rf/rf/
 //Helper for fill_arrays.c -> mfe.c for eventual CUDA version
 
 //WBL 14 Aug 2026 Clean debug for GitHub
@@ -130,29 +130,11 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
     load_min_fML(nfiles,i,turn,length); //update my_fML GPU = MIN2(energy_min[j], DMLi[j])
     print_energy_min("load_min_fML",nfiles,length,i+turn+1,energy_min);
 
-    for (int H=0;H<nfiles; H++) {
-    for (j = i+turn+1; j <= length; j++) {
-      ij            = Indx(H,i,j);
-      assert(ij>=0 && ij<ijsize);
-      My_fML(H,ij) = MIN2(energy_min[H+j*nfiles], DMLi[H+j*nfiles]);
-
-      /* gcov says not used
-      if(uniq_ML){  ** compute fM1 for unique decomposition **
-        my_fM1[ij] = E_ml_rightmost_stem(i, j, vc);
-      }*/
-
-      //fprintf(stderr,"\n");
-
-      /* does 
-	 DMLi[j] holds  MIN(fML[i,k]+fML[k+1,j])      **
-	 DMLi1          MIN(fML[i+1,k]+fML[k+1,j])    **
-	 DMLi2          MIN(fML[i+2,k]+fML[k+1,j])    **
-      min_fml(i,  j,my_fML,DMLi, " DMLi", turn, indx, length, ijsize);
-      min_fml(i+1,j,my_fML,DMLi1,"DMLi1", turn, indx, length, ijsize);
-      min_fml(i+2,j,my_fML,DMLi2,"DMLi2", turn, indx, length, ijsize);
-      */
-    } /* end of j-loop */
-    }//endfor H
+    int_loop_DMLi(nfiles,
+		  i, /*turn,*/ length, ijsize,
+		  energy_min, DMLi,
+		  VC); //out
+    print_energy_min("int_loop_DMLi",nfiles,length,i+turn+1,energy_min);
 
     {
       int *FF; /* rotate the auxilliary arrays */
