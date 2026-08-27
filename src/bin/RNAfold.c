@@ -25,6 +25,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 #include "ViennaRNA/fold.h"
 #include "ViennaRNA/part_func.h"
 #include "ViennaRNA/fold_vars.h"
@@ -68,6 +69,136 @@ annotate_ud_motif(vrna_fold_compound_t *vc,
                   const char *structure_name,
                   int verbose);
 
+/* ==================== Threaded fold-compound construction ====================
+ *
+ * `build` (vrna_fold_compound(): ptype + hc, both O(n^2)) measured 85.4 s of a
+ * 576.4 s run at 400 x 5601 nt -- 14.8% of wall -- and the CPU profile resolves
+ * it to exactly two functions, hc_reset_to_default (8.2% of samples) and
+ * vrna_ptypes (6.4%). It used to run one record at a time inside the FASTA read
+ * loop, where there is nothing to parallelise, on a box whose other 11 cores are
+ * idle for the entire run (CPU busy integrated = 1.00 cores over 577 s).
+ *
+ * So the read loop now DEFERS the build: it keeps the uppercase, RNA-converted
+ * sequence in Rec_sequence[] and leaves VC[] NULL, and the whole chunk's
+ * compounds are built here in one parallel pass just before par_mfe() needs
+ * them. Peak host RAM is unchanged -- every record's compound was already live
+ * simultaneously for the whole chunk -- at the cost of one strdup per record
+ * (~0.8 MB per 147-record chunk at 5601 nt).
+ *
+ * THREAD SAFETY. vrna_fold_compound() is already called concurrently by
+ * RNAfold_cpu_queue.c's workers, and the one genuine race in its call chain --
+ * the `id` counter in params.c's get_scaled_params() -- was fixed then and is
+ * now __sync_add_and_fetch (params.c:394). data_structures.c and
+ * constraints_hard.c hold no mutable file-scope state, and alphabet.c's only
+ * static is a const char[]. The one remaining write through the CALLER's
+ * pointer is set_fold_compound() doing md_p->min_loop_size = 0 when the
+ * sequence carries a cut point (data_structures.c:540) -- each worker therefore
+ * takes its own vrna_md_t copy, and the read loop additionally refuses to defer
+ * any sequence containing '&' so that mutation keeps its existing (serial,
+ * caller-visible) semantics.
+ *
+ * Deferral is also refused whenever constraints/SHAPE/ligand-motifs/commands are
+ * in play, because those all rewrite vc immediately after the build, in the read
+ * loop. A record that fails either test is built inline exactly as before and
+ * arrives here with VC[i] already non-NULL, so mixed chunks are fine.
+ *
+ * RNA_BUILD_THREADS mirrors RNA_BACKTRACK_THREADS' semantics deliberately:
+ *   unset or "0" -> disabled, one thread, the original serial behaviour.
+ *   "auto"       -> max(1, min(pending, hw_concurrency - cpu_queue_threads)).
+ *   "<N>"        -> exactly N threads, capped at the pending record count.
+ * Subtracting the CPU queue's own thread count keeps the two pools from
+ * oversubscribing cores when both are active, same as the backtrack pool.
+ */
+static int
+build_thread_count(const int pending, const int cpu_queue_threads) {
+  static int        env_read = 0;
+  static const char *env     = NULL;
+  if(!env_read) {
+    env      = getenv("RNA_BUILD_THREADS");
+    env_read = 1;
+  }
+  if(!env || !env[0] || !strcmp(env, "0")) return 1;
+
+  int n;
+  if(!strcmp(env, "auto")) {
+    long hw = sysconf(_SC_NPROCESSORS_ONLN);
+    if(hw < 1) hw = 1;
+    n = (int)hw - cpu_queue_threads;
+  } else {
+    n = atoi(env);
+  }
+  if(n < 1) n = 1;
+  if(n > pending) n = pending;
+  return n;
+}
+
+typedef struct {
+  vrna_fold_compound_t **VC;
+  char                 **Rec_sequence;
+  const vrna_md_t       *md;
+  unsigned int           options;
+  int                    nfiles;
+  int                   *next_i;   /* shared work-claim counter */
+} build_pool_args_t;
+
+static void
+build_one(build_pool_args_t *a, const int idx) {
+  if(a->VC[idx]) return;           /* already built inline in the read loop */
+  vrna_md_t md = *a->md;           /* private copy -- see the header comment */
+  a->VC[idx] = vrna_fold_compound(a->Rec_sequence[idx], &md, a->options);
+}
+
+static void *
+build_worker(void *arg) {
+  build_pool_args_t *shared = (build_pool_args_t *) arg;
+  int idx;
+  while((idx = __sync_fetch_and_add(shared->next_i, 1)) < shared->nfiles)
+    build_one(shared, idx);
+  return NULL;
+}
+
+/* Builds every deferred compound in the chunk. Charged to stage_build_s as
+ * WALL time of this phase (not summed worker time), so the stage table keeps
+ * summing to the run's wall clock the way it did when the build was serial. */
+static void
+build_chunk_compounds(const int nfiles, vrna_fold_compound_t **VC, char **Rec_sequence,
+                       const vrna_md_t *md, const unsigned int options,
+                       const int cpu_queue_threads) {
+  int pending = 0;
+  for(int i=0;i<nfiles;i++) if(!VC[i]) pending++;
+  if(pending == 0) return;
+
+  const double t0 = rnafold_now_seconds();
+
+  int next_i = 0;
+  build_pool_args_t shared = { VC, Rec_sequence, md, options, nfiles, &next_i };
+  const int nthreads = build_thread_count(pending, cpu_queue_threads);
+
+  if(nthreads <= 1) {
+    for(int i=0;i<nfiles;i++) build_one(&shared, i);
+  } else {
+    pthread_t *th = (pthread_t *) vrna_alloc(sizeof(pthread_t) * nthreads);
+    int started = 0;
+    for(; started < nthreads; started++) {
+      if(pthread_create(&th[started], NULL, build_worker, &shared) != 0) {
+        fprintf(stderr, "RNAfold.c: pthread_create failed for build worker %d, "
+                         "continuing with fewer threads\n", started);
+        break;
+      }
+    }
+    if(started == 0) {
+      /* failed on the very first thread -- next_i is untouched, so a plain
+       * serial pass is still correct */
+      for(int i=0;i<nfiles;i++) build_one(&shared, i);
+    } else {
+      for(int t=0; t<started; t++) pthread_join(th[t], NULL);
+    }
+    free(th);
+  }
+
+  stage_build_s += rnafold_now_seconds() - t0;
+}
+
 /* Folds, prints, and frees one GPU chunk's worth of already-built fold
  * compounds -- called from main()'s read loop below either mid-stream (when
  * the chunk being filled is full, or the next record's length differs from
@@ -88,6 +219,7 @@ annotate_ud_motif(vrna_fold_compound_t *vc,
  * record count in advance. */
 static void
 process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
+                   char **Rec_sequence,
                    char **Orig_sequence, char **Structure, float *EN,
                    int cpu_queue_threads, int min_gpu_batch,
                    int fold_constrained, const char *constraints_file, vrna_cmd_t *commands,
@@ -96,16 +228,26 @@ process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
                    int verbose, const vrna_md_t *md, int pf) {
   if(nfiles <= 0) return;
 
+  /* Undersized chunk: everything here goes to the CPU queue, which folds from
+   * the sequence alone. Deliberately BEFORE build_chunk_compounds() -- a
+   * deferred record on this path never needs a fold compound built at all.
+   * VC[k] is non-NULL only for records the read loop refused to defer. */
   if(cpu_queue_threads > 0 && nfiles < min_gpu_batch){
     for(int k=0;k<nfiles;k++){
-      rnafold_cpu_queue_submit(SEQ_IDs[k], Orig_sequence[k], VC[k]->sequence);
-      vrna_fold_compound_free(VC[k]);
+      rnafold_cpu_queue_submit(SEQ_IDs[k], Orig_sequence[k],
+                               VC[k] ? VC[k]->sequence : Rec_sequence[k]);
+      vrna_fold_compound_free(VC[k]);   /* no-op on NULL */
+      free(Rec_sequence[k]);
       free(SEQ_IDs[k]);
       free(Orig_sequence[k]);
       free(Structure[k]);
     }
     return;
   }
+
+  build_chunk_compounds(nfiles, VC, Rec_sequence, md,
+                         VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0),
+                         cpu_queue_threads);
 
   par_mfe(nfiles, (const vrna_fold_compound_t**)VC, (const char**)Structure, EN, cpu_queue_threads);
 
@@ -512,6 +654,7 @@ process_gpu_chunk(int nfiles, char **SEQ_IDs, vrna_fold_compound_t **VC,
     const double t_free = rnafold_now_seconds();
     free(SEQ_ID);
     vrna_fold_compound_free(VC[i]);
+    free(Rec_sequence[i]);
     free(Orig_sequence[i]);
     free(Structure[i]);
     stage_free_s += rnafold_now_seconds() - t_free;
@@ -762,6 +905,12 @@ int main(int argc, char *argv[]){
   int chunk_array_size = 0;
   char**            SEQ_IDs = NULL;
   vrna_fold_compound_t** VC = NULL;
+  // Step 2b: the uppercase, RNA-converted sequence, kept so the fold compound
+  // can be built later and in parallel (build_chunk_compounds()). Same realloc
+  // lifecycle as the arrays around it. VC[i] == NULL means "not built yet, use
+  // Rec_sequence[i]"; a record the read loop refused to defer arrives with
+  // VC[i] already set and its Rec_sequence[i] slot merely freed alongside.
+  char**      Rec_sequence  = NULL;
   char**      Orig_sequence = NULL;
   char**          Structure = NULL;
   float*                 EN = NULL;
@@ -871,11 +1020,47 @@ int main(int argc, char *argv[]){
     /* convert sequence to uppercase letters only */
     vrna_seq_toupper(rec_sequence);
 
-    const double t_build = rnafold_now_seconds();
-    vrna_fold_compound_t *vc = vrna_fold_compound(rec_sequence, &md, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
-    stage_build_s += rnafold_now_seconds() - t_build;
+    /* Step 2b: lift the O(n^2) fold-compound build (ptype + hc) out of this
+     * serial read loop and into build_chunk_compounds(), which builds a whole
+     * chunk's worth in parallel just before par_mfe() needs them. Refused for
+     * records whose vc gets rewritten a few lines below (constraints / SHAPE /
+     * ligand motifs / commands), for cut-point sequences, whose build mutates
+     * the caller's md (see build_chunk_compounds()'s header comment), and for
+     * any sequence carrying whitespace, where strlen() would stop predicting
+     * vc->length (see the length note below). A refused record is built right
+     * here, exactly as before, and everything downstream keys off vc == NULL
+     * rather than off the flag. */
+    const int defer_build = !(fold_constrained || with_shapes || ligandMotif || commands)
+                            && (strpbrk(rec_sequence, "& \t\n\r\v\f") == NULL);
 
-    length    = vc->length;
+    vrna_fold_compound_t *vc = NULL;
+    if(defer_build){
+      /* Provably == vc->length, which is what this used to read. The build
+       * derives its length from vrna_cut_point_remove(), whose body is
+       * sscanf(seq, "%s", copy) followed by splicing out a '&'
+       * (string_utils.c:279) -- so it equals strlen() exactly when the
+       * sequence carries neither a cut point nor whitespace, which is what
+       * the strpbrk() above just established. Anything else is refused
+       * deferral and keeps reading vc->length below. */
+      length = (int) strlen(rec_sequence);
+    } else {
+      /* This record's own build may mutate md (the cut-point case above), and
+       * every record built AFTER it must see that mutation while every record
+       * built BEFORE it must not -- which is exactly what the serial loop gave.
+       * So drain the chunk's deferred backlog first, at the point in the record
+       * order where it belongs, before this build can move md underneath it.
+       * pending == 0 in every ordinary run (nothing deferred means constrained/
+       * SHAPE/motifs/commands, where nothing is ever deferred), so this is a
+       * counter-and-return and costs nothing. */
+      build_chunk_compounds(nfiles, VC, Rec_sequence, &md,
+                             VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0),
+                             cpu_queue_threads);
+
+      const double t_build = rnafold_now_seconds();
+      vc = vrna_fold_compound(rec_sequence, &md, VRNA_OPTION_MFE | ((pf) ? VRNA_OPTION_PF : 0));
+      stage_build_s += rnafold_now_seconds() - t_build;
+      length = vc->length;
+    }
 
     /* Heterogeneous GPU+CPU dispatch: route this sequence to the CPU queue
      * instead of the GPU batch below if it's short enough. Length
@@ -967,11 +1152,11 @@ int main(int argc, char *argv[]){
      * gpu_bytes_per_file() is my_c's O(length^2) triangle, so a record
      * twice as long costs roughly four times as much, and a single
      * representative length could not have stood in for a mixed chunk. */
-    const size_t bytes_needed = gpu_bytes_per_file((int)vc->length);
+    const size_t bytes_needed = gpu_bytes_per_file(length);
     int accept_into_chunk = 1;
     if(!chunk_started
        || chunk_bytes_committed + bytes_needed > chunk_usable_bytes){
-      process_gpu_chunk(nfiles, SEQ_IDs, VC, Orig_sequence, Structure, EN,
+      process_gpu_chunk(nfiles, SEQ_IDs, VC, Rec_sequence, Orig_sequence, Structure, EN,
                          cpu_queue_threads, MIN_GPU_BATCH,
                          fold_constrained, constraints_file, commands,
                          output, lucky, istty, fname, ffname, noPS, ligandMotif,
@@ -1024,8 +1209,8 @@ int main(int argc, char *argv[]){
         /* Route this one record to the CPU queue instead of starting a
          * doomed/undersized GPU chunk, and try the next record fresh (it
          * may be a different, GPU-viable length). */
-        rnafold_cpu_queue_submit(SEQ_ID, orig_sequence, vc->sequence);
-        vrna_fold_compound_free(vc);
+        rnafold_cpu_queue_submit(SEQ_ID, orig_sequence, vc ? vc->sequence : rec_sequence);
+        vrna_fold_compound_free(vc);  /* no-op when the build was deferred */
         free(SEQ_ID);
         free(orig_sequence);
         free(structure);
@@ -1046,23 +1231,25 @@ int main(int argc, char *argv[]){
         const int new_size = (chunk_array_size == 0) ? 64 : chunk_array_size*2;
         char**                 tmp_ids   = (char**)                realloc(SEQ_IDs,       (size_t)new_size*sizeof(char*));
         vrna_fold_compound_t** tmp_vc    = (vrna_fold_compound_t**) realloc(VC,            (size_t)new_size*sizeof(vrna_fold_compound_t*));
+        char**                 tmp_rec   = (char**)                realloc(Rec_sequence,  (size_t)new_size*sizeof(char*));
         char**                 tmp_orig  = (char**)                realloc(Orig_sequence, (size_t)new_size*sizeof(char*));
         char**                 tmp_struc = (char**)                realloc(Structure,     (size_t)new_size*sizeof(char*));
         float*                 tmp_en    = (float*)                realloc(EN,            (size_t)new_size*sizeof(float*));
         int*                   tmp_len   = (int*)                  realloc(length_H,      (size_t)new_size*sizeof(int));
-        if(!tmp_ids || !tmp_vc || !tmp_orig || !tmp_struc || !tmp_en || !tmp_len){
+        if(!tmp_ids || !tmp_vc || !tmp_rec || !tmp_orig || !tmp_struc || !tmp_en || !tmp_len){
           fprintf(stderr,"Failed to allocate GPU chunk arrays for %d entries (out of host memory?)\n",
 	          new_size);
           exit(1);
         }
-        SEQ_IDs = tmp_ids; VC = tmp_vc; Orig_sequence = tmp_orig; Structure = tmp_struc; EN = tmp_en; length_H = tmp_len;
+        SEQ_IDs = tmp_ids; VC = tmp_vc; Rec_sequence = tmp_rec; Orig_sequence = tmp_orig; Structure = tmp_struc; EN = tmp_en; length_H = tmp_len;
         chunk_array_size = new_size;
       }
       SEQ_IDs[nfiles]       = SEQ_ID;
-      VC[nfiles]            = vc;
+      VC[nfiles]            = vc;   /* NULL when deferred -- built in build_chunk_compounds() */
+      Rec_sequence[nfiles]  = strdup(rec_sequence);
       Orig_sequence[nfiles] = orig_sequence;
       Structure[nfiles]     = structure;
-      length_H[nfiles]      = (int)vc->length;
+      length_H[nfiles]      = length;
       chunk_bytes_committed += bytes_needed;
       nfiles++;
     }
@@ -1107,13 +1294,14 @@ int main(int argc, char *argv[]){
    * process_gpu_chunk() as soon as its boundary was detected in the read
    * loop above (chunk full, length changed, or the VRAM-too-tight/
    * undersized-remainder fallbacks). */
-  process_gpu_chunk(nfiles, SEQ_IDs, VC, Orig_sequence, Structure, EN,
+  process_gpu_chunk(nfiles, SEQ_IDs, VC, Rec_sequence, Orig_sequence, Structure, EN,
                      cpu_queue_threads, MIN_GPU_BATCH,
                      fold_constrained, constraints_file, commands,
                      output, lucky, istty, fname, ffname, noPS, ligandMotif,
                      verbose, &md, pf);
   free(SEQ_IDs);
   free(VC);
+  free(Rec_sequence);
   free(Orig_sequence);
   free(Structure);
   free(EN);
