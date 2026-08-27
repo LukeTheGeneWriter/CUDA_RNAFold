@@ -292,6 +292,7 @@ typedef struct {
   int    *fML;
   size_t  cells;   /* capacity, in ints, of each of the two above */
   double  fetch_s; /* per-worker, so the timer needs no lock */
+  double  busy_s;  /* likewise: this worker's active span, for attribution */
 } bt_scratch_t;
 
 PRIVATE void
@@ -357,9 +358,14 @@ backtrack_one(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {
 PRIVATE void *
 backtrack_worker(void *arg) {
   backtrack_thread_arg_t *t = (backtrack_thread_arg_t *) arg;
+  const double t0 = rnafold_now_seconds();
   int idx;
   while((idx = __sync_fetch_and_add(t->shared->next_i, 1)) < t->shared->nfiles)
     backtrack_one(t->shared, idx, t->sc);
+  // This worker's own active span, ending when it runs out of records to claim.
+  // Paired with fetch_s below to split the phase's WALL between fetch and
+  // backtracking -- see the attribution note at the end of the phase.
+  t->sc->busy_s += rnafold_now_seconds() - t0;
   return NULL;
 }
 
@@ -501,7 +507,9 @@ par_mfe(const int nfiles,
     backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H };
     bt_scratch_t *pool = (bt_scratch_t *) vrna_alloc(sizeof(bt_scratch_t) * n_bt_threads);
     if(n_bt_threads <= 1) {
+      const double t_serial = rnafold_now_seconds();
       for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
+      pool[0].busy_s += rnafold_now_seconds() - t_serial;
     } else {
       pthread_t *bt_threads = (pthread_t *) vrna_alloc(sizeof(pthread_t) * n_bt_threads);
       backtrack_thread_arg_t *targs =
@@ -517,7 +525,9 @@ par_mfe(const int nfiles,
       }
       if(started == 0) {
         /* pthread_create failed on the very first thread -- fall back to serial */
+        const double t_serial = rnafold_now_seconds();
         for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
+        pool[0].busy_s += rnafold_now_seconds() - t_serial;
       } else {
         for(int t=0; t<started; t++)
           pthread_join(bt_threads[t], NULL);
@@ -528,15 +538,33 @@ par_mfe(const int nfiles,
     // The fetch is timed per worker so it needs no lock. Fold the slots in and
     // charge it to transfer rather than to backtracking, which it dwarfs. Note
     // the local, not the global: phase_fetch_mx_s accumulates across chunks.
-    double fetch_this_chunk = 0.0;
+    //
+    // FIXED 2026-08-27, after the first RNA_BACKTRACK_THREADS=auto run on Colab
+    // printed `backtrack=-87.783` and `fetch_mx=101.445` against a phase that
+    // actually took 13.66 s of wall. pool[].fetch_s is WORKER-seconds: with W
+    // workers running concurrently their sum can exceed the phase's wall clock
+    // outright, and this used to subtract that sum straight from the wall --
+    // worker-seconds minus wall-seconds, a category error that goes negative as
+    // soon as W > 1. (The wall was still right; only the split of it was not.)
+    // So split the phase's WALL in the ratio the workers actually spent it.
+    // Both parts are then non-negative and sum to the phase exactly, and with a
+    // single worker busy_worker_s IS the phase, so this reduces to the old
+    // subtraction and leaves every previously-recorded number unchanged.
+    double fetch_worker_s = 0.0, busy_worker_s = 0.0;
     for(int t=0; t<n_bt_threads; t++) {
-      fetch_this_chunk += pool[t].fetch_s;
+      fetch_worker_s += pool[t].fetch_s;
+      busy_worker_s  += pool[t].busy_s;
       free(pool[t].c);
       free(pool[t].fML);
     }
     free(pool);
+    const double bt_phase_s = rnafold_now_seconds() - t_bt;
+    double fetch_this_chunk = (busy_worker_s > 0.0)
+                            ? bt_phase_s * (fetch_worker_s / busy_worker_s)
+                            : 0.0;
+    if(fetch_this_chunk > bt_phase_s) fetch_this_chunk = bt_phase_s;  /* can't exceed the phase */
     phase_fetch_mx_s  += fetch_this_chunk;
-    stage_backtrack_s += rnafold_now_seconds() - t_bt - fetch_this_chunk;
+    stage_backtrack_s += bt_phase_s - fetch_this_chunk;
   } else {
   for(int i=0;i<nfiles;i++) {
     EN[i] = mfe_cuda_vrna_mfe(VC[i], Structure[i]);
