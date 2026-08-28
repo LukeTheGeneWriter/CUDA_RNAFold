@@ -1,9 +1,11 @@
-#define Version "$Revision: 1.180 $ "
+#define Version "$Revision: 1.188 $ "
 //Helper for fill_arrays.c 
 //based on ViennaRNA-2.3.0/src/ViennaRNA/interior_loops.c (Nov  1  2016) 
 
 //Modifications (reverse order):
-//WBL 26 Aug 2026 Clean for commit
+//WBL 28 Aug 2026 Clean for commit.
+//WBL 27 Aug 2026 Revert to r1.184 as pair.h slower Reorder d_my_c
+//WBL 26 Aug 2026 Clean for commit. Remove VC[H]->jindx lookup overhead
 //WBL 25 Aug 2026 Add load_min_dmli_kernel, int_loop_mls uses fml_j not prev_fml
 //WBL 19 Aug 2026 Add int_loop_mls_kernel2
 //WBL  9 Aug 2026 prepare to use int_loop_mls_kernel
@@ -412,7 +414,7 @@ load_my_c_kernel(const int i, const int length, const int nfiles,
 
   assert(H >= 0 && H < nfiles);
   const long long ij = Indx(i,j);
-  const long long indx = Hoff(H,length)+ij;
+  const long long indx = H+ij*nfiles;
   assert(ij>=0 && ij<Hoff(1,length)); //(length+1)*(length+2)/2
   assert(my_c[indx] == INF);
   const int eindx = m;
@@ -463,8 +465,6 @@ int unpack(const unsigned int* S, const int H, const int nfiles, const int i){ /
   const int shift = (k - I*10)*3;
   assert(shift >= 0 && shift <= 32-3);
   const int out = (S[I] >> shift) & 7;
-  if(!(out>=0 && out <= 4))
-    printf("unpack(S,%d,%d,%d) I=%d S[I]=%d,shift=%d\n",H,nfiles,i,I,S[I],shift);
   assert(out>=0 && out <= 4);
   return out;
 }
@@ -615,10 +615,12 @@ do {
 //interface to interior_loopx.h via IntLoop_X()
 __device__ inline int
 Energy(const int H, const int nfiles, const int i, const int j, const int q, const int p,
-	  /*const char* hard_constraints,*/ const int* my_c,
+	  /*const char* hard_constraints,*/
+          const int*          __restrict__ my_c,
 	  /*const int* hc_up, const char* hc, const unsigned int* __restrict__ hccc,*/
-	  const unsigned int* __restrict__ S, const char* __restrict__ pair_,//[NBPAIRS+1][NBPAIRS+1],
-	  const cuda_param_t __restrict__ *P,
+	  const unsigned int* __restrict__ S,
+	  const char*         __restrict__ pair_,//[NBPAIRS+1][NBPAIRS+1],
+	  const cuda_param_t* __restrict__ P,
 	  //const int n1,
           //const int ns,
           //const int nl,
@@ -665,7 +667,7 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 	  }
 	  assert(eval_loop);
 	  if(eval_loop)*/{
-	    energy = my_c[pq];
+	    energy = my_c[H+pq*nfiles];
 	    if(energy != INF){
 	      //assert(ptype[pq]>=0 && ptype[pq]<8);
 	      //const unsigned char type_2 = rtype[(unsigned char)ptype[pq]];
@@ -753,7 +755,7 @@ int_loop_kernel(const int nfiles, const int i, /*const int turn,*/ const int len
       const int p = p0 + row;
       const int q = q0 + column;
       const int energy2 = Energy(H,nfiles,i,j,q,p,
-		    &my_c[Hoff(H,length)],
+		    my_c,
 		    S,pair_,P,
 		    TerminalAU,ninio2,
 		    P->bulge,P->internal_loop,lxc,
@@ -922,7 +924,7 @@ int_loop_mls_kernel(const int i, const int length, const int nfiles,
       const long long ijsize  = (length+1)*(length+2)/2;
       assert(ij>=0 && ij<ijsize);
 #endif
-      const long long cindx   = Hoff(H,length)+ij; //d_my_c_indx my_c H reordering not yet implemented
+      const long long cindx   = H+ij*nfiles; //d_my_c_indx
       const long long offset  = Hindx(0,nfiles,i,start,length);
       const int       Hij     = Hindx(H,nfiles,i,j,length) - offset;
       assert(cindx   >= 0 && cindx   < Hoff(nfiles,length));
@@ -1029,7 +1031,6 @@ int_loop_mls(const int nfiles,
   //check here in case of earlier errors
   gpuErrchk( cudaDeviceSynchronize() );
 #endif
-#define Indx(H,i,j)            (VC[H]->jindx[j]+i)
   const long long offset = Hindx(0,nfiles,i,start,length);
   const int       size3  = nfiles*size*sizeof(energy_3p);
 #ifndef NDEBUG
@@ -1073,7 +1074,6 @@ int_loop_mls(const int nfiles,
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
   {
-#define Indx(H,i,j)            (VC[H]->jindx[j]+i)
   //todo optimise setting My_fML(H,ij) and energy_min
   //todo move copy to fill_arrays.c
   //fixed malloc mem_size_len might avoid heap fragmentation?
@@ -1084,13 +1084,12 @@ int_loop_mls(const int nfiles,
   gpuErrchk( cudaMemcpy(&copy_d_energy_min[start],&d_energy_min[start],len*sizeof(int),cudaMemcpyDeviceToHost) );
     for (int H=0;H<nfiles; H++) {
     for (int j = i+turn+1; j <= length; j++) {
-      const int ij = Indx(H,i,j);
+      const int ij = Indx(i,j); //Avoid lookup of VC[H]->jindx
       assert(My_fML(H,ij) == INF);
       assert(H+j*nfiles < mem_size_len/sizeof(int));
       My_fML(H,ij) = energy_min[H+j*nfiles] = copy_d_energy_min[H+j*nfiles];
     }}
   free(copy_d_energy_min);
-#undef Indx
   }//end copy to CPU
 }
 
@@ -1158,7 +1157,6 @@ int_loop_DMLi(const int nfiles,
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
   {
-#define Indx(H,i,j)            (VC[H]->jindx[j]+i)
   //todo optimise setting My_fML(H,ij)
   const int mem_size_len = nfiles*(length+1) * sizeof(int); //starts at 1 not 0
   int* out_fml = (int*) malloc(mem_size_len);
@@ -1168,14 +1166,14 @@ int_loop_DMLi(const int nfiles,
   gpuErrchk( cudaMemcpy(&out_fml[start],&d_out_fml[start],len*sizeof(int),cudaMemcpyDeviceToHost) );
     for (int H=0;H<nfiles; H++) {
     for (int j = i+turn+1; j <= length; j++) {
-      const int       ij   = Indx(H,i,j);
-      const int       indx = H+j*nfiles;
+      const int ij   = Indx(i,j); //Avoid lookup of VC[H]->jindx
+      const int indx = H+j*nfiles;
+      assert(ij == (VC[H]->jindx[j]+i));
       assert(ij   >= 0 && ij   <        ijsize);
       assert(indx >= start && indx < start+len);
       My_fML(H,ij) = out_fml[indx];
     }}
   free(out_fml);
-#undef Indx
   }//end copy to CPU
 }//end int_loop_DMLi
 #undef My_fML
