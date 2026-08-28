@@ -119,6 +119,22 @@ static size_t  g_row_total = 0;
 // reasoning as int_loop.cu's d_hc_off_H.
 static size_t* d_hc2_off_H;
 static size_t* d_seq_off_H;
+// GPU-resident sweep, step 1: hc->up_ml[j] > 0, one byte per sequence
+// position, indexed by seq_off_H[H]+j exactly like d_S2/d_sequence.
+//
+// fml_host needs this predicate twice per (H,row): once at j (the 3' unpaired
+// extension) and once at i (the 5' one). It is the only input to that loop
+// that is not already device-resident.
+//
+// A byte array, not a packed bitmask: 824 KB per chunk against a 19.8 GB
+// budget, so the 8x saving buys nothing and costs bit arithmetic that could be
+// wrong. Packed from the host's OWN hc->up_ml rather than re-derived from the
+// sequence -- the standing rule on this codebase, and the reason the Step 1
+// bitmask work needed a formal equivalence argument that this does not.
+// Cheap enough to pack unconditionally, so unlike the hc masks it needs no
+// g_hc_seq_derived split and works under constraints as-is.
+// READ BY NOTHING YET.
+static char*   d_up_ml_ok;
 // Staggered_Row_Batching Phase 5: per-row block-count table for
 // hp_mb_3p_kernel -- own copy (per this file's established convention),
 // same "size" formula as int_loop.cu's/modular_decomposition.cu's
@@ -340,6 +356,27 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMemcpy(d_sequence,seqbuff,size,cudaMemcpyHostToDevice) );
   free(seqbuff);
 
+  // GPU-resident sweep, step 1 -- see the declaration. Same seq_off_H indexing
+  // and (length+2) stride as d_S2/d_sequence above, so it is built in the same
+  // pass and needs no offset table of its own. calloc'd, so a record's unused
+  // tail reads as "not allowed", which is the safe direction: fml_host's
+  // `up_ml > 0` guard yields INF there, exactly as a missing extension should.
+  size = seq_off_H[nfiles]*sizeof(char);
+  TIMED_CUDAMALLOC(&d_up_ml_ok, size);
+  {
+    char* upbuff = (char*) calloc(seq_off_H[nfiles],sizeof(char));
+    for(int H=0;H<nfiles;H++) {
+      // hc->up_ml is allocated (n+2) ints (constraints_hard.c:182), matching
+      // this stride exactly; index 0 is unused by the sweep but copied anyway
+      // so the two arrays stay index-for-index comparable.
+      const int len_H = (int)VC[H]->length;
+      for(int j=0;j<=len_H+1;j++)
+        upbuff[seq_off_H[H]+j] = (VC[H]->hc->up_ml[j] > 0) ? 1 : 0;
+    }
+    gpuErrchk( cudaMemcpy(d_up_ml_ok,upbuff,size,cudaMemcpyHostToDevice) );
+    free(upbuff);
+  }
+
   // Staggered_Row_Batching Phase 6d: real total extent, not the uniform
   // nfiles*(length+1); also cached for hp_mb_3p_i()'s copy-back.
   g_row_total = row_off_H[nfiles];
@@ -436,6 +473,7 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_hccc_mbenc) );
   gpuErrchk( cudaFree(d_S2) );
   gpuErrchk( cudaFree(d_sequence) );
+  gpuErrchk( cudaFree(d_up_ml_ok) );
   gpuErrchk( cudaFree(d_energy_hp_row) );
   gpuErrchk( cudaFree(d_energy_mb_row) );
   gpuErrchk( cudaFree(d_energy_3p00_row) );
@@ -464,8 +502,13 @@ hp_mb_loop_bytes_per_file(const int length) {
   const size_t hp_row_bytes     = (size_t)(length+1)*sizeof(int);
   const size_t mb_row_bytes     = (size_t)(length+1)*sizeof(int);
   const size_t p3p00_row_bytes  = (size_t)(length+1)*sizeof(int);
+  // GPU-resident sweep step 1. Same (length+2) stride as sequence_bytes -- it
+  // shares seq_off_H. Counted here for the same reason as everything else in
+  // this function: RNAfold.c admits records into a chunk against this number,
+  // so a buffer allocated but not counted is a chunk that does not fit.
+  const size_t up_ml_bytes      = (size_t)(length+2)*sizeof(char);
   return hccc_mb_bytes + hccc_mbenc_bytes + hccc_any_bytes + hccc_gu_bytes
-       + s2_bytes + sequence_bytes
+       + s2_bytes + sequence_bytes + up_ml_bytes
        + hp_row_bytes + mb_row_bytes + p3p00_row_bytes + gate_row_bytes;
 }
 
@@ -651,6 +694,460 @@ hp_mb_3p_kernel(const int nfiles, const int i, const int turn, const int length,
     }
     energy_3p00_row[row_off_H[H]+j] = e00;
   }
+}
+
+
+// ==================== GPU-resident sweep: fml_scan_kernel ====================
+//
+// The device twin of fill_arrays_loop.c's fml_host (46.8 s of a 458.9 s run) --
+// and the only one of the three that is not elementwise. Its j-loop is a
+// recurrence:
+//
+//     E[j] = MIN2( A[j], (E[j-1] != INF && b[j] != INF) ? E[j-1] + b[j] : INF )
+//     E[j0-1] = INF,   j0 = i+turn+1
+//
+//     A[j]      = MIN2(c_term[j], e3_term[j])
+//     c_term[j] = (e3p00[j] != INF) ? new_C[j] + e3p00[j] : INF
+//     e3_term[j] = (fml_prev[j] != INF) ? fml_prev[j] + en_i : INF
+//     b[j]      = (up_ml[j] > 0) ? MLbase : INF
+//     en_i      = (up_ml[i] > 0) ? MLbase : INF          (row-constant per H)
+//
+// Read `+` as tropical: INF is +infinity and absorbing, exactly matching the
+// host's `!= INF` guards. Then each element is an affine min-plus map
+// f_j(x) = min(A[j], x + b[j]), and those COMPOSE:
+//
+//     (a_L,c_L) then (a_R,c_R)  ==  ( min(a_R, a_L + c_R),  c_L + c_R )
+//
+// which is associative, with identity (INF, 0). So this is an ordinary
+// inclusive scan over (a,c) pairs -- no algebraic transform, no segmented-scan
+// special case: b[j] == INF makes c absorbing and severs the chain by itself.
+//
+// TWO THINGS THAT MUST NOT BE "TIDIED", both bit-exactness hazards:
+//
+//  1. THE HOST'S TWO INF GUARDS ARE NOT SYMMETRIC. `en0` guards both operands;
+//     `e3` guards only fml_prev. So when fml_prev[j] is a real energy and en_i
+//     is INF, the host computes fml_prev[j] + 10000000 -- a large positive
+//     number, NOT INF. It is never selected in practice, but it is not the same
+//     value, and A[j] reproduces it exactly (see e3 below). Do not add the
+//     missing guard.
+//  2. The INF test is `== INF`, never `>= INF`. Item 1 can produce values above
+//     INF, and absorbing those would diverge from the host.
+//
+// ML_BASE37 is 0 by default, so the composed c is normally 0 and the tropical
+// sums cannot grow at all; even a non-default parameter file bounds them by
+// length*|MLbase|, far inside int32.
+//
+// Launch shape: ONE BLOCK PER RECORD, tiling j with a carried E. `width` is
+// block-uniform, so every __syncthreads() below is reached by the whole block
+// -- including the width==0 early return for a record that has not joined the
+// sweep yet.
+#define FML_SCAN_THREADS 256
+
+// Tropical add: INF absorbs. Mirrors the host's `(x != INF && y != INF) ? x+y : INF`
+// -- equality, not >=, deliberately (see hazard 2 above).
+__device__ __forceinline__ int fml_tadd(const int x, const int y) {
+  return (x == INF || y == INF) ? INF : x + y;
+}
+__device__ __forceinline__ int fml_tmin(const int x, const int y) { return (x < y) ? x : y; }
+
+__global__ void
+fml_scan_kernel(const int nfiles, const int i, const int turn,
+                const int*  __restrict__ new_e,      //in  d_new_e      == host new_C
+                const int*  __restrict__ e3p00,      //in  d_energy_3p00_row
+                const int*  __restrict__ fml_prev,   //in  d_fml_prev   (previous row)
+                const char* __restrict__ up_ml_ok,   //in  d_up_ml_ok
+                const cuda_param2_t* __restrict__ P, //in  d_param2 (MLbase)
+                      int*  __restrict__ energy_min, //out d_energy_min
+                const size_t* __restrict__ row_off_H,
+                const size_t* __restrict__ seq_off_H,
+                const size_t* __restrict__ size_off_H) {
+  const int H = blockIdx.x;
+  if(H >= nfiles) return;
+  const long long width = (long long)size_off_H[H+1] - (long long)size_off_H[H];
+  if(width <= 0) return;                  // has not joined the sweep -- whole block returns
+  const size_t o  = row_off_H[H];
+  const size_t so = seq_off_H[H];
+  const int j0     = i + turn + 1;
+  const int MLbase = P->MLbase;
+  const int en_i   = up_ml_ok[so + (size_t)i] ? MLbase : INF;
+
+  __shared__ int sa[FML_SCAN_THREADS];
+  __shared__ int sc[FML_SCAN_THREADS];
+
+  int carry = INF;                        // E[j0-1], the host's `j == i+turn+1` special case
+  const int t = threadIdx.x;
+
+  for(long long base = 0; base < width; base += FML_SCAN_THREADS) {
+    const long long k = base + t;
+    int a = INF, c = 0;                   // identity, for lanes past the end
+    if(k < width) {
+      const int j = j0 + (int)k;
+      const int c_term = (e3p00[o+j] != INF) ? new_e[o+j] + e3p00[o+j] : INF;
+      const int fp     = fml_prev[o+j];
+      const int e3     = (fp != INF) ? fp + en_i : INF;   // hazard 1: en_i NOT guarded
+      a = fml_tmin(c_term, e3);
+      c = up_ml_ok[so + (size_t)j] ? MLbase : INF;
+    }
+    sa[t] = a; sc[t] = c;
+    __syncthreads();
+
+    // Hillis-Steele inclusive scan over the composition above. Left operand is
+    // the earlier segment (applied first), right the later one.
+    for(int d = 1; d < FML_SCAN_THREADS; d <<= 1) {
+      int na = sa[t], nc = sc[t];
+      if(t >= d) {
+        na = fml_tmin(sa[t], fml_tadd(sa[t-d], sc[t]));
+        nc = fml_tadd(sc[t-d], sc[t]);
+      }
+      __syncthreads();
+      sa[t] = na; sc[t] = nc;
+      __syncthreads();
+    }
+
+    if(k < width) {
+      const int j = j0 + (int)k;
+      energy_min[o+j] = fml_tmin(sa[t], fml_tadd(carry, sc[t]));
+    }
+    // Carry E across the tile boundary. Every thread reads the same lane, so
+    // the new carry is block-uniform without a broadcast.
+    const long long rem  = width - base;
+    const int       last = (int)((rem < FML_SCAN_THREADS) ? (rem - 1) : (FML_SCAN_THREADS - 1));
+    const int nextcarry  = fml_tmin(sa[last], fml_tadd(carry, sc[last]));
+    __syncthreads();          // everyone has read sa/sc before the next tile overwrites them
+    carry = nextcarry;
+  }
+}
+
+// Launches fml_scan_kernel and, under RNA_ROW_VERIFY, checks it against the
+// host loop still running beside it.
+//
+// Call AFTER fml_host and BEFORE the load_fML/modular_decomposition/load_min_fML
+// graph trio: that trio uploads the host's energy_min over d_energy_min, so the
+// readback has to happen first -- and the upload landing afterwards is what
+// keeps this step behaviour-neutral while both paths run.
+PUBLIC void
+fml_scan_i(const int nfiles, const int i, const int turn,
+           const int* energy_min_host,            //in, host's own result (verify only)
+           const size_t* row_off_H,               //in, nfiles+1
+           const size_t* size_off_H) {            //in, nfiles+1
+  if(size_off_H[nfiles]==0) return;
+
+  int* d_new_e_ = NULL;
+  int_loop_row_buffers(NULL, &d_new_e_);
+  int* d_fml_prev_ = NULL; int* d_energy_min_ = NULL;
+  md_row_buffers(NULL, NULL, &d_fml_prev_, &d_energy_min_);
+
+  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+  // One block per record, not a flat grid: the scan carries state along j, so a
+  // record's row has to stay inside one block.
+  fml_scan_kernel<<<nfiles,FML_SCAN_THREADS>>>(nfiles, i, turn,
+                                               d_new_e_, d_energy_3p00_row, d_fml_prev_,
+                                               d_up_ml_ok, d_param2, d_energy_min_,
+                                               d_row_off_H, d_seq_off_H, d_size_off_H);
+  gpuErrchk( cudaPeekAtLastError() );
+  gpuErrchk( cudaDeviceSynchronize() );
+
+  static int verify = -1;
+  if(verify < 0) verify = (getenv("RNA_ROW_VERIFY") != NULL);
+  if(!verify) return;
+
+  static int   *mirror = NULL;
+  static size_t mirror_cells = 0;
+  const size_t cells = row_off_H[nfiles];
+  if(mirror_cells < cells) {
+    free(mirror);
+    mirror = (int*) malloc(cells*sizeof(int));
+    if(!mirror) { fprintf(stderr,"%-24s RNA_ROW_VERIFY: out of host memory\n",__FILE__); return; }
+    mirror_cells = cells;
+  }
+  gpuErrchk( cudaMemcpy(mirror, d_energy_min_, cells*sizeof(int), cudaMemcpyDeviceToHost) );
+
+  static long long checked = 0, bad = 0;
+  for(int H=0; H<nfiles; H++) {
+    const size_t o     = row_off_H[H];
+    const size_t width = size_off_H[H+1] - size_off_H[H];
+    if(width == 0) continue;
+    for(size_t k=0; k<width; k++) {
+      const size_t idx = o + (size_t)(i+turn+1) + k;
+      checked++;
+      if(mirror[idx] == energy_min_host[idx]) continue;
+      if(++bad <= 20)
+        fprintf(stderr,"%-24s RNA_ROW_VERIFY fml_scan MISMATCH H=%d i=%d j=%d gpu=%d host=%d\n",
+                __FILE__, H, i, (int)((i+turn+1)+k), mirror[idx], energy_min_host[idx]);
+    }
+  }
+  if(i == 1)
+    fprintf(stderr,"%-24s RNA_ROW_VERIFY fml_scan: %lld cells checked, %lld mismatching\n",
+            __FILE__, checked, bad);
+}
+
+
+// ====================== GPU-resident sweep: new_c_kernel ======================
+//
+// The device twin of fill_arrays_loop.c's new_c_host -- 49.7 s of a 458.9 s run,
+// the largest of the three per-row host loops and the one whose inputs make the
+// case for this whole port. Every value it reads is ALREADY on the device and is
+// shipped to the host each row purely so the host can take a minimum:
+//
+//   energy_min2   int_loop_kernel's output for this row (int_loop.cu). Today it
+//                 is D2H'd into the host's energy_min so new_c_host can read it.
+//                 NOTE this is the interior-loop energy, not the fML extension:
+//                 energy_min means two different things either side of fml_host
+//                 (TRAP 1 in the row-loop notes), and this is the earlier one.
+//   energy_hp_row hairpin energies, from hp_mb_3p_kernel a moment ago.
+//   energy_mb_row multibranch energies, likewise.
+//   gate_row      bit0 = hc->matrix[ij] != 0, bit1 = ptype[ij] is GU/UG. Also
+//                 from hp_mb_3p_kernel -- which is to say new_c_host's two
+//                 remaining triangle reads were ALREADY moved to the GPU in
+//                 81d20a6, and then shipped back down to be read once.
+//   dml1          row i+1's DMLi, published by md_snapshot_dml() at the end of
+//                 the previous row (step 1).
+//
+// There is no recurrence over j: every cell is independent, which is why this
+// one is a straight elementwise port and the scan is left for K2.
+//
+// e_mb: the host computes MIN2(new_c, INF) when DMLi1[j-1] is INF, which is a
+// no-op, so the guard skips the min instead of materialising INF. Same result,
+// one fewer add that could overflow.
+//
+// At the left edge j == i+turn+1 the dml1 read lands on (i+1, i+turn), inside
+// the diagonal band -- a cell no row ever computes, so it holds the INF that
+// init_fML_kernel put there. Same value the host's rotated DMLi1 holds, for the
+// same reason; RNA_ROW_VERIFY covers it because the comparison starts at the
+// first j, not the second.
+__global__ void
+new_c_kernel(const int nfiles, const int i, const int turn, const int noGUclosure,
+             const int*  __restrict__ energy_min2,    //in  d_energy_min2
+             const int*  __restrict__ energy_hp_row,  //in
+             const int*  __restrict__ energy_mb_row,  //in
+             const char* __restrict__ gate_row,       //in
+             const int*  __restrict__ dml1,           //in  d_dml1
+                   int*  __restrict__ new_e,          //out d_new_e
+             const size_t* __restrict__ row_off_H,    //in
+             const size_t* __restrict__ size_off_H, const size_t total) { //in
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  if((size_t)m >= total) return;
+  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  const long long mj = (long long)m - (long long)size_off_H[H];
+  const int j = mj + i+turn+1;
+  const size_t o = row_off_H[H];
+
+  const unsigned char gate = (unsigned char)gate_row[o+j];
+  if(!(gate & 1)) { new_e[o+j] = INF; return; }   // pair not evaluated
+
+  int new_c = energy_min2[o+j];
+  if(!(((gate & 2) != 0) && noGUclosure)) {
+    const int hp = energy_hp_row[o+j];
+    if(hp < new_c) new_c = hp;
+    const int d1 = dml1[o+(j-1)];
+    if(d1 != INF) {
+      const int e_mb = d1 + energy_mb_row[o+j];
+      if(e_mb < new_c) new_c = e_mb;
+    }
+  }
+  new_e[o+j] = new_c;
+}
+
+// Launches new_c_kernel and, under RNA_ROW_VERIFY, checks it cell-for-cell
+// against the host loop still running beside it.
+//
+// Call this AFTER new_c_host and BEFORE load_my_c(): load_my_c uploads the
+// host's new_C over d_new_e, so the readback has to happen first, and the
+// upload landing afterwards is what keeps this step behaviour-neutral -- the
+// kernel's output is written and then overwritten with the identical host
+// values, so the sweep cannot yet be affected by a bug here.
+PUBLIC void
+new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
+        const int* new_C_host,                 //in, host's own result (verify only)
+        const size_t* row_off_H,               //in, nfiles+1
+        const size_t* size_off_H) {            //in, nfiles+1
+  const size_t total = size_off_H[nfiles];
+  if(total==0) return;
+
+  int* d_energy_min2_ = NULL; int* d_new_e_ = NULL;
+  int_loop_row_buffers(&d_energy_min2_, &d_new_e_);
+  int* d_dml1_ = NULL;
+  md_row_buffers(NULL, &d_dml1_, NULL, NULL);
+
+  static int block_size = 0;
+  if(!block_size) {
+    block_size = rnafold_choose_block_size(new_c_kernel, BLOCK_SIZE, "RNA_NEW_C_BLOCK_SIZE");
+    fprintf(stderr,"%-24s new_c_kernel block size %d\n", __FILE__, block_size);
+  }
+
+  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+  const size_t nblocks = (total + block_size - 1)/block_size;
+  new_c_kernel<<<(int)nblocks,block_size>>>(nfiles, i, turn, noGUclosure,
+                                            d_energy_min2_, d_energy_hp_row, d_energy_mb_row,
+                                            d_gate_row, d_dml1_, d_new_e_,
+                                            d_row_off_H, d_size_off_H, total);
+  gpuErrchk( cudaPeekAtLastError() );
+  gpuErrchk( cudaDeviceSynchronize() );
+
+  static int verify = -1;
+  if(verify < 0) verify = (getenv("RNA_ROW_VERIFY") != NULL);
+  if(!verify) return;
+
+  static int   *mirror = NULL;
+  static size_t mirror_cells = 0;
+  const size_t cells = row_off_H[nfiles];
+  if(mirror_cells < cells) {
+    free(mirror);
+    mirror = (int*) malloc(cells*sizeof(int));
+    if(!mirror) { fprintf(stderr,"%-24s RNA_ROW_VERIFY: out of host memory\n",__FILE__); return; }
+    mirror_cells = cells;
+  }
+  gpuErrchk( cudaMemcpy(mirror, d_new_e_, cells*sizeof(int), cudaMemcpyDeviceToHost) );
+
+  static long long checked = 0, bad = 0;
+  for(int H=0; H<nfiles; H++) {
+    const size_t o     = row_off_H[H];
+    const size_t width = size_off_H[H+1] - size_off_H[H];
+    if(width == 0) continue;   // not joined the sweep yet
+    for(size_t k=0; k<width; k++) {
+      const size_t idx = o + (size_t)(i+turn+1) + k;
+      checked++;
+      if(mirror[idx] == new_C_host[idx]) continue;
+      if(++bad <= 20)
+        fprintf(stderr,"%-24s RNA_ROW_VERIFY new_c MISMATCH H=%d i=%d j=%d gpu=%d host=%d\n",
+                __FILE__, H, i, (int)((i+turn+1)+k), mirror[idx], new_C_host[idx]);
+    }
+  }
+  if(i == 1)
+    fprintf(stderr,"%-24s RNA_ROW_VERIFY new_c: %lld cells checked, %lld mismatching\n",
+            __FILE__, checked, bad);
+}
+
+
+// ===================== GPU-resident sweep: fml_prev_kernel =====================
+//
+// The device twin of fill_arrays_loop.c's fml_prev_host, the smallest of the
+// three per-row host loops (8.1 s of a 458.9 s run) and therefore the one that
+// proves the cross-file plumbing before the two that matter carry any weight.
+//
+// It publishes row i's FINAL fML, row-shaped, for row i-1 to read one row later
+// as fML(i+1,j):
+//
+//     fml_prev[j] = MIN2(energy_min[j], DMLi[j])      j in [i+turn+1, len_H]
+//     fml_prev[i+turn] = INF
+//
+// Both inputs are already device-resident at this point in the row, which is
+// the whole reason this loop should never have been on the host:
+//   energy_min  -> d_energy_min, uploaded inside the CUDA-graph trio a moment
+//                  earlier (modular_decomposition.cu). Holds row i's fML
+//                  extension, NOT the interior-loop energies -- see TRAP 1 in
+//                  the row-loop notes: energy_min means two different things
+//                  either side of fml_host.
+//   DMLi        -> d_dml, just written by load_min_fML_kernel.
+//
+// The j range is exactly [i+turn+1, len_H], width len_H-i-turn, which is what
+// size_off_H already encodes -- so this shares hp_mb_3p_kernel's flattening
+// unchanged and needs no table of its own.
+//
+// The lone i+turn cell: (i, i+turn) is inside the diagonal band, a cell no row
+// ever computes. Row i-1 reads it as its own j-1 at the left edge, so it has to
+// read INF rather than row i+1's leftover value. The host writes it explicitly
+// once per joined H; here the k==0 thread does it, which is the same set of
+// records for the same reason (a record with width>=1 has joined).
+__global__ void
+fml_prev_kernel(const int nfiles, const int i, const int turn,
+                const int* __restrict__ energy_min,   //in  d_energy_min
+                const int* __restrict__ dml,          //in  d_dml
+                      int* __restrict__ fml_prev,     //out d_fml_prev
+                const size_t* __restrict__ row_off_H, //in
+                const size_t* __restrict__ size_off_H, const size_t total) { //in
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  if((size_t)m >= total) return;
+  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  const long long mj = (long long)m - (long long)size_off_H[H];
+  const int j = mj + i+turn+1;
+  const size_t o = row_off_H[H];
+
+  if(mj == 0) fml_prev[o + (i+turn)] = INF;   // the diagonal-band cell, per H
+
+  const int a = energy_min[o+j];
+  const int b = dml[o+j];
+  fml_prev[o+j] = (a < b) ? a : b;            // MIN2, without the host macro
+}
+
+// Launches fml_prev_kernel, and -- while RNA_ROW_VERIFY is set -- checks it
+// against the host loop that still runs beside it.
+//
+// The verification is the point of this step. Byte-identical fold output only
+// proves the values are right WHERE THEY ARE READ; comparing the whole row
+// proves every cell matches, including ones nothing looks at today, so widening
+// a read range later cannot turn a latent mismatch into a wrong answer. This is
+// the same argument RNA_HC_VERIFY was built on for the Step 1 bitmasks, and it
+// caught real bugs there.
+//
+// Reports the first mismatching (H, i, j) with both values and then keeps
+// counting, so one run yields the shape of the disagreement rather than just
+// its existence. Deliberately fprintf + counters, never assert: asserts in the
+// .c files are compiled out by -DNDEBUG, and while this one is in a .cu file
+// its callers are not -- so the habit is what matters.
+PUBLIC void
+fml_prev_i(const int nfiles, const int i, const int turn,
+           const int* fml_prev_host,              //in, host's own result (verify only)
+           const size_t* row_off_H,               //in, nfiles+1
+           const size_t* size_off_H) {            //in, nfiles+1
+  const size_t total = size_off_H[nfiles];
+  if(total==0) return;
+
+  int* d_energy_min_ = NULL; int* d_dml_ = NULL; int* d_fml_prev_ = NULL;
+  md_row_buffers(&d_dml_, NULL, &d_fml_prev_, &d_energy_min_);
+
+  static int block_size = 0;
+  if(!block_size) {
+    block_size = rnafold_choose_block_size(fml_prev_kernel, BLOCK_SIZE, "RNA_FML_PREV_BLOCK_SIZE");
+    fprintf(stderr,"%-24s fml_prev_kernel block size %d\n", __FILE__, block_size);
+  }
+
+  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+  const size_t nblocks = (total + block_size - 1)/block_size;
+  fml_prev_kernel<<<(int)nblocks,block_size>>>(nfiles, i, turn,
+                                               d_energy_min_, d_dml_, d_fml_prev_,
+                                               d_row_off_H, d_size_off_H, total);
+  gpuErrchk( cudaPeekAtLastError() );
+  gpuErrchk( cudaDeviceSynchronize() );
+
+  // Cached, not a getenv() per row: this runs 16803 times in a 400x5601 fold.
+  static int verify = -1;
+  if(verify < 0) verify = (getenv("RNA_ROW_VERIFY") != NULL);
+  if(!verify) return;
+
+  // ---- RNA_ROW_VERIFY: pull it back and compare against the host's array ----
+  static int   *mirror = NULL;
+  static size_t mirror_cells = 0;
+  const size_t cells = row_off_H[nfiles];
+  if(mirror_cells < cells) {
+    free(mirror);
+    mirror = (int*) malloc(cells*sizeof(int));
+    if(!mirror) { fprintf(stderr,"%-24s RNA_ROW_VERIFY: out of host memory\n",__FILE__); return; }
+    mirror_cells = cells;
+  }
+  gpuErrchk( cudaMemcpy(mirror, d_fml_prev_, cells*sizeof(int), cudaMemcpyDeviceToHost) );
+
+  static long long checked = 0, bad = 0;
+  for(int H=0; H<nfiles; H++) {
+    const size_t o     = row_off_H[H];
+    const size_t width = size_off_H[H+1] - size_off_H[H];
+    if(width == 0) continue;   // this H has not joined the sweep yet
+    // width+1 cells: the diagonal-band cell at i+turn plus [i+turn+1, len_H].
+    for(size_t k=0; k<=width; k++) {
+      const size_t idx = o + (size_t)(i+turn) + k;
+      checked++;
+      if(mirror[idx] == fml_prev_host[idx]) continue;
+      if(++bad <= 20)
+        fprintf(stderr,"%-24s RNA_ROW_VERIFY fml_prev MISMATCH H=%d i=%d j=%d gpu=%d host=%d\n",
+                __FILE__, H, i, (int)((i+turn)+k), mirror[idx], fml_prev_host[idx]);
+    }
+  }
+  if(i == 1)   // last row of the sweep: report once per chunk
+    fprintf(stderr,"%-24s RNA_ROW_VERIFY fml_prev: %lld cells checked, %lld mismatching\n",
+            __FILE__, checked, bad);
 }
 
 PUBLIC void

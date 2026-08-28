@@ -500,6 +500,22 @@ int_loop_hccc_buffers(unsigned int** d_out, const size_t** off_out) {
   *off_out = d_hc_off_H;
 }
 
+// GPU-resident sweep, step 1: this file's two row-shaped device buffers, for
+// the kernels that will live in hp_mb_loop.cu. Same pattern as the accessor
+// above -- ownership stays here, only a pointer crosses.
+//   d_energy_min2  int_loop_kernel's per-row output, which new_c_kernel reads
+//                  as its starting `new_c` (today it is D2H'd into the host's
+//                  energy_min purely so new_c_host can read it).
+//   d_new_e        load_my_c_kernel's input, which new_c_kernel will write
+//                  directly (today new_c_host writes the host's new_C and
+//                  load_my_c() uploads it).
+// Valid only between init_gpu2() and teardown_gpu2().
+extern "C" /*PUBLIC*/ void
+int_loop_row_buffers(int** energy_min2_out, int** new_e_out) {
+  if(energy_min2_out) *energy_min2_out = d_energy_min2;
+  if(new_e_out)       *new_e_out       = d_new_e;
+}
+
 //perhaps this can be combined with other kernels?
 __global__ void
 load_my_c_kernel(const int nfiles, const int i, /*const int turn,*/ const int length,
