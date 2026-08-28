@@ -141,6 +141,14 @@
     }//endfor H
     phase_new_c_host_s += now_seconds() - new_c_host_t0;
 
+    // GPU-resident sweep, step 3: the same row, computed on the device from
+    // five buffers the GPU already had -- int_loop's energies, hp_mb_3p's three
+    // outputs, and the previous row's DMLi. Deliberately between the host loop
+    // (so RNA_ROW_VERIFY has something to compare) and load_my_c (which uploads
+    // the host's new_C over d_new_e, so the readback must precede it and the
+    // sweep still consumes the host's values either way).
+    new_c_i(nfiles, i, turn, noGUclosure, new_C, row_off_H, size_off_H);
+
     {
       const double t0 = now_seconds();
       load_my_c(nfiles,i,turn,length,new_C,size_off_H); //keep my_c on GPU instep with my_c
@@ -232,6 +240,13 @@
     }//endfor H
     phase_fml_host_s += now_seconds() - fml_host_t0;
 
+    // GPU-resident sweep, step 4: the same recurrence, run on the device as an
+    // inclusive scan over affine min-plus maps. Between the host loop (so
+    // RNA_ROW_VERIFY has something to compare) and the graph trio below, which
+    // uploads the host's energy_min over d_energy_min -- so the readback must
+    // precede it and the sweep still consumes the host's values either way.
+    fml_scan_i(nfiles, i, turn, energy_min, row_off_H, size_off_H);
+
     //load_fML + modular_decomposition_i + load_min_fML fused into one CUDA
     //graph capture/replay (no host CPU logic runs between these three calls,
     //which is what makes that legal) -- updates my_fML GPU, then
@@ -278,6 +293,21 @@
                                          DMLi[row_off_H[H]+jj]);
     }
     phase_fml_prev_host_s += now_seconds() - fml_prev_host_t0;
+
+    // GPU-resident sweep, step 2: the same row, computed on the device from
+    // d_energy_min and d_dml -- both of which the GPU already had, which is why
+    // this loop should never have been on the host. Runs AFTER the host loop so
+    // RNA_ROW_VERIFY has something to compare against; nothing reads d_fml_prev
+    // yet, so the sweep's behaviour is unchanged either way.
+    fml_prev_i(nfiles, i, turn, fml_prev, row_off_H, size_off_H);
+
+    // GPU-resident sweep, step 1: the device twin of the DMLi1 rotation below.
+    // Publishes row i's DMLi as "the previous row's" for row i-1, which is what
+    // new_c_kernel will read as DMLi1[j-1] once new_c_host moves to the GPU.
+    // Placed here, at exactly the host's rotate point, so the two representations
+    // cannot drift. Nothing reads d_dml1 yet -- this is behaviour-neutral, and
+    // costs one 3.3 MB device-to-device copy per row (~0.18 s over a whole run).
+    md_snapshot_dml();
 
     {
       int *FF; /* rotate the auxilliary arrays */

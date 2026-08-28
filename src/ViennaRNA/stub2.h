@@ -354,9 +354,103 @@ extern "C" /*PUBLIC*/ void
 PUBLIC void
 #endif
 int_loop_hccc_buffers(unsigned int** d_out, const size_t** off_out);
+
+// GPU-resident sweep, step 1. Accessors handing a .cu file's row-shaped device
+// buffers to the kernels being built in hp_mb_loop.cu, plus the per-row DMLi
+// snapshot that stands in for the host's DMLi1 rotation. Each buffer stays
+// owned -- allocated, INF-prefilled, VRAM-budgeted and freed -- by the file
+// that declares it; only a pointer crosses. int_loop_hccc_buffers() above is
+// the precedent.
+//
+// NOTHING READS THESE YET. Step 1 is behaviour-neutral by construction so that
+// byte-identical output can be established across the verification matrix
+// before any host loop moves. Any out-parameter may be NULL.
+//
+// Validity: int_loop_row_buffers between init_gpu2()/teardown_gpu2();
+// md_row_buffers and md_snapshot_dml between init_gpu()/teardown_gpu().
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+int_loop_row_buffers(int** energy_min2_out, int** new_e_out);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+md_row_buffers(int** dml_out, int** dml1_out, int** fml_prev_out,
+               int** energy_min_out);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+md_snapshot_dml(void);
 #ifdef __cplusplus
 }
 #endif
+
+// GPU-resident sweep, step 2: the device twin of fill_arrays_loop.c's
+// fml_prev_host. Launches fml_prev_kernel over this row, and when
+// RNA_ROW_VERIFY is set compares the result cell-for-cell against the host
+// array still being computed beside it, reporting (H, i, j) and both values on
+// each of the first 20 mismatches plus a per-chunk total.
+//
+// The host loop still runs and its output is still what the sweep consumes --
+// the device result is written to d_fml_prev and read by nothing yet. Deleting
+// the host loop waits until fml_scan_kernel needs d_fml_prev, and until
+// RNA_ROW_VERIFY has been clean across the whole matrix.
+//
+// fml_prev_host is only dereferenced under RNA_ROW_VERIFY, so a caller that has
+// no host array may pass NULL provided the flag is unset.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+fml_prev_i(const int nfiles, const int i, const int turn,
+           const int* fml_prev_host,
+           const size_t* row_off_H, const size_t* size_off_H);
+
+// GPU-resident sweep, step 3: the device twin of new_c_host, the largest of the
+// three per-row host loops. Elementwise, no recurrence over j.
+//
+// MUST be called after new_c_host and before load_my_c(): load_my_c uploads the
+// host's new_C over d_new_e, so the verify readback has to happen first -- and
+// that upload landing afterwards is exactly what keeps this step
+// behaviour-neutral while both paths run.
+//
+// new_C_host is dereferenced only under RNA_ROW_VERIFY.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
+        const int* new_C_host,
+        const size_t* row_off_H, const size_t* size_off_H);
+
+// GPU-resident sweep, step 4: the device twin of fml_host -- the one loop of
+// the three that is a recurrence along j rather than elementwise. Implemented
+// as an inclusive scan over affine min-plus maps, one block per record.
+//
+// MUST be called after fml_host and before the load_fML/modular_decomposition/
+// load_min_fML trio: that trio uploads the host's energy_min over d_energy_min,
+// so the verify readback has to precede it, and that upload landing afterwards
+// is what keeps the step behaviour-neutral while both paths run.
+//
+// energy_min_host is dereferenced only under RNA_ROW_VERIFY.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+fml_scan_i(const int nfiles, const int i, const int turn,
+           const int* energy_min_host,
+           const size_t* row_off_H, const size_t* size_off_H);
 
 // gpuinit attribution (mfe_cuda.c). See there for why.
 #ifdef __cplusplus

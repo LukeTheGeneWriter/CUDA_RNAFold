@@ -345,6 +345,31 @@ int* d_energy_min;
 int* d_fml_i;  //my_fML
 int* d_fml_j;  //my_fML
 int* d_dml;  //DMLi
+// GPU-resident sweep, step 1. Two row-shaped buffers the device side of the
+// sweep needs once new_c_host/fml_host/fml_prev_host become kernels. They are
+// allocated, INF-prefilled and maintained from here on but READ BY NOTHING
+// YET: this step is deliberately behaviour-neutral, so the whole verification
+// matrix can confirm byte-identical output before any host loop moves.
+//
+//   d_dml1      the device twin of the host's DMLi1 -- row i+1's DMLi, which
+//               new_c_kernel will read as e_mb's DMLi1[j-1].
+//   d_fml_prev  the device twin of the host's fml_prev -- row i's final fML,
+//               which fml_scan_kernel reads one row later as fML(i+1,j).
+//
+// The host keeps DMLi1 by ROTATING three buffers. This does not: it takes one
+// device-to-device copy per row instead (md_snapshot_dml(), below). That is a
+// deliberate departure. Rotating would change the pointer baked into the
+// captured CUDA-graph node every single row, and the graph currently gets away
+// with 16785 cheap cudaGraphExecUpdate()s against only 3 forced
+// reinstantiates; a 3.3 MB D2D copy costs ~0.18 s across a whole run and
+// leaves the graph's parameters untouched. Correctness before cleverness on
+// the piece that is hardest to debug.
+//
+// There is deliberately no d_dml2: the host allocates, prefills and rotates
+// DMLi2, but nothing reads it. Confirming and removing that is a separate
+// cleanup and is not bundled here.
+int* d_dml1;
+int* d_fml_prev;
 // Staggered_Row_Batching Phase 2d: own device copies (per this codebase's
 // established convention of each .cu file owning independent device state)
 // of tri_off_H[]/row_off_H[] -- d_fml_j's per-H triangle-block start and
@@ -472,6 +497,21 @@ init_gpu(const int nfiles, const int length,
 	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
 
+  // GPU-resident sweep, step 1 -- see the declarations above. Same row shape
+  // and lifetime as d_dml, so they are allocated, prefilled, sized into the
+  // VRAM budget and freed alongside it.
+  error = cudaMalloc((void **) &d_dml1, mem_size_len);
+  if (error != cudaSuccess)  {
+      printf("cudaMalloc d_dml1 %zu returned error %s (code %d), line(%d)\n",
+	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
+      exit(EXIT_FAILURE);}
+
+  error = cudaMalloc((void **) &d_fml_prev, mem_size_len);
+  if (error != cudaSuccess)  {
+      printf("cudaMalloc d_fml_prev %zu returned error %s (code %d), line(%d)\n",
+	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
+      exit(EXIT_FAILURE);}
+
   // See the forward declarations above for why this happens here rather
   // than lazily at first launch.
   g_block_size_fmli = rnafold_choose_block_size(fmli_kernel, BLOCK_SIZE, "RNA_FMLI_BLOCK_SIZE");
@@ -520,6 +560,8 @@ teardown_gpu(void) {
   gpuErrchk( cudaFree(d_fml_i) );
   gpuErrchk( cudaFree(d_fml_j) );
   gpuErrchk( cudaFree(d_dml) );
+  gpuErrchk( cudaFree(d_dml1) );
+  gpuErrchk( cudaFree(d_fml_prev) );
   gpuErrchk( cudaFree(d_tri_off_H) );
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_size_off_H) );
@@ -537,7 +579,12 @@ teardown_gpu(void) {
 // init_gpu()'s own size formulas exactly.
 PUBLIC size_t
 modular_decomposition_bytes_per_file(const int length) {
-  const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 3;
+  // x5, not x3: d_energy_min, d_fml_i, d_dml, and (GPU-resident sweep step 1)
+  // d_dml1 + d_fml_prev. This number drives RNAfold.c's chunk admission, so
+  // under-counting it does not merely mis-report -- it lets a chunk be
+  // accepted that does not fit, and the failure surfaces as an OOM inside
+  // par_mfe() rather than as a smaller batch.
+  const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 5;
   const size_t ijsize_len   = (size_t)(length+1)*(length+2)/2 * sizeof(int);
   return mem_size_len + ijsize_len;
 }
@@ -653,6 +700,16 @@ init_fML(const int nfiles, const int length,
   const size_t hsize = row_off_H_total;
   const size_t nblock2 = (hsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
   init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, d_dml);
+  gpuErrchk( cudaPeekAtLastError() );
+
+  // Same INF prefill the host gives DMLi1/fml_prev in fill_arrays.c, and for
+  // the same reason: a record that has not joined the sweep yet is never
+  // written by any kernel, so the first row it does join must read INF -- the
+  // state a single-sequence fold starts from. Prefilling here also means row
+  // `length-turn-1` reads a defined d_dml1 on the very first iteration.
+  init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, d_dml1);
+  gpuErrchk( cudaPeekAtLastError() );
+  init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, d_fml_prev);
   gpuErrchk( cudaPeekAtLastError() );
 
 #ifndef NDEBUG
@@ -1161,6 +1218,32 @@ modular_decomposition_i(const int nfiles,
 // triangle at once. Same copy as fetch_fML() does per H, just addressable
 // individually. Safe to call from several host threads -- the CUDA runtime is
 // thread-safe and these serialise on the default stream.
+// GPU-resident sweep, step 1: hand this file's row-shaped device buffers to
+// the kernels that will live in hp_mb_loop.cu. Same shape as int_loop.cu's
+// int_loop_hccc_buffers() -- the device state stays owned by the file that
+// allocates it, and only a pointer crosses the translation-unit boundary.
+// Valid only between init_gpu() and teardown_gpu().
+extern "C" /*PUBLIC*/ void
+md_row_buffers(int** dml_out, int** dml1_out, int** fml_prev_out,
+               int** energy_min_out) {
+  if(dml_out)        *dml_out        = d_dml;
+  if(dml1_out)       *dml1_out       = d_dml1;
+  if(fml_prev_out)   *fml_prev_out   = d_fml_prev;
+  if(energy_min_out) *energy_min_out = d_energy_min;
+}
+
+// Publishes row i's DMLi as "the previous row's" for row i-1, replacing the
+// host's DMLi1 rotation (see the declaration comment for why a copy and not a
+// rotate). Called from fill_arrays_loop.c at exactly the point the host
+// rotates, so the two stay in lockstep. Synchronous on the NULL stream: the
+// next row's first kernel must see it, and there is nothing to overlap it
+// with here.
+extern "C" /*PUBLIC*/ void
+md_snapshot_dml(void) {
+  gpuErrchk( cudaMemcpy(d_dml1, d_dml, g_row_total*sizeof(int),
+                        cudaMemcpyDeviceToDevice) );
+}
+
 extern "C" /*PUBLIC*/ void
 fetch_fML_one(int* dst, const size_t tri_lo, const size_t cells) {
   gpuErrchk( cudaMemcpy(dst, &d_fml_j[tri_lo], cells*sizeof(int),
