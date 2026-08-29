@@ -555,7 +555,11 @@ load_my_c(const int nfiles,
   gpuErrchk( cudaDeviceSynchronize() );
 #endif
   //for simplicity transfer all new_e, even though only need H * [start:length]
-  gpuErrchk( cudaMemcpy(d_new_e,new_e,g_row_total*sizeof(int),cudaMemcpyHostToDevice) );
+  // GPU-resident sweep: in device mode new_c_kernel has already written d_new_e
+  // directly, so uploading the host's copy over it is exactly the round trip
+  // being removed.
+  if(!rnafold_gpu_sweep())
+    gpuErrchk( cudaMemcpy(d_new_e,new_e,g_row_total*sizeof(int),cudaMemcpyHostToDevice) );
   gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
 
@@ -983,8 +987,13 @@ int_loop_cuda(const int nfiles,
   gpuErrchk( cudaDeviceSynchronize() );
   //printf("int_loop_kernel<<<%d.%d,%d>>>(i=%d...) ok\n",blocks.x,blocks.y,block_size,i);
 
-  gpuErrchk( cudaMemcpy(energy_min,d_energy_min2, g_row_total*sizeof(int),cudaMemcpyDeviceToHost) );
-  gpuErrchk( cudaDeviceSynchronize() );
+  // GPU-resident sweep: in device mode new_c_kernel reads d_energy_min2 in
+  // place, so this copy has no reader. It is one of the six per-row transfers
+  // being retired.
+  if(!rnafold_gpu_sweep()) {
+    gpuErrchk( cudaMemcpy(energy_min,d_energy_min2, g_row_total*sizeof(int),cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaDeviceSynchronize() );
+  }
 
   /*used to have alternative code to launch int_loop_nl0_kernel etc here */
   return;

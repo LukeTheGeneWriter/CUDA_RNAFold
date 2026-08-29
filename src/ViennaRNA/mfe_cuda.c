@@ -93,6 +93,32 @@ now_seconds(void) {
 // the rest. Non-static and declared in stub2.h because RNAfold.c (a separate
 // translation unit) owns the record-building and output stages.
 double stage_build_s      = 0.0; //vrna_fold_compound(): ptype + hc, both O(n^2)
+
+// GPU-resident sweep, step 5a. RNA_GPU_SWEEP=1 makes the sweep consume the
+// device results the kernels have been producing since steps 2-4, and skips
+// both the three per-row host loops and the six per-row transfers that exist
+// only to feed them (~364 GB a run at 400x5601).
+//
+// A GATE, not a demolition, and deliberately so: the host loops read the D2H'd
+// buffers, so deleting the copies outright would take RNA_ROW_VERIFY with them
+// -- leaving end-to-end fold output as the only check, which is strictly weaker
+// (it proves values right WHERE THEY ARE READ, not everywhere). With a gate, one
+// binary folds both ways and the two can be compared directly, which is the
+// same self-comparison that settled the host-threading question.
+//
+// Defaults OFF, so a caller that forgets gets today's behaviour. Cached: this
+// is read once, not 16803 times, and it must be CONSTANT for the run -- the
+// CUDA graph captures a different node topology in each mode, and a mode that
+// changed per row would force a reinstantiate every row.
+PUBLIC int
+rnafold_gpu_sweep(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_GPU_SWEEP");
+    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
+  }
+  return v;
+}
 double stage_prepare_s    = 0.0; //vrna_fold_compound_prepare()
 double stage_prefill_s    = 0.0; //par_fill_arrays()'s pre-sweep host matrix INF fill
 double stage_backtrack_s  = 0.0; //backtrack(), single- or multi-threaded

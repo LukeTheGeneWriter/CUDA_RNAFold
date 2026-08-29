@@ -850,7 +850,8 @@ fml_scan_i(const int nfiles, const int i, const int turn,
 
   static int verify = -1;
   if(verify < 0) verify = (getenv("RNA_ROW_VERIFY") != NULL);
-  if(!verify) return;
+  if(!verify || energy_min_host == NULL) return;  // device mode: no host result to compare
+
 
   static int   *mirror = NULL;
   static size_t mirror_cells = 0;
@@ -988,7 +989,8 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
 
   static int verify = -1;
   if(verify < 0) verify = (getenv("RNA_ROW_VERIFY") != NULL);
-  if(!verify) return;
+  if(!verify || new_C_host == NULL) return;  // device mode: no host result to compare
+
 
   static int   *mirror = NULL;
   static size_t mirror_cells = 0;
@@ -1116,7 +1118,8 @@ fml_prev_i(const int nfiles, const int i, const int turn,
   // Cached, not a getenv() per row: this runs 16803 times in a 400x5601 fold.
   static int verify = -1;
   if(verify < 0) verify = (getenv("RNA_ROW_VERIFY") != NULL);
-  if(!verify) return;
+  if(!verify || fml_prev_host == NULL) return;  // device mode: no host result to compare
+
 
   // ---- RNA_ROW_VERIFY: pull it back and compare against the host's array ----
   static int   *mirror = NULL;
@@ -1188,10 +1191,15 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   gpuErrchk( cudaPeekAtLastError() );
   gpuErrchk( cudaDeviceSynchronize() );
 
-  const size_t rowsize = g_row_total*sizeof(int);
-  gpuErrchk( cudaMemcpy(energy_hp_row,  d_energy_hp_row,  rowsize,cudaMemcpyDeviceToHost) );
-  gpuErrchk( cudaMemcpy(energy_mb_row,  d_energy_mb_row,  rowsize,cudaMemcpyDeviceToHost) );
-  gpuErrchk( cudaMemcpy(energy_3p00_row,d_energy_3p00_row,rowsize,cudaMemcpyDeviceToHost) );
-  gpuErrchk( cudaMemcpy(gate_row,       d_gate_row,       g_row_total*sizeof(char),cudaMemcpyDeviceToHost) );
-  gpuErrchk( cudaDeviceSynchronize() );
+  // GPU-resident sweep: in device mode new_c_kernel and fml_scan_kernel read
+  // all four of these in place. Four of the six per-row transfers, and the
+  // largest group of them.
+  if(!rnafold_gpu_sweep()) {
+    const size_t rowsize = g_row_total*sizeof(int);
+    gpuErrchk( cudaMemcpy(energy_hp_row,  d_energy_hp_row,  rowsize,cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(energy_mb_row,  d_energy_mb_row,  rowsize,cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(energy_3p00_row,d_energy_3p00_row,rowsize,cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(gate_row,       d_gate_row,       g_row_total*sizeof(char),cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaDeviceSynchronize() );
+  }
 }

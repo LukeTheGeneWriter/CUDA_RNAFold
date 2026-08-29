@@ -759,7 +759,14 @@ load_fML(const int nfiles,
   // stream ordering rule already guarantees init_fML_kernel (NULL stream) has
   // completed before any of this is issued.
   //for simplicity transfer all energy_min, even though only need H * [start:length]
-  int_MemcpyAsync(d_energy_min,energy_min, g_row_total, cudaMemcpyHostToDevice, graph_stream, __LINE__);
+  // GPU-resident sweep: in device mode fml_scan_kernel has already written
+  // d_energy_min, so this upload is the round trip being removed. Guarded
+  // INSIDE the capture region on purpose -- the mode is constant for the run,
+  // so exactly one topology is ever captured and the graph's cheap-update path
+  // is unaffected. Check the graph-stats line: the reinstantiate count must not
+  // climb.
+  if(!rnafold_gpu_sweep())
+    int_MemcpyAsync(d_energy_min,energy_min, g_row_total, cudaMemcpyHostToDevice, graph_stream, __LINE__);
   gpuErrchk( cudaMemcpyAsync(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice, graph_stream) );
 
   /* Setup execution parameters for helper kernel */
@@ -1092,7 +1099,11 @@ void modular_decomposition_cuda(const int nfiles,
   gpuErrchk( cudaPeekAtLastError() );
 
   //for effiency transfer all of DMLi rather that just those part that have been calculated
-  int_MemcpyAsync(DMLi,d_dml, g_row_total, cudaMemcpyDeviceToHost, graph_stream, __LINE__);
+  // GPU-resident sweep: DMLi's only readers were new_c_host (via DMLi1) and
+  // fml_prev_host, both skipped in device mode; new_c_kernel reads d_dml1 and
+  // fml_prev_kernel reads d_dml, both device-side.
+  if(!rnafold_gpu_sweep())
+    int_MemcpyAsync(DMLi,d_dml, g_row_total, cudaMemcpyDeviceToHost, graph_stream, __LINE__);
   // no sync here -- the one remaining sync happens once, after the whole
   // captured chain is launched, in the new orchestration function.
 

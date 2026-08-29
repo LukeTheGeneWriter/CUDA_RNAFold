@@ -348,6 +348,12 @@ double rnafold_now_seconds(void);
 // that packing measured 197.4 s of a 769 s Colab run, 25.7% of wall.
 extern int g_hc_seq_derived;
 
+// GPU-resident sweep, step 5a: non-zero when RNA_GPU_SWEEP selects the
+// device-resident path -- the three per-row host loops are skipped and the six
+// per-row transfers that fed them are not issued. Constant for the run (the
+// CUDA graph's captured topology differs between modes). Defaults off.
+PUBLIC int rnafold_gpu_sweep(void);
+
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
 #else
