@@ -141,6 +141,11 @@ static char*   d_up_ml_ok;
 // (length_H[H]-i-turn, reused verbatim from Phase 4's load_fML). Allocated
 // once per chunk, uploaded fresh each row by hp_mb_3p_i().
 static size_t* d_size_off_H;
+// Host shadow of what d_size_off_H currently holds, so a row's redundant
+// re-uploads can be skipped. See upload_size_off_H() below.
+static size_t* size_off_shadow   = NULL;
+static int     size_off_shadow_n = 0;
+static void    size_off_shadow_reset(void);  // defined below; called from init/teardown above it
 //NB: energy_hp needs no hard-constraint bitmask at all -- E_Hairpin() has no
 //hc dependency, and fill_arrays_loop.c's read site already gates on
 //hc_decompose/no_close identically to how fill_arrays.c used to gate the
@@ -332,6 +337,10 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // Staggered_Row_Batching Phase 5: allocated here, not populated here --
   // changes every sweep row i, uploaded fresh per-row by hp_mb_3p_i().
   TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  // This buffer is brand new and holds nothing. Drop the shadow so
+  // upload_size_off_H() cannot mistake it for already-current -- see the
+  // HAZARD note on that function.
+  size_off_shadow_reset();
 
   size = seq_off_H[nfiles]*sizeof(short);
   TIMED_CUDAMALLOC(&d_S2, size);
@@ -481,6 +490,7 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_hc2_off_H) );
   gpuErrchk( cudaFree(d_seq_off_H) );
   gpuErrchk( cudaFree(d_size_off_H) );
+  size_off_shadow_reset();   // the device buffer is gone; the shadow must not outlive it
   first3 = 1;
 }
 
@@ -741,6 +751,19 @@ hp_mb_3p_kernel(const int nfiles, const int i, const int turn, const int length,
 // block-uniform, so every __syncthreads() below is reached by the whole block
 // -- including the width==0 early return for a record that has not joined the
 // sweep yet.
+// Default tile width. TW is a template parameter rather than a bare constant
+// because it is BOTH the block size and the scan's tile width: it sizes the two
+// shared arrays and sets the Hillis-Steele depth, so it must stay a
+// compile-time constant and cannot be handed to rnafold_choose_block_size()'s
+// occupancy heuristic the way this file's other five launch shapes are.
+// RNA_FML_SCAN_THREADS overrides it; see fml_scan_tile() below.
+//
+// Changing TW regroups the scan but CANNOT change its result: the composition
+// (a,c) is exactly associative over int here -- tropical min/add with INF
+// absorbing, no floating point, and values bounded by ~1e7 (hazard 1's
+// unguarded fml_prev+en_i) or by length*|MLbase| with a non-default parameter
+// file, both far inside int32. So every width is bit-identical, and
+// RNA_ROW_VERIFY confirms it per cell rather than taking that on trust.
 #define FML_SCAN_THREADS 256
 
 // Tropical add: INF absorbs. Mirrors the host's `(x != INF && y != INF) ? x+y : INF`
@@ -750,6 +773,7 @@ __device__ __forceinline__ int fml_tadd(const int x, const int y) {
 }
 __device__ __forceinline__ int fml_tmin(const int x, const int y) { return (x < y) ? x : y; }
 
+template<int TW>
 __global__ void
 fml_scan_kernel(const int nfiles, const int i, const int turn,
                 const int*  __restrict__ new_e,      //in  d_new_e      == host new_C
@@ -771,13 +795,13 @@ fml_scan_kernel(const int nfiles, const int i, const int turn,
   const int MLbase = P->MLbase;
   const int en_i   = up_ml_ok[so + (size_t)i] ? MLbase : INF;
 
-  __shared__ int sa[FML_SCAN_THREADS];
-  __shared__ int sc[FML_SCAN_THREADS];
+  __shared__ int sa[TW];
+  __shared__ int sc[TW];
 
   int carry = INF;                        // E[j0-1], the host's `j == i+turn+1` special case
   const int t = threadIdx.x;
 
-  for(long long base = 0; base < width; base += FML_SCAN_THREADS) {
+  for(long long base = 0; base < width; base += TW) {
     const long long k = base + t;
     int a = INF, c = 0;                   // identity, for lanes past the end
     if(k < width) {
@@ -793,7 +817,7 @@ fml_scan_kernel(const int nfiles, const int i, const int turn,
 
     // Hillis-Steele inclusive scan over the composition above. Left operand is
     // the earlier segment (applied first), right the later one.
-    for(int d = 1; d < FML_SCAN_THREADS; d <<= 1) {
+    for(int d = 1; d < TW; d <<= 1) {
       int na = sa[t], nc = sc[t];
       if(t >= d) {
         na = fml_tmin(sa[t], fml_tadd(sa[t-d], sc[t]));
@@ -811,11 +835,89 @@ fml_scan_kernel(const int nfiles, const int i, const int turn,
     // Carry E across the tile boundary. Every thread reads the same lane, so
     // the new carry is block-uniform without a broadcast.
     const long long rem  = width - base;
-    const int       last = (int)((rem < FML_SCAN_THREADS) ? (rem - 1) : (FML_SCAN_THREADS - 1));
+    const int       last = (int)((rem < TW) ? (rem - 1) : (TW - 1));
     const int nextcarry  = fml_tmin(sa[last], fml_tadd(carry, sc[last]));
     __syncthreads();          // everyone has read sa/sc before the next tile overwrites them
     carry = nextcarry;
   }
+}
+
+// Upload size_off_H, but only when it differs from what the device already
+// holds.
+//
+// GPU-resident sweep, step 5b. Four functions in this file upload this table
+// before their launch -- hp_mb_3p_i, new_c_i, fml_scan_i, fml_prev_i -- and all
+// four run in the SAME sweep row with the SAME table into the SAME buffer, so
+// three of the four are pure duplication. That matters because cudaMemcpy H2D
+// is BLOCKING and stream-ordered: each one is a sync point in its own right, so
+// leaving them in place would make dropping the cudaDeviceSynchronize() calls
+// worth almost nothing.
+//
+// Compared by CONTENT rather than by call order or a row counter. Call-order
+// coupling ("only the first caller uploads") would break silently into wrong
+// indices if the row body were ever reordered; content comparison cannot. The
+// table genuinely changes every row (widths are length_H[H]-i-turn), so this
+// skips only the within-row duplicates, never a required upload.
+//
+// HAZARD, and the reason for size_off_shadow_reset(): d_size_off_H is freed and
+// re-cudaMalloc'd per chunk. Without an explicit reset, a fresh chunk whose
+// first table happened to equal the previous chunk's last one would skip the
+// upload and leave the new buffer UNINITIALISED -- garbage offsets, wrong
+// answers, no crash. init_gpu3() calls the reset for exactly that reason.
+static void
+size_off_shadow_reset(void) {
+  free(size_off_shadow);
+  size_off_shadow   = NULL;
+  size_off_shadow_n = 0;
+}
+
+static void
+upload_size_off_H(const int nfiles, const size_t* size_off_H) {
+  const int    n     = nfiles + 1;
+  const size_t bytes = (size_t)n * sizeof(size_t);
+
+  if(size_off_shadow_n != n) {              // first row of a chunk, or width changed
+    free(size_off_shadow);
+    size_off_shadow   = (size_t*)malloc(bytes);
+    size_off_shadow_n = size_off_shadow ? n : 0;
+  } else if(size_off_shadow && memcmp(size_off_shadow, size_off_H, bytes) == 0) {
+    return;                                 // device already holds exactly this
+  }
+
+  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, bytes, cudaMemcpyHostToDevice) );
+  if(size_off_shadow) memcpy(size_off_shadow, size_off_H, bytes);
+}
+
+// Tile width for fml_scan_kernel, chosen once. Cached because fml_scan_i runs
+// once per sweep row -- 16803 times in a 400x5601 fold -- and a getenv() per
+// row would be pure waste.
+//
+// 256 was a guess when the scan was written, never measured. This makes it
+// sweepable without a rebuild. It deliberately does NOT go through
+// rnafold_choose_block_size(): that hands back whatever the occupancy heuristic
+// prefers, but TW here is also the scan's tile width, so it must be one of the
+// instantiated compile-time constants -- hence an explicit allow-list, and an
+// invalid value warns and falls back rather than silently picking something
+// that was never instantiated.
+static int
+fml_scan_tile(void) {
+  static int v = -1;
+  if(v < 0) {
+    v = FML_SCAN_THREADS;
+    const char* e = getenv("RNA_FML_SCAN_THREADS");
+    if(e && *e) {
+      const int want = atoi(e);
+      if(want==32 || want==64 || want==128 || want==256 || want==512 || want==1024) {
+        v = want;
+        fprintf(stderr,"%-24s RNA_FML_SCAN_THREADS=%d overriding the default %d\n",
+                __FILE__, want, FML_SCAN_THREADS);
+      } else {
+        fprintf(stderr,"%-24s ignoring RNA_FML_SCAN_THREADS=%s "
+                "(want one of 32/64/128/256/512/1024)\n", __FILE__, e);
+      }
+    }
+  }
+  return v;
 }
 
 // Launches fml_scan_kernel and, under RNA_ROW_VERIFY, checks it against the
@@ -837,16 +939,33 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   int* d_fml_prev_ = NULL; int* d_energy_min_ = NULL;
   md_row_buffers(NULL, NULL, &d_fml_prev_, &d_energy_min_);
 
-  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
 
   // One block per record, not a flat grid: the scan carries state along j, so a
   // record's row has to stay inside one block.
-  fml_scan_kernel<<<nfiles,FML_SCAN_THREADS>>>(nfiles, i, turn,
-                                               d_new_e_, d_energy_3p00_row, d_fml_prev_,
-                                               d_up_ml_ok, d_param2, d_energy_min_,
-                                               d_row_off_H, d_seq_off_H, d_size_off_H);
+  //
+  // Dispatched on a runtime tile width rather than launched at a fixed one.
+  // The instantiate-a-few-and-switch shape follows int_loop_kernel's 32/64/
+  // 128/256 precedent, and the env override follows RNA_MD_TILE's.
+#define FML_SCAN_LAUNCH(TW) \
+  fml_scan_kernel<TW><<<nfiles,TW>>>(nfiles, i, turn, \
+                                     d_new_e_, d_energy_3p00_row, d_fml_prev_, \
+                                     d_up_ml_ok, d_param2, d_energy_min_, \
+                                     d_row_off_H, d_seq_off_H, d_size_off_H)
+  switch(fml_scan_tile()) {
+    case   32: FML_SCAN_LAUNCH(  32); break;
+    case   64: FML_SCAN_LAUNCH(  64); break;
+    case  128: FML_SCAN_LAUNCH( 128); break;
+    case  512: FML_SCAN_LAUNCH( 512); break;
+    case 1024: FML_SCAN_LAUNCH(1024); break;
+    default:   FML_SCAN_LAUNCH(FML_SCAN_THREADS); break;
+  }
+#undef FML_SCAN_LAUNCH
   gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
+  // Step 5b: pointless once the D2H is gone; stream order already covers it.
+  // Full rationale on rnafold_gpu_sweep() in stub2.h.
+  if(!rnafold_gpu_sweep())
+    gpuErrchk( cudaDeviceSynchronize() );
 
   static int verify = -1;
   if(verify < 0) verify = (getenv("RNA_ROW_VERIFY") != NULL);
@@ -977,7 +1096,7 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
     fprintf(stderr,"%-24s new_c_kernel block size %d\n", __FILE__, block_size);
   }
 
-  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
 
   const size_t nblocks = (total + block_size - 1)/block_size;
   new_c_kernel<<<(int)nblocks,block_size>>>(nfiles, i, turn, noGUclosure,
@@ -985,7 +1104,10 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
                                             d_gate_row, d_dml1_, d_new_e_,
                                             d_row_off_H, d_size_off_H, total);
   gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
+  // Step 5b: pointless once the D2H is gone; stream order already covers it.
+  // Full rationale on rnafold_gpu_sweep() in stub2.h.
+  if(!rnafold_gpu_sweep())
+    gpuErrchk( cudaDeviceSynchronize() );
 
   static int verify = -1;
   if(verify < 0) verify = (getenv("RNA_ROW_VERIFY") != NULL);
@@ -1106,14 +1228,17 @@ fml_prev_i(const int nfiles, const int i, const int turn,
     fprintf(stderr,"%-24s fml_prev_kernel block size %d\n", __FILE__, block_size);
   }
 
-  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
 
   const size_t nblocks = (total + block_size - 1)/block_size;
   fml_prev_kernel<<<(int)nblocks,block_size>>>(nfiles, i, turn,
                                                d_energy_min_, d_dml_, d_fml_prev_,
                                                d_row_off_H, d_size_off_H, total);
   gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
+  // Step 5b: pointless once the D2H is gone; stream order already covers it.
+  // Full rationale on rnafold_gpu_sweep() in stub2.h.
+  if(!rnafold_gpu_sweep())
+    gpuErrchk( cudaDeviceSynchronize() );
 
   // Cached, not a getenv() per row: this runs 16803 times in a 400x5601 fold.
   static int verify = -1;
@@ -1177,7 +1302,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
 	    __FILE__, block_size, BLOCK_SIZE);
   }
 
-  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
 
   const int nblocks = (total + block_size - 1)/block_size;
   hp_mb_3p_kernel<<<nblocks,block_size>>>(nfiles, i, turn, length,
@@ -1189,7 +1314,10 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
                                           d_row_off_H, d_hc2_off_H, d_seq_off_H,
                                           d_size_off_H, total);
   gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
+  // Step 5b: pointless once the D2H is gone; stream order already covers it.
+  // Full rationale on rnafold_gpu_sweep() in stub2.h.
+  if(!rnafold_gpu_sweep())
+    gpuErrchk( cudaDeviceSynchronize() );
 
   // GPU-resident sweep: in device mode new_c_kernel and fml_scan_kernel read
   // all four of these in place. Four of the six per-row transfers, and the

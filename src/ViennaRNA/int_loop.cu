@@ -143,6 +143,15 @@ static size_t*       d_hc_off_H;
 // separate synchronous launches with no fixed relative ordering guarantee
 // worth depending on).
 static size_t*       d_size_off_H;
+// GPU-resident sweep, step 5b. The independence the comment above insists on is
+// preserved -- neither caller assumes the other ran -- but the second upload of
+// an identical table is now skipped, because cudaMemcpy H2D is BLOCKING and so
+// is a sync point in its own right. Compared by content, not by call order, so
+// no ordering guarantee is being depended on. See upload_size_off_H() below and
+// its HAZARD note about the per-chunk reallocation.
+static size_t*       size_off_shadow   = NULL;
+static int           size_off_shadow_n = 0;
+static void          size_off_shadow_reset(void);  // defined below; called from init/teardown above it
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
@@ -319,6 +328,8 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // chunk), not populated here -- this changes every sweep row i, uploaded
   // fresh per-row by int_loop_cuda()/load_my_c() instead.
   TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  // Fresh buffer, holds nothing -- the shadow must not claim it is current.
+  size_off_shadow_reset();
 
   size_t size = hc_off_H[nfiles]*sizeof(unsigned int);
   TIMED_CUDAMALLOC(&d_hccc, size);
@@ -444,6 +455,7 @@ teardown_gpu2(void) {
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_hc_off_H) );
   gpuErrchk( cudaFree(d_size_off_H) );
+  size_off_shadow_reset();   // the device buffer is gone; the shadow must not outlive it
   first2 = 1;
 }
 
@@ -516,6 +528,42 @@ int_loop_row_buffers(int** energy_min2_out, int** new_e_out) {
   if(new_e_out)       *new_e_out       = d_new_e;
 }
 
+// Upload size_off_H only when it differs from what the device already holds.
+// Twin of hp_mb_loop.cu's function of the same name (own copy, per this
+// codebase's file-ownership convention); see that one for the full rationale.
+// Short version: both int_loop_cuda() and load_my_c() upload this table in the
+// same sweep row, with the same contents, into the same buffer, and each upload
+// is a BLOCKING cudaMemcpy -- a sync point that would defeat step 5b's removal
+// of the explicit cudaDeviceSynchronize() calls.
+//
+// HAZARD: d_size_off_H is re-cudaMalloc'd per chunk, so the shadow MUST be
+// dropped there (init_gpu2 / teardown_gpu2 both call the reset). Otherwise a
+// new chunk whose first table matched the previous chunk's last would skip the
+// upload into an uninitialised buffer -- wrong offsets, no crash.
+static void
+size_off_shadow_reset(void) {
+  free(size_off_shadow);
+  size_off_shadow   = NULL;
+  size_off_shadow_n = 0;
+}
+
+static void
+upload_size_off_H(const int nfiles, const size_t* size_off_H) {
+  const int    n     = nfiles + 1;
+  const size_t bytes = (size_t)n * sizeof(size_t);
+
+  if(size_off_shadow_n != n) {
+    free(size_off_shadow);
+    size_off_shadow   = (size_t*)malloc(bytes);
+    size_off_shadow_n = size_off_shadow ? n : 0;
+  } else if(size_off_shadow && memcmp(size_off_shadow, size_off_H, bytes) == 0) {
+    return;
+  }
+
+  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, bytes, cudaMemcpyHostToDevice) );
+  if(size_off_shadow) memcpy(size_off_shadow, size_off_H, bytes);
+}
+
 //perhaps this can be combined with other kernels?
 __global__ void
 load_my_c_kernel(const int nfiles, const int i, /*const int turn,*/ const int length,
@@ -560,7 +608,7 @@ load_my_c(const int nfiles,
   // being removed.
   if(!rnafold_gpu_sweep())
     gpuErrchk( cudaMemcpy(d_new_e,new_e,g_row_total*sizeof(int),cudaMemcpyHostToDevice) );
-  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-upload
 
 
   /* Setup execution parameters for helper kernel */
@@ -584,7 +632,10 @@ load_my_c(const int nfiles,
 					   d_row_off_H,  //in
 					   d_size_off_H, total);
   gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
+  // Step 5b: pointless once the D2H is gone; stream order already covers it.
+  // Full rationale on rnafold_gpu_sweep() in stub2.h.
+  if(!rnafold_gpu_sweep())
+    gpuErrchk( cudaDeviceSynchronize() );
 }
 
 // Unpack one base (0..4) from d_S's ten-per-word, H-fastest packing -- see
@@ -901,7 +952,7 @@ int_loop_cuda(const int nfiles,
   const size_t flat_nblocks = size_off_H[nfiles];
   if(flat_nblocks==0) return;
 
-  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-upload
 
   dim3 blocks((unsigned int)flat_nblocks);
 
@@ -984,7 +1035,10 @@ int_loop_cuda(const int nfiles,
   }
 
   gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
+  // Step 5b: pointless once the D2H is gone; stream order already covers it.
+  // Full rationale on rnafold_gpu_sweep() in stub2.h.
+  if(!rnafold_gpu_sweep())
+    gpuErrchk( cudaDeviceSynchronize() );
   //printf("int_loop_kernel<<<%d.%d,%d>>>(i=%d...) ok\n",blocks.x,blocks.y,block_size,i);
 
   // GPU-resident sweep: in device mode new_c_kernel reads d_energy_min2 in

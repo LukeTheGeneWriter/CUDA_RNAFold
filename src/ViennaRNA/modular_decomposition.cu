@@ -1364,5 +1364,16 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   //the one sync that remains: also the only point where a real runtime/data
   //error from the replayed graph (bad address, illegal access, device-side
   //assert()) becomes observable, since a graph gives no per-node attribution
+  //
+  //DELIBERATELY NOT GATED by step 5b, unlike the six per-row syncs in
+  //int_loop.cu/hp_mb_loop.cu. Those were made redundant by stream ordering and
+  //bought real run-ahead; this one is the graph's only error checkpoint, and
+  //dropping it would push a graph fault out to some later row with nothing to
+  //attribute it to. It also buys little: a row still contains two blocking
+  //pageable H2Ds (upload_size_off_H in each file), and a pageable H2D
+  //stream-syncs before it copies, so the host cannot run far ahead regardless.
+  //Making those async -- which needs persistent PINNED host tables, per this
+  //file's standing capture-region hazard -- is what would unlock true
+  //back-to-back queueing, and it is not part of 5b.
   gpuErrchk( cudaStreamSynchronize(graph_stream) );
 }

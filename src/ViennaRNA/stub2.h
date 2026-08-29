@@ -352,6 +352,25 @@ extern int g_hc_seq_derived;
 // device-resident path -- the three per-row host loops are skipped and the six
 // per-row transfers that fed them are not issued. Constant for the run (the
 // CUDA graph's captured topology differs between modes). Defaults off.
+//
+// STEP 5b, and why dropping the per-row syncs under this flag is safe. Each
+// per-row cudaDeviceSynchronize() existed to make the D2H that followed it
+// safe. In device mode there is no D2H, and device-side ordering does not
+// depend on those syncs at all:
+//   - every per-row kernel launches on the legacy NULL stream;
+//   - graph_stream is created with a plain cudaStreamCreate(), i.e. a BLOCKING
+//     stream, so NULL-stream work and graph_stream work are implicitly ordered
+//     in both directions;
+//   - the build passes no --default-stream per-thread, so those legacy
+//     semantics genuinely apply (checked, not assumed).
+// So load_my_c_kernel still sees new_c_kernel's d_new_e, the graph trio still
+// sees fml_scan_kernel's d_energy_min, and md_snapshot_dml() still runs after
+// the trio -- by stream order rather than by host round trip.
+//
+// Errors are still caught: cudaPeekAtLastError() after each launch catches
+// launch failures immediately, and the row's remaining blocking copies force
+// execution failures (including the .cu files' live device asserts) to surface
+// within the same row -- later than before, but not silently.
 PUBLIC int rnafold_gpu_sweep(void);
 
 #ifdef __cplusplus
