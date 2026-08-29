@@ -32,6 +32,13 @@
     // host loop in this row body has to bound itself by its OWN H's length and
     // skip H entirely on rows above it -- HAS_JOINED() below. The shared bound
     // would spill past a short H's row into the next H's.
+    // GPU-resident sweep (RNA_GPU_SWEEP): in device mode nothing on the host
+    // reads energy_min this row -- the three host loops below are skipped and
+    // int_loop_i's D2H into it is gated off -- and int_loop_kernel writes every
+    // cell it later reads unconditionally (store is outside all conditionals,
+    // grid range == read range), so the reset is dead. See the plan's
+    // "no INF fill needed in device mode".
+    if(!rnafold_gpu_sweep())
     for (int H=0;H<nfiles; H++) {
     if(!HAS_JOINED(H)) continue;
     for (j = i+turn+1; j <= (int)VC[H]->length; j++) energy_min[row_off_H[H]+j] = INF;
@@ -73,6 +80,10 @@
 
     //could pack new_C more tightly for load_my_c_kernel but expect modest savings
     const double new_c_host_t0 = now_seconds();
+    // GPU-resident sweep (RNA_GPU_SWEEP): new_c_kernel (new_c_i, below) already
+    // wrote d_new_e directly from device buffers, and load_my_c's H2D of new_C
+    // over it is gated off, so this loop has no consumer in device mode.
+    if(!rnafold_gpu_sweep())
     for (int H=0;H<nfiles; H++) {
     if(!HAS_JOINED(H)) continue; // Phase 6d
     for (j = i+turn+1; j <= (int)VC[H]->length; j++) {
@@ -147,7 +158,9 @@
     // (so RNA_ROW_VERIFY has something to compare) and load_my_c (which uploads
     // the host's new_C over d_new_e, so the readback must precede it and the
     // sweep still consumes the host's values either way).
-    new_c_i(nfiles, i, turn, noGUclosure, new_C, row_off_H, size_off_H);
+    new_c_i(nfiles, i, turn, noGUclosure,
+            rnafold_gpu_sweep() ? NULL : new_C,  // no host result to verify against in device mode
+            row_off_H, size_off_H);
 
     {
       const double t0 = now_seconds();
@@ -156,6 +169,11 @@
     }
 
     const double fml_host_t0 = now_seconds();
+    // GPU-resident sweep (RNA_GPU_SWEEP): fml_scan_kernel (fml_scan_i, below)
+    // already wrote d_energy_min with this recurrence, and the graph trio's H2D
+    // of energy_min over it is gated off, so this loop has no consumer in
+    // device mode.
+    if(!rnafold_gpu_sweep())
     for (int H=0;H<nfiles; H++) {
     // Phase 6d: must precede the en_i computation below, not just guard the
     // j-loop -- VC[H]->hc->up_ml[i] reads past a not-yet-joined H's array.
@@ -245,7 +263,9 @@
     // RNA_ROW_VERIFY has something to compare) and the graph trio below, which
     // uploads the host's energy_min over d_energy_min -- so the readback must
     // precede it and the sweep still consumes the host's values either way.
-    fml_scan_i(nfiles, i, turn, energy_min, row_off_H, size_off_H);
+    fml_scan_i(nfiles, i, turn,
+               rnafold_gpu_sweep() ? NULL : energy_min,  // no host result to verify against in device mode
+               row_off_H, size_off_H);
 
     //load_fML + modular_decomposition_i + load_min_fML fused into one CUDA
     //graph capture/replay (no host CPU logic runs between these three calls,
@@ -281,6 +301,10 @@
     // fml_i1_j read one row later. Same arithmetic, contiguous destination
     // instead of a strided one -- which is what the cost was.
     const double fml_prev_host_t0 = now_seconds();
+    // GPU-resident sweep (RNA_GPU_SWEEP): fml_prev_kernel (fml_prev_i, below)
+    // already wrote d_fml_prev, and DMLi's D2H is gated off, so this loop has
+    // no consumer in device mode.
+    if(!rnafold_gpu_sweep())
     for (int H=0;H<nfiles; H++) {
       if(!HAS_JOINED(H)) continue;
       // The cell one below this row's first, (i, i+turn), is inside the
@@ -299,7 +323,9 @@
     // this loop should never have been on the host. Runs AFTER the host loop so
     // RNA_ROW_VERIFY has something to compare against; nothing reads d_fml_prev
     // yet, so the sweep's behaviour is unchanged either way.
-    fml_prev_i(nfiles, i, turn, fml_prev, row_off_H, size_off_H);
+    fml_prev_i(nfiles, i, turn,
+               rnafold_gpu_sweep() ? NULL : fml_prev,  // no host result to verify against in device mode
+               row_off_H, size_off_H);
 
     // GPU-resident sweep, step 1: the device twin of the DMLi1 rotation below.
     // Publishes row i's DMLi as "the previous row's" for row i-1, which is what
