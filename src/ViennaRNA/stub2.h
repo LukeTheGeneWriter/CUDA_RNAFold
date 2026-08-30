@@ -217,7 +217,8 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
 	   const int i, const int turn, const int length,
 	   int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row, //all out
 	   char* gate_row, //out -- bit0 = hc->matrix[ij]!=0, bit1 = ptype[ij] is GU/UG
-	   const size_t* size_off_H); //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	   const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+           const int* i_H); //in, nfiles entries -- continuous flow phase A, per-record row index
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -439,7 +440,8 @@ PUBLIC void
 #endif
 fml_prev_i(const int nfiles, const int i, const int turn,
            const int* fml_prev_host,
-           const size_t* row_off_H, const size_t* size_off_H);
+           const size_t* row_off_H, const size_t* size_off_H,
+           const int* i_H); //in, nfiles entries -- continuous flow phase A, per-record row index
 
 // GPU-resident sweep, step 3: the device twin of new_c_host, the largest of the
 // three per-row host loops. Elementwise, no recurrence over j.
@@ -457,7 +459,8 @@ PUBLIC void
 #endif
 new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
         const int* new_C_host,
-        const size_t* row_off_H, const size_t* size_off_H);
+        const size_t* row_off_H, const size_t* size_off_H,
+           const int* i_H); //in, nfiles entries -- continuous flow phase A, per-record row index
 
 // GPU-resident sweep, step 4: the device twin of fml_host -- the one loop of
 // the three that is a recurrence along j rather than elementwise. Implemented
@@ -476,7 +479,8 @@ PUBLIC void
 #endif
 fml_scan_i(const int nfiles, const int i, const int turn,
            const int* energy_min_host,
-           const size_t* row_off_H, const size_t* size_off_H);
+           const size_t* row_off_H, const size_t* size_off_H,
+           const int* i_H); //in, nfiles entries -- continuous flow phase A, per-record row index
 
 // gpuinit attribution (mfe_cuda.c). See there for why.
 #ifdef __cplusplus

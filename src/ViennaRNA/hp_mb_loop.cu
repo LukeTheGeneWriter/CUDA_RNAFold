@@ -141,6 +141,13 @@ static char*   d_up_ml_ok;
 // (length_H[H]-i-turn, reused verbatim from Phase 4's load_fML). Allocated
 // once per chunk, uploaded fresh each row by hp_mb_3p_i().
 static size_t* d_size_off_H;
+// Continuous flow, PHASE A: this row's PER-RECORD row index. Every entry
+// equals the old shared scalar i today, which is what makes phase A
+// behaviour-neutral; the assert in each kernel checks that at runtime.
+static int*    d_i_H;
+static int*    i_H_shadow   = NULL;
+static int     i_H_shadow_n = 0;
+static void    i_H_shadow_reset(void);   // defined below; called from init/teardown above it
 // Host shadow of what d_size_off_H currently holds, so a row's redundant
 // re-uploads can be skipped. See upload_size_off_H() below.
 static size_t* size_off_shadow   = NULL;
@@ -342,6 +349,9 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // HAZARD note on that function.
   size_off_shadow_reset();
 
+  TIMED_CUDAMALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
+  i_H_shadow_reset();          // fresh buffer: same hazard as size_off, same fix
+
   size = seq_off_H[nfiles]*sizeof(short);
   TIMED_CUDAMALLOC(&d_S2, size);
   short* Sbuff = (short*) malloc(size);
@@ -491,6 +501,8 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_seq_off_H) );
   gpuErrchk( cudaFree(d_size_off_H) );
   size_off_shadow_reset();   // the device buffer is gone; the shadow must not outlive it
+  gpuErrchk( cudaFree(d_i_H) );
+  i_H_shadow_reset();
   first3 = 1;
 }
 
@@ -606,7 +618,7 @@ E_MLstem_device(const int type, const int si1, const int sj1, const cuda_param2_
 }
 
 __global__ void
-hp_mb_3p_kernel(const int nfiles, const int i, const int turn, const int length,
+hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int length,
                  const short* __restrict__ S,
                  const char*  __restrict__ seq,
                  const char*  __restrict__ pair,
@@ -622,10 +634,17 @@ hp_mb_3p_kernel(const int nfiles, const int i, const int turn, const int length,
                  const size_t* __restrict__ row_off_H,
                  const size_t* __restrict__ hc2_off_H,
                  const size_t* __restrict__ seq_off_H,
-                 const size_t* __restrict__ size_off_H, const size_t total) {
+                 const size_t* __restrict__ size_off_H, const size_t total,
+                const int* __restrict__ i_H) {
   const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
+  // i_row today, and the assert proves that at RUNTIME rather than by
+  // argument -- .cu files never see -DNDEBUG, so a table that ever
+  // disagrees traps instead of folding silently wrong.
+  const int i = i_H[H];
+  assert(i == i_row);
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int j = mj + i+turn+1;
 
@@ -775,7 +794,7 @@ __device__ __forceinline__ int fml_tmin(const int x, const int y) { return (x < 
 
 template<int TW>
 __global__ void
-fml_scan_kernel(const int nfiles, const int i, const int turn,
+fml_scan_kernel(const int nfiles, const int i_row, const int turn,
                 const int*  __restrict__ new_e,      //in  d_new_e      == host new_C
                 const int*  __restrict__ e3p00,      //in  d_energy_3p00_row
                 const int*  __restrict__ fml_prev,   //in  d_fml_prev   (previous row)
@@ -784,9 +803,16 @@ fml_scan_kernel(const int nfiles, const int i, const int turn,
                       int*  __restrict__ energy_min, //out d_energy_min
                 const size_t* __restrict__ row_off_H,
                 const size_t* __restrict__ seq_off_H,
-                const size_t* __restrict__ size_off_H) {
+                const size_t* __restrict__ size_off_H,
+                const int* __restrict__ i_H) {
   const int H = blockIdx.x;
   if(H >= nfiles) return;
+  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
+  // i_row today, and the assert proves that at RUNTIME rather than by
+  // argument -- .cu files never see -DNDEBUG, so a table that ever
+  // disagrees traps instead of folding silently wrong.
+  const int i = i_H[H];
+  assert(i == i_row);
   const long long width = (long long)size_off_H[H+1] - (long long)size_off_H[H];
   if(width <= 0) return;                  // has not joined the sweep -- whole block returns
   const size_t o  = row_off_H[H];
@@ -864,6 +890,29 @@ fml_scan_kernel(const int nfiles, const int i, const int turn,
 // first table happened to equal the previous chunk's last one would skip the
 // upload and leave the new buffer UNINITIALISED -- garbage offsets, wrong
 // answers, no crash. init_gpu3() calls the reset for exactly that reason.
+// Twin of upload_size_off_H() for the per-record row index: same content
+// comparison, same per-chunk reallocation hazard, same fix.
+static void
+i_H_shadow_reset(void) {
+  free(i_H_shadow);
+  i_H_shadow   = NULL;
+  i_H_shadow_n = 0;
+}
+
+static void
+upload_i_H(const int nfiles, const int* i_H) {
+  const size_t bytes = (size_t)nfiles * sizeof(int);
+  if(i_H_shadow_n != nfiles) {
+    free(i_H_shadow);
+    i_H_shadow   = (int*)malloc(bytes);
+    i_H_shadow_n = i_H_shadow ? nfiles : 0;
+  } else if(i_H_shadow && memcmp(i_H_shadow, i_H, bytes) == 0) {
+    return;
+  }
+  gpuErrchk( cudaMemcpy(d_i_H, i_H, bytes, cudaMemcpyHostToDevice) );
+  if(i_H_shadow) memcpy(i_H_shadow, i_H, bytes);
+}
+
 static void
 size_off_shadow_reset(void) {
   free(size_off_shadow);
@@ -931,7 +980,8 @@ PUBLIC void
 fml_scan_i(const int nfiles, const int i, const int turn,
            const int* energy_min_host,            //in, host's own result (verify only)
            const size_t* row_off_H,               //in, nfiles+1
-           const size_t* size_off_H) {            //in, nfiles+1
+           const size_t* size_off_H,
+           const int* i_H) {            //in, nfiles+1
   if(size_off_H[nfiles]==0) return;
 
   int* d_new_e_ = NULL;
@@ -940,6 +990,7 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   md_row_buffers(NULL, NULL, &d_fml_prev_, &d_energy_min_);
 
   upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
+  upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   // One block per record, not a flat grid: the scan carries state along j, so a
   // record's row has to stay inside one block.
@@ -951,7 +1002,7 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   fml_scan_kernel<TW><<<nfiles,TW>>>(nfiles, i, turn, \
                                      d_new_e_, d_energy_3p00_row, d_fml_prev_, \
                                      d_up_ml_ok, d_param2, d_energy_min_, \
-                                     d_row_off_H, d_seq_off_H, d_size_off_H)
+                                     d_row_off_H, d_seq_off_H, d_size_off_H, d_i_H)
   switch(fml_scan_tile()) {
     case   32: FML_SCAN_LAUNCH(  32); break;
     case   64: FML_SCAN_LAUNCH(  64); break;
@@ -1037,7 +1088,7 @@ fml_scan_i(const int nfiles, const int i, const int turn,
 // same reason; RNA_ROW_VERIFY covers it because the comparison starts at the
 // first j, not the second.
 __global__ void
-new_c_kernel(const int nfiles, const int i, const int turn, const int noGUclosure,
+new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUclosure,
              const int*  __restrict__ energy_min2,    //in  d_energy_min2
              const int*  __restrict__ energy_hp_row,  //in
              const int*  __restrict__ energy_mb_row,  //in
@@ -1045,10 +1096,17 @@ new_c_kernel(const int nfiles, const int i, const int turn, const int noGUclosur
              const int*  __restrict__ dml1,           //in  d_dml1
                    int*  __restrict__ new_e,          //out d_new_e
              const size_t* __restrict__ row_off_H,    //in
-             const size_t* __restrict__ size_off_H, const size_t total) { //in
+             const size_t* __restrict__ size_off_H, const size_t total,
+                const int* __restrict__ i_H) { //in
   const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
+  // i_row today, and the assert proves that at RUNTIME rather than by
+  // argument -- .cu files never see -DNDEBUG, so a table that ever
+  // disagrees traps instead of folding silently wrong.
+  const int i = i_H[H];
+  assert(i == i_row);
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int j = mj + i+turn+1;
   const size_t o = row_off_H[H];
@@ -1081,7 +1139,8 @@ PUBLIC void
 new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
         const int* new_C_host,                 //in, host's own result (verify only)
         const size_t* row_off_H,               //in, nfiles+1
-        const size_t* size_off_H) {            //in, nfiles+1
+        const size_t* size_off_H,
+           const int* i_H) {            //in, nfiles+1
   const size_t total = size_off_H[nfiles];
   if(total==0) return;
 
@@ -1097,12 +1156,13 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
   }
 
   upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
+  upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   const size_t nblocks = (total + block_size - 1)/block_size;
   new_c_kernel<<<(int)nblocks,block_size>>>(nfiles, i, turn, noGUclosure,
                                             d_energy_min2_, d_energy_hp_row, d_energy_mb_row,
                                             d_gate_row, d_dml1_, d_new_e_,
-                                            d_row_off_H, d_size_off_H, total);
+                                            d_row_off_H, d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
@@ -1176,15 +1236,22 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
 // once per joined H; here the k==0 thread does it, which is the same set of
 // records for the same reason (a record with width>=1 has joined).
 __global__ void
-fml_prev_kernel(const int nfiles, const int i, const int turn,
+fml_prev_kernel(const int nfiles, const int i_row, const int turn,
                 const int* __restrict__ energy_min,   //in  d_energy_min
                 const int* __restrict__ dml,          //in  d_dml
                       int* __restrict__ fml_prev,     //out d_fml_prev
                 const size_t* __restrict__ row_off_H, //in
-                const size_t* __restrict__ size_off_H, const size_t total) { //in
+                const size_t* __restrict__ size_off_H, const size_t total,
+                const int* __restrict__ i_H) { //in
   const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
+  // i_row today, and the assert proves that at RUNTIME rather than by
+  // argument -- .cu files never see -DNDEBUG, so a table that ever
+  // disagrees traps instead of folding silently wrong.
+  const int i = i_H[H];
+  assert(i == i_row);
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int j = mj + i+turn+1;
   const size_t o = row_off_H[H];
@@ -1215,7 +1282,8 @@ PUBLIC void
 fml_prev_i(const int nfiles, const int i, const int turn,
            const int* fml_prev_host,              //in, host's own result (verify only)
            const size_t* row_off_H,               //in, nfiles+1
-           const size_t* size_off_H) {            //in, nfiles+1
+           const size_t* size_off_H,
+           const int* i_H) {            //in, nfiles+1
   const size_t total = size_off_H[nfiles];
   if(total==0) return;
 
@@ -1229,11 +1297,12 @@ fml_prev_i(const int nfiles, const int i, const int turn,
   }
 
   upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
+  upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   const size_t nblocks = (total + block_size - 1)/block_size;
   fml_prev_kernel<<<(int)nblocks,block_size>>>(nfiles, i, turn,
                                                d_energy_min_, d_dml_, d_fml_prev_,
-                                               d_row_off_H, d_size_off_H, total);
+                                               d_row_off_H, d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
@@ -1283,7 +1352,8 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
            const int i, const int turn, const int length,
            int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row, //all out, size nfiles*(length+1)
            char* gate_row, //out, same shape but one byte per cell
-           const size_t* size_off_H) { //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+           const size_t* size_off_H,
+           const int* i_H) { //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
   const size_t total = size_off_H[nfiles];
   //total==0 is unreachable for the i range fill_arrays_loop.c's main loop
   //actually uses (start=i+turn+1 <= length always holds there) -- same dead
@@ -1303,6 +1373,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   }
 
   upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
+  upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   const int nblocks = (total + block_size - 1)/block_size;
   hp_mb_3p_kernel<<<nblocks,block_size>>>(nfiles, i, turn, length,
@@ -1312,7 +1383,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
                                           d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row,
                                           d_gate_row,
                                           d_row_off_H, d_hc2_off_H, d_seq_off_H,
-                                          d_size_off_H, total);
+                                          d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.

@@ -59,6 +59,15 @@
       compute_flatten_offsets(nfiles, size_H, size_off_H);
     }
 
+    // Continuous flow, PHASE A: the per-record row index. Every entry is the
+    // shared i today, so the kernels are unchanged in effect -- phase A exists
+    // to move the row index onto a per-record table WITHOUT changing behaviour,
+    // so that phase B can let records retire at their own rows. The kernels
+    // assert(i_H[H] == i_row), which turns any future divergence into a trap
+    // rather than a silently wrong fold.
+    int i_H[nfiles];
+    for(int H=0;H<nfiles;H++) i_H[H] = i;
+
     {
       const double t0 = now_seconds();
       int_loop_i(nfiles,VC,i,turn,length,/*indx,ijsize,
@@ -74,7 +83,7 @@
     //energy_min/int_loop_i above.
     {
       const double t0 = now_seconds();
-      hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row,gate_row,size_off_H);
+      hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row,gate_row,size_off_H,i_H);
       phase_hp_mb_s += now_seconds() - t0;
     }
 
@@ -160,7 +169,7 @@
     // sweep still consumes the host's values either way).
     new_c_i(nfiles, i, turn, noGUclosure,
             rnafold_gpu_sweep() ? NULL : new_C,  // no host result to verify against in device mode
-            row_off_H, size_off_H);
+            row_off_H, size_off_H, i_H);
 
     {
       const double t0 = now_seconds();
@@ -265,7 +274,7 @@
     // precede it and the sweep still consumes the host's values either way.
     fml_scan_i(nfiles, i, turn,
                rnafold_gpu_sweep() ? NULL : energy_min,  // no host result to verify against in device mode
-               row_off_H, size_off_H);
+               row_off_H, size_off_H, i_H);
 
     //load_fML + modular_decomposition_i + load_min_fML fused into one CUDA
     //graph capture/replay (no host CPU logic runs between these three calls,
@@ -325,7 +334,7 @@
     // yet, so the sweep's behaviour is unchanged either way.
     fml_prev_i(nfiles, i, turn,
                rnafold_gpu_sweep() ? NULL : fml_prev,  // no host result to verify against in device mode
-               row_off_H, size_off_H);
+               row_off_H, size_off_H, i_H);
 
     // GPU-resident sweep, step 1: the device twin of the DMLi1 rotation below.
     // Publishes row i's DMLi as "the previous row's" for row i-1, which is what
