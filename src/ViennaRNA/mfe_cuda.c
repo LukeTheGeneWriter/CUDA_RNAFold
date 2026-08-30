@@ -106,7 +106,10 @@ double stage_build_s      = 0.0; //vrna_fold_compound(): ptype + hc, both O(n^2)
 // binary folds both ways and the two can be compared directly, which is the
 // same self-comparison that settled the host-threading question.
 //
-// Defaults OFF, so a caller that forgets gets today's behaviour. Cached: this
+// DEFAULTS ON as of 2026-08-30 (it was opt-in while it was being proven).
+// RNA_GPU_SWEEP=0 restores the host sweep; RNA_ROW_VERIFY implies it, since
+// the verify has nothing to compare against otherwise. Measured on Colab at
+// 400x5601: 464.8 -> 333.0 s, 1.396x, output byte-identical. Cached: this
 // is read once, not 16803 times, and it must be CONSTANT for the run -- the
 // CUDA graph captures a different node topology in each mode, and a mode that
 // changed per row would force a reinstantiate every row.
@@ -115,7 +118,22 @@ rnafold_gpu_sweep(void) {
   static int v = -1;
   if(v < 0) {
     const char *e = getenv("RNA_GPU_SWEEP");
-    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
+    if(e && e[0]) {
+      v = strcmp(e,"0") ? 1 : 0;          // explicit setting wins, either way
+    } else if(getenv("RNA_ROW_VERIFY")) {
+      // RNA_ROW_VERIFY checks the device kernels against the HOST loops -- and
+      // device mode is exactly the mode that does not run them. The verify
+      // functions would early-out on their NULL host pointers and print
+      // nothing, which reads identically to "verified clean". Default to the
+      // host sweep so the tool keeps working; an explicit RNA_GPU_SWEEP=1
+      // still overrides, above.
+      v = 0;
+      fprintf(stderr,"%-24s RNA_ROW_VERIFY is set: using the HOST sweep so there "
+                     "is something to verify against (set RNA_GPU_SWEEP "
+                     "explicitly to override)\n", __FILE__);
+    } else {
+      v = 1;                              // DEFAULT ON since 2026-08-30
+    }
   }
   return v;
 }
@@ -282,7 +300,8 @@ callback_backtrack(const vrna_fold_compound_t* vc,
  * pools don't oversubscribe cores when both are active at once, without
  * this file re-deriving RNA_CPU_THREADS' own parsing/disable-condition
  * logic.
- *   unset or "0" -> disabled, exactly the original serial loop.
+ *   "0"          -> disabled, exactly the original serial loop.
+ *   unset        -> "auto" (DEFAULT CHANGED 2026-08-30; was serial).
  *   "auto"       -> max(1, min(nfiles, hw_concurrency - cpu_queue_threads)).
  *   "<N>"        -> exactly N threads, capped at nfiles.
  */
@@ -294,15 +313,20 @@ backtrack_thread_count(const int nfiles, const int cpu_queue_threads) {
     env      = getenv("RNA_BACKTRACK_THREADS");
     env_read = 1;
   }
-  if(!env || !env[0] || !strcmp(env, "0")) return 1;
+  // DEFAULT CHANGED 2026-08-30: unset now means "auto", not serial. Measured on
+  // Colab (400x5601): serial-everything 573.2 s vs both pools auto 464.8 s, with
+  // every config byte-identical -- so the old default cost 1.23x for no
+  // correctness benefit. "0" still forces serial for anyone who wants it.
+  const char *v = (env && env[0]) ? env : "auto";
+  if(!strcmp(v, "0")) return 1;
 
   int n;
-  if(!strcmp(env, "auto")) {
+  if(!strcmp(v, "auto")) {
     long hw = sysconf(_SC_NPROCESSORS_ONLN);
     if(hw < 1) hw = 1;
     n = (int)hw - cpu_queue_threads;
   } else {
-    n = atoi(env);
+    n = atoi(v);
   }
   if(n < 1) n = 1;
   if(n > nfiles) n = nfiles;

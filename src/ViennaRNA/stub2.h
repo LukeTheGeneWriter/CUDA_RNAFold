@@ -351,7 +351,8 @@ extern int g_hc_seq_derived;
 // GPU-resident sweep, step 5a: non-zero when RNA_GPU_SWEEP selects the
 // device-resident path -- the three per-row host loops are skipped and the six
 // per-row transfers that fed them are not issued. Constant for the run (the
-// CUDA graph's captured topology differs between modes). Defaults off.
+// CUDA graph's captured topology differs between modes). DEFAULTS ON since
+// 2026-08-30; RNA_GPU_SWEEP=0 restores the host sweep.
 //
 // STEP 5b, and why dropping the per-row syncs under this flag is safe. Each
 // per-row cudaDeviceSynchronize() existed to make the D2H that followed it
