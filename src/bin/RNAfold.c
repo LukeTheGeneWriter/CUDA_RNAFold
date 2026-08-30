@@ -103,7 +103,8 @@ annotate_ud_motif(vrna_fold_compound_t *vc,
  * arrives here with VC[i] already non-NULL, so mixed chunks are fine.
  *
  * RNA_BUILD_THREADS mirrors RNA_BACKTRACK_THREADS' semantics deliberately:
- *   unset or "0" -> disabled, one thread, the original serial behaviour.
+ *   "0"          -> disabled, one thread, the original serial behaviour.
+ *   unset        -> "auto" (DEFAULT CHANGED 2026-08-30; was serial).
  *   "auto"       -> max(1, min(pending, hw_concurrency - cpu_queue_threads)).
  *   "<N>"        -> exactly N threads, capped at the pending record count.
  * Subtracting the CPU queue's own thread count keeps the two pools from
@@ -117,15 +118,20 @@ build_thread_count(const int pending, const int cpu_queue_threads) {
     env      = getenv("RNA_BUILD_THREADS");
     env_read = 1;
   }
-  if(!env || !env[0] || !strcmp(env, "0")) return 1;
+  // DEFAULT CHANGED 2026-08-30: unset now means "auto", not serial. Measured on
+  // Colab (400x5601): serial-everything 573.2 s vs both pools auto 464.8 s, with
+  // every config byte-identical -- so the old default cost 1.23x for no
+  // correctness benefit. "0" still forces serial for anyone who wants it.
+  const char *v = (env && env[0]) ? env : "auto";
+  if(!strcmp(v, "0")) return 1;
 
   int n;
-  if(!strcmp(env, "auto")) {
+  if(!strcmp(v, "auto")) {
     long hw = sysconf(_SC_NPROCESSORS_ONLN);
     if(hw < 1) hw = 1;
     n = (int)hw - cpu_queue_threads;
   } else {
-    n = atoi(env);
+    n = atoi(v);
   }
   if(n < 1) n = 1;
   if(n > pending) n = pending;
