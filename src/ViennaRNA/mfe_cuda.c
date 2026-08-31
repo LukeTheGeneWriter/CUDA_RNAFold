@@ -183,6 +183,44 @@ rnafold_slot_capacity_max(void) {
   return v;
 }
 
+// Continuous flow phase C2: SLOT TURNOVER self-check (RNA_SLOT_TURNOVER=1).
+// After a chunk folds normally, every record is re-admitted into a DIFFERENT
+// slot -- record r moves to slot r-1, cyclically -- and the chunk is folded a
+// second time. Slot capacities were sized for both occupants up front, so most
+// records end up in a slot LARGER than themselves, which is the arrangement all
+// of phase C depends on. Each slot's second result must equal the first result
+// of the record that moved into it.
+//
+// It doubles the work and discards the second answer, so it is a test mode, not
+// a feature. What it proves is the thing C3 needs and cannot assume: that
+// refilling a slot leaves NO trace of its previous occupant.
+PUBLIC int
+rnafold_slot_turnover(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_SLOT_TURNOVER");
+    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
+    if(v) fprintf(stderr,"%-24s RNA_SLOT_TURNOVER=1: every chunk is folded twice, the "
+                         "second time with every record in a different slot (test mode)\n",
+                  __FILE__);
+  }
+  return v;
+}
+
+// The chunk's slot capacities, owned here because par_fill_arrays() must see
+// EXACTLY the table par_mfe() allocated the buffers from. Recomputing them
+// there would be wrong under turnover: a slot's capacity covers both of its
+// occupants, so it depends on the whole chunk, not on the pass's own records.
+static size_t *g_cap_H = NULL;
+static int     g_cap_n = 0;
+
+PUBLIC const size_t *
+rnafold_chunk_capacities(const int nfiles) {
+  assert(g_cap_H != NULL && nfiles <= g_cap_n);
+  (void)nfiles;
+  return g_cap_H;
+}
+
 double stage_prepare_s    = 0.0; //vrna_fold_compound_prepare()
 double stage_prefill_s    = 0.0; //par_fill_arrays()'s pre-sweep host matrix INF fill
 double stage_backtrack_s  = 0.0; //backtrack(), single- or multi-threaded
@@ -487,6 +525,15 @@ compute_slot_capacities(const int nfiles, const vrna_fold_compound_t **VC,
   const int cap_max = rnafold_slot_capacity_max();
   for(int H=0; H<nfiles; H++)
     cap_H[H] = (size_t)(cap_max ? length : (int)VC[H]->length);
+  // Phase C2: under the turnover self-check slot H hosts VC[H] and then
+  // VC[(H+1)%nfiles], so it has to be big enough for both. This is the rule the
+  // real scheduler (C3) generalises: a slot's capacity covers every record its
+  // queue will ever hold.
+  if(rnafold_slot_turnover() && nfiles >= 2)
+    for(int H=0; H<nfiles; H++) {
+      const size_t other = (size_t)VC[(H+1)%nfiles]->length;
+      if(other > cap_H[H]) cap_H[H] = other;
+    }
 }
 
 PUBLIC void
@@ -550,6 +597,86 @@ compute_flatten_offsets(const int nfiles, const size_t* width_H, size_t* flat_of
 #endif
 }
 
+// Continuous flow phase C2: the post-sweep phase, lifted out of par_mfe()
+// unchanged so it can be run for a SECOND set of occupants in the same slots.
+// Everything it needs is now an argument; the only edit to the body was the
+// de-indent and declaring its own loop variable.
+PRIVATE void
+backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
+              const char **Structure, int *energy, float *EN,
+              const size_t *tri_off_H, const int cpu_queue_threads) {
+  int i;
+  // Post-processing. Each record now gets its triangles fetched into a
+  // pooled scratch pair, its exterior loop finished and its MFE read, then
+  // backtracks, then releases the scratch -- see backtrack_one(). One pool
+  // slot per worker, so peak host matrix memory is n_bt_threads records'
+  // worth rather than nfiles.
+  const double t_bt = rnafold_now_seconds();
+  const int n_bt_threads = backtrack_thread_count(nfiles, cpu_queue_threads);
+  int next_i = 0;
+  backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H };
+  bt_scratch_t *pool = (bt_scratch_t *) vrna_alloc(sizeof(bt_scratch_t) * n_bt_threads);
+  if(n_bt_threads <= 1) {
+    const double t_serial = rnafold_now_seconds();
+    for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
+    pool[0].busy_s += rnafold_now_seconds() - t_serial;
+  } else {
+    pthread_t *bt_threads = (pthread_t *) vrna_alloc(sizeof(pthread_t) * n_bt_threads);
+    backtrack_thread_arg_t *targs =
+      (backtrack_thread_arg_t *) vrna_alloc(sizeof(backtrack_thread_arg_t) * n_bt_threads);
+    for(int t=0; t<n_bt_threads; t++) { targs[t].shared = &targ; targs[t].sc = &pool[t]; }
+    int started = 0;
+    for(; started < n_bt_threads; started++) {
+      if(pthread_create(&bt_threads[started], NULL, backtrack_worker, &targs[started]) != 0) {
+        fprintf(stderr, "mfe_cuda.c: pthread_create failed for backtrack worker %d, "
+                         "continuing with fewer threads\n", started);
+        break;
+      }
+    }
+    if(started == 0) {
+      /* pthread_create failed on the very first thread -- fall back to serial */
+      const double t_serial = rnafold_now_seconds();
+      for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
+      pool[0].busy_s += rnafold_now_seconds() - t_serial;
+    } else {
+      for(int t=0; t<started; t++)
+        pthread_join(bt_threads[t], NULL);
+    }
+    free(targs);
+    free(bt_threads);
+  }
+  // The fetch is timed per worker so it needs no lock. Fold the slots in and
+  // charge it to transfer rather than to backtracking, which it dwarfs. Note
+  // the local, not the global: phase_fetch_mx_s accumulates across chunks.
+  //
+  // FIXED 2026-08-27, after the first RNA_BACKTRACK_THREADS=auto run on Colab
+  // printed `backtrack=-87.783` and `fetch_mx=101.445` against a phase that
+  // actually took 13.66 s of wall. pool[].fetch_s is WORKER-seconds: with W
+  // workers running concurrently their sum can exceed the phase's wall clock
+  // outright, and this used to subtract that sum straight from the wall --
+  // worker-seconds minus wall-seconds, a category error that goes negative as
+  // soon as W > 1. (The wall was still right; only the split of it was not.)
+  // So split the phase's WALL in the ratio the workers actually spent it.
+  // Both parts are then non-negative and sum to the phase exactly, and with a
+  // single worker busy_worker_s IS the phase, so this reduces to the old
+  // subtraction and leaves every previously-recorded number unchanged.
+  double fetch_worker_s = 0.0, busy_worker_s = 0.0;
+  for(int t=0; t<n_bt_threads; t++) {
+    fetch_worker_s += pool[t].fetch_s;
+    busy_worker_s  += pool[t].busy_s;
+    free(pool[t].c);
+    free(pool[t].fML);
+  }
+  free(pool);
+  const double bt_phase_s = rnafold_now_seconds() - t_bt;
+  double fetch_this_chunk = (busy_worker_s > 0.0)
+                          ? bt_phase_s * (fetch_worker_s / busy_worker_s)
+                          : 0.0;
+  if(fetch_this_chunk > bt_phase_s) fetch_this_chunk = bt_phase_s;  /* can't exceed the phase */
+  phase_fetch_mx_s  += fetch_this_chunk;
+  stage_backtrack_s += bt_phase_s - fetch_this_chunk;
+}
+
 //except par_fill_arrays(), do each file sequentially as before
 PUBLIC void
 par_mfe(const int nfiles,
@@ -579,6 +706,14 @@ par_mfe(const int nfiles,
   // own VC[H]->length. Equal by default -- see rnafold_slot_capacity_max().
   size_t cap_H[nfiles];
   compute_slot_capacities(nfiles, VC, length, cap_H);
+  // Publish it: par_fill_arrays() reads this instead of recomputing -- see
+  // rnafold_chunk_capacities().
+  if(g_cap_n < nfiles) {
+    free(g_cap_H);
+    g_cap_H = (size_t *) vrna_alloc(sizeof(size_t) * nfiles);
+    g_cap_n = nfiles;
+  }
+  memcpy(g_cap_H, cap_H, sizeof(size_t) * nfiles);
   size_t row_off_H[nfiles+1], tri_off_H[nfiles+1]; //Phase 2a, see compute_batch_offsets() above
   compute_batch_offsets(nfiles, cap_H, row_off_H, tri_off_H);
   const double t_gpuinit = rnafold_now_seconds();
@@ -617,75 +752,57 @@ par_mfe(const int nfiles,
     int energy[nfiles];
     par_fill_arrays(nfiles,VC,energy);
 
-    // Post-processing. Each record now gets its triangles fetched into a
-    // pooled scratch pair, its exterior loop finished and its MFE read, then
-    // backtracks, then releases the scratch -- see backtrack_one(). One pool
-    // slot per worker, so peak host matrix memory is n_bt_threads records'
-    // worth rather than nfiles.
-    const double t_bt = rnafold_now_seconds();
-    const int n_bt_threads = backtrack_thread_count(nfiles, cpu_queue_threads);
-    int next_i = 0;
-    backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H };
-    bt_scratch_t *pool = (bt_scratch_t *) vrna_alloc(sizeof(bt_scratch_t) * n_bt_threads);
-    if(n_bt_threads <= 1) {
-      const double t_serial = rnafold_now_seconds();
-      for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
-      pool[0].busy_s += rnafold_now_seconds() - t_serial;
-    } else {
-      pthread_t *bt_threads = (pthread_t *) vrna_alloc(sizeof(pthread_t) * n_bt_threads);
-      backtrack_thread_arg_t *targs =
-        (backtrack_thread_arg_t *) vrna_alloc(sizeof(backtrack_thread_arg_t) * n_bt_threads);
-      for(int t=0; t<n_bt_threads; t++) { targs[t].shared = &targ; targs[t].sc = &pool[t]; }
-      int started = 0;
-      for(; started < n_bt_threads; started++) {
-        if(pthread_create(&bt_threads[started], NULL, backtrack_worker, &targs[started]) != 0) {
-          fprintf(stderr, "mfe_cuda.c: pthread_create failed for backtrack worker %d, "
-                           "continuing with fewer threads\n", started);
-          break;
+    backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads);
+
+    // Continuous flow phase C2: the slot-turnover self-check. See
+    // rnafold_slot_turnover(). Record r moves to slot r-1 (cyclically), every
+    // slot is refilled from its new occupant, and the chunk is folded again;
+    // slot s must then reproduce exactly what record (s+1) produced the first
+    // time. nfiles is unchanged across the two passes on purpose -- d_S packs
+    // ten bases per word with H as the fastest index, so its layout depends on
+    // the slot COUNT and a pass with a different one would address it wrongly.
+    if(rnafold_slot_turnover() && nfiles >= 2) {
+      float *EN1  = (float *) vrna_alloc(sizeof(float) * nfiles);
+      char **Str1 = (char **) vrna_alloc(sizeof(char *) * nfiles);
+      for(i=0;i<nfiles;i++) { EN1[i] = EN[i]; Str1[i] = strdup(Structure[i]); }
+
+      const vrna_fold_compound_t **VC2 =
+        (const vrna_fold_compound_t **) vrna_alloc(sizeof(vrna_fold_compound_t *) * nfiles);
+      char **Str2   = (char **) vrna_alloc(sizeof(char *) * nfiles);
+      float *EN2    = (float *) vrna_alloc(sizeof(float) * nfiles);
+      int   *energy2= (int *)   vrna_alloc(sizeof(int)   * nfiles);
+      for(i=0;i<nfiles;i++) {
+        VC2[i]  = VC[(i+1) % nfiles];
+        Str2[i] = (char *) vrna_alloc(VC2[i]->length + 1);
+      }
+
+      // The occupants changed, so every piece of sequence-derived device
+      // content has to be rebuilt. The sweep's own state (d_fml_j, d_dml,
+      // d_dml1, d_fml_prev and all the host row buffers) is already reset by
+      // par_fill_arrays() on every call, and d_my_c's INF prefill comes back
+      // with refill_gpu2(); between them that is the complete reset list.
+      refill_gpu2(nfiles, VC2, turn, length, 512, tri_off_H, row_off_H, cap_H);
+      refill_gpu3(nfiles, VC2, turn, length, 512, row_off_H, cap_H);
+
+      par_fill_arrays(nfiles, VC2, energy2);
+      backtrack_all(nfiles, VC2, (const char **) Str2, energy2, EN2, tri_off_H, cpu_queue_threads);
+
+      int bad = 0;
+      for(i=0;i<nfiles;i++) {
+        const int src = (i+1) % nfiles;
+        if(EN2[i] != EN1[src] || strcmp(Str2[i], Str1[src]) != 0) {
+          if(++bad <= 5)
+            fprintf(stderr,"%-24s SLOT TURNOVER MISMATCH slot %d (record %d): "
+                           "second %.2f vs first %.2f\n",
+                    __FILE__, i, src, EN2[i], EN1[src]);
         }
       }
-      if(started == 0) {
-        /* pthread_create failed on the very first thread -- fall back to serial */
-        const double t_serial = rnafold_now_seconds();
-        for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
-        pool[0].busy_s += rnafold_now_seconds() - t_serial;
-      } else {
-        for(int t=0; t<started; t++)
-          pthread_join(bt_threads[t], NULL);
-      }
-      free(targs);
-      free(bt_threads);
+      fprintf(stderr,"%-24s slot turnover: %d records refolded in rotated slots, "
+                     "%d mismatching\n", __FILE__, nfiles, bad);
+
+      for(i=0;i<nfiles;i++) { free(Str1[i]); free(Str2[i]); }
+      free(Str1); free(Str2); free(EN1); free(EN2); free(energy2); free(VC2);
     }
-    // The fetch is timed per worker so it needs no lock. Fold the slots in and
-    // charge it to transfer rather than to backtracking, which it dwarfs. Note
-    // the local, not the global: phase_fetch_mx_s accumulates across chunks.
-    //
-    // FIXED 2026-08-27, after the first RNA_BACKTRACK_THREADS=auto run on Colab
-    // printed `backtrack=-87.783` and `fetch_mx=101.445` against a phase that
-    // actually took 13.66 s of wall. pool[].fetch_s is WORKER-seconds: with W
-    // workers running concurrently their sum can exceed the phase's wall clock
-    // outright, and this used to subtract that sum straight from the wall --
-    // worker-seconds minus wall-seconds, a category error that goes negative as
-    // soon as W > 1. (The wall was still right; only the split of it was not.)
-    // So split the phase's WALL in the ratio the workers actually spent it.
-    // Both parts are then non-negative and sum to the phase exactly, and with a
-    // single worker busy_worker_s IS the phase, so this reduces to the old
-    // subtraction and leaves every previously-recorded number unchanged.
-    double fetch_worker_s = 0.0, busy_worker_s = 0.0;
-    for(int t=0; t<n_bt_threads; t++) {
-      fetch_worker_s += pool[t].fetch_s;
-      busy_worker_s  += pool[t].busy_s;
-      free(pool[t].c);
-      free(pool[t].fML);
-    }
-    free(pool);
-    const double bt_phase_s = rnafold_now_seconds() - t_bt;
-    double fetch_this_chunk = (busy_worker_s > 0.0)
-                            ? bt_phase_s * (fetch_worker_s / busy_worker_s)
-                            : 0.0;
-    if(fetch_this_chunk > bt_phase_s) fetch_this_chunk = bt_phase_s;  /* can't exceed the phase */
-    phase_fetch_mx_s  += fetch_this_chunk;
-    stage_backtrack_s += bt_phase_s - fetch_this_chunk;
   } else {
   for(int i=0;i<nfiles;i++) {
     EN[i] = mfe_cuda_vrna_mfe(VC[i], Structure[i]);

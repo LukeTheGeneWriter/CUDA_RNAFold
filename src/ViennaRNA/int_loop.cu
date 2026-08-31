@@ -282,6 +282,20 @@ void put10(const unsigned int word, const int H, const int nfiles, const int i, 
   out[I] = word;
 }
 
+// Continuous flow phase C2: SLOT REFILL. A slot has to be able to take a
+// DIFFERENT record, which means redoing every piece of sequence-derived device
+// content this file owns -- the hard-constraint bitmasks, the packed sequence,
+// and d_my_c's INF prefill -- WITHOUT reallocating anything.
+//
+// It is done by re-entering init_gpu2() with the allocations suppressed rather
+// than by a second copy of the packing code, deliberately: a duplicated packer
+// that drifts from the original is exactly the kind of bug that produces wrong
+// energies with no crash. SLOT_ALLOC() is the only difference between the two
+// paths, and the buffers it skips are unchanged in size because the refill
+// keeps the same nfiles and the same capacity table.
+static int g_refill2 = 0;
+#define SLOT_ALLOC(pp, sz) do { if(!g_refill2) TIMED_CUDAMALLOC(pp, sz); } while(0)
+
 PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* tri_off_H, const size_t* row_off_H, //in, nfiles+1 entries each, mfe_cuda.c
@@ -293,9 +307,9 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   assert(turn_ == turn);
   assert(MAX_NINIO == 300); //ViennaRNA/energy_par.c
 
-  TIMED_CUDAMALLOC(&d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  SLOT_ALLOC(&d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_tri_off_H, tri_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
-  TIMED_CUDAMALLOC(&d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  SLOT_ALLOC(&d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
   //printf("%s %s d_param is %lu bytes, NBPAIRS %d MAXLOOP %d BLOCK_SIZE %d\n",
   //	 __FILE__,Version,sizeof(cuda_param_s),NBPAIRS,MAXLOOP,block_size);
@@ -305,7 +319,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // than on first2, so teardown_gpu2() can reset first2=1 between GPU
   // batches without this block re-allocating (and leaking) them every batch.
   if(!d_param) {
-    TIMED_CUDAMALLOC(&d_param, sizeof(cuda_param_s));
+    SLOT_ALLOC(&d_param, sizeof(cuda_param_s));
     load_param(VC[0]->params);
 
     char pair_[NBPAIRS+1][NBPAIRS+1];
@@ -319,7 +333,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       else assert(md->pair[x][y]==0);
     }}
     const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char); // 32-bit signed integer overflow bug fix
-    TIMED_CUDAMALLOC(&d_pair, pair_size);
+    SLOT_ALLOC(&d_pair, pair_size);
     gpuErrchk( cudaMemcpy(d_pair,pair_,pair_size,cudaMemcpyHostToDevice) );
   }
 
@@ -334,20 +348,20 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // just leaves the tail of its bitmask block zero, and Indx(i,j) never
   // addresses it for this record.
   for(int H=0;H<nfiles;H++) hc_off_H[H+1] = hc_off_H[H] + Hc_ints(cap_H[H]);
-  TIMED_CUDAMALLOC(&d_hc_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  SLOT_ALLOC(&d_hc_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_hc_off_H, hc_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   // Staggered_Row_Batching Phase 5: allocated here (fixed size for the whole
   // chunk), not populated here -- this changes every sweep row i, uploaded
   // fresh per-row by int_loop_cuda()/load_my_c() instead.
-  TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  SLOT_ALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   // Fresh buffer, holds nothing -- the shadow must not claim it is current.
   size_off_shadow_reset();
-  TIMED_CUDAMALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
+  SLOT_ALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
   i_H_shadow_reset();          // fresh buffer: same hazard as size_off, same fix
 
   size_t size = hc_off_H[nfiles]*sizeof(unsigned int);
-  TIMED_CUDAMALLOC(&d_hccc, size);
+  SLOT_ALLOC(&d_hccc, size);
   // When hc->matrix is sequence-derived, hp_mb_loop.cu's pack_hc_kernel fills
   // d_hccc for us (it owns the plain sequence encoding and the pair table, and
   // init_gpu3 runs after this function). Skipping this loop is most of the
@@ -383,7 +397,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // Ten bases per word, H fastest index (see put10()/unpack()).
   assert(sizeof(unsigned int) == 4);
   size = ((size_t)nfiles * (length+2) + 9)/10 * sizeof(unsigned int);
-  TIMED_CUDAMALLOC(&d_S, size);
+  SLOT_ALLOC(&d_S, size);
   unsigned int* buff = (unsigned int*) malloc(size); //could use cudaMallocHost
   const double _t_pk2 = rnafold_now_seconds();
 #ifndef NDEBUG
@@ -427,7 +441,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 
   { const size_t my_c_elems = tri_off_H[nfiles]; //sum of each H's own triangle size
     size = my_c_elems*sizeof(int);
-    TIMED_CUDAMALLOC(&d_my_c, size);
+    SLOT_ALLOC(&d_my_c, size);
     init_my_c(my_c_elems);
   }
 
@@ -436,21 +450,36 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   g_row_total = row_off_H[nfiles];
 
   size = g_row_total*sizeof(int); // 32-bit signed integer overflow bug fix
-  TIMED_CUDAMALLOC(&d_new_e, size);
+  SLOT_ALLOC(&d_new_e, size);
 
   // Staggered_Row_Batching Phase 2d: table-driven total (row_off_H[nfiles]),
   // matching int_loop_kernel_body.inc's row_off_H[H]+j write below -- equals
   // the old uniform nfiles*(length+1) exactly while chunks stay uniform-length,
   // diverges once they don't.
-  TIMED_CUDAMALLOC(&d_energy_min2, g_row_total*sizeof(int));
+  SLOT_ALLOC(&d_energy_min2, g_row_total*sizeof(int));
   /*no longer in use
-  TIMED_CUDAMALLOC(&d_energy_min20, size);
+  SLOT_ALLOC(&d_energy_min20, size);
 
   size = nfiles*length*sizeof(int);
-  TIMED_CUDAMALLOC(&d_buf, size);
+  SLOT_ALLOC(&d_buf, size);
   */
   stage_ig2_s += rnafold_now_seconds() - _t_ig2;
   first2 = 0;
+}
+
+// Continuous flow phase C2: re-run init_gpu2()'s CONTENT for a chunk whose slots
+// have taken new occupants. Same nfiles, same capacity table, same buffers --
+// only the records differ. first2 is forced back on so the body runs; the
+// SLOT_ALLOC guard is what stops it reallocating over the live pointers.
+PUBLIC void
+refill_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
+            const int length, const int block_size,
+            const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H) {
+  assert(!first2);            // must be a live chunk, not a fresh one
+  g_refill2 = 1;
+  first2    = 1;
+  init_gpu2(nfiles, VC, turn_, length, block_size, tri_off_H, row_off_H, cap_H);
+  g_refill2 = 0;
 }
 
 // Frees the 5 nfiles/length-scaled device buffers allocated by init_gpu2()

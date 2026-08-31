@@ -124,6 +124,18 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
           const size_t* tri_off_H, const size_t* row_off_H, //in, both nfiles+1 entries -- see compute_batch_offsets()
           const size_t* cap_H); //in, nfiles slot capacities in nt -- continuous flow phase C1
 
+// Continuous flow phase C2: redo init_gpu2()'s sequence-derived CONTENT for a
+// chunk whose slots have taken new occupants -- same nfiles, same capacities,
+// same buffers, no reallocation. Only valid between init_gpu2()/teardown_gpu2().
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+refill_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
+            const int length, const int block_size,
+            const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H);
+
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
 #else
@@ -132,6 +144,16 @@ PUBLIC void
 init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* row_off_H, //in, nfiles+1 entries -- see compute_batch_offsets()
           const size_t* cap_H); //in, nfiles slot capacities in nt -- continuous flow phase C1
+
+// Continuous flow phase C2: the init_gpu3() half of the same refill.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+refill_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
+            const int length, const int block_size,
+            const size_t* row_off_H, const size_t* cap_H);
 
 // teardown_gpu()/teardown_gpu2()/teardown_gpu3(): free the nfiles/length-
 // scaled device buffers allocated by init_gpu()/init_gpu2()/init_gpu3() and
@@ -395,6 +417,14 @@ PUBLIC int rnafold_continuous_flow(void);
 
 // Continuous flow phase C1 (RNA_SLOT_CAPACITY=max, test mode) -- see mfe_cuda.c.
 PUBLIC int rnafold_slot_capacity_max(void);
+
+// Continuous flow phase C2 (RNA_SLOT_TURNOVER=1, test mode) -- see mfe_cuda.c.
+PUBLIC int rnafold_slot_turnover(void);
+
+// The chunk's slot capacity table, owned by par_mfe(). par_fill_arrays() must
+// read THIS rather than recompute: a slot's capacity covers every occupant its
+// queue will hold, which is a property of the chunk, not of one pass.
+PUBLIC const size_t *rnafold_chunk_capacities(const int nfiles);
 
 // The scalar row index the kernels assert their table entry against. Under
 // continuous flow different records sit on DIFFERENT rows, so there is no single

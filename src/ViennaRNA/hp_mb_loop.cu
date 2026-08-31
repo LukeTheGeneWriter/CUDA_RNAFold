@@ -249,6 +249,14 @@ pack_hc_kernel(const int nfiles, const int turn, const int max_bp_span,
   intenc[hc_off_H[H] + wH] = m_int;
 }
 
+// Continuous flow phase C2: SLOT REFILL, this file's half. Same reasoning as
+// int_loop.cu's -- the sequence-derived content here (d_S2, d_sequence,
+// d_up_ml_ok, d_len_H and the pack_hc_kernel-derived bitmasks) is redone by
+// re-entering init_gpu3() with the allocations suppressed, so there is exactly
+// one copy of the packing code and no way for a duplicate to drift.
+static int g_refill3 = 0;
+#define SLOT_ALLOC(pp, sz) do { if(!g_refill3) TIMED_CUDAMALLOC(pp, sz); } while(0)
+
 PUBLIC void
 init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* row_off_H, //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
@@ -257,7 +265,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   const double _t_ig3 = rnafold_now_seconds();
   fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
-  TIMED_CUDAMALLOC(&d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  SLOT_ALLOC(&d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   // d_param2/d_pair2 are nfiles/length-independent -- guarded on their own
@@ -265,7 +273,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // than on first3, so teardown_gpu3() can reset first3=1 between GPU
   // batches without this block re-allocating (and leaking) them every batch.
   if(!d_param2) {
-    TIMED_CUDAMALLOC(&d_param2, sizeof(cuda_param2_t));
+    SLOT_ALLOC(&d_param2, sizeof(cuda_param2_t));
     load_param2(VC[0]->params);
 
     char pair_[NBPAIRS+1][NBPAIRS+1];
@@ -275,7 +283,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       if(x < NBPAIRS+1 && y < NBPAIRS+1) pair_[x][y] = md->pair[x][y];
     }}
     const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char);
-    TIMED_CUDAMALLOC(&d_pair2, pair_size);
+    SLOT_ALLOC(&d_pair2, pair_size);
     gpuErrchk( cudaMemcpy(d_pair2,pair_,pair_size,cudaMemcpyHostToDevice) );
   }
 
@@ -290,14 +298,14 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // Phase C1: LAYOUT -- the slot's capacity. The fill loop below stays on the
   // occupant's own length; a bigger slot just leaves its tail zero.
   for(int H=0;H<nfiles;H++) hc2_off_H[H+1] = hc2_off_H[H] + Hc_ints2(cap_H[H]);
-  TIMED_CUDAMALLOC(&d_hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  SLOT_ALLOC(&d_hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_hc2_off_H, hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
   size_t size = hc2_off_H[nfiles]*sizeof(unsigned int);
-  TIMED_CUDAMALLOC(&d_hccc_any, size);
-  TIMED_CUDAMALLOC(&d_hccc_gu, size);
-  TIMED_CUDAMALLOC(&d_hccc_mb, size);
-  TIMED_CUDAMALLOC(&d_hccc_mbenc, size);
+  SLOT_ALLOC(&d_hccc_any, size);
+  SLOT_ALLOC(&d_hccc_gu, size);
+  SLOT_ALLOC(&d_hccc_mb, size);
+  SLOT_ALLOC(&d_hccc_mbenc, size);
   // Sequence-derived case: pack_hc_kernel below fills all four of these (and
   // int_loop.cu's d_hccc) from the sequence once d_S2/d_pair2 exist, so the
   // O(n^2) host loop is skipped entirely. It measured 126.9 s of a 769 s Colab
@@ -352,28 +360,28 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // Phase C1: LAYOUT -- the slot's capacity, so the stride is no longer the
   // record's own length. Anything needing that reads d_len_H instead.
   for(int H=0;H<nfiles;H++) seq_off_H[H+1] = seq_off_H[H] + (cap_H[H]+2);
-  TIMED_CUDAMALLOC(&d_seq_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  SLOT_ALLOC(&d_seq_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_seq_off_H, seq_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
   {
     int len_H[nfiles];   // continuous flow phase C1, see d_len_H above
     for(int H=0;H<nfiles;H++) len_H[H] = (int)VC[H]->length;
-    TIMED_CUDAMALLOC(&d_len_H, (size_t)nfiles*sizeof(int));
+    SLOT_ALLOC(&d_len_H, (size_t)nfiles*sizeof(int));
     gpuErrchk( cudaMemcpy(d_len_H, len_H, (size_t)nfiles*sizeof(int), cudaMemcpyHostToDevice) );
   }
 
   // Staggered_Row_Batching Phase 5: allocated here, not populated here --
   // changes every sweep row i, uploaded fresh per-row by hp_mb_3p_i().
-  TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  SLOT_ALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   // This buffer is brand new and holds nothing. Drop the shadow so
   // upload_size_off_H() cannot mistake it for already-current -- see the
   // HAZARD note on that function.
   size_off_shadow_reset();
 
-  TIMED_CUDAMALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
+  SLOT_ALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
   i_H_shadow_reset();          // fresh buffer: same hazard as size_off, same fix
 
   size = seq_off_H[nfiles]*sizeof(short);
-  TIMED_CUDAMALLOC(&d_S2, size);
+  SLOT_ALLOC(&d_S2, size);
   short* Sbuff = (short*) malloc(size);
   // Staggered_Row_Batching Phase 6a: copy each H's own (length+2) elements,
   // not the shared `length`'s -- seq_off_H[H+1]-seq_off_H[H] already equals
@@ -386,7 +394,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   free(Sbuff);
 
   size = seq_off_H[nfiles]*sizeof(char);
-  TIMED_CUDAMALLOC(&d_sequence, size);
+  SLOT_ALLOC(&d_sequence, size);
   char* seqbuff = (char*) calloc(seq_off_H[nfiles],sizeof(char));
   for(int H=0;H<nfiles;H++) {
     const size_t len = strlen(VC[H]->sequence);
@@ -401,7 +409,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // tail reads as "not allowed", which is the safe direction: fml_host's
   // `up_ml > 0` guard yields INF there, exactly as a missing extension should.
   size = seq_off_H[nfiles]*sizeof(char);
-  TIMED_CUDAMALLOC(&d_up_ml_ok, size);
+  SLOT_ALLOC(&d_up_ml_ok, size);
   {
     char* upbuff = (char*) calloc(seq_off_H[nfiles],sizeof(char));
     for(int H=0;H<nfiles;H++) {
@@ -420,11 +428,11 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // nfiles*(length+1); also cached for hp_mb_3p_i()'s copy-back.
   g_row_total = row_off_H[nfiles];
   size = g_row_total*sizeof(int);
-  TIMED_CUDAMALLOC(&d_energy_hp_row, size);
-  TIMED_CUDAMALLOC(&d_energy_mb_row, size);
-  TIMED_CUDAMALLOC(&d_energy_3p00_row, size);
+  SLOT_ALLOC(&d_energy_hp_row, size);
+  SLOT_ALLOC(&d_energy_mb_row, size);
+  SLOT_ALLOC(&d_energy_3p00_row, size);
   //char, not int: it carries two bits per cell and is copied back every row.
-  TIMED_CUDAMALLOC(&d_gate_row, g_row_total*sizeof(char));
+  SLOT_ALLOC(&d_gate_row, g_row_total*sizeof(char));
 
   // Everything pack_hc_kernel reads (d_S2, d_pair2, and the three offset
   // tables) exists by this point, which is why the launch sits at the end of
@@ -495,6 +503,21 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 
   stage_ig3_s += rnafold_now_seconds() - _t_ig3;
   first3 = 0;
+}
+
+// Continuous flow phase C2: re-run init_gpu3()'s CONTENT for a chunk whose
+// slots have taken new occupants. Same nfiles, same capacity table, same
+// buffers -- only the records differ. first3 is forced back on so the body
+// runs; SLOT_ALLOC is what stops it reallocating over the live pointers.
+PUBLIC void
+refill_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
+            const int length, const int block_size,
+            const size_t* row_off_H, const size_t* cap_H) {
+  assert(!first3);            // must be a live chunk, not a fresh one
+  g_refill3 = 1;
+  first3    = 1;
+  init_gpu3(nfiles, VC, turn_, length, block_size, row_off_H, cap_H);
+  g_refill3 = 0;
 }
 
 // Frees the 7 nfiles/length-scaled device buffers allocated by init_gpu3()

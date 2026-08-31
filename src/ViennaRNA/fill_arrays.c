@@ -121,8 +121,11 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   // Continuous flow phase C1: same capacity rule as par_mfe(), from the same
   // function -- these tables address the device buffers par_mfe() allocated, so
   // the two must not be able to disagree.
-  size_t cap_H[nfiles];
-  compute_slot_capacities(nfiles, VC, length, cap_H);
+  // Phase C1/C2: the chunk's capacity table comes from par_mfe(), which
+  // allocated the device buffers from it. Recomputing it here would be wrong
+  // under slot turnover, where a slot's capacity covers both of its occupants
+  // and so cannot be derived from this pass's records alone.
+  const size_t* cap_H = rnafold_chunk_capacities(nfiles);
   compute_batch_offsets(nfiles, cap_H, row_off_H, tri_off_H);
   // The GPU-accelerated hairpin/multibranch energy precompute (hp_mb_3p_i(),
   // hp_mb_loop.cu) hardcodes the dangle_model==2 simplifications already
