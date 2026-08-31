@@ -284,7 +284,8 @@ void put10(const unsigned int word, const int H, const int nfiles, const int i, 
 
 PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
-          const size_t* tri_off_H, const size_t* row_off_H) { //in, nfiles+1 entries each, mfe_cuda.c
+          const size_t* tri_off_H, const size_t* row_off_H, //in, nfiles+1 entries each, mfe_cuda.c
+          const size_t* cap_H) { //in, nfiles slot capacities in nt -- continuous flow phase C1
   if(!first2) return;
   const double _t_ig2 = rnafold_now_seconds();
   fprintf(stderr,"%-24s init_gpu2(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
@@ -328,7 +329,11 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // uniform Hc_ints(length) multiply.
   size_t hc_off_H[nfiles+1];
   hc_off_H[0] = 0;
-  for(int H=0;H<nfiles;H++) hc_off_H[H+1] = hc_off_H[H] + Hc_ints(VC[H]->length);
+  // Phase C1: LAYOUT, so it is built from the slot capacity. The packing loop
+  // below stays bounded by the occupant's own VC[H]->length -- a bigger slot
+  // just leaves the tail of its bitmask block zero, and Indx(i,j) never
+  // addresses it for this record.
+  for(int H=0;H<nfiles;H++) hc_off_H[H+1] = hc_off_H[H] + Hc_ints(cap_H[H]);
   TIMED_CUDAMALLOC(&d_hc_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_hc_off_H, hc_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 

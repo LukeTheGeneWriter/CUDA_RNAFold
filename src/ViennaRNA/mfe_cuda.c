@@ -161,6 +161,28 @@ rnafold_continuous_flow(void) {
   return v;
 }
 
+// Continuous flow phase C1. A SLOT's capacity and its OCCUPANT's length are the
+// same number today, and the code uses them interchangeably. They stop being the
+// same the moment a slot outlives its first occupant (phase C2), so C1 separates
+// them while they still agree -- which is what makes the separation provable.
+//
+// RNA_SLOT_CAPACITY=max sizes every slot to the chunk maximum instead of its own
+// record's length. It WASTES VRAM and is not a mode anyone should run for real;
+// it exists as the end-to-end proof that a record folds correctly in an
+// over-sized slot, which is the load-bearing assumption of all of phase C. It
+// must stay byte-identical.
+PUBLIC int
+rnafold_slot_capacity_max(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_SLOT_CAPACITY");
+    v = (e && (e[0]=='m'||e[0]=='M')) ? 1 : 0;
+    if(v) fprintf(stderr,"%-24s RNA_SLOT_CAPACITY=max: every slot sized to the chunk "
+                         "maximum, not to its own record (test mode, wastes VRAM)\n", __FILE__);
+  }
+  return v;
+}
+
 double stage_prepare_s    = 0.0; //vrna_fold_compound_prepare()
 double stage_prefill_s    = 0.0; //par_fill_arrays()'s pre-sweep host matrix INF fill
 double stage_backtrack_s  = 0.0; //backtrack(), single- or multi-threaded
@@ -403,9 +425,15 @@ PRIVATE void
 backtrack_one(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {
   vrna_fold_compound_t *vc = (vrna_fold_compound_t *) a->VC[idx];
   const size_t lo    = a->tri_off_H[idx];
-  const size_t cells = a->tri_off_H[idx+1] - lo;
+  // Phase C1: the OCCUPANT's own triangle, not the slot's. Indx(i,j)=j*(j-1)/2+i
+  // does not depend on length, so a record living in a larger slot occupies
+  // exactly the prefix -- and taking the slot's size here would both copy cells
+  // this record does not own and overrun host matrices sized to its own length.
+  const size_t len   = (size_t)vc->length;
+  const size_t cells = (len + 1)*(len + 2)/2;
   assert(vc->type == VRNA_FC_TYPE_SINGLE);
   assert(cells > 0);
+  assert(cells <= a->tri_off_H[idx+1] - lo);   // the occupant must fit its slot
 
   bt_scratch_ensure(sc, cells);
   vc->matrices->c   = sc->c;
@@ -449,13 +477,27 @@ backtrack_worker(void *arg) {
 // identical to the old H*(length+1)/Hoff(H,length) formulas -- asserted
 // below as a regression gate on the table-building logic itself, ahead of
 // any real consumer switching over to it in a later phase.
+// Continuous flow phase C1: the one place the capacity rule lives. par_mfe() and
+// par_fill_arrays() both build the offset tables independently (Phase 2c) and
+// they address the SAME device buffers, so both must derive capacities the same
+// way -- hence a shared function rather than the rule written out twice.
 PUBLIC void
-compute_batch_offsets(const int nfiles, const vrna_fold_compound_t **VC,
+compute_slot_capacities(const int nfiles, const vrna_fold_compound_t **VC,
+                        const int length, size_t* cap_H) {
+  const int cap_max = rnafold_slot_capacity_max();
+  for(int H=0; H<nfiles; H++)
+    cap_H[H] = (size_t)(cap_max ? length : (int)VC[H]->length);
+}
+
+PUBLIC void
+compute_batch_offsets(const int nfiles, const size_t* cap_H,
                        size_t* row_off_H, size_t* tri_off_H) {
+  // Phase C1: built from the SLOT CAPACITY table, not from VC[H]->length. The
+  // two are equal by default, so every table below is bit-for-bit what it was.
   row_off_H[0] = 0;
   tri_off_H[0] = 0;
   for(int H=0; H<nfiles; H++) {
-    const size_t len = (size_t)VC[H]->length;
+    const size_t len = cap_H[H];
     row_off_H[H+1] = row_off_H[H] + (len + 1);
     tri_off_H[H+1] = tri_off_H[H] + (len + 1)*(len + 2)/2;
   }
@@ -469,7 +511,7 @@ compute_batch_offsets(const int nfiles, const vrna_fold_compound_t **VC,
     // actually still holds: each H's block is exactly its own length's worth,
     // and both tables are strictly increasing prefix sums.
     for(int H=0; H<nfiles; H++) {
-      const size_t len = (size_t)VC[H]->length;
+      const size_t len = cap_H[H];
       assert(row_off_H[H+1] - row_off_H[H] == len + 1);
       assert(tri_off_H[H+1] - tri_off_H[H] == (len + 1)*(len + 2)/2);
       assert(row_off_H[H+1] > row_off_H[H]);
@@ -532,12 +574,17 @@ par_mfe(const int nfiles,
     if((int)VC[H]->length > length) length = (int)VC[H]->length;
   const vrna_md_t* md = &(VC[0]->params->model_details);
   const int turn      = md->min_loop_size;
+  // Continuous flow phase C1: the per-slot capacity, in nucleotides. Every
+  // LAYOUT table below is built from this; every BOUND stays on the occupant's
+  // own VC[H]->length. Equal by default -- see rnafold_slot_capacity_max().
+  size_t cap_H[nfiles];
+  compute_slot_capacities(nfiles, VC, length, cap_H);
   size_t row_off_H[nfiles+1], tri_off_H[nfiles+1]; //Phase 2a, see compute_batch_offsets() above
-  compute_batch_offsets(nfiles, VC, row_off_H, tri_off_H);
+  compute_batch_offsets(nfiles, cap_H, row_off_H, tri_off_H);
   const double t_gpuinit = rnafold_now_seconds();
   init_gpu(nfiles,length,tri_off_H,row_off_H);
-  init_gpu2(nfiles,VC, turn, length, 512, tri_off_H, row_off_H);
-  init_gpu3(nfiles,VC, turn, length, 512, row_off_H);
+  init_gpu2(nfiles,VC, turn, length, 512, tri_off_H, row_off_H, cap_H);
+  init_gpu3(nfiles,VC, turn, length, 512, row_off_H, cap_H);
   stage_gpuinit_s += rnafold_now_seconds() - t_gpuinit;
 
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {

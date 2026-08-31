@@ -119,6 +119,13 @@ static size_t  g_row_total = 0;
 // reasoning as int_loop.cu's d_hc_off_H.
 static size_t* d_hc2_off_H;
 static size_t* d_seq_off_H;
+// Continuous flow phase C1: the OCCUPANT's own length, per record. Two kernels
+// in this file used to recover it as seq_off_H[H+1]-seq_off_H[H]-2 -- the slot's
+// STRIDE. That is only the record's length while a slot is sized to its own
+// first and only occupant, and one of the two uses is the S_H[length_H] wrap
+// read that produced the OOB bug fixed in 00d1e07. A real table, uploaded once
+// per chunk beside the offset tables, is what makes an over-sized slot safe.
+static int*    d_len_H;
 // GPU-resident sweep, step 1: hc->up_ml[j] > 0, one byte per sequence
 // position, indexed by seq_off_H[H]+j exactly like d_S2/d_sequence.
 //
@@ -201,6 +208,7 @@ pack_hc_kernel(const int nfiles, const int turn, const int max_bp_span,
                const size_t* __restrict__ hc2_off_H,
                const size_t* __restrict__ hc_off_H,
                const size_t* __restrict__ seq_off_H,
+               const int* __restrict__ len_H,   //continuous flow phase C1
                      unsigned int* __restrict__ mb,
                      unsigned int* __restrict__ mbenc,
                      unsigned int* __restrict__ any,
@@ -213,9 +221,10 @@ pack_hc_kernel(const int nfiles, const int turn, const int max_bp_span,
   const int H = flatten_index_to_H(w, hc2_off_H, nfiles);
   const size_t wH = w - hc2_off_H[H];              //word index within this record
   const short* S_H = &S[seq_off_H[H]];
-  //seq_off_H's stride is this record's length+2 (init_gpu3 builds it that way),
-  //so no separate length table is needed.
-  const int n = (int)(seq_off_H[H+1] - seq_off_H[H]) - 2;
+  // Phase C1: the record's OWN length, from the table. seq_off_H's stride is the
+  // SLOT's capacity+2 now, which equals this record's length only while the slot
+  // has never been reused.
+  const int n = len_H[H];
 
   unsigned int m_mb=0u, m_mbenc=0u, m_any=0u, m_gu=0u, m_int=0u;
   const long long base = (long long)wH * 32;
@@ -242,7 +251,8 @@ pack_hc_kernel(const int nfiles, const int turn, const int max_bp_span,
 
 PUBLIC void
 init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
-          const size_t* row_off_H) { //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
+          const size_t* row_off_H, //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
+          const size_t* cap_H) { //in, nfiles slot capacities in nt -- continuous flow phase C1
   if(!first3) return;
   const double _t_ig3 = rnafold_now_seconds();
   fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
@@ -277,7 +287,9 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // replacing the uniform Hc_ints2(length) multiply.
   size_t hc2_off_H[nfiles+1];
   hc2_off_H[0] = 0;
-  for(int H=0;H<nfiles;H++) hc2_off_H[H+1] = hc2_off_H[H] + Hc_ints2(VC[H]->length);
+  // Phase C1: LAYOUT -- the slot's capacity. The fill loop below stays on the
+  // occupant's own length; a bigger slot just leaves its tail zero.
+  for(int H=0;H<nfiles;H++) hc2_off_H[H+1] = hc2_off_H[H] + Hc_ints2(cap_H[H]);
   TIMED_CUDAMALLOC(&d_hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_hc2_off_H, hc2_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
@@ -337,9 +349,17 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // shape, length+2 stride -- distinct from row_off_H's length+1).
   size_t seq_off_H[nfiles+1];
   seq_off_H[0] = 0;
-  for(int H=0;H<nfiles;H++) seq_off_H[H+1] = seq_off_H[H] + ((size_t)VC[H]->length+2);
+  // Phase C1: LAYOUT -- the slot's capacity, so the stride is no longer the
+  // record's own length. Anything needing that reads d_len_H instead.
+  for(int H=0;H<nfiles;H++) seq_off_H[H+1] = seq_off_H[H] + (cap_H[H]+2);
   TIMED_CUDAMALLOC(&d_seq_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_seq_off_H, seq_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+  {
+    int len_H[nfiles];   // continuous flow phase C1, see d_len_H above
+    for(int H=0;H<nfiles;H++) len_H[H] = (int)VC[H]->length;
+    TIMED_CUDAMALLOC(&d_len_H, (size_t)nfiles*sizeof(int));
+    gpuErrchk( cudaMemcpy(d_len_H, len_H, (size_t)nfiles*sizeof(int), cudaMemcpyHostToDevice) );
+  }
 
   // Staggered_Row_Batching Phase 5: allocated here, not populated here --
   // changes every sweep row i, uploaded fresh per-row by hp_mb_3p_i().
@@ -423,7 +443,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     pack_hc_kernel<<<(int)nbl,bs>>>(nfiles, turn_, md_->max_bp_span,
                                     md_->noGU, md_->noGUclosure,
                                     d_S2, d_pair2,
-                                    d_hc2_off_H, d_hcoff, d_seq_off_H,
+                                    d_hc2_off_H, d_hcoff, d_seq_off_H, d_len_H,
                                     d_hccc_mb, d_hccc_mbenc, d_hccc_any,
                                     d_hccc_gu, d_intenc, total_words2);
     gpuErrchk( cudaPeekAtLastError() );
@@ -499,6 +519,7 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_hc2_off_H) );
   gpuErrchk( cudaFree(d_seq_off_H) );
+  gpuErrchk( cudaFree(d_len_H) );
   gpuErrchk( cudaFree(d_size_off_H) );
   size_off_shadow_reset();   // the device buffer is gone; the shadow must not outlive it
   gpuErrchk( cudaFree(d_i_H) );
@@ -634,6 +655,7 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
                  const size_t* __restrict__ row_off_H,
                  const size_t* __restrict__ hc2_off_H,
                  const size_t* __restrict__ seq_off_H,
+                 const int* __restrict__ len_H,   //continuous flow phase C1
                  const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) {
   const long long m = blockIdx.x*blockDim.x+threadIdx.x;
@@ -706,10 +728,11 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
       // entirely (illegal access, reproduced with descending-length input at
       // RNA_GPU_VRAM_BUDGET_MB=8/16 -- the tail chunk there is 13 records with
       // batch max 560 whose last record is only 80nt). Recovered from the
-      // offset table rather than a new parameter, same technique as
-      // modular_decomposition_cuda()'s len_H: seq_off_H's stride is this
-      // file's own VC[H]->length+2 (see init_gpu3()).
-      const int length_H = (int)(seq_off_H[H+1] - seq_off_H[H]) - 2;
+      // offset table rather than a new parameter -- SUPERSEDED by continuous
+      // flow phase C1, which took it from d_len_H instead: seq_off_H's stride is
+      // the SLOT's capacity+2 now, and this read needs the RECORD's length.
+      // Getting that wrong here is exactly the 00d1e07 bug.
+      const int length_H = len_H[H];
       // This kernel carried no asserts at all, which is the reason the bug
       // above survived: every S_H read stayed inside the *whole* d_S2
       // allocation for all but the last H of a chunk, so nothing trapped. The
@@ -1389,7 +1412,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
                                           d_hccc_any, d_hccc_gu, d_param2,
                                           d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row,
                                           d_gate_row,
-                                          d_row_off_H, d_hc2_off_H, d_seq_off_H,
+                                          d_row_off_H, d_hc2_off_H, d_seq_off_H, d_len_H,
                                           d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
   // Step 5b: pointless once the D2H is gone; stream order already covers it.

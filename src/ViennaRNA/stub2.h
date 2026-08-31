@@ -121,7 +121,8 @@ extern "C" /*PUBLIC*/ void
 PUBLIC void
 #endif
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
-          const size_t* tri_off_H, const size_t* row_off_H); //in, both nfiles+1 entries -- see compute_batch_offsets()
+          const size_t* tri_off_H, const size_t* row_off_H, //in, both nfiles+1 entries -- see compute_batch_offsets()
+          const size_t* cap_H); //in, nfiles slot capacities in nt -- continuous flow phase C1
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -129,7 +130,8 @@ extern "C" /*PUBLIC*/ void
 PUBLIC void
 #endif
 init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
-          const size_t* row_off_H); //in, nfiles+1 entries -- see compute_batch_offsets()
+          const size_t* row_off_H, //in, nfiles+1 entries -- see compute_batch_offsets()
+          const size_t* cap_H); //in, nfiles slot capacities in nt -- continuous flow phase C1
 
 // teardown_gpu()/teardown_gpu2()/teardown_gpu3(): free the nfiles/length-
 // scaled device buffers allocated by init_gpu()/init_gpu2()/init_gpu3() and
@@ -273,7 +275,15 @@ extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-compute_batch_offsets(const int nfiles, const vrna_fold_compound_t **VC,
+compute_slot_capacities(const int nfiles, const vrna_fold_compound_t **VC,
+                        const int length, size_t* cap_H); //out, nfiles slot capacities in nt -- continuous flow phase C1
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+compute_batch_offsets(const int nfiles, const size_t* cap_H, //in, nfiles slot capacities in nt -- continuous flow phase C1
                        size_t* row_off_H, size_t* tri_off_H); //out, both nfiles+1
 
 // Staggered_Row_Batching Phase 4: host-side builder for
@@ -382,6 +392,9 @@ PUBLIC int rnafold_gpu_sweep(void);
 // Continuous flow phase B (RNA_CONTINUOUS_FLOW, default off) -- see the
 // definition in mfe_cuda.c.
 PUBLIC int rnafold_continuous_flow(void);
+
+// Continuous flow phase C1 (RNA_SLOT_CAPACITY=max, test mode) -- see mfe_cuda.c.
+PUBLIC int rnafold_slot_capacity_max(void);
 
 // The scalar row index the kernels assert their table entry against. Under
 // continuous flow different records sit on DIFFERENT rows, so there is no single

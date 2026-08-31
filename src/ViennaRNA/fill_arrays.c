@@ -118,7 +118,12 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   // unchanged, and the cost is negligible (O(nfiles)). fill_arrays_loop.c
   // (#include'd below) uses these directly, same function scope.
   size_t row_off_H[nfiles+1], tri_off_H[nfiles+1];
-  compute_batch_offsets(nfiles, VC, row_off_H, tri_off_H);
+  // Continuous flow phase C1: same capacity rule as par_mfe(), from the same
+  // function -- these tables address the device buffers par_mfe() allocated, so
+  // the two must not be able to disagree.
+  size_t cap_H[nfiles];
+  compute_slot_capacities(nfiles, VC, length, cap_H);
+  compute_batch_offsets(nfiles, cap_H, row_off_H, tri_off_H);
   // The GPU-accelerated hairpin/multibranch energy precompute (hp_mb_3p_i(),
   // hp_mb_loop.cu) hardcodes the dangle_model==2 simplifications already
   // assumed throughout this CUDA fork's fill_arrays_loop.c/mb_loop_fast.c
