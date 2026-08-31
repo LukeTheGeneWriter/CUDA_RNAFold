@@ -136,6 +136,28 @@ refill_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
             const int length, const int block_size,
             const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H);
 
+// Continuous flow phase C3: the same refill restricted to ONE slot, for use
+// mid-sweep while every other slot is still mid-recursion.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+refill_slot2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
+             const int length, const int block_size,
+             const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H,
+             const int slot);
+
+// Continuous flow phase C3: reset one slot's sweep state (its fML triangle and
+// its DMLi/DMLi1/fml_prev rows) to the INF a chunk starts from.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+reset_slot_md(const size_t tri_lo, const size_t tri_n,
+              const size_t row_lo, const size_t row_n);
+
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
 #else
@@ -421,6 +443,31 @@ PUBLIC int rnafold_slot_capacity_max(void);
 // Continuous flow phase C2 (RNA_SLOT_TURNOVER=1, test mode) -- see mfe_cuda.c.
 PUBLIC int rnafold_slot_turnover(void);
 
+// Continuous flow phase C3 (RNA_SLOT_FLOW=k) -- see mfe_cuda.c. k>1 also turns
+// continuous flow on, because a slot can only take its next record early if
+// records are on their own rows.
+PUBLIC int rnafold_slot_flow(void);
+
+// Continuous flow phase C3: the chunk's admission SCHEDULE. Each slot owns a
+// queue of records, run back to back: slot s holds queue[qoff[s] .. qoff[s+1]),
+// one record at a time, and takes the next as soon as the current one reaches
+// its last row. The whole timeline follows from the lengths, so this is computed
+// once before the sweep -- there is no allocator and nothing to defragment.
+//
+// on_retire() is called for every record when its last row is done, INCLUDING
+// each slot's final occupant at the end of the sweep, so it is the single place
+// a finished record is fetched and backtracked. It is handed the SLOT because
+// that, not the record index, is where the record's triangles live.
+typedef struct rnafold_schedule_s {
+  int          slots;      //== the nfiles the sweep runs with
+  int          length;     //max length over the WHOLE chunk, not just the first occupants
+  const int   *qoff;       //slots+1 prefix offsets into queue[]
+  const int   *queue;      //record indices, grouped by slot
+  const vrna_fold_compound_t **VC_all;  //every record in the chunk, indexed by record
+  void       (*on_retire)(void *ctx, int slot, int record);
+  void        *ctx;
+} rnafold_schedule_t;
+
 // The chunk's slot capacity table, owned by par_mfe(). par_fill_arrays() must
 // read THIS rather than recompute: a slot's capacity covers every occupant its
 // queue will hold, which is a property of the chunk, not of one pass.
@@ -562,7 +609,8 @@ extern double stage_ig_pack_s, stage_ig_malloc_s;
 #endif
 
 PRIVATE void
-par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy);
+par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
+                const rnafold_schedule_t *sched); //NULL == one record per slot, as before
 
 int
 mb_loop_fast( vrna_fold_compound_t *vc,

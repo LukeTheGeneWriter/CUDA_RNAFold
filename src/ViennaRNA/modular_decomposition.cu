@@ -768,6 +768,29 @@ upload_i_H(const int nfiles, const int* i_H) {
   if(i_H_shadow) memcpy(i_H_shadow, i_H, bytes);
 }
 
+// Continuous flow phase C3: put ONE slot's sweep state back to the state a
+// chunk starts in, so the slot can take a new record mid-sweep. Exactly the
+// buffers init_fML() fills for the whole chunk, restricted to this slot's own
+// ranges by pointer offset -- the neighbours are mid-recursion and must not be
+// touched.
+PUBLIC void
+reset_slot_md(const size_t tri_lo, const size_t tri_n,
+              const size_t row_lo, const size_t row_n) {
+  if(tri_n) {
+    const size_t nb = (tri_n + BLOCK_SIZE - 1)/BLOCK_SIZE;
+    init_fML_kernel<<<nb,BLOCK_SIZE>>>(tri_n, d_fml_j + tri_lo);
+    gpuErrchk( cudaPeekAtLastError() );
+  }
+  if(row_n) {
+    const size_t nb = (row_n + BLOCK_SIZE - 1)/BLOCK_SIZE;
+    init_fML_kernel<<<nb,BLOCK_SIZE>>>(row_n, d_dml      + row_lo);
+    init_fML_kernel<<<nb,BLOCK_SIZE>>>(row_n, d_dml1     + row_lo);
+    init_fML_kernel<<<nb,BLOCK_SIZE>>>(row_n, d_fml_prev + row_lo);
+    gpuErrchk( cudaPeekAtLastError() );
+  }
+  gpuErrchk( cudaDeviceSynchronize() );
+}
+
 //perhaps this can be combined with fmli_kernel?
 __global__ void
 load_fML_kernel(const int nfiles, const int i_row, const int turn, const int length,

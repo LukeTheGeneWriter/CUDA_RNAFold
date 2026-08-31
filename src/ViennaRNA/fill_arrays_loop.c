@@ -48,7 +48,14 @@
  // same order -- so this moves WHEN work happens, not how much. A record
  // shorter than turn+2 has no rows at all and starts retired.
  int i_H[nfiles];
- const int continuous_flow = rnafold_continuous_flow();
+ // Continuous flow phase C3: a schedule IMPLIES continuous flow -- slots take
+ // their next record as soon as the current one finishes, which only means
+ // anything if each record is on its own row.
+ const int continuous_flow = rnafold_continuous_flow() || (sched != NULL);
+ // How far each slot has got through its queue. 0 == the occupant installed by
+ // par_mfe() before the sweep started.
+ int q_pos[nfiles];
+ for(int H=0;H<nfiles;H++) q_pos[H] = 0;
  // Phase B instrumentation. The plan expects continuous flow to cut the row
  // count, so count what the sweep actually launches rather than arguing about
  // it: iterations, (record, iteration) pairs that had a row to compute, and the
@@ -67,7 +74,22 @@
    i_H[H] = (continuous_flow && top >= 1) ? top : 0;
  }
 
- for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
+ // The sweep runs until the busiest slot has finished its whole queue. Without
+ // a schedule that is just the longest record, exactly as before.
+ int sweep_iters = length-turn-1;
+ if(sched) {
+   sweep_iters = 0;
+   for(int s=0;s<nfiles;s++) {
+     int tot = 0;
+     for(int q=sched->qoff[s]; q<sched->qoff[s+1]; q++) {
+       const int rl = (int)sched->VC_all[sched->queue[q]]->length - turn - 1;
+       if(rl > 0) tot += rl;
+     }
+     if(tot > sweep_iters) sweep_iters = tot;
+   }
+ }
+
+ for (i = sweep_iters; i >= 1; i--) { /* i,j in [1..length] */
 
     if(!continuous_flow) for(int H=0;H<nfiles;H++) i_H[H] = i;
 
@@ -406,7 +428,54 @@
     // iteration.
     if(continuous_flow)
       for(int H=0;H<nfiles;H++) if(i_H[H] >= 1) i_H[H]--;
+
+    // Continuous flow phase C3: SLOT TURNOVER, mid-sweep. A slot whose row index
+    // has just reached 0 has finished its occupant's last row -- and that row is
+    // complete on the device, because the graph trio at the end of this
+    // iteration synced. So the record can be handed over for fetching and
+    // backtracking, and the slot handed to the next record in its queue.
+    //
+    // Everything the incoming record needs is put back to the state a chunk
+    // starts in, for THIS SLOT ONLY: the neighbours are mid-recursion and their
+    // buffers must not be touched.
+    if(sched) {
+      for(int s=0;s<nfiles;s++) {
+        if(i_H[s] >= 1) continue;                                  // still working
+        const int qn = sched->qoff[s+1] - sched->qoff[s];
+        if(q_pos[s] >= qn) continue;                               // already all retired
+        sched->on_retire(sched->ctx, s, sched->queue[sched->qoff[s] + q_pos[s]]);
+        q_pos[s]++;
+        if(q_pos[s] >= qn) continue;                               // queue empty: slot idle
+        const int rec = sched->queue[sched->qoff[s] + q_pos[s]];
+        ((const vrna_fold_compound_t **)VC)[s] = sched->VC_all[rec];
+
+        // host: the three DMLi generations and fml_prev. All three, because they
+        // rotate -- whichever becomes DMLi1 next row must read INF for a record
+        // that has no previous row yet.
+        for(size_t k=row_off_H[s]; k<row_off_H[s+1]; k++)
+          DMLi[k] = DMLi1[k] = DMLi2[k] = fml_prev[k] = INF;
+
+        // device: this slot's sweep state, then its sequence-derived content.
+        reset_slot_md(tri_off_H[s], tri_off_H[s+1]-tri_off_H[s],
+                      row_off_H[s], row_off_H[s+1]-row_off_H[s]);
+        refill_slot2(nfiles, VC, turn, length, 512, tri_off_H, row_off_H, cap_H, s);
+        refill_gpu3 (nfiles, VC, turn, length, 512, row_off_H, cap_H);
+
+        const int top = (int)VC[s]->length - turn - 1;
+        i_H[s] = (top >= 1) ? top : 0;
+      }
+    }
   } /* end of i-loop */
+
+ // Anything still unretired -- a record with no rows of its own, or a slot that
+ // emptied on the final iteration -- is retired here, so on_retire() is called
+ // exactly once for every record in the schedule.
+ if(sched)
+   for(int s=0;s<nfiles;s++)
+     while(q_pos[s] < sched->qoff[s+1] - sched->qoff[s]) {
+       sched->on_retire(sched->ctx, s, sched->queue[sched->qoff[s] + q_pos[s]]);
+       q_pos[s]++;
+     }
 
  fprintf(stderr,"%-24s sweep shape: %lld iterations, %lld active record-rows, "
                 "%lld cells; peak/iteration %lld records %lld cells; "

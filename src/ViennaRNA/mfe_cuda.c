@@ -155,6 +155,16 @@ rnafold_continuous_flow(void) {
   if(v < 0) {
     const char *e = getenv("RNA_CONTINUOUS_FLOW");
     v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
+    // Phase C3: slot flow IMPLIES continuous flow -- a slot can only take its
+    // next record early if records are on their own rows. This has to be
+    // decided HERE and not just inside the sweep, because RNA_I_ROW() asks this
+    // function whether there is still a single row for the kernels to assert
+    // against. Getting that wrong trips the assert rather than folding wrong,
+    // which is how it was caught.
+    // k=1 is the degenerate schedule -- one record per slot, no turnover -- and
+    // still needs per-record rows, so the implication starts at 1, not 2. That
+    // makes k=1 a test of the schedule plumbing in isolation from the handover.
+    if(!v && rnafold_slot_flow() >= 1) v = 1;
     if(v) fprintf(stderr,"%-24s RNA_CONTINUOUS_FLOW=1: records start at their own "
                          "top row and retire at their own last row\n", __FILE__);
   }
@@ -203,6 +213,26 @@ rnafold_slot_turnover(void) {
     if(v) fprintf(stderr,"%-24s RNA_SLOT_TURNOVER=1: every chunk is folded twice, the "
                          "second time with every record in a different slot (test mode)\n",
                   __FILE__);
+  }
+  return v;
+}
+
+// Continuous flow phase C3: RNA_SLOT_FLOW=k folds the chunk in ceil(nfiles/k)
+// SLOTS instead of one slot per record. Each slot runs a queue of records back
+// to back: as soon as one reaches its last row the slot fetches it, backtracks
+// it, and takes the next -- mid-sweep, while every other slot keeps going.
+//
+// k=2 halves the slot count (and so the VRAM) for the same records; k=1 or unset
+// is today's behaviour. The output must not change, only the schedule.
+PUBLIC int
+rnafold_slot_flow(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_SLOT_FLOW");
+    v = (e && e[0]) ? atoi(e) : 0;
+    if(v < 0) v = 0;
+    if(v >= 1) fprintf(stderr,"%-24s RNA_SLOT_FLOW=%d: chunks run in 1/%d as many slots, "
+                             "each slot taking its next record mid-sweep\n", __FILE__, v, v);
   }
   return v;
 }
@@ -459,10 +489,14 @@ typedef struct {
 // MFE, backtrack, then hand the scratch back. VC[]'s own c/fML pointers are
 // NULL outside this window (par_mfe() releases them up front), which is what
 // keeps peak host RAM at one record's worth per worker.
+// Phase C3: `slot` is where the record's triangles LIVE on the device, which is
+// the record's own index only when there is one record per slot. `idx` stays the
+// record index: it is what indexes VC/Structure/energy/EN, and so what keeps the
+// output in input order however the records were scheduled.
 PRIVATE void
-backtrack_one(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {
+backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_scratch_t *sc) {
   vrna_fold_compound_t *vc = (vrna_fold_compound_t *) a->VC[idx];
-  const size_t lo    = a->tri_off_H[idx];
+  const size_t lo    = a->tri_off_H[slot];
   // Phase C1: the OCCUPANT's own triangle, not the slot's. Indx(i,j)=j*(j-1)/2+i
   // does not depend on length, so a record living in a larger slot occupies
   // exactly the prefix -- and taking the slot's size here would both copy cells
@@ -471,7 +505,7 @@ backtrack_one(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {
   const size_t cells = (len + 1)*(len + 2)/2;
   assert(vc->type == VRNA_FC_TYPE_SINGLE);
   assert(cells > 0);
-  assert(cells <= a->tri_off_H[idx+1] - lo);   // the occupant must fit its slot
+  assert(cells <= a->tri_off_H[slot+1] - lo);  // the occupant must fit its slot
 
   bt_scratch_ensure(sc, cells);
   vc->matrices->c   = sc->c;
@@ -493,6 +527,11 @@ backtrack_one(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {
   // does not own. free(NULL) in there is a no-op.
   vc->matrices->c   = NULL;
   vc->matrices->fML = NULL;
+}
+
+PRIVATE void
+backtrack_one(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {
+  backtrack_one_slot(a, idx, idx, sc);   // one record per slot: they are the same
 }
 
 PRIVATE void *
@@ -595,6 +634,28 @@ compute_flatten_offsets(const int nfiles, const size_t* width_H, size_t* flat_of
     assert(flat_off_H[nfiles] == independent_total);
   }
 #endif
+}
+
+// Continuous flow phase C3: what happens the moment a record finishes its last
+// row. Its triangles are still in its slot on the device and are about to be
+// overwritten by the next occupant, so they are fetched HERE, and the record is
+// finished off immediately -- exterior loop, MFE, backtrack -- into its own
+// output slot, which keeps the output in input order whatever the schedule did.
+//
+// Serial, on the sweep's own thread: the sweep waits for one record's fetch and
+// backtrack at each handover. Overlapping that with the sweep is the obvious
+// next step and is deliberately not part of this one -- correctness first.
+typedef struct {
+  backtrack_pool_args_t *args;
+  bt_scratch_t          *sc;
+  int                    retired;
+} retire_ctx_t;
+
+PRIVATE void
+on_retire_cb(void *ctx, int slot, int record) {
+  retire_ctx_t *r = (retire_ctx_t *) ctx;
+  backtrack_one_slot(r->args, record, slot, r->sc);
+  r->retired++;
 }
 
 // Continuous flow phase C2: the post-sweep phase, lifted out of par_mfe()
@@ -704,22 +765,63 @@ par_mfe(const int nfiles,
   // Continuous flow phase C1: the per-slot capacity, in nucleotides. Every
   // LAYOUT table below is built from this; every BOUND stays on the occupant's
   // own VC[H]->length. Equal by default -- see rnafold_slot_capacity_max().
-  size_t cap_H[nfiles];
-  compute_slot_capacities(nfiles, VC, length, cap_H);
+  // Continuous flow phase C3: build the chunk's SCHEDULE first, because it
+  // decides how many slots there are and therefore the shape of everything
+  // below. Records are dealt round-robin in DESCENDING length order, so each
+  // slot's queue is non-increasing and its capacity is simply its first
+  // record's length -- which makes every later occupant fit by construction,
+  // with no allocator and nothing to defragment.
+  const int flow_k   = rnafold_slot_flow();
+  const int use_flow = (flow_k >= 1 && nfiles >= 2);
+  const int slots    = use_flow ? ((nfiles + flow_k - 1) / flow_k) : nfiles;
+
+  int order[nfiles], queue[nfiles], qoff[slots+1];
+  const vrna_fold_compound_t *VCsl_buf[slots];
+  const vrna_fold_compound_t **VCsl = VC;
+  if(use_flow) {
+    for(int a=0;a<nfiles;a++) order[a] = a;
+    for(int a=0;a<nfiles;a++) {          // selection sort, descending length
+      int best = a;
+      for(int b=a+1;b<nfiles;b++)
+        if(VC[order[b]]->length > VC[order[best]]->length) best = b;
+      const int t = order[a]; order[a] = order[best]; order[best] = t;
+    }
+    // Deal: slot s takes order[s], order[s+slots], order[s+2*slots], ...
+    int w = 0;
+    for(int s=0;s<slots;s++) {
+      qoff[s] = w;
+      for(int p=s; p<nfiles; p+=slots) queue[w++] = order[p];
+    }
+    qoff[slots] = w;
+    assert(w == nfiles);
+    for(int s=0;s<slots;s++) VCsl_buf[s] = VC[queue[qoff[s]]];
+    VCsl = VCsl_buf;
+  }
+
+  const int nslots = slots;
+  size_t cap_H[nslots];
+  compute_slot_capacities(nslots, VCsl, length, cap_H);
+  if(use_flow)
+    for(int s=0;s<nslots;s++) {         // the whole queue must fit the slot
+      for(int q=qoff[s]; q<qoff[s+1]; q++) {
+        const size_t l = (size_t)VC[queue[q]]->length;
+        if(l > cap_H[s]) cap_H[s] = l;
+      }
+    }
   // Publish it: par_fill_arrays() reads this instead of recomputing -- see
   // rnafold_chunk_capacities().
-  if(g_cap_n < nfiles) {
+  if(g_cap_n < nslots) {
     free(g_cap_H);
-    g_cap_H = (size_t *) vrna_alloc(sizeof(size_t) * nfiles);
-    g_cap_n = nfiles;
+    g_cap_H = (size_t *) vrna_alloc(sizeof(size_t) * nslots);
+    g_cap_n = nslots;
   }
-  memcpy(g_cap_H, cap_H, sizeof(size_t) * nfiles);
-  size_t row_off_H[nfiles+1], tri_off_H[nfiles+1]; //Phase 2a, see compute_batch_offsets() above
-  compute_batch_offsets(nfiles, cap_H, row_off_H, tri_off_H);
+  memcpy(g_cap_H, cap_H, sizeof(size_t) * nslots);
+  size_t row_off_H[nslots+1], tri_off_H[nslots+1]; //Phase 2a, see compute_batch_offsets() above
+  compute_batch_offsets(nslots, cap_H, row_off_H, tri_off_H);
   const double t_gpuinit = rnafold_now_seconds();
-  init_gpu(nfiles,length,tri_off_H,row_off_H);
-  init_gpu2(nfiles,VC, turn, length, 512, tri_off_H, row_off_H, cap_H);
-  init_gpu3(nfiles,VC, turn, length, 512, row_off_H, cap_H);
+  init_gpu(nslots,length,tri_off_H,row_off_H);
+  init_gpu2(nslots,VCsl, turn, length, 512, tri_off_H, row_off_H, cap_H);
+  init_gpu3(nslots,VCsl, turn, length, 512, row_off_H, cap_H);
   stage_gpuinit_s += rnafold_now_seconds() - t_gpuinit;
 
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {
@@ -750,9 +852,44 @@ par_mfe(const int nfiles,
     }
 
     int energy[nfiles];
-    par_fill_arrays(nfiles,VC,energy);
+    if(use_flow) {
+      // Continuous flow phase C3: the sweep itself retires each record as it
+      // finishes, so there is no separate post-sweep phase -- on_retire_cb()
+      // fetches and backtracks one record at each handover, and again for every
+      // slot's final occupant when the sweep ends. One scratch pair serves them
+      // all, which is what keeps host matrix memory at ONE record's worth.
+      const double t_bt = rnafold_now_seconds();
+      bt_scratch_t sc; memset(&sc, 0, sizeof(sc));
+      backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, NULL, tri_off_H };
+      retire_ctx_t rctx = { &targ, &sc, 0 };
+      rnafold_schedule_t sched;
+      sched.slots     = nslots;
+      sched.length    = length;
+      sched.qoff      = qoff;
+      sched.queue     = queue;
+      sched.VC_all    = VC;
+      sched.on_retire = on_retire_cb;
+      sched.ctx       = &rctx;
+
+      par_fill_arrays(nslots, VCsl, energy, &sched);
+
+      // Every record must have been retired exactly once -- a slot left holding
+      // a record would silently produce an unwritten structure.
+      if(rctx.retired != nfiles)
+        fprintf(stderr,"%-24s SCHEDULE ERROR: %d of %d records retired\n",
+                __FILE__, rctx.retired, nfiles);
+      fprintf(stderr,"%-24s slot flow: %d records through %d slots, %d retired, "
+                     "%zu triangle cells\n",
+              __FILE__, nfiles, nslots, rctx.retired, tri_off_H[nslots]);
+      free(sc.c); free(sc.fML);
+      const double bt_phase_s = rnafold_now_seconds() - t_bt;
+      phase_fetch_mx_s  += sc.fetch_s > bt_phase_s ? bt_phase_s : sc.fetch_s;
+      stage_backtrack_s += bt_phase_s - (sc.fetch_s > bt_phase_s ? bt_phase_s : sc.fetch_s);
+    } else {
+    par_fill_arrays(nfiles,VC,energy,NULL);
 
     backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads);
+    }
 
     // Continuous flow phase C2: the slot-turnover self-check. See
     // rnafold_slot_turnover(). Record r moves to slot r-1 (cyclically), every
@@ -784,7 +921,7 @@ par_mfe(const int nfiles,
       refill_gpu2(nfiles, VC2, turn, length, 512, tri_off_H, row_off_H, cap_H);
       refill_gpu3(nfiles, VC2, turn, length, 512, row_off_H, cap_H);
 
-      par_fill_arrays(nfiles, VC2, energy2);
+      par_fill_arrays(nfiles, VC2, energy2, NULL);
       backtrack_all(nfiles, VC2, (const char **) Str2, energy2, EN2, tri_off_H, cpu_queue_threads);
 
       int bad = 0;

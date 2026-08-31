@@ -294,6 +294,11 @@ void put10(const unsigned int word, const int H, const int nfiles, const int i, 
 // paths, and the buffers it skips are unchanged in size because the refill
 // keeps the same nfiles and the same capacity table.
 static int g_refill2 = 0;
+// Phase C3: a MID-SWEEP refill touches one slot while every other slot still
+// holds live data, so the whole-buffer d_my_c prefill has to be suppressed and
+// replaced by a range fill over that slot's triangle alone. Clobbering the
+// neighbours here would be silent: they are mid-recursion, not INF.
+static int g_slot_only = 0;
 #define SLOT_ALLOC(pp, sz) do { if(!g_refill2) TIMED_CUDAMALLOC(pp, sz); } while(0)
 
 PUBLIC void
@@ -442,7 +447,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   { const size_t my_c_elems = tri_off_H[nfiles]; //sum of each H's own triangle size
     size = my_c_elems*sizeof(int);
     SLOT_ALLOC(&d_my_c, size);
-    init_my_c(my_c_elems);
+    if(!g_slot_only) init_my_c(my_c_elems);   // phase C3: see g_slot_only
   }
 
   // Staggered_Row_Batching Phase 6d: cached for the per-row entry points that
@@ -480,6 +485,33 @@ refill_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
   first2    = 1;
   init_gpu2(nfiles, VC, turn_, length, block_size, tri_off_H, row_off_H, cap_H);
   g_refill2 = 0;
+}
+
+// Continuous flow phase C3: refill ONE slot, mid-sweep, without disturbing the
+// others. The sequence-derived content this file owns is either per-slot already
+// or recomputed identically for the unchanged slots (d_S is repacked whole: its
+// ten-bases-per-word layout interleaves the slots, so a single slot cannot be
+// rewritten in isolation without read-modify-write of shared words. The repack
+// reproduces every other slot's bytes exactly, so it is safe -- it is just work,
+// and Phase 2f's per-record d_S layout is what would remove it).
+//
+// The one thing that must NOT be done whole-buffer is d_my_c's INF prefill --
+// hence g_slot_only and the range fill below.
+PUBLIC void
+refill_slot2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
+             const int length, const int block_size,
+             const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H,
+             const int slot) {
+  g_slot_only = 1;
+  refill_gpu2(nfiles, VC, turn_, length, block_size, tri_off_H, row_off_H, cap_H);
+  g_slot_only = 0;
+
+  const size_t lo = tri_off_H[slot];
+  const size_t n  = tri_off_H[slot+1] - lo;
+  const size_t nblocks = (n + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  init_my_c_kernel<<<nblocks,BLOCK_SIZE>>>(n, d_my_c + lo);
+  gpuErrchk( cudaPeekAtLastError() );
+  gpuErrchk( cudaDeviceSynchronize() );
 }
 
 // Frees the 5 nfiles/length-scaled device buffers allocated by init_gpu2()

@@ -55,7 +55,8 @@ void min_fml(const int i, const int j, const int* my_fML, const int* DMLi, const
 #define Indx(H,i,j)            (VC[H]->jindx[j]+i)
 
 PRIVATE void
-par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) {
+par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
+                const rnafold_schedule_t *sched) {
 
   {
     static int phase_timing_registered = 0;
@@ -109,6 +110,10 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   length            = 0;
   for(int H=0; H<nfiles; H++)
     if((int)VC[H]->length > length) length = (int)VC[H]->length;
+  // Continuous flow phase C3: with a schedule, a slot's later occupants can be
+  // longer than its first, and `length` sizes buffers and bounds asserts for the
+  // WHOLE chunk -- so take the schedule's own maximum, not this pass's.
+  if(sched && sched->length > length) length = sched->length;
 //ptype             = vc->ptype;
 //indx              = vc->jindx;
   P                 = VC[0]->params;
