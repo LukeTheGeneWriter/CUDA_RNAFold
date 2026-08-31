@@ -22,15 +22,60 @@
 //
 // Degenerates to "always true" while chunks are uniform-length, which is what
 // keeps this phase a no-op until Phase 6c actually admits mixed lengths.
-#define HAS_JOINED(H) ((i) + (turn) + 1 <= (int)VC[(H)]->length)
+// Continuous flow PHASE B replaces the join mask with an ACTIVE mask. A record
+// is active on this iteration if it has a row of its own to compute:
+// i_H[H] >= 1 (it has not retired) and that row is inside its own triangle.
+//
+// Off the flow path i_H[H] == i for every H and i >= 1 by the loop bound, so
+// this is exactly the old HAS_JOINED() test, character for character in effect.
+#define IS_ACTIVE(H) (i_H[(H)] >= 1 && i_H[(H)] + (turn) + 1 <= (int)VC[(H)]->length)
+
+ // Continuous flow PHASE B: the per-record row index, now hoisted out of the
+ // loop because under flow it CARRIES from one iteration to the next.
+ //
+ // OFF (default): rewritten to the shared i at the top of every iteration, so
+ // every record sits on the same row and the kernels' assert(i == i_row) holds.
+ //
+ // ON: each record starts at its OWN top row -- so it works from iteration 0
+ // instead of idling until the shared counter comes down to it -- and stops
+ // when it reaches row 1, i.e. i_H[H] == 0 means retired. Every record still
+ // advances exactly ONE row per iteration, which is what keeps every piece of
+ // per-row machinery valid: the DMLi/DMLi1 rotation, md_snapshot_dml(), the
+ // graph capture, and all the per-row offset tables.
+ //
+ // The iteration count is unchanged either way (length-turn-1, set by the
+ // LONGEST record), and each record still computes exactly its own rows in the
+ // same order -- so this moves WHEN work happens, not how much. A record
+ // shorter than turn+2 has no rows at all and starts retired.
+ int i_H[nfiles];
+ const int continuous_flow = rnafold_continuous_flow();
+ // Phase B instrumentation. The plan expects continuous flow to cut the row
+ // count, so count what the sweep actually launches rather than arguing about
+ // it: iterations, (record, iteration) pairs that had a row to compute, and the
+ // summed per-row widths. Clock-independent, so it is meaningful even on a
+ // throttling box. One extra pass over nfiles per row, next to the several this
+ // loop body already does.
+ long long cf_iters = 0, cf_rows = 0, cf_cells = 0;
+ // The totals above are conserved by phase B (it recomputes the same rows in a
+ // different order), so they alone cannot show what it did. The PEAKS can: what
+ // continuous flow changes is the per-iteration shape -- every live record is at
+ // the same width, instead of the batch piling its widest rows into the last
+ // iterations. A lower peak at the same total is a flatter sweep.
+ long long cf_peak_cells = 0, cf_peak_rows = 0;
+ for(int H=0;H<nfiles;H++) {
+   const int top = (int)VC[H]->length - turn - 1;
+   i_H[H] = (continuous_flow && top >= 1) ? top : 0;
+ }
 
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
+
+    if(!continuous_flow) for(int H=0;H<nfiles;H++) i_H[H] = i;
 
     // Staggered_Row_Batching Phase 2d: table-driven per-H row offset,
     // replacing the H-tightest H+j*nfiles convention.
     // Phase 6d: `length` is now max(VC[H]->length) across the batch, so every
     // host loop in this row body has to bound itself by its OWN H's length and
-    // skip H entirely on rows above it -- HAS_JOINED() below. The shared bound
+    // skip H entirely on rows above it -- IS_ACTIVE() below. The shared bound
     // would spill past a short H's row into the next H's.
     // GPU-resident sweep (RNA_GPU_SWEEP): in device mode nothing on the host
     // reads energy_min this row -- the three host loops below are skipped and
@@ -40,8 +85,8 @@
     // "no INF fill needed in device mode".
     if(!rnafold_gpu_sweep())
     for (int H=0;H<nfiles; H++) {
-    if(!HAS_JOINED(H)) continue;
-    for (j = i+turn+1; j <= (int)VC[H]->length; j++) energy_min[row_off_H[H]+j] = INF;
+    if(!IS_ACTIVE(H)) continue;
+    for (j = i_H[H]+turn+1; j <= (int)VC[H]->length; j++) energy_min[row_off_H[H]+j] = INF;
     }
 
     // Staggered_Row_Batching Phase 5: this row's "size" active-width table
@@ -53,20 +98,24 @@
     {
       size_t size_H[nfiles];
       for(int H=0;H<nfiles;H++) {
-        const int size_raw = (int)VC[H]->length - i - turn;
+        // Continuous flow phase B: a RETIRED record (i_H[H] < 1) has width 0.
+        // Without the guard its width would be computed from the sentinel and
+        // come out positive, handing threads to a record that is finished.
+        const int size_raw = (i_H[H] >= 1) ? ((int)VC[H]->length - i_H[H] - turn) : 0;
         size_H[H] = (size_raw>0) ? (size_t)size_raw : 0;
       }
       compute_flatten_offsets(nfiles, size_H, size_off_H);
     }
 
-    // Continuous flow, PHASE A: the per-record row index. Every entry is the
-    // shared i today, so the kernels are unchanged in effect -- phase A exists
-    // to move the row index onto a per-record table WITHOUT changing behaviour,
-    // so that phase B can let records retire at their own rows. The kernels
-    // assert(i_H[H] == i_row), which turns any future divergence into a trap
-    // rather than a silently wrong fold.
-    int i_H[nfiles];
-    for(int H=0;H<nfiles;H++) i_H[H] = i;
+    cf_iters++;
+    cf_cells += (long long)size_off_H[nfiles];
+    if((long long)size_off_H[nfiles] > cf_peak_cells) cf_peak_cells = (long long)size_off_H[nfiles];
+    {
+      long long active = 0;
+      for(int H=0;H<nfiles;H++) if(IS_ACTIVE(H)) active++;
+      cf_rows += active;
+      if(active > cf_peak_rows) cf_peak_rows = active;
+    }
 
     {
       const double t0 = now_seconds();
@@ -94,8 +143,8 @@
     // over it is gated off, so this loop has no consumer in device mode.
     if(!rnafold_gpu_sweep())
     for (int H=0;H<nfiles; H++) {
-    if(!HAS_JOINED(H)) continue; // Phase 6d
-    for (j = i+turn+1; j <= (int)VC[H]->length; j++) {
+    if(!IS_ACTIVE(H)) continue; // Phase 6d; continuous flow phase B
+    for (j = i_H[H]+turn+1; j <= (int)VC[H]->length; j++) {
       new_C[row_off_H[H]+j] = INF;
       // Both of these used to be triangle reads -- Ptype(H,ij) and
       // Hard_constraints(H,ij), each a stride-~j cache miss per (H,j), and
@@ -186,7 +235,8 @@
     for (int H=0;H<nfiles; H++) {
     // Phase 6d: must precede the en_i computation below, not just guard the
     // j-loop -- VC[H]->hc->up_ml[i] reads past a not-yet-joined H's array.
-    if(!HAS_JOINED(H)) continue;
+    if(!IS_ACTIVE(H)) continue;
+    const int i_h = i_H[H];   // continuous flow phase B: this record's own row
       /*  extension with one unpaired nucleotide at 5' site
 	  and all other variants which are needed for odd
 	  dangle models -- per-H (was incorrectly computed once from
@@ -194,10 +244,10 @@
 	  for the already-correct per-H sibling of this check)
       */
       const int cp = -1;
-      const int en_i = (ON_SAME_STRAND(i - 1, i, cp) &&
-                         ON_SAME_STRAND(i, i + 1, cp) &&
-                         VC[H]->hc->up_ml[i] > 0) ? P->MLbase : INF;
-    for (j = i+turn+1; j <= (int)VC[H]->length; j++) {
+      const int en_i = (ON_SAME_STRAND(i_h - 1, i_h, cp) &&
+                         ON_SAME_STRAND(i_h, i_h + 1, cp) &&
+                         VC[H]->hc->up_ml[i_h] > 0) ? P->MLbase : INF;
+    for (j = i_h+turn+1; j <= (int)VC[H]->length; j++) {
       // No `ij = Indx(H,i,j)` here any more: this loop's last two triangle
       // accesses (My_fML(H,ij+1) and My_c(H,ij)) are gone, so the index was
       // feeding nothing but an assert -- and asserts in this file are
@@ -231,7 +281,7 @@
   // triangle walk was stride ~j. j == i+turn+1 is the exception: j-1 is then
   // i+turn, inside the diagonal band, a cell no row ever computes and which
   // the fML prefill leaves at INF.
-  const int fml_i_jm1 = (j == i+turn+1) ? INF : energy_min[row_off_H[H]+(j-1)];
+  const int fml_i_jm1 = (j == i_h+turn+1) ? INF : energy_min[row_off_H[H]+(j-1)];
   en0 = ((fml_i_jm1 != INF) && (energy_3p_en_j != INF))? fml_i_jm1 + energy_3p_en_j : INF;
   e00 = MIN2(e00, en0);
       //end from extend_fm_3p()...
@@ -291,7 +341,7 @@
       {
         size_t side_H[nfiles];
         for(int H=0;H<nfiles;H++) {
-          const int side_raw = (int)VC[H]->length - i - 2*turn - 2;
+          const int side_raw = (i_H[H] >= 1) ? ((int)VC[H]->length - i_H[H] - 2*turn - 2) : 0;
           side_H[H] = (side_raw>0) ? (size_t)side_raw : 0;
         }
         compute_flatten_offsets(nfiles, side_H, side_off_H);
@@ -315,13 +365,14 @@
     // no consumer in device mode.
     if(!rnafold_gpu_sweep())
     for (int H=0;H<nfiles; H++) {
-      if(!HAS_JOINED(H)) continue;
+      if(!IS_ACTIVE(H)) continue;
+      const int i_h = i_H[H];   // continuous flow phase B: this record's own row
       // The cell one below this row's first, (i, i+turn), is inside the
       // diagonal band -- never computed, INF in the fML prefill. Row i-1 will
       // read it as its own j == i+turn, so write it explicitly rather than
       // leaving row i+1's value there.
-      fml_prev[row_off_H[H]+(i+turn)] = INF;
-      for (int jj = i+turn+1; jj <= (int)VC[H]->length; jj++)
+      fml_prev[row_off_H[H]+(i_h+turn)] = INF;
+      for (int jj = i_h+turn+1; jj <= (int)VC[H]->length; jj++)
         fml_prev[row_off_H[H]+jj] = MIN2(energy_min[row_off_H[H]+jj],
                                          DMLi[row_off_H[H]+jj]);
     }
@@ -348,6 +399,19 @@
       int *FF; /* rotate the auxilliary arrays */
       FF = DMLi2; DMLi2 = DMLi1; DMLi1 = DMLi; DMLi = FF;
     }
+
+    // Continuous flow phase B: every active record advances one row; a record
+    // that was on row 1 lands on 0 and is retired from here on. Off the flow
+    // path this does nothing -- i_H is rewritten from i at the top of the next
+    // iteration.
+    if(continuous_flow)
+      for(int H=0;H<nfiles;H++) if(i_H[H] >= 1) i_H[H]--;
   } /* end of i-loop */
+
+ fprintf(stderr,"%-24s sweep shape: %lld iterations, %lld active record-rows, "
+                "%lld cells; peak/iteration %lld records %lld cells; "
+                "continuous flow %s\n",
+         __FILE__, cf_iters, cf_rows, cf_cells, cf_peak_rows, cf_peak_cells,
+         continuous_flow ? "ON" : "OFF");
 
 

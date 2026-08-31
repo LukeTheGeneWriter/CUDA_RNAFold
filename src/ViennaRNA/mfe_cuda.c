@@ -137,6 +137,30 @@ rnafold_gpu_sweep(void) {
   }
   return v;
 }
+// Continuous flow phase B. OFF by default: with it off every record sits on
+// the same row as today and the kernels' assert(i == i_row) self-proof stays
+// live, so one binary can be A/B'd against itself -- the same shape that
+// settled RNA_GPU_SWEEP.
+//
+// ON, each record starts at ITS OWN top row on the first iteration instead of
+// waiting for the shared counter to come down to it, and retires when it
+// reaches row 1 instead of the whole batch finishing together. Same total work
+// (each record still computes exactly its own triangle, one row per iteration,
+// in the same order); what changes is WHEN each record's rows are computed, so
+// the early iterations stop being nearly empty. The answers must not move --
+// that is the verification bar.
+PUBLIC int
+rnafold_continuous_flow(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_CONTINUOUS_FLOW");
+    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
+    if(v) fprintf(stderr,"%-24s RNA_CONTINUOUS_FLOW=1: records start at their own "
+                         "top row and retire at their own last row\n", __FILE__);
+  }
+  return v;
+}
+
 double stage_prepare_s    = 0.0; //vrna_fold_compound_prepare()
 double stage_prefill_s    = 0.0; //par_fill_arrays()'s pre-sweep host matrix INF fill
 double stage_backtrack_s  = 0.0; //backtrack(), single- or multi-threaded

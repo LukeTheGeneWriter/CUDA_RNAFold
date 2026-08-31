@@ -57,7 +57,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
   // Without it phase B would compute this row at the wrong i for every record
   // but one.
   const int i = i_H[H];
-  assert(i == i_row);
+  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   const int j = ((int)blockIdx.x - (int)size_off_H[H]) + i+turn+1;
 
   const long long ij = Indx(i,j);

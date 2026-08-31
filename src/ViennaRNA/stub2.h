@@ -81,7 +81,8 @@ modular_decomposition_i(const int nfiles,
 		      //const int* my_fML,
 			int* DMLi,
 			const size_t* row_off_H,  //in, nfiles+1 entries -- see compute_batch_offsets()
-			const size_t* side_off_H); //in, nfiles+1 entries -- Staggered_Row_Batching Phase 4, see compute_flatten_offsets()
+			const size_t* side_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 4, see compute_flatten_offsets()
+			const int* i_H); //in, nfiles entries -- continuous flow phase B, per-record row index
 
 // CUDA-graph-captured fusion of load_fML() + modular_decomposition_i() +
 // load_min_fML() -- see definition in modular_decomposition.cu for why these
@@ -377,6 +378,17 @@ extern int g_hc_seq_derived;
 // execution failures (including the .cu files' live device asserts) to surface
 // within the same row -- later than before, but not silently.
 PUBLIC int rnafold_gpu_sweep(void);
+
+// Continuous flow phase B (RNA_CONTINUOUS_FLOW, default off) -- see the
+// definition in mfe_cuda.c.
+PUBLIC int rnafold_continuous_flow(void);
+
+// The scalar row index the kernels assert their table entry against. Under
+// continuous flow different records sit on DIFFERENT rows, so there is no single
+// value to compare with: -1 tells the kernel-side assert "unchecked". The host
+// wrappers keep using the real loop counter for everything else (the
+// RNA_ROW_VERIFY comparisons index by i_H[H], and the i==1 end-of-run summary).
+#define RNA_I_ROW(i) (rnafold_continuous_flow() ? -1 : (i))
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void

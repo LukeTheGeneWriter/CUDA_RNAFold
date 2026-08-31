@@ -644,7 +644,7 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
   // argument -- .cu files never see -DNDEBUG, so a table that ever
   // disagrees traps instead of folding silently wrong.
   const int i = i_H[H];
-  assert(i == i_row);
+  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int j = mj + i+turn+1;
 
@@ -812,7 +812,7 @@ fml_scan_kernel(const int nfiles, const int i_row, const int turn,
   // argument -- .cu files never see -DNDEBUG, so a table that ever
   // disagrees traps instead of folding silently wrong.
   const int i = i_H[H];
-  assert(i == i_row);
+  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   const long long width = (long long)size_off_H[H+1] - (long long)size_off_H[H];
   if(width <= 0) return;                  // has not joined the sweep -- whole block returns
   const size_t o  = row_off_H[H];
@@ -999,7 +999,7 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   // The instantiate-a-few-and-switch shape follows int_loop_kernel's 32/64/
   // 128/256 precedent, and the env override follows RNA_MD_TILE's.
 #define FML_SCAN_LAUNCH(TW) \
-  fml_scan_kernel<TW><<<nfiles,TW>>>(nfiles, i, turn, \
+  fml_scan_kernel<TW><<<nfiles,TW>>>(nfiles, RNA_I_ROW(i), turn, \
                                      d_new_e_, d_energy_3p00_row, d_fml_prev_, \
                                      d_up_ml_ok, d_param2, d_energy_min_, \
                                      d_row_off_H, d_seq_off_H, d_size_off_H, d_i_H)
@@ -1039,13 +1039,18 @@ fml_scan_i(const int nfiles, const int i, const int turn,
     const size_t o     = row_off_H[H];
     const size_t width = size_off_H[H+1] - size_off_H[H];
     if(width == 0) continue;
+    // Continuous flow phase B: index by THIS RECORD's row, not the shared loop
+    // counter -- they diverge under RNA_CONTINUOUS_FLOW, and comparing at the
+    // wrong offset would invent mismatches (or hide real ones). Identical to i
+    // off the flow path.
+    const int i_h = i_H[H];
     for(size_t k=0; k<width; k++) {
-      const size_t idx = o + (size_t)(i+turn+1) + k;
+      const size_t idx = o + (size_t)(i_h+turn+1) + k;
       checked++;
       if(mirror[idx] == energy_min_host[idx]) continue;
       if(++bad <= 20)
         fprintf(stderr,"%-24s RNA_ROW_VERIFY fml_scan MISMATCH H=%d i=%d j=%d gpu=%d host=%d\n",
-                __FILE__, H, i, (int)((i+turn+1)+k), mirror[idx], energy_min_host[idx]);
+                __FILE__, H, i_h, (int)((i_h+turn+1)+k), mirror[idx], energy_min_host[idx]);
     }
   }
   if(i == 1)
@@ -1106,7 +1111,7 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
   // argument -- .cu files never see -DNDEBUG, so a table that ever
   // disagrees traps instead of folding silently wrong.
   const int i = i_H[H];
-  assert(i == i_row);
+  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int j = mj + i+turn+1;
   const size_t o = row_off_H[H];
@@ -1159,7 +1164,7 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
   upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   const size_t nblocks = (total + block_size - 1)/block_size;
-  new_c_kernel<<<(int)nblocks,block_size>>>(nfiles, i, turn, noGUclosure,
+  new_c_kernel<<<(int)nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn, noGUclosure,
                                             d_energy_min2_, d_energy_hp_row, d_energy_mb_row,
                                             d_gate_row, d_dml1_, d_new_e_,
                                             d_row_off_H, d_size_off_H, total, d_i_H);
@@ -1190,13 +1195,14 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
     const size_t o     = row_off_H[H];
     const size_t width = size_off_H[H+1] - size_off_H[H];
     if(width == 0) continue;   // not joined the sweep yet
+    const int i_h = i_H[H];    // continuous flow phase B -- this record's own row
     for(size_t k=0; k<width; k++) {
-      const size_t idx = o + (size_t)(i+turn+1) + k;
+      const size_t idx = o + (size_t)(i_h+turn+1) + k;
       checked++;
       if(mirror[idx] == new_C_host[idx]) continue;
       if(++bad <= 20)
         fprintf(stderr,"%-24s RNA_ROW_VERIFY new_c MISMATCH H=%d i=%d j=%d gpu=%d host=%d\n",
-                __FILE__, H, i, (int)((i+turn+1)+k), mirror[idx], new_C_host[idx]);
+                __FILE__, H, i_h, (int)((i_h+turn+1)+k), mirror[idx], new_C_host[idx]);
     }
   }
   if(i == 1)
@@ -1251,7 +1257,7 @@ fml_prev_kernel(const int nfiles, const int i_row, const int turn,
   // argument -- .cu files never see -DNDEBUG, so a table that ever
   // disagrees traps instead of folding silently wrong.
   const int i = i_H[H];
-  assert(i == i_row);
+  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int j = mj + i+turn+1;
   const size_t o = row_off_H[H];
@@ -1300,7 +1306,7 @@ fml_prev_i(const int nfiles, const int i, const int turn,
   upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   const size_t nblocks = (total + block_size - 1)/block_size;
-  fml_prev_kernel<<<(int)nblocks,block_size>>>(nfiles, i, turn,
+  fml_prev_kernel<<<(int)nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn,
                                                d_energy_min_, d_dml_, d_fml_prev_,
                                                d_row_off_H, d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
@@ -1332,14 +1338,15 @@ fml_prev_i(const int nfiles, const int i, const int turn,
     const size_t o     = row_off_H[H];
     const size_t width = size_off_H[H+1] - size_off_H[H];
     if(width == 0) continue;   // this H has not joined the sweep yet
+    const int i_h = i_H[H];    // continuous flow phase B -- this record's own row
     // width+1 cells: the diagonal-band cell at i+turn plus [i+turn+1, len_H].
     for(size_t k=0; k<=width; k++) {
-      const size_t idx = o + (size_t)(i+turn) + k;
+      const size_t idx = o + (size_t)(i_h+turn) + k;
       checked++;
       if(mirror[idx] == fml_prev_host[idx]) continue;
       if(++bad <= 20)
         fprintf(stderr,"%-24s RNA_ROW_VERIFY fml_prev MISMATCH H=%d i=%d j=%d gpu=%d host=%d\n",
-                __FILE__, H, i, (int)((i+turn)+k), mirror[idx], fml_prev_host[idx]);
+                __FILE__, H, i_h, (int)((i_h+turn)+k), mirror[idx], fml_prev_host[idx]);
     }
   }
   if(i == 1)   // last row of the sweep: report once per chunk
@@ -1376,7 +1383,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   const int nblocks = (total + block_size - 1)/block_size;
-  hp_mb_3p_kernel<<<nblocks,block_size>>>(nfiles, i, turn, length,
+  hp_mb_3p_kernel<<<nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn, length,
                                           d_S2, d_sequence, d_pair2,
                                           d_hccc_mb, d_hccc_mbenc,
                                           d_hccc_any, d_hccc_gu, d_param2,

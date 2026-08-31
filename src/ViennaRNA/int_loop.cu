@@ -618,7 +618,7 @@ load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const in
   // holding in phase B, so a divergent table traps instead of folding silently
   // wrong.
   const int i = i_H[H];
-  assert(i == i_row);
+  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   const long long j  = mj + i+turn+1;
 
   const long long ij = Indx(i,j);
@@ -670,7 +670,7 @@ load_my_c(const int nfiles,
   }
   const int nblocks = (total + block_size - 1)/block_size;
 
-  load_my_c_kernel<<<nblocks,block_size>>>(nfiles, i, /*turn,*/ length,
+  load_my_c_kernel<<<nblocks,block_size>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 					   d_new_e,  //in
 					   d_my_c,   //out
 					   d_tri_off_H,  //in
@@ -1031,7 +1031,7 @@ int_loop_cuda(const int nfiles,
   }
 
   switch(block_size) {
-    case 256: int_loop_kernel_256<<<blocks,256>>>(nfiles, i, /*turn,*/ length,
+    case 256: int_loop_kernel_256<<<blocks,256>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
 						  d_param,P->lxc,
 						  d_pair,
@@ -1044,7 +1044,7 @@ int_loop_cuda(const int nfiles,
 						  d_size_off_H,
 						  d_i_H,
 						  d_energy_min2); break; //Out
-    case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, i, /*turn,*/ length,
+    case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
 						  d_param,P->lxc,
 						  d_pair,
@@ -1057,7 +1057,7 @@ int_loop_cuda(const int nfiles,
 						  d_size_off_H,
 						  d_i_H,
 						  d_energy_min2); break; //Out
-    case  64: int_loop_kernel_64<<<blocks, 64>>>(nfiles, i, /*turn,*/ length,
+    case  64: int_loop_kernel_64<<<blocks, 64>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
 						  d_param,P->lxc,
 						  d_pair,
@@ -1070,7 +1070,7 @@ int_loop_cuda(const int nfiles,
 						  d_size_off_H,
 						  d_i_H,
 						  d_energy_min2); break; //Out
-    default:  int_loop_kernel_32<<<blocks, 32>>>(nfiles, i, /*turn,*/ length,
+    default:  int_loop_kernel_32<<<blocks, 32>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
 						  d_param,P->lxc,
 						  d_pair,

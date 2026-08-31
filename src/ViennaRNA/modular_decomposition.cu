@@ -789,7 +789,7 @@ load_fML_kernel(const int nfiles, const int i_row, const int turn, const int len
   // shared scalar i_row today, and the assert checks that at RUNTIME, because it
   // is precisely the property phase B stops holding.
   const int i = i_H[H];
-  assert(i == i_row);
+  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   const long long j  = mj + i+turn+1;
 
   assert(H >= 0 && H < nfiles);
@@ -827,7 +827,7 @@ load_fML(const int nfiles,
 
   /* Setup execution parameters for helper kernel */
   const int nblocks = (total + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  load_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, i, turn, length,
+  load_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
 					  d_energy_min,  //in
 					  d_fml_j,  //out
 					  d_tri_off_H, d_row_off_H,
@@ -848,7 +848,7 @@ load_min_fML_kernel(const int nfiles, const int i_row, const int turn, const int
   const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj = (long long)m - (long long)side_off_H[H];
   const int i = i_H[H];   // continuous flow phase A2 -- see load_fML_kernel
-  assert(i == i_row);
+  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
 
   const int j  = mj + (i + 2*(turn+1)) + 1;
   const long long ij = Indx(i,j);
@@ -873,7 +873,7 @@ load_min_fML(const int nfiles,
 
 /* Setup execution parameters for helper kernel */
   const int nblocks = (total + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  load_min_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, i, turn, length,
+  load_min_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
 					  d_energy_min,  //in
 					  d_dml,    //in
 					  d_fml_j,  //out
@@ -899,7 +899,7 @@ fmli_kernel(
   const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj = (long long)m - (long long)side_off_H[H];
   const int i = i_H[H];   // continuous flow phase A2 -- see load_fML_kernel
-  assert(i == i_row);
+  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   // `start` moved below the flatten: it depends on i, which is per-record now
   // and so is not known until H is.
   const int start = i+turn+1;
@@ -987,7 +987,7 @@ modular_decomposition_kernel(
     // H exists; the inactive lanes never need it -- they just carry INF through
     // the shuffle below. Two lines use it: j and ij0.
     const int i = i_H[H];
-    assert(i == i_row);
+    assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
 
     const int x = mj;
     const int j = x + (i + 2*(turn+1)) + 1;
@@ -1021,7 +1021,8 @@ void modular_decomposition_cuda(const int nfiles,
 			      //const int* my_fML,
 				      int* DMLi,
 				const size_t* row_off_H,
-				const size_t* side_off_H) {
+				const size_t* side_off_H,
+				const int* i_H) { //in, nfiles entries -- continuous flow phase B
   //printf("\nmodular_decomposition_cuda(%d,%d,%d,indx,my_fML)\n",
   //	 i,turn,length);
 
@@ -1040,7 +1041,12 @@ void modular_decomposition_cuda(const int nfiles,
     // per-H length is recovered from the table itself rather than threading a
     // new parameter through modular_decomposition_i()'s public signature.
     const int len_H = (int)(row_off_H[H+1] - row_off_H[H]) - 1;
-    for (int j = i+turn+1; j <= len_H; j++) {
+    // Continuous flow phase B: this record's own row, and skip it entirely once
+    // it has retired (i_H[H] < 1) -- its row buffer must keep the values its
+    // last row left there. Identical to i while every record shares a row.
+    const int i_h = i_H[H];
+    if(i_h < 1) continue;
+    for (int j = i_h+turn+1; j <= len_H; j++) {
       DMLi[row_off_H[H]+j] = INF; // Staggered_Row_Batching Phase 2d: table-driven per-H row offset
     }}
     return;
@@ -1116,7 +1122,7 @@ void modular_decomposition_cuda(const int nfiles,
     // declarations near the top of this file for why.
     const int block_size = g_block_size_fmli;
     const int nblocks = (total + block_size - 1)/block_size;
-    fmli_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, i, turn, length,
+    fmli_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
 					d_fml_i,  //Out
 					d_fml_j,  //In
 					d_tri_off_H, d_row_off_H,
@@ -1150,7 +1156,7 @@ void modular_decomposition_cuda(const int nfiles,
   const int nblocks = (int)nblocks_sz;
 
 #define MD_LAUNCH(T) modular_decomposition_kernel<T><<<nblocks,block_size,0,graph_stream>>>( \
-                       nfiles, i, turn, length, \
+                       nfiles, RNA_I_ROW(i), turn, length, \
                        d_fml_i, d_fml_j, \
                        d_dml,   /*Out*/ \
                        d_tri_off_H, d_row_off_H, \
@@ -1235,11 +1241,12 @@ modular_decomposition_i(const int nfiles,
 		      //const int* my_fML, //In
 			int* DMLi,         //Out
 			const size_t* row_off_H,
-			const size_t* side_off_H) {
+			const size_t* side_off_H,
+			const int* i_H) {  //in, nfiles entries -- continuous flow phase B
   //const int max_ij_len = length - 2*(turn+1) - 1;
   //const int ijsize_min = max_ij_len*(max_ij_len+1)/2;
   //if(first) init_gpu(length);
-  modular_decomposition_cuda(nfiles,i,turn,length, DMLi, row_off_H, side_off_H);
+  modular_decomposition_cuda(nfiles,i,turn,length, DMLi, row_off_H, side_off_H, i_H);
   return;
 
   /* remove debug** {
@@ -1392,7 +1399,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 
   if(!use_graph) {
     load_fML(nfiles,i,turn,length,energy_min,size_off_H);
-    modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H);
+    modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
     load_min_fML(nfiles,i,turn,length,side_off_H[nfiles]);
     gpuErrchk( cudaStreamSynchronize(graph_stream) );
     return;
@@ -1402,7 +1409,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   gpuErrchk( cudaStreamBeginCapture(graph_stream, cudaStreamCaptureModeThreadLocal) );
 
   load_fML(nfiles,i,turn,length,energy_min,size_off_H);
-  modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H);
+  modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
   load_min_fML(nfiles,i,turn,length,side_off_H[nfiles]);
 
   gpuErrchk( cudaStreamEndCapture(graph_stream, &graph) );
