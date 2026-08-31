@@ -294,22 +294,24 @@ int first = 1;
 // init_gpu() already runs once per batch, well before any capture begins,
 // so there's no reason to lean on that instead.
 __global__ void fmli_kernel(
-  const int nfiles, const int i, const int turn, const int length,
+  const int nfiles, const int i_row, const int turn, const int length,
         int* __restrict__ fml_i,
   const int* __restrict__ fml_j,
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-  const size_t* __restrict__ side_off_H, const size_t total);
+  const size_t* __restrict__ side_off_H, const size_t total,
+  const int* __restrict__ i_H);   // continuous flow phase A2
 // TILE = how many threads cooperate on one output cell's y-reduction; see the
 // kernel's own comment further down for why that split exists at all. TILE=1
 // is exactly the pre-2026-08-22 one-thread-per-cell kernel, kept reachable
 // via RNA_MD_TILE=1 as an A/B baseline.
 template <int TILE>
 __global__ void modular_decomposition_kernel(
-  const int nfiles, const int i, const int turn, const int length,
+  const int nfiles, const int i_row, const int turn, const int length,
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,
   int* __restrict__ dml,
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-  const size_t* __restrict__ side_off_H, const size_t total);
+  const size_t* __restrict__ side_off_H, const size_t total,
+  const int* __restrict__ i_H);   // continuous flow phase A2
 
 // Block sizes for the above, chosen once in init_gpu() below instead of the
 // BLOCK_SIZE=64 constant these used to hardcode (tuned against one GPU, the
@@ -394,6 +396,21 @@ static size_t  g_row_total = 0;
 // (init_gpu()) and just overwritten each row, same as d_energy_min already is.
 static size_t* d_size_off_H;
 static size_t* d_side_off_H;
+// Continuous flow phase A2: this file's own copy of the per-record row index,
+// read by all four kernels below. int_loop.cu and hp_mb_loop.cu each carry an
+// identical one -- per-translation-unit device tables are this codebase's
+// existing convention (d_size_off_H above is duplicated the same way).
+//
+// Uploaded OUTSIDE the CUDA-graph capture region (see
+// load_fML_modular_decomposition_load_min_fML() below), with a blocking
+// cudaMemcpy on the NULL stream, which is what lets fill_arrays_loop.c pass a
+// plain stack table: this file's standing hazard -- an async H2D captured into
+// the graph must have a persistent host source -- does not apply to a copy that
+// has completed before capture even begins.
+static int*    d_i_H;
+static int*    i_H_shadow   = NULL;
+static int     i_H_shadow_n = 0;
+static void    i_H_shadow_reset(void);   // defined below; called from init/teardown above it
 //int* h_dml;  //DMLi
 //unsigned int mem_size_buf; //bytes in h_dml and d_dml
 //int* fml_j;  //my_fML
@@ -462,6 +479,8 @@ init_gpu(const int nfiles, const int length,
   // modular_decomposition_cuda() instead.
   TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   TIMED_CUDAMALLOC(&d_side_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  TIMED_CUDAMALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
+  i_H_shadow_reset();          // fresh buffer: the shadow must not claim it is current
 
   // Staggered_Row_Batching Phase 2d: allocation sizes now the real per-H sum
   // (row_off_H[nfiles]/tri_off_H[nfiles]) instead of a uniform nfiles*(...)
@@ -565,6 +584,8 @@ teardown_gpu(void) {
   gpuErrchk( cudaFree(d_tri_off_H) );
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_size_off_H) );
+  gpuErrchk( cudaFree(d_i_H) );
+  i_H_shadow_reset();          // the device buffer is gone; the shadow must not outlive it
   gpuErrchk( cudaFree(d_side_off_H) );
   if(graph_exec_valid) {
     gpuErrchk( cudaGraphExecDestroy(graph_exec) );
@@ -718,13 +739,43 @@ init_fML(const int nfiles, const int length,
 #endif
 }
 
+// Continuous flow phase A2: content-compared upload of the per-record row
+// index, the twin of int_loop.cu/hp_mb_loop.cu's.
+//
+// HAZARD, and the reason for i_H_shadow_reset(): d_i_H is freed and
+// re-cudaMalloc'd per chunk. Without the reset, a fresh chunk whose first table
+// happened to equal the previous chunk's last one would skip the upload and
+// leave the new buffer UNINITIALISED -- garbage row indices, wrong answers, no
+// crash. init_gpu()/teardown_gpu() both call the reset for exactly that reason.
+static void
+i_H_shadow_reset(void) {
+  free(i_H_shadow);
+  i_H_shadow   = NULL;
+  i_H_shadow_n = 0;
+}
+
+static void
+upload_i_H(const int nfiles, const int* i_H) {
+  const size_t bytes = (size_t)nfiles * sizeof(int);
+  if(i_H_shadow_n != nfiles) {
+    free(i_H_shadow);
+    i_H_shadow   = (int*)malloc(bytes);
+    i_H_shadow_n = i_H_shadow ? nfiles : 0;
+  } else if(i_H_shadow && memcmp(i_H_shadow, i_H, bytes) == 0) {
+    return;
+  }
+  gpuErrchk( cudaMemcpy(d_i_H, i_H, bytes, cudaMemcpyHostToDevice) );
+  if(i_H_shadow) memcpy(i_H_shadow, i_H, bytes);
+}
+
 //perhaps this can be combined with fmli_kernel?
 __global__ void
-load_fML_kernel(const int nfiles, const int i, const int turn, const int length,
+load_fML_kernel(const int nfiles, const int i_row, const int turn, const int length,
 		const int* __restrict__ energy_min,
 	              int* __restrict__ fml_j,
 		const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-		const size_t* __restrict__ size_off_H, const size_t total) { //out d_fml_j my_fML
+		const size_t* __restrict__ size_off_H, const size_t total,
+		const int* __restrict__ i_H) { //out d_fml_j my_fML
   // Staggered_Row_Batching Phase 4: flat index -> (H, position) via
   // flatten_index_to_H() over this row's real per-H active width
   // (size_off_H), replacing the old uniform m/nfiles split. j is guaranteed
@@ -734,6 +785,11 @@ load_fML_kernel(const int nfiles, const int i, const int turn, const int length,
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
+  // Continuous flow phase A2: this record's own row index. Identical to the old
+  // shared scalar i_row today, and the assert checks that at RUNTIME, because it
+  // is precisely the property phase B stops holding.
+  const int i = i_H[H];
+  assert(i == i_row);
   const long long j  = mj + i+turn+1;
 
   assert(H >= 0 && H < nfiles);
@@ -775,21 +831,24 @@ load_fML(const int nfiles,
 					  d_energy_min,  //in
 					  d_fml_j,  //out
 					  d_tri_off_H, d_row_off_H,
-					  d_size_off_H, total);
+					  d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
 }
 
 __global__ void
-load_min_fML_kernel(const int nfiles, const int i, const int turn, const int length,
+load_min_fML_kernel(const int nfiles, const int i_row, const int turn, const int length,
 		    const int* __restrict__ energy_min,
 		    const int* __restrict__ dml,     //in  d_dml   DMLi
 		          int* __restrict__ fml_j,     //out d_fml_j my_fML
 		    const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-		    const size_t* __restrict__ side_off_H, const size_t total) {
+		    const size_t* __restrict__ side_off_H, const size_t total,
+		    const int* __restrict__ i_H) {
   const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj = (long long)m - (long long)side_off_H[H];
+  const int i = i_H[H];   // continuous flow phase A2 -- see load_fML_kernel
+  assert(i == i_row);
 
   const int j  = mj + (i + 2*(turn+1)) + 1;
   const long long ij = Indx(i,j);
@@ -819,7 +878,7 @@ load_min_fML(const int nfiles,
 					  d_dml,    //in
 					  d_fml_j,  //out
 					  d_tri_off_H, d_row_off_H,
-					  d_side_off_H, total);
+					  d_side_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
 }
 
@@ -828,18 +887,22 @@ load_min_fML(const int nfiles,
 //perhaps also fml_j access pattern may not suit texture anyway
 __global__ void
 fmli_kernel(
-  const int nfiles, const int i, const int turn, const int length,
+  const int nfiles, const int i_row, const int turn, const int length,
         int* __restrict__ fml_i,   //out
   const int* __restrict__ fml_j,   //In  d_fml_j
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-  const size_t* __restrict__ side_off_H, const size_t total) {
-
-  const int start = i+turn+1;
+  const size_t* __restrict__ side_off_H, const size_t total,
+  const int* __restrict__ i_H) {
 
   const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj = (long long)m - (long long)side_off_H[H];
+  const int i = i_H[H];   // continuous flow phase A2 -- see load_fML_kernel
+  assert(i == i_row);
+  // `start` moved below the flatten: it depends on i, which is per-record now
+  // and so is not known until H is.
+  const int start = i+turn+1;
 
   const int k  = start + mj;
   const long long ik = Indx(i,k);
@@ -888,11 +951,12 @@ fmli_kernel(
 template <int TILE>
 __global__ void
 modular_decomposition_kernel(
-  const int nfiles, const int i, const int turn, const int length,
+  const int nfiles, const int i_row, const int turn, const int length,
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,  //In  d_dml_i, d_fml_j
   int* __restrict__ dml,                            //Out d_dml (h_dml)
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-  const size_t* __restrict__ side_off_H, const size_t total) {
+  const size_t* __restrict__ side_off_H, const size_t total,
+  const int* __restrict__ i_H) {
   // Power of two <= 32 so a tile is a contiguous, warp-aligned lane group and
   // __shfl_down_sync()'s `width` can partition the warp for us. The launcher
   // additionally requires blockDim.x % 32 == 0, which is what makes "same
@@ -919,6 +983,11 @@ modular_decomposition_kernel(
   if(active) {
     const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
     const long long mj = (long long)m - (long long)side_off_H[H];
+    // Continuous flow phase A2. Read inside the `active` guard, the only place
+    // H exists; the inactive lanes never need it -- they just carry INF through
+    // the shuffle below. Two lines use it: j and ij0.
+    const int i = i_H[H];
+    assert(i == i_row);
 
     const int x = mj;
     const int j = x + (i + 2*(turn+1)) + 1;
@@ -1051,7 +1120,7 @@ void modular_decomposition_cuda(const int nfiles,
 					d_fml_i,  //Out
 					d_fml_j,  //In
 					d_tri_off_H, d_row_off_H,
-					d_side_off_H, total);
+					d_side_off_H, total, d_i_H);
     gpuErrchk( cudaPeekAtLastError() );
   }
 
@@ -1085,7 +1154,7 @@ void modular_decomposition_cuda(const int nfiles,
                        d_fml_i, d_fml_j, \
                        d_dml,   /*Out*/ \
                        d_tri_off_H, d_row_off_H, \
-                       d_side_off_H, total)
+                       d_side_off_H, total, d_i_H)
   switch(g_md_tile) {
     case  1: MD_LAUNCH(1);  break;
     case  2: MD_LAUNCH(2);  break;
@@ -1292,7 +1361,20 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 					     int* DMLi,             //out
 					     const size_t* row_off_H,
 					     const size_t* size_off_H,
-					     const size_t* side_off_H) {
+					     const size_t* side_off_H,
+					     const int* i_H) {      //in, nfiles entries -- continuous flow phase A2
+  // Continuous flow phase A2: uploaded HERE, before either branch, and
+  // deliberately outside the capture region below -- a blocking NULL-stream
+  // cudaMemcpy that has completed before cudaStreamBeginCapture() is reached.
+  // That is what keeps a plain stack i_H legal: this file's capture-region rule
+  // is that an ASYNC H2D recorded INTO the graph needs a persistent host
+  // source, and graph_stream being a blocking stream orders the replay after
+  // this copy exactly as it already does for int_loop_i()/load_my_c()'s
+  // NULL-stream work. It adds no sync point the row did not already have --
+  // upload_size_off_H() does the same blocking per-row H2D twice already -- and
+  // the content comparison skips it on the rows where nothing changed.
+  upload_i_H(nfiles, i_H);
+
   // RNA_CUDA_GRAPH=0 disables capture/replay and just issues the same
   // (now-async, graph_stream-targeted) calls directly, with one sync at the
   // end -- lets a whole fold be re-run graph-off vs graph-on and diffed

@@ -173,7 +173,7 @@
 
     {
       const double t0 = now_seconds();
-      load_my_c(nfiles,i,turn,length,new_C,size_off_H); //keep my_c on GPU instep with my_c
+      load_my_c(nfiles,i,turn,length,new_C,size_off_H,i_H); //keep my_c on GPU instep with my_c
       phase_load_my_c_s += now_seconds() - t0;
     }
 
@@ -297,7 +297,7 @@
         compute_flatten_offsets(nfiles, side_H, side_off_H);
       }
 
-      load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H);
+      load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H,i_H);
       phase_modular_decomp_s += now_seconds() - t0;
     }
 

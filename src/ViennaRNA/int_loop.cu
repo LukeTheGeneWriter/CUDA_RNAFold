@@ -152,6 +152,14 @@ static size_t*       d_size_off_H;
 static size_t*       size_off_shadow   = NULL;
 static int           size_off_shadow_n = 0;
 static void          size_off_shadow_reset(void);  // defined below; called from init/teardown above it
+// Continuous flow phase A2: this file's own copy of the per-record row index.
+// hp_mb_loop.cu carries an identical one for its four kernels -- each
+// translation unit keeps its own device tables here, exactly as d_size_off_H
+// already does. Same content comparison, same per-chunk reallocation hazard.
+static int*          d_i_H;
+static int*          i_H_shadow   = NULL;
+static int           i_H_shadow_n = 0;
+static void          i_H_shadow_reset(void);       // defined below; called from init/teardown above it
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
@@ -330,6 +338,8 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   // Fresh buffer, holds nothing -- the shadow must not claim it is current.
   size_off_shadow_reset();
+  TIMED_CUDAMALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
+  i_H_shadow_reset();          // fresh buffer: same hazard as size_off, same fix
 
   size_t size = hc_off_H[nfiles]*sizeof(unsigned int);
   TIMED_CUDAMALLOC(&d_hccc, size);
@@ -456,6 +466,8 @@ teardown_gpu2(void) {
   gpuErrchk( cudaFree(d_hc_off_H) );
   gpuErrchk( cudaFree(d_size_off_H) );
   size_off_shadow_reset();   // the device buffer is gone; the shadow must not outlive it
+  gpuErrchk( cudaFree(d_i_H) );
+  i_H_shadow_reset();
   first2 = 1;
 }
 
@@ -540,6 +552,29 @@ int_loop_row_buffers(int** energy_min2_out, int** new_e_out) {
 // dropped there (init_gpu2 / teardown_gpu2 both call the reset). Otherwise a
 // new chunk whose first table matched the previous chunk's last would skip the
 // upload into an uninitialised buffer -- wrong offsets, no crash.
+// Twin of upload_size_off_H() for the per-record row index: same content
+// comparison, same per-chunk reallocation hazard, same fix.
+static void
+i_H_shadow_reset(void) {
+  free(i_H_shadow);
+  i_H_shadow   = NULL;
+  i_H_shadow_n = 0;
+}
+
+static void
+upload_i_H(const int nfiles, const int* i_H) {
+  const size_t bytes = (size_t)nfiles * sizeof(int);
+  if(i_H_shadow_n != nfiles) {
+    free(i_H_shadow);
+    i_H_shadow   = (int*)malloc(bytes);
+    i_H_shadow_n = i_H_shadow ? nfiles : 0;
+  } else if(i_H_shadow && memcmp(i_H_shadow, i_H, bytes) == 0) {
+    return;
+  }
+  gpuErrchk( cudaMemcpy(d_i_H, i_H, bytes, cudaMemcpyHostToDevice) );
+  if(i_H_shadow) memcpy(i_H_shadow, i_H, bytes);
+}
+
 static void
 size_off_shadow_reset(void) {
   free(size_off_shadow);
@@ -566,16 +601,24 @@ upload_size_off_H(const int nfiles, const size_t* size_off_H) {
 
 //perhaps this can be combined with other kernels?
 __global__ void
-load_my_c_kernel(const int nfiles, const int i, /*const int turn,*/ const int length,
+load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const int length,
 		 const int* __restrict__ new_e,
 	               int* __restrict__ my_c,
 		 const size_t* __restrict__ tri_off_H, //in
 		 const size_t* __restrict__ row_off_H, //in
-		 const size_t* __restrict__ size_off_H, const size_t total) { //in
+		 const size_t* __restrict__ size_off_H, const size_t total, //in
+		 const int* __restrict__ i_H) { //in
   const long long m = blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
+  // Continuous flow phase A2: the row index is now this record's own. Every
+  // entry equals the old shared scalar i_row today, and the assert proves that
+  // at RUNTIME rather than by argument -- it is exactly the property that stops
+  // holding in phase B, so a divergent table traps instead of folding silently
+  // wrong.
+  const int i = i_H[H];
+  assert(i == i_row);
   const long long j  = mj + i+turn+1;
 
   const long long ij = Indx(i,j);
@@ -593,7 +636,8 @@ PUBLIC void
 load_my_c(const int nfiles,
 	  const int i, const int turn_, const int length,
 	  const int* new_e,
-	  const size_t* size_off_H) {   //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	  const size_t* size_off_H,     //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	  const int* i_H) {             //in, nfiles entries -- continuous flow phase A2
   //out d_my_c
   const size_t total = size_off_H[nfiles];
   if(total==0) return;
@@ -609,6 +653,7 @@ load_my_c(const int nfiles,
   if(!rnafold_gpu_sweep())
     gpuErrchk( cudaMemcpy(d_new_e,new_e,g_row_total*sizeof(int),cudaMemcpyHostToDevice) );
   upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-upload
+  upload_i_H(nfiles, i_H);                 // continuous flow phase A2
 
 
   /* Setup execution parameters for helper kernel */
@@ -630,7 +675,7 @@ load_my_c(const int nfiles,
 					   d_my_c,   //out
 					   d_tri_off_H,  //in
 					   d_row_off_H,  //in
-					   d_size_off_H, total);
+					   d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.

@@ -97,7 +97,8 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 					     int* DMLi,             //out
 					     const size_t* row_off_H,  //in, nfiles+1 entries
 					     const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 4
-					     const size_t* side_off_H); //in, nfiles+1 entries -- Staggered_Row_Batching Phase 4
+					     const size_t* side_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 4
+					     const int* i_H); //in, nfiles entries -- continuous flow phase A2, per-record row index
 
 PUBLIC int
 extend_fm_3p( const int i,
@@ -228,7 +229,8 @@ PUBLIC void
 load_my_c(const int nfiles,
 	  const int i, const int turn, const int length,
 	  const int* min_e, //in
-	  const size_t* size_off_H); //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	  const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	  const int* i_H); //in, nfiles entries -- continuous flow phase A2, per-record row index
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
