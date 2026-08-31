@@ -243,7 +243,8 @@ int_loop_i(const int nfiles,
 	   /*const int* indx, const int ijsize,
 	   const char* hard_constraints, const int* my_c,*/
 	   int* energy_min, //out
-	   const size_t* size_off_H); //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	   const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	   const int* i_H); //in, nfiles entries -- continuous flow phase A3, per-record row index
 
 
 PUBLIC void

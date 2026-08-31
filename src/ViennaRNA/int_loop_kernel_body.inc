@@ -25,7 +25,7 @@
 #define INT_LOOP_KERNEL_NAME(bs) INT_LOOP_KERNEL_NAME2(bs)
 
 __global__ void
-INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i, /*const int turn,*/ const int length,
+INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int turn,*/ const int length,
 		const int TerminalAU, const int ninio2,
 		const cuda_param_t* __restrict__ P, const float lxc,
 		const char* __restrict__ pair_, //[NBPAIRS+1][NBPAIRS+1],
@@ -36,6 +36,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i, /*const int turn
 		const size_t* __restrict__ row_off_H, //in, energy_min's per-H row start
 		const size_t* __restrict__ hc_off_H,  //in, d_hccc's per-H block start
 		const size_t* __restrict__ size_off_H, //in, this launch's per-H block-count table
+		const int* __restrict__ i_H,           //in, continuous flow phase A3: per-record row index
 		      int* __restrict__ energy_min) { //out
 
   int energy = INF;
@@ -50,6 +51,13 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i, /*const int turn
   // exactly the top-of-kernel H/j derivation, per the plan's own scoping
   // for this phase.
   const int H = flatten_index_to_H((size_t)blockIdx.x, size_off_H, nfiles);
+  // Continuous flow phase A3. This kernel was missing from the plan's list of
+  // nine, but it is row-indexed like all the rest: every use of the row index
+  // below comes after H is known, so the substitution is the same single line.
+  // Without it phase B would compute this row at the wrong i for every record
+  // but one.
+  const int i = i_H[H];
+  assert(i == i_row);
   const int j = ((int)blockIdx.x - (int)size_off_H[H]) + i+turn+1;
 
   const long long ij = Indx(i,j);

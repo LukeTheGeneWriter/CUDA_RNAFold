@@ -987,7 +987,8 @@ int_loop_cuda(const int nfiles,
 	      const int i, /*const int turn,*/ const int length,
 	      const vrna_param_t *P,
 	      int* energy_min,
-	      const size_t* size_off_H) { //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	      const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	      const int* i_H) {         //in, nfiles entries -- continuous flow phase A3
   //cf modular_decomposition.cu r1.79
   // Staggered_Row_Batching Phase 5: size_off_H[nfiles] replaces the old
   // scalar nblocks<=0 check -- numerically identical while every H shares
@@ -998,6 +999,7 @@ int_loop_cuda(const int nfiles,
   if(flat_nblocks==0) return;
 
   upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-upload
+  upload_i_H(nfiles, i_H);                 // continuous flow phase A3 (content-deduped, as above)
 
   dim3 blocks((unsigned int)flat_nblocks);
 
@@ -1040,6 +1042,7 @@ int_loop_cuda(const int nfiles,
 						  d_row_off_H,
 						  d_hc_off_H,
 						  d_size_off_H,
+						  d_i_H,
 						  d_energy_min2); break; //Out
     case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -1052,6 +1055,7 @@ int_loop_cuda(const int nfiles,
 						  d_row_off_H,
 						  d_hc_off_H,
 						  d_size_off_H,
+						  d_i_H,
 						  d_energy_min2); break; //Out
     case  64: int_loop_kernel_64<<<blocks, 64>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -1064,6 +1068,7 @@ int_loop_cuda(const int nfiles,
 						  d_row_off_H,
 						  d_hc_off_H,
 						  d_size_off_H,
+						  d_i_H,
 						  d_energy_min2); break; //Out
     default:  int_loop_kernel_32<<<blocks, 32>>>(nfiles, i, /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -1076,6 +1081,7 @@ int_loop_cuda(const int nfiles,
 						  d_row_off_H,
 						  d_hc_off_H,
 						  d_size_off_H,
+						  d_i_H,
 						  d_energy_min2); break; //Out
   }
 
@@ -1114,7 +1120,8 @@ int_loop_i(const int nfiles,
 	   /*const int* indx, const int ijsize,
 	   const char* hard_constraints, const int* my_c,*/
 	   int* energy_min,
-	   const size_t* size_off_H ) { //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	   const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
+	   const int* i_H ) {        //in, nfiles entries -- continuous flow phase A3
   // Staggered_Row_Batching Phase 2b: this used to have a defensive
   // `if(first2) init_gpu2(...)` fallback here, but int_loop_i() is only ever
   // reached via fill_arrays_loop.c -> par_fill_arrays() -> par_mfe(), which
@@ -1124,7 +1131,7 @@ int_loop_i(const int nfiles,
   // given a fabricated tri_off_H it has no access to here.
   assert(!first2);
 
-  int_loop_cuda(nfiles,i,/*turn,*/length,VC[0]->params, energy_min, size_off_H);
+  int_loop_cuda(nfiles,i,/*turn,*/length,VC[0]->params, energy_min, size_off_H, i_H);
   return;
   /* normal code to run calculation on host to check answers given by GPU
   int new_e[length+1];

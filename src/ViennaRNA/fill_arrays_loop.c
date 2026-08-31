@@ -73,7 +73,7 @@
       int_loop_i(nfiles,VC,i,turn,length,/*indx,ijsize,
 		 hard_constraints, my_c,*/
 		 energy_min, //replaces vrna_E_int_loop(vc, i, j);
-		 size_off_H);
+		 size_off_H,i_H);
       phase_int_loop_s += now_seconds() - t0;
     }
 
