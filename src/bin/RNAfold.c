@@ -53,6 +53,68 @@
 //for CUDA
 #include "ViennaRNA/stub2.h"
 
+/* Continuous flow phase C4: the VRAM a chunk of these lengths would need,
+ * counting SLOTS rather than records.
+ *
+ * sorted_desc[0..n) are the lengths already accepted, descending; cand is a
+ * candidate length to include (<0 == none). With RNA_SLOT_FLOW=k, k records
+ * share a slot and only the slots are allocated: par_mfe() deals records
+ * round-robin in DESCENDING length order (mfe_cuda.c), so slot s's first
+ * occupant is the s-th longest record in the chunk, every later occupant of
+ * that slot is shorter, and the slot's capacity is therefore exactly the s-th
+ * longest length. The cost is the sum of gpu_bytes_per_file() over the top
+ * ceil(total/k) lengths.
+ *
+ * WHY SUMMING A PER-*FILE* COST OVER SLOTS IS THE RIGHT MODEL. Phase C1 made
+ * every layout table in the program -- compute_batch_offsets()'s row_off_H and
+ * tri_off_H, init_gpu2()'s hc_off_H, init_gpu3()'s seq_off_H/hc2_off_H -- build
+ * from cap_H rather than from the occupant's length, so every term inside
+ * modular_decomposition_bytes_per_file() / int_loop_bytes_per_file() /
+ * hp_mb_loop_bytes_per_file() is now a pure function of a SLOT's capacity. A
+ * slot costs what a record of its capacity used to cost, and nothing in those
+ * three functions scales with the record count any more. (The one device buffer
+ * that does not follow the tables is int_loop.cu's d_S, still laid out as
+ * nslots*(max_length+2) at ten bases per word -- Phase 2f's deferred per-record
+ * layout. This model therefore under-counts it slightly, exactly as the
+ * per-record sum it replaces already did, and the term is ~0.4 bytes per
+ * nucleotide against the triangle's ~2*length, i.e. 2 KB against 62 MB at
+ * 5601nt.)
+ *
+ * At k == 1 the prefix is the whole list and this is exactly the per-record
+ * running total it replaces -- which is what keeps the default path's chunk
+ * boundaries bit-for-bit where they were.
+ *
+ * cap_max mirrors RNA_SLOT_CAPACITY=max, which sizes every slot to the chunk
+ * maximum. That test mode used to over-commit and OOM (noted as a known limit
+ * when C1 shipped: the budget was still computed from the real lengths while
+ * the allocation was not); making the budget follow the schedule is this
+ * function's job, so it is honoured here. RNA_SLOT_TURNOVER's extra inflation
+ * -- a slot sized for two named occupants during the C2 self-check -- is not
+ * modelled: it is a two-pass self-check, not a folding mode. */
+static size_t
+projected_chunk_bytes(const int *sorted_desc, int n, int cand, int k, int cap_max)
+{
+  const int total = n + (cand >= 0 ? 1 : 0);
+  const int slots = (k > 0) ? ((total + k - 1) / k) : total;
+  size_t sum = 0;
+  int i = 0, used = (cand < 0), taken;
+  /* Every slot is the chunk maximum, which is the longest length present --
+   * the head of the descending list, or the candidate if it beats it. */
+  if(cap_max) {
+    int mx = (n > 0) ? sorted_desc[0] : -1;
+    if(cand > mx) mx = cand;
+    return (mx < 0) ? 0 : (size_t)slots * gpu_bytes_per_file(mx);
+  }
+  for(taken = 0; taken < slots; taken++) {
+    int len;
+    if(!used && (i >= n || cand >= sorted_desc[i])) { len = cand; used = 1; }
+    else if(i < n)                                  { len = sorted_desc[i++]; }
+    else                                             break;
+    sum += gpu_bytes_per_file(len);
+  }
+  return sum;
+}
+
 static char *annotate_ligand_motif( vrna_fold_compound_t *vc,
                                     const char *structure,
                                     const char *structure_name,
@@ -899,6 +961,10 @@ int main(int argc, char *argv[]){
    * bytes_needed is then identical, so flushing on
    * (nfiles+1)*bytes > usable is exactly flushing on
    * nfiles >= floor(usable/bytes), which is what chunk_capacity was.
+   * Continuous flow phase C4: chunk_bytes_committed -- the running
+   * per-record sum -- is retired in turn, because under RNA_SLOT_FLOW=k
+   * the chunk's cost is not a sum over its records at all. See
+   * projected_chunk_bytes() above. At k == 1 the two agree exactly.
    * Mixed lengths (Phase 6c) are where the two genuinely diverge. The one
    * other deliberate difference is the degraded path where free VRAM
    * can't hold MIN_GPU_BATCH records and the CPU queue is disabled -- see
@@ -906,7 +972,6 @@ int main(int argc, char *argv[]){
    * nfiles here means "records in the chunk currently being filled", not
    * "records in the whole run" as it did before streaming. */
   int chunk_started    = 0;  // 0 == no chunk in progress (was chunk_length == -1)
-  size_t chunk_bytes_committed = 0; // running VRAM cost of records already accepted this chunk
   size_t chunk_usable_bytes    = 0; // VRAM budget for this chunk, queried once at chunk start
   int chunk_array_size = 0;
   char**            SEQ_IDs = NULL;
@@ -927,6 +992,18 @@ int main(int argc, char *argv[]){
   // assumes one shared length across a chunk.
   int*             length_H = NULL;
   int nfiles = 0;
+  /* Continuous flow phase C4: the chunk's VRAM cost is no longer the sum over
+   * its records -- with RNA_SLOT_FLOW=k, k records share a slot and only the
+   * SLOTS are allocated. par_mfe() deals records round-robin in descending
+   * length order, so slot s's capacity is the s-th longest length in the chunk
+   * and the footprint is the sum of gpu_bytes_per_file() over the top
+   * ceil(n/k) lengths. This array keeps the accepted lengths sorted descending
+   * so that sum can be evaluated for each candidate. At k=1 it degenerates to
+   * "sum over every record", i.e. exactly the running total this replaces. */
+  int   *len_desc     = NULL;
+  int    len_desc_cap = 0;
+  const int slot_flow_k = (rnafold_slot_flow() >= 1) ? rnafold_slot_flow() : 1;
+  const int slot_cap_max = rnafold_slot_capacity_max();
   const int MIN_GPU_BATCH = 10; // TODO: tune from real multi-batch timing data
 
   /* Heterogeneous GPU+CPU dispatch: fold short/off-batch sequences on a CPU
@@ -1159,9 +1236,15 @@ int main(int argc, char *argv[]){
      * twice as long costs roughly four times as much, and a single
      * representative length could not have stood in for a mixed chunk. */
     const size_t bytes_needed = gpu_bytes_per_file(length);
+    /* Phase C4: what this chunk would cost with `length` added, counting SLOTS
+     * rather than records. Identical to chunk_bytes_committed + bytes_needed
+     * when k == 1, which is why the default path's chunk boundaries do not
+     * move. */
+    const size_t bytes_projected =
+      projected_chunk_bytes(len_desc, nfiles, length, slot_flow_k, slot_cap_max);
     int accept_into_chunk = 1;
     if(!chunk_started
-       || chunk_bytes_committed + bytes_needed > chunk_usable_bytes){
+       || bytes_projected > chunk_usable_bytes){
       process_gpu_chunk(nfiles, SEQ_IDs, VC, Rec_sequence, Orig_sequence, Structure, EN,
                          cpu_queue_threads, MIN_GPU_BATCH,
                          fold_constrained, constraints_file, commands,
@@ -1188,7 +1271,6 @@ int main(int argc, char *argv[]){
       nfiles = 0;
 
       chunk_started         = 1;
-      chunk_bytes_committed = 0;
       chunk_usable_bytes    = compute_gpu_usable_bytes();
 
       /* The retired compute_max_gpu_batch() returned 0 -- "not even
@@ -1210,7 +1292,13 @@ int main(int argc, char *argv[]){
        * case to exactly one record per chunk; admitting however many
        * genuinely fit is the same risk posture at strictly better
        * utilisation. */
-      if((bytes_needed == 0 || chunk_usable_bytes / bytes_needed < (size_t)MIN_GPU_BATCH)
+      /* Phase C4: floor(usable/bytes_needed) is a count of SLOTS; with
+       * RNA_SLOT_FLOW=k each of them folds k records, so the record count
+       * this test is really asking about is k times larger. Multiplying the
+       * quotient (not the divisor) keeps the same overflow-proof shape, and
+       * at k == 1 it is the identical expression. */
+      if((bytes_needed == 0
+          || (chunk_usable_bytes / bytes_needed) * (size_t)slot_flow_k < (size_t)MIN_GPU_BATCH)
          && cpu_queue_threads > 0){
         /* Route this one record to the CPU queue instead of starting a
          * doomed/undersized GPU chunk, and try the next record fresh (it
@@ -1256,7 +1344,24 @@ int main(int argc, char *argv[]){
       Orig_sequence[nfiles] = orig_sequence;
       Structure[nfiles]     = structure;
       length_H[nfiles]      = length;
-      chunk_bytes_committed += bytes_needed;
+      /* Phase C4: keep the sorted-descending length list in step. The chunk's
+       * cost is then read back off it by projected_chunk_bytes() at the next
+       * candidate, rather than accumulated per record -- admitting a record
+       * can change WHICH lengths are slot capacities, so there is nothing to
+       * increment. Insertion sort: the list is short and each record moves it
+       * by one, and it is only ever read over its first nfiles entries, so the
+       * stale tail left behind by a chunk flush (nfiles = 0) is unreachable. */
+      if(nfiles >= len_desc_cap) {
+        const int nc = len_desc_cap ? len_desc_cap*2 : 64;
+        int *tmp = (int *) vrna_realloc(len_desc, sizeof(int)*nc);
+        if(!tmp) vrna_message_error("out of memory growing the chunk length list");
+        len_desc = tmp; len_desc_cap = nc;
+      }
+      {
+        int p = nfiles;
+        while(p > 0 && len_desc[p-1] < length) { len_desc[p] = len_desc[p-1]; p--; }
+        len_desc[p] = length;
+      }
       nfiles++;
     }
     }
@@ -1312,6 +1417,7 @@ int main(int argc, char *argv[]){
   free(Structure);
   free(EN);
   free(length_H);
+  free(len_desc);
 
   /* Drain and join the CPU worker pool (no-op if it was never enabled) --
    * must happen after every GPU chunk has printed its output (all of them,
