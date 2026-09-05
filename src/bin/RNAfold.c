@@ -1062,7 +1062,18 @@ process_input(FILE            *input_stream,
        * (plan item I1) that the verification build must keep them. */
       const unsigned int this_len = (unsigned int)strlen(record->sequence);
 
-      if ((gpu_chunk_n > 0) && (this_len != gpu_chunk_len)) {
+      /* RNA_GPU_UNIFORM_CHUNKS=1 restores flushing on a length change.
+       *
+       * Kept as an A/B switch rather than deleted, because the reason mixed
+       * chunks first failed here turned out to be the MISSING PER-CHUNK
+       * TEARDOWN, not mixed lengths: the 2.3.0 driver dropped its
+       * `vc->length != chunk_length` clause deliberately, so records of
+       * different lengths accumulate into one batch and the sweep's join mask
+       * handles the short ones. Its only flush trigger is the VRAM budget.
+       * Having the switch means the claim can be re-tested rather than
+       * believed. */
+      if ((gpu_chunk_n > 0) && (this_len != gpu_chunk_len) &&
+          (getenv("RNA_GPU_UNIFORM_CHUNKS"))) {
         flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
         gpu_chunk_n = 0;
       }
