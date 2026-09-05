@@ -95,20 +95,47 @@ echo "###### unit test support"
 grep -E 'check (not found|found)|Unit tests' "$D/configure.log" | tail -3
 grep -n 'WITH_CHECK_TRUE' config.status | head -2
 
+# Flag provenance, because it is NOT the same as the tarball tree's and that
+# invalidates any timing compared across the two:
+#   ~/vrna27 (tarball)  CFLAGS = conda's environment flags, -O2 with
+#                                -march=nocona -mtune=haswell -ffunction-sections
+#   here    (git)       CFLAGS = autoconf's default "-g -O2"
+# Same -O2, but -g alone accounts for the 7.4 MB binary against the tarball's
+# 2.1 MB. Output is byte-identical between them (tools/verify_ref_md.sh, 6/6),
+# so this is a performance-comparability issue, not a correctness one.
+# NDEBUG is still defined nowhere in either build -- every assert() in the tree
+# is live, which the plan's item I1 measured at 17.1% on the CUDA path.
+echo "###### build flags"
+grep -m1 '^S\["CFLAGS"\]=' config.status | cut -c1-120
+
 echo "###### make"
 make -j8 > "$D/make.log" 2>&1
 rc=$?
 echo "make exit=$rc"
 [ $rc -eq 0 ] || { grep -iE '\berror\b' "$D/make.log" | head -20; exit 2; }
 
-ls -l --time-style=+%H:%M:%S src/bin/RNAfold
-echo "     now: $(date +%H:%M:%S)   (RNAfold must have just been linked)"
+# Stale-binary guard. The point is not that RNAfold is NEW, it is that RNAfold
+# is not OLDER than the sources it was built from -- a guard that fires on every
+# no-op rebuild trains you to ignore it.
+newest_src=$(find src -name '*.c' -o -name '*.h' -o -name '*.cu' -o -name '*.inc' 2>/dev/null \
+             | xargs ls -t 2>/dev/null | head -1)
+if [ -n "$newest_src" ] && [ "$newest_src" -nt src/bin/RNAfold ]; then
+  echo "STALE: src/bin/RNAfold is OLDER than $newest_src -- the link did not happen" >&2
+  exit 2
+fi
+printf '     RNAfold %s, newest source %s -- not stale\n' \
+       "$(date -r src/bin/RNAfold +%H:%M:%S)" \
+       "$(date -r "$newest_src" +%H:%M:%S 2>/dev/null)"
 
 echo "###### make check"
 make check > "$D/check.log" 2>&1
 echo "make check exit=$?"
 grep -E '^# (TOTAL|PASS|FAIL|SKIP|XFAIL|XPASS|ERROR)' "$D/check.log"
 echo
-echo "NOTE: the total must be 127 with the mfe_engine suite, 126 without it."
-echo "      A summary that says PASS with a smaller total means the C unit"
-echo "      tests were dropped -- see PORT_PHASE0.md 0a."
+echo "NOTE: the total must be 130 -- upstream's 126 plus the FOUR checks in the"
+echo "      mfe_engine suite. Under config/tap-driver.sh each #test is counted"
+echo "      individually, so adding one .ts adds its check count, not 1."
+echo "      A summary that says PASS with a much smaller total means check was"
+echo "      not found and all 43 C unit tests were dropped -- PORT_PHASE0.md 0a."
+echo "      A suite reported as ERROR 'missing test plan' is passing but not"
+echo "      emitting TAP: it needs a #main-pre block with srunner_set_tap()."
