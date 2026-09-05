@@ -863,12 +863,18 @@ vrna_mfecuda_HEADERS = mfe/cuda/engine.h
 
 ## libtool has no CUDA tag, but it does not need one: --tag=CC makes it wrap
 ## whatever compiler it is handed, so nvcc produces a proper .lo/.libs pair and
-## the object behaves like every other object in the tree. -fPIC arrives via
-## NVCC_FLAGS because these objects land inside a shared library.
+## the object behaves like every other object in the tree.
+##
+## The wrapper is required, not decoration. libtool appends the host compiler's
+## PIC flags to the command line, and `nvcc -fPIC` is a fatal error -- nvcc
+## wants -Xcompiler -fPIC. nvcc-libtool.sh performs that translation. It is run
+## through $(SHELL) so it never depends on its executable bit.
+NVCC_COMPILE = $(SHELL) $(srcdir)/mfe/cuda/nvcc-libtool.sh $(NVCC_BIN)
+
 mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
-	  $(NVCC_BIN) -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) \
+	  $(NVCC_COMPILE) -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) \
 	  -I$(top_srcdir)/src -I$(top_builddir)/src \
 	  -c $(srcdir)/mfe/cuda/device.cu -o mfe/cuda/device.lo
 
@@ -878,4 +884,5 @@ endif
 ## distributed whether or not CUDA is enabled, so `make dist` from a
 ## non-CUDA build still produces a tarball that can build with it
 EXTRA_DIST += mfe/cuda/device.cu \
-              mfe/cuda/engine.h
+              mfe/cuda/engine.h \
+              mfe/cuda/nvcc-libtool.sh
