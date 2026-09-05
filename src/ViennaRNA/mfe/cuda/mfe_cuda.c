@@ -51,6 +51,7 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 #include "ViennaRNA/fold_compound.h"
 #include "ViennaRNA/loops/all.h"
 #include "ViennaRNA/mfe/global.h"
+#include "ViennaRNA/backtrack/global.h"   /* PORT: vrna_backtrack_from_intervals() */
 
 #include <assert.h>
 #ifdef STUB
@@ -342,7 +343,8 @@ print_phase_timing_stats(void) {
 
 PRIVATE int           fill_arrays(vrna_fold_compound_t *vc){exit(99);}//use par_fill_arrays, code now included via fill_arrays.c
 PRIVATE void          fill_arrays_circ(vrna_fold_compound_t *vc, sect bt_stack[], int *bt);
-PRIVATE void          backtrack(vrna_fold_compound_t *vc, vrna_bp_stack_t *bp_stack, sect bt_stack[], int s);
+/* backtrack() is FLAGGED FOR DELETION -- see below; upstream's
+ * vrna_backtrack_from_intervals() replaced it at the call site */
 
 PRIVATE int           fill_arrays_comparative(vrna_fold_compound_t *vc);
 PRIVATE void          fill_arrays_comparative_circ(vrna_fold_compound_t *vc, sect bt_stack[], int *bt);
@@ -393,7 +395,19 @@ callback_backtrack(const vrna_fold_compound_t* vc,
 
         case VRNA_FC_TYPE_SINGLE:     /* fall through */
 
-        default:                      backtrack(vc, bp, bt_stack, s);
+        /* PORT TO 2.7.2: upstream's own entry, not this file's copy.
+         *
+         * vrna_backtrack_from_intervals() is PUBLIC in 2.7.2
+         * (backtrack/global.h:38) and documented as "backtrack a secondary
+         * structure with pre-evaluated structure components" -- which is
+         * exactly the GPU case: the sweep has filled c/fML, and what remains
+         * is to retrace them. The fork's own backtrack() was a 2.3.0 copy
+         * calling eight deprecated vrna_BT_* wrappers, and at least one of
+         * them no longer works against 2.7.2's matrices ("backtracking failed
+         * in fML" / "in repeat", then a segfault). Same lesson as the private
+         * vrna_mfe() copy: the copy exists because 2.3.0 had no seam, and it
+         * goes as soon as upstream offers the entry point. */
+        default:                      vrna_backtrack_from_intervals(vc, bp, bt_stack, s);
                                       break;
       }
 
@@ -1372,6 +1386,22 @@ fill_arrays_comparative(vrna_fold_compound_t *vc){
 *** normally s=0.
 *** If s>0 then s items have been already pushed onto the bt_stack
 **/
+/* ==========================================================================
+ * FLAGGED FOR DELETION -- backtrack()
+ *
+ * A 2.3.0 copy of upstream's backtracking, calling eight deprecated
+ * vrna_BT_* wrappers. Replaced at its one call site by upstream's public
+ * vrna_backtrack_from_intervals() (backtrack/global.h:38), which is documented
+ * for precisely this case -- pre-evaluated structure components.
+ *
+ * It is not merely redundant, it is BROKEN against 2.7.2: with backtracking
+ * enabled it failed with "backtracking failed in fML" at 120 nt and
+ * "backtracking failed in repeat" at 80 nt, then segfaulted, even though
+ * RNA_ROW_VERIFY showed the matrices it was retracing to be correct to the
+ * cell (161695 cells, 0 mismatching).
+ * ==========================================================================
+ */
+#if 0   /* FLAGGED FOR DELETION -- the fork's backtrack() */
 PRIVATE void
 backtrack(vrna_fold_compound_t *vc,
           vrna_bp_stack_t *bp_stack,
@@ -1516,6 +1546,7 @@ backtrack(vrna_fold_compound_t *vc,
 
   bp_stack[0].i = b;    /* save the total number of base pairs */
 }
+#endif  /* FLAGGED FOR DELETION -- the fork's backtrack() */
 
 /* ==========================================================================
  * FLAGGED FOR DELETION -- backtrack_comparative(), the last piece of the

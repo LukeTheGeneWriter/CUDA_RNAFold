@@ -79,7 +79,11 @@ main(int argc, char **argv)
   for (i = 0; i < n_rec; i++) {
     vrna_md_t md;
     vrna_md_set_default(&md);
-    md.backtrack = 0;
+    /* RNA_SWEEP_NO_BACKTRACK=1 fills the matrices without retracing them,
+     * which is what isolated "are the matrices right" from "can they be
+     * retraced" while the fork's own backtrack() was still in the way. */
+    if (getenv("RNA_SWEEP_NO_BACKTRACK"))
+      md.backtrack = 0;
 
     seqs[i] = make_seq(len, 20260905u + (unsigned int)i);
     VC[i]   = vrna_fold_compound(seqs[i], &md, VRNA_OPTION_DEFAULT);
@@ -186,13 +190,28 @@ main(int argc, char **argv)
     vrna_fold_compound_free(UP[i]);
   free(UP);
 
-  printf("\n  energies (structures are not produced: backtracking is off)\n");
-  printf("  %-4s %12s %12s\n", "rec", "sweep", "upstream");
-  for (i = 0; i < n_rec; i++) {
-    printf("  %-4d %12.2f %12.2f%s\n", i, EN[i], ref[i],
-           (EN[i] == ref[i]) ? "" : "   <-- DIFFERS");
-    if (EN[i] != ref[i])
-      mismatches++;
+  {
+    const int bt = (getenv("RNA_SWEEP_NO_BACKTRACK") == NULL);
+
+    printf("\n  energies%s\n", bt ? " and structures" : " (backtracking off)");
+    printf("  %-4s %12s %12s  %s\n", "rec", "sweep", "upstream",
+           bt ? "structure" : "");
+    for (i = 0; i < n_rec; i++) {
+      const int e_ok = (EN[i] == ref[i]);
+      const int s_ok = !bt || (strcmp(Str[i], refS[i]) == 0);
+
+      printf("  %-4d %12.2f %12.2f  %s\n", i, EN[i], ref[i],
+             (e_ok && s_ok) ? "match"
+                            : (!e_ok ? "*** ENERGY DIFFERS ***"
+                                     : "*** STRUCTURE DIFFERS ***"));
+      if (!e_ok || !s_ok) {
+        mismatches++;
+        if (bt && !s_ok) {
+          printf("        sweep    %s\n", Str[i]);
+          printf("        upstream %s\n", refS[i]);
+        }
+      }
+    }
   }
 
   printf("\n%s\n", mismatches
