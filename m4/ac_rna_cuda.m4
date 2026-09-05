@@ -76,7 +76,12 @@ _ACEOF
       AS_IF([$NVCC_BIN -ccbin "$NVCC_HOST_CC" -c conftest.cu -o conftest.cu.o >/dev/null 2>&1],[
         AC_MSG_RESULT([yes])
 
-        NVCC_FLAGS="-O3 --compiler-options -fPIC $NVCC_ARCH_FLAGS"
+        ## No -fPIC here: libtool appends the host compiler's PIC flags itself,
+        ## and mfe/cuda/nvcc-libtool.sh forwards them with -Xcompiler. Setting
+        ## it here as well produced `--compiler-options -Xcompiler -fPIC`, in
+        ## which nvcc consumes -Xcompiler as the option's argument and then dies
+        ## on the bare -fPIC.
+        NVCC_FLAGS="-O3 $NVCC_ARCH_FLAGS"
         CUDA_LIBS="-lcudart"
 
         AS_IF([test "x$cuda_prefix" != "x"],[
