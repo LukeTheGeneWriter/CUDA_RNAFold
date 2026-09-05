@@ -370,14 +370,26 @@ callback_backtrack(const vrna_fold_compound_t* vc,
   const int length  = (int) vc->length;
 
     if(vc->stat_cb)
-      vc->stat_cb(VRNA_STATUS_MFE_POST, vc->auxdata);
+      vc->stat_cb(vc, VRNA_STATUS_MFE_POST, vc->auxdata);  /* PORT: 2.7.2 added the fold compound as first argument */
 
     if(structure && vc->params->model_details.backtrack){
       bp = (vrna_bp_stack_t *)vrna_alloc(sizeof(vrna_bp_stack_t) * (4*(1+length/2))); /* add a guess of how many G's may be involved in a G quadruplex */
 
       switch(vc->type){
-        case VRNA_FC_TYPE_COMPARATIVE:  backtrack_comparative(vc, bp, bt_stack, s);
-                                      break;
+        /* PORT TO 2.7.2: backtrack_comparative() is flagged for deletion with
+         * the comparative forward recursion it belongs to. A comparative fold
+         * compound must never reach this function at all -- the routing guard
+         * declines them, so they are folded and backtracked by upstream. The
+         * branch becomes an explicit refusal rather than a dangling call:
+         * reaching it means the guard has a hole, and this project's standing
+         * rule is that an accelerator refuses rather than answers a fold
+         * compound it does not support. */
+        case VRNA_FC_TYPE_COMPARATIVE:
+          vrna_log_error("%s: comparative fold compound reached the CUDA "
+                         "backtrack path; the routing guard should have "
+                         "declined it", __FILE__);
+          free(bp);
+          return (float)(INF/100.);
 
         case VRNA_FC_TYPE_SINGLE:     /* fall through */
 
@@ -522,7 +534,7 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
   fetch_fML_one (sc->fML, lo, cells);
   sc->fetch_s += rnafold_now_seconds() - t0;
 
-  E_ext_loop_5(vc);                                  /* fills f5 from c */
+  vrna_mfe_exterior_f5(vc);          /* PORT: was E_ext_loop_5(); fills f5 from c */
   a->energy[idx] = vc->matrices->f5[vc->length];     /* was par_fill_arrays()'s job */
 
   sect bt_stack[MAXSECTORS]; /* thread-local */
@@ -840,7 +852,7 @@ par_mfe(const int nfiles,
 	exit(1);
       }
       /* call user-defined recursion status callback function */
-      if(VC[i]->stat_cb){ VC[i]->stat_cb(VRNA_STATUS_MFE_PRE, VC[i]->auxdata);}
+      if(VC[i]->stat_cb){ VC[i]->stat_cb(VC[i], VRNA_STATUS_MFE_PRE, VC[i]->auxdata);}  /* PORT: 2.7.2 signature */
     }
     stage_prepare_s += rnafold_now_seconds() - t_prepare;
 
@@ -947,11 +959,54 @@ par_mfe(const int nfiles,
       free(Str1); free(Str2); free(EN1); free(EN2); free(energy2); free(VC2);
     }
   } else {
+  /* PORT TO 2.7.2 -- WIRED THROUGH THE SEAM.
+   *
+   * This used to call mfe_cuda_vrna_mfe(), this file's private copy of
+   * upstream vrna_mfe(). It now calls the real one. That is the whole point of
+   * the inside-engine seam (vrna_gr_set_inside_engine, ViennaRNA/grammar/mfe.h):
+   * a record is folded by upstream's own vrna_mfe(), which consults whatever
+   * engine is attached to the fold compound and otherwise fills the matrices
+   * itself. Circular RNA, comparative fold compounds, backtracking and output
+   * are upstream's again rather than reimplemented here.
+   *
+   * Nothing is lost by the swap: the copy's own header comment records that it
+   * was reachable only for VRNA_FC_TYPE_COMPARATIVE and "NOT safe to call for
+   * VRNA_FC_TYPE_SINGLE".
+   */
   for(int i=0;i<nfiles;i++) {
-    EN[i] = mfe_cuda_vrna_mfe(VC[i], Structure[i]);
+    EN[i] = vrna_mfe(VC[i], Structure[i]);
   }}
 }
 
+/* ==========================================================================
+ * FLAGGED FOR DELETION -- mfe_cuda_vrna_mfe()
+ *
+ * Commented out rather than deleted, deliberately, so the port can be reviewed
+ * against what it replaced. Delete the whole block once the sweep runs green
+ * on 2.7.2 and nothing here is wanted for reference any more.
+ *
+ * WHY IT GOES. This is a private copy of upstream vrna_mfe(), carried because
+ * ViennaRNA 2.3.0 offered no way to supply an alternative MFE engine (see
+ * MERGING.md section 3 -- the copy is the ugliest thing in the fork from a
+ * reviewer's point of view, and the reason vrna_mfe_cpu() had to exist). The
+ * inside-engine seam removes the need: records go through upstream's real
+ * vrna_mfe(), which dispatches to the attached engine and otherwise does the
+ * work itself. Its only caller now calls vrna_mfe() directly.
+ *
+ * WHAT GOES WITH IT. Everything below that exists only to serve this copy:
+ *   - #include "circfold.inc"     -- DELETED UPSTREAM in 81bd160d, and only
+ *                                    fill_arrays_circ() from it was used here
+ *   - fill_arrays_comparative(), fill_arrays_comparative_circ(),
+ *     backtrack_comparative()    -- comparative fold compounds are declined by
+ *                                    the routing guard and handled upstream
+ *   - the vc->stat_cb call sites, whose signature changed in 2.7.2
+ *     ((status, data) -> (fc, status, data))
+ *
+ * Deleting this function is therefore what removes three of the four API
+ * changes the host sweep otherwise has to chase.
+ * ==========================================================================
+ */
+#if 0   /* FLAGGED FOR DELETION -- see the note above */
 /* New Jul 2026: renamed from vrna_mfe + made PRIVATE (static). This file's
  * mfe.h include declares the real vrna_mfe() as an external PUBLIC symbol;
  * this file used to define ANOTHER external vrna_mfe() of its own (same
@@ -1013,15 +1068,43 @@ mfe_cuda_vrna_mfe(vrna_fold_compound_t *vc,
   }
   return mfe;
 }
+#endif  /* FLAGGED FOR DELETION -- mfe_cuda_vrna_mfe() */
 
 /**
 *** fill "c", "fML" and "f5" arrays and return  optimal energy
 **/
 #include "fill_arrays.c"
 
+/* FLAGGED FOR DELETION, with mfe_cuda_vrna_mfe() above.
+ *
+ * circfold.inc does not exist in 2.7.2 -- upstream deleted it in 81bd160d,
+ * "Remove redundant forward recursions for comparative global MFE prediction".
+ * It provided fill_arrays_circ(), whose only caller was the commented-out copy
+ * of vrna_mfe(). Circular folding is upstream's postprocess_circular() now;
+ * what the GPU sweep will owe it is one extra matrix, not a second
+ * implementation (PORT_CIRC_SPEC.md).
+ */
+#if 0
 #include "circfold.inc"
+#endif
 
 
+/* ==========================================================================
+ * FLAGGED FOR DELETION -- the comparative forward recursion and its circular
+ * twin, orphaned by commenting out mfe_cuda_vrna_mfe() above (their only
+ * caller). Commented out rather than deleted, same reasoning.
+ *
+ * They CANNOT be ported in any case: this block ends with
+ * #include "ViennaRNA/alicircfold.inc", and that file no longer exists in
+ * 2.7.2 -- upstream removed it together with circfold.inc in 81bd160d.
+ *
+ * Nor should they be. Comparative fold compounds are declined outright by the
+ * routing guard (mfe/cuda/engine.c: "not a single-sequence fold compound"),
+ * so upstream vrna_mfe() handles them, as it does for any fold compound the
+ * backend hands back.
+ * ==========================================================================
+ */
+#if 0   /* FLAGGED FOR DELETION -- comparative recursion */
 /**
 *** the actual forward recursion to fill the energy arrays
 **/
@@ -1270,6 +1353,7 @@ fill_arrays_comparative(vrna_fold_compound_t *vc){
 }
 
 #include "ViennaRNA/alicircfold.inc"
+#endif  /* FLAGGED FOR DELETION -- comparative recursion */
 
 /* New Jul 2026: removed this file's own vrna_backtrack_from_intervals --
  * confirmed dead code (nothing in this file called it; callback_backtrack
@@ -1433,6 +1517,21 @@ backtrack(vrna_fold_compound_t *vc,
   bp_stack[0].i = b;    /* save the total number of base pairs */
 }
 
+/* ==========================================================================
+ * FLAGGED FOR DELETION -- backtrack_comparative(), the last piece of the
+ * comparative path, orphaned with the forward recursion above. Its only
+ * caller was mfe_cuda_vrna_mfe(); callback_backtrack()'s reference to it is
+ * now an explicit refusal instead.
+ *
+ * It accounts for seven of the ten remaining 2.7.2 API differences in this
+ * file, all of them comparative-only or gquad-only: vc->a2s widened from
+ * unsigned short to unsigned int, matrices->ggg is gone (2.7.2 keeps gquad
+ * energies in the sparse c_gq -- PORT_GQUAD_SPEC.md), E_gquad_ali was renamed,
+ * and four more hc->matrix reads. None of it is worth porting: comparative
+ * fold compounds and G-quadruplexes are both declined by the routing guard.
+ * ==========================================================================
+ */
+#if 0   /* FLAGGED FOR DELETION -- comparative backtracking */
 
 /**
 *** backtrack in the energy matrices to obtain a structure with MFE
@@ -1958,3 +2057,4 @@ backtrack_comparative(vrna_fold_compound_t *vc,
   free(type);
 }
 
+#endif  /* FLAGGED FOR DELETION -- comparative backtracking */
