@@ -179,7 +179,8 @@ CHECKMK_FILES = \
               eval_structure.ts \
               walk.ts \
               neighbor.ts \
-              hash_table.ts
+              hash_table.ts \
+              mfe_engine.ts
 
 CHECK_CFILES = \
               energy_evaluation.c \
@@ -191,7 +192,8 @@ CHECK_CFILES = \
               eval_structure.c \
               walk.c \
               neighbor.c \
-              hash_table.c
+              hash_table.c \
+              mfe_engine.c
 
 LIBRARY_TESTS = energy_evaluation \
                 constraints \
@@ -202,7 +204,8 @@ LIBRARY_TESTS = energy_evaluation \
                 eval_structure \
                 walk \
                 neighbor \
-                hash_table
+                hash_table \
+                mfe_engine
 
 check_PROGRAMS = ${LIBRARY_TESTS}
 

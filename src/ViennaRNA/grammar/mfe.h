@@ -323,6 +323,74 @@ vrna_gr_add_aux(vrna_fold_compound_t    *fc,
 
 
 /**
+ *  @brief  An alternative implementation of the MFE inside (matrix fill) step
+ *
+ *  Unlike the auxiliary grammar rules above, which are combined *into* the
+ *  default recursion cell by cell, an inside engine *replaces* it: it is
+ *  responsible for filling the dynamic programming matrices of @p fc that the
+ *  default implementation fills, and for reporting the minimum free energy of
+ *  the whole sequence. Everything after the matrix fill -- backtracking,
+ *  circular post-processing, output -- is unchanged and still performed by the
+ *  library.
+ *
+ *  An engine is free to handle only the cases it understands. It signals this
+ *  through its return value:
+ *
+ *  - returning a **non-zero** value means the engine has filled the matrices
+ *    and written the minimum free energy of the sequence (in dekacal/mol, as
+ *    the default implementation reports it) through @p energy;
+ *  - returning **0** means the engine declines this fold compound, and the
+ *    default implementation runs instead, exactly as if no engine were set.
+ *
+ *  @warning  Declining must be the default for anything an engine is not sure
+ *            about -- an unsupported model detail, constraint or sequence
+ *            shape. An engine that answers a fold compound it does not fully
+ *            support returns a different structure rather than an error.
+ *
+ *  @see  vrna_gr_set_inside_engine(), vrna_mfe()
+ *
+ *  @param  fc      The fold compound to fill the matrices of
+ *  @param  energy  Where to write the minimum free energy, in dekacal/mol
+ *  @param  data    An arbitrary user-provided data pointer
+ *  @return         Non-zero if the engine handled @p fc, 0 to decline it
+ */
+typedef int (*vrna_gr_engine_f)(vrna_fold_compound_t  *fc,
+                                int                   *energy,
+                                void                  *data);
+
+
+/**
+ *  @brief  Set an alternative implementation of the MFE inside (matrix fill) step
+ *
+ *  This binds a callback that replaces the default matrix filling step of
+ *  vrna_mfe() for this fold compound, together with the data it works on. See
+ *  #vrna_gr_engine_f for what an engine must do, and in particular for how it
+ *  declines a fold compound it does not support.
+ *
+ *  At most one inside engine may be bound to a fold compound. The @p prepare_cb
+ *  callback, if present, is called before the recursions start; the @p free_cb
+ *  callback serves as a destructor for @p data and is called when the grammar
+ *  rules of @p fc are reset or @p fc is destroyed.
+ *
+ *  @see  #vrna_gr_engine_f, vrna_gr_reset(), vrna_mfe()
+ *
+ *  @param  fc          The fold compound to bind the engine to
+ *  @param  cb          The inside engine callback
+ *  @param  data        A pointer to data passed through to @p cb
+ *  @param  prepare_cb  A callback to prepare @p data
+ *  @param  free_cb     A callback to release memory occupied by @p data
+ *  @return             Non-zero on success, 0 on error or if an engine is
+ *                      already bound to @p fc
+ */
+unsigned int
+vrna_gr_set_inside_engine(vrna_fold_compound_t    *fc,
+                          vrna_gr_engine_f        cb,
+                          void                    *data,
+                          vrna_auxdata_prepare_f  prepare_cb,
+                          vrna_auxdata_free_f     free_cb);
+
+
+/**
  * @}
  */
 

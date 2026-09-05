@@ -49,6 +49,12 @@ struct vrna_gr_aux_s {
   void                    *serialize_bp_data;
   vrna_auxdata_prepare_f  serialize_bp_prepare_data;
   vrna_auxdata_free_f     serialize_bp_free_data;
+
+  /* an alternative implementation of the MFE inside (matrix fill) step */
+  vrna_gr_engine_f        engine;
+  void                    *engine_data;
+  vrna_auxdata_prepare_f  engine_prepare_data;
+  vrna_auxdata_free_f     engine_free_data;
 };
 
 
@@ -85,6 +91,11 @@ init_aux_grammar(vrna_fold_compound_t *fc)
     fc->aux_grammar->serialize_bp_data          = NULL;
     fc->aux_grammar->serialize_bp_prepare_data  = NULL;
     fc->aux_grammar->serialize_bp_free_data     = NULL;
+
+    fc->aux_grammar->engine                     = NULL;
+    fc->aux_grammar->engine_data                = NULL;
+    fc->aux_grammar->engine_prepare_data        = NULL;
+    fc->aux_grammar->engine_free_data           = NULL;
   }
 }
 

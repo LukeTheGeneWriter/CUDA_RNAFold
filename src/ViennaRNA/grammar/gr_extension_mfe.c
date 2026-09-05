@@ -205,3 +205,33 @@ vrna_gr_add_aux(vrna_fold_compound_t    *fc,
 
   return ret;
 }
+
+
+PUBLIC unsigned int
+vrna_gr_set_inside_engine(vrna_fold_compound_t    *fc,
+                          vrna_gr_engine_f        cb,
+                          void                    *data,
+                          vrna_auxdata_prepare_f  prepare_cb,
+                          vrna_auxdata_free_f     free_cb)
+{
+  unsigned int ret = 0;
+
+  if ((fc) &&
+      (cb)) {
+    if (!fc->aux_grammar)
+      init_aux_grammar(fc);
+
+    /* at most one inside engine per fold compound, first one wins */
+    if ((fc->aux_grammar) &&
+        (fc->aux_grammar->engine == NULL)) {
+      fc->aux_grammar->engine               = cb;
+      fc->aux_grammar->engine_data          = data;
+      fc->aux_grammar->engine_prepare_data  = prepare_cb;
+      fc->aux_grammar->engine_free_data     = free_cb;
+
+      ret = 1;
+    }
+  }
+
+  return ret;
+}

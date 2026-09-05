@@ -81,6 +81,14 @@ vrna_gr_prepare(vrna_fold_compound_t  *fc,
                                                         fc->aux_grammar->serialize_bp_data,
                                                          options,
                                                          NULL);
+
+    /* prepare inside engine data */
+    if ((fc->aux_grammar->engine) &&
+        (fc->aux_grammar->engine_prepare_data))
+      ret &= fc->aux_grammar->engine_prepare_data(fc,
+                                                  fc->aux_grammar->engine_data,
+                                                  options,
+                                                  NULL);
   }
 
   return ret;
@@ -228,6 +236,9 @@ vrna_gr_reset(vrna_fold_compound_t *fc)
 
     if (fc->aux_grammar->serialize_bp_free_data)
       fc->aux_grammar->serialize_bp_free_data(fc->aux_grammar->serialize_bp_data);
+
+    if (fc->aux_grammar->engine_free_data)
+      fc->aux_grammar->engine_free_data(fc->aux_grammar->engine_data);
 
     /* release memory for aux grammar structure itself */
     free(fc->aux_grammar);

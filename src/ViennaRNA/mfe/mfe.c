@@ -210,7 +210,7 @@ vrna_mfe(vrna_fold_compound_t *fc,
 {
   char              *ss;
   unsigned int      length;
-  int               energy;
+  int               energy, handled;
   float             mfe;
   vrna_bts_t        bt_stack; /* stack of partial structures for backtracking */
   vrna_bps_t        bp;
@@ -245,7 +245,21 @@ vrna_mfe(vrna_fold_compound_t *fc,
     if (fc->strands > 1)
       ms_dat = get_ms_helpers(fc);
 
-    energy = fill_arrays(fc, ms_dat);
+    /*
+     * An alternative inside (matrix fill) implementation may have been bound to
+     * this fold compound with vrna_gr_set_inside_engine(). It fills the same
+     * matrices and reports the same energy, or declines and leaves the work to
+     * the default implementation below. Everything after this point --
+     * backtracking, circular post-processing, output -- is unchanged either way.
+     */
+    handled = 0;
+
+    if ((fc->aux_grammar) &&
+        (fc->aux_grammar->engine))
+      handled = fc->aux_grammar->engine(fc, &energy, fc->aux_grammar->engine_data);
+
+    if (!handled)
+      energy = fill_arrays(fc, ms_dat);
 
     if (fc->params->model_details.circ)
       energy = postprocess_circular(fc, bt_stack);
