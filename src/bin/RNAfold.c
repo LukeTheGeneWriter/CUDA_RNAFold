@@ -59,6 +59,14 @@
 #include "ViennaRNA/intern/color_output.h"
 #include "ViennaRNA/io/sanitize.h"
 
+#ifdef VRNA_WITH_CUDA
+#include "ViennaRNA/mfe/cuda/engine.h"
+/* the batch entry point, declared in mfe/cuda/stub2.h (not installed) */
+extern void par_mfe(const int nfiles, const vrna_fold_compound_t **VC,
+                    const char **Structure, float *EN,
+                    const int cpu_queue_threads);
+#endif
+
 #include "RNAfold_cmdl.h"
 #include "gengetopt_helpers.h"
 #include "input_id_helpers.h"
@@ -121,6 +129,17 @@ struct record_data {
   int             multiline_input;
   struct options  *options;
   int             tty;
+
+#ifdef VRNA_WITH_CUDA
+  /* CUDA chunk path: results computed in a batch by par_mfe() before this
+   * record is dispatched. When set, process_record() skips its own vrna_mfe()
+   * and formats these instead. Everything else about the record -- output
+   * formatting, plots, ordering through vrna_ostream_t -- is unchanged, which
+   * is what keeps the byte-identical bar meaningful across the two paths. */
+  int             prefolded;
+  float           prefolded_energy;
+  char            *prefolded_structure;
+#endif
 };
 
 
@@ -844,6 +863,58 @@ get_output_stream(unsigned int    init_size,
 }
 
 
+#ifdef VRNA_WITH_CUDA
+/* Fold one accumulated chunk on the GPU, then dispatch its records normally.
+ *
+ * The records are dispatched AFTER folding, each carrying its result, so all
+ * output formatting stays in process_record() and is shared with the
+ * per-record path. Nothing about ordering changes: the ostream slots were
+ * requested at read time.
+ */
+static void
+flush_gpu_chunk(struct record_data **chunk,
+                int                  n,
+                struct options      *opt)
+{
+  vrna_fold_compound_t  **VC;
+  char                  **Str;
+  float                  *EN;
+  int                     i;
+
+  if (n <= 0)
+    return;
+
+  VC  = (vrna_fold_compound_t **)vrna_alloc(sizeof(void *) * n);
+  Str = (char **)vrna_alloc(sizeof(char *) * n);
+  EN  = (float *)vrna_alloc(sizeof(float) * n);
+
+  for (i = 0; i < n; i++) {
+    VC[i]  = vrna_fold_compound(chunk[i]->sequence, &(opt->md), VRNA_OPTION_DEFAULT);
+    Str[i] = (char *)vrna_alloc(sizeof(char) * (strlen(chunk[i]->sequence) + 1));
+  }
+
+  par_mfe(n, (const vrna_fold_compound_t **)VC, (const char **)Str, EN, 0);
+
+  for (i = 0; i < n; i++) {
+    chunk[i]->prefolded           = 1;
+    chunk[i]->prefolded_energy    = EN[i];
+    chunk[i]->prefolded_structure = Str[i];   /* handed over; freed with the record */
+    vrna_fold_compound_free(VC[i]);
+  }
+
+  /* dispatch only once every record in the chunk has its answer */
+  for (i = 0; i < n; i++)
+    RUN_IN_PARALLEL(process_record, chunk[i]);
+
+  free(VC);
+  free(Str);
+  free(EN);
+}
+
+
+#endif
+
+
 /* main loop that processes an input stream */
 int
 process_input(FILE            *input_stream,
@@ -855,6 +926,37 @@ process_input(FILE            *input_stream,
   int           istty_out = isatty(fileno(stdout));
 
   unsigned int  read_opt = 0;
+
+#ifdef VRNA_WITH_CUDA
+  /* The GPU chunk accumulator: a THIRD dispatch path alongside the serial and
+   * per-record-parallel ones. Records are held back until a chunk's worth have
+   * been read, folded together by par_mfe(), then dispatched normally with
+   * their results attached.
+   *
+   * Ordering is unaffected: vrna_ostream_request() is still called at READ
+   * time, in input order, so the output queue is unchanged no matter when a
+   * record is actually dispatched. That is what lets the byte-identical bar
+   * compare this path against the per-record path directly.
+   *
+   * Deliberately simple for now -- a fixed chunk size, uniform lengths, no
+   * VRAM budgeting and no CPU-queue fallback. The chunker, the mixed-length
+   * join mask and the slot machinery are all still in mfe/cuda and can be
+   * reconnected once this path is proven correct. */
+  struct record_data  **gpu_chunk     = NULL;
+  int                   gpu_chunk_n   = 0;
+  int                   gpu_chunk_max = 0;
+
+  {
+    const char *e = getenv("RNA_GPU_CHUNK");
+    if ((e) && (e[0]) && (vrna_cuda_devices() > 0)) {
+      gpu_chunk_max = atoi(e);
+      if (gpu_chunk_max < 1)
+        gpu_chunk_max = 0;
+    }
+    if (gpu_chunk_max > 0)
+      gpu_chunk = (struct record_data **)vrna_alloc(sizeof(void *) * gpu_chunk_max);
+  }
+#endif
 
   /* print user help if we get input from tty */
   if (istty_in && istty_out) {
@@ -922,7 +1024,20 @@ process_input(FILE            *input_stream,
     if (opt->output_queue)
       vrna_ostream_request(opt->output_queue, opt->next_record_number++);
 
+#ifdef VRNA_WITH_CUDA
+    if (gpu_chunk_max > 0) {
+      /* hold the record back; it is dispatched by flush_gpu_chunk() */
+      gpu_chunk[gpu_chunk_n++] = record;
+      if (gpu_chunk_n == gpu_chunk_max) {
+        flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
+        gpu_chunk_n = 0;
+      }
+    } else {
+      RUN_IN_PARALLEL(process_record, record);
+    }
+#else
     RUN_IN_PARALLEL(process_record, record);
+#endif
 
     if ((opt->probing_data) ||
         (opt->constraint_file && (!opt->constraint_batch))) {
@@ -941,6 +1056,14 @@ process_input(FILE            *input_stream,
       }
     }
   } while (1);
+
+#ifdef VRNA_WITH_CUDA
+  /* whatever is left over at EOF, including a short final chunk */
+  if (gpu_chunk_max > 0) {
+    flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
+    free(gpu_chunk);
+  }
+#endif
 
   return ret;
 }
@@ -1064,7 +1187,21 @@ process_record(struct record_data *record)
     vrna_cstr_printf(o_stream->data, "%s\n", record->sequence);
   }
 
+#ifdef VRNA_WITH_CUDA
+  if (record->prefolded) {
+    /* Already folded, as part of a GPU chunk. Only the MFE call is skipped;
+     * the fold compound above is still built and still used for everything
+     * downstream (constraint checks, plots, partition function, evaluation),
+     * so this path and the per-record path format identically by construction
+     * rather than by two implementations agreeing. */
+    strncpy(mfe_structure, record->prefolded_structure, strlen(record->sequence) + 1);
+    min_en = (double)record->prefolded_energy;
+  } else {
+    min_en = (double)vrna_mfe(vc, mfe_structure);
+  }
+#else
   min_en = (double)vrna_mfe(vc, mfe_structure);
+#endif
 
   /* check whether the constraint allows for any solution */
   if ((fold_constrained) || (opt->cmds)) {
@@ -1333,6 +1470,10 @@ record_end:
   }
 
   free(record->input_filename);
+
+#ifdef VRNA_WITH_CUDA
+  free(record->prefolded_structure);   /* handed over by flush_gpu_chunk() */
+#endif
 
   free(record);
 }

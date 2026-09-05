@@ -47,6 +47,12 @@ if VRNA_AM_SWITCH_MPFR
 LDADD += $(MPFR_LIBS)
 endif
 
+## The binaries link libRNA_conv.la directly, so like the tests they need the
+## CUDA runtime themselves -- it is not inherited from libRNA.la.
+if VRNA_AM_SWITCH_CUDA
+LDADD += $(CUDA_LIBS)
+endif
+
 noinst_HEADERS = \
         gengetopt_helpers.h \
         input_id_helpers.h \
