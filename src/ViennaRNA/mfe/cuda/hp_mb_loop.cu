@@ -321,29 +321,41 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   unsigned int* hccc_gu    = (unsigned int*) calloc(hc2_off_H[nfiles],sizeof(unsigned int));
   const double _t_pk3 = rnafold_now_seconds();
   for(int H=0;H<nfiles;H++){
-    unsigned int mask_mb, mask_mbenc, mask2;
     // Staggered_Row_Batching Phase 6a: bounded by this H's own length, not
-    // the shared `length` scalar -- same reasoning as int_loop.cu's
-    // hc_off_H population loop (VC[H]->hc->matrix is only ever sized to
-    // VC[H]->length; hccc_mb/hccc_mbenc are calloc'd, so the untouched
-    // tail stays correctly zero).
+    // the shared `length` scalar -- hccc_mb/hccc_mbenc are calloc'd, so the
+    // untouched tail stays correctly zero.
+    //
+    // PORT TO 2.7.2. This loop used to walk hc->matrix CONTIGUOUSLY, with the
+    // linear index doubling as both the bit position and the array offset,
+    // because 2.3.0's hc->matrix was triangular with exactly ptype's extent
+    // and indexing. In 2.7.2 hc->mx is DENSE row-major, indexed n*i+j
+    // (constraints/hard.c:179 allocates (n+1)*(n+1)+1), while ptype is
+    // UNCHANGED -- still (n*(n+1))/2+2, still indexed j*(j-1)/2+i
+    // (sequences/alphabet.c:255). The two arrays no longer share a walk.
+    //
+    // So the loop is restructured over (i,j) pairs: the bit position stays the
+    // triangular index Indx(i,j), which is what the kernels look up and must
+    // not change, while the hard constraint is now fetched densely. The bit is
+    // computed from that index rather than carried in a shifting mask, since
+    // (i,j) order does not visit the triangular index sequentially.
     const int length_H = (int)VC[H]->length;
-    for(int i=0;i<(length_H*(length_H+1))/2+2;i++){
-      mask_mb    = ((i & 0x1f) == 0)? 1 : mask_mb    << 1;
-      mask_mbenc = ((i & 0x1f) == 0)? 1 : mask_mbenc << 1;
-      mask2      = ((i & 0x1f) == 0)? 1 : mask2      << 1;
-      const size_t I = hc2_off_H[H]+i/bitsperint;
-      if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP)     hccc_mb[I]    |= mask_mb;
-      if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC) hccc_mbenc[I] |= mask_mbenc;
-      // The two new predicates, packed from the host's OWN ptype/hc arrays
-      // rather than recomputed device-side from the sequence: new_c_host used
-      // exactly these values, so re-deriving them (e.g. via Ptype2()) would be
-      // an extra equivalence to prove. This loop already walks hc->matrix
-      // contiguously and ptype has the identical extent -- alphabet.c
-      // allocates it (n*(n+1))/2+2, the same bound as this loop.
-      if(VC[H]->hc->matrix[i])                                       hccc_any[I]   |= mask2;
-      { const char pt = VC[H]->ptype[i];
-        if(pt == 3 || pt == 4)                                       hccc_gu[I]    |= mask2; }
+    for(int j=1;j<=length_H;j++){
+      for(int i=1;i<=j;i++){
+        const size_t t   = (size_t)j*(j-1)/2 + i;          // Indx(i,j)
+        const size_t I   = hc2_off_H[H] + t/bitsperint;
+        const unsigned int bit = 1u << (t % bitsperint);
+        const unsigned char hcv = VC[H]->hc->mx[(size_t)length_H*i + j];
+
+        if(hcv & VRNA_CONSTRAINT_CONTEXT_MB_LOOP)     hccc_mb[I]    |= bit;
+        if(hcv & VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC) hccc_mbenc[I] |= bit;
+        // Packed from the host's OWN ptype/hc arrays rather than recomputed
+        // device-side from the sequence: new_c_host used exactly these values,
+        // so re-deriving them (e.g. via Ptype2()) would be an extra
+        // equivalence to prove.
+        if(hcv)                                       hccc_any[I]   |= bit;
+        { const char pt = VC[H]->ptype[t];
+          if(pt == 3 || pt == 4)                      hccc_gu[I]    |= bit; }
+      }
     }
   }
   stage_ig_pack_s += rnafold_now_seconds() - _t_pk3;
@@ -473,17 +485,25 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       unsigned int* h_mbenc = (unsigned int*) calloc(nw2,sizeof(unsigned int));
       unsigned int* h_any   = (unsigned int*) calloc(nw2,sizeof(unsigned int));
       unsigned int* h_gu    = (unsigned int*) calloc(nw2,sizeof(unsigned int));
+      // Must mirror the packing loop above EXACTLY, including the 2.7.2 dense
+      // hc->mx indexing -- this is the independent recomputation that RNA_HC_VERIFY
+      // compares the device copy against, so any divergence here makes the
+      // check agree with the wrong thing rather than catch it.
       for(int H=0;H<nfiles;H++){
-        unsigned int mask;
         const int length_H = (int)VC[H]->length;
-        for(int i=0;i<(length_H*(length_H+1))/2+2;i++){
-          mask = ((i & 0x1f) == 0)? 1 : mask << 1;
-          const size_t I = hc2_off_H[H]+i/bitsperint;
-          if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP)     h_mb[I]    |= mask;
-          if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC) h_mbenc[I] |= mask;
-          if(VC[H]->hc->matrix[i])                                       h_any[I]   |= mask;
-          { const char pt = VC[H]->ptype[i];
-            if(pt == 3 || pt == 4)                                       h_gu[I]    |= mask; }
+        for(int j=1;j<=length_H;j++){
+          for(int i=1;i<=j;i++){
+            const size_t t   = (size_t)j*(j-1)/2 + i;      // Indx(i,j)
+            const size_t I   = hc2_off_H[H] + t/bitsperint;
+            const unsigned int bit = 1u << (t % bitsperint);
+            const unsigned char hcv = VC[H]->hc->mx[(size_t)length_H*i + j];
+
+            if(hcv & VRNA_CONSTRAINT_CONTEXT_MB_LOOP)     h_mb[I]    |= bit;
+            if(hcv & VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC) h_mbenc[I] |= bit;
+            if(hcv)                                       h_any[I]   |= bit;
+            { const char pt = VC[H]->ptype[t];
+              if(pt == 3 || pt == 4)                      h_gu[I]    |= bit; }
+          }
         }
       }
       unsigned int* g = (unsigned int*) malloc(nw2*sizeof(unsigned int));

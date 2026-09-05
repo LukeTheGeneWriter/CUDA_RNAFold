@@ -393,11 +393,18 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     // hccc[] itself is calloc'd, so the untouched tail for a shorter H
     // (both this triangle's own remaining slots and Hc_ints()'s MAXLOOP
     // padding) stays correctly zero either way.
+    // PORT TO 2.7.2: hc->matrix (triangular, walked contiguously) became
+    // hc->mx (dense row-major, n*i+j). The BIT POSITION must stay the
+    // triangular index Indx(i,j) because that is what the kernels look up;
+    // only the fetch changes. See the fuller note in hp_mb_loop.cu.
     const int length_H = (int)VC[H]->length;
-    for(int i=0;i<(length_H*(length_H+1))/2+2;i++){ //leave padding as zero
-      mask = ((i & 0x1f) == 0)? 1 : mask << 1;
-      const long long I = (long long)hc_off_H[H]+i/bitsperint; // Langdon's 2026 indexing bug -- host-side hccc population, missed by 2f35ecc's kernel-scoped fix
-      if(VC[H]->hc->matrix[i] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC) hccc[I] |= mask;
+    for(int j=1;j<=length_H;j++){                    //leave padding as zero
+      for(int i=1;i<=j;i++){
+        const size_t t = (size_t)j*(j-1)/2 + i;      // Indx(i,j)
+        const long long I = (long long)hc_off_H[H] + t/bitsperint; // Langdon's 2026 indexing bug -- host-side hccc population, missed by 2f35ecc's kernel-scoped fix
+        const unsigned int bit = 1u << (t % bitsperint);
+        if(VC[H]->hc->mx[(size_t)length_H*i + j] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC) hccc[I] |= bit;
+      }
     }
   }
   stage_ig_pack_s += rnafold_now_seconds() - _t_pk1;
@@ -1242,13 +1249,17 @@ E_int_loop( const vrna_fold_compound_t *vc,
             const int j){
 
   unsigned char     type, type_2;
-  char              *hc, *hc_pq, eval_loop;
+  /* PORT TO 2.7.2: hc->mx is unsigned char (was char), hc->up_int is
+   * unsigned int (was int). Widened here rather than cast at each use. */
+  unsigned char     *hc, *hc_pq, eval_loop;
   char              *ptype, *ptype_pq;
   short             *S, S_i1, S_j1, *S_p1, *S_q1;
+  unsigned int      *hc_up;
+  size_t            hc_stride;      /* dense hc->mx row stride, = vc->length */
   int               q, p, j_q, p_i, pq, *c_pq, max_q, max_p, tmp,
                     *rtype, /*noGUclosure, **no_close,*/ energy, cp, //en,
-                    *indx, *hc_up, ij, hc_decompose, e, *c, //*ggg,
-                    //with_gquad, 
+                    *indx, ij, hc_decompose, e, *c, //*ggg,
+                    //with_gquad,
                     turn;
   vrna_sc_t         *sc;
   vrna_param_t      *P;
@@ -1261,12 +1272,17 @@ E_int_loop( const vrna_fold_compound_t *vc,
 
   cp            = vc->cutpoint;
   indx          = vc->jindx;
-  hc            = vc->hc->matrix;
+  /* PORT TO 2.7.2: hc->matrix[indx[j]+i] became hc->mx[n*i+j]. This is host
+   * code evaluating one (i,j), so the fetch is a direct translation; indx is
+   * still needed below for the DP matrices, whose triangular layout upstream
+   * did not change. */
+  hc            = vc->hc->mx;
+  hc_stride     = (size_t)vc->length;
   hc_up         = vc->hc->up_int;
   P             = vc->params;
   matrices      = vc->matrices;
   ij            = indx[j] + i;
-  hc_decompose  = hc[ij];
+  hc_decompose  = hc[hc_stride * i + j];
   e             = INF;
   c             = vc->matrices->c;
 //ggg           = vc->matrices->ggg;
@@ -1371,7 +1387,9 @@ E_int_loop( const vrna_fold_compound_t *vc,
         max_p     = MIN2(max_p, tmp);
         tmp       = i + 1 + hc_up[i + 1];
         max_p     = MIN2(max_p, tmp);
-        hc_pq     = hc + pq;
+        /* PORT: dense hc->mx -- (p,q) is at hc[n*p + q], and advancing p by one
+         * moves a whole row, not one element. c and ptype stay triangular. */
+        hc_pq     = hc + hc_stride * (size_t)(i + 1) + q;
         c_pq      = c + pq;
 
         ptype_pq  = ptype + pq;
@@ -1413,7 +1431,7 @@ E_int_loop( const vrna_fold_compound_t *vc,
               e = MIN2(e, energy);
             }
           }
-          hc_pq++;    /* get hc[pq + 1] */
+          hc_pq    += hc_stride;  /* dense hc->mx: next p is a whole row on */
           c_pq++;     /* get c[pq + 1] */
           p_i++;      /* increase unpaired region [i+1...p-1] */
 
