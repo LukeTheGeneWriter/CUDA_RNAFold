@@ -75,6 +75,74 @@ extern void par_mfe(const int nfiles, const vrna_fold_compound_t **VC,
 extern void teardown_gpu(void);
 extern void teardown_gpu2(void);
 extern void teardown_gpu3(void);
+
+/* VRAM budgeting. Both live in the library already:
+ *   gpu_bytes_per_file(len)      device bytes one record of that length needs
+ *   compute_gpu_usable_bytes()   free VRAM * 0.85, capped by
+ *                                RNA_GPU_VRAM_BUDGET_MB (which can only lower
+ *                                it, never raise it)
+ * and the slot-flow knobs the projection has to respect. */
+extern size_t gpu_bytes_per_file(const int length);
+extern size_t compute_gpu_usable_bytes(void);
+extern int    rnafold_slot_flow(void);
+extern int    rnafold_slot_capacity_max(void);
+
+
+/* What a chunk of these lengths would cost on the device, with `cand` added.
+ *
+ * Ported from the 2.3.0 driver unchanged in substance. The subtlety is slot
+ * flow: under RNA_SLOT_FLOW=k, k records SHARE a slot and only the slots are
+ * allocated, so the cost is not a sum over records. par_mfe() deals records
+ * round-robin in descending length order, so slot s holds the s-th longest
+ * record and the footprint is the sum of gpu_bytes_per_file() over the top
+ * ceil(n/k) lengths. At k == 1 that degenerates to "sum over every record".
+ *
+ * RNA_SLOT_CAPACITY=max sizes every slot to the chunk maximum instead of its
+ * own occupant's length, so the projection has to follow that too -- the two
+ * disagreed when C1 shipped (budget from real lengths, allocation from the
+ * capacity rule), which is the kind of mismatch that OOMs only on the inputs
+ * you did not test.
+ *
+ * `sorted_desc` holds the accepted lengths in descending order; cand < 0 means
+ * "no candidate, just price what is already here".
+ */
+static size_t
+projected_chunk_bytes(const int *sorted_desc,
+                      int        n,
+                      int        cand,
+                      int        k,
+                      int        cap_max)
+{
+  const int total = n + ((cand >= 0) ? 1 : 0);
+  const int slots = (k > 0) ? ((total + k - 1) / k) : total;
+  size_t    sum   = 0;
+  int       i     = 0;
+  int       used  = (cand < 0);
+  int       taken;
+
+  if (cap_max) {
+    int mx = (n > 0) ? sorted_desc[0] : -1;
+    if (cand > mx)
+      mx = cand;
+
+    return (mx < 0) ? 0 : (size_t)slots * gpu_bytes_per_file(mx);
+  }
+
+  for (taken = 0; taken < slots; taken++) {
+    int len;
+    if ((!used) && ((i >= n) || (cand >= sorted_desc[i]))) {
+      len  = cand;
+      used = 1;
+    } else if (i < n) {
+      len = sorted_desc[i++];
+    } else {
+      break;
+    }
+    sum += gpu_bytes_per_file(len);
+  }
+
+  return sum;
+}
 #endif
 
 #include "RNAfold_cmdl.h"
@@ -881,6 +949,18 @@ get_output_stream(unsigned int    init_size,
  * per-record path. Nothing about ordering changes: the ostream slots were
  * requested at read time.
  */
+/* Below this, a chunk is not worth a GPU batch: the per-chunk init_gpu/teardown
+ * cycle alone measured ~1.6 s, which dwarfs folding a handful of records.
+ *
+ * 10 is the 2.3.0 value and is carried over deliberately unchanged, but it is
+ * KNOWN to be length-dependent rather than a constant -- break-even is ~65
+ * records at 300 nt, ~10 at 600 nt, and 1 at >=1200 nt. So 10 is right only
+ * near 600-700 nt and too small below that. The proper fix is a length guard,
+ * not a better constant; carried over as-is so the port stays behaviour-
+ * preserving and the guard lands as its own measured change. */
+#define VRNA_MIN_GPU_BATCH 10
+
+
 static void
 flush_gpu_chunk(struct record_data **chunk,
                 int                  n,
@@ -893,6 +973,19 @@ flush_gpu_chunk(struct record_data **chunk,
 
   if (n <= 0)
     return;
+
+  if (n < VRNA_MIN_GPU_BATCH) {
+    /* CPU fallback. Not a separate worker queue: upstream's driver already has
+     * a per-record parallel path, so an undersized chunk simply goes down it.
+     * That is the fork's RNAfold_cpu_queue.c retired rather than ported --
+     * MERGING.md flagged it as largely redundant once upstream grew its own
+     * thread pool and vrna_ostream_t, and this is where that pays off. The
+     * records keep their ostream slots, so output order is unaffected. */
+    for (i = 0; i < n; i++)
+      RUN_IN_PARALLEL(process_record, chunk[i]);
+
+    return;
+  }
 
   VC  = (vrna_fold_compound_t **)vrna_alloc(sizeof(void *) * n);
   Str = (char **)vrna_alloc(sizeof(char *) * n);
@@ -960,18 +1053,34 @@ process_input(FILE            *input_stream,
    * reconnected once this path is proven correct. */
   struct record_data  **gpu_chunk     = NULL;
   int                   gpu_chunk_n   = 0;
-  int                   gpu_chunk_max = 0;
-  unsigned int          gpu_chunk_len = 0;   /* the chunk's uniform length */
+  int                   gpu_chunk_cap = 0;   /* allocated slots in gpu_chunk[] */
+  int                   gpu_enabled   = 0;
+  int                   gpu_hard_cap  = 0;   /* RNA_GPU_CHUNK, testing override */
+  unsigned int          gpu_chunk_len = 0;
+
+  /* The VRAM budget, replacing the fixed record count.
+   *
+   * chunk_usable_bytes is queried ONCE PER CHUNK, after the previous chunk's
+   * teardown, so it sees genuinely free VRAM rather than counting the last
+   * chunk's still-resident buffers as unavailable. len_desc holds the accepted
+   * lengths in descending order, which is what projected_chunk_bytes() needs
+   * to price slot flow. */
+  size_t                chunk_usable_bytes = 0;
+  int                   chunk_started      = 0;
+  int                  *len_desc           = NULL;
+  int                   len_desc_n         = 0;
+  int                   len_desc_cap       = 0;
+  const int             slot_flow_k        = (rnafold_slot_flow() >= 1) ? rnafold_slot_flow() : 1;
+  const int             slot_cap_max       = rnafold_slot_capacity_max();
 
   {
     const char *e = getenv("RNA_GPU_CHUNK");
-    if ((e) && (e[0]) && (vrna_cuda_devices() > 0)) {
-      gpu_chunk_max = atoi(e);
-      if (gpu_chunk_max < 1)
-        gpu_chunk_max = 0;
+    gpu_enabled = (vrna_cuda_devices() > 0) && (e) && (e[0]);
+    if (gpu_enabled) {
+      gpu_hard_cap = atoi(e);            /* 0 or less: budget alone decides */
+      if (gpu_hard_cap < 0)
+        gpu_hard_cap = 0;
     }
-    if (gpu_chunk_max > 0)
-      gpu_chunk = (struct record_data **)vrna_alloc(sizeof(void *) * gpu_chunk_max);
   }
 #endif
 
@@ -1042,7 +1151,7 @@ process_input(FILE            *input_stream,
       vrna_ostream_request(opt->output_queue, opt->next_record_number++);
 
 #ifdef VRNA_WITH_CUDA
-    if (gpu_chunk_max > 0) {
+    if (gpu_enabled) {
       /* A chunk must be UNIFORM LENGTH.
        *
        * The sweep shares one triangular layout across the batch, sized from the
@@ -1072,19 +1181,71 @@ process_input(FILE            *input_stream,
        * handles the short ones. Its only flush trigger is the VRAM budget.
        * Having the switch means the claim can be re-tested rather than
        * believed. */
+      size_t bytes_projected;
+      int    need_flush;
+
       if ((gpu_chunk_n > 0) && (this_len != gpu_chunk_len) &&
           (getenv("RNA_GPU_UNIFORM_CHUNKS"))) {
         flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
-        gpu_chunk_n = 0;
+        gpu_chunk_n = len_desc_n = 0;
+        chunk_started = 0;
+      }
+
+      /* Would this record still fit the chunk's VRAM budget? */
+      bytes_projected = projected_chunk_bytes(len_desc, len_desc_n, (int)this_len,
+                                              slot_flow_k, slot_cap_max);
+
+      need_flush = (!chunk_started) || (bytes_projected > chunk_usable_bytes);
+
+      if ((gpu_hard_cap > 0) && (gpu_chunk_n >= gpu_hard_cap))
+        need_flush = 1;
+
+      if (need_flush) {
+        flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
+        gpu_chunk_n = len_desc_n = 0;
+
+        /* Query AFTER the flush: flush_gpu_chunk() tears the device state down,
+         * so this sees free VRAM rather than counting the previous chunk's
+         * buffers as unavailable. */
+        chunk_usable_bytes = compute_gpu_usable_bytes();
+        chunk_started      = 1;
+
+        /* Degraded case: free VRAM cannot hold even a minimum batch of this
+         * length. Folding it on the GPU one chunk at a time would be slower
+         * than not using the GPU at all, so this record and its like go down
+         * the per-record path. */
+        if (gpu_bytes_per_file((int)this_len) * (size_t)VRNA_MIN_GPU_BATCH
+            > chunk_usable_bytes) {
+          RUN_IN_PARALLEL(process_record, record);
+          continue;
+        }
+      }
+
+      /* grow both arrays as needed -- the chunk size is decided by bytes now,
+       * so it is not known in advance */
+      if (gpu_chunk_n == gpu_chunk_cap) {
+        gpu_chunk_cap = gpu_chunk_cap ? gpu_chunk_cap * 2 : 64;
+        gpu_chunk     = (struct record_data **)vrna_realloc(gpu_chunk,
+                                                            sizeof(void *) * gpu_chunk_cap);
+      }
+      if (len_desc_n == len_desc_cap) {
+        len_desc_cap = len_desc_cap ? len_desc_cap * 2 : 64;
+        len_desc     = (int *)vrna_realloc(len_desc, sizeof(int) * len_desc_cap);
+      }
+
+      /* keep len_desc sorted descending: projected_chunk_bytes() walks it in
+       * that order to decide which records own slots */
+      {
+        int p = len_desc_n++;
+        while ((p > 0) && (len_desc[p - 1] < (int)this_len)) {
+          len_desc[p] = len_desc[p - 1];
+          p--;
+        }
+        len_desc[p] = (int)this_len;
       }
 
       gpu_chunk_len            = this_len;
       gpu_chunk[gpu_chunk_n++] = record;
-
-      if (gpu_chunk_n == gpu_chunk_max) {
-        flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
-        gpu_chunk_n = 0;
-      }
     } else {
       RUN_IN_PARALLEL(process_record, record);
     }
@@ -1111,10 +1272,14 @@ process_input(FILE            *input_stream,
   } while (1);
 
 #ifdef VRNA_WITH_CUDA
-  /* whatever is left over at EOF, including a short final chunk */
-  if (gpu_chunk_max > 0) {
+  /* whatever is left over at EOF. A short final chunk is the normal case, and
+   * flush_gpu_chunk() sends it down the per-record path if it is below
+   * VRNA_MIN_GPU_BATCH -- which is exactly the tail-case fallback the 2.3.0
+   * driver had, now expressed once rather than at each call site. */
+  if (gpu_enabled) {
     flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
     free(gpu_chunk);
+    free(len_desc);
   }
 #endif
 
