@@ -37,6 +37,9 @@ pkg_verbose_ = $(pkg_verbose_@AM_DEFAULT_V@)
 dmg_verbose = $(dmg_verbose_@AM_V@)
 dmg_verbose_ = $(dmg_verbose_@AM_DEFAULT_V@)
 
+nvcc_verbose = $(nvcc_verbose_@AM_V@)
+nvcc_verbose_ = $(nvcc_verbose_@AM_DEFAULT_V@)
+
 if WITH_COLOR_MAKE
 
 ggo_verbose_0 = @[ -t 1 ] && printf "  \033[1;34mGGO\033[0m      %s\n" $@ || echo "  GGO      $@";
@@ -52,6 +55,7 @@ checkmk_verbose_0 = @[ -t 1 ] && printf "  \033[1;34mCHECKMK\033[0m  %s\n" $@ ||
 prepare_verbose_0 = @[ -t 1 ] && printf "  \033[1;34mPREPARE\033[0m  $@ || echo "  PREPARE  $@;
 pkg_verbose_0 = @[ -t 1 ] && printf "  \033[1;34mPKG-GEN\033[0m  $@ || echo "  PKG-GEN  $@;
 dmg_verbose_0 = @[ -t 1 ] && printf "  \033[1;34mDMG-GEN\033[0m  $@ || echo "  DMG-GEN  $@;
+nvcc_verbose_0 = @[ -t 1 ] && printf "  \033[1;34mNVCC\033[0m     %s\n" $@ || echo "  NVCC     $@";
 
 else
 
@@ -68,5 +72,6 @@ checkmk_verbose_0 = @echo "  CHECKMK  $@";
 prepare_verbose_0 = @echo "  PREPARE  $@;
 pkg_verbose_0 = @echo "  PKG-GEN  $@;
 dmg_verbose_0 = @echo "  DMG-GEN  $@;
+nvcc_verbose_0 = @echo "  NVCC     $@";
 
 endif

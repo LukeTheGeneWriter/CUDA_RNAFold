@@ -207,6 +207,15 @@ LIBRARY_TESTS = energy_evaluation \
                 hash_table \
                 mfe_engine
 
+## The CUDA routing guard is only built when the backend is, so this suite
+## joins the others only under --enable-cuda. `make check` therefore reports
+## 130 without CUDA and 135 with it.
+if VRNA_AM_SWITCH_CUDA
+CHECKMK_FILES += mfe_cuda_guard.ts
+CHECK_CFILES  += mfe_cuda_guard.c
+LIBRARY_TESTS += mfe_cuda_guard
+endif
+
 check_PROGRAMS = ${LIBRARY_TESTS}
 
 endif
@@ -243,7 +252,10 @@ TESTS = \
 
 endif
 
-EXTRA_DIST =  data \
+## distributed even when CUDA is off, so a tarball rolled from a non-CUDA
+## build still carries the guard suite
+EXTRA_DIST =  mfe_cuda_guard.ts \
+              data \
               py_include/__init__.py \
               py_include/taprunner/__init__.py \
               RNAfold/results \

@@ -23,6 +23,7 @@ vrna_landscapedir       = $(pkgincludedir)/landscape
 vrna_loopsdir           = $(pkgincludedir)/loops
 vrna_mathdir            = $(pkgincludedir)/math
 vrna_mfedir             = $(pkgincludedir)/mfe
+vrna_mfecudadir         = $(pkgincludedir)/mfe/cuda
 vrna_paramsdir          = $(pkgincludedir)/params
 vrna_partfuncdir        = $(pkgincludedir)/partfunc
 vrna_plottingdir        = $(pkgincludedir)/plotting
@@ -120,6 +121,29 @@ if VRNA_AM_SWITCH_SIMD_AVX512
 noinst_LTLIBRARIES += libRNA_utils_avx512.la
 libRNA_conv_la_LIBADD += libRNA_utils_avx512.la
 libRNA_utils_avx512_la_CFLAGS = $(SIMD_AVX512_FLAGS)
+endif
+
+##--------------------------------------------------------------------##
+## Optional CUDA backend for the MFE matrix fill                       ##
+##                                                                     ##
+## Same shape as the SIMD convenience libraries above: a conditional    ##
+## noinst library folded into libRNA_conv. The .cu objects are built by ##
+## the nvcc rule at the bottom of this file and added through LIBADD,   ##
+## because libtool has no CUDA tag and cannot drive nvcc itself.        ##
+##--------------------------------------------------------------------##
+if VRNA_AM_SWITCH_CUDA
+noinst_LTLIBRARIES += libRNA_mfe_cuda.la
+libRNA_conv_la_LIBADD += libRNA_mfe_cuda.la
+
+libRNA_mfe_cuda_la_SOURCES = \
+    mfe/cuda/engine.c
+
+libRNA_mfe_cuda_la_LIBADD = \
+    mfe/cuda/device.$(OBJEXT)
+
+libRNA_mfe_cuda_la_CPPFLAGS = $(AM_CPPFLAGS)
+
+libRNA_la_LIBADD += $(CUDA_LIBS)
 endif
 
 # Dummy C++ source to cause C++ linking.
@@ -819,3 +843,28 @@ EXTRA_DIST =  $(pkginclude_HEADERS) \
 if VRNA_AM_SWITCH_SVM
 EXTRA_DIST += intern/zscore_dat.h
 endif
+
+##--------------------------------------------------------------------##
+## CUDA sources                                                        ##
+##                                                                     ##
+## nvcc is invoked directly rather than through libtool, which has no   ##
+## CUDA tag. The resulting objects join the convenience library via     ##
+## libRNA_mfe_cuda_la_LIBADD above. -fPIC comes from NVCC_FLAGS, since  ##
+## these objects end up inside a shared library.                       ##
+##--------------------------------------------------------------------##
+if VRNA_AM_SWITCH_CUDA
+vrna_mfecuda_HEADERS = mfe/cuda/engine.h
+
+mfe/cuda/device.$(OBJEXT): $(srcdir)/mfe/cuda/device.cu
+	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(nvcc_verbose)$(NVCC_BIN) -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) \
+	  -I$(top_srcdir)/src -I$(top_builddir)/src \
+	  -c $(srcdir)/mfe/cuda/device.cu -o mfe/cuda/device.$(OBJEXT)
+
+CLEANFILES = mfe/cuda/device.$(OBJEXT)
+endif
+
+## distributed whether or not CUDA is enabled, so `make dist` from a
+## non-CUDA build still produces a tarball that can build with it
+EXTRA_DIST += mfe/cuda/device.cu \
+              mfe/cuda/engine.h
