@@ -949,6 +949,69 @@ get_output_stream(unsigned int    init_size,
  * per-record path. Nothing about ordering changes: the ostream slots were
  * requested at read time.
  */
+/* May this RUN use the GPU chunk path at all?
+ *
+ * This is what makes the CUDA build a strict accelerator rather than a variant
+ * of RNAfold with a different feature set. Anything the device path does not
+ * reproduce exactly is not refused and is not approximated -- it simply goes
+ * down upstream's own per-record path, which is the validated CPU code. The
+ * user sees ViennaRNA 2.7.2's answers for every option; the GPU only ever
+ * accelerates the cases where it agrees.
+ *
+ * Two layers, deliberately:
+ *   here            a RUN-level decision from the model details and the
+ *                   options, made once, before any record is committed;
+ *   par_fill_arrays a per-batch backstop that ERRORS if an unsupported model
+ *                   reaches the sweep anyway. It should now be unreachable,
+ *                   and is kept precisely so that "unreachable" is enforced
+ *                   rather than assumed.
+ *
+ * Note what is NOT excluded: the partition function, MEA, centroid, plots and
+ * probability output all keep working, because process_record() still does
+ * every one of them itself on its own fold compound. The chunk path supplies
+ * only the MFE energy and structure. That falls out of not duplicating
+ * process_record(), and it is why -p needs no special handling here.
+ */
+static int
+gpu_path_usable(struct options *opt,
+                const char    **why)
+{
+  vrna_md_t *md = &(opt->md);
+
+#define NO(msg) do { if (why) *why = (msg); return 0; } while (0)
+
+  /* Model details the sweep does not implement. Mirrors
+   * vrna_cuda_engine_supports() in mfe/cuda/engine.c; kept in step with it. */
+  if (md->dangles != 2)         NO("dangle model other than 2");
+  if (md->gquad)                NO("G-quadruplexes (-g)");
+  if (md->circ)                 NO("circular RNA (-c)");
+  if (md->noLP)                 NO("noLP");
+  if (md->noGUclosure)          NO("noClosingGU");
+  if (md->logML)                NO("logarithmic multibranch scaling");
+  if (md->uniq_ML)              NO("unique multibranch decomposition");
+  if (md->energy_set != 0)      NO("non-default energy set");
+  if (md->salt != VRNA_MODEL_DEFAULT_SALT)
+                                NO("salt correction");
+
+  /* Per-record data that reaches the recursion as constraints. The sweep
+   * derives its hard-constraint bitmasks from the SEQUENCE alone, so anything
+   * that adds constraints per record has to stay on the CPU. */
+  if (fold_constrained)         NO("structure constraints");
+  if (opt->constraint_file)     NO("a constraint file");
+  if (opt->probing_data)        NO("probing/SHAPE data");
+  if (opt->cmds)                NO("a command file");
+  if (opt->mod_params)          NO("modified bases");
+  if (opt->ligandMotif)         NO("a ligand motif");
+
+#undef NO
+
+  if (why)
+    *why = NULL;
+
+  return 1;
+}
+
+
 /* Below this, a chunk is not worth a GPU batch: the per-chunk init_gpu/teardown
  * cycle alone measured ~1.6 s, which dwarfs folding a handful of records.
  *
@@ -1074,8 +1137,22 @@ process_input(FILE            *input_stream,
   const int             slot_cap_max       = rnafold_slot_capacity_max();
 
   {
-    const char *e = getenv("RNA_GPU_CHUNK");
+    const char *e   = getenv("RNA_GPU_CHUNK");
+    const char *why = NULL;
+
     gpu_enabled = (vrna_cuda_devices() > 0) && (e) && (e[0]);
+
+    if ((gpu_enabled) && (!gpu_path_usable(opt, &why))) {
+      /* Not an error: this run just folds on the CPU, exactly as stock
+       * ViennaRNA would. Announced only in verbose mode -- a user who asked
+       * for --gquad wants their answer, not a lecture about the accelerator. */
+      if (opt->verbose)
+        vrna_log_info("CUDA backend not used for this run (%s); "
+                      "folding on the CPU path", why);
+
+      gpu_enabled = 0;
+    }
+
     if (gpu_enabled) {
       gpu_hard_cap = atoi(e);            /* 0 or less: budget alone decides */
       if (gpu_hard_cap < 0)
