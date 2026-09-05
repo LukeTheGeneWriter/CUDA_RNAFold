@@ -945,6 +945,7 @@ process_input(FILE            *input_stream,
   struct record_data  **gpu_chunk     = NULL;
   int                   gpu_chunk_n   = 0;
   int                   gpu_chunk_max = 0;
+  unsigned int          gpu_chunk_len = 0;   /* the chunk's uniform length */
 
   {
     const char *e = getenv("RNA_GPU_CHUNK");
@@ -1026,8 +1027,33 @@ process_input(FILE            *input_stream,
 
 #ifdef VRNA_WITH_CUDA
     if (gpu_chunk_max > 0) {
-      /* hold the record back; it is dispatched by flush_gpu_chunk() */
+      /* A chunk must be UNIFORM LENGTH.
+       *
+       * The sweep shares one triangular layout across the batch, sized from the
+       * chunk, and the mixed-length join mask that would relax that lives in
+       * the chunker which is not reconnected yet. Feeding it a mixed chunk
+       * reaches the device and fails there -- observed as
+       *   Assertion `ij>=0 && (size_t)ij < tri_off_H[H+1]-tri_off_H[H]' failed
+       *   Assertion `my_c[tri_off_H[H]+ij] == INF' failed
+       *   CUDA error: an illegal memory access was encountered
+       * on the mixed-length reference inputs. Flushing on a length change is
+       * what the 2.3.0 driver did for the same reason, and it keeps this simple
+       * path honest until the real chunker is wired back in.
+       *
+       * Note those were device-side ASSERTS, not silent corruption: this build
+       * has no NDEBUG, and they turned an out-of-bounds read into a precise
+       * diagnostic. Worth remembering when NDEBUG becomes the release default
+       * (plan item I1) that the verification build must keep them. */
+      const unsigned int this_len = (unsigned int)strlen(record->sequence);
+
+      if ((gpu_chunk_n > 0) && (this_len != gpu_chunk_len)) {
+        flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
+        gpu_chunk_n = 0;
+      }
+
+      gpu_chunk_len            = this_len;
       gpu_chunk[gpu_chunk_n++] = record;
+
       if (gpu_chunk_n == gpu_chunk_max) {
         flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
         gpu_chunk_n = 0;
