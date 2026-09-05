@@ -135,8 +135,16 @@ if VRNA_AM_SWITCH_CUDA
 noinst_LTLIBRARIES += libRNA_mfe_cuda.la
 libRNA_conv_la_LIBADD += libRNA_mfe_cuda.la
 
+## mfe_cuda.c is one translation unit with fill_arrays.c and fill_arrays_loop.c,
+## which it #includes; they are listed in EXTRA_DIST, not here.
+##
+## mb_loop_fast.c is deliberately NOT built. Upstream's
+## vrna_mfe_multibranch_loop_fast() replaced it and this tree already calls
+## upstream's; the fork's copy survives only as the specification hp_mb_loop.cu
+## is written against, which cites it by line number.
 libRNA_mfe_cuda_la_SOURCES = \
-    mfe/cuda/engine.c
+    mfe/cuda/engine.c \
+    mfe/cuda/mfe_cuda.c
 
 ## A libtool object (.lo), NOT a plain .o. libRNA_mfe_cuda is a convenience
 ## library that is itself consumed by libRNA_conv, and a raw .o listed in a
@@ -145,9 +153,15 @@ libRNA_mfe_cuda_la_SOURCES = \
 ## vrna_cuda_device_count. Driving nvcc through libtool below produces a real
 ## .lo and the object propagates like any other.
 libRNA_mfe_cuda_la_LIBADD = \
-    mfe/cuda/device.lo
+    mfe/cuda/device.lo \
+    mfe/cuda/modular_decomposition.lo \
+    mfe/cuda/int_loop.lo \
+    mfe/cuda/hp_mb_loop.lo
 
-libRNA_mfe_cuda_la_CPPFLAGS = $(AM_CPPFLAGS)
+## -DSTUB is what the 2.3.0 build used for this file and it is still required:
+## without it the .c side sees ~26 bogus implicit declarations at the .c/.cu
+## boundary.
+libRNA_mfe_cuda_la_CPPFLAGS = $(AM_CPPFLAGS) -DSTUB
 
 libRNA_la_LIBADD += $(CUDA_LIBS)
 endif
@@ -871,18 +885,59 @@ vrna_mfecuda_HEADERS = mfe/cuda/engine.h
 ## through $(SHELL) so it never depends on its executable bit.
 NVCC_COMPILE = $(SHELL) $(srcdir)/mfe/cuda/nvcc-libtool.sh $(NVCC_BIN)
 
+## -I$(srcdir)/mfe/cuda so the kernels find their own private headers
+## (stub2.h, interior_loopx.h, nth.h, int_loop_kernel_body.inc).
+NVCC_ALL_FLAGS = -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) \
+	  -I$(top_srcdir)/src -I$(top_builddir)/src -I$(srcdir)/mfe/cuda
+
 mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
-	  $(NVCC_COMPILE) -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) \
-	  -I$(top_srcdir)/src -I$(top_builddir)/src \
+	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
 	  -c $(srcdir)/mfe/cuda/device.cu -o mfe/cuda/device.lo
 
-CLEANFILES = mfe/cuda/device.lo mfe/cuda/device.$(OBJEXT)
+mfe/cuda/modular_decomposition.lo: $(srcdir)/mfe/cuda/modular_decomposition.cu \
+                                   $(srcdir)/mfe/cuda/stub2.h
+	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
+	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
+	  -c $(srcdir)/mfe/cuda/modular_decomposition.cu -o mfe/cuda/modular_decomposition.lo
+
+mfe/cuda/int_loop.lo: $(srcdir)/mfe/cuda/int_loop.cu \
+                      $(srcdir)/mfe/cuda/stub2.h \
+                      $(srcdir)/mfe/cuda/interior_loopx.h \
+                      $(srcdir)/mfe/cuda/nth.h \
+                      $(srcdir)/mfe/cuda/int_loop_kernel_body.inc
+	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
+	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
+	  -c $(srcdir)/mfe/cuda/int_loop.cu -o mfe/cuda/int_loop.lo
+
+mfe/cuda/hp_mb_loop.lo: $(srcdir)/mfe/cuda/hp_mb_loop.cu \
+                        $(srcdir)/mfe/cuda/stub2.h
+	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
+	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
+	  -c $(srcdir)/mfe/cuda/hp_mb_loop.cu -o mfe/cuda/hp_mb_loop.lo
+
+CLEANFILES = mfe/cuda/device.lo mfe/cuda/device.$(OBJEXT) \
+             mfe/cuda/modular_decomposition.lo mfe/cuda/modular_decomposition.$(OBJEXT) \
+             mfe/cuda/int_loop.lo mfe/cuda/int_loop.$(OBJEXT) \
+             mfe/cuda/hp_mb_loop.lo mfe/cuda/hp_mb_loop.$(OBJEXT)
 endif
 
 ## distributed whether or not CUDA is enabled, so `make dist` from a
 ## non-CUDA build still produces a tarball that can build with it
 EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/engine.h \
-              mfe/cuda/nvcc-libtool.sh
+              mfe/cuda/nvcc-libtool.sh \
+              mfe/cuda/modular_decomposition.cu \
+              mfe/cuda/int_loop.cu \
+              mfe/cuda/hp_mb_loop.cu \
+              mfe/cuda/int_loop_kernel_body.inc \
+              mfe/cuda/interior_loopx.h \
+              mfe/cuda/nth.h \
+              mfe/cuda/stub2.h \
+              mfe/cuda/fill_arrays.c \
+              mfe/cuda/fill_arrays_loop.c \
+              mfe/cuda/mb_loop_fast.c
