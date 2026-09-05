@@ -52,8 +52,19 @@ run_arm() {
 
   grep -c 'NVCC' "make.$name.log" | sed 's/^/  nvcc invocations: /'
 
+  ## `make check` failing to RUN prints no TOTAL line at all, and a bare grep
+  ## then emits an empty line -- which reads exactly like a pass. That has now
+  ## hidden two different link failures in this script, so the absence of a
+  ## total is reported as loudly as a failing total.
   make check > "check.$name.log" 2>&1
-  echo -n "  "; grep -E '^# (TOTAL|PASS|FAIL|ERROR)' "check.$name.log" | tr '\n' ' '; echo
+  check_rc=$?
+  totals=$(grep -E '^# (TOTAL|PASS|FAIL|ERROR)' "check.$name.log" | tr '\n' ' ')
+  if [ -z "$totals" ]; then
+    echo "  make check DID NOT RUN (exit $check_rc) -- no test totals produced:"
+    grep -iE 'undefined reference|Error [0-9]|cannot find' "check.$name.log" | head -6 | sed 's/^/    /'
+  else
+    echo "  make check exit=$check_rc  $totals"
+  fi
 
   echo "  byte-identical bar:"
   bash /mnt/c/Users/lukef/CUDA_RNAFold/tools/verify_ref_md.sh "$S/src/bin/RNAfold" \
