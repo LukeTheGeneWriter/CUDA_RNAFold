@@ -1,0 +1,18 @@
+# This repository is edited on Windows (core.autocrlf=true) and built in WSL.
+# Without this, a branch switch silently rewrites shell scripts with CRLF and
+# they stop being executable by bash:
+#
+#   tools/verify_ref_md.sh: line 10: set: -: invalid option
+#   line 27: syntax error near unexpected token `$'do\r''
+#
+# That has already cost one debugging round, and it fails in a way that looks
+# like a broken script rather than a line-ending problem. Anything meant to be
+# executed on the Linux side is pinned to LF here.
+*.sh    text eol=lf
+*.ts    text eol=lf
+*.m4    text eol=lf
+*.am    text eol=lf
+*.ac    text eol=lf
+*.mk    text eol=lf
+configure.ac  text eol=lf
+autogen.sh    text eol=lf

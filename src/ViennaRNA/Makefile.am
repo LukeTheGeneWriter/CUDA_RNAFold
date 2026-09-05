@@ -138,8 +138,14 @@ libRNA_conv_la_LIBADD += libRNA_mfe_cuda.la
 libRNA_mfe_cuda_la_SOURCES = \
     mfe/cuda/engine.c
 
+## A libtool object (.lo), NOT a plain .o. libRNA_mfe_cuda is a convenience
+## library that is itself consumed by libRNA_conv, and a raw .o listed in a
+## nested convenience library's LIBADD does not survive that second hop -- the
+## symbol goes missing only at the final link, as an undefined reference to
+## vrna_cuda_device_count. Driving nvcc through libtool below produces a real
+## .lo and the object propagates like any other.
 libRNA_mfe_cuda_la_LIBADD = \
-    mfe/cuda/device.$(OBJEXT)
+    mfe/cuda/device.lo
 
 libRNA_mfe_cuda_la_CPPFLAGS = $(AM_CPPFLAGS)
 
@@ -855,13 +861,18 @@ endif
 if VRNA_AM_SWITCH_CUDA
 vrna_mfecuda_HEADERS = mfe/cuda/engine.h
 
-mfe/cuda/device.$(OBJEXT): $(srcdir)/mfe/cuda/device.cu
+## libtool has no CUDA tag, but it does not need one: --tag=CC makes it wrap
+## whatever compiler it is handed, so nvcc produces a proper .lo/.libs pair and
+## the object behaves like every other object in the tree. -fPIC arrives via
+## NVCC_FLAGS because these objects land inside a shared library.
+mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
-	$(nvcc_verbose)$(NVCC_BIN) -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) \
+	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
+	  $(NVCC_BIN) -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) \
 	  -I$(top_srcdir)/src -I$(top_builddir)/src \
-	  -c $(srcdir)/mfe/cuda/device.cu -o mfe/cuda/device.$(OBJEXT)
+	  -c $(srcdir)/mfe/cuda/device.cu -o mfe/cuda/device.lo
 
-CLEANFILES = mfe/cuda/device.$(OBJEXT)
+CLEANFILES = mfe/cuda/device.lo mfe/cuda/device.$(OBJEXT)
 endif
 
 ## distributed whether or not CUDA is enabled, so `make dist` from a
