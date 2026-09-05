@@ -24,6 +24,7 @@
 #include "ViennaRNA/model.h"
 #include "ViennaRNA/fold_compound.h"
 #include "ViennaRNA/grammar/mfe.h"
+#include "ViennaRNA/mfe/global.h"      /* vrna_mfe_batch_backend_set() */
 #include "ViennaRNA/constraints/hard.h"
 #include "ViennaRNA/constraints/soft.h"
 
