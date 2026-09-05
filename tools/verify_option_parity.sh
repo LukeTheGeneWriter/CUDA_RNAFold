@@ -73,7 +73,11 @@ check noGU              --noGU
 check noClosingGU       --noClosingGU
 check logML             --logML
 check salt              --salt=0.2
-check uniqML            -p --MEA
+# NOT tested here: uniq_ML has no RNAfold flag, so an option-surface check
+# cannot reach it. An earlier version of this file listed a "uniqML" case that
+# actually passed `-p --MEA` -- a duplicate of the mea case above wearing a
+# label for something it never exercised. The guard's uniq_ML branch is covered
+# by tests/mfe_cuda_guard.ts instead, which sets the model detail directly.
 
 echo
 printf '\n%d checks: %d identical, %d differing\n' "$n" "$pass" "$fail"
