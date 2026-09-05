@@ -113,3 +113,6 @@ probe_engine(vrna_fold_compound_t *fc,
 
   vrna_fold_compound_free(fc);
 }
+
+#main-pre
+    srunner_set_tap(sr, "-");
