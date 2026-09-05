@@ -887,7 +887,11 @@ NVCC_COMPILE = $(SHELL) $(srcdir)/mfe/cuda/nvcc-libtool.sh $(NVCC_BIN)
 
 ## -I$(srcdir)/mfe/cuda so the kernels find their own private headers
 ## (stub2.h, interior_loopx.h, nth.h, int_loop_kernel_body.inc).
-NVCC_ALL_FLAGS = -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) \
+## $(NVCC_ASSERT_FLAGS) carries -DNDEBUG for release builds and is empty under
+## --enable-asserts. Kept separate from NVCC_FLAGS because appending to that
+## inside the asserts macro lands on the wrong side of RNA_ENABLE_CUDA's own
+## assignment and is silently lost.
+NVCC_ALL_FLAGS = -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) $(NVCC_ASSERT_FLAGS) \
 	  -I$(top_srcdir)/src -I$(top_builddir)/src -I$(srcdir)/mfe/cuda
 
 mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu

@@ -37,16 +37,22 @@ AC_DEFUN([RNA_ENABLE_ASSERTS], [
                   [keep assert() live (release builds compile them out)],
                   [no])
 
+  ## A dedicated substituted variable rather than appending to NVCC_FLAGS.
+  ## Appending there silently did nothing: NVCC_FLAGS is set inside
+  ## RNA_ENABLE_CUDA, and the append landed on the wrong side of that macro's
+  ## expansion, so -DNDEBUG reached the C compiler and never nvcc. Caught by
+  ## checking config.status for both flag sets rather than trusting one.
+  NVCC_ASSERT_FLAGS=""
+
   RNA_FEATURE_IF_DISABLED([asserts],[
     AX_APPEND_FLAG([-DNDEBUG], [RNA_CPPFLAGS])
-    ## nvcc gets it too: the kernels are where the cost is
-    NVCC_FLAGS="$NVCC_FLAGS -DNDEBUG"
+    NVCC_ASSERT_FLAGS="-DNDEBUG"
   ])
 
   RNA_FEATURE_IF_ENABLED([asserts],[
     AC_MSG_NOTICE([assert() kept live -- this is a verification build, not a release build])
   ])
 
-  AC_SUBST(NVCC_FLAGS)
+  AC_SUBST(NVCC_ASSERT_FLAGS)
   AM_CONDITIONAL(VRNA_AM_SWITCH_ASSERTS, test "x$enable_asserts" = "xyes")
 ])
