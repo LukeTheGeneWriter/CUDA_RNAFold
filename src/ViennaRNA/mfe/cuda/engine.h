@@ -45,6 +45,21 @@ vrna_cuda_attach(vrna_fold_compound_t *fc);
 
 
 /**
+ *  @brief  Register the CUDA backend as the library's batch MFE backend
+ *
+ *  After this, vrna_mfe_batch() folds supported batches on the device and
+ *  everything else exactly as the library would anyway. A caller therefore
+ *  never has to name CUDA at any point after this one call -- which is the
+ *  whole idea: the accelerator is a backend, not a fork of the driver.
+ *
+ *  @return Non-zero on success; 0 if there is no usable device or the library
+ *          was built without CUDA support
+ */
+unsigned int
+vrna_cuda_register_batch_backend(void);
+
+
+/**
  *  @brief  Would the CUDA backend handle this fold compound?
  *
  *  Exposed separately from the engine callback so that callers batching many

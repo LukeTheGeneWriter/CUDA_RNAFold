@@ -61,10 +61,6 @@
 
 #ifdef VRNA_WITH_CUDA
 #include "ViennaRNA/mfe/cuda/engine.h"
-/* the batch entry point, declared in mfe/cuda/stub2.h (not installed) */
-extern void par_mfe(const int nfiles, const vrna_fold_compound_t **VC,
-                    const char **Structure, float *EN,
-                    const int cpu_queue_threads);
 
 /* Per-chunk teardown. The device buffers are sized for one chunk's (nfiles,
  * length) by init_gpu/2/3 and are NOT reset by par_mfe() itself, so a second
@@ -1059,7 +1055,14 @@ flush_gpu_chunk(struct record_data **chunk,
     Str[i] = (char *)vrna_alloc(sizeof(char) * (strlen(chunk[i]->sequence) + 1));
   }
 
-  par_mfe(n, (const vrna_fold_compound_t **)VC, (const char **)Str, EN, 0);
+  /* THE SEAM. Not par_mfe(): the driver asks the LIBRARY to fold a batch, and
+   * the library uses whatever backend is registered -- the CUDA one here, or
+   * a plain loop over vrna_mfe() if none is. Nothing below this line, and
+   * nothing in this function, is CUDA-specific.
+   *
+   * That is what makes the diff presentable: the accelerator is a backend, not
+   * a fork of the driver, and removing it leaves a correct program. */
+  vrna_mfe_batch(VC, (size_t)n, Str, EN);
 
   for (i = 0; i < n; i++) {
     chunk[i]->prefolded           = 1;
@@ -1157,6 +1160,10 @@ process_input(FILE            *input_stream,
       gpu_hard_cap = atoi(e);            /* 0 or less: budget alone decides */
       if (gpu_hard_cap < 0)
         gpu_hard_cap = 0;
+
+      /* The one and only place this driver names CUDA. After this call it
+       * asks for batches through vrna_mfe_batch() and the library decides. */
+      vrna_cuda_register_batch_backend();
     }
   }
 #endif

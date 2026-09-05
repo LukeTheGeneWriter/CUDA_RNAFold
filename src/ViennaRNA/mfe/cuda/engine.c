@@ -191,6 +191,63 @@ cuda_engine_cb(vrna_fold_compound_t *fc,
 }
 
 
+#ifdef VRNA_WITH_CUDA
+/* the batch sweep, declared in mfe/cuda/stub2.h (internal, not installed) */
+extern void
+par_mfe(const int                     nfiles,
+        const vrna_fold_compound_t  **VC,
+        const char                  **Structure,
+        float                        *EN,
+        const int                     cpu_queue_threads);
+#endif
+
+
+PRIVATE int
+cuda_batch_cb(vrna_fold_compound_t  **fcs,
+              size_t                  n,
+              char                  **structures,
+              float                  *energies,
+              void                   *data)
+{
+#ifdef VRNA_WITH_CUDA
+  const char  *reason = NULL;
+  size_t      i;
+
+  (void)data;
+
+  if ((fcs == NULL) || (n == 0) || (structures == NULL) || (energies == NULL))
+    return 0;
+
+  /* Decline the WHOLE batch unless every record is supported. Splitting it
+   * would be a silent policy decision about which records the caller gets
+   * accelerated; declining leaves that choice with the caller, which already
+   * knows how to fold them singly. */
+  for (i = 0; i < n; i++) {
+    if (!vrna_cuda_engine_supports(fcs[i], &reason))
+      return 0;
+  }
+
+  par_mfe((int)n, (const vrna_fold_compound_t **)fcs,
+          (const char **)structures, energies, 0);
+
+  return 1;
+#else
+  (void)fcs; (void)n; (void)structures; (void)energies; (void)data;
+  return 0;
+#endif
+}
+
+
+PUBLIC unsigned int
+vrna_cuda_register_batch_backend(void)
+{
+  if (vrna_cuda_devices() == 0)
+    return 0;
+
+  return vrna_mfe_batch_backend_set(&cuda_batch_cb, NULL);
+}
+
+
 PUBLIC unsigned int
 vrna_cuda_attach(vrna_fold_compound_t *fc)
 {

@@ -204,6 +204,64 @@ BT_fms3_split(vrna_fold_compound_t  *fc,
  # BEGIN OF FUNCTION DEFINITIONS #
  #################################
  */
+/*
+ * The batch MFE backend. Process-wide and at most one, because a batch is not a
+ * property of any single fold compound -- unlike the inside-engine seam, which
+ * is per fold compound and lives in aux_grammar.
+ */
+PRIVATE vrna_mfe_batch_f  batch_backend       = NULL;
+PRIVATE void              *batch_backend_data = NULL;
+
+
+PUBLIC unsigned int
+vrna_mfe_batch_backend_set(vrna_mfe_batch_f cb,
+                           void             *data)
+{
+  batch_backend      = cb;
+  batch_backend_data = data;
+
+  return 1;
+}
+
+
+PUBLIC unsigned int
+vrna_mfe_batch(vrna_fold_compound_t **fcs,
+               size_t                 n,
+               char                 **structures,
+               float                 *energies)
+{
+  size_t i;
+
+  if ((fcs == NULL) || (n == 0))
+    return 0;
+
+  /*
+   * Hand the whole batch to a backend if one is registered and willing. A
+   * backend that declines leaves everything to the loop below, so the answer
+   * is the library's own either way -- which is what makes an accelerator
+   * optional rather than load-bearing.
+   */
+  if (batch_backend != NULL) {
+    if (batch_backend(fcs, n, structures, energies, batch_backend_data))
+      return 1;
+  }
+
+  /*
+   * No backend, or it declined: fold them one at a time. This is the whole
+   * implementation in a stock build, and it is why the API is worth having
+   * even with no accelerator in the picture.
+   */
+  for (i = 0; i < n; i++) {
+    float e = vrna_mfe(fcs[i], (structures) ? structures[i] : NULL);
+
+    if (energies)
+      energies[i] = e;
+  }
+
+  return 1;
+}
+
+
 PUBLIC float
 vrna_mfe(vrna_fold_compound_t *fc,
          char                 *structure)

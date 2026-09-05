@@ -71,6 +71,70 @@ vrna_mfe(vrna_fold_compound_t *fc,
 
 
 /**
+ *  @brief  A backend that folds many fold compounds at once
+ *
+ *  @see  vrna_mfe_batch_backend_set(), vrna_mfe_batch()
+ *
+ *  @param  fcs         The fold compounds to fold
+ *  @param  n           How many
+ *  @param  structures  Where to write each structure; entries may be NULL
+ *  @param  energies    Where to write each minimum free energy
+ *  @param  data        The data pointer given at registration
+ *  @return             Non-zero if the backend handled the whole batch, 0 to
+ *                      decline it (in which case the caller folds them singly)
+ */
+typedef int (*vrna_mfe_batch_f)(vrna_fold_compound_t  **fcs,
+                                size_t                  n,
+                                char                  **structures,
+                                float                  *energies,
+                                void                   *data);
+
+
+/**
+ *  @brief  Register a batch MFE backend
+ *
+ *  There is at most one, and it is process-wide rather than per fold compound,
+ *  because a batch is by definition not a property of any single one of them.
+ *  Passing @p cb as NULL removes it.
+ *
+ *  @param  cb    The backend, or NULL to unregister
+ *  @param  data  Passed through to @p cb
+ *  @return       Non-zero on success
+ */
+unsigned int
+vrna_mfe_batch_backend_set(vrna_mfe_batch_f cb,
+                           void             *data);
+
+
+/**
+ *  @brief  Compute the MFE of many fold compounds
+ *
+ *  Semantically identical to calling vrna_mfe() on each in turn, and that is
+ *  exactly what it does when no batch backend is registered -- so it is useful,
+ *  testable and correct with no accelerator present.
+ *
+ *  It exists because a batch is the only thing some backends can exploit: a
+ *  GPU's advantage is entirely in width, and there is otherwise no way to tell
+ *  the library "here are four hundred sequences" rather than asking it four
+ *  hundred separate questions.
+ *
+ *  A registered backend may decline, in which case the fold compounds are
+ *  folded singly and the answer is the library's own either way.
+ *
+ *  @param  fcs         The fold compounds to fold
+ *  @param  n           How many
+ *  @param  structures  Where to write each structure; entries may be NULL
+ *  @param  energies    Where to write each minimum free energy; may be NULL
+ *  @return             Non-zero on success
+ */
+unsigned int
+vrna_mfe_batch(vrna_fold_compound_t **fcs,
+               size_t                 n,
+               char                 **structures,
+               float                 *energies);
+
+
+/**
  *  @brief Compute the minimum free energy of two interacting RNA molecules
  *
  *  The code is analog to the vrna_mfe() function.
