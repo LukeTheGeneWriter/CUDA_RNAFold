@@ -9,6 +9,14 @@ AM_LDFLAGS = $(RNA_LDFLAGS) $(PTHREAD_LIBS)
 
 LDADD = $(top_builddir)/src/ViennaRNA/libRNA_conv.la @CHECK_LIBS@
 
+## The tests link the CONVENIENCE library directly, not libRNA.la, so they do
+## not inherit the CUDA runtime that libRNA_la_LIBADD carries. Without this the
+## CUDA objects inside libRNA_conv.a leave undefined references to
+## cudaGetDeviceCount and friends at every test link.
+if VRNA_AM_SWITCH_CUDA
+LDADD += $(CUDA_LIBS)
+endif
+
 if VRNA_AM_SWITCH_MPFR
 LDADD += $(MPFR_LIBS)
 endif

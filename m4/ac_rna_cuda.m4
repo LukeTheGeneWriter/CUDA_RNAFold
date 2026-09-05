@@ -82,12 +82,31 @@ _ACEOF
         ## which nvcc consumes -Xcompiler as the option's argument and then dies
         ## on the bare -fPIC.
         NVCC_FLAGS="-O3 $NVCC_ARCH_FLAGS"
-        CUDA_LIBS="-lcudart"
 
-        AS_IF([test "x$cuda_prefix" != "x"],[
-          CUDA_LIBS="-L$cuda_prefix/lib64 $CUDA_LIBS"
-          NVCC_FLAGS="$NVCC_FLAGS -I$cuda_prefix/include"
-        ])
+        ## Locate libcudart rather than assuming the linker's default search
+        ## path finds it. It usually does not: nvcc is frequently outside
+        ## /usr (a conda prefix, /usr/local/cuda, a module), and the failure is
+        ## a pile of undefined references to cudaGetDeviceCount at the FINAL
+        ## link of something unrelated, long after configure said yes.
+        cuda_libdir=""
+        AS_IF([test "x$cuda_prefix" != "x"],
+              [cuda_search="$cuda_prefix/lib64 $cuda_prefix/lib"],
+              [cuda_bindir=`AS_DIRNAME(["$NVCC_BIN"])`
+               cuda_root=`AS_DIRNAME(["$cuda_bindir"])`
+               cuda_search="$cuda_root/lib64 $cuda_root/lib"])
+
+        for d in $cuda_search; do
+          AS_IF([test -f "$d/libcudart.so" || test -f "$d/libcudart.a"],
+                [cuda_libdir="$d"; break])
+        done
+
+        AS_IF([test "x$cuda_libdir" != "x"],
+              [CUDA_LIBS="-L$cuda_libdir -lcudart"],
+              [CUDA_LIBS="-lcudart"
+               AC_MSG_WARN([could not locate libcudart; relying on the default library search path])])
+
+        AS_IF([test "x$cuda_prefix" != "x"],
+              [NVCC_FLAGS="$NVCC_FLAGS -I$cuda_prefix/include"])
 
         AC_DEFINE([VRNA_WITH_CUDA], [1],
                   [Build the CUDA GPU backend for MFE prediction])
