@@ -6,13 +6,18 @@
 #   line 27: syntax error near unexpected token `$'do\r''
 #
 # That has already cost one debugging round, and it fails in a way that looks
-# like a broken script rather than a line-ending problem. Anything meant to be
-# executed on the Linux side is pinned to LF here.
-*.sh    text eol=lf
-*.ts    text eol=lf
-*.m4    text eol=lf
-*.am    text eol=lf
-*.ac    text eol=lf
-*.mk    text eol=lf
-configure.ac  text eol=lf
-autogen.sh    text eol=lf
+# like a broken script rather than a line-ending problem. Worse, the script it
+# hit was a VERIFICATION step, which then printed nothing at all -- which reads
+# exactly like a verification that found nothing wrong.
+#
+# Scoped deliberately to files this fork adds. A blanket `*.am text eol=lf`
+# also renormalises upstream files that are stored with CRLF (for example
+# src/RNAxplorer/doc/Makefile.am), which would put whitespace-only noise in the
+# diff against upstream on a branch whose whole point is to be reviewable.
+tools/*.sh                  text eol=lf
+tests/upstream/*.sh         text eol=lf
+tests/upstream/*.c          text eol=lf
+tests/mfe_engine.ts         text eol=lf
+tests/mfe_cuda_guard.ts     text eol=lf
+m4/ac_rna_cuda.m4           text eol=lf
+src/ViennaRNA/mfe/cuda/*    text eol=lf
