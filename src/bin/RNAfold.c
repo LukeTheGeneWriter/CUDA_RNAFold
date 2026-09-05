@@ -65,6 +65,16 @@
 extern void par_mfe(const int nfiles, const vrna_fold_compound_t **VC,
                     const char **Structure, float *EN,
                     const int cpu_queue_threads);
+
+/* Per-chunk teardown. The device buffers are sized for one chunk's (nfiles,
+ * length) by init_gpu/2/3 and are NOT reset by par_mfe() itself, so a second
+ * call without these reuses dirty state -- observed as
+ *   Assertion `my_c[tri_off_H[H]+ij] == INF' failed
+ * on the very next chunk. The 2.3.0 driver called them at the end of every
+ * chunk for exactly this reason. */
+extern void teardown_gpu(void);
+extern void teardown_gpu2(void);
+extern void teardown_gpu3(void);
 #endif
 
 #include "RNAfold_cmdl.h"
@@ -901,6 +911,12 @@ flush_gpu_chunk(struct record_data **chunk,
     chunk[i]->prefolded_structure = Str[i];   /* handed over; freed with the record */
     vrna_fold_compound_free(VC[i]);
   }
+
+  /* Release the device state this chunk sized, before the next chunk sizes its
+   * own. Without this the second chunk inherits dirty buffers. */
+  teardown_gpu();
+  teardown_gpu2();
+  teardown_gpu3();
 
   /* dispatch only once every record in the chunk has its answer */
   for (i = 0; i < n; i++)
