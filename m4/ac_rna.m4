@@ -61,6 +61,8 @@ RNA_ENABLE_MPFR
 RNA_ENABLE_NAVIEW
 RNA_ENABLE_DEBUG_RNALIB
 RNA_ENABLE_CUDA
+## after RNA_ENABLE_CUDA: it appends -DNDEBUG to NVCC_FLAGS, which that macro sets
+RNA_ENABLE_ASSERTS
 
 ## Setup Python 3 variables
 ## for src/Utils/*.py scripts

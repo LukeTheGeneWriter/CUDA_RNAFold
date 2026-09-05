@@ -25,6 +25,7 @@ grep -q 'enable-cuda' configure && echo "  --enable-cuda present in configure" \
   || { echo "  --enable-cuda MISSING from configure"; exit 2; }
 
 common="--without-python --without-perl --without-swig --without-doc
+        --enable-asserts
         --without-rnaxplorer --without-forester --without-kinfold
         --without-rnalocmin"
 

@@ -83,6 +83,7 @@ if [ ! -f config.status ] || [ "$FRESH" = "--fresh" ]; then
       --without-python --without-perl --without-swig --without-doc \
       --without-rnaxplorer --without-forester --without-kinfold \
       --without-rnalocmin \
+      --enable-asserts \
       PYTHON3="$(command -v python3)" \
       > "$D/configure.log" 2>&1
   rc=$?
