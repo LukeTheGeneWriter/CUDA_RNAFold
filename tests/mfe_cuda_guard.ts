@@ -95,6 +95,46 @@ declines(vrna_fold_compound_t *fc)
   vrna_fold_compound_free(fc);
 }
 
+#test test_guard_declines_a_windowed_fold_compound
+{
+  /*
+   * Regression: the first version of the guard tested md->window_size > 0,
+   * which looks right and is not -- vrna_fold_compound() sets window_size AND
+   * max_bp_span to the sequence length for an ordinary global fold, so that
+   * test declined every fold compound including the default one. What actually
+   * separates a local fold is the hard constraint layout, so a real windowed
+   * fold compound is built here rather than a model detail being poked.
+   */
+  vrna_md_t             md;
+  vrna_fold_compound_t  *fc;
+
+  vrna_md_set_default(&md);
+  md.window_size = 30;
+  md.max_bp_span = 30;
+
+  fc = vrna_fold_compound(guard_seq, &md, VRNA_OPTION_WINDOW);
+
+  ck_assert(declines(fc));
+
+  vrna_fold_compound_free(fc);
+}
+
+#test test_guard_declines_a_restricted_bp_span
+{
+  /* a span genuinely shorter than the sequence, unlike the default span == n */
+  vrna_md_t             md;
+  vrna_fold_compound_t  *fc;
+
+  vrna_md_set_default(&md);
+  md.max_bp_span = 10;
+
+  fc = vrna_fold_compound(guard_seq, &md, VRNA_OPTION_DEFAULT);
+
+  ck_assert(declines(fc));
+
+  vrna_fold_compound_free(fc);
+}
+
 #test test_guard_declines_null
 {
   ck_assert(vrna_cuda_engine_supports(NULL, NULL) == 0);

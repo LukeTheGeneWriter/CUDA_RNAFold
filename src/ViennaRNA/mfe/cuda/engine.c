@@ -107,9 +107,16 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   if (md->energy_set != 0)
     DECLINE("non-default energy set");
 
-  if (md->window_size > 0)
-    DECLINE("sliding window");
+  /*
+   * NOT md->window_size: vrna_fold_compound() sets both window_size and
+   * max_bp_span to the sequence length for an ordinary GLOBAL fold, so testing
+   * `window_size > 0` declines everything, including the default model. What
+   * actually distinguishes a sliding-window fold is the hard constraint layout.
+   */
+  if ((fc->hc != NULL) && (fc->hc->type != VRNA_HC_DEFAULT))
+    DECLINE("sliding window hard constraints");
 
+  /* a genuinely restricted span, as opposed to the default span == length */
   if ((md->max_bp_span > 0) && ((unsigned int)md->max_bp_span < fc->length))
     DECLINE("restricted base pair span");
 
