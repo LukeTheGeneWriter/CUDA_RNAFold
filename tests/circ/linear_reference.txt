@@ -1,0 +1,18 @@
+>circ_60
+AAAAGGGGGCUUUUAAAAAAAAGGGGCCCCGCGCAUUUUUUUUUAUGCGGGGAUAUGCAA
+.....(((((((((.......))))))))).(((((........)))))........... (-18.90)
+>circ_120
+AUGCUUUUGCGCAUAUAAAAUUUUAAAAAUGCAUAUUUUUGGGGGCAUUUUUGCAUAAAAGCGCGCAUCCCCGCAUUUUUGCUUUUGCAUUUUUGGGGGCCCCCAAAAGCAAAAGCGCAA
+..((((((((((((..............))))....((((((((((.....(((......))).....(((((......(((....)))....))))))))))))))))))))))).... (-39.80)
+>circ_200
+CCCCGCUUUUGCAUAAAAAUAAAAAAAAGCGGGGCCCCAAAAAUAAAAGCGCAUCCCCGCAUAAAAGCAUGGGGGCAUGGGGUUUUUUUUAAAACCCCGCAUGCGGGGUUUUUUUUAAAAAUAAAAGCAUAAAAGCAUGGGGCCCCAUCCCCGCAUCCCCAAAAGCAUCCCCGCAUCCCCCCCCGCGCGCAUGCAAAAAA
+((((((((((..............))))))))))........................((((....((.((((((...((((((((....))))))))..((((((((....(((((....)))))((......))..((((......))))((..........))..))))))))...)))))).))..))))...... (-65.40)
+>circ_300
+CCCCGCAUGCAUCCCCGCAUGCAAAAUUUUCCCCCCCCAAAAUUUUGGGGGCAUUUUUAAAACCCCAUGGGGUUUUCCCCGCAAAAAUGCAUAUAUGCGCGCGCAUUUUUGCGCGCAUGCGGGGGCGCUUUUAAAAGCAUGGGGGGGGAAAAGCGGGGAAAAAAAAGCAUGCGGGGCCCCAAAAUUUUGCAUGCAUAAAAGCAUAAAACCCCAUUUUUAAAAGGGGGCGGGGGGGGAUGCAUAUAAAAUUUUGCAUGCAUGCCCCCCCCCGCAUGCGCAUGGGGUUUUGCAAAAAUGCAU
+((((((((((.(((((((........(((((((((((((...((((((((((......(((((((....)))))))(((((((.....(((....)))(((((((....))))))).)))))))..))))))))))...)))))))))))))))))))).......))))))))))(((((......(((((((......))))....((((..........))))((((((((((((((((.(((....))).))))))..))))))))))....))))))))...((((....)))). (-153.60)
+>circ_450
+AAAAAAAACCCCCCCCUUUUAUGCUUUUGCAAAAGCAUGCAAAAAUUUUUUUUUUUUUCCCCCCCCCCCCGCGGGGGGGGAAAAUUUUAAAAGGGGGCAUAAAAGCAUCCCCAUAAAAGGGGAUUUUUCCCCUUUUUUUUAAAACCCCGCAUCCCCGCAAAACCCCGCAUAAAAAUGCAUGCUUUUAUAUCCCCAUGCAUAAAAAUGGGGGCAUAAAAAAAAUUUUAAAACCCCGCAUGCUUUUUUUUCCCCGCGCAUUUUUGGGGAAAAGCAUCCCCCCCCCCCCGCGCGCUUUUGCGCAUGGGGGCAAAAGCAUAAAAAAAAGCCCCCAAAAAAAAAUUUUUGGGGAAAAGCAUAUUUUUAAAAAAAAGCAUGGGGGGGGGGGGAAAAGCGCAUGCGGGGCCCCAAAACCCCUUUUCCCCGGGGGCUUUUGCCCCCAAAAAAAAAUGG
+.........(((((..(((((((((((((((......)))))))..((((....((((((((((((......))))))))))))....))))(((((.((((((((((......(((((((((....)))))))))............((......))........((((....)))))))))))))).)))))..))))))))..)))))...................((((((((((....(((((((((........)))))))))((.((((((((((((((.((((((((((.(....).)))))))).((((((...(((((((((((....)))))))))....))...)))))).......)).))))))))))))))...))))))))))))........((..((((....((((((....))))))....))))..)) (-196.30)
+>circ_600
+GGGGAUGCGGGGAAAAGCGCAUCCCCGGGGGGGGUUUUCCCCGCGCAUAAAAAUGGGGCCCCGCUUUUGCGGGGGCAUUUUUGCGGGGAAAACCCCUUUUUUUUGGGGAAAAAUUUUUCCCCGCAUCCCCCCCCAUUUUUUUUUAUUUUUCCCCCCCCAUCCCCAUCCCCCCCCCCCCCCCCUUUUUUUUAUGCGGGGGCAUGCGGGGUUUUAUGCGCAUAUUUUUGCAUCCCCGCAUAUGCAUAUGCAUGCGCGCAAAAAAAAGGGGUUUUUUUUGCAUAUAUCCCCCCCCUUUUUUUUAUAUUUUUAUAAAAUUUUGGGGAAAAGGGGUUUUCCCCUUUUGGGGAAAAGGGGCCCCAAAAAAAAUUUUGCAUAAAAAAAAGCGGGGGGGGGGGGUUUUGGGGCCCCGCGCAUCCCCAUAAAAGCGGGGAAAAGCUUUUAUAAAACCCCUUUUAUGCUUUUGCAUAAAAUUUUAAAACCCCGCAUGCGCGGGGAAAAAUGCAUGCGCAUAUGGGGGCGCAUCCCCAAAAGCAUAUCCCCAAAAUUUUCCCCAUAUAUGCAUAUAUGCGCAUAUGGGGAUAAAAAUGGGGGGGGAUUUUU
+(((((((((((((((((....((((((((((((((((((((((((....((((((...((((((....)))))).))))))))))))))))))))))....))))))))....)))))))))))))))))...................((((((((((((((((...((((((((((((.(((((((((((((((((((((((((((....(((((........)))))))))))))..((((....))))..((((((((((....)))))))))).....(((((((((....(((((((....)))))))....))))((((((((....)))))))))))))......)))))...........)))))))))))))).))))))))))))...)))))((((((((((..........((((((.......(((.(((((....((((((((....))))))))))))))))))))))))))))))))....((((....)))).((((((.((..........))...))))))......(((((((((.((((....)))).))))))))).....)))))))))))..... (-311.00)

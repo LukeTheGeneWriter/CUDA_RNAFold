@@ -1,0 +1,33 @@
+# Reference MFE energies from pristine ViennaRNA 2.7.2 (RNAfold --salt X).
+# Frozen 2026-09-04. Any CUDA_RNAFold salt implementation must reproduce
+# these exactly. 1.021 M is VRNA_MODEL_DEFAULT_SALT: the no-correction
+# case, and it must stay byte-identical to a run with no --salt at all.
+# columns: salt_M  record_index  energy
+0.05    0 -11.26
+0.05    1 -11.96
+0.05    2 -38.00
+0.05    3 -49.05
+0.1     0 -12.72
+0.1     1 -14.89
+0.1     2 -42.84
+0.1     3 -57.24
+0.2     0 -14.10
+0.2     1 -17.08
+0.2     2 -46.96
+0.2     3 -63.45
+0.5     0 -15.70
+0.5     1 -19.63
+0.5     2 -51.29
+0.5     3 -70.66
+1.021   0 -16.50
+1.021   1 -21.20
+1.021   2 -53.90
+1.021   3 -74.80
+2.0     0 -17.02
+2.0     1 -22.33
+2.0     2 -55.69
+2.0     3 -77.78
+5.0     0 -17.48
+5.0     1 -23.38
+5.0     2 -57.31
+5.0     3 -80.61

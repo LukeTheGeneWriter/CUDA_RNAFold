@@ -1,0 +1,22 @@
+  C_mixed      rep 1  PASS  (40 records, 2s)
+  C_mixed      rep 2  PASS  (40 records, 2s)
+  C_mixed      rep 3  PASS  (40 records, 3s)
+  C_control    rep 1  PASS  (40 records, 1s)
+  C_control    rep 2  PASS  (40 records, 2s)
+  C_control    rep 3  PASS  (40 records, 2s)
+  asc          rep 1  PASS  (30 records, 3s)
+  asc          rep 2  PASS  (30 records, 3s)
+  asc          rep 3  PASS  (30 records, 4s)
+  desc         rep 1  PASS  (30 records, 2s)
+  desc         rep 2  PASS  (30 records, 3s)
+  desc         rep 3  PASS  (30 records, 2s)
+  extreme      rep 1  PASS  (36 records, 6s)
+  extreme      rep 2  PASS  (36 records, 5s)
+  extreme      rep 3  PASS  (36 records, 5s)
+  F_extreme    rep 1  PASS  (63 records, 154s)
+  F_extreme    rep 2  PASS  (63 records, 145s)
+  F_extreme    rep 3  PASS  (63 records, 144s)
+
+RESULT: pristine 2.7.2 -j8 agrees with the single-threaded reference on every record
+
+[exited with code 0]
