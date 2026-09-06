@@ -8,9 +8,21 @@ number below is from that tree. Every claim about behaviour was **run**, not
 read: the probes are frozen in `tests/upstream/` and reproduce in about a minute
 with `tests/upstream/run_probes.sh`.*
 
+> **STATUS 2026-09-06 — the seam in Part 3 is no longer a proposal. It is built,
+> it runs, and it has been measured.** RNAfold folds on the GPU on ViennaRNA
+> 2.7.2 through exactly the two additions described below, byte-identical to
+> upstream across a 239-record reference set, with `make check` at 142/142. The
+> diff against `v2.7.2` is **12 upstream files modified, 59 added, and 6 lines
+> deleted** — two in `mfe/mfe.c` and four list continuations in a `Makefile.am`.
+> Measured on an NVIDIA L4 against upstream 2.7.2 itself: **8.06x** at
+> 120 x 2000 nt, **5.65x** at 60 x 5601 nt, **7.88x** on a shuffled mixed-length
+> workload. Section 3.3 is new, and is the one thing we have found that the seam
+> does not by itself make possible.
+
 This is the phase that decides whether the CUDA path is upstreamable. It is a
-conversation with Lorenz, Stadler and Langdon, not an implementation — so what
-follows is written to be **sent**, not to be merged.
+conversation with Lorenz, Stadler and Langdon — the defects in Part 1 are
+submittable today, and Part 3 is now a description of working code rather than
+a sketch.
 
 Three things go in the message, in this order:
 
@@ -302,6 +314,36 @@ cell-for-cell: `RNA_ROW_VERIFY` compares every swept device cell against the hos
 recursion, and the byte-identical bar (239 records, 20-8001 nt) is reproduced by
 pristine 2.7.2 as of Phase 0.
 
+## The second gap, found by building the first — `postprocess_circular()`
+
+Implementing the seam exposed a companion problem we did not anticipate, and it
+is the same shape as the first.
+
+An engine that replaces the matrix fill must afterwards run the steps that
+*consume* those matrices. Upstream has already made most of them reachable:
+
+| post-fill step | status in 2.7.2 |
+|---|---|
+| `vrna_mfe_exterior_f5()` | **public** — `mfe/exterior.h` |
+| `vrna_backtrack_from_intervals()` | **public** — `backtrack/global.h` |
+| `vrna_mfe_multibranch_m2_fast()` | **public** — `mfe/multibranch.h` |
+| `vrna_mfe_multibranch_m1()` | **public** — `mfe/multibranch.h` |
+| `postprocess_circular()` | **`PRIVATE`, no header** — `mfe/mfe.c:103` |
+
+Four of the five are public. The fifth is the one that turns filled matrices
+into a circular energy and backtrack, and it cannot be called from outside
+`mfe.c`.
+
+This does not affect correctness for us: circular folds are declined by our
+routing guard and handled by upstream's own per-record path, so `RNAfold -c`
+gives upstream's answer today. It is purely a question of whether circular RNA
+can ever be *accelerated* by anyone using the seam — and the answer is currently
+no, for a reason unrelated to the recursion.
+
+We think this is a gap in upstream's own pattern rather than a request specific
+to us: it follows from the same premise as §3.1. If a caller may replace the
+inside fill, the steps that consume the result have to be callable.
+
 ---
 
 # Part 3 — What we propose
@@ -377,7 +419,27 @@ the natural home for upstream's own thread pool and for `vrna_ostream_t` ordered
 output, both of which currently live in the `RNAfold` binary rather than in the
 library, and both of which every other caller has to reimplement.
 
-## 3.3 The question we would like decided
+## 3.3 Expose the circular post-processing
+
+The minimal form, mirroring the four functions that are already public:
+
+```c
+/* mfe/global.h or a circular-specific header */
+int vrna_mfe_circular_postprocess(vrna_fold_compound_t *fc,
+                                  vrna_bts_t            bt_stack);
+```
+
+i.e. `postprocess_circular()` (`mfe/mfe.c:598`) given external linkage and a
+declaration, with no change to its body or to any call site. `vrna_mfe()` keeps
+calling it exactly as it does now (`mfe.c:323`).
+
+We have deliberately **not** written a copy of it in our fork. It is roughly 150
+lines of upstream logic that would drift on the next release, and duplicating it
+would contradict the principle the rest of this port is built on: anything the
+device cannot reproduce is folded by upstream's own code, so upstream stays the
+authority on what the answer is.
+
+## 3.4 The question we would like decided
 
 **Does the CUDA backend live in-tree behind `--with-cuda`, or as a separate
 linkable package that registers itself through the seam above?**
@@ -390,6 +452,14 @@ upstream *regardless* of that answer, which is why it is proposed on its own.
 
 # Status and what happens next
 
+- **Part 3's seam is built and measured** (see the banner at the top). The two
+  additions are `vrna_gr_set_inside_engine()` on the existing `aux_grammar`, and
+  `vrna_mfe_batch()` / `vrna_mfe_batch_backend_set()`. The batch function's
+  no-backend implementation is literally a loop over `vrna_mfe()`, so it is
+  useful with no accelerator present, and **the driver contains exactly one
+  CUDA-specific line** — the registration call.
+- **§3.3 is the one open ask.** It blocks accelerating circular RNA and nothing
+  else; circular folding is correct today via routing.
 - Part 1's three library defects and Part 1b's two build defects are ready to
   send today; they do not depend on anything else in this project.
 - Part 2 and 3 are the design conversation. Phase 2 (the mechanical rebase of

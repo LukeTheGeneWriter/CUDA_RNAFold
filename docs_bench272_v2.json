@@ -1,0 +1,120 @@
+{
+  "date": "2026-09-06",
+  "gpu": "NVIDIA L4",
+  "commit": "9804cbc2",
+  "budget_mb": {
+    "W1 120x2000": 480,
+    "W2  60x5601": 1882,
+    "W3 150 mixed": 235
+  },
+  "results": {
+    "W1 120x2000|A upstream": {
+      "best": 126.23207139968872,
+      "spread": 0.255047409237172,
+      "rss": 0.27022,
+      "sha": "528db93592ccaecb",
+      "sweeps": 0,
+      "rc": 0,
+      "budget_mb": null
+    },
+    "W1 120x2000|B port, no cuda": {
+      "best": 129.36692190170288,
+      "spread": 0.33154498373416563,
+      "rss": 0.270316,
+      "sha": "528db93592ccaecb",
+      "sweeps": 0,
+      "rc": 0,
+      "budget_mb": null
+    },
+    "W1 120x2000|C GPU 1-chunk": {
+      "best": 15.66316533088684,
+      "spread": 0.1714562043027318,
+      "rss": 1.06448,
+      "sha": "528db93592ccaecb",
+      "sweeps": 1,
+      "rc": 0,
+      "budget_mb": null
+    },
+    "W1 120x2000|D GPU N-chunk": {
+      "best": 65.75412678718567,
+      "spread": 0.27115320201781773,
+      "rss": 0.533344,
+      "sha": "528db93592ccaecb",
+      "sweeps": 4,
+      "rc": 0,
+      "budget_mb": 480
+    },
+    "W2  60x5601|A upstream": {
+      "best": 578.4387242794037,
+      "spread": 0.3071808663532586,
+      "rss": 2.039816,
+      "sha": "b5bad36361c7d46f",
+      "sweeps": 0,
+      "rc": 0,
+      "budget_mb": null
+    },
+    "W2  60x5601|B port, no cuda": {
+      "best": 590.4876358509064,
+      "spread": 0.27482275516002075,
+      "rss": 2.039876,
+      "sha": "b5bad36361c7d46f",
+      "sweeps": 0,
+      "rc": 0,
+      "budget_mb": null
+    },
+    "W2  60x5601|C GPU 1-chunk": {
+      "best": 102.4664933681488,
+      "spread": 0.28123163234877097,
+      "rss": 4.3631,
+      "sha": "b5bad36361c7d46f",
+      "sweeps": 1,
+      "rc": 0,
+      "budget_mb": null
+    },
+    "W2  60x5601|D GPU N-chunk": {
+      "best": 359.2535412311554,
+      "spread": 0.43637549687344074,
+      "rss": 2.227124,
+      "sha": "b5bad36361c7d46f",
+      "sweeps": 4,
+      "rc": 0,
+      "budget_mb": 1882
+    },
+    "W3 150 mixed|A upstream": {
+      "best": 61.62510704994202,
+      "spread": 1.474461886139431,
+      "rss": 0.292424,
+      "sha": "6fd62d25c0c517b7",
+      "sweeps": 0,
+      "rc": 0,
+      "budget_mb": null
+    },
+    "W3 150 mixed|B port, no cuda": {
+      "best": 63.53367233276367,
+      "spread": 1.012884906854536,
+      "rss": 0.293664,
+      "sha": "6fd62d25c0c517b7",
+      "sweeps": 0,
+      "rc": 0,
+      "budget_mb": null
+    },
+    "W3 150 mixed|C GPU 1-chunk": {
+      "best": 7.817824840545654,
+      "spread": 0.3667147763728177,
+      "rss": 0.80998,
+      "sha": "6fd62d25c0c517b7",
+      "sweeps": 1,
+      "rc": 0,
+      "budget_mb": null
+    },
+    "W3 150 mixed|D GPU N-chunk": {
+      "best": 18.24478554725647,
+      "spread": 0.6552935551335626,
+      "rss": 0.610956,
+      "sha": "6fd62d25c0c517b7",
+      "sweeps": 5,
+      "rc": 0,
+      "budget_mb": 235
+    }
+  }
+}

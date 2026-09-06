@@ -195,3 +195,87 @@ windowed/restricted-span, non-default energy set, multistrand, comparative.
 3. `logML` still has no library-level bar.
 4. `PORT_UPSTREAM_PROPOSAL.md` still describes the seam as proposed rather than
    built — and should now also carry the `postprocess_circular` ask.
+
+---
+
+# Benchmark v2 — mixed-length and multi-chunk (L4, commit `9804cbc2`)
+
+All validity gates passed: identical `sha` across all four configs per workload,
+the 1-chunk arm at 1 sweep, the N-chunk arm at 4/4/5, CPU arms at 0. The
+per-workload budget calibration landed where the `~4*n^2` estimate predicted
+(480 / 1882 / 235 MB).
+
+| workload | A upstream | B port, off | C 1-chunk | D N-chunk | **A/C** | A/B | chunks | **D/C** |
+|---|---|---|---|---|---|---|---|---|
+| 120 x 2000 | 126.23 s | 129.37 s | 15.66 s | 65.75 s | **8.06x** | 0.98x | 4 | **4.20x** |
+| 60 x 5601 | 578.44 s | 590.49 s | 102.47 s | 359.25 s | **5.65x** | 0.98x | 4 | **3.51x** |
+| 150 mixed | 61.63 s | 63.53 s | 7.82 s | 18.24 s | **7.88x** | 0.97x | 5 | **2.33x** |
+
+## Mixed-length is not a problem
+
+7.88x on a shuffled, log-uniform 300-2500 nt workload, against 8.06x on uniform
+2000 nt. The join mask does its job; nothing about a realistic FASTA costs the
+accelerator anything meaningful. This is the arm v1 could not report at all.
+
+## Chunk boundaries do not move the answer, at benchmark scale
+
+All three workloads produce a byte-identical `sha` at 1 chunk and at 4-5 chunks.
+Previously asserted only on small inputs by `verify_gpu_cli.sh`; now on 8001 nt
+records and on mixed-length input.
+
+## THE FINDING: chunking is expensive, and not for the reason assumed
+
+The chunk penalty is **2.33x to 4.20x**, and it tracks the chunk count almost
+exactly (4 chunks -> 4.20x, 4 -> 3.51x, 5 -> 2.33x). That is far too large to be
+per-chunk `init_gpu`/`teardown_gpu` overhead, which was measured at ~1.6 s.
+
+The mechanism is **loss of batch width**. The sweep is row-serial: a chunk costs
+(max record length) rows regardless of how many records it holds, and the
+records in a chunk are folded in parallel *within* each row. Splitting a uniform
+workload into k chunks therefore multiplies total rows by k while dividing the
+per-row parallelism by k. Wall time scales with the chunk count.
+
+Two consequences:
+
+1. **`gpu_bytes_per_file()` accuracy is a first-order performance property**, not
+   just a correctness guard against OOM. Over-estimating VRAM per record costs
+   chunks, and chunks cost multiples.
+2. **This roughly doubles the case for int16.** `INT16_FML_SCOPE.md` justified it
+   on the DRAM stream alone (~1.5x, from halving `fml_j`'s 46.7 TB). But `fml_j`
+   is the *triangle* — the dominant per-record device buffer — so halving it also
+   roughly doubles the records per chunk, which on a VRAM-bound workload is worth
+   up to another ~2x by this table. The two effects are independent and multiply.
+
+It also explains why v1 looked so good: on a 24 GB L4 every v1 workload fit in
+one chunk, so v1 measured the accelerator at its best case and said nothing
+about the regime a smaller card or a larger input lands in.
+
+## An open discrepancy: A/B moved, and it should not have
+
+| | v1 | v2 |
+|---|---|---|
+| 120 x 2000 | 0.994 | **0.976** |
+| 60 x 5601 | 0.996 | **0.980** |
+
+v2 shows the port's CPU path 2-3% slower than upstream's, consistently across
+all three workloads, against a within-run spread of 0.27-0.33%. v1 showed
+0.4-0.6%, inside its own spread.
+
+**Our changed library files cannot reach that arm.** `engine.c`, `mfe_cuda.c`,
+`hp_mb_loop.cu`, `int_loop.cu` and `interior_loopx.h` are all inside the
+`if VRNA_AM_SWITCH_CUDA` block in `src/ViennaRNA/Makefile.am`, so none of them
+compiles into a build without `--enable-cuda`. The only change reaching arm B is
+`apply_constraints()` gaining one `int` parameter, on a call made once per
+record — 120 calls in a 129-second run.
+
+So this is most likely **between-VM variance that the reported spread does not
+capture**: `spread` measures repeatability within one run on one machine, which
+systematically understates the variance between two Colab sessions four hours
+apart. Arm A moved too (+1.0% at W1).
+
+Not resolved, and it should not be waved away — the honest statement for upstream
+is "no measurable cost in v1; v2 measured 2-3% and we have not yet separated our
+diff from machine variance". **The fix is methodological**: the current design
+runs A's reps, then B's, then C's, then D's, so any thermal or noisy-neighbour
+drift over ~20 minutes lands unevenly on the arms. Interleaving A/B/A/B would
+cancel it, and is the change to make before quoting an A/B figure to anyone.
