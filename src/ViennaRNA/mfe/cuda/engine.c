@@ -102,8 +102,21 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   /* logML is NOT declined: the MFE path does not consult it. Verified
    * byte-identical over the reference set. */
 
-  /* uniq_ML is NOT declined: it only causes fM1 to be allocated, and the MFE
-   * recursion never reads it. Verified byte-identical over the reference set. */
+  /* uniq_ML IS declined here, deliberately, even though RNAfold allows it.
+   *
+   * The MFE answer is correct under uniq_ML -- the recursion never reads fM1 --
+   * which is why the driver permits it. But the sweep only initialises fM1 to
+   * INF and never fills it (fill_arrays.c:271: "no kernel computes it and
+   * nothing fetches it"), and THIS guard is what vrna_mfe_batch() consults. A
+   * library caller may fold a batch with uniq_ML and then call vrna_subopt(),
+   * which reads fM1 and would find it entirely INF.
+   *
+   * RNAfold never does that, so the driver's own gate can be laxer than this
+   * one. A public API cannot be: it does not know what its caller will read
+   * next. Lift this when the sweep actually fills fM1 -- see
+   * PORT_ACCELERATION_SCOPE.md. */
+  if (md->uniq_ML)
+    DECLINE("unique multibranch decomposition (fM1 is not filled by the sweep)");
 
   if (md->energy_set != 0)
     DECLINE("non-default energy set");

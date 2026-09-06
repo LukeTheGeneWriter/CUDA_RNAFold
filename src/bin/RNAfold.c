@@ -986,8 +986,11 @@ gpu_path_usable(struct options *opt,
 
   /* NOT rejected, and each for a reason that was measured rather than assumed:
    *
-   *   uniq_ML  only causes fM1 to be allocated, and the MFE recursion never
-   *            reads it -- it matters for subopt and the partition function.
+   *   uniq_ML  the MFE recursion never reads fM1, so the ANSWER is right.
+   *            Note the sweep leaves fM1 entirely INF (fill_arrays.c:271);
+   *            RNAfold never reads it, but the LIBRARY guard in
+   *            mfe/cuda/engine.c still declines uniq_ML for that reason, since
+   *            a vrna_mfe_batch() caller might go on to call vrna_subopt().
    *   logML    the MFE path does not consult it.
    *   noGU     reaches the sweep through the uploaded hc->mx bitmasks, which
    *            upstream has already populated.
