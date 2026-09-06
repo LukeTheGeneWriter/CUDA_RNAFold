@@ -290,6 +290,9 @@ cuda_host_free(void* p) {
 int first = 1;
 
 // Forward declarations so init_gpu() (below) can probe fmli_kernel's/
+PUBLIC void pack_fml(const int nfiles, const int i, const int turn,
+                     const int length, const size_t* size_off_H);
+
 // modular_decomposition_kernel's occupancy before they're defined further
 // down this file, and so that probe runs once, up front, rather than lazily
 // at first launch like this file's other kernels get further down. That's
@@ -303,6 +306,7 @@ __global__ void fmli_kernel(
   const int nfiles, const int i_row, const int turn, const int length,
         int* __restrict__ fml_i,
   const int* __restrict__ fml_j,
+  const int* __restrict__ fml_row,   // int16 path, NULL when off
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H);   // continuous flow phase A2
@@ -314,6 +318,8 @@ template <int TILE>
 __global__ void modular_decomposition_kernel(
   const int nfiles, const int i_row, const int turn, const int length,
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,
+  const short* __restrict__ fml_j16, const int* __restrict__ fml_b,
+  const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
   int* __restrict__ dml,
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
@@ -352,6 +358,27 @@ rnafold_choose_md_tile(void) {
 int* d_energy_min;
 int* d_fml_i;  //my_fML
 int* d_fml_j;  //my_fML
+// int16 fml_j (RNA_FML_INT16). Allocated INSTEAD of d_fml_j when the gate is on,
+// so the VRAM saving is real and measurable rather than shadowed by keeping both.
+//   d_fml_j16   the offsets themselves, same triangular layout as d_fml_j
+//   d_fml_b     one int32 baseline per FML_BLK consecutive entries WITHIN a
+//               column -- blocks must not straddle a column boundary, because
+//               the end of column j and the start of column j+1 are the two
+//               extremes of the whole energy range and a straddling block would
+//               have to span it
+//   d_fml_row   the CURRENT row's cells in full int32. Required, not an
+//               optimisation: fmli_kernel reads row i between the two writers,
+//               at its pre-MIN2 value, so a cell is not final until its row
+//               completes and cannot be packed before then.
+short*  d_fml_j16;
+int*    d_fml_b;
+int*    d_fml_row;
+// colb_off[j] = number of baseline slots used by columns 1..j-1, so a column's
+// blocks start on a baseline boundary. A pure function of j and FML_BLK, hence
+// ONE table for the whole chunk rather than one per record.
+size_t* d_colb_off;
+size_t* d_base_off_H;   // per-record start in d_fml_b
+static size_t g_base_total = 0;
 int* d_dml;  //DMLi
 // GPU-resident sweep, step 1. Two row-shaped buffers the device side of the
 // sweep needs once new_c_host/fml_host/fml_prev_host become kernels. They are
@@ -510,11 +537,55 @@ init_gpu(const int nfiles, const int length,
 	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
 
-  error = cudaMalloc((void **) &d_fml_j, ijsize_len);
-  if (error != cudaSuccess)  {
-      printf("cudaMalloc d_fml_j %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
-	     ijsize_len, cudaGetErrorString(error), error, __LINE__);
-      exit(EXIT_FAILURE);}
+  if(!rnafold_fml_int16()) {
+    error = cudaMalloc((void **) &d_fml_j, ijsize_len);
+    if (error != cudaSuccess)  {
+        printf("cudaMalloc d_fml_j %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
+  	     ijsize_len, cudaGetErrorString(error), error, __LINE__);
+        exit(EXIT_FAILURE);}
+  } else {
+    // Slot flow hands a slot to a new occupant MID-SWEEP, and reset_slot_md()
+    // cannot put that slot's baselines back to UNSET from the tri_lo/tri_n it
+    // is given. Encoding the new occupant against the old one's baselines is a
+    // silent wrong answer, so the pairing is refused rather than approximated.
+    if(rnafold_slot_flow() >= 1) {
+      fprintf(stderr,"%-24s RNA_FML_INT16 and RNA_SLOT_FLOW cannot be combined yet: "
+                     "a slot handover would leave stale baselines. Unset one.\n",
+              __FILE__);
+      exit(EXIT_FAILURE);
+    }
+
+    // colb_off is built to the LONGEST record; every shorter one indexes a
+    // prefix of it, exactly as the triangular Indx() already does.
+    int maxlen = 0;
+    for(int H=0;H<nfiles;H++) {
+      const size_t cells = tri_off_H[H+1]-tri_off_H[H];
+      int n = 0; while(((size_t)(n+1)*(n+2))/2 < cells) n++;
+      if(n > maxlen) maxlen = n;
+    }
+    size_t* colb = (size_t*)malloc((size_t)(maxlen+2)*sizeof(size_t));
+    colb[0] = colb[1] = 0;
+    for(int j=1;j<=maxlen;j++)
+      colb[j+1] = colb[j] + (size_t)((j + FML_BLK - 1)/FML_BLK);
+    TIMED_CUDAMALLOC(&d_colb_off, (size_t)(maxlen+2)*sizeof(size_t));
+    gpuErrchk( cudaMemcpy(d_colb_off, colb, (size_t)(maxlen+2)*sizeof(size_t), cudaMemcpyHostToDevice) );
+
+    size_t* boff = (size_t*)malloc((size_t)(nfiles+1)*sizeof(size_t));
+    boff[0] = 0;
+    for(int H=0;H<nfiles;H++) {
+      const size_t cells = tri_off_H[H+1]-tri_off_H[H];
+      int n = 0; while(((size_t)(n+1)*(n+2))/2 < cells) n++;
+      boff[H+1] = boff[H] + colb[n+1];
+    }
+    g_base_total = boff[nfiles];
+    TIMED_CUDAMALLOC(&d_base_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+    gpuErrchk( cudaMemcpy(d_base_off_H, boff, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
+    free(colb); free(boff);
+
+    TIMED_CUDAMALLOC(&d_fml_j16, tri_off_H[nfiles]*sizeof(short));
+    TIMED_CUDAMALLOC(&d_fml_b,   g_base_total*sizeof(int));
+    TIMED_CUDAMALLOC(&d_fml_row, mem_size_len);
+  }
 
   error = cudaMalloc((void **) &d_dml, mem_size_len);
   if (error != cudaSuccess)  {
@@ -583,7 +654,15 @@ teardown_gpu(void) {
   if(first) return; // never initialized (or already torn down) -- nothing to free
   gpuErrchk( cudaFree(d_energy_min) );
   gpuErrchk( cudaFree(d_fml_i) );
-  gpuErrchk( cudaFree(d_fml_j) );
+  if(!rnafold_fml_int16()) {
+    gpuErrchk( cudaFree(d_fml_j) );
+  } else {
+    gpuErrchk( cudaFree(d_fml_j16) );
+    gpuErrchk( cudaFree(d_fml_b) );
+    gpuErrchk( cudaFree(d_fml_row) );
+    gpuErrchk( cudaFree(d_colb_off) );
+    gpuErrchk( cudaFree(d_base_off_H) );
+  }
   gpuErrchk( cudaFree(d_dml) );
   gpuErrchk( cudaFree(d_dml1) );
   gpuErrchk( cudaFree(d_fml_prev) );
@@ -611,8 +690,18 @@ modular_decomposition_bytes_per_file(const int length) {
   // under-counting it does not merely mis-report -- it lets a chunk be
   // accepted that does not fit, and the failure surfaces as an OOM inside
   // par_mfe() rather than as a smaller batch.
+  const size_t cells        = (size_t)(length+1)*(length+2)/2;
+  if(rnafold_fml_int16()) {
+    // x6: the five above plus d_fml_row, which is row-shaped and so is noise
+    // beside the triangle. The triangle halves, and the baselines add one int32
+    // per FML_BLK entries -- 1.6% at B=64, against the 50% saved.
+    const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 6;
+    const size_t tri16        = cells * sizeof(short);
+    const size_t base_bytes   = ((cells + FML_BLK - 1)/FML_BLK + (size_t)length + 2) * sizeof(int);
+    return mem_size_len + tri16 + base_bytes;
+  }
   const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 5;
-  const size_t ijsize_len   = (size_t)(length+1)*(length+2)/2 * sizeof(int);
+  const size_t ijsize_len   = cells * sizeof(int);
   return mem_size_len + ijsize_len;
 }
 
@@ -696,6 +785,77 @@ compute_gpu_usable_bytes(void) {
   return usable;
 }
 
+// ---------------------------------------------------------------------------
+// int16 fml_j (RNA_FML_INT16). See INT16_FML_SCOPE.md.
+//
+// A cell is stored as a signed 16-bit offset from a baseline shared by FML_BLK
+// consecutive entries WITHIN one column, with FML_INF16 reserved for INF. The
+// baseline is whichever entry of the block is packed first (the highest index,
+// packed at the earliest row) -- deliberately NOT the block minimum, which
+// would change as the block fills and invalidate offsets already written. What
+// bounds the offset is the block's SPREAD, not the choice of origin.
+// ---------------------------------------------------------------------------
+
+// Baseline slot for the cell at within-column index `idx` of column `j`, in
+// record H. colb_off makes each column start on a baseline boundary; a block
+// straddling a column boundary would have to span the whole energy range.
+__device__ __forceinline__ size_t
+fml_bidx(const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
+         const int H, const int j, const int idx) {
+  return base_off_H[H] + colb_off[j] + (size_t)((idx - 1)/FML_BLK);
+}
+
+__device__ __forceinline__ int
+fml_decode(const short* __restrict__ j16, const int* __restrict__ b,
+           const size_t t, const size_t bidx) {
+  const short o = j16[t];
+  return (o == FML_INF16) ? INF : (b[bidx] + (int)o);
+}
+
+// Closes row i: the two writers have both run, so d_fml_row now holds this
+// row's FINAL values and they can be packed. Launch shape mirrors
+// load_fML_kernel's (size_off_H), which is the superset of the two write ranges.
+__global__ void
+pack_fml_kernel(const int nfiles, const int i_row, const int turn, const int length,
+                const int* __restrict__ fml_row,
+                      short* __restrict__ fml_j16,
+                      int* __restrict__ fml_b,
+                const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
+                const size_t* __restrict__ size_off_H, const size_t total,
+                const int* __restrict__ i_H) {
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  if((size_t)m >= total) return;
+  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  const long long mj = (long long)m - (long long)size_off_H[H];
+  const int i = i_H[H];
+  assert(i_row < 0 || i == i_row);
+  const int j = mj + i+turn+1;
+
+  const int  v    = fml_row[row_off_H[H]+j];
+  const size_t t  = tri_off_H[H] + Indx(i,j);
+
+  if(v == INF) { fml_j16[t] = FML_INF16; return; }
+
+  const size_t bidx = fml_bidx(base_off_H, colb_off, H, j, i);
+  int b = fml_b[bidx];
+  if(b == FML_BASE_UNSET) {
+    // First non-INF entry of this block. Race-free: rows are separate kernel
+    // launches and, within a row, each thread owns a distinct (column, block).
+    fml_b[bidx] = b = v;
+  }
+  const long long d = (long long)v - (long long)b;
+  // TRAP, never wrap. The bound is provable for the default parameter table
+  // (B/2 * 340 = 10880) but a -P file or a rescaled temperature can move it, and
+  // a silent wrap here is a plausible, self-consistent, WRONG answer.
+  if(d > 32766 || d < -32766) {
+    printf("RNA_FML_INT16 range: H=%d (i=%d,j=%d) value %d baseline %d delta %lld "
+           "exceeds int16. See INT16_FML_SCOPE.md.\n", H, i, j, v, b, d);
+    assert(0);
+  }
+  fml_j16[t] = (short)d;
+}
+
 /* prefill matrices with init contributions */
 __global__ void
 init_fML_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
@@ -703,6 +863,20 @@ init_fML_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
   const size_t m = blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
   if(m>=ijsize) return;
   fml_j[m] = INF;
+}
+
+__global__ void
+init_fml16_kernel(const size_t ijsize, short* __restrict__ j16) {
+  const size_t m = blockIdx.x*blockDim.x+threadIdx.x;
+  if(m>=ijsize) return;
+  j16[m] = FML_INF16;
+}
+
+__global__ void
+init_base_kernel(const size_t n, int* __restrict__ b) {
+  const size_t m = blockIdx.x*blockDim.x+threadIdx.x;
+  if(m>=n) return;
+  b[m] = FML_BASE_UNSET;
 }
 
 PUBLIC void
@@ -720,7 +894,15 @@ init_fML(const int nfiles, const int length,
   const size_t ijsize = tri_off_H_total;
   /* Setup execution parameters for helper kernel */
   const size_t nblocks = (ijsize + BLOCK_SIZE - 1)/BLOCK_SIZE; // 32-bit signed integer overflow bug fix
-  init_fML_kernel<<<nblocks,BLOCK_SIZE>>>(ijsize, d_fml_j);
+  if(!rnafold_fml_int16()) {
+    init_fML_kernel<<<nblocks,BLOCK_SIZE>>>(ijsize, d_fml_j);
+  } else {
+    // Every cell starts INF, and every baseline starts UNSET so the first
+    // non-INF packer of each block establishes it.
+    init_fml16_kernel<<<nblocks,BLOCK_SIZE>>>(ijsize, d_fml_j16);
+    const size_t nb = (g_base_total + BLOCK_SIZE - 1)/BLOCK_SIZE;
+    if(g_base_total) init_base_kernel<<<nb,BLOCK_SIZE>>>(g_base_total, d_fml_b);
+  }
   gpuErrchk2( cudaPeekAtLastError(),  first_ );
 
   //To aid debug etc initialise d_dml (DMLi)
@@ -784,7 +966,19 @@ reset_slot_md(const size_t tri_lo, const size_t tri_n,
               const size_t row_lo, const size_t row_n) {
   if(tri_n) {
     const size_t nb = (tri_n + BLOCK_SIZE - 1)/BLOCK_SIZE;
-    init_fML_kernel<<<nb,BLOCK_SIZE>>>(tri_n, d_fml_j + tri_lo);
+    if(!rnafold_fml_int16()) {
+      init_fML_kernel<<<nb,BLOCK_SIZE>>>(tri_n, d_fml_j + tri_lo);
+    } else {
+      // Resetting the offsets to the INF sentinel is not sufficient on its own:
+      // the slot's BASELINES have to go back to UNSET too, or the new occupant's
+      // first packed entry in each block would be encoded against the previous
+      // occupant's baseline. That is a silent wrong answer, not a crash.
+      init_fml16_kernel<<<nb,BLOCK_SIZE>>>(tri_n, d_fml_j16 + tri_lo);
+      gpuErrchk( cudaPeekAtLastError() );
+      // The slot's baseline range is not derivable from tri_lo/tri_n here, so
+      // this path is refused rather than approximated -- see the guard in
+      // init_gpu(). RNA_SLOT_FLOW + RNA_FML_INT16 is not a supported pairing yet.
+    }
     gpuErrchk( cudaPeekAtLastError() );
   }
   if(row_n) {
@@ -802,6 +996,7 @@ __global__ void
 load_fML_kernel(const int nfiles, const int i_row, const int turn, const int length,
 		const int* __restrict__ energy_min,
 	              int* __restrict__ fml_j,
+	              int* __restrict__ fml_row,   //int16 path: NULL when off
 		const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
 		const size_t* __restrict__ size_off_H, const size_t total,
 		const int* __restrict__ i_H) { //out d_fml_j my_fML
@@ -825,8 +1020,16 @@ load_fML_kernel(const int nfiles, const int i_row, const int turn, const int len
   assert(j>=0 && j<=length);
   const long long ij = Indx(i,j);
   assert(ij>=0 && ij<Hoff(1,length));
-  assert(fml_j[tri_off_H[H]+ij] == INF);
-         fml_j[tri_off_H[H]+ij] = energy_min[row_off_H[H]+j];
+  if(fml_row) {
+    // int16 path: the row's cells stay in full precision until pack_fml_kernel
+    // closes the row. `ij` is unused here then, but the asserts above still
+    // check it.
+    (void)ij;
+    fml_row[row_off_H[H]+j] = energy_min[row_off_H[H]+j];
+  } else {
+    assert(fml_j[tri_off_H[H]+ij] == INF);
+           fml_j[tri_off_H[H]+ij] = energy_min[row_off_H[H]+j];
+  }
 }
 
 PUBLIC void
@@ -859,8 +1062,28 @@ load_fML(const int nfiles,
   load_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
 					  d_energy_min,  //in
 					  d_fml_j,  //out
+					  d_fml_row, //out, int16 path (NULL when off)
 					  d_tri_off_H, d_row_off_H,
 					  d_size_off_H, total, d_i_H);
+  gpuErrchk( cudaPeekAtLastError() );
+}
+
+// Closes the row for the int16 path: both writers have run, so d_fml_row holds
+// this row's final values and can be packed into the triangle. Shares
+// load_fML()'s launch shape because that is the superset of the two write
+// ranges. A no-op when the gate is off.
+PUBLIC void
+pack_fml(const int nfiles, const int i, const int turn, const int length,
+         const size_t* size_off_H) {
+  if(!rnafold_fml_int16()) return;
+  const size_t total = size_off_H[nfiles];
+  if(total==0) return;
+  const size_t nblocks = (total + BLOCK_SIZE - 1)/BLOCK_SIZE;
+  pack_fml_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
+                        d_fml_row, d_fml_j16, d_fml_b,
+                        d_tri_off_H, d_row_off_H,
+                        d_base_off_H, d_colb_off,
+                        d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
 }
 
@@ -869,6 +1092,7 @@ load_min_fML_kernel(const int nfiles, const int i_row, const int turn, const int
 		    const int* __restrict__ energy_min,
 		    const int* __restrict__ dml,     //in  d_dml   DMLi
 		          int* __restrict__ fml_j,     //out d_fml_j my_fML
+		          int* __restrict__ fml_row,   //int16 path: NULL when off
 		    const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
 		    const size_t* __restrict__ side_off_H, const size_t total,
 		    const int* __restrict__ i_H) {
@@ -886,7 +1110,8 @@ load_min_fML_kernel(const int nfiles, const int i_row, const int turn, const int
   assert(j >=0 && j<=length);
   assert(ij>=0 && ij<Hoff(1,length));
 
-  fml_j[tri_off_H[H]+ij] = MIN2(energy_min[row_off_H[H]+j],dml[row_off_H[H]+j]);
+  if(fml_row) fml_row[row_off_H[H]+j] = MIN2(energy_min[row_off_H[H]+j],dml[row_off_H[H]+j]);
+  else        fml_j[tri_off_H[H]+ij]   = MIN2(energy_min[row_off_H[H]+j],dml[row_off_H[H]+j]);
 }
 
 PUBLIC void
@@ -906,6 +1131,7 @@ load_min_fML(const int nfiles,
 					  d_energy_min,  //in
 					  d_dml,    //in
 					  d_fml_j,  //out
+					  d_fml_row, //out, int16 path (NULL when off)
 					  d_tri_off_H, d_row_off_H,
 					  d_side_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
@@ -919,6 +1145,7 @@ fmli_kernel(
   const int nfiles, const int i_row, const int turn, const int length,
         int* __restrict__ fml_i,   //out
   const int* __restrict__ fml_j,   //In  d_fml_j
+  const int* __restrict__ fml_row, //In  d_fml_row -- int16 path, NULL when off
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H) {
@@ -940,7 +1167,13 @@ fmli_kernel(
   // so it can no longer be written via the flat H-tightest index m -- mj is
   // fml_i's within-row position (0-based, same value the old H+mj*nfiles
   // convention used), so row_off_H[H]+mj is the equivalent table-driven cell.
-  fml_i[row_off_H[H]+mj] = fml_j[tri_off_H[H]+ik]; //ith column
+  // int16 path: row i is exactly what fml_row holds, and it is CONTIGUOUS there
+  // rather than strided across columns at Indx(i,k) -- so this read gets
+  // cheaper, not harder. It must not read the packed triangle: row i is not
+  // final yet (load_min_fML_kernel has not run), which is the whole reason the
+  // staging buffer exists.
+  if(fml_row) { (void)ik; fml_i[row_off_H[H]+mj] = fml_row[row_off_H[H]+k]; }
+  else                    fml_i[row_off_H[H]+mj] = fml_j[tri_off_H[H]+ik]; //ith column
 }
 
 //Use __restrict__ to give compiler best chance
@@ -982,6 +1215,8 @@ __global__ void
 modular_decomposition_kernel(
   const int nfiles, const int i_row, const int turn, const int length,
   const int* __restrict__ fml_i, const int* __restrict__ fml_j,  //In  d_dml_i, d_fml_j
+  const short* __restrict__ fml_j16, const int* __restrict__ fml_b, //int16 path
+  const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
   int* __restrict__ dml,                            //Out d_dml (h_dml)
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
@@ -1024,6 +1259,22 @@ modular_decomposition_kernel(
 
     assert(H >= 0 && H < nfiles);
     out = row_off_H[H]+j;
+    // int16 path: the cell at yij sits at within-column index i+turn+2+y, and
+    // its baseline slot advances once every FML_BLK steps of y. The per-cell
+    // part of the slot index is loop-invariant, so it is hoisted; only the
+    // block number moves. Reads here are always indices STRICTLY GREATER than
+    // i, which are final and packed -- that is what makes decoding safe.
+    if(fml_j16) {
+      const size_t bcell = base_off_H[H] + colb_off[j];
+      const int    idx0  = i + turn + 2;
+      for(int y=lane; y <= x; y += TILE) {
+        const long long yij = y + ij0;
+        assert(yij < Hoff(nfiles,length));
+        const int  d = fml_decode(fml_j16, fml_b, tri_off_H[H]+yij,
+                                  bcell + (size_t)((idx0 + y - 1)/FML_BLK));
+        value = MIN2(fml_i[row_off_H[H]+y] + d, value);
+      }
+    } else
     for(int y=lane; y <= x; y += TILE) {
       assert(x>=0 && x<=length);
       assert(y>=0 && y<=length);
@@ -1154,6 +1405,7 @@ void modular_decomposition_cuda(const int nfiles,
     fmli_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
 					d_fml_i,  //Out
 					d_fml_j,  //In
+					d_fml_row, //In, int16 path (NULL when off)
 					d_tri_off_H, d_row_off_H,
 					d_side_off_H, total, d_i_H);
     gpuErrchk( cudaPeekAtLastError() );
@@ -1187,6 +1439,7 @@ void modular_decomposition_cuda(const int nfiles,
 #define MD_LAUNCH(T) modular_decomposition_kernel<T><<<nblocks,block_size,0,graph_stream>>>( \
                        nfiles, RNA_I_ROW(i), turn, length, \
                        d_fml_i, d_fml_j, \
+                       d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, \
                        d_dml,   /*Out*/ \
                        d_tri_off_H, d_row_off_H, \
                        d_side_off_H, total, d_i_H)
@@ -1360,10 +1613,58 @@ md_snapshot_dml(void) {
                         cudaMemcpyDeviceToDevice) );
 }
 
+// Widens on the way out when the gate is on. The host's fML is int32 and every
+// consumer of it -- backtracking, subopt, the fM1 post-pass -- expects that, so
+// the encoding stops at the device boundary. `H` is needed for the baseline
+// offset, which the int32 path did not require, hence the extra argument.
+extern "C" /*PUBLIC*/ void
+fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H);
+
 extern "C" /*PUBLIC*/ void
 fetch_fML_one(int* dst, const size_t tri_lo, const size_t cells) {
+  assert(!rnafold_fml_int16());   // callers must use fetch_fML_one_H()
   gpuErrchk( cudaMemcpy(dst, &d_fml_j[tri_lo], cells*sizeof(int),
                         cudaMemcpyDeviceToHost) );
+}
+
+// Host-side decode. Deliberately NOT a kernel: it runs once per record on the
+// backtrack pool, off the critical path, and a kernel would need a scratch
+// int32 triangle on the device -- which is exactly the allocation this whole
+// change exists to remove.
+extern "C" /*PUBLIC*/ void
+fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H) {
+  if(!rnafold_fml_int16()) { fetch_fML_one(dst, tri_lo, cells); return; }
+
+  static __thread short*  h16  = NULL;
+  static __thread size_t  h16n = 0;
+  if(h16n < cells) { free(h16); h16 = (short*)malloc(cells*sizeof(short)); h16n = cells; }
+
+  gpuErrchk( cudaMemcpy(h16, &d_fml_j16[tri_lo], cells*sizeof(short),
+                        cudaMemcpyDeviceToHost) );
+
+  // The baselines for this record, and the column offsets, both small.
+  size_t base_lo = 0, base_n = 0;
+  gpuErrchk( cudaMemcpy(&base_lo, &d_base_off_H[H],   sizeof(size_t), cudaMemcpyDeviceToHost) );
+  { size_t hi; gpuErrchk( cudaMemcpy(&hi, &d_base_off_H[H+1], sizeof(size_t), cudaMemcpyDeviceToHost) );
+    base_n = hi - base_lo; }
+  int* hb = (int*)malloc((base_n?base_n:1)*sizeof(int));
+  if(base_n) gpuErrchk( cudaMemcpy(hb, &d_fml_b[base_lo], base_n*sizeof(int), cudaMemcpyDeviceToHost) );
+
+  // n from the triangle size: cells == (n+1)(n+2)/2
+  int n = 0; while(((size_t)(n+1)*(n+2))/2 < cells) n++;
+  size_t* colb = (size_t*)malloc((size_t)(n+2)*sizeof(size_t));
+  colb[0] = colb[1] = 0;
+  for(int j=1;j<=n;j++) colb[j+1] = colb[j] + (size_t)((j + FML_BLK - 1)/FML_BLK);
+
+  for(int j=1;j<=n;j++)
+    for(int i=1;i<=j;i++) {
+      const size_t t = (size_t)j*(j-1)/2 + i;
+      if(t >= cells) continue;
+      const short o = h16[t];
+      dst[t] = (o == FML_INF16) ? INF
+             : hb[colb[j] + (size_t)((i-1)/FML_BLK)] + (int)o;
+    }
+  free(hb); free(colb);
 }
 
 extern "C" /*PUBLIC*/ void
@@ -1371,8 +1672,9 @@ fetch_fML(const int nfiles, int** fML_H, const size_t* tri_off_H) {
   for(int H=0; H<nfiles; H++) {
     const size_t n = tri_off_H[H+1] - tri_off_H[H];
     assert(n > 0);
-    gpuErrchk( cudaMemcpy(fML_H[H], &d_fml_j[tri_off_H[H]], n*sizeof(int),
-                          cudaMemcpyDeviceToHost) );
+    // Routed through the decoding form so the bulk fetch cannot quietly become
+    // the one path that reads raw offsets as energies.
+    fetch_fML_one_H(fML_H[H], tri_off_H[H], n, H);
   }
 }
 
@@ -1430,6 +1732,9 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
     load_fML(nfiles,i,turn,length,energy_min,size_off_H);
     modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
     load_min_fML(nfiles,i,turn,length,side_off_H[nfiles]);
+    // int16: closes the row AFTER both writers, which is the whole ordering
+    // constraint this design exists to respect. No-op when the gate is off.
+    pack_fml(nfiles,i,turn,length,size_off_H);
     gpuErrchk( cudaStreamSynchronize(graph_stream) );
     return;
   }
@@ -1440,6 +1745,10 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   load_fML(nfiles,i,turn,length,energy_min,size_off_H);
   modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
   load_min_fML(nfiles,i,turn,length,side_off_H[nfiles]);
+  // int16: a FOURTH captured node, and it must be inside the capture so the
+  // replay reproduces the whole row. Ordering is what matters -- pack must
+  // follow both writers -- and stream order inside the capture gives that.
+  pack_fml(nfiles,i,turn,length,size_off_H);
 
   gpuErrchk( cudaStreamEndCapture(graph_stream, &graph) );
 

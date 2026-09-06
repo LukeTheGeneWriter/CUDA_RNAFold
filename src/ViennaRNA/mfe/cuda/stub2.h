@@ -408,6 +408,29 @@ double rnafold_now_seconds(void);
 // loops, unlike internal ones, are not bounded by MAXLOOP.
 void rnafold_build_salt_table(const vrna_param_t *P, const int n_max, int *out);
 
+// int16 fml_j gate -- see the definition in mfe_cuda.c and INT16_FML_SCOPE.md.
+// Constant for the run: the device buffers differ between modes.
+#ifdef __cplusplus
+extern "C"
+#endif
+int rnafold_fml_int16(void);
+
+// Block size for the int16 offset baseline. 64, not 128: the provable bound is
+// B/2 * 340, so B=64 gives |offset| <= 10880 against 32766 (~3x headroom, and
+// ~5x against what was measured) where B=128 gives 21760. B=64 costs 1.6% more
+// stream than B=128 -- (2 + 4/B)/4 -- and buys roughly double the margin.
+// Power of two so the kernels shift instead of dividing.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H);
+
+#define FML_BLK      64
+#define FML_INF16    ((short)32767)   /* reserved: the cell is INF */
+#define FML_BASE_UNSET INT_MIN        /* baseline not yet established */
+
 // Non-zero when hc->matrix and ptype are pure functions of the sequence, i.e.
 // no user constraints/SHAPE/ligand-motifs/commands and noLP off. Set once by
 // RNAfold.c. When set, init_gpu2/init_gpu3 skip their O(n^2) host packing

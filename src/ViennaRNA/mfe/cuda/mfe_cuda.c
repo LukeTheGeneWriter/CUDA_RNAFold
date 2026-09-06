@@ -158,6 +158,29 @@ rnafold_gpu_sweep(void) {
 // in the same order); what changes is WHEN each record's rows are computed, so
 // the early iterations stop being nearly empty. The answers must not move --
 // that is the verification bar.
+// int16 fml_j (INT16_FML_SCOPE.md). OFF by default and constant for the run,
+// the same shape as RNA_GPU_SWEEP above and for the same reason: one binary
+// folds both ways, so the encoding is compared against ITSELF rather than
+// against a remembered result. The device buffers differ between modes, so this
+// cannot vary per row.
+//
+// ON, d_fml_j becomes a 16-bit offset from a per-64-entry baseline. The bound
+// is provable rather than sampled -- the most negative stack37 entry is -340
+// and a 64-entry window admits at most 32 stacked pairs, so |offset| <= 10880
+// against int16's 32766 -- but that bound is for the DEFAULT parameter table,
+// so the pack kernel range-checks and traps rather than wrapping.
+PUBLIC int
+rnafold_fml_int16(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_FML_INT16");
+    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
+    if(v) fprintf(stderr,"%-24s RNA_FML_INT16=1: fml_j is 16-bit offsets from a "
+                         "per-%d baseline\n", __FILE__, 64);
+  }
+  return v;
+}
+
 PUBLIC int
 rnafold_continuous_flow(void) {
   static int v = -1;
@@ -581,7 +604,10 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
 
   const double t0 = rnafold_now_seconds();
   fetch_my_c_one(sc->c,   lo, cells);
-  fetch_fML_one (sc->fML, lo, cells);
+  // _H, not the bare form: the int16 path needs the record index to find its
+  // baselines. Widening happens here, at the device boundary -- the host's fML
+  // is int32 and every consumer of it expects that.
+  fetch_fML_one_H(sc->fML, lo, cells, slot);
   sc->fetch_s += rnafold_now_seconds() - t0;
 
   /*
