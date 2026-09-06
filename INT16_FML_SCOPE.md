@@ -350,3 +350,102 @@ data-layout costume.
 
 *Probes: `int16_range.c`, `int16_blocked.c` (host-side, no GPU, no kernel
 change).*
+
+---
+
+# Implementation design, traced against the code
+
+Written 2026-09-06 after following every reader and writer of `d_fml_j`. The
+ordering constraint below is the part that would otherwise be discovered
+mid-implementation, and it changes the shape of the change.
+
+## Every toucher of `d_fml_j`
+
+**Writers**, in the order they run within one sweep row `i`:
+
+| # | site | writes |
+|---|---|---|
+| 0 | `init_fML_kernel` (`:705`) | all cells to INF, once per chunk |
+| 1 | `load_fML_kernel` (`:829`) | cell `(i,j)` for `j = i+turn+1 .. length` — `energy_min[j]` |
+| 2 | `load_min_fML_kernel` (`:889`) | cell `(i,j)` for `j = i+2*(turn+1)+1 ..` — `MIN2(energy_min[j], dml[j])` |
+
+**Readers:**
+
+| site | reads |
+|---|---|
+| `fmli_kernel` (`:943`) | `fml_j[Indx(i,k)]` — **row `i` itself** |
+| `modular_decomposition_kernel` (`:1033`) | `fml_j[Indx(i,j)+turn+2+…]` — indices **strictly > `i`** |
+| `fetch_fML` (`:1365`, `:1374`) | `cudaMemcpy` of the whole triangle into host `fML` (int32) |
+
+## The ordering constraint
+
+Within a row the captured chain is
+**`load_fML` → `modular_decomposition_i` → `load_min_fML`**
+(`load_fML_modular_decomposition_load_min_fML()`), and
+`modular_decomposition_i()` launches `fmli_kernel` before
+`modular_decomposition_kernel`.
+
+So writer 2 **overwrites a subset of what writer 1 wrote, in the same row**, and
+`fmli_kernel` reads those cells *in between* — deliberately, at their pre-`MIN2`
+value. A cell's value is therefore **not final until its row completes**.
+
+That rules out the obvious implementation (encode at the point of write, taking
+the first write as the block baseline): the baseline would be established from a
+non-final value, and `MIN2` can only lower the cell afterwards, adding an
+unmeasured term to the offset that none of the spread measurements above cover.
+
+The saving grace is the reader split: `modular_decomposition_kernel` only ever
+reads indices **> i**, which are final. Only `fmli_kernel` wants the live row,
+and it wants exactly that row.
+
+## The design that follows
+
+Add a **row-shaped int32 staging buffer**, `d_fml_row` — `n` ints per record
+against the triangle's `n^2/2`, so its cost is noise:
+
+1. `load_fML_kernel` writes `d_fml_row` instead of the triangle.
+2. `fmli_kernel` reads `d_fml_row`. This gets *cheaper*, not harder: it wants
+   row `i`, which is now contiguous and row-shaped rather than strided across
+   columns at `Indx(i,k)`.
+3. `load_min_fML_kernel` overwrites part of `d_fml_row`.
+4. **A new `pack_fml_kernel`** closes the row: it reads `d_fml_row` (now final
+   for row `i`) and writes the int16 offsets plus any newly-established
+   baselines into the triangle. It joins the captured chain as a fourth node.
+5. `modular_decomposition_kernel` reads the int16 triangle and decodes —
+   `base[blk] + (int)off` — for indices `> i`, all final and packed.
+6. `fetch_fML` widens on the way out instead of `memcpy`-ing.
+
+Because packing happens once per row, per cell, with the final value in hand,
+the baseline can be whatever that pass chooses. Taking the block's **first
+packed entry** (highest index, earliest row) keeps it final at block creation —
+and the spread measurements above then apply exactly as measured, because they
+were taken over final `fML` values.
+
+## Work items, in dependency order
+
+1. `d_fml_base` allocation and `bytes_per_file` accounting (one int32 per B
+   entries per column, plus the int16 triangle at half its current size).
+2. `d_fml_row` allocation, and redirect writers 1 and 2 plus `fmli_kernel`.
+3. `pack_fml_kernel`, with the **range check that traps rather than wraps**.
+4. Decode in `modular_decomposition_kernel` — the one hot-path change.
+5. `fetch_fML` widening pass.
+6. The **load-time assertion** (see above): with the parameter table final after
+   `vrna_params()`, assert `B/2 * worst_negative_contribution < 32766` once.
+7. Add the new kernel to the CUDA-graph capture region.
+
+## How it must be verified
+
+Behind an env gate — `RNA_FML_INT16` — defaulting **off**, exactly as
+`RNA_GPU_SWEEP` and `RNA_CONTINUOUS_FLOW` were introduced. That is what lets one
+binary fold both ways so the encoding is compared against itself rather than
+against a remembered result:
+
+- `RNA_ROW_VERIFY` per cell, encoded vs not;
+- the byte-identical reference bar, both ways;
+- `tools/verify_salt_parity.sh` and the option-surface bar, both ways, since a
+  non-default parameter table is the case the sampled bound does not cover.
+
+It becomes the default only once all three are green in both modes, and the
+benchmark's multi-chunk arm should be re-run at that point: the second win —
+roughly twice the records per chunk — is worth more than the bandwidth win on
+any workload that does not already fit in one chunk.

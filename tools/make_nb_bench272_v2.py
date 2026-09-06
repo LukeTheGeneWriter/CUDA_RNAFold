@@ -326,17 +326,34 @@ CONFIGS = [
 BUDGET = {}
 results = {}
 
+# INTERLEAVED, and this is a correction to v2's first run rather than a
+# refinement. That run executed A's three reps, then B's, then C's, then D's --
+# about twenty minutes per workload, arm by arm. Any drift over that window
+# (thermal, noisy neighbour, a migrated VM) lands unevenly on the arms and
+# appears as a difference BETWEEN them.
+#
+# It appears to have done exactly that: A/B moved from 0.994/0.996 in v1 to
+# 0.976/0.980 in v2, consistently, against a within-run spread of 0.27-0.33%.
+# No change in that diff can reach arm B -- every CUDA source is inside the
+# `if VRNA_AM_SWITCH_CUDA` block and does not compile without --enable-cuda --
+# so the likeliest cause is that `spread` measures repeatability within ONE run
+# on ONE machine and systematically understates variance across a session.
+#
+# Running one rep of every arm, then the next round, puts all four arms inside
+# the same slice of whatever the machine is doing. A/B is the number upstream
+# will care about most, so it is the one that must not be an artifact of
+# ordering.
 for wname, fa in W.items():
     print(f"\n=== {wname}")
+
+    # Calibration and warm-up first, outside the timed rounds.
+    budget_for_cfg = {}
     for label, armkey, gpu in CONFIGS:
         b = BIN[armkey]
-        budget = None
-
         if label == "D GPU N-chunk":
-            # Find a budget that actually splits this workload. The estimate is
-            # only a starting point; what settles it is the observed chunk
-            # count, because a "multi-chunk" arm that produced one chunk has
-            # measured nothing at all.
+            # The estimate is only a starting point; what settles it is the
+            # observed chunk count, because a "multi-chunk" arm that produced
+            # one chunk has measured nothing at all.
             budget, nrec = budget_for(fa)
             for _ in range(5):
                 probe = run_once(b, fa, True, budget)
@@ -345,12 +362,24 @@ for wname, fa in W.items():
                 print(f"    calibrating: {budget} MB gave {probe['sweeps']} chunk(s), halving")
                 budget //= 2
             BUDGET[wname] = budget
-            print(f"    budget {budget} MB over {nrec} records "
-                  f"-> {probe['sweeps']} chunks")
-        elif gpu:
-            run_once(b, fa, gpu, None)          # warm-up, GPU only, discarded
+            budget_for_cfg[label] = budget
+            print(f"    budget {budget} MB over {nrec} records -> {probe['sweeps']} chunks")
+        else:
+            budget_for_cfg[label] = None
+            if gpu:
+                run_once(b, fa, gpu, None)      # warm-up, GPU only, discarded
 
-        rs = [run_once(b, fa, gpu, budget) for _ in range(REPS)]
+    # Timed rounds, one rep of every arm per round.
+    runs = {label: [] for label, _, _ in CONFIGS}
+    for rep in range(REPS):
+        for label, armkey, gpu in CONFIGS:
+            runs[label].append(run_once(BIN[armkey], fa, gpu, budget_for_cfg[label]))
+        print(f"    round {rep+1}/{REPS}: " +
+              "  ".join(f"{lab.split()[0]}={runs[lab][-1]['wall']:.1f}s"
+                        for lab, _, _ in CONFIGS))
+
+    for label, armkey, gpu in CONFIGS:
+        rs = runs[label]
         best  = min(r["wall"] for r in rs)
         worst = max(r["wall"] for r in rs)
         r0 = rs[0]
@@ -358,7 +387,8 @@ for wname, fa in W.items():
             best=best, spread=100*(worst-best)/best,
             rss=max(r["rss"] for r in rs), sha=r0["sha"],
             sweeps=r0["sweeps"], rc=r0["rc"], tail=r0["stderr_tail"],
-            budget_mb=budget)
+            budget_mb=budget_for_cfg[label],
+            walls=[round(r["wall"], 3) for r in rs])
         print(f"  {label:16s} {best:8.2f}s  spread {results[(wname,label)]['spread']:4.1f}%"
               f"  rss {results[(wname,label)]['rss']:5.2f}G"
               f"  chunks {r0['sweeps']:3d}  sha {r0['sha']}")""")
@@ -431,6 +461,16 @@ for wname in W:
     print(f"{wname:16s} {d['budget_mb'] or 0:6d}MB {d['sweeps']:6d}  "
           f"{c['best']:9.2f}s {d['best']:9.2f}s "
           f"{100*extra/c['best']:8.1f}% {per:10.2f}s")
+
+print()
+print("--- A/B per round, so an ordering artifact would be visible rather than inferred ---")
+for wname in W:
+    aw = results[(wname, "A upstream")]["walls"]
+    bw = results[(wname, "B port, no cuda")]["walls"]
+    ratios = "  ".join(f"{a/b:.3f}" for a, b in zip(aw, bw))
+    print(f"{wname:16s} A/B by round: {ratios}")
+print("A drift that moves both arms together leaves these flat; one that hits")
+print("them unevenly makes them trend. v2's first run could not show this.")
 
 print()
 print("A/C  the headline: CUDA build vs upstream ViennaRNA 2.7.2")
