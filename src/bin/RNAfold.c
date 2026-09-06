@@ -991,7 +991,8 @@ gpu_path_usable(struct options *opt,
    *            RNAfold never reads it, but the LIBRARY guard in
    *            mfe/cuda/engine.c still declines uniq_ML for that reason, since
    *            a vrna_mfe_batch() caller might go on to call vrna_subopt().
-   *   logML    the MFE path does not consult it.
+   *   (logML is NOT here: it stays declined. See mfe/cuda/engine.c -- 12/12 at
+   *    160 nt is a sample, and RNAfold has no --logML flag to bar it with.)
    *   noGU     reaches the sweep through the uploaded hc->mx bitmasks, which
    *            upstream has already populated.
    *

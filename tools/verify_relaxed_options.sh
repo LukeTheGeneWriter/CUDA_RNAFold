@@ -23,7 +23,9 @@ echo "binary: $BIN"
 echo
 
 fail=0
-for opt_spec in "uniqML:-p" "logML:--logML" "noGU:--noGU"; do
+# logML dropped: RNAfold has no --logML flag, so it cannot be barred from the
+# CLI at all; it stays declined in the library guard until it has a real bar.
+for opt_spec in "uniqML:-p" "noGU:--noGU"; do
   tag=${opt_spec%%:*}
   flag=${opt_spec#*:}
   echo "--- $tag  ($flag)"
@@ -38,7 +40,14 @@ for opt_spec in "uniqML:-p" "logML:--logML" "noGU:--noGU"; do
     sweeps=$(grep -c 'sweep shape:' "$W/$tag.$inp.err")
 
     if [ $rc -ne 0 ]; then
-      printf '    %-11s FAIL (exit %d)\n' "$inp" "$rc"; fail=$((fail+1))
+      printf '    %-11s FAIL (exit %d) %s\n' "$inp" "$rc" \
+             "$(grep -m1 -iE 'unrecognized|invalid' "$W/$tag.$inp.err" | head -c 60)"
+      fail=$((fail+1))
+    elif [ ! -s "$W/$tag.$inp.cpu" ]; then
+      # empty vs empty is not a match -- see the same guard in
+      # verify_option_parity.sh
+      printf '    %-11s NO OUTPUT -- option rejected, nothing was tested\n' "$inp"
+      fail=$((fail+1))
     elif ! cmp -s "$W/$tag.$inp.cpu" "$W/$tag.$inp.gpu"; then
       printf '    %-11s DIFFERS\n' "$inp"; fail=$((fail+1))
     elif [ "$sweeps" -eq 0 ]; then

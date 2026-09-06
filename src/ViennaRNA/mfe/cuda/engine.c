@@ -99,8 +99,13 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   if (md->noGUclosure)
     DECLINE("noClosingGU");
 
-  /* logML is NOT declined: the MFE path does not consult it. Verified
-   * byte-identical over the reference set. */
+  /* logML stays DECLINED. It measured 12/12 at 160 nt in the scope probe, but
+   * that is a 12-sequence sample and RNAfold has NO --logML flag, so there is
+   * no way to bar it from the CLI at all -- the parity check that appeared to
+   * cover it was comparing two empty outputs from a rejected option. Lifting a
+   * guard needs evidence; this has a sample and a broken test. */
+  if (md->logML)
+    DECLINE("logarithmic multibranch loop scaling");
 
   /* uniq_ML IS declined here, deliberately, even though RNAfold allows it.
    *

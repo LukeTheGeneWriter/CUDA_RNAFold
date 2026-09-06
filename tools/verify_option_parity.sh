@@ -36,6 +36,17 @@ check() {
     printf '  %-22s EXIT DIFFERS (off %d, on %d)\n' "$tag" "$rc_off" "$rc_on"
     fail=$((fail+1)); return
   fi
+
+  # Two EMPTY outputs are not a match, they are a test that never ran. A
+  # "logML --logML" case sat in this file reporting identical every run,
+  # because RNAfold has no --logML flag: both sides exited 1 with no output and
+  # cmp was perfectly happy. Refuse to score that as a pass.
+  if [ ! -s "$W/$tag.off" ]; then
+    printf '  %-22s NO OUTPUT from either side -- option rejected? (exit %d)\n' \
+           "$tag" "$rc_off"
+    grep -m1 -iE 'unrecognized|invalid|error' "$W/$tag.off.err" | sed 's/^/        /'
+    fail=$((fail+1)); return
+  fi
   if cmp -s "$W/$tag.off" "$W/$tag.on"; then
     if [ "$sweeps" -gt 0 ]; then
       printf '  %-22s identical  [GPU: %s sweeps]\n' "$tag" "$sweeps"
@@ -71,7 +82,9 @@ check dangles3          -d3
 check noLP              --noLP
 check noGU              --noGU
 check noClosingGU       --noClosingGU
-check logML             --logML
+# NOT tested: RNAfold has no --logML flag. The check that used to sit here
+# compared two EMPTY outputs from a rejected option and reported "identical"
+# every run -- a green line for a test that never ran anything.
 check salt              --salt=0.2
 # NOT tested here: uniq_ML has no RNAfold flag, so an option-surface check
 # cannot reach it. An earlier version of this file listed a "uniqML" case that
