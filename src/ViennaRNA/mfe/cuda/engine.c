@@ -107,21 +107,20 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   if (md->logML)
     DECLINE("logarithmic multibranch loop scaling");
 
-  /* uniq_ML IS declined here, deliberately, even though RNAfold allows it.
+  /*
+   * uniq_ML is ACCEPTED as of the fM1 post-pass in mfe_cuda.c.
    *
-   * The MFE answer is correct under uniq_ML -- the recursion never reads fM1 --
-   * which is why the driver permits it. But the sweep only initialises fM1 to
-   * INF and never fills it (fill_arrays.c:271: "no kernel computes it and
-   * nothing fetches it"), and THIS guard is what vrna_mfe_batch() consults. A
-   * library caller may fold a batch with uniq_ML and then call vrna_subopt(),
-   * which reads fM1 and would find it entirely INF.
+   * It was declined for a real reason, not a suspected one: the MFE answer is
+   * correct under uniq_ML because the recursion never reads fM1, but the sweep
+   * left fM1 entirely INF, and this guard is what vrna_mfe_batch() consults. A
+   * caller could fold a batch with uniq_ML and then call vrna_subopt(), which
+   * does read fM1.
    *
-   * RNAfold never does that, so the driver's own gate can be laxer than this
-   * one. A public API cannot be: it does not know what its caller will read
-   * next. Lift this when the sweep actually fills fM1 -- see
-   * PORT_ACCELERATION_SCOPE.md. */
-  if (md->uniq_ML)
-    DECLINE("unique multibranch decomposition (fM1 is not filled by the sweep)");
+   * backtrack_one_slot() now reconstructs fM1 on the host from the `c` triangle
+   * it has just fetched, using upstream's own per-cell helper and upstream's
+   * own loop order. tests/mfe_cuda_fm1.ts compares the result against a
+   * compound folded entirely by upstream, cell for cell.
+   */
 
   if (md->energy_set != 0)
     DECLINE("non-default energy set");

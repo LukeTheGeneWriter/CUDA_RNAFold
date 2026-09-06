@@ -73,8 +73,11 @@ declines(vrna_fold_compound_t *fc)
    * Each of these changes the recursion or the energies. Every one was either
    * silently wrong or half-applied on the 2.3.0 GPU path before it was guarded.
    */
+  /* md_uniqml is deliberately NOT here any more: the fM1 post-pass in
+   * mfe_cuda.c reconstructs the matrix, so uniq_ML is now supported and
+   * test_guard_accepts_uniq_ML below asserts that directly. */
   void (*tweaks[])(vrna_md_t *) = {
-    md_dangles0, md_gquad, md_circ, md_nolp, md_noguclose, md_uniqml, md_salt
+    md_dangles0, md_gquad, md_circ, md_nolp, md_noguclose, md_salt
   };
   size_t i;
 
@@ -92,6 +95,20 @@ declines(vrna_fold_compound_t *fc)
 
   vrna_sc_init(fc);
   ck_assert(declines(fc));
+
+  vrna_fold_compound_free(fc);
+}
+
+#test test_guard_accepts_uniq_ML
+{
+  /* The counterpart to the removal above. uniq_ML was declined because the
+   * sweep left fM1 entirely INF; it is accepted now that backtrack_one_slot()
+   * reconstructs it. tests/mfe_cuda_fm1.ts checks the matrix itself -- this
+   * only asserts the routing decision, so that a guard silently re-tightening
+   * shows up as a failure here rather than as a quiet loss of acceleration. */
+  vrna_fold_compound_t *fc = fc_with(md_uniqml);
+
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
 
   vrna_fold_compound_free(fc);
 }

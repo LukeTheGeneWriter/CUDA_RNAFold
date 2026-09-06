@@ -52,6 +52,7 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 #include "ViennaRNA/loops/all.h"
 #include "ViennaRNA/mfe/global.h"
 #include "ViennaRNA/backtrack/global.h"   /* PORT: vrna_backtrack_from_intervals() */
+#include "ViennaRNA/mfe/multibranch.h"    /* vrna_mfe_multibranch_m1(), for fM1 */
 
 #include <assert.h>
 #ifdef STUB
@@ -544,6 +545,41 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
   fetch_my_c_one(sc->c,   lo, cells);
   fetch_fML_one (sc->fML, lo, cells);
   sc->fetch_s += rnafold_now_seconds() - t0;
+
+  /*
+   * fM1 under uniq_ML -- "multibranch loop part with exactly one branch".
+   *
+   * The sweep never computes it: fill_arrays.c prefills it to INF and no kernel
+   * touches it, which is correct for the MFE because the recursion never reads
+   * fM1. vrna_subopt() does read it, though, so a vrna_mfe_batch() caller that
+   * folded with uniq_ML and then called subopt would have been reading a matrix
+   * that was entirely INF. That is what kept uniq_ML declined in the library
+   * routing guard.
+   *
+   * It costs no device work at all. fM1 is a pure function of `c` -- just
+   * fetched into the scratch above -- and of its own earlier cells, so one host
+   * pass here reconstructs it exactly. The cell-by-cell helper is upstream's
+   * own, and the loop order is upstream's own too (mfe.c: i descending, j
+   * ascending), so the dependency direction is inherited rather than reasoned
+   * about.
+   *
+   * Cost is O(n^2) calls, each re-initialising a soft-constraint wrapper, and
+   * it is paid ONLY when uniq_ML is set -- which for plain MFE folding it is
+   * not. RNAfold sets it only for --ImFeelingLucky.
+   */
+  if ((vc->params->model_details.uniq_ML) &&
+      (vc->matrices->fM1)) {
+    int       *fM1  = vc->matrices->fM1;
+    const int *indx = vc->jindx;
+    int       i, j;
+
+    for (i = 1; i <= (int)len; i++)
+      fM1[indx[i] + i] = INF;
+
+    for (i = (int)len - 1; i >= 1; i--)
+      for (j = i + 1; j <= (int)len; j++)
+        fM1[indx[j] + i] = vrna_mfe_multibranch_m1(vc, (unsigned int)i, (unsigned int)j);
+  }
 
   vrna_mfe_exterior_f5(vc);          /* PORT: was E_ext_loop_5(); fills f5 from c */
   a->energy[idx] = vc->matrices->f5[vc->length];     /* was par_fill_arrays()'s job */

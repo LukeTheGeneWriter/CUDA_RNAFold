@@ -219,9 +219,9 @@ LIBRARY_TESTS = energy_evaluation \
 ## joins the others only under --enable-cuda. `make check` therefore reports
 ## 130 without CUDA and 135 with it.
 if VRNA_AM_SWITCH_CUDA
-CHECKMK_FILES += mfe_cuda_guard.ts
-CHECK_CFILES  += mfe_cuda_guard.c
-LIBRARY_TESTS += mfe_cuda_guard
+CHECKMK_FILES += mfe_cuda_guard.ts mfe_cuda_fm1.ts
+CHECK_CFILES  += mfe_cuda_guard.c mfe_cuda_fm1.c
+LIBRARY_TESTS += mfe_cuda_guard mfe_cuda_fm1
 endif
 
 check_PROGRAMS = ${LIBRARY_TESTS}

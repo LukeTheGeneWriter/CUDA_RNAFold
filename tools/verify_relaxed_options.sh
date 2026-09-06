@@ -25,7 +25,19 @@ echo
 fail=0
 # logML dropped: RNAfold has no --logML flag, so it cannot be barred from the
 # CLI at all; it stays declined in the library guard until it has a real bar.
-for opt_spec in "uniqML:-p" "noGU:--noGU"; do
+#
+# uniqML dropped too, and for the SAME reason -- this arm used to read
+# "uniqML:-p" and was measuring nothing. -p turns on the partition function; it
+# does not set md.uniq_ML. The only RNAfold flag that does is --ImFeelingLucky
+# (RNAfold.c:605), which also sets pf and st_back and returns a STOCHASTICALLY
+# sampled structure, so it cannot be compared byte for byte between two runs
+# either. There is no honest CLI bar for uniq_ML.
+#
+# It has a library one instead: tests/mfe_cuda_fm1.ts folds a batch through
+# vrna_mfe_batch() with uniq_ML set and compares fM1 against an upstream-folded
+# compound cell by cell -- which is the matrix that uniq_ML actually changes,
+# and the one no CLI output would ever reveal.
+for opt_spec in "noGU:--noGU"; do
   tag=${opt_spec%%:*}
   flag=${opt_spec#*:}
   echo "--- $tag  ($flag)"
