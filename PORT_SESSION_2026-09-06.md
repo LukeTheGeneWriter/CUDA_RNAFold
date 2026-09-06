@@ -279,3 +279,133 @@ diff from machine variance". **The fix is methodological**: the current design
 runs A's reps, then B's, then C's, then D's, so any thermal or noisy-neighbour
 drift over ~20 minutes lands unevenly on the arms. Interleaving A/B/A/B would
 cancel it, and is the change to make before quoting an A/B figure to anyone.
+
+---
+
+# int16 `fml_j` — scoped, measured, implemented, gated
+
+Full design and every measurement in `INT16_FML_SCOPE.md`. Landed as `6ce4dc32`,
+behind `RNA_FML_INT16`, **default off**.
+
+## Why it became the priority
+
+The v1 benchmark found the speedup *falls* with length — 7.98x at 2000 nt,
+5.63x at 5601 nt — because `modular_decomposition` is at its DRAM floor while the
+CPU keeps scaling with compute. Then v2 found chunking costs ~k× wall for k
+chunks. `fml_j` is both the irreducible DRAM stream **and** the dominant
+per-record buffer, so halving it pays into both.
+
+## What the measurements settled
+
+- A **per-column** baseline fails: 187 270 spread at 5601 nt against a 65 534
+  ceiling, scaling linearly, because a column holds segments of every length.
+- A **per-block** baseline works and the required range is **flat in n**
+  (5 330 → 7 510 across an 8× length range) — that is what makes it safe at any
+  length rather than up to some cliff.
+- Worst case over length × temperature × salt is **11 148** at 0 °C. Temperature
+  dominates and is monotonic; salt is mild. So **B=64, not B=128**: 1.6% more
+  stream for roughly double the margin.
+- The bound is **provable**, not just sampled: the most negative `stack37` entry
+  is −340 and a B-window admits at most B/2 stacked pairs, so |offset| ≤ 10 880
+  at B=64 — an expression with **no `n` in it**.
+
+Two alternatives were closed with data rather than opinion: there is **no common
+divisor** (`gcd == 1` even at 37 °C, killed by `lxc*log`), and a **global
+dictionary** fails on two independent axes (77 852 distinct values at 10 °C
+n=2000, and roughly linear growth in n). Deferring evaluation cannot work at all —
+a min-plus DP must compare numerically at every cell.
+
+## The constraint that shaped the implementation
+
+Within a sweep row the chain is `load_fML` → `modular_decomposition_i` →
+`load_min_fML`, and **`load_min_fML_kernel` overwrites a subset of what
+`load_fML_kernel` wrote in the same row**, with `fmli_kernel` reading in between
+at the pre-`MIN2` value. So a cell is not final until its row completes — which
+rules out encoding at the point of write.
+
+What saves it: `modular_decomposition_kernel` reads only indices **strictly
+greater than i**, which are final. So a row-shaped int32 staging buffer
+(`d_fml_row`) holds the live row, both writers and `fmli_kernel` point at it, and
+`pack_fml_kernel` closes each row with the final value in hand. `fmli_kernel` got
+*cheaper* — it wants row i, now contiguous instead of strided at `Indx(i,k)`.
+
+## Verified correct, not yet verified fast
+
+| check | result |
+|---|---|
+| A/B, one binary both ways | **5/5 byte-identical**, 176 records |
+| `RNA_ROW_VERIFY`, gate ON | **17 941 560 cells, 0 mismatches** |
+| salt parity, gate ON | 28 frozen vectors + 7 concentrations |
+| option-surface parity, gate ON | 18/18 |
+| VRAM per record | **0.517x — 48.3% saved** |
+
+**Nothing here proves it is faster.** That is what benchmark v3 is for.
+
+## Two traps found by reading, not by a bar going red
+
+Neither is on the default path, so nothing would have gone red. `reset_slot_md()`
+and the bulk `fetch_fML()` both used raw `d_fml_j`, which is unallocated when the
+gate is on. The bulk fetch now routes through the decoding form, and
+**`RNA_FML_INT16` + `RNA_SLOT_FLOW` is refused at init**: `reset_slot_md()` cannot
+reach a slot's baselines from the `tri_lo`/`tri_n` it is given, and a handover
+leaving stale baselines would encode the new occupant against the old one's
+origin — silently.
+
+---
+
+# Benchmark v3 (in flight)
+
+Adds two int16 arms, each paired with an int32 twin differing in one variable:
+**C vs E** isolates the DRAM stream (both single-chunk); **D vs F** measures the
+win at a fixed VRAM budget, where the halved footprint also buys fewer chunks.
+
+Arm F's premise was checked locally first, because if the VRAM saving did not
+reduce the chunk count then F would measure nothing. 60 × 900 nt on a 4 GB card:
+48 MB gave 4 chunks at int32 and 3 at int16; 64 MB gave 3 and 3 (chunk counts are
+**quantised**); and 32 MB gave **0 and 5** — int32 fell below `MIN_GPU_BATCH` and
+folded entirely on the CPU while int16 still ran. All byte-identical. So D/F
+*understates* the benefit on a card that is genuinely too small.
+
+Two new invalidity gates: an int16 arm that never engaged the gate would report
+exactly 1.00x while looking real (the run greps the sweep's own
+`RNA_FML_INT16=1`), and an int16 arm with zero sweeps is not a GPU time.
+
+Running with `REPS=2` for time. Note that makes `spread` a max−min over two runs,
+a weak dispersion estimate, and gives the per-round A/B trend only two points.
+Fine for the large C/E and D/F effects; **not enough to settle A/B** — if that
+still shows 2-3%, treat it as unresolved and re-run at 3 reps before quoting it
+upstream.
+
+---
+
+# Handoff: where this stands
+
+## Blocked on a decision, not on code
+
+- **Circular RNA** — needs `postprocess_circular()` given external linkage.
+  Four of the five post-fill steps are already public. No code written
+  deliberately: a copy would be ~150 lines of upstream logic that drifts.
+- **Sending Part 1 of the proposal** — five upstream defects, ready today,
+  independent of everything else here.
+
+## Blocked on the run in flight
+
+- int16 becoming the default, pending C/E and D/F.
+- The byte-identical reference bar with the gate on, including `F_extreme`.
+
+## Open and unblocked
+
+- `noLP` fails 9/12, cause undiagnosed — and worth checking whether it shares the
+  ptype/constraint root cause found under `-C`.
+- `logML` still has no library-level bar; there is no CLI flag to build one from.
+- `RNA_FML_INT16` + `RNA_SLOT_FLOW`: needs baseline-range plumbing in
+  `reset_slot_md()` before the pairing can be allowed.
+- The A/B discrepancy — the interleaved run should say whether it was ordering.
+
+## The through-line of this session
+
+Every substantive finding came from **measuring something that was being
+assumed**, and three of them came from an instrument that was lying rather than
+from the code being wrong. That is now eight documented false checks on this
+project. The pattern never varies: *the check could not reach what it claimed to
+test*, and it reported success for that reason.
