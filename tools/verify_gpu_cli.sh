@@ -35,7 +35,7 @@ run_all() {
   local BUDGET=${1:-}
   [ -n "$BUDGET" ] && echo "--- RNA_GPU_VRAM_BUDGET_MB=$BUDGET"
 fails=0
-for inp in C_mixed C_control asc desc extreme; do
+for inp in C_mixed C_control asc desc extreme F_extreme; do
   [ -f "$T/$inp.fa" ] || continue
   [ -f "$R/$inp.out" ] || continue
 
