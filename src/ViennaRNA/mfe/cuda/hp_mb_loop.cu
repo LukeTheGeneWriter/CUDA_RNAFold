@@ -276,8 +276,16 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // one-time check (d_param2 starts NULL, a zero-initialized global) rather
   // than on first3, so teardown_gpu3() can reset first3=1 between GPU
   // batches without this block re-allocating (and leaking) them every batch.
+  // ALLOCATE once, UPLOAD every batch -- see the fuller note on the same fix in
+  // int_loop.cu's init_gpu2(). These tables are independent of nfiles and
+  // length but NOT of the model, and uploading them once per process silently
+  // folded later batches with the first batch's energy parameters.
   if(!d_param2) {
     SLOT_ALLOC(&d_param2, sizeof(cuda_param2_t));
+    const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char);
+    SLOT_ALLOC(&d_pair2, pair_size);
+  }
+  {
     load_param2(VC[0]->params);
 
     char pair_[NBPAIRS+1][NBPAIRS+1];
@@ -287,7 +295,6 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       if(x < NBPAIRS+1 && y < NBPAIRS+1) pair_[x][y] = md->pair[x][y];
     }}
     const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char);
-    SLOT_ALLOC(&d_pair2, pair_size);
     gpuErrchk( cudaMemcpy(d_pair2,pair_,pair_size,cudaMemcpyHostToDevice) );
   }
 

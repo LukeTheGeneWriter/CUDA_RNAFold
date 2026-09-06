@@ -329,8 +329,29 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // one-time check (d_param starts NULL, a zero-initialized global) rather
   // than on first2, so teardown_gpu2() can reset first2=1 between GPU
   // batches without this block re-allocating (and leaking) them every batch.
+  // ALLOCATE once, UPLOAD every batch.
+  //
+  // These are independent of nfiles and length, which is why the allocation is
+  // guarded on d_param being NULL rather than on first2 -- reallocating per
+  // batch would leak. They are NOT independent of the MODEL, and uploading them
+  // once per process was a silent wrong-answer bug: a second batch folded with
+  // different model details (a different temperature, say) got the FIRST
+  // batch's energy tables, with no error and perfectly plausible structures.
+  //
+  //   temperature 25, as the first par_mfe() call   12/12 records match
+  //   temperature 25, after one batch at 37 C        0/12 records match
+  //
+  // Invisible from RNAfold, where the model is constant for a whole run, and
+  // reachable the moment anything folds two batches with different models in
+  // one process -- which is exactly what a vrna_mfe_batch() caller or a Python
+  // binding does. The upload is a few KB against a whole batch, so doing it
+  // every time costs nothing worth measuring.
   if(!d_param) {
     SLOT_ALLOC(&d_param, sizeof(cuda_param_s));
+    const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char); // 32-bit signed integer overflow bug fix
+    SLOT_ALLOC(&d_pair, pair_size);
+  }
+  {
     load_param(VC[0]->params);
 
     char pair_[NBPAIRS+1][NBPAIRS+1];
@@ -343,8 +364,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       }
       else assert(md->pair[x][y]==0);
     }}
-    const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char); // 32-bit signed integer overflow bug fix
-    SLOT_ALLOC(&d_pair, pair_size);
+    const size_t pair_size = (NBPAIRS+1)*(NBPAIRS+1)*sizeof(char);
     gpuErrchk( cudaMemcpy(d_pair,pair_,pair_size,cudaMemcpyHostToDevice) );
   }
 

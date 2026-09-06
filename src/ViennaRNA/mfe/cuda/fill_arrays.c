@@ -145,50 +145,54 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
             P->model_details.dangles);
     exit(EXIT_FAILURE);
   }
-  // Same reasoning as the --dangles guard above, for three more model settings
-  // the GPU sweep cannot honour. Each was measured against pristine ViennaRNA
-  // 2.7.2 on 2026-09-04 (PORT_FEATURE_AUDIT.md); without these checks the CLI
-  // accepts all three and the fork answers ANYWAY, which is the one failure
-  // mode worse than not supporting them at all.
-  //
-  // Deliberately here in par_fill_arrays() -- the GPU entry point -- rather
-  // than at option-parse time in RNAfold.c, so records routed to the CPU queue
-  // (RNAfold_cpu_queue.c, stock recursions) keep working. Whether that is a
-  // usable workaround differs per option, and each message below says so from
-  // measurement rather than assumption.
-  if (P->model_details.circ) {
-    fprintf(stderr,
-            "par_fill_arrays: this CUDA build cannot fold circular RNA (-c/--circ); "
-            "the GPU sweep implements the linear recursion only and would silently "
-            "return the LINEAR answer. Workaround: route every record to the CPU path "
-            "with RNA_CPU_THREADS=<n> and RNA_CPU_THRESHOLD above your longest "
-            "sequence -- that path agrees with ViennaRNA 2.7.2, but does not preserve "
-            "input order.\n");
-    exit(EXIT_FAILURE);
+  // Three model settings the GPU sweep cannot honour, each measured against
+  // pristine ViennaRNA 2.7.2 on 2026-09-04 (PORT_FEATURE_AUDIT.md). Without
+  // these checks the fork answers ANYWAY, which is the one failure mode worse
+  // than not supporting them at all.
+  /* PORT TO 2.7.2: these are now a BACKSTOP, and should be unreachable.
+   *
+   * On the 2.3.0 base they were the whole defence, and each message ended with
+   * a workaround involving RNA_CPU_THREADS/RNA_CPU_THRESHOLD -- the fork's own
+   * worker queue, running stock 2.3.0 recursions that themselves disagreed
+   * with 2.7.2 on some of these options.
+   *
+   * None of that is true any more. The queue is retired in favour of upstream's
+   * per-record parallel path, which IS ViennaRNA 2.7.2, and RNAfold.c decides
+   * per run (gpu_path_usable()) whether the device may be used at all --
+   * routing anything unsupported to that path automatically. A user asking for
+   * --gquad gets their answer; they never see these messages.
+   *
+   * So reaching one of these now means the driver's gate has a hole, and the
+   * message says that instead of offering advice that no longer applies. They
+   * are kept precisely so "unreachable" is enforced rather than assumed.
+   */
+#define VRNA_CUDA_BACKSTOP(cond, opt, detail)                                  \
+  if (cond) {                                                                  \
+    fprintf(stderr,                                                            \
+            "par_fill_arrays: %s reached the GPU sweep, which cannot reproduce "\
+            "it (%s).\n"                                                        \
+            "This is a BUG in the routing guard, not a user error: RNAfold "    \
+            "should have folded this run on the CPU path without the device. "  \
+            "Refusing rather than returning a plausible wrong answer.\n",       \
+            opt, detail);                                                      \
+    exit(EXIT_FAILURE);                                                        \
   }
-  if (P->model_details.gquad) {
-    fprintf(stderr,
-            "par_fill_arrays: this CUDA build cannot fold with G-quadruplexes (-g/--gquad); "
-            "the GPU sweep never scores a G-quad contribution into c/fML, so it would "
-            "return a well-formed, self-consistent, SUBOPTIMAL structure (measured 15-31 "
-            "kcal/mol above the true MFE) with no other sign of trouble. Workaround: route "
-            "every record to the CPU path with RNA_CPU_THREADS=<n> and RNA_CPU_THRESHOLD "
-            "above your longest sequence -- that path reproduces ViennaRNA 2.7.2's "
-            "energies exactly, but does not preserve input order and may report a "
-            "different co-optimal structure.\n");
-    exit(EXIT_FAILURE);
-  }
-  if (P->model_details.noGUclosure) {
-    fprintf(stderr,
-            "par_fill_arrays: this CUDA build cannot honour --noClosingGU; the hairpin/"
-            "multibranch kernel applies it (hp_mb_loop.cu new_c_kernel) but the live "
-            "internal-loop kernel does not, so the c matrix comes out internally "
-            "inconsistent and backtracking fails. Refusing rather than half-applying it. "
-            "There is NO CPU-queue workaround for this one: the CPU path is stock 2.3.0 "
-            "and itself disagrees with ViennaRNA 2.7.2 on --noClosingGU (measured 4 of 8 "
-            "records, suboptimal in each).\n");
-    exit(EXIT_FAILURE);
-  }
+
+  VRNA_CUDA_BACKSTOP(P->model_details.circ, "circular RNA (-c/--circ)",
+                     "the sweep implements the linear recursion only and would "
+                     "return the LINEAR answer");
+
+  VRNA_CUDA_BACKSTOP(P->model_details.gquad, "G-quadruplexes (-g/--gquad)",
+                     "the sweep never scores a G-quad contribution into c/fML "
+                     "and would return a self-consistent structure 15-31 "
+                     "kcal/mol above the true MFE");
+
+  VRNA_CUDA_BACKSTOP(P->model_details.noGUclosure, "--noClosingGU",
+                     "half implemented -- the hairpin/multibranch kernel "
+                     "applies it but the internal-loop kernel does not, leaving "
+                     "c internally inconsistent");
+
+#undef VRNA_CUDA_BACKSTOP
   noGUclosure       = P->model_details.noGUclosure;
 //noLP              = P->model_details.noLP;
   uniq_ML           = P->model_details.uniq_ML;
