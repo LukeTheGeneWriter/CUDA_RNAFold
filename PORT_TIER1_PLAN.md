@@ -5,6 +5,20 @@ all memory or parameter work, none of them adding arithmetic to the hot kernel.
 Designs and frozen vectors already exist; this is the sequencing and the
 verification each needs.*
 
+> **STATUS 2026-09-06 — see `PORT_SESSION_2026-09-06.md`.**
+> `uniq_ML` **DONE** (fM1 rebuilt on the host from the fetched `c` triangle;
+> `tests/mfe_cuda_fm1.ts` compares it to upstream cell for cell). Salt **DONE**
+> (28 frozen vectors reproduced, GPU == CPU at 7 concentrations;
+> `tools/verify_salt_parity.sh`). Circular **BLOCKED, no code written**:
+> `postprocess_circular()` is `PRIVATE` in `mfe/mfe.c:103` and the batch path
+> never enters `vrna_mfe()`, so it cannot be reached. Four of the five post-fill
+> steps circular needs are already public; this is the fifth, and it is an
+> upstream ask rather than an implementation task.
+>
+> One correction to the sequencing below: it says circular "depends on
+> `uniq_ML`'s machinery". It does not — `md->circ` *suppresses* `fM1`
+> (`dp_matrices.c:1323-1324`), so the two features never coexist.
+
 **Order: `uniq_ML` → salt → circular.** Justified below; it is not the order of
 value, it is the order of risk. `uniq_ML` is the smallest change that exercises
 the pattern the other two need (produce one more matrix, prove it), salt touches

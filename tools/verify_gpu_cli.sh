@@ -26,8 +26,8 @@ mkdir -p "$W" || exit 2
 CUDA_LIBDIR=$(dirname "$(command -v nvcc)")/../lib
 export LD_LIBRARY_PATH=$CUDA_LIBDIR
 
-[ -x "$BIN" ] || { echo "no RNAfold at $BIN" >&2; exit 2; }
-echo "binary: $BIN"
+. "$(dirname "$0")/bar_preflight.sh"
+bar_preflight "$BIN" "$B" || exit 2
 echo "chunk : RNA_GPU_CHUNK=$CHUNK"
 echo
 

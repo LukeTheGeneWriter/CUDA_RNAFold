@@ -12,6 +12,8 @@ set -u
 export PATH="$HOME/miniforge3/bin:$PATH"
 B=${1:-$HOME/port27cuda}
 BIN=$B/src/bin/RNAfold
+. "$(dirname "$0")/bar_preflight.sh"
+bar_preflight "$BIN" "$B" || exit 2
 T=$HOME/rnatest
 CUDA_LIBDIR=$(dirname "$(command -v nvcc)")/../lib
 export LD_LIBRARY_PATH=$CUDA_LIBDIR

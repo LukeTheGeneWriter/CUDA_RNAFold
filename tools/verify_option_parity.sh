@@ -13,6 +13,8 @@ export PATH="$HOME/miniforge3/bin:$PATH"
 B=${1:-$HOME/port27cuda}
 IN=${2:-$HOME/rnatest/asc.fa}
 BIN=$B/src/bin/RNAfold
+. "$(dirname "$0")/bar_preflight.sh"
+bar_preflight "$BIN" "$B" || exit 2
 CUDA_LIBDIR=$(dirname "$(command -v nvcc)")/../lib
 export LD_LIBRARY_PATH=$CUDA_LIBDIR
 W=${TMPDIR:-/tmp}/vrna_optparity
