@@ -8,6 +8,7 @@
 #include <ViennaRNA/mfe/global.h>
 #include <ViennaRNA/grammar/mfe.h>
 #include <ViennaRNA/constraints/soft.h>
+#include <ViennaRNA/constraints/hard.h>
 #include <ViennaRNA/mfe/cuda/engine.h>
 
 static const char *guard_seq =
@@ -92,6 +93,44 @@ declines(vrna_fold_compound_t *fc)
   vrna_sc_init(fc);
   ck_assert(declines(fc));
 
+  vrna_fold_compound_free(fc);
+}
+
+#test test_guard_declines_hard_structure_constraints
+{
+  /*
+   * Regression, and it was a live wrong-answer bug rather than a hypothetical.
+   * A -C style dot-bracket constraint leaves hc->type at VRNA_HC_DEFAULT and
+   * hc->f at NULL, so before the depot check every other test in this guard
+   * passed a constrained compound straight through to the device -- which
+   * returned -14.30 for a structure worth -5.40.
+   *
+   * The compound is deliberately NOT prepared here, because that is the state
+   * the batch callback sees: vrna_constraints_add() only queues, and hc->mx,
+   * ptype and up_* are all still byte-identical to an unconstrained compound
+   * until vrna_fold_compound_prepare() runs inside par_mfe(). A guard that
+   * inspected hc->mx at this point would compare two identical matrices and
+   * accept everything.
+   */
+  vrna_fold_compound_t  *fc = fc_with(NULL);
+  char                  *con;
+  size_t                n = strlen(guard_seq), i;
+
+  con = (char *)vrna_alloc(sizeof(char) * (n + 1));
+  for (i = 0; i < n; i++)
+    con[i] = (i > n / 4 && i < n / 2) ? 'x' : '.';
+  con[n] = '\0';
+
+  /* the guard must accept it before the constraint is added ... */
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
+
+  vrna_constraints_add(fc, con, VRNA_CONSTRAINT_DB_DEFAULT);
+
+  /* ... and decline it after, with nothing prepared in between */
+  ck_assert(fc->hc->depot != NULL);
+  ck_assert(declines(fc));
+
+  free(con);
   vrna_fold_compound_free(fc);
 }
 

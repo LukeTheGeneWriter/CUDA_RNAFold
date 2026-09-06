@@ -281,13 +281,20 @@ compute_centroid(vrna_fold_compound_t *fc,
                  vrna_cstr_t          buf);
 
 
+/* `quiet` suppresses only the WARNINGS, never the application of a constraint
+ * or the hard error on an over-long one. The GPU chunk path builds its own fold
+ * compounds and so must apply the same constraints process_record() will, which
+ * would otherwise report every malformed record twice. Muting the logger around
+ * the call is not an option: process_record() runs on the thread pool and could
+ * be logging concurrently. */
 static void
 apply_constraints(vrna_fold_compound_t  *fc,
                   const char            *constraints_file,
                   const char            **rec_rest,
                   int                   maybe_multiline,
                   int                   enforceConstraints,
-                  int                   canonicalBPonly);
+                  int                   canonicalBPonly,
+                  int                   quiet);
 
 
 static char *
@@ -1005,9 +1012,20 @@ gpu_path_usable(struct options *opt,
   if (md->salt != VRNA_MODEL_DEFAULT_SALT)
                                 NO("salt correction");
 
-  /* Per-record data that reaches the recursion as constraints. The sweep
-   * derives its hard-constraint bitmasks from the SEQUENCE alone, so anything
-   * that adds constraints per record has to stay on the CPU. */
+  /* Per-record data that reaches the recursion as constraints.
+   *
+   * Hard constraints were MEASURED here, not assumed, and they do not work: on
+   * a 12x80 nt batch with a forced-unpaired block the sweep returned -14.30 for
+   * a structure worth -5.40. See the long note in mfe/cuda/engine.c, which
+   * declines them at the library level -- that is the check that actually keeps
+   * a vrna_mfe_batch() caller safe. This one is a routing decision on top:
+   * barring the run here keeps -C on upstream's PARALLEL per-record path,
+   * whereas letting the chunk build and then be declined would fold it serially
+   * inside vrna_mfe_batch().
+   *
+   * flush_gpu_chunk() still applies constraints to the compounds it builds. It
+   * is not dead code: it is what makes the declined-batch fallback fold the
+   * right thing, and it has to be in place before this bar can lift. */
   if (fold_constrained)         NO("structure constraints");
   if (opt->constraint_file)     NO("a constraint file");
   if (opt->probing_data)        NO("probing/SHAPE data");
@@ -1068,6 +1086,25 @@ flush_gpu_chunk(struct record_data **chunk,
 
   for (i = 0; i < n; i++) {
     VC[i]  = vrna_fold_compound(chunk[i]->sequence, &(opt->md), VRNA_OPTION_DEFAULT);
+
+    /* The chunk path builds its OWN fold compounds, so it has to apply every
+     * per-record constraint that process_record() would apply to its own. Skip
+     * this and the batch folds unconstrained and returns a plausible, wrong
+     * structure -- the precise failure mode the routing guard exists to
+     * prevent, arriving through the driver rather than through the device.
+     *
+     * process_record() still applies constraints to the compound it builds for
+     * the partition function, MEA and the no-solution check; these two
+     * compounds are separate objects, so nothing is constrained twice. */
+    if (fold_constrained)
+      apply_constraints(VC[i],
+                        opt->constraint_file,
+                        (const char **)chunk[i]->rest,
+                        chunk[i]->multiline_input,
+                        opt->constraint_enforce,
+                        opt->constraint_canonical,
+                        1 /* quiet: process_record() reports each record once */);
+
     Str[i] = (char *)vrna_alloc(sizeof(char) * (strlen(chunk[i]->sequence) + 1));
   }
 
@@ -1451,7 +1488,8 @@ process_record(struct record_data *record)
                       (const char **)record->rest,
                       record->multiline_input,
                       opt->constraint_enforce,
-                      opt->constraint_canonical);
+                      opt->constraint_canonical,
+                      0 /* the one place constraint problems are reported */);
   }
 
   if (opt->probing_data)
@@ -1803,7 +1841,8 @@ apply_constraints(vrna_fold_compound_t  *fc,
                   const char            **rec_rest,
                   int                   maybe_multiline,
                   int                   enforceConstraints,
-                  int                   canonicalBPonly)
+                  int                   canonicalBPonly,
+                  int                   quiet)
 {
   if (constraints_file) {
     /** [Adding hard constraints from file] */
@@ -1817,9 +1856,11 @@ apply_constraints(vrna_fold_compound_t  *fc,
     unsigned int  cl = (cstruc) ? strlen(cstruc) : 0;
 
     if (cl == 0) {
-      vrna_log_warning("structure constraint is missing");
+      if (!quiet)
+        vrna_log_warning("structure constraint is missing");
     } else if (cl < length) {
-      vrna_log_warning("structure constraint is shorter than sequence");
+      if (!quiet)
+        vrna_log_warning("structure constraint is shorter than sequence");
     } else if (cl > length) {
       vrna_log_error("structure constraint is too long");
       exit(EXIT_FAILURE);

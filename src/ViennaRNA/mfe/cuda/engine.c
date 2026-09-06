@@ -145,14 +145,45 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   /*
    * Constraints. Soft constraints reach the recursion as arbitrary host
    * callbacks, which cannot run in a kernel at all; hard constraint callbacks
-   * are the same problem. Only the bitmask form of hard constraints, derived
-   * from the sequence, is reproducible on the device.
+   * are the same problem.
    */
   if (fc->sc != NULL)
     DECLINE("soft constraints");
 
   if ((fc->hc != NULL) && (fc->hc->f != NULL))
     DECLINE("hard constraint callback");
+
+  /*
+   * HARD CONSTRAINTS, in their plain bitmask form, are declined too -- and this
+   * one closed a live hole rather than documenting a known gap.
+   *
+   * Until this check existed, nothing here fired for a -C style constraint: it
+   * leaves hc->type at VRNA_HC_DEFAULT and hc->f at NULL, so a constrained fold
+   * compound passed the guard and vrna_mfe_batch() folded it on the device.
+   * Measured on a 12x80 nt batch with a forced-unpaired block, the device
+   * returned -14.30 for a structure worth -5.40 -- its matrix fill and its
+   * backtrack did not even agree with each other.
+   *
+   * The sweep is not simply ignoring the constraint matrix; it packs bitmasks
+   * from hc->mx and honours some of it. It does not reproduce upstream's full
+   * set of loop-context checks, and the fork's own host sweep is wrong in the
+   * SAME way, which is why RNA_ROW_VERIFY reports 58128 cells checked and zero
+   * mismatches on the very folds that come out wrong. Device-against-host
+   * cannot see a defect the two share; only upstream's fill_arrays can.
+   *
+   * The depot is the right thing to test. vrna_constraints_add() only QUEUES a
+   * constraint -- hc->mx, ptype and up_* are all still byte-identical to an
+   * unconstrained compound until vrna_fold_compound_prepare() materialises them
+   * -- and this guard runs BEFORE par_mfe() prepares. So comparing hc->mx here
+   * would compare two identical matrices and accept everything, which is
+   * precisely the shape of the empty-vs-empty checks that have already fooled
+   * this project. hc->depot is non-NULL from the moment a constraint is queued.
+   *
+   * tools/verify_constraint_parity.sh is the bar this has to pass before the
+   * check can be lifted; PORT_ACCELERATION_SCOPE.md records the cost.
+   */
+  if ((fc->hc != NULL) && (fc->hc->depot != NULL))
+    DECLINE("hard structure constraints (see tools/verify_constraint_parity.sh)");
 
   if (fc->domains_up != NULL)
     DECLINE("unstructured domains (ligand motifs)");
