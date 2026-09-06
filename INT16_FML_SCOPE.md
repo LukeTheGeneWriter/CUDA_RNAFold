@@ -3,9 +3,11 @@
 *Scoped 2026-09-06, after the 2.7.2 port landed and the first benchmark against
 upstream. Supersedes the "not started, not scoped" status of this idea.*
 
-**Verdict: viable.** A per-block offset encoding is bit-exact with roughly 4x
-headroom at 8001 nt, and — the property that decides it — the required range
-does **not grow with sequence length**.
+**Verdict: viable, at B=64.** A per-block offset encoding is bit-exact with
+~5.1x headroom at B=64 across every length, temperature and salt tested, and
+— the property that decides it — the required range does **not grow with
+sequence length**. It DOES grow as temperature falls, which the first pass
+missed by measuring only the 37 °C default; see "Two holes" below.
 
 ---
 
@@ -92,9 +94,10 @@ decides the idea is the spread within a block of B consecutive entries:
 where the per-column spread grew linearly. That is what makes the encoding safe
 at any length rather than up to some cliff.
 
-At B=128 the worst case is 7 510 against a *signed* int16 range of ±32767 —
-about 4x headroom — while the baseline costs one int32 per 128 entries, i.e.
-3.1%. Net stream **0.53x** rather than a theoretical 0.50x.
+At B=128 the worst case on the DEFAULT model is 7 510 against a signed int16
+range of ±32767. That is the number the first pass stopped at; it is not the
+design margin, because the default model is not the worst model. See the
+worst-case table below, which selects B=64.
 
 ## The ordering subtlety, and why it is not a problem
 
@@ -110,6 +113,110 @@ member of the block works, because what bounds the offset is the block's
 first-written entry (the highest index, written at the earliest row) makes it
 final the moment the block is created, and every later entry is a signed delta
 from it, bounded by the spreads above.
+
+## Two holes in the above, found by re-reading the existing width analysis
+
+`hp_mb_loop.cu:873-903` already contains a value-range analysis, written when
+the fml_scan tile width was made tunable. Re-reading it against this proposal
+exposed two assumptions in the measurements above that were not tested. Both
+were checked rather than argued; both hold, but the second one moved a number.
+
+### Hole 1: "non-finite" might not be a single value — RESOLVED
+
+That comment records that the host's two INF guards are **not symmetric**: when
+`fml_prev[j]` is a real energy and `en_i` is INF, the host computes
+`fml_prev[j] + 10000000` — *"a large positive number, NOT INF"* — and the INF
+test is `== INF`, never `>= INF`, precisely so such values survive as distinct.
+
+Measurement 1 lumped everything `>= INF/2` into "INF" and discarded it, then
+concluded that one sentinel would do. If `fML` carried a *spread* of near-INF
+values, one sentinel would be wrong.
+
+**Measured: it does not.** Across default, 10 °C, 60 °C and salt 0.05/0.2/5.0 at
+3000 nt, every non-finite cell in `fML` is *exactly* 10000000 — near-INF cells:
+**0** in every model. The asymmetric-guard values are real, but they live in the
+**row buffers** (`fml_prev`, the scan's `A[j]`), not in the `fML` triangle. Since
+`d_fml_j` *is* `my_fML`, a single sentinel is sufficient for the buffer actually
+being narrowed. The hazard is genuine; it is simply not in this stream.
+
+### Hole 2: the spread was measured on the default model only — MATTERS
+
+The same comment bounds the tropical sums by `length*|MLbase|` *"with a
+non-default parameter file"*, i.e. it already identifies non-default parameters
+as the case that stretches ranges. Everything in Measurement 2 used
+`vrna_md_set_default()`.
+
+**Measured at 3000 nt, B=128:**
+
+| model | worst blocked spread |
+|---|---|
+| default (37 °C, 1.021 M) | 6 060 |
+| 60 °C | 3 640 |
+| salt 0.05 M | 5 401 |
+| salt 5.0 M | 6 414 |
+| **10 °C** | **8 837** |
+| 10 °C + salt 0.05 M | 8 040 |
+
+Temperature dominates, and in the direction that costs: **lower temperature
+means stronger pairing, larger energy magnitudes, wider spreads**. 10 °C is 46%
+worse than the default. Salt is comparatively mild — which is consistent with
+salt entering as an additive per-loop correction rather than rescaling the
+stack energies.
+
+So the honest headroom is not the 4x quoted from the default model. See the
+worst-case table below, which is what the design should be sized against.
+
+### The worst case, which is what the design must be sized against
+
+Length x temperature x salt, B=128, worst blocked spread:
+
+| n | 37 °C | 20 °C | 10 °C | 0 °C |
+|---|---|---|---|---|
+| 2000 | 5 990 | 7 798 | 8 742 | 9 876 |
+| 5601 | 6 400 | 8 117 | 9 602 | **11 041** |
+| 8001 | 6 860 | 8 437 | 9 602 | **11 041** |
+
+(at 1.021 M; salt 5.0 M adds ~1%, salt 0.05 M subtracts ~10%)
+
+**Worst over everything tested: 11 148**, at 0 °C — **2.9x** headroom on a
+signed int16, not the 4x the default model suggested. Temperature is the
+dominant axis and it is monotonic: colder is always worse. Length matters much
+less, and above 5601 nt barely at all.
+
+*One oddity worth recording rather than hiding:* 5601 and 8001 give byte-identical
+worst spreads at 10 °C and 0 °C but differ at 37 °C and 20 °C. The probe seeds
+its RNG identically, so the 8001 sequence contains the 5601 one as a prefix;
+the likeliest explanation is that at low temperature the worst-case block is a
+locally-determined motif inside that shared prefix. It does not affect the
+bound, but it means these two rows are not independent samples.
+
+### Choose B=64, not B=128 — and a correction to my own arithmetic
+
+I previously wrote the net stream as "0.50 + 0.03 = 0.53x". That is wrong: it
+added the baseline overhead as a fraction of the *original* stream rather than
+of the *narrowed* one. The stream is `2 + 4/B` bytes per entry against 4:
+
+| B | bytes/entry | net stream | worst spread | headroom |
+|---|---|---|---|---|
+| 64 | 2.063 | **0.516x** | ~6 400 | **~5.1x** |
+| 128 | 2.031 | **0.508x** | 11 148 | 2.9x |
+
+So the real figure is ~0.51x either way — closer to the theoretical 0.50x than
+I claimed, which makes the case slightly *better*. And it makes the choice
+obvious: **B=64 costs 1.6% more stream than B=128 and buys roughly double the
+safety margin.** Given that this codebase's integer history is a list of bounds
+that held until they did not, that is the right trade. B=128 is not wrong today;
+it is simply thinner than it needs to be for nothing gained.
+
+### The residual unknown, and its mitigation
+
+A user-supplied parameter file (`-P`) is the case the original comment names and
+the one case that cannot be enumerated by sampling. The mitigation is not a
+wider bound but a **runtime trap**: the narrowing in `load_fML_kernel` must
+range-check and abort rather than wrap. A silent wrap here would produce a
+plausible, self-consistent, wrong answer — the exact failure mode this project
+keeps having to guard against, and the reason the earlier integer fixes had to
+*widen* rather than assume.
 
 ## Knock-on work
 
@@ -131,9 +238,9 @@ from it, bounded by the spreads above.
 
 ## What it should be worth
 
-If the kernel stays bandwidth-bound, a 0.53x stream takes it to ~0.53x of its
+If the kernel stays bandwidth-bound, a 0.52x stream takes it to ~0.52x of its
 time. On the 2.7.2 numbers, the 5601 nt workload's 102.96 s is roughly 73%
-`modular_decomposition`; 0.53x on that share predicts **~65-70 s**, i.e. A/C
+`modular_decomposition`; 0.52x on that share predicts **~65-70 s**, i.e. A/C
 rising from 5.63x to about **8.3x** — which would close the gap with the 2000 nt
 case almost exactly. That symmetry is a useful prediction to test against,
 because it falls out of the model rather than being fitted to it.
