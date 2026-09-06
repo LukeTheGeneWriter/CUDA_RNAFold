@@ -90,6 +90,14 @@ struct cuda_param_s {
   int     int11[NBPAIRS+1][NBPAIRS+1][5][5];
   int     int21[NBPAIRS+1][NBPAIRS+1][5][5][5];
   int     int22[NBPAIRS+1][NBPAIRS+1][5][5][5][5];
+  //Salt, appended last so no offset above it moves. Indexed by backbone
+  //count: an internal loop is bounded by MAXLOOP, so backbones = nl+ns+2
+  //tops out at MAXLOOP+2 and MAXLOOP+3 entries always suffice. Note that
+  //index MAXLOOP+2 is one PAST upstream's own P->SaltLoop, which upstream
+  //reaches by the closed form -- rnafold_build_salt_table() folds both
+  //branches in, so the kernel just indexes. All zero at default salt.
+  int     SaltStack;
+  int     SaltLoop[MAXLOOP+3];
 //int     MLbase;
 //int     MLintern[NBPAIRS+1];
 //int     MLclosing;
@@ -259,6 +267,9 @@ void load_param(const vrna_param_t *P){
   memcpy(H->int11,        P->int11,        (NBPAIRS+1)*(NBPAIRS+1)*5*5*sizeof(int));
   memcpy(H->int21,        P->int21,        (NBPAIRS+1)*(NBPAIRS+1)*5*5*5*sizeof(int));
   memcpy(H->int22,        P->int22,        (NBPAIRS+1)*(NBPAIRS+1)*5*5*5*5*sizeof(int));
+  H->SaltStack  =         P->SaltStack;
+  //n_max = MAXLOOP+1 fills exactly MAXLOOP+3 entries (n_max+2)
+  rnafold_build_salt_table(P, MAXLOOP+1, H->SaltLoop);
 
   const cudaError_t error = cudaMemcpy(d_param,H,sizeof(cuda_param_s),cudaMemcpyHostToDevice);
   if (error != cudaSuccess)  {
@@ -1009,7 +1020,8 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 				  P->stack,
 				  P->int11,
 				  P->int21,
-				  P->int22);
+				  P->int22,
+				  P->SaltStack, P->SaltLoop);
 	      //if(i==2000) printf("\n");
 	    }//endif c[pq+] != INF
 	  }//endif hc[pq+] & ...

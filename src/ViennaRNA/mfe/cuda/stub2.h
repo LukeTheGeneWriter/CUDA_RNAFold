@@ -400,6 +400,14 @@ extern double stage_build_s, stage_prepare_s, stage_prefill_s, stage_backtrack_s
 extern double stage_output_s, stage_gpuinit_s, stage_teardown_s, stage_free_s;
 double rnafold_now_seconds(void);
 
+// Salt correction indexed by backbone count, filled by mfe_cuda.c. Both
+// init_gpu2() (internal loops, stacks) and init_gpu3() (hairpins) upload their
+// own device copy of this; `out` needs n_max + 2 ints and comes back all zero
+// at the default salt. See the fuller note at the definition -- the reason this
+// is precomputed on the host rather than evaluated in a kernel is that hairpin
+// loops, unlike internal ones, are not bounded by MAXLOOP.
+void rnafold_build_salt_table(const vrna_param_t *P, const int n_max, int *out);
+
 // Non-zero when hc->matrix and ptype are pure functions of the sequence, i.e.
 // no user constraints/SHAPE/ligand-motifs/commands and noLP off. Set once by
 // RNAfold.c. When set, init_gpu2/init_gpu3 skip their O(n^2) host packing

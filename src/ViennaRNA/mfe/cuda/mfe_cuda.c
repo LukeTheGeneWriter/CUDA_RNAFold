@@ -53,6 +53,7 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 #include "ViennaRNA/mfe/global.h"
 #include "ViennaRNA/backtrack/global.h"   /* PORT: vrna_backtrack_from_intervals() */
 #include "ViennaRNA/mfe/multibranch.h"    /* vrna_mfe_multibranch_m1(), for fM1 */
+#include "ViennaRNA/params/salt.h"        /* vrna_salt_loop_int(), for the salt table */
 
 #include <assert.h>
 #ifdef STUB
@@ -282,6 +283,43 @@ double stage_ig_malloc_s  = 0.0; //cudaMalloc inside the three init functions
 // See stub2.h. Default 0 = always use the host packing path, so anything that
 // forgets to set it stays correct rather than silently wrong.
 int g_hc_seq_derived = 0;
+
+/* Salt correction table, shared by the hairpin and internal-loop kernels.
+ *
+ * Indexed by BACKBONE COUNT, upstream's `L`: a hairpin of `size` uses
+ * [size + 1] (eval/hairpin.h:357), an internal loop uses [backbones] where
+ * backbones = nl + ns + 2 (eval/internal.h:644). Upstream stores only
+ * SaltLoop[MAXLOOP + 2] and evaluates the closed form vrna_salt_loop_int()
+ * beyond that. An internal loop can never exceed MAXLOOP so the table always
+ * suffices there, but a HAIRPIN is unbounded -- which is the only reason this
+ * function exists. Rather than port exp/log into a kernel and then have to
+ * defend a double-precision match, the closed form is evaluated here, on the
+ * host, by upstream's own function, for every index a batch could ask for.
+ *
+ * `out` must hold n_max + 2 ints. All zero when salt is at its default, which
+ * is what makes the kernels' unconditional add correct in the common case.
+ */
+PUBLIC void
+rnafold_build_salt_table(const vrna_param_t *P, const int n_max, int *out)
+{
+  const double salt = P->model_details.salt;
+  int          L;
+
+  if (salt == VRNA_MODEL_DEFAULT_SALT) {
+    memset(out, 0, (size_t)(n_max + 2) * sizeof(int));
+    return;
+  }
+
+  for (L = 0; L < n_max + 2; L++) {
+    out[L] = (L <= MAXLOOP + 1)
+             ? P->SaltLoop[L]
+             : vrna_salt_loop_int(L,
+                                  salt,
+                                  P->temperature + K0,
+                                  P->model_details.backbone_length);
+  }
+}
+
 
 double rnafold_now_seconds(void) {
   struct timespec ts;

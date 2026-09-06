@@ -82,6 +82,16 @@ struct cuda_param2_s {
 };
 
 cuda_param2_t* d_param2;
+// Salt correction, indexed by BACKBONE COUNT (params/salt.h's L), not loop size.
+// A hairpin of `size` reads [size+1]; an internal loop of `backbones` reads
+// [backbones]. Upstream keeps only P->SaltLoop[MAXLOOP+2] and falls back to the
+// closed form vrna_salt_loop_int() above that -- which needs exp/log and a
+// double-precision match we would then have to defend. Hairpins are NOT bounded
+// by MAXLOOP (an internal loop is), so instead the host evaluates that same
+// closed form once per index up to the batch's longest record and uploads the
+// result: length+2 ints, and the kernel is left with a load and an add.
+// All zeros when md->salt is the default, exactly as upstream's own guard.
+int*           d_salt_loop;
 char*  d_pair2;      //[NBPAIRS+1][NBPAIRS+1], pair-type lookup, same content as int_loop.cu's d_pair
 short* d_S2;          //sequence_encoding, [nfiles][length+2]
 char*  d_sequence;    //raw nucleotide letters, [nfiles][length+2], for the tri/tetra/hexaloop string scan
@@ -392,6 +402,18 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     gpuErrchk( cudaMemcpy(d_len_H, len_H, (size_t)nfiles*sizeof(int), cudaMemcpyHostToDevice) );
   }
 
+  // Salt correction table. Length-dependent, so unlike d_param2 it belongs with
+  // the per-batch buffers rather than the allocate-once ones. `length` is the
+  // batch's longest record, which bounds every hairpin any kernel can ask about.
+  {
+    const size_t salt_bytes = (size_t)(length+2)*sizeof(int);
+    SLOT_ALLOC(&d_salt_loop, salt_bytes);
+    int* saltbuff = (int*) malloc(salt_bytes);
+    rnafold_build_salt_table(VC[0]->params, length, saltbuff);
+    gpuErrchk( cudaMemcpy(d_salt_loop, saltbuff, salt_bytes, cudaMemcpyHostToDevice) );
+    free(saltbuff);
+  }
+
   // Staggered_Row_Batching Phase 5: allocated here, not populated here --
   // changes every sweep row i, uploaded fresh per-row by hp_mb_3p_i().
   SLOT_ALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
@@ -567,6 +589,7 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_S2) );
   gpuErrchk( cudaFree(d_sequence) );
   gpuErrchk( cudaFree(d_up_ml_ok) );
+  gpuErrchk( cudaFree(d_salt_loop) );   //length-dependent: freed with the batch
   gpuErrchk( cudaFree(d_energy_hp_row) );
   gpuErrchk( cudaFree(d_energy_mb_row) );
   gpuErrchk( cudaFree(d_energy_3p00_row) );
@@ -604,8 +627,15 @@ hp_mb_loop_bytes_per_file(const int length) {
   // this function: RNAfold.c admits records into a chunk against this number,
   // so a buffer allocated but not counted is a chunk that does not fit.
   const size_t up_ml_bytes      = (size_t)(length+2)*sizeof(char);
+  // The salt table is ONE array for the whole batch, not one per record, so
+  // charging it per file over-counts it by nfiles. That is deliberate: this
+  // number gates chunk admission, and over-counting only makes a chunk slightly
+  // smaller while under-counting makes it not fit. The error it introduces is
+  // 22 KB against ~125 MB of triangles per record at 5601 nt -- 0.02% -- which
+  // is a better trade than threading a per-batch term through the budget for it.
+  const size_t salt_bytes       = (size_t)(length+2)*sizeof(int);
   return hccc_mb_bytes + hccc_mbenc_bytes + hccc_any_bytes + hccc_gu_bytes
-       + s2_bytes + sequence_bytes + up_ml_bytes
+       + s2_bytes + sequence_bytes + up_ml_bytes + salt_bytes
        + hp_row_bytes + mb_row_bytes + p3p00_row_bytes + gate_row_bytes;
 }
 
@@ -635,11 +665,22 @@ Hc2(const int ij, const unsigned int* __restrict__ hccc){
 //caller passes (vc->sequence+i-1) -- device equivalent is &d_sequence[seq_off_H[H]+i-1].
 __device__ inline int
 E_Hairpin_device(const int size, const int type, const int si1, const int sj1,
-                  const char* __restrict__ seq, const cuda_param2_t* __restrict__ P) {
+                  const char* __restrict__ seq, const cuda_param2_t* __restrict__ P,
+                  const int* __restrict__ salt_loop) {
   int energy;
+
+  // Salt (eval/hairpin.h:352-371). Upstream branches on md.salt and then on
+  // size <= MAXLOOP; both branches are folded into the table on the host, so
+  // this is one load and the default-salt case adds a zero. It is added BEFORE
+  // the special-hairpin lookups and carried into each of their early returns,
+  // which is upstream's order -- getting that backwards would leave the
+  // tetraloop/triloop/hexaloop cases uncorrected and nothing else would notice.
+  const int salt = salt_loop[size+1];
 
   if(size <= 30) energy = P->hairpin[size];
   else            energy = P->hairpin[30] + (int)(P->lxc*log((double)size/30.)); //double log() to match host precision (hairpin_loops.h:116)
+
+  energy += salt;
 
   if(size < 3) return energy; /* should only be the case when folding alignments */
 
@@ -651,7 +692,7 @@ E_Hairpin_device(const int size, const int type, const int si1, const int sj1,
         if(P->Tetraloops[off]==0) break; //end of populated entries
         int match=1;
         for(int k=0;k<6;k++) if(P->Tetraloops[off+k]!=tl[k]) { match=0; break; }
-        if(match) return P->Tetraloop_E[off/7];
+        if(match) return P->Tetraloop_E[off/7] + salt;
       }
     }
     else if(size == 6){
@@ -661,7 +702,7 @@ E_Hairpin_device(const int size, const int type, const int si1, const int sj1,
         if(P->Hexaloops[off]==0) break;
         int match=1;
         for(int k=0;k<8;k++) if(P->Hexaloops[off+k]!=tl[k]) { match=0; break; }
-        if(match) return P->Hexaloop_E[off/9];
+        if(match) return P->Hexaloop_E[off/9] + salt;
       }
     }
     else if(size == 3){
@@ -671,7 +712,7 @@ E_Hairpin_device(const int size, const int type, const int si1, const int sj1,
         if(P->Triloops[off]==0) break;
         int match=1;
         for(int k=0;k<5;k++) if(P->Triloops[off+k]!=tl[k]) { match=0; break; }
-        if(match) return P->Triloop_E[off/6];
+        if(match) return P->Triloop_E[off/6] + salt;
       }
       return energy + (type>2 ? P->TerminalAU : 0);
     }
@@ -702,6 +743,7 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
                  const unsigned int* __restrict__ hccc_any,
                  const unsigned int* __restrict__ hccc_gu,
                  const cuda_param2_t* __restrict__ P,
+                 const int* __restrict__ salt_loop,   //in  d_salt_loop, by backbone count
                        int* __restrict__ energy_hp_row,
                        int* __restrict__ energy_mb_row,
                        int* __restrict__ energy_3p00_row,
@@ -753,7 +795,7 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
   {
     const int u = j-i-1;
     energy_hp_row[row_off_H[H]+j] =
-      E_Hairpin_device(u, type, S_H[i+1], S_H[j-1], &seq_H[i-1], P);
+      E_Hairpin_device(u, type, S_H[i+1], S_H[j-1], &seq_H[i-1], P, salt_loop);
   }
 
   //energy_mb: mb_loop_fast.c:92-148 (dangle_model==2, cp==-1, sc==NULL path)
@@ -1463,7 +1505,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   hp_mb_3p_kernel<<<nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn, length,
                                           d_S2, d_sequence, d_pair2,
                                           d_hccc_mb, d_hccc_mbenc,
-                                          d_hccc_any, d_hccc_gu, d_param2,
+                                          d_hccc_any, d_hccc_gu, d_param2, d_salt_loop,
                                           d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row,
                                           d_gate_row,
                                           d_row_off_H, d_hc2_off_H, d_seq_off_H, d_len_H,

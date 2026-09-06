@@ -73,11 +73,12 @@ declines(vrna_fold_compound_t *fc)
    * Each of these changes the recursion or the energies. Every one was either
    * silently wrong or half-applied on the 2.3.0 GPU path before it was guarded.
    */
-  /* md_uniqml is deliberately NOT here any more: the fM1 post-pass in
-   * mfe_cuda.c reconstructs the matrix, so uniq_ML is now supported and
-   * test_guard_accepts_uniq_ML below asserts that directly. */
+  /* md_uniqml and md_salt are deliberately NOT here any more -- both are now
+   * supported, and each has its own accepts- test below so that a guard
+   * silently re-tightening shows up as a failure rather than as a quiet loss
+   * of acceleration. */
   void (*tweaks[])(vrna_md_t *) = {
-    md_dangles0, md_gquad, md_circ, md_nolp, md_noguclose, md_salt
+    md_dangles0, md_gquad, md_circ, md_nolp, md_noguclose
   };
   size_t i;
 
@@ -108,6 +109,21 @@ declines(vrna_fold_compound_t *fc)
    * shows up as a failure here rather than as a quiet loss of acceleration. */
   vrna_fold_compound_t *fc = fc_with(md_uniqml);
 
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
+
+  vrna_fold_compound_free(fc);
+}
+
+#test test_guard_accepts_salt
+{
+  /* Salt reaches the device three ways, and only one of them is code: the
+   * multibranch parameters carry it already (params.c:640-645), while the
+   * hairpin and internal-loop kernels add a term from a host-built table.
+   * tools/verify_salt_parity.sh checks the ENERGIES; this checks only that the
+   * routing decision still says yes. */
+  vrna_fold_compound_t *fc = fc_with(md_salt);
+
+  ck_assert(fc->params->model_details.salt != VRNA_MODEL_DEFAULT_SALT);
   ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
 
   vrna_fold_compound_free(fc);

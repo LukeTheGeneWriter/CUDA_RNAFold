@@ -110,7 +110,15 @@ IntLoop_X(const int n1,
 	  const int stack[NBPAIRS+1][NBPAIRS+1],
 	  const int int11[NBPAIRS+1][NBPAIRS+1][5][5],
 	  const int int21[NBPAIRS+1][NBPAIRS+1][5][5][5],
-	  const int int22[NBPAIRS+1][NBPAIRS+1][5][5][5][5] /*,
+	  const int int22[NBPAIRS+1][NBPAIRS+1][5][5][5][5],
+		  //Salt. Upstream carries TWO corrections here and they are not
+		  //interchangeable: the stack case takes SaltStack, every loop case
+		  //takes SaltLoop[backbones] where backbones = nl+ns+2. Note that
+		  //backbones can reach MAXLOOP+2, one past upstream's own table, so
+		  //salt_loop is the host-extended one (see stub2.h), not P->SaltLoop.
+		  //eval/internal.h:625, 637, 640-650.
+		  const int salt_stack,
+		  const int* __restrict__ salt_loop /*,
 	  const int v*/){ //verbose
 //printf("E_IntLoop(%d,%d,%d,%d,%d,%d,%d,P)\n",
 //	 n1,n2,type,type_2,si1,sj1,sp1,sq1);
@@ -121,8 +129,12 @@ IntLoop_X(const int n1,
 
   if (nl == 0) {
     //if(v)printf("n1==0 stack[%d][%d]",type,type_2);
-    return stack[type][type_2];  /* stack */
+    return stack[type][type_2] + salt_stack;  /* stack */
   }
+  //eval/internal.h:640 -- AFTER the stack return above, so a stack never
+  //picks up a loop correction and a loop never picks up the stack one.
+  const int salt = salt_loop[nl + ns + 2];
+
   if (ns==0) {                      /* bulge */
     energy = (nl<=MAXLOOP)? bulge[nl]:
       (bulge[30]+(int)(lxc*log(nl/30.0f)));
@@ -137,13 +149,13 @@ IntLoop_X(const int n1,
       if (type>2) energy += TerminalAU;
       if (type_2>2) energy += TerminalAU;
     }
-    return energy;
+    return energy + salt;
   }
   else {                            /* interior loop */
     if (ns==1) {
       if (nl==1) {                    /* 1x1 loop */
 	//if(v)printf("ns==1 nl==1 int11[%d][%d][%d][%d]",type,type_2,si1,sj1);
-        return int11[type][type_2][si1][sj1];
+        return int11[type][type_2][si1][sj1] + salt;
       }
       if (nl==2) {                  /* 2x1 loop */
         if (n1==1) {
@@ -154,7 +166,7 @@ IntLoop_X(const int n1,
 	  //if(v)printf("ns==1 nl==2 n1!=1 int21[%d][%d][%d][%d][%d]",type_2,type,sq1,si1,sp1);
           energy = int21[type_2][type][sq1][si1][sp1];
 	}
-        return energy;
+        return energy + salt;
       }
       else {  /* 1xn loop */
 	//if(v)printf("ns==1 nl!=1 && nl!=2 internal_loop[%d] ",nl+1);
@@ -162,19 +174,19 @@ IntLoop_X(const int n1,
         energy = (nl+1<=MAXLOOP)?(internal_loop[nl+1]) : (internal_loop[30]+(int)(lxc*log((nl+1)/30.0f)));
         energy += MIN2(MAX_NINIO, (nl-ns)*ninio2);
         energy += mismatch1nI[type][si1][sj1] + mismatch1nI[type_2][sq1][sp1];
-        return energy;
+        return energy + salt;
       }
     }
     else if (ns==2) {
       if(nl==2)      {              /* 2x2 loop */
 	//if(v)printf("ns!=1 ns==2 nl==2 int22[%d][%d][%d][%d][%d][%d]",type,type_2,si1,sp1,sq1,sj1);
-        return int22[type][type_2][si1][sp1][sq1][sj1];}
+        return int22[type][type_2][si1][sp1][sq1][sj1] + salt;}
       else if (nl==3){              /* 2x3 loop */
 	//if(v)printf("ns!=1 ns==2 nl==3 internal_loop_5 ");
 	//if(v)printf("mismatch23I[%d][%d][%d] + mismatch23I[%d][%d][%d]",type,si1,sj1, type_2,sq1,sp1);
         energy = internal_loop[5]+ninio2;
         energy += mismatch23I[type][si1][sj1] + mismatch23I[type_2][sq1][sp1];
-        return energy;
+        return energy + salt;
       }
 
     }
@@ -189,7 +201,7 @@ IntLoop_X(const int n1,
       energy += mismatchI[type][si1][sj1] + mismatchI[type_2][sq1][sp1];
     }
   }
-  return energy;
+  return energy + salt;
 }
 
 #endif

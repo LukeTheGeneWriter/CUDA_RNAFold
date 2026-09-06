@@ -138,8 +138,17 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   if ((md->max_bp_span > 0) && ((unsigned int)md->max_bp_span < fc->length))
     DECLINE("restricted base pair span");
 
-  if (md->salt != VRNA_MODEL_DEFAULT_SALT)
-    DECLINE("salt correction (see PORT_SALT_SPEC.md)");
+  /*
+   * Salt is ACCEPTED. The hot multibranch kernel needed nothing at all for it:
+   * params.c:640-645 folds SaltMLbase/SaltMLclosing into MLbase, MLclosing and
+   * MLintern at parameter-init time, and modular_decomposition.cu reads only
+   * those, so it inherits the correction without knowing salt exists. Hairpins
+   * and internal loops each take one added term, from a table the host builds
+   * with upstream's own vrna_salt_loop_int(). See PORT_SALT_SPEC.md and
+   * tools/verify_salt_parity.sh.
+   */
+
+
 
   /*
    * Constraints. Soft constraints reach the recursion as arbitrary host

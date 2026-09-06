@@ -1009,8 +1009,9 @@ gpu_path_usable(struct options *opt,
    * (sequences/alphabet.c:271) and it still disagreed on 3 of 12 records, so
    * "the data is uploaded" is not the same as "the recursion honours it". */
   if (md->energy_set != 0)      NO("non-default energy set");
-  if (md->salt != VRNA_MODEL_DEFAULT_SALT)
-                                NO("salt correction");
+  /* salt is no longer barred: the multibranch kernel inherits it through the
+   * parameter tables, and the hairpin/internal kernels each add one term from
+   * a host-built table. tools/verify_salt_parity.sh is the bar. */
 
   /* Per-record data that reaches the recursion as constraints.
    *
