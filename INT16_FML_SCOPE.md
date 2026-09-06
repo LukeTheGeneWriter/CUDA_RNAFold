@@ -245,6 +245,102 @@ rising from 5.63x to about **8.3x** — which would close the gap with the 2000 
 case almost exactly. That symmetry is a useful prediction to test against,
 because it falls out of the model rather than being fitted to it.
 
+
+## Two alternatives, closed with data
+
+Both were proposed as ways to avoid the offset encoding entirely: represent the
+energies as small discrete symbols and recover full precision from a table.
+Measured rather than argued (`tools/int16_quantum.c`), because the idea is good
+enough that it will be proposed again otherwise.
+
+### A common divisor — there isn't one
+
+Every entry in `stack37` is a multiple of 10, so it is reasonable to expect
+`fML` to carry a common factor worth 3.3 free bits. **It does not: `gcd == 1` at
+every temperature, including 37 °C.** The `lxc * log(size/30)` extrapolation is a
+truncated float and the Ninio terms are not round, and either alone is enough to
+break it.
+
+### A global dictionary — fits at 37 °C, fails on two independent axes
+
+| model | n | distinct values in fML | ≤ 65536? |
+|---|---|---|---|
+| default 37 °C | 2000 | 6 407 | yes |
+| default 37 °C | 5601 | 18 549 | yes |
+| **10 °C** | **2000** | **77 852** | **no** |
+| 23.5 °C | 2000 | 62 529 | barely |
+| 10 °C + salt 0.05 | 2000 | 79 078 | no |
+
+- **Temperature.** Off 37 °C every parameter table picks up its own truncation
+  residue, sums go dense, and the count blows past 65536 at n=2000 — a *shorter*
+  sequence than the default model handles comfortably.
+- **Length.** Even at 37 °C the count is roughly linear in n, so the default
+  model would exceed 65536 somewhere near 20 000 nt.
+
+A 16-bit symbol space whose validity depends on both temperature and sequence
+length is a coincidence, not a representation.
+
+### Deferring evaluation to the end cannot work at all
+
+Independent of the counts. This is a **min-plus** DP: choosing
+`fML[i][j] = min(...)` requires a *numeric comparison at every cell*. "Evaluate
+once we know what the equation looks like" inverts the dependency — the equation
+is precisely what the comparisons select, so deferring means carrying the whole
+search space.
+
+Two further blockers even where the vocabulary fits: symbols do not add
+(`sym(a) + sym(b) != sym(a+b)`, so the hot loop would need a dependent lookup
+into a 256 KB table, in a kernel that is *already* DRAM-bound), and the
+dictionary would have to exist before the sweep that produces the values.
+
+**What the idea was right about:** the sparsity is real — 6 407 distinct values
+across a 60 270 span at 37 °C, about 10% density. That is exactly *why* the
+blocked spread comes out near 6 000 instead of near 60 000. The structure is
+there; it is simply not a small enough alphabet to index.
+
+## A provable bound, and a better mitigation than a runtime trap
+
+The most negative `stack37` entry is **−340** (CG/GC, 0.01 kcal units). A window
+of B consecutive positions admits at most B/2 stacked pairs, so the offset is
+bounded by `B/2 × 340` — **an expression with no `n` in it**:
+
+| B | provable bound | measured worst | int16 ceiling |
+|---|---|---|---|
+| 64 | **10 880** | ~6 400 | 32 766 |
+| 128 | **21 760** | 11 148 | 32 766 |
+
+So the encoding is length-independent **by construction**, not by extrapolation
+from an 8001 nt sample. The bound counts stacking only — tetraloop bonuses and
+dangles also contribute — so it is the right shape of argument rather than a
+finished proof.
+
+That suggests a better mitigation than the runtime trap proposed above.
+Temperature and a `-P` file are both fully baked into the parameter tables by the
+time `vrna_params()` returns — temperature is applied to the ~50 tables once at
+init and **never reaches the DP** (`grep temperature` in `mfe/mfe.c` finds
+nothing), and it is affine, so it commutes with summation. Therefore the worst
+per-base negative contribution is knowable *for the loaded table*, before any
+kernel launches:
+
+> **assert `B/2 × worst_negative_contribution < 32766` once, at startup.**
+
+That converts the one case sampling cannot cover into a refusal up front rather
+than a wrap caught mid-fold — which matters, because a silent wrap here produces
+a plausible, self-consistent, wrong answer.
+
+## Modified bases do not interact with this
+
+`constraints/soft_special.h` — *"specialized implementations that utilize the
+soft constraint callback mechanism"*. Modified bases are **soft constraints, not
+an enlarged alphabet**: the sequence stays 4-letter with a declared "fallback
+base". So `ptype`, `S` and the pair tables are untouched, and the encoding — which
+is over energies, not symbols — cannot see them. They are already declined by
+`fc->sc != NULL` in the library guard and `opt->mod_params` in the driver.
+
+They could only ever stretch the range if they were brought onto the device,
+which is a Tier 3 decision in its own right, and at that point they fall under
+the same load-time check as `-P`.
+
 ## The bar
 
 Unchanged and non-negotiable: **byte-identical output** across the standing
