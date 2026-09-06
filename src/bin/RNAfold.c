@@ -983,8 +983,20 @@ gpu_path_usable(struct options *opt,
   if (md->circ)                 NO("circular RNA (-c)");
   if (md->noLP)                 NO("noLP");
   if (md->noGUclosure)          NO("noClosingGU");
-  if (md->logML)                NO("logarithmic multibranch scaling");
-  if (md->uniq_ML)              NO("unique multibranch decomposition");
+
+  /* NOT rejected, and each for a reason that was measured rather than assumed:
+   *
+   *   uniq_ML  only causes fM1 to be allocated, and the MFE recursion never
+   *            reads it -- it matters for subopt and the partition function.
+   *   logML    the MFE path does not consult it.
+   *   noGU     reaches the sweep through the uploaded hc->mx bitmasks, which
+   *            upstream has already populated.
+   *
+   * All three verified byte-identical against the CPU route over the full
+   * reference set before the rejection was lifted; tools/verify_option_parity.sh
+   * covers them. noLP is NOT in this list: ptype encodes it
+   * (sequences/alphabet.c:271) and it still disagreed on 3 of 12 records, so
+   * "the data is uploaded" is not the same as "the recursion honours it". */
   if (md->energy_set != 0)      NO("non-default energy set");
   if (md->salt != VRNA_MODEL_DEFAULT_SALT)
                                 NO("salt correction");

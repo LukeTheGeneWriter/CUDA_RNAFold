@@ -99,11 +99,11 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   if (md->noGUclosure)
     DECLINE("noClosingGU");
 
-  if (md->logML)
-    DECLINE("logarithmic multibranch loop scaling");
+  /* logML is NOT declined: the MFE path does not consult it. Verified
+   * byte-identical over the reference set. */
 
-  if (md->uniq_ML)
-    DECLINE("unique multibranch loop decomposition");
+  /* uniq_ML is NOT declined: it only causes fM1 to be allocated, and the MFE
+   * recursion never reads it. Verified byte-identical over the reference set. */
 
   if (md->energy_set != 0)
     DECLINE("non-default energy set");
