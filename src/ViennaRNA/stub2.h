@@ -1,4 +1,8 @@
-/* Modifications for eventual CUDA version $Revision: 1.30 $
+/* Modifications for eventual CUDA version $Revision: 1.34 $
+
+WBL  7 Sep 2026 Clean for GitHub
+WBL  2 Sep 2026 Add int_loop_mb
+WBL 25 Aug 2026 Restore Print_times interface
 WBL 24 Aug 2026 add struct energy_3p etc (for commit)
 WBL  7 Aug 2026 did not (yet) allow user to select GPU (ie take default)
 WBL 19 Jul 2026 Allow arrays to exceed two billion elements
@@ -126,6 +130,22 @@ int_loop_DMLi(const int nfiles,
 	      const int* energy_min,
 	      const int* DMLi,
 	      const vrna_fold_compound_t **VC); //out My_fML
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+int_loop_mb(const int nfiles,
+	    const int i, /*const int turn*/ const int length,
+	    const long long ijsize,
+	    const int  noGUclosure,
+	    const int* energy_min,
+	    const int* energy_hp,
+	    const int* energy_mb,
+	    const int* DMLi1,
+	    const vrna_fold_compound_t **VC, //in,out Hard_constraints My_fML
+	    int* new_C); //out
 
 PUBLIC void
 par_mfe(const int nfiles,

@@ -1,6 +1,8 @@
-//WBL 10 Dec 2017 $Revision: 1.44 $ GGGP ViennaRNA-2.3.0 rf/rf/
+//WBL 10 Dec 2017 $Revision: 1.48 $ GGGP ViennaRNA-2.3.0 rf/rf/
 //Helper for fill_arrays.c -> mfe.c for eventual CUDA version
 
+//WBL  7 Sep 2026 move load_my_c code into int_loop_mb
+//WBL  2 Sep 2026 move code to new function int_loop_mb
 //WBL 14 Aug 2026 Clean debug for GitHub
 //WBL  8 Aug 2026 move code to new function int_loop_mls
 //WBL  1 Aug 2026 make H tightest index DMLi,DMLi1
@@ -10,6 +12,7 @@
 
 //now new_C packed tightly for load_my_c_kernel
 int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
+int* energy_min = (int*)malloc(nfiles*(length+1)*sizeof(int));
 
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
 
@@ -35,7 +38,6 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
     //}endfor H
 
 
-    int* energy_min = (int*)malloc(nfiles*(length+1)*sizeof(int));
     for (int H=0;H<nfiles; H++) {
     for (j = i+turn+1; j <= length; j++) energy_min[H*(length+1)+j] = INF;
     }
@@ -45,72 +47,11 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
 	       energy_min); //replaces vrna_E_int_loop(vc, i, j);
     print_energy_min("int_loop_i",nfiles,length,i+turn+1,energy_min);
 
-    //int* new_C = calloc(nfiles*(length+1),sizeof(int)); //for GPU
-    for (int H=0;H<nfiles; H++) {
-    for (j = i+turn+1; j <= length; j++) {
-      const int new_c_indx = H + (j-(i+turn+1))*nfiles; //H*(length+1)+j;
-      assert(new_c_indx >= 0 && new_c_indx < nfiles*(length-(turn+1)));
-      new_C[new_c_indx] = INF;
-      ij            = Indx(H,i,j);
-      assert(ij>=0 && ij<ijsize);
-      type          = (unsigned char)Ptype(H,ij);
-      hc_decompose  = Hard_constraints(H,ij);
-      //energy      = INF;
-
-      no_close = (((type==3)||(type==4))&&noGUclosure);
-
-      //fprintf(stderr,"i %2d, j %2d, hard_constraints[%3d] %2d, ptype[%3d] %d, no_close %d ",
-      //      i,j,ij,hard_constraints[ij],ij,ptype[ij],no_close);
-      //fflush(stderr);
-      /*moved to int_loop_i **
-      if (hc_decompose) {   ** we evaluate this pair **
-        new_c = INF;
-
-        ** check for interior loops **
-        energy = vrna_E_int_loop(vc, i, j);
-	//fprintf(stderr,"vrna_E_int_loop(vc, %d, %d)returned %d ",
-	//	i,j,energy);
-	//fflush(stderr);
-        new_c = MIN2(new_c, energy);
-	energy_min[j] = new_c;
-      } ** end >> if (pair) << */
-
-      if (hc_decompose) {   /* we evaluate this pair */
-	new_c = energy_min[H+j*nfiles];
-
-        if(!no_close){
-          /* check for hairpin loop */
-          /*energy_hp[ij] = energy = vrna_E_hp_loop(vc, i, j); */
-          new_c = MIN2(new_c, energy_hp[H*ijsize+ij]);
-
-          /* check for multibranch loops */
-          //energy  = vrna_E_mb_loop_fast(vc, i, j, DMLi1, DMLi2);
-	  const int e_mb = (DMLi1[H+(j-1)*nfiles] != INF)? DMLi1[H+(j-1)*nfiles] + energy_mb[H*ijsize+ij] : INF;
-          new_c   = MIN2(new_c, e_mb);
-        }
-
-        /*gov says not used if(dangle_model == 3){ ** coaxial stacking * E_mb_loop_stack(i, j, vc);*/
-
-        /* gcov says not used  remember stack energy for --noLP option * if(noLP) vrna_E_stack(vc, i, j) cc[j] = new_c */
-	assert(My_c(H,ij) == INF);
-          My_c(H,ij)    = new_c;
-	  //assert(new_c != 0);
-	  assert(new_C[new_c_indx] == INF);
-	  new_C[new_c_indx] = new_c;
-      } /* end >> if (pair) << */
-
-      else {
-	//fprintf(stderr,"\nmy_c[%3d] %d <= %d\n",ij,my_c[ij],INF);
-	assert(My_c(H,ij) == INF);
-	My_c(H,ij) = INF;
-      }
-
-    } /* end of j-loop */
-    }//endfor H
-    print_energy_min("endfor H",nfiles,length,i+turn+1,energy_min);
-
-    load_my_c(nfiles,i,turn,length,new_C); //keep my_c on GPU instep with my_c
-    print_energy_min("load_my_c",nfiles,length,i+turn+1,energy_min);
+    int_loop_mb(nfiles,i,/*turn,*/length,ijsize,noGUclosure,
+		energy_min,energy_hp,energy_mb,DMLi1,
+		VC, //hard_constraints, My_C
+		new_C);
+    print_energy_min("int_loop_mb",nfiles,length,i+turn+1,energy_min);
 
     int_loop_mls(nfiles,VC,//out
 		 i, /*turn,*/ length, ijsize,
@@ -121,8 +62,6 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
     print_energy_min("int_loop_mls",nfiles,length,i+turn+1,energy_min);
 
     //Aug 2026 load_fML now done as part of int_loop_mls
-    //load_fML(nfiles,i,turn,length,energy_min); //update my_fML GPU
-    //print_energy_min("load_fML",nfiles,length,i+turn+1,energy_min);
 
     modular_decomposition_i(nfiles,i,turn,length,/*indx,ijsize,my_fML,*/ DMLi);
     print_energy_min("modular_decomposition_i",nfiles,length,i+turn+1,energy_min);
@@ -141,8 +80,8 @@ int* new_C = malloc(nfiles*(length-(turn+1))*sizeof(int)); //for GPU
       FF = DMLi2; DMLi2 = DMLi1; DMLi1 = DMLi; DMLi = FF;
     }
 
-    free(energy_min);//optimise malloc and free later
   } /* end of i-loop */
+ free(energy_min);
  free(new_C);
 
 

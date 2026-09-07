@@ -1,5 +1,7 @@
-//WBL Dec 2017 include file for mfe.c $Revision: 1.45 $
+//WBL Dec 2017 include file for mfe.c $Revision: 1.53 $
 
+//WBL  7 Sep 2026 Clean debug for GitHub
+//WBL  5 Sep 2026 make H fastest index on energy_hp energy_mb
 //WBL 14 Aug 2026 Clean debug for GitHub
 //WBL 11 Aug 2026 Combine int_loop_mls_kernel inputs as struct
 //WBL  8 Aug 2026 remove min_fml as not used
@@ -497,12 +499,12 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
 
   int* energy_hp    = calloc(nfiles*ijsize,sizeof(int));
   int* energy_mb    = calloc(nfiles*ijsize,sizeof(int));
-  //for use by int_loop_mls_kernel order fastest H then j
-#ifdef NDEBUG
-  struct energy_3p* energies = malloc(nfiles*ijsize*sizeof(struct energy_3p));
-#else
+  //int* energy_mls   = calloc(nfiles*ijsize,sizeof(int));
+  //int* energy_3p_00 = calloc(nfiles*ijsize,sizeof(int));
+  //int* energy_3p_en = calloc(nfiles*ijsize,sizeof(int));
+  //for use by int_loop_mls_kernel order fastest H, j then i
+  //calloc can be replaced with malloc but needed if compile with assert
   struct energy_3p* energies = calloc(nfiles*ijsize,sizeof(struct energy_3p));
-#endif
   /*We can move energy_hp out of loop */
  for(int H=0;H<nfiles;H++) {
  for (i = length-turn-1; i >= 1; i--) { /* i,j in [1..length] */
@@ -518,7 +520,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
       if (hc_decompose) {   /* we evaluate this pair */
         if(!no_close){
           /* check for hairpin loop */
-          energy_hp[H*ijsize+ij] = vrna_E_hp_loop(VC[H], i, j);
+          energy_hp[Hindx(H,nfiles,i,j,length)] = vrna_E_hp_loop(VC[H], i, j);
 	}
       }
     }
@@ -542,7 +544,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
       if (hc_decompose) {   /* we evaluate this pair */
         if(!no_close){
           /* check for multibranch loops, return change in energy relative to DMLi1 */
-          energy_mb[H*ijsize+ij] = mb_loop_fast(VC[H], i, j);
+          energy_mb[Hindx(H,nfiles,i,j,length)] = mb_loop_fast(VC[H], i, j);
 	}
       }
     } /* end of j-loop */
@@ -631,6 +633,9 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
  }//endfor H
 
   /* clean up memory */
+  //free(energy_3p_en);
+  //free(energy_3p_00);
+  //free(energy_mls);
   free(energies);
   free(energy_mb);
   free(energy_hp);

@@ -1,9 +1,12 @@
-#define Version "$Revision: 1.188 $ "
+#define Version "$Revision: 1.201 $ "
 //Helper for fill_arrays.c 
 //based on ViennaRNA-2.3.0/src/ViennaRNA/interior_loops.c (Nov  1  2016) 
 
 //Modifications (reverse order):
-//WBL 28 Aug 2026 Clean for commit.
+//WBL  7 Sep 2026 Clean debug for GitHub
+//WBL  7 Sep 2026 remove load_my_c
+//WBL  5 Sep 2026 reduce size of and make H fastest index on energy_hp energy_mb
+//WBL  4 Sep 2026 Add int_loop_mb_kernel
 //WBL 27 Aug 2026 Revert to r1.184 as pair.h slower Reorder d_my_c
 //WBL 26 Aug 2026 Clean for commit. Remove VC[H]->jindx lookup overhead
 //WBL 25 Aug 2026 Add load_min_dmli_kernel, int_loop_mls uses fml_j not prev_fml
@@ -133,6 +136,8 @@ int*          d_new_e;
 //int*        d_energy_mls;
 struct energy_3p* d_energies; //only one row
 int*          d_out_fml; //only to transfer part of My_fML
+int*          d_energy_hp;    //only one row
+int*          d_energy_mb;    //only one row
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
@@ -262,7 +267,8 @@ extern int fmli_kernel_bs;
 extern int modular_decomposition_kernel_bs;
 //extern int load_fML_kernel_bs;
 int int_loop_kernel_bs = 32;
-int load_my_c_kernel_bs = 512;
+int int_loop_mb_kernel_bs = 32;
+//int load_my_c_kernel_bs = 512;
 int int_loop_mls_kernel_bs = 32;
 int int_loop_mls_kernel2_bs = BLOCK_SIZE2;
 int int_loop_dmli_kernel_bs = 32;
@@ -290,7 +296,8 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   modular_decomposition_kernel_bs = getbs("modular_decomposition_kernel",64);
 //load_fML_kernel_bs =              getbs("load_fML_kernel",64);
   int_loop_kernel_bs =              getbs("int_loop_kernel",32);
-  load_my_c_kernel_bs =             getbs("load_my_c_kernel",512);
+  int_loop_mb_kernel_bs =           getbs("int_loop_mb_kernel",32);
+//load_my_c_kernel_bs =             getbs("load_my_c_kernel",512);
   int_loop_mls_kernel_bs =          getbs("int_loop_mls_kernel",32);
   int_loop_mls_kernel2_bs =         getbs("int_loop_mls_kernel2",BLOCK_SIZE2);
   int_loop_dmli_kernel_bs =         getbs("int_loop_dmli_kernel",32);
@@ -337,7 +344,6 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     }
   }
   gpuErrchk( cudaMemcpy(d_hccc,hccc,(size_t)nfiles*Hc_ints(length)*sizeof(unsigned int),cudaMemcpyHostToDevice) ); // 32-bit signed integer overflow bug fix
-  free(hccc);
 
    
   //ten S per word, length+2
@@ -385,8 +391,10 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   //gpuErrchk( cudaMalloc((void **) &d_energy_3p_00, size2) );
   //gpuErrchk( cudaMalloc((void **) &d_energy_3p_en, size2) );
   //gpuErrchk( cudaMalloc((void **) &d_energy_mls,   size2) );
-  const int size3 = nfiles*((length+1) - (1+turn+1))*sizeof(energy_3p);
-  gpuErrchk( cudaMalloc((void **) &d_energies,size3) );
+  const int size3 = nfiles*((length+1) - (1+turn+1));
+  gpuErrchk( cudaMalloc((void **) &d_energies, size3*sizeof(energy_3p)) );
+  gpuErrchk( cudaMalloc((void **) &d_energy_hp,size3*sizeof(int)) );
+  gpuErrchk( cudaMalloc((void **) &d_energy_mb,size3*sizeof(int)) );
   /*no longer in use 
   gpuErrchk( cudaMalloc((void **) &d_energy_min20,size) );
 
@@ -398,63 +406,6 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   gpuErrchk( cudaMalloc((void **) &d_out_fml,mem_size_len) );
   first2 = 0;
   //printf("%-24s init_gpu2 done\n",__FILE__);fflush(NULL);
-}
-
-//perhaps this can be combined with other kernels?
-/*now define const int turn,*/
-__global__ void
-load_my_c_kernel(const int i, const int length, const int nfiles,
-		 const int* __restrict__ new_e,
-	               int* __restrict__ my_c) { //out
-  const long long m  = blockIdx.x*blockDim.x + threadIdx.x;
-  const long long mj = m / nfiles;
-  const int       H  = m - mj * nfiles;
-  const long long j  = mj + i+turn+1; 
-  if(j < i+turn+1 || j > length) return;
-
-  assert(H >= 0 && H < nfiles);
-  const long long ij = Indx(i,j);
-  const long long indx = H+ij*nfiles;
-  assert(ij>=0 && ij<Hoff(1,length)); //(length+1)*(length+2)/2
-  assert(my_c[indx] == INF);
-  const int eindx = m;
-  assert(eindx == H + (j-(i+turn+1))*nfiles);
-  assert(eindx < nfiles*(length - (i+turn+1) + 1));
-  assert(eindx < nfiles*(length -   (turn+1)));
-         my_c[indx] = new_e[eindx];
-}
-
-PUBLIC void
-load_my_c(const int nfiles,
-	  const int i, const int turn_, const int length,
-	  const int* new_e) {   //in
-  //out d_my_c
-  const int start = i+turn+1; 
-  const int size  = length - start + 1;
-  if(size<=0) return;
-
-  assert(turn_ == turn);
-#ifdef NDEBUG
-  //check here in case of earlier errors
-  gpuErrchk( cudaDeviceSynchronize() );
-#endif
-  //transfer only used part of new_e
-  gpuErrchk( cudaMemcpy(d_new_e,new_e,nfiles*size*sizeof(int),cudaMemcpyHostToDevice) );
-
-  /* Setup execution parameters for helper kernel */
-  const int nblocks = (nfiles*size + load_my_c_kernel_bs - 1)/load_my_c_kernel_bs;
-
-  //dim3 blocks(nblocks,nfiles);
-
-#ifndef NDEBUG
-  printf("load_my_c_kernel<<<%d,%d>>>(%d,%d,%d,d_new_e,d_my_c)\n",
-	 nblocks,load_my_c_kernel_bs,i,length,nfiles);//,d_new_e,d_my_c);
-#endif
-  load_my_c_kernel<<<nblocks,load_my_c_kernel_bs>>>(i, /*turn,*/ length, nfiles,
-					   d_new_e,  //in
-					   d_my_c); //out
-  gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
 }
 
 __device__ inline
@@ -1076,21 +1027,16 @@ int_loop_mls(const int nfiles,
   {
   //todo optimise setting My_fML(H,ij) and energy_min
   //todo move copy to fill_arrays.c
-  //fixed malloc mem_size_len might avoid heap fragmentation?
-  const int mem_size_len = nfiles*(length+1) * sizeof(int); //starts at 1 not 0
-  int* copy_d_energy_min = (int*) malloc(mem_size_len);
   const int start = (i+turn+1)*nfiles;
   const int len   = (length+1)*nfiles - start;
-  gpuErrchk( cudaMemcpy(&copy_d_energy_min[start],&d_energy_min[start],len*sizeof(int),cudaMemcpyDeviceToHost) );
+  gpuErrchk( cudaMemcpy(&energy_min[start],&d_energy_min[start],len*sizeof(int),cudaMemcpyDeviceToHost) );
     for (int H=0;H<nfiles; H++) {
     for (int j = i+turn+1; j <= length; j++) {
       const int ij = Indx(i,j); //Avoid lookup of VC[H]->jindx
       assert(My_fML(H,ij) == INF);
-      assert(H+j*nfiles < mem_size_len/sizeof(int));
-      My_fML(H,ij) = energy_min[H+j*nfiles] = copy_d_energy_min[H+j*nfiles];
+      My_fML(H,ij) = energy_min[H+j*nfiles];
     }}
-  free(copy_d_energy_min);
-  }//end copy to CPU
+  }//end copy from CPU
 }
 
 __global__ void
@@ -1176,5 +1122,205 @@ int_loop_DMLi(const int nfiles,
   free(out_fml);
   }//end copy to CPU
 }//end int_loop_DMLi
+
+__global__ void
+int_loop_mb_kernel(const int i, const int length, const int nfiles,
+		   const int noGUclosure,
+		   const char* __restrict__ pair_, //[NBPAIRS+1][NBPAIRS+1],
+		   const unsigned int* __restrict__ S,    //[length+2] packed
+		   const unsigned int* __restrict__ hccc,//bit array hc[ij] ok to reuse (VRNA_CONSTRAINT_CONTEXT_INT_LOOP => true)
+		   const int* __restrict__ energy_min,
+		   const int* __restrict__ energy_hp,
+		   const int* __restrict__ energy_mb,
+		   const int* __restrict__ dml,     //in  d_dml   DMLi
+		         int* __restrict__ new_C, //out
+		         int* __restrict__ my_c) {//out
+
+
+  const int m  = blockIdx.x*blockDim.x + threadIdx.x;
+  const int mj = m / nfiles;
+  const int H  = m - mj * nfiles;
+  const int j  = mj + i+turn+1; 
+  if(j < i+turn+1 || j > length) return;
+
+
+//based on fill_array_loops.c r1.44
+
+    //int* new_C = calloc(nfiles*(length+1),sizeof(int)); //for GPU
+    //for (int H=0;H<nfiles; H++) {
+    //for (int j = i+turn+1; j <= length; j++) {
+      const int new_c_indx = H + (j-(i+turn+1))*nfiles; //H*(length+1)+j;
+      assert(new_c_indx >= 0 && new_c_indx < nfiles*(length-(turn+1)));
+      //write only once new_C[new_c_indx] = INF;
+      const long long ij = Indx(i,j);
+#ifndef NDEBUG
+      const long long ijsize  = (length+1)*(length+2)/2;
+      assert(ij>=0 && ij<ijsize);
+#endif
+//    const unsigned char type          = (unsigned char)Ptype(H,ij);
+//#include "pair.h"
+//#define S(i) VC[H]->sequence_encoding[i]
+//    const unsigned char t = pair[S(i)][S(j)];//Ptype(S,pair,H,nfiles,i,j);
+//#undef S
+//    assert(type==t);
+
+      int no_close = 0; //dont use Ptype unless we have to
+      if(noGUclosure) {
+	const unsigned char type = Ptype(S,pair_,H,nfiles,i,j);
+	no_close = (type==3)||(type==4);
+      }
+
+      const int hc_decompose  = Hc(ij,&hccc[H*Hc_ints(length)]);
+//    const int hc_decompose  = Hard_constraints(H,ij);
+//    const int hc = Hc(ij,&hccc[H*Hc_ints(length)]);
+//    if(!((hc_decompose == 0 && hc == 0) || (hc_decompose > 0 && hc > 0))){
+//	printf("H %d i %d j %d ij %lld hc_decompose %d hc=%d\n",
+//	       H,i,j,ij,hc_decompose,hc);
+//	exit(99);
+//    }
+
+      //fprintf(stderr,"i %2d, j %2d, hard_constraints[%3d] %2d, ptype[%3d] %d, no_close %d ",
+      //      i,j,ij,hard_constraints[ij],ij,ptype[ij],no_close);
+      //fflush(stderr);
+      /*moved to int_loop_i **
+      if (hc_decompose) {   ** we evaluate this pair **
+        new_c = INF;
+
+        ** check for interior loops **
+        energy = vrna_E_int_loop(vc, i, j);
+	//fprintf(stderr,"vrna_E_int_loop(vc, %d, %d)returned %d ",
+	//	i,j,energy);
+	//fflush(stderr);
+        new_c = MIN2(new_c, energy);
+	energy_min[j] = new_c;
+      } ** end >> if (pair) << */
+      int new_c = INF;
+      if (hc_decompose) {   /* we evaluate this pair */
+	new_c = energy_min[H+j*nfiles];
+
+        if(!no_close){
+	  const int start         = i+turn+1;
+#ifndef NDEBUG
+	  const int size          = length - start + 1;
+#endif
+	  const long long offset  = Hindx(0,nfiles,i,start,length);
+	  const int Hij           = Hindx(H,nfiles,i,j,length) - offset;
+	  assert(Hij >= 0 && Hij < nfiles*size); //size3
+	  assert(Hij == m);
+          /* check for hairpin loop */
+          /*energy_hp[ij] = energy = vrna_E_hp_loop(vc, i, j); */
+          new_c = MIN2(new_c, energy_hp[Hij]);
+
+          /* check for multibranch loops */
+          //energy  = vrna_E_mb_loop_fast(vc, i, j, DMLi1, DMLi2);
+	  const int e_mb = (dml[H+(j-1)*nfiles] != INF)? dml[H+(j-1)*nfiles] + energy_mb[Hij] : INF;
+          new_c   = MIN2(new_c, e_mb);
+        }
+
+        /*gov says not used if(dangle_model == 3){ ** coaxial stacking * E_mb_loop_stack(i, j, vc);*/
+
+        /* gcov says not used  remember stack energy for --noLP option * if(noLP) vrna_E_stack(vc, i, j) cc[j] = new_c */
+//	assert(My_c(H,ij) == INF);
+//        My_c(H,ij)    = new_c;
+//	  //assert(new_c != 0);
+	  //assert(new_C[new_c_indx] == INF);
+	  //new_C[new_c_indx] = new_c;
+      } /* end >> if (pair) << */
+      new_C[new_c_indx] = new_c;
+
+      //from load_my_c_kernel
+      const long long indx = H+ij*nfiles;
+      assert(my_c[indx] == INF);
+      my_c[indx]        = new_c;
+
+//    else {
+//	//fprintf(stderr,"\nmy_c[%3d] %d <= %d\n",ij,my_c[ij],INF);
+//	assert(My_c(H,ij) == INF);
+//	My_c(H,ij) = INF;
+//    }
+
+//  } /* end of j-loop */
+//  }//endfor H
+}//end int_loop_mb_kernel
+
+//for example check for multibranch loops
+
+void
+int_loop_mb(const int nfiles,
+	    const int i, /*const int turn*/ const int length,
+	    const long long ijsize,
+	    const int  noGUclosure,
+	    const int* energy_min,
+	    const int* energy_hp,
+	    const int* energy_mb,
+	    const int* DMLi1,
+	    const vrna_fold_compound_t **VC, //in,out Hard_constraints My_fML
+	    int* new_e) { //out
+#define My_c(H,ij)              VC[H]->matrices->c[ij]
+#define Indx(H,i,j)            (VC[H]->jindx[j]+i)
+
+  assert(turn == 3);
+  const int start = i+turn+1; 
+  const int size  = length - start + 1;
+  if(size<=0) return;
+
+#ifdef NDEBUG
+  //check here in case of earlier errors
+  gpuErrchk( cudaDeviceSynchronize() );
+#endif
+  {
+    const long long offset = Hindx(0,nfiles,i,start,length);
+    const int       size3  = nfiles*size*sizeof(int);
+#ifndef NDEBUG
+    printf("int_loop_mb offset %lld two size3 %d bytes to GPU\n",offset,size3);
+#endif
+    gpuErrchk( cudaMemcpy(d_energy_hp,&energy_hp[offset],size3,cudaMemcpyHostToDevice) );
+    gpuErrchk( cudaMemcpy(d_energy_mb,&energy_mb[offset],size3,cudaMemcpyHostToDevice) );
+  }
+  //todo transfer only needed part, use d_energy_min or d_energy_min2
+  //start with transfer all
+  gpuErrchk( cudaMemcpy(d_energy_min,energy_min,nfiles*(length+1)*sizeof(int),cudaMemcpyHostToDevice) );
+
+  /* Setup execution parameters for helper kernel */
+  const int nblocks = (nfiles*size + int_loop_mb_kernel_bs - 1)/int_loop_mb_kernel_bs;
+
+#ifndef NDEBUG
+  printf("int_loop_mb_kernel<<<%d,%d>>>",
+	 nblocks,int_loop_mb_kernel_bs);
+  printf("(%d,%d,%d,%d,d_pair...d_dml out:d_new_e)\n",
+	 i,length,nfiles,noGUclosure);
+#endif
+  int_loop_mb_kernel<<<nblocks,int_loop_mb_kernel_bs>>>(i, /*turn,*/ length, nfiles,
+							noGUclosure,
+							d_pair,
+							d_S,
+							d_hccc, 
+							d_energy_min,
+							d_energy_hp,
+							d_energy_mb,
+							d_dml,    //DMLi
+							d_new_e,  //new_C
+							d_my_c);  //my_c
+
+  gpuErrchk( cudaPeekAtLastError() );
+  gpuErrchk( cudaDeviceSynchronize() );
+
+  //copy answer back and set My_C
+  gpuErrchk( cudaMemcpy(new_e,d_new_e, nfiles*(length-(turn+1))*sizeof(int),cudaMemcpyDeviceToHost) );
+  gpuErrchk( cudaDeviceSynchronize() );
+    for (int H=0;H<nfiles; H++) {
+    for (int j = i+turn+1; j <= length; j++) {
+      const int new_c_indx = H + (j-(i+turn+1))*nfiles; //H*(length+1)+j;
+      assert(new_c_indx >= 0 && new_c_indx < nfiles*(length-(turn+1)));
+      const long long ij            = Indx(H,i,j);
+      assert(ij>=0 && ij<ijsize);
+	assert(My_c(H,ij) == INF);
+          My_c(H,ij)    = new_e[new_c_indx];
+    } /* end of j-loop */
+    }//endfor H
+
+#undef Indx
+#undef My_c
+}//end int_loop_mb
 #undef My_fML
 #undef turn
