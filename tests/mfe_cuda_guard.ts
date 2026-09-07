@@ -73,12 +73,12 @@ declines(vrna_fold_compound_t *fc)
    * Each of these changes the recursion or the energies. Every one was either
    * silently wrong or half-applied on the 2.3.0 GPU path before it was guarded.
    */
-  /* md_uniqml and md_salt are deliberately NOT here any more -- both are now
-   * supported, and each has its own accepts- test below so that a guard
+  /* md_uniqml, md_salt and md_nolp are deliberately NOT here any more -- all
+   * three are supported, and each has its own accepts- test below so that a guard
    * silently re-tightening shows up as a failure rather than as a quiet loss
    * of acceleration. */
   void (*tweaks[])(vrna_md_t *) = {
-    md_dangles0, md_gquad, md_circ, md_nolp, md_noguclose
+    md_dangles0, md_gquad, md_circ, md_noguclose
   };
   size_t i;
 
@@ -109,6 +109,27 @@ declines(vrna_fold_compound_t *fc)
    * shows up as a failure here rather than as a quiet loss of acceleration. */
   vrna_fold_compound_t *fc = fc_with(md_uniqml);
 
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
+
+  vrna_fold_compound_free(fc);
+}
+
+#test test_guard_accepts_noLP
+{
+  /* noLP was declined because the sweep filtered ptype for it but never
+   * applied the RECURSION constraint, leaving the matrix fill and the
+   * backtrack disagreeing with each other by 87-300 kcal/mol -- while the
+   * reported ENERGY still agreed with upstream on 45 of 60 records, which is
+   * why an energy comparison mis-scored it as "3 of 12". new_c_kernel now
+   * writes cc1[j-1]+stackEnergy into c and carries the unconstrained value in
+   * cc, per mfe/mfe.c:4413.
+   *
+   * tests/mfe_cuda_nolp.ts checks the STRUCTURES; this only asserts the
+   * routing decision, so a guard silently re-tightening shows up here rather
+   * than as a quiet loss of acceleration. */
+  vrna_fold_compound_t *fc = fc_with(md_nolp);
+
+  ck_assert(fc->params->model_details.noLP == 1);
   ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
 
   vrna_fold_compound_free(fc);

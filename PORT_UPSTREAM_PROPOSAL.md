@@ -187,6 +187,79 @@ uniqueness of the id — two threads can hand out the same id. Our fork uses
 
 ---
 
+## Defect D — `--noLP` does not apply the salt correction to its stacking term
+
+*Found 2026-09-07 while implementing `--noLP` on the GPU path. Probe:
+`tests/upstream/nolp_salt_probe.c`, public API only, runs against a pristine
+2.7.2. **Measured, not argued** — we reused the interior-loop stack energy
+first, and the two disagreed.*
+
+Two functions compute the energy of the same physical object — pair (i,j)
+stacked directly on (i+1,j-1) — and they disagree under non-default salt:
+
+| route | returns |
+|---|---|
+| `vrna_E_internal(0, 0, type, type_2, …)` | `P->stack[type][type_2] + P->SaltStack` |
+| `vrna_eval_stack(fc, i, j, …)` → `eval_stack()` (`eval/eval_internal.c:473`) | `P->stack[type][type_2]` — soft constraints only, **no salt term** |
+
+The second is what the `--noLP` recursion calls (`mfe/mfe.c:4415`):
+
+```c
+stackEnergy = vrna_eval_stack(fc, i, j, VRNA_EVAL_LOOP_DEFAULT);
+new_c       = MIN2(new_c, cc1[j - 1] + stackEnergy);
+e           = cc1[j - 1] + stackEnergy;      /* -> c[i][j] */
+```
+
+### Measured on 2.7.2
+
+Three sequences × six salt concentrations, each on a real stacked pair taken
+from that sequence's own MFE structure:
+
+```
+salt 1.021 (default)   noLP-route -330   int-loop-route -330   diff  0   SaltStack  0
+salt 0.050             noLP-route -330   int-loop-route -320   diff 10   SaltStack 10  <-
+salt 0.200             noLP-route -330   int-loop-route -328   diff  2   SaltStack  2  <-
+salt 0.500             noLP-route -330   int-loop-route -330   diff  0   SaltStack  0
+salt 1.000             noLP-route -330   int-loop-route -330   diff  0   SaltStack  0
+salt 5.000             noLP-route -330   int-loop-route -330   diff  0   SaltStack  0
+```
+
+6 of 18 cases differ, and the difference is **exactly `P->SaltStack`** every
+time. The pattern is identical across all three sequences.
+
+### Why it has plausibly gone unnoticed
+
+`P->SaltStack` truncates to **0 at 0.5 M and above**, and it is 0 at the default
+1.021 M. So the disagreement exists only *below* default salt — the low-salt
+regime, which is the interesting one experimentally and the one a user reaching
+for `--salt` is most likely in. At every concentration where the term is zero,
+the two routes agree perfectly, so any test written at default or high salt sees
+nothing.
+
+### Why this is worse than a rounding difference
+
+`--noLP` does not *add* the stacking term to a decomposition. It **replaces**
+what `c[i][j]` receives: under `noLP`, `c[i][j]` is `cc1[j-1] + stackEnergy` and
+nothing else. Every pair in the final structure is admitted through that term.
+So an uncorrected `stackEnergy` does not perturb one loop's energy — it shifts
+the criterion for admitting pairs across the entire matrix, and it does so
+inconsistently with the interior-loop recursion running beside it, which prices
+the identical stack *with* the correction.
+
+### What we are not claiming
+
+We have not established which of the two is intended. It is possible
+`eval_stack()` is deliberately salt-free for some evaluation use and the defect
+is that `--noLP` reaches for it; it is equally possible the correction is simply
+missing. The probe demonstrates the inconsistency, not the intent — and that is
+the question we would like answered, because the port has to reproduce whichever
+behaviour is correct byte for byte.
+
+**What the port does meanwhile:** reproduces `eval_stack()` exactly, salt-free,
+because byte-identity with 2.7.2 is our bar. If upstream changes this, we follow.
+
+---
+
 # Part 1b — Two defects that stop a build from git
 
 *Found 2026-09-05 while standing up a build of `master` from the repository

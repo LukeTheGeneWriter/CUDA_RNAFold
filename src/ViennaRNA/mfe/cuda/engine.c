@@ -93,8 +93,15 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   if (md->circ)
     DECLINE("circular RNA (see PORT_CIRC_SPEC.md)");
 
-  if (md->noLP)
-    DECLINE("noLP");
+  /* noLP is ACCEPTED as of 2026-09-07. It was declined because the sweep
+   * filtered ptype for it but never applied the recursion constraint, which
+   * left the matrix fill and the backtrack disagreeing with each other by 87
+   * to 300 kcal/mol -- while the reported ENERGY agreed with upstream on 45 of
+   * 60 records, which is why an energy comparison called it "3 of 12".
+   * new_c_kernel now writes cc1[j-1]+stackEnergy into c and carries the
+   * unconstrained value in cc, exactly as mfe/mfe.c:4413 does.
+   * Bar: tests/mfe_cuda_nolp.ts and tools/verify_nolp_parity.sh, neither of
+   * which is an energy comparison. See PORT_NOLP_SPEC.md. */
 
   if (md->noGUclosure)
     DECLINE("noClosingGU");

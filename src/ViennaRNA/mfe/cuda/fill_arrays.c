@@ -70,7 +70,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
   unsigned char     type;
 //char              *ptype, *hard_constraints;
   int               i, j, ij, length, /*energy,*/ new_c, /*stackEnergy,*/ no_close, turn,
-                    noGUclosure, /*noLP,*/ uniq_ML, /*dangle_model, *indx, *my_f5,
+                    noGUclosure, noLP, uniq_ML, /*dangle_model, *indx, *my_f5,
                     my_c, *my_fML, *my_fM1,*/ hc_decompose, /* *cc, *cc1, *Fmi,*/ *DMLi,
                     *DMLi1, *DMLi2,
                     // Staggered_Row_Batching 2026-08-22: row-shaped cache of the
@@ -194,7 +194,41 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
 
 #undef VRNA_CUDA_BACKSTOP
   noGUclosure       = P->model_details.noGUclosure;
-//noLP              = P->model_details.noLP;
+  // Re-enabled 2026-09-07. This was commented out alongside the cc/cc1
+  // machinery in fill_arrays_loop.c, which gcov reported as unused -- because
+  // noLP was never exercised, not because it was unreachable. See
+  // PORT_NOLP_SPEC.md.
+  noLP              = P->model_details.noLP;
+
+  // noLP + RNA_FML_INT16 is REFUSED, same shape and same reason as
+  // RNA_FML_INT16 + RNA_SLOT_FLOW (modular_decomposition.cu): an invariant the
+  // encoding depends on does not hold, so the pairing is declined rather than
+  // approximated.
+  //
+  // Measured 2026-09-07, and the existing range guard is what found it:
+  //   RNA_FML_INT16 range: H=56 (i=894,j=900) value 220 baseline 9999810
+  //   delta -9999590 exceeds int16
+  // The baseline is ~1e7 -- the ASYMMETRIC INF guard INT16_FML_SCOPE.md
+  // documents, where fml_prev[j] + 10000000 is a large positive number and NOT
+  // INF, and survives as a distinct value because the test is == INF, never
+  // >= INF. That doc measured "fML carries ZERO near-INF cells" on the DEFAULT
+  // model. Under noLP, c[ij] receives cc1[j-1]+stackEnergy, which is INF at the
+  // top of the triangle because cc1 starts INF, so many more cells take the
+  // +1e7 path -- and once one of them is the first-written entry of a block it
+  // becomes that block's baseline, putting ordinary energies 1e7 away from it.
+  //
+  // So the provable B/2*340 bound is intact; its PREMISE (that fML holds no
+  // near-INF finite values) is what noLP breaks. Fixing that means changing
+  // what the guard writes, which is a change to the DEFAULT path's semantics,
+  // and is not worth doing to make two optional features compose.
+  if (noLP && rnafold_fml_int16()) {
+    fprintf(stderr,
+            "%-24s --noLP and RNA_FML_INT16 cannot be combined: noLP puts "
+            "near-INF finite values into fML, which the 16-bit per-block "
+            "offsets cannot represent. Unset one. See PORT_NOLP_SPEC.md.\n",
+            __FILE__);
+    exit(EXIT_FAILURE);
+  }
   uniq_ML           = P->model_details.uniq_ML;
 //dangle_model      = P->model_details.dangles;
   turn              = P->model_details.min_loop_size;

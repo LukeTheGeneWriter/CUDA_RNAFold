@@ -79,6 +79,10 @@ struct cuda_param2_s {
   char  Triloops[241];
   int   Hexaloop_E[40];
   char  Hexaloops[1801];
+  //noLP (--noLP) only, appended last so no offset above it moves -- same
+  //discipline as int_loop.cu's salt fields. Needed by stack_row_kernel for
+  //upstream's vrna_eval_stack(): P->stack[type][type_2].
+  int   stack[NBPAIRS+1][NBPAIRS+1];
 };
 
 cuda_param2_t* d_param2;
@@ -113,6 +117,22 @@ unsigned int* d_hccc_mbenc; //bit-packed VRNA_CONSTRAINT_CONTEXT_MB_LOOP_ENC per
 //d_energy_min2 in int_loop.cu.
 int* d_energy_hp_row;
 int* d_energy_mb_row;
+// noLP (--noLP). See PORT_NOLP_SPEC.md.
+//   d_energy_stack_row  upstream's vrna_eval_stack(i,j) for this row, INF where
+//                       the stack is not allowed. Built by stack_row_kernel.
+//   d_cc / d_cc1        upstream's aux->cc / aux->cc1 (mfe/mfe.c:4451). cc[j]
+//                       carries the UNCONSTRAINED new_c sideways to the next
+//                       row, which is the only reason a helix can ever start;
+//                       c[ij] itself receives cc1[j-1]+stackEnergy instead.
+//                       They rotate once per row and cc is refilled with INF,
+//                       exactly as rotate_aux_arrays() does (mfe.c:4460).
+// Allocated unconditionally rather than only under noLP: three row-shaped
+// buffers are 0.05% of a record's footprint at 5601 nt (67 KB against
+// 125.6 MB), and making the VRAM budget depend on a model detail the driver
+// evaluates per candidate record would be a far worse trade than the memory.
+int* d_energy_stack_row;
+int* d_cc;
+int* d_cc1;
 int* d_energy_3p00_row;
 // Staggered_Row_Batching Phase 2c: device copy of row_off_H[] (own copy,
 // per this file's established convention of not sharing device state with
@@ -182,6 +202,21 @@ static void    size_off_shadow_reset(void);  // defined below; called from init/
 #define bitsperint (8*sizeof(unsigned int))
 #define Hc_ints2(length) (((length*(length+1))/2+2 + bitsperint - 1)/bitsperint)
 
+// ============================ noLP (--noLP) ============================
+// See PORT_NOLP_SPEC.md. Everything in the noLP path runs ONLY when noLP is
+// set; the default path is deliberately untouched, which is why this is a
+// separate kernel rather than another branch inside hp_mb_3p_kernel.
+
+// Fills a row-shaped buffer with INF. Prefills cc/cc1 at init and refills cc
+// on every rotation, which is what upstream's rotate_aux_arrays() does
+// (mfe/mfe.c:4472) and what makes an unevaluated pair leave INF behind rather
+// than the value from two rows ago.
+__global__ void
+nolp_init_kernel(const size_t total, int* __restrict__ a) {
+  const size_t m = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
+  if(m < total) a[m] = INF;
+}
+
 void load_param2(const vrna_param_t *P){
   cuda_param2_t* H = (cuda_param2_t*) malloc(sizeof(cuda_param2_t));
 
@@ -201,6 +236,7 @@ void load_param2(const vrna_param_t *P){
   memcpy(H->Triloops,    P->Triloops,    241*sizeof(char));
   memcpy(H->Hexaloop_E,  P->Hexaloop_E,  40*sizeof(int));
   memcpy(H->Hexaloops,   P->Hexaloops,   1801*sizeof(char));
+  memcpy(H->stack,       P->stack,       (NBPAIRS+1)*(NBPAIRS+1)*sizeof(int));
 
   gpuErrchk( cudaMemcpy(d_param2,H,sizeof(cuda_param2_t),cudaMemcpyHostToDevice) );
   free(H);
@@ -478,6 +514,20 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   SLOT_ALLOC(&d_energy_3p00_row, size);
   //char, not int: it carries two bits per cell and is copied back every row.
   SLOT_ALLOC(&d_gate_row, g_row_total*sizeof(char));
+  // noLP row buffers -- see the declarations. cc1 must read INF on the very
+  // first row of a record, exactly as upstream's calloc'd-then-INF-filled
+  // aux->cc1 does, so both are prefilled here rather than only rotated.
+  SLOT_ALLOC(&d_energy_stack_row, size);
+  SLOT_ALLOC(&d_cc,  size);
+  SLOT_ALLOC(&d_cc1, size);
+  {
+    const size_t nb = (g_row_total + 512 - 1)/512;
+    if(g_row_total) {
+      nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc);
+      nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc1);
+      gpuErrchk( cudaPeekAtLastError() );
+    }
+  }
 
   // Everything pack_hc_kernel reads (d_S2, d_pair2, and the three offset
   // tables) exists by this point, which is why the launch sits at the end of
@@ -593,6 +643,9 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_energy_hp_row) );
   gpuErrchk( cudaFree(d_energy_mb_row) );
   gpuErrchk( cudaFree(d_energy_3p00_row) );
+  gpuErrchk( cudaFree(d_energy_stack_row) );   //noLP
+  gpuErrchk( cudaFree(d_cc) );                //noLP
+  gpuErrchk( cudaFree(d_cc1) );               //noLP
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_hc2_off_H) );
   gpuErrchk( cudaFree(d_seq_off_H) );
@@ -634,7 +687,15 @@ hp_mb_loop_bytes_per_file(const int length) {
   // 22 KB against ~125 MB of triangles per record at 5601 nt -- 0.02% -- which
   // is a better trade than threading a per-batch term through the budget for it.
   const size_t salt_bytes       = (size_t)(length+2)*sizeof(int);
-  return hccc_mb_bytes + hccc_mbenc_bytes + hccc_any_bytes + hccc_gu_bytes
+  // noLP's three row buffers (d_energy_stack_row, d_cc, d_cc1). Counted
+  // UNCONDITIONALLY even though they are only read under --noLP, because this
+  // number gates chunk admission and is evaluated by the driver per candidate
+  // record, long before any fold compound (and so any model detail) exists.
+  // Making the VRAM budget depend on a model detail would be a far worse trade
+  // than the memory: this is 67 KB against ~125 MB of triangles at 5601 nt,
+  // 0.05%, the same argument the salt table above already makes.
+  const size_t nolp_bytes       = 3*(size_t)(length+1)*sizeof(int);
+  return nolp_bytes + hccc_mb_bytes + hccc_mbenc_bytes + hccc_any_bytes + hccc_gu_bytes
        + s2_bytes + sequence_bytes + up_ml_bytes + salt_bytes
        + hp_row_bytes + mb_row_bytes + p3p00_row_bytes + gate_row_bytes;
 }
@@ -1178,6 +1239,76 @@ fml_scan_i(const int nfiles, const int i, const int turn,
 }
 
 
+// ========================= noLP: stack_row_kernel =========================
+// Upstream's vrna_eval_stack(fc, i, j) for every (H,j) of this row -- the
+// energy of pair (i,j) stacked directly on (i+1,j-1), INF where that stack is
+// not allowed. mfe/mfe.c:4415 calls it once per evaluated pair under noLP.
+//
+// TWO conventions here are easy to get backwards, and both were read off
+// upstream rather than assumed:
+//
+//  1. THE 0->7 FIXUP GOES BEFORE rtype[], NOT AFTER. eval_stack() (
+//     eval/eval_internal.c:473) computes type_2 = rtype[vrna_get_ptype(pq,
+//     ptype)], and vrna_get_ptype() (sequences/alphabet.c:482) is what applies
+//     `tt == 0 ? 7 : tt`. That is the OPPOSITE order from the multibranch site
+//     in hp_mb_3p_kernel above, which deliberately indexes rtype[] with the
+//     RAW type and fixes up the result. Same two operations, different order,
+//     different answer.
+//
+//  2. NO SALT CORRECTION. vrna_E_internal() adds P->SaltStack for its stack
+//     case (and this fork's IntLoop_X mirrors that at interior_loopx.h:132),
+//     but eval_stack() does NOT -- it returns P->stack[type][type_2] plus soft
+//     constraints only. So reusing the interior-loop stack path here would be
+//     wrong by SaltStack at every non-default salt, and the existing salt bar
+//     could never catch it because noLP is declined. (That asymmetry looks like
+//     an upstream inconsistency and is worth reporting; we reproduce it,
+//     because byte-identity with upstream is the bar.)
+//
+// The hard-constraint half of vrna_eval_stack() is hc->eval_int(i,j,i+1,j-1),
+// whose inner-pair term is exactly VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC --
+// int_loop.cu's d_hccc, which pack_hc_kernel already fills. The outer-pair
+// term is already applied by new_c_kernel, which returns INF unless gate bit 0
+// is set, so it is not re-tested here.
+__global__ void
+stack_row_kernel(const int nfiles, const int i_row, const int turn,
+                 const short* __restrict__ S,
+                 const char*  __restrict__ pair,
+                 const cuda_param2_t* __restrict__ P,
+                 const unsigned int*  __restrict__ hccc,      //INT_LOOP_ENC
+                 const size_t* __restrict__ hc_off_H,         //int_loop.cu's
+                       int*    __restrict__ energy_stack_row, //out
+                 const size_t* __restrict__ row_off_H,
+                 const size_t* __restrict__ seq_off_H,
+                 const size_t* __restrict__ size_off_H, const size_t total,
+                 const int* __restrict__ i_H) {
+  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  if((size_t)m >= total) return;
+  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  const int i = i_H[H];
+  assert(i_row < 0 || i == i_row);
+  const long long mj = (long long)m - (long long)size_off_H[H];
+  const int j = mj + i+turn+1;
+
+  int e = INF;
+  // vrna_eval_stack()'s own guard (eval/eval_internal.c:228): i > 0 and
+  // i + 2 < j. Below that there is no enclosed pair to stack on.
+  if((i > 0) && (i + 2 < j)) {
+    const int ij_in = Indx2(i+1, j-1);
+    if(Hc2(ij_in, &hccc[hc_off_H[H]])) {
+      const short* S_H = &S[seq_off_H[H]];
+      int t_out = (int)Ptype2(S_H, pair, i, j);
+      if(t_out == 0) t_out = 7;                 // vrna_get_ptype(ij, ptype)
+      int t_in  = (int)Ptype2(S_H, pair, i+1, j-1);
+      if(t_in == 0) t_in = 7;                   // fixup BEFORE rtype -- see (1)
+      const int t2 = P->rtype[t_in];
+      assert(t_out >= 0 && t_out <= NBPAIRS);
+      assert(t2    >= 0 && t2    <= NBPAIRS);
+      e = P->stack[t_out][t2];
+    }
+  }
+  energy_stack_row[row_off_H[H]+j] = e;
+}
+
 // ====================== GPU-resident sweep: new_c_kernel ======================
 //
 // The device twin of fill_arrays_loop.c's new_c_host -- 49.7 s of a 458.9 s run,
@@ -1219,6 +1350,9 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
              const char* __restrict__ gate_row,       //in
              const int*  __restrict__ dml1,           //in  d_dml1
                    int*  __restrict__ new_e,          //out d_new_e
+             const int*  __restrict__ stack_row,      //in  noLP: NULL when off
+             const int*  __restrict__ cc1,            //in  noLP: previous row
+                   int*  __restrict__ cc,             //out noLP: this row
              const size_t* __restrict__ row_off_H,    //in
              const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) { //in
@@ -1236,6 +1370,9 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
   const size_t o = row_off_H[H];
 
   const unsigned char gate = (unsigned char)gate_row[o+j];
+  // Pair not evaluated. cc[j] is left at the INF the rotation put there, which
+  // is exactly what upstream does -- its noLP block sits inside
+  // `if (hc_decompose)` and rotate_aux_arrays() refills cc with INF.
   if(!(gate & 1)) { new_e[o+j] = INF; return; }   // pair not evaluated
 
   int new_c = energy_min2[o+j];
@@ -1248,7 +1385,68 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
       if(e_mb < new_c) new_c = e_mb;
     }
   }
+
+  // noLP (mfe/mfe.c:4413). The asymmetry is the whole feature: c[ij] receives
+  // the STACKED value, while the unconstrained new_c survives only in cc[j]
+  // for the next row to stack onto. Writing new_c into c[ij] -- which is what
+  // this sweep did before -- lets a lonely pair through, and worse, leaves
+  // upstream's backtrack (mfe.c:4289, vrna_bt_stacked_pairs) walking a matrix
+  // built under a different convention than the one it assumes.
+  if(stack_row) {
+    const int se = stack_row[o+j];
+    const int p  = cc1[o+(j-1)];
+    // INF is a sentinel, not a number: adding to it would wrap into a
+    // plausible finite energy. Both operands have to be finite.
+    const int stacked = ((p != INF) && (se != INF)) ? (p + se) : INF;
+    if(stacked < new_c) new_c = stacked;   // new_c = MIN2(new_c, cc1[j-1]+se)
+    cc[o+j]   = new_c;                     // carried sideways to row i-1
+    new_e[o+j] = stacked;                  // ... and c[ij] gets the stack only
+    return;
+  }
+
   new_e[o+j] = new_c;
+}
+
+// noLP: build this row's vrna_eval_stack() values. Called from new_c_i() only
+// when noLP is set, so nothing here runs on the default path.
+static void
+stack_row_i(const int nfiles, const int i, const int turn,
+            const size_t* size_off_H, const int* i_H) {
+  const size_t total = size_off_H[nfiles];
+  if(total==0) return;
+
+  unsigned int* d_intenc = NULL;
+  const size_t* d_hcoff  = NULL;
+  int_loop_hccc_buffers(&d_intenc, &d_hcoff);
+  assert(d_intenc && d_hcoff);
+
+  static int block_size = 0;
+  if(!block_size) {
+    block_size = rnafold_choose_block_size(stack_row_kernel, BLOCK_SIZE, "RNA_STACK_ROW_BLOCK_SIZE");
+    fprintf(stderr,"%-24s stack_row_kernel block size %d (noLP)\n", __FILE__, block_size);
+  }
+
+  const size_t nblocks = (total + block_size - 1)/block_size;
+  stack_row_kernel<<<(int)nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn,
+                                                d_S2, d_pair2, d_param2,
+                                                d_intenc, d_hcoff,
+                                                d_energy_stack_row,
+                                                d_row_off_H, d_seq_off_H,
+                                                d_size_off_H, total, d_i_H);
+  gpuErrchk( cudaPeekAtLastError() );
+}
+
+// noLP: upstream's rotate_aux_arrays() (mfe/mfe.c:4460) -- swap cc/cc1, then
+// refill cc with INF so an unevaluated pair on the next row leaves INF rather
+// than the value from two rows ago. Called from fill_arrays_loop.c at exactly
+// the point the DMLi generations rotate, so the two cannot drift.
+PUBLIC void
+nolp_rotate_cc(void) {
+  int* t = d_cc1; d_cc1 = d_cc; d_cc = t;
+  if(g_row_total == 0) return;
+  const size_t nb = (g_row_total + 512 - 1)/512;
+  nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc);
+  gpuErrchk( cudaPeekAtLastError() );
 }
 
 // Launches new_c_kernel and, under RNA_ROW_VERIFY, checks it cell-for-cell
@@ -1261,6 +1459,7 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
 // values, so the sweep cannot yet be affected by a bug here.
 PUBLIC void
 new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
+        const int noLP,                        //in, --noLP: adds the stack term
         const int* new_C_host,                 //in, host's own result (verify only)
         const size_t* row_off_H,               //in, nfiles+1
         const size_t* size_off_H,
@@ -1282,10 +1481,19 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
   upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
   upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
+  // noLP: this row's stack energies have to exist before new_c_kernel reads
+  // them, and they depend only on the sequence and the hard constraints, so
+  // they can be built immediately before it on the same (NULL) stream.
+  if(noLP)
+    stack_row_i(nfiles, i, turn, size_off_H, i_H);
+
   const size_t nblocks = (total + block_size - 1)/block_size;
   new_c_kernel<<<(int)nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn, noGUclosure,
                                             d_energy_min2_, d_energy_hp_row, d_energy_mb_row,
                                             d_gate_row, d_dml1_, d_new_e_,
+                                            noLP ? d_energy_stack_row : NULL,
+                                            noLP ? d_cc1 : NULL,
+                                            noLP ? d_cc  : NULL,
                                             d_row_off_H, d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
   // Step 5b: pointless once the D2H is gone; stream order already covers it.

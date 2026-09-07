@@ -140,3 +140,39 @@ Item 1 is the only one that is urgent, and it is cheap. Items 2–7 are Phase 5 
 the port plan and are sequenced *after* the rebase, deliberately: implementing
 G-quad kernels against the 2.3.0 tree means deriving them twice, and it would
 muddy the byte-identical bar the port depends on.
+
+---
+
+## OPEN: a COMBINATION audit is still owed (Luke, 2026-09-07)
+
+Everything above audits options **one at a time**. That is not sufficient, and
+two findings on 2026-09-07 are why:
+
+- **`--noLP` + `RNA_FML_INT16` do not compose.** Each is individually correct
+  and verified; together the int16 encoding's premise fails, because `noLP` puts
+  near-INF *finite* values into `fML` that a per-block 16-bit offset cannot
+  represent. Refused at init. Nothing in a per-option audit could have predicted
+  this — it took running the pair.
+- **`--noLP` + `--salt` is an UPSTREAM inconsistency** (Defect D in
+  `PORT_UPSTREAM_PROPOSAL.md`): the `noLP` stacking term is uncorrected for salt
+  while the interior-loop path is corrected, and it is silent at default salt
+  because `SaltStack` truncates to 0 above 0.5 M.
+
+Both are *pairwise* properties. The accepted set is now default, temperature,
+`noGU`, `uniq_ML`, salt and `noLP`, plus the orthogonal switches
+`RNA_FML_INT16`, `RNA_SLOT_FLOW`, `RNA_CONTINUOUS_FLOW`, `RNA_GPU_CHUNK` and
+`RNA_MIN_GPU_BATCH` — which is far more pairs than have ever been run together.
+
+Known refusals of a PAIR, as opposed to an option:
+
+| pair | why |
+|---|---|
+| `RNA_FML_INT16` + `RNA_SLOT_FLOW` | a slot handover leaves stale baselines |
+| `RNA_FML_INT16` + `--noLP` | near-INF finite values exceed the 16-bit offset |
+
+The audit to run before release should be a matrix, not a list, and it should
+assert the three things a per-option check cannot: that the pair produces the
+same answer as the CPU route, that it produces the same answer as the *other*
+order of enabling, and that where a pair is refused, it is refused **at init**
+rather than folding something plausible. `tools/verify_option_parity.sh` is the
+natural home; today it walks options singly.

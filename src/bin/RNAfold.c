@@ -988,7 +988,6 @@ gpu_path_usable(struct options *opt,
   if (md->dangles != 2)         NO("dangle model other than 2");
   if (md->gquad)                NO("G-quadruplexes (-g)");
   if (md->circ)                 NO("circular RNA (-c)");
-  if (md->noLP)                 NO("noLP");
   if (md->noGUclosure)          NO("noClosingGU");
 
   /* NOT rejected, and each for a reason that was measured rather than assumed:
@@ -1007,8 +1006,9 @@ gpu_path_usable(struct options *opt,
    * reference set before the rejection was lifted; tools/verify_option_parity.sh
    * covers them.
    *
-   * noLP is NOT in this list, and the earlier note here ("disagreed on 3 of 12
-   * records") understated it badly, because it compared ENERGIES. Diagnosed
+   * noLP is now ACCEPTED (2026-09-07). The earlier note here ("disagreed on 3
+   * of 12 records") understated the defect badly, because it compared ENERGIES.
+   * Diagnosed
    * properly 2026-09-07 by lifting both guards and re-evaluating each returned
    * structure with RNAeval -- the check that needs no oracle:
    *
@@ -1032,11 +1032,19 @@ gpu_path_usable(struct options *opt,
    * fill_arrays_loop.c:215 still carries the deleted machinery as a comment,
    * marked "gcov says not used". It said that because noLP was never exercised.
    *
-   * The fix is bounded: a cc/cc1 row-buffer pair (the sweep already has this
-   * shape in fml_prev/DMLi), a per-cell stacking energy (the ns=nl=0 case the
-   * internal-loop kernel already computes), and writing the stacked value into
-   * c. The BACKTRACK needs nothing -- vrna_backtrack_from_intervals() wraps
-   * upstream's own backtrack(), which already handles noLP. */
+   * FIXED and the guard lifted: a cc/cc1 row-buffer pair, a stack_row_kernel
+   * that computes upstream's vrna_eval_stack() per row, and new_c_kernel
+   * writing the stacked value into c while carrying the unconstrained new_c in
+   * cc. The BACKTRACK needed nothing -- vrna_backtrack_from_intervals() wraps
+   * upstream's own backtrack(), which already handles noLP; it was mis-walking
+   * our matrix precisely because the matrix was wrong.
+   *
+   * Verified: 60/60 records byte-identical to upstream --noLP (was 1/60), every
+   * structure re-evaluates to its own reported energy, zero lonely pairs, seven
+   * reference workloads including F_extreme and a 1600-record batch, and
+   * identical across 2/3/4/7 chunks. --noLP + RNA_FML_INT16 is REFUSED at init
+   * (fill_arrays.c): noLP puts near-INF FINITE values into fML that the 16-bit
+   * per-block offsets cannot represent. */
   if (md->energy_set != 0)      NO("non-default energy set");
   /* salt is no longer barred: the multibranch kernel inherits it through the
    * parameter tables, and the hairpin/internal kernels each add one term from

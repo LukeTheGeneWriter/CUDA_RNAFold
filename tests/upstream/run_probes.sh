@@ -12,6 +12,12 @@
 #   C1 race_window       CONFIRMED,    ~97% of parameter sets carry another
 #                                      thread's window settings
 #   C2 race_window1      no mismatch  -- single-threaded control, must be clean
+#   D  nolp_salt        DEFECT CONFIRMED below 0.5 M salt -- the --noLP route
+#                       and the interior-loop route price the SAME stack
+#                       differently, by exactly P->SaltStack. Silent at the
+#                       default 1.021 M and above, where SaltStack truncates
+#                       to 0, which is why a test written at default salt sees
+#                       nothing. 6 of 18 cases, all three sequences.
 set -u
 
 V=${1:-$HOME/vrna27/ViennaRNA-2.7.2}
@@ -37,6 +43,7 @@ build race_mixed   params_race_probe.c            || exit 2
 build race_same    params_race_probe.c   -DNTEMP=1   || exit 2
 build race_window  params_window_probe.c          || exit 2
 build race_window1 params_window_probe.c -DNTHREAD=1 || exit 2
+build nolp_salt   nolp_salt_probe.c              || exit 2
 
 echo "###### A. auxiliary grammar rules receive the wrong i (mfe/mfe.c:502)"
 "$W/aux_index"
@@ -56,3 +63,7 @@ echo "###### C. SPEEDUP_PARAMS cache: same energy model, different window settin
 echo
 echo "###### C control: single-threaded, must report 0%"
 "$W/race_window1"
+
+echo
+echo "###### D. --noLP stacking term misses the salt correction (mfe/mfe.c:4415)"
+"$W/nolp_salt" -v

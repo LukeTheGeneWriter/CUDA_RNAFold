@@ -215,13 +215,14 @@ LIBRARY_TESTS = energy_evaluation \
                 hash_table \
                 mfe_engine
 
-## The CUDA routing guard is only built when the backend is, so this suite
-## joins the others only under --enable-cuda. `make check` therefore reports
-## 130 without CUDA and 135 with it.
+## The CUDA suites are only built when the backend is, so they join the others
+## only under --enable-cuda. `make check` therefore reports 130 without CUDA and
+## 145 with it: 11 routing-guard tests, 2 for the fM1 reconstruction under
+## uniq_ML, and 2 for the noLP recursion.
 if VRNA_AM_SWITCH_CUDA
-CHECKMK_FILES += mfe_cuda_guard.ts mfe_cuda_fm1.ts
-CHECK_CFILES  += mfe_cuda_guard.c mfe_cuda_fm1.c
-LIBRARY_TESTS += mfe_cuda_guard mfe_cuda_fm1
+CHECKMK_FILES += mfe_cuda_guard.ts mfe_cuda_fm1.ts mfe_cuda_nolp.ts
+CHECK_CFILES  += mfe_cuda_guard.c mfe_cuda_fm1.c mfe_cuda_nolp.c
+LIBRARY_TESTS += mfe_cuda_guard mfe_cuda_fm1 mfe_cuda_nolp
 endif
 
 check_PROGRAMS = ${LIBRARY_TESTS}

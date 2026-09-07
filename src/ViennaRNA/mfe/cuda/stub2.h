@@ -594,9 +594,22 @@ extern "C" /*PUBLIC*/ void
 PUBLIC void
 #endif
 new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
+        const int noLP,
         const int* new_C_host,
         const size_t* row_off_H, const size_t* size_off_H,
            const int* i_H); //in, nfiles entries -- continuous flow phase A, per-record row index
+
+// noLP (--noLP): upstream's rotate_aux_arrays() (mfe/mfe.c:4460) for the
+// device's cc/cc1 row buffers -- swap, then refill cc with INF. Call at
+// exactly the point fill_arrays_loop.c rotates the DMLi generations, so the
+// two representations cannot drift. A no-op cost when noLP is off, because the
+// caller only calls it when noLP is set. See PORT_NOLP_SPEC.md.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+nolp_rotate_cc(void);
 
 // GPU-resident sweep, step 4: the device twin of fml_host -- the one loop of
 // the three that is a recurrence along j rather than elementwise. Implemented

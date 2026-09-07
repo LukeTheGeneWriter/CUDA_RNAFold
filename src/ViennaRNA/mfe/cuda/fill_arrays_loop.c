@@ -238,7 +238,7 @@
     // (so RNA_ROW_VERIFY has something to compare) and load_my_c (which uploads
     // the host's new_C over d_new_e, so the readback must precede it and the
     // sweep still consumes the host's values either way).
-    new_c_i(nfiles, i, turn, noGUclosure,
+    new_c_i(nfiles, i, turn, noGUclosure, noLP,
             rnafold_gpu_sweep() ? NULL : new_C,  // no host result to verify against in device mode
             row_off_H, size_off_H, i_H);
 
@@ -421,6 +421,14 @@
       int *FF; /* rotate the auxilliary arrays */
       FF = DMLi2; DMLi2 = DMLi1; DMLi1 = DMLi; DMLi = FF;
     }
+
+    // noLP: rotate cc/cc1 at exactly the same point, because upstream does
+    // (rotate_aux_arrays() rotates the multibranch helpers and cc together,
+    // mfe/mfe.c:4460). Placed AFTER the DMLi rotate for the same reason
+    // md_snapshot_dml() sits where it does: the two representations of "the
+    // previous row" must be published at one point, or they drift.
+    if(noLP)
+      nolp_rotate_cc();
 
     // Continuous flow phase B: every active record advances one row; a record
     // that was on row 1 lands on 0 and is retired from here on. Off the flow
