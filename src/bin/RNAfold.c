@@ -1005,9 +1005,38 @@ gpu_path_usable(struct options *opt,
    *
    * All three verified byte-identical against the CPU route over the full
    * reference set before the rejection was lifted; tools/verify_option_parity.sh
-   * covers them. noLP is NOT in this list: ptype encodes it
-   * (sequences/alphabet.c:271) and it still disagreed on 3 of 12 records, so
-   * "the data is uploaded" is not the same as "the recursion honours it". */
+   * covers them.
+   *
+   * noLP is NOT in this list, and the earlier note here ("disagreed on 3 of 12
+   * records") understated it badly, because it compared ENERGIES. Diagnosed
+   * properly 2026-09-07 by lifting both guards and re-evaluating each returned
+   * structure with RNAeval -- the check that needs no oracle:
+   *
+   *   CPU  rec 0: reports -295.60, structure re-evaluates to -295.60, 274 pairs
+   *   GPU  rec 0: reports -295.60, structure re-evaluates to  -77.18,  90 pairs
+   *   GPU  rec 1: reports -294.94, structure re-evaluates to   +5.54,   6 pairs
+   *
+   * 8 of 8 sampled records inconsistent by 87 to 300 kcal. The matrix fill and
+   * the backtrack do not agree WITH EACH OTHER -- the same failure shape as the
+   * hard-constraint bug, and invisible to an energy comparison because the f5
+   * value is roughly right while the structure is not.
+   *
+   * Cause, and it is not "ptype is not enough". noLP changes what the
+   * recursion WRITES: at mfe/mfe.c:4413 upstream stores cc1[j-1]+stackEnergy
+   * into c[ij] rather than new_c, carrying the unconstrained value sideways in
+   * the cc/cc1 row buffers. That is what forbids a helix of length one. The
+   * sweep stores new_c, so upstream's backtrack -- which branches on noLP at
+   * mfe/mfe.c:4289 and calls vrna_bt_stacked_pairs() -- walks a matrix built
+   * under a different convention than the one it assumes.
+   *
+   * fill_arrays_loop.c:215 still carries the deleted machinery as a comment,
+   * marked "gcov says not used". It said that because noLP was never exercised.
+   *
+   * The fix is bounded: a cc/cc1 row-buffer pair (the sweep already has this
+   * shape in fml_prev/DMLi), a per-cell stacking energy (the ns=nl=0 case the
+   * internal-loop kernel already computes), and writing the stacked value into
+   * c. The BACKTRACK needs nothing -- vrna_backtrack_from_intervals() wraps
+   * upstream's own backtrack(), which already handles noLP. */
   if (md->energy_set != 0)      NO("non-default energy set");
   /* salt is no longer barred: the multibranch kernel inherits it through the
    * parameter tables, and the hairpin/internal kernels each add one term from

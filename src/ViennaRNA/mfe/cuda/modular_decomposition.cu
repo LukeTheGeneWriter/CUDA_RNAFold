@@ -802,7 +802,14 @@ compute_gpu_usable_bytes(void) {
 __device__ __forceinline__ size_t
 fml_bidx(const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
          const int H, const int j, const int idx) {
-  return base_off_H[H] + colb_off[j] + (size_t)((idx - 1)/FML_BLK);
+  // Unsigned for the same reason as the hot loop in
+  // modular_decomposition_kernel -- a signed power-of-two divide costs four
+  // instructions to bias a negative numerator that never occurs here, and
+  // callers pass a within-column index, which is >= 1. This site is O(n^2) per
+  // row rather than O(n^3), so it matters even less than that one did, and
+  // that one measured as no change at all.
+  assert(idx >= 1);
+  return base_off_H[H] + colb_off[j] + (size_t)((unsigned)(idx - 1)/FML_BLK);
 }
 
 __device__ __forceinline__ int
@@ -1267,11 +1274,30 @@ modular_decomposition_kernel(
     if(fml_j16) {
       const size_t bcell = base_off_H[H] + colb_off[j];
       const int    idx0  = i + turn + 2;
+      // UNSIGNED divide. FML_BLK is a power of two, but a SIGNED division by
+      // one is not a bare shift -- the compiler must bias for a negative
+      // numerator. Confirmed in PTX 2026-09-07: signed emits shr.s32/shr.u32/
+      // add.s32/shr.s32, unsigned emits a single shr.u32. Three instructions
+      // per cell, in the innermost loop of an O(n^3) kernel, to handle a case
+      // that cannot arise (idx0 = i+turn+2 >= 6 and y >= 0, so the numerator is
+      // never below 5). The assert keeps that a checked claim, not a comment.
+      //
+      // AND IT BOUGHT NOTHING -- measured, do not re-litigate. RTX 3050 at
+      // 1057 MHz, 40 x 2000 nt, three alternating reps with cooldowns:
+      // modular_decomp 1.440 s signed -> 1.466 s unsigned, against an untouched
+      // int32 control that moved 1.888 -> 1.896. Both inside a ~4% spread.
+      // The kernel is BANDWIDTH-bound in this regime, so the ALU has slack and
+      // removing work from a non-bottleneck changes nothing. Kept because it is
+      // strictly fewer instructions for a byte-identical answer and it should
+      // pay if this ever runs compute-starved -- not because it is a speedup
+      // here. The null result is itself evidence: a compute-bound kernel would
+      // have shown the saving.
       for(int y=lane; y <= x; y += TILE) {
         const long long yij = y + ij0;
         assert(yij < Hoff(nfiles,length));
+        assert(idx0 + y - 1 >= 0);   // the precondition the unsigned cast relies on
         const int  d = fml_decode(fml_j16, fml_b, tri_off_H[H]+yij,
-                                  bcell + (size_t)((idx0 + y - 1)/FML_BLK));
+                                  bcell + (size_t)((unsigned)(idx0 + y - 1)/FML_BLK));
         value = MIN2(fml_i[row_off_H[H]+y] + d, value);
       }
     } else
