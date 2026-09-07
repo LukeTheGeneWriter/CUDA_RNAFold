@@ -1055,6 +1055,69 @@ gpu_path_usable(struct options *opt,
 #define VRNA_MIN_GPU_BATCH 10
 
 
+/* The CPU-fallback threshold, overridable so it can be MEASURED.
+ *
+ * Measured 2026-09-07 on 60 x 900 nt: this constant is what made int16 look
+ * like a REGRESSION in benchmark v3's arm F. Chunk capacity comes from the
+ * VRAM budget, so the final chunk holds a quantisation remainder -- and
+ * int16's larger chunks leave a LARGER remainder. At a 48 MB budget int32
+ * packed 14/chunk and left 4 records behind (2.6 s on the CPU) while int16
+ * packed 18/chunk and left 6 (4.0 s). Both did ~2.7 s of GPU work, so the
+ * whole apparent 0.86x regression was the CPU tail -- and nothing could see
+ * it, because the benchmark's validity gate tested `sweeps == 0`, which
+ * catches only a TOTAL fallback and never a partial one.
+ *
+ * Per-chunk GPU cost measured at 900 nt is 0.36 s + 0.025 s/record against
+ * 0.65 s/record on the CPU, so break-even there is under ONE record: at that
+ * length the fallback can never win. That is consistent with the length
+ * dependence noted above -- the CPU fold and the GPU marginal cost are both
+ * O(L^3) while the per-chunk fixed cost is not, so the break-even count goes
+ * as L^-3. That is also why those three documented points line up: 65 at
+ * 300 nt gives 8.1 at 600 and 1.0 at 1200.
+ *
+ * An env override rather than a new constant, deliberately: the default stays
+ * behaviour-preserving, and ONE binary can be folded both ways and compared
+ * against itself -- the shape that settled RNA_GPU_SWEEP and RNA_FML_INT16.
+ * It announces itself for the reason the int16 gate does: a run that did not
+ * apply the setting must not be able to pass for one that did.
+ *
+ * Deliberately NOT used at the other VRNA_MIN_GPU_BATCH site below, which
+ * asks a different question -- "can free VRAM hold a worthwhile batch at this
+ * length?". Setting that to 1 would admit a GPU path where a single record
+ * fills VRAM, i.e. one chunk per record, which is the worst case for chunk
+ * count and so the worst case for wall clock.
+ */
+static int
+rnafold_min_gpu_batch(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MIN_GPU_BATCH");
+
+    v = VRNA_MIN_GPU_BATCH;
+
+    if (e && *e) {
+      const long n = atol(e);
+
+      if (n >= 1) {
+        v = (int)n;
+        fprintf(stderr,
+                "%-24s RNA_MIN_GPU_BATCH=%d (default %d): chunks smaller than "
+                "this fold on the CPU\n",
+                "bin/RNAfold.c", v, VRNA_MIN_GPU_BATCH);
+      } else {
+        fprintf(stderr,
+                "%-24s ignoring RNA_MIN_GPU_BATCH=%s (want a positive integer)\n",
+                "bin/RNAfold.c", e);
+      }
+    }
+  }
+
+  return v;
+}
+
+
 static void
 flush_gpu_chunk(struct record_data **chunk,
                 int                  n,
@@ -1068,7 +1131,7 @@ flush_gpu_chunk(struct record_data **chunk,
   if (n <= 0)
     return;
 
-  if (n < VRNA_MIN_GPU_BATCH) {
+  if (n < rnafold_min_gpu_batch()) {
     /* CPU fallback. Not a separate worker queue: upstream's driver already has
      * a per-record parallel path, so an undersized chunk simply goes down it.
      * That is the fork's RNAfold_cpu_queue.c retired rather than ported --
