@@ -1,0 +1,28 @@
+{
+  "date": "2026-09-08",
+  "commit": "c2e77b56",
+  "clocks": "NVIDIA L4, 2040 MHz, 2040 MHz, 48, 0x0000000000000000",
+  "nrec": 16,
+  "len": 2000,
+  "launches": 1996,
+  "skip": 998,
+  "count": 5,
+  "i32": {
+    "dram__bytes_read.sum": 39318784.0,
+    "dram__bytes_write.sum": 159488.0,
+    "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed": 89.342,
+    "gpu__time_duration.sum": 147532.8,
+    "l1tex__t_sector_hit_rate.pct": 59.6,
+    "lts__t_sector_hit_rate.pct": 6.1339999999999995,
+    "sm__throughput.avg.pct_of_peak_sustained_elapsed": 23.53
+  },
+  "i16": {
+    "dram__bytes_read.sum": 24527872.0,
+    "dram__bytes_write.sum": 563.2,
+    "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed": 80.854,
+    "gpu__time_duration.sum": 101305.6,
+    "l1tex__t_sector_hit_rate.pct": 75.854,
+    "lts__t_sector_hit_rate.pct": 9.406,
+    "sm__throughput.avg.pct_of_peak_sustained_elapsed": 46.136
+  }
+}
