@@ -293,3 +293,23 @@ Three, and each would have produced a confident wrong report:
 `uniq_ML` (accepted, but no byte-comparable RNAfold flag), `logML` (declined, no
 flag at all), and **triples** — both known refusals were pairwise, but nothing
 here proves a third option cannot interact.
+
+### Triples: 24 focused, all green (2026-09-08)
+
+`tools/verify_option_triples.sh`. The selection is **principled, not
+exhaustive**: every triple contains a FLOW dimension (`RNA_SLOT_FLOW` or a
+forced chunk split), because flow is where per-slot state lives and where both
+known interactions appeared -- `int16`+`slotflow` (stale baselines) and
+`noLP`+`slotflow` (a refill wiping live slots). A three-way break is far likelier
+there than among the answer-neutral knobs.
+
+- two accepted options + one flow switch: 12, all identical to the CPU route;
+- one accepted option + two flow switches: 12, all identical.
+
+**What this does NOT prove.** It is 24 triples, not the 84 that exist, and it
+excludes `RNA_FML_INT16` entirely (two of its pairings are refused, and its
+remaining triples are unexplored). The `chunk12` arms fold ~47% of cells on the
+CPU by design, so their GPU coverage is partial -- the answer is verified, the
+device path is only half-exercised. Exhaustive triples remain unproven, and the
+matrix stays PAIRWISE on that evidence rather than being generalised to N-ary
+speculatively.
