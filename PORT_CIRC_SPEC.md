@@ -113,6 +113,59 @@ differs, so the bar is sensitive to exactly that bug:
 
 6 of 6 records show a circular effect; none is a weak vector.
 
+## Status 2026-09-08 — correct today, and the CPU route is a floor not a plan
+
+Three things re-measured or re-read today, in the order they change the picture.
+
+**1. Circular already produces the RIGHT answer, at both levels.** This is not
+future work; it is the status quo, and it is worth saying because "guarded and
+refuses" above overstates it:
+
+- `RNAfold -c` — `gpu_path_usable()` (`RNAfold.c`) turns the accelerator off for
+  the **whole invocation**. `-c` is one model detail for every record, so this is
+  equivalent to declining each; `verify_option_parity.sh` confirms `circ` is
+  byte-identical via an asserted CPU route.
+- `vrna_mfe_batch()` — the library guard declines circular fold compounds one by
+  one, so the fallback loop calls `vrna_mfe()` per record, which reaches
+  `mfe.c:322` and runs `postprocess_circular()`. A *mixed* batch therefore folds
+  its circular records correctly on the CPU while everything else is accelerated.
+
+**2. The recorded blocker is narrower than this document says.**
+`postprocess_circular()` being `PRIVATE` does not block circular. It blocks
+circular *inside the batch backend*, which is the only path that never reaches
+`mfe.c:322`. See `PORT_OPTION_STATUS.md` §5.
+
+**3. So the open work is speed, not correctness** — and there are three tiers,
+which is Luke's framing (2026-09-08):
+
+| tier | what | cost |
+|---|---|---|
+| **0 — today** | decline, fold on the CPU | correct, and *k*× slower on circular input |
+| **1 — the design above** | GPU fills (incl. `fM2`), host post-processes | one chunk width of VRAM |
+| **2** | post-process on the device too | almost certainly not worth it |
+
+**Tier 1 is the one to build, and the PCIe cost is close to zero** — which is the
+part that is easy to miss. The matrices *already* come back over PCIe for
+backtracking, so persisting `fM2` adds it to a transfer that is happening anyway
+rather than creating a new one. And the kernel already computes the values:
+`fM2_real` **is** the `DMLi` the sweep currently discards (8853 cells verified,
+§"the hot kernel already computes the missing matrix"). Nothing new is computed
+and nothing new is transferred; a row is kept instead of dropped.
+
+The real price stays what this document said from the start: **a third matrix
+costs a chunk width**, and chunk count is what the whole flatten-and-offset
+architecture exists to minimise — measured at roughly *k*× wall for *k* chunks,
+because the loss is batch **width**, not per-chunk overhead
+(`project_chunking_costs_batch_width`). On a VRAM-bound workload that trade could
+plausibly cost more than circular folding gains, so tier 1 needs the chunk-count
+effect measured on a real circular workload before it is worth landing.
+
+**Tier 2 is recorded to be dismissed.** `postprocess_circular()` is host code
+that is embarrassingly parallel *across records*, so it belongs on the existing
+`RNA_BACKTRACK_THREADS` pool, not in a kernel. Porting it would mean
+reimplementing upstream logic that would then drift — the exact thing reusing it
+verbatim is meant to prevent.
+
 ## What is NOT covered here
 
 - **`-c` with `-g`** is refused by upstream itself
