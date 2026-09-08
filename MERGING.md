@@ -325,7 +325,7 @@ Ordered by increasing difficulty and decreasing independence:
 | 1. `params.c` race fix | **superseded, deliberately.** Not patched; *reported* as Defect B in `PORT_UPSTREAM_PROPOSAL.md`. Patching an unrelated upstream bug inside a large feature branch buries it. |
 | 2. port onto current upstream | **DONE.** `port27` branches off the `v2.7.2` tag; `make check` 145/145. |
 | 3. remove the `vrna_mfe()` shadowing | **DONE.** The inside-engine seam replaced it; the fork now deletes 7 lines of upstream code in total. |
-| 4. configuration through `vrna_md_t` | **OPEN**, and the most reviewer-visible debt left. 22 environment variables (§6) are a testing surface, not an API. |
+| 4. configuration through `vrna_md_t` | **SCOPED 2026-09-08, and the mechanism REJECTED** — see `PORT_CONFIG_SCOPE.md`. The goal stands (24 env vars, not 22, are the largest reviewer-visible debt) but `vrna_md_t` is the wrong home: wrong struct, an ABI break for every consumer, and it promises per-compound scope for six knobs that are process-wide caches. The seam already carries a per-compound `void *data`, so the fix costs **zero** upstream lines. |
 | 5. land the batch entry point, opt-in | **BUILT, not landed.** `--enable-cuda` exists, defaults off, host path untouched without it. "Landing" now means an upstream decision, not code — §3.1/3.2 of the proposal. |
 | 6. Python bindings | **OPEN.** Users reach ViennaRNA through `import RNA`; until the CUDA path is reachable there, adoption is zero regardless of what merges. |
 
