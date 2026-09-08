@@ -80,6 +80,15 @@ extern void teardown_gpu3(void);
  * and the slot-flow knobs the projection has to respect. */
 extern size_t gpu_bytes_per_file(const int length);
 extern size_t compute_gpu_usable_bytes(void);
+/* The four stage counters that mfe_cuda.c PRINTS but nothing incremented until
+ * 2026-09-08. They cover work that happens in this file rather than in the CUDA
+ * layer -- building and freeing fold compounds, device teardown, and output --
+ * which is why they were never wired up: the counter lives with the reporter,
+ * the work lives here, and nobody closed the gap. The deep profile found 61% of
+ * wall at 120x5601 outside every timer; these are the first four candidates.
+ * See PROFILE272_DEEP_RESULTS.md. */
+extern double stage_build_s, stage_output_s, stage_teardown_s, stage_free_s;
+extern double rnafold_now_seconds(void);
 extern int    rnafold_slot_flow(void);
 extern int    rnafold_slot_capacity_max(void);
 
@@ -1185,6 +1194,15 @@ flush_gpu_chunk(struct record_data **chunk,
   Str = (char **)vrna_alloc(sizeof(char *) * n);
   EN  = (float *)vrna_alloc(sizeof(float) * n);
 
+  /* stage_build_s was DECLARED and PRINTED but never incremented, so the stage
+   * line reported build=0.000 for the life of the project -- which reads as
+   * "this costs nothing" when it means "nobody measured it". The deep profile
+   * on 2026-09-08 found 61% of wall at 120x5601 outside every timer, and this
+   * is one of the four counters that should have been covering it.
+   * vrna_fold_compound() builds the ptype and hard-constraint tables, which are
+   * O(n^2) per record, so this is a genuine candidate for that remainder. */
+  const double t_build = rnafold_now_seconds();
+
   for (i = 0; i < n; i++) {
     VC[i]  = vrna_fold_compound(chunk[i]->sequence, &(opt->md), VRNA_OPTION_DEFAULT);
 
@@ -1216,24 +1234,45 @@ flush_gpu_chunk(struct record_data **chunk,
    *
    * That is what makes the diff presentable: the accelerator is a backend, not
    * a fork of the driver, and removing it leaves a correct program. */
+  stage_build_s += rnafold_now_seconds() - t_build;
+
   vrna_mfe_batch(VC, (size_t)n, Str, EN);
 
+  /* stage_free_s: also a dead counter until 2026-09-08. Freeing a fold
+   * compound releases the same O(n^2) tables build allocated. */
+  const double t_free = rnafold_now_seconds();
   for (i = 0; i < n; i++) {
     chunk[i]->prefolded           = 1;
     chunk[i]->prefolded_energy    = EN[i];
     chunk[i]->prefolded_structure = Str[i];   /* handed over; freed with the record */
     vrna_fold_compound_free(VC[i]);
   }
+  stage_free_s += rnafold_now_seconds() - t_free;
 
   /* Release the device state this chunk sized, before the next chunk sizes its
    * own. Without this the second chunk inherits dirty buffers. */
+  const double t_teardown = rnafold_now_seconds();
   teardown_gpu();
   teardown_gpu2();
   teardown_gpu3();
+  stage_teardown_s += rnafold_now_seconds() - t_teardown;
 
-  /* dispatch only once every record in the chunk has its answer */
+  /* dispatch only once every record in the chunk has its answer.
+   * stage_output_s covers process_record(): formatting, the PS/DP plots when
+   * they are not suppressed, and everything the partition function does when
+   * -p is set. It is the fourth dead counter, and on a --noPS MFE-only run it
+   * should be small -- if it is NOT, that is the finding.
+   *
+   * CAVEAT, and it is the trap that once made a phase timer report a NEGATIVE
+   * number here: RUN_IN_PARALLEL is thpool_add_work() whenever max_threads > 1
+   * (parallel_helpers.h:63), so with -j this measures DISPATCH, not the work.
+   * Single-threaded it calls fun(data) inline and the number is real. Read
+   * stage_output_s only from a run without -j until someone joins the pool
+   * inside the timed region. */
+  const double t_output = rnafold_now_seconds();
   for (i = 0; i < n; i++)
     RUN_IN_PARALLEL(process_record, chunk[i]);
+  stage_output_s += rnafold_now_seconds() - t_output;
 
   free(VC);
   free(Str);
