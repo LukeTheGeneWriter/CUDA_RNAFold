@@ -900,13 +900,28 @@ if RUN_NCU:
                   "l1tex__t_sector_hit_rate.pct",
                   "lts__t_sector_hit_rate.pct",
                   "gpu__time_duration.sum"])
+    # RNA_MIN_GPU_BATCH=1 is REQUIRED here, not a tuning choice. The probe file
+    # holds DRIFT_N records and the stock threshold is 10, so without it
+    # flush_gpu_chunk() folds the whole thing on the CPU, NOT ONE KERNEL
+    # LAUNCHES, and ncu prints "No kernels were profiled" after a run that
+    # otherwise looks completely normal -- the folds are all there on stdout.
+    # v4 had this same defect (its probe used a 5-record file) and nobody saw
+    # it, because RUN_NCU defaults to False: a cell that never ran.
     for tag, i16 in (("i32", False), ("i16", True)):
-        env = "RNA_GPU_CHUNK=0" + (" RNA_FML_INT16=1" if i16 else "")
+        env = "RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1" + (" RNA_FML_INT16=1" if i16 else "")
         sh("%s ncu --target-processes all -k modular_decomposition_kernel "
            "--launch-skip 2000 --launch-count 5 --metrics %s --csv "
            "%s --noPS -i %s > /content/ncu_%s.csv 2> /content/ncu_%s.err"
            % (env, M, BIN["C"], SUB[DRIFT_N], tag, tag),
            check=False, quiet=True)
+        # Gate it. An empty profile is not a result, and the warning that says
+        # so is buried under a screen of folded structures.
+        err = open("/content/ncu_%s.err" % tag).read()
+        if "No kernels were profiled" in err or not os.path.getsize("/content/ncu_%s.csv" % tag):
+            print("  *** %s: NO KERNELS PROFILED -- this arm measured nothing." % tag)
+            print("      Check the fold reached the GPU at all (sweeps > 0);")
+            print("      below RNA_MIN_GPU_BATCH the whole chunk folds on the CPU.")
+            continue
         print("--- %s ---" % tag)
         print(sh("tail -8 /content/ncu_%s.csv" % tag, check=False,
                  quiet=True).stdout)
