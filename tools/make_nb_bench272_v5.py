@@ -907,24 +907,35 @@ if RUN_NCU:
     # otherwise looks completely normal -- the folds are all there on stdout.
     # v4 had this same defect (its probe used a 5-record file) and nobody saw
     # it, because RUN_NCU defaults to False: a cell that never ran.
+    # Three things this invocation gets right that the first one did not, all
+    # of them found by running it (2026-09-08) rather than by reading it:
+    #
+    # 1. SUB[CAL_N], not SUB[DRIFT_N]. The probe must hold at least
+    #    MIN_GPU_BATCH records or flush_gpu_chunk() folds the whole thing on
+    #    the CPU and NOT ONE KERNEL LAUNCHES. A record count above the
+    #    threshold works on every commit; RNA_MIN_GPU_BATCH does not exist
+    #    before 130e2c8a, so it is set as a belt-and-braces, not as the fix.
+    # 2. --log-file. ncu writes its --csv report to STDOUT and so does RNAfold,
+    #    so without this the .csv holds folded dot-bracket structures and zero
+    #    metric rows.
+    # 3. The gate reads the LOG, not stderr. "No kernels were profiled" is an
+    #    ncu message on stdout; a gate grepping the .err file never fires.
     for tag, i16 in (("i32", False), ("i16", True)):
         env = "RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1" + (" RNA_FML_INT16=1" if i16 else "")
+        csv = "/content/ncu_%s.csv" % tag
         sh("%s ncu --target-processes all -k modular_decomposition_kernel "
            "--launch-skip 2000 --launch-count 5 --metrics %s --csv "
-           "%s --noPS -i %s > /content/ncu_%s.csv 2> /content/ncu_%s.err"
-           % (env, M, BIN["C"], SUB[DRIFT_N], tag, tag),
+           "--log-file %s %s --noPS -i %s > /dev/null 2> /content/ncu_%s.err"
+           % (env, M, csv, BIN["C"], SUB[CAL_N], tag),
            check=False, quiet=True)
-        # Gate it. An empty profile is not a result, and the warning that says
-        # so is buried under a screen of folded structures.
-        err = open("/content/ncu_%s.err" % tag).read()
-        if "No kernels were profiled" in err or not os.path.getsize("/content/ncu_%s.csv" % tag):
+        body = open(csv).read() if os.path.exists(csv) else ""
+        if ("No kernels were profiled" in body) or ("dram__bytes_read" not in body):
             print("  *** %s: NO KERNELS PROFILED -- this arm measured nothing." % tag)
-            print("      Check the fold reached the GPU at all (sweeps > 0);")
-            print("      below RNA_MIN_GPU_BATCH the whole chunk folds on the CPU.")
+            print("      Below MIN_GPU_BATCH the whole chunk folds on the CPU,")
+            print("      and --launch-skip past the last launch profiles nothing.")
             continue
         print("--- %s ---" % tag)
-        print(sh("tail -8 /content/ncu_%s.csv" % tag, check=False,
-                 quiet=True).stdout)
+        print("\n".join(body.strip().splitlines()[-8:]))
 else:
     print("RUN_NCU is False -- set it True to answer the DRAM-roof question.")""")
 
