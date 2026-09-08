@@ -27,12 +27,24 @@ echo
 
 pass=0; fail=0; n=0
 
+NREC=$(grep -c '^>' "$IN")
+
+# check TAG EXPECT OPTIONS...
+#   EXPECT is `gpu` (must be accelerated, and for EVERY record) or `cpu` (must
+#   route to the CPU). Added 2026-09-08: this file used to PRINT the route and
+#   never assert it, so an option that quietly stopped being accelerated still
+#   scored "identical [CPU route]" as a pass, and one accelerated for 20 of 30
+#   records scored "identical [GPU: 1 sweeps]". The second is the partial
+#   fallback that made int16 look like a regression for a whole session --
+#   bench v3 gated on `sweeps == 0`, which catches only a TOTAL fallback.
 check() {
-  local tag=$1; shift
+  local tag=$1 expect=$2; shift 2
   n=$((n+1))
   "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.off" 2> "$W/$tag.off.err"; rc_off=$?
   RNA_GPU_CHUNK=0 "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.on" 2> "$W/$tag.on.err"; rc_on=$?
   local sweeps; sweeps=$(grep -c 'sweep shape:' "$W/$tag.on.err")
+  local gpurec; gpurec=$(grep -o 'peak/iteration [0-9]* records' "$W/$tag.on.err" \
+                         | awk '{s+=$2} END{print s+0}')
 
   if [ $rc_off -ne $rc_on ]; then
     printf '  %-22s EXIT DIFFERS (off %d, on %d)\n' "$tag" "$rc_off" "$rc_on"
@@ -50,10 +62,26 @@ check() {
     fail=$((fail+1)); return
   fi
   if cmp -s "$W/$tag.off" "$W/$tag.on"; then
-    if [ "$sweeps" -gt 0 ]; then
-      printf '  %-22s identical  [GPU: %s sweeps]\n' "$tag" "$sweeps"
+    # The answer is right. Now: did it get there the way we claim?
+    if [ "$expect" = gpu ]; then
+      if [ "$sweeps" -eq 0 ]; then
+        printf '  %-22s *** SILENT CPU ROUTE *** right answer, but the GPU never ran\n' "$tag"
+        fail=$((fail+1)); return
+      fi
+      if [ "$gpurec" -ne "$NREC" ]; then
+        printf '  %-22s *** PARTIAL FALLBACK *** %d of %d records folded on the CPU\n' \
+               "$tag" "$((NREC - gpurec))" "$NREC"
+        fail=$((fail+1)); return
+      fi
+      printf '  %-22s identical  [GPU: %s sweeps, %d/%d records]\n' \
+             "$tag" "$sweeps" "$gpurec" "$NREC"
     else
-      printf '  %-22s identical  [CPU route]\n' "$tag"
+      if [ "$sweeps" -gt 0 ]; then
+        printf '  %-22s *** UNEXPECTEDLY ACCELERATED *** %s sweeps for a declined option\n' \
+               "$tag" "$sweeps"
+        fail=$((fail+1)); return
+      fi
+      printf '  %-22s identical  [CPU route, as required]\n' "$tag"
     fi
     pass=$((pass+1))
   else
@@ -63,31 +91,35 @@ check() {
   fi
 }
 
-echo "--- options the GPU path supports (expect GPU sweeps)"
-check default
-check temp37            -T 37
-check temp25            -T 25
-check nolp_off          --dangles=2
-check partfunc          -p
-check partfunc0         -p0
-check mea               -p --MEA
-check centroid          -p
-check bppm_thresh       -p --bppmThreshold=1e-4
+echo "--- options the GPU path supports (must be accelerated, for EVERY record)"
+check default           gpu
+check temp37            gpu -T 37
+check temp25            gpu -T 25
+check nolp_off          gpu --dangles=2
+check partfunc          gpu -p
+check partfunc0         gpu -p0
+check mea               gpu -p --MEA
+check centroid          gpu -p
+check bppm_thresh       gpu -p --bppmThreshold=1e-4
+# noLP moved here 2026-09-07 (9d3f63cc): it is ACCEPTED now. It sat in the
+# "must route to the CPU" list below until 2026-09-08, which was not merely
+# stale bookkeeping -- with the route unasserted, an accepted noLP and a
+# declined noLP produced the same green line.
+check noLP              gpu --noLP
+check noGU              gpu --noGU
+check salt              gpu --salt=0.2
 
 echo
 echo "--- options that must route to the CPU (expect CPU route, same answer)"
-check gquad             -g
-check circ              -c
-check dangles0          -d0
-check dangles1          -d1
-check dangles3          -d3
-check noLP              --noLP
-check noGU              --noGU
-check noClosingGU       --noClosingGU
+check gquad             cpu -g
+check circ              cpu -c
+check dangles0          cpu -d0
+check dangles1          cpu -d1
+check dangles3          cpu -d3
+check noClosingGU       cpu --noClosingGU
 # NOT tested: RNAfold has no --logML flag. The check that used to sit here
 # compared two EMPTY outputs from a rejected option and reported "identical"
 # every run -- a green line for a test that never ran anything.
-check salt              --salt=0.2
 # NOT tested here: uniq_ML has no RNAfold flag, so an option-surface check
 # cannot reach it. An earlier version of this file listed a "uniqML" case that
 # actually passed `-p --MEA` -- a duplicate of the mea case above wearing a
