@@ -206,9 +206,24 @@ code(r"""COMMON = ("--without-python --without-perl --without-swig --without-doc
 
 def build(path, tag, extra=""):
     t0 = time.time()
+    # The bundled third-party sources ship as TARBALLS in git and configure can
+    # refuse to proceed until they are unpacked. The release tarball ships them
+    # unpacked, so this only ever bites a git-tree build.
+    for pat, flag in (("src/dlib-*.tar.bz2", "-xjf"), ("src/libsvm-*.tar.gz", "-xzf")):
+        for t in sh("ls %s/%s 2>/dev/null" % (path, pat), check=False,
+                    quiet=True).stdout.split():
+            d = re.sub(r"\.tar\.(bz2|gz)$", "", os.path.basename(t))
+            if not os.path.isdir("%s/src/%s" % (path, d)):
+                sh("tar %s %s -C %s/src/" % (flag, t, path), check=False, quiet=True)
     sh("cd %s && ./autogen.sh > /dev/null 2>&1" % path, check=False, quiet=True)
+    # PYTHON3 is the root-cause fix for the man2rst.py failure: without it
+    # --without-python leaves $(PYTHON3) empty while doc/source/man/Makefile.am
+    # still expands "$(PYTHON3) ../../man2rst.py", so make tries to EXECUTE a
+    # mode-644 file. chmod is belt-and-braces for the same defect.
+    sh("chmod +x %s/doc/man2rst.py" % path, check=False, quiet=True)
     log = "/tmp/conf_%s.log" % tag.split()[0]
-    p = sh("cd %s && ./configure %s %s CFLAGS='-g -O2' CXXFLAGS='-g -O2' > %s 2>&1"
+    p = sh("cd %s && ./configure %s %s CFLAGS='-g -O2' CXXFLAGS='-g -O2' "
+           "PYTHON3=\"$(command -v python3)\" > %s 2>&1"
            % (path, COMMON, extra, log), check=False, quiet=True)
     if p.returncode:
         print(sh("tail -30 " + log, quiet=True).stdout)

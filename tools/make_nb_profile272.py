@@ -153,11 +153,30 @@ if EXPECT and not COMMIT.startswith(EXPECT):
                      % (COMMIT, EXPECT))""")
 
 code(r"""t0 = time.time()
+# Two fixes a human had to add by hand on the 2026-09-08 run, both of them
+# already-known defects that tools/standup_git_build.sh works around:
+#  1. the bundled dlib/libsvm ship as TARBALLS in git and configure refuses to
+#     proceed until they are unpacked (the release tarball ships them unpacked,
+#     so only a git-tree build hits it);
+#  2. PYTHON3 must reach configure, or --without-python leaves $(PYTHON3) empty
+#     while doc/source/man/Makefile.am:38 still expands
+#     "$(PYTHON3) ../../man2rst.py" -- make then tries to EXECUTE a mode-644
+#     file and dies with "Permission denied" on all 25 man pages. chmod is
+#     belt-and-braces for the same defect.
+for pat, flag in (("src/dlib-*.tar.bz2", "-xjf"), ("src/libsvm-*.tar.gz", "-xzf")):
+    for t in sh("ls %s/port27/%s 2>/dev/null" % (ROOT, pat), check=False,
+                quiet=True).stdout.split():
+        d = re.sub(r"\.tar\.(bz2|gz)$", "", os.path.basename(t))
+        if not os.path.isdir("%s/port27/src/%s" % (ROOT, d)):
+            print("  unpacking", os.path.basename(t))
+            sh("tar %s %s -C %s/port27/src/" % (flag, t, ROOT), check=False, quiet=True)
 sh("cd %s/port27 && ./autogen.sh > /dev/null 2>&1" % ROOT, check=False, quiet=True)
+sh("chmod +x %s/port27/doc/man2rst.py" % ROOT, check=False, quiet=True)
 p = sh("cd %s/port27 && ./configure --without-python --without-perl --without-swig "
        "--without-doc --without-rnaxplorer --without-forester --without-kinfold "
        "--without-rnalocmin --enable-cuda CFLAGS='-g -O2' CXXFLAGS='-g -O2' "
-       "> /content/conf.log 2>&1" % ROOT, check=False, quiet=True)
+       "PYTHON3=\"$(command -v python3)\" > /content/conf.log 2>&1" % ROOT,
+       check=False, quiet=True)
 if p.returncode:
     print(sh("tail -25 /content/conf.log", quiet=True).stdout); raise SystemExit("configure failed")
 p = sh("cd %s/port27 && make -j$(nproc) > /content/make.log 2>&1" % ROOT, check=False, quiet=True)
