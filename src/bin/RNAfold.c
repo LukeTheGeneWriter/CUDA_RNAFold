@@ -1315,8 +1315,12 @@ process_input(FILE            *input_stream,
       if (gpu_hard_cap < 0)
         gpu_hard_cap = 0;
 
-      /* The one and only place this driver names CUDA. After this call it
-       * asks for batches through vrna_mfe_batch() and the library decides. */
+      /* One of only TWO places this driver names CUDA -- the other is the
+       * vrna_cuda_devices() probe 20 lines up, which is why this comment used
+       * to say "the one and only" and was wrong. After this call the driver
+       * asks for batches through vrna_mfe_batch() and the library decides;
+       * every other line of the chunking machinery is backend-agnostic, which
+       * is the claim that actually matters and the one MERGING.md repeats. */
       vrna_cuda_register_batch_backend();
     }
   }

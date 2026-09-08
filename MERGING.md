@@ -7,6 +7,86 @@ that upstream accept it as-is.*
 
 ---
 
+## 0. RE-BASED 2026-09-08 — read this before §1–§3 and §10
+
+**The document below was written from the 2.3.0 fork. `port27` has since done
+the port it treats as the main obstacle, and three of its central claims are now
+obsolete in the fork's favour.** Everything from §4 onward (how a fold reaches
+the GPU, the environment surface, the build, what to port next) still holds.
+
+### The blast radius, re-measured against `v2.7.2..port27`
+
+| upstream file | added | **deleted** |
+|---|---|---|
+| `src/ViennaRNA/mfe/mfe.c` | 74 | **2** |
+| `src/ViennaRNA/grammar/mfe.h` | 68 | 0 |
+| `src/ViennaRNA/mfe/global.h` | 64 | 0 |
+| `src/ViennaRNA/grammar/gr_extension_mfe.c` | 30 | 0 |
+| `src/ViennaRNA/grammar/grammar.c` | 11 | 0 |
+| `src/ViennaRNA/intern/grammar_dat.h` | 11 | 0 |
+| `src/ViennaRNA/Makefile.am` | 126 | 0 |
+| `src/bin/Makefile.am` | 6 | 0 |
+| `src/bin/RNAfold.c` | 606 | 5 |
+| **total** | **996** | **7** |
+
+**Nine files, and the fork deletes seven lines of upstream code in total.** Two
+of those are in `mfe.c` and both are *moved*, not removed:
+
+```c
+-  int               energy;
+-    energy = fill_arrays(fc, ms_dat);
+```
+
+Everything else the project owns lives in `src/ViennaRNA/mfe/cuda/`, ~9200 lines
+in 15 new files that do not exist upstream. A reviewer's question is therefore
+not "what did you change in ViennaRNA" but "will you carry a new subdirectory".
+
+### Three claims below that are now wrong
+
+- **§1 "the single largest merge obstacle is layer 0."** It was 2.3.0 vs 2.7.x.
+  `port27` branches off the `v2.7.2` tag itself, so there is no version gap left
+  to close. This is done, not planned.
+- **§2 `params.c` is modified.** It is not, on `port27`. The unsynchronised
+  `id` race is *reported* rather than patched — Defect B in
+  `PORT_UPSTREAM_PROPOSAL.md`. Reporting is the right shape for a PR: it is an
+  upstream bug with nothing to do with CUDA, and patching it inside a large
+  feature branch would bury it.
+- **§3 "the symbol collision — fix this before writing a PR."** Gone.
+  `mfe_cuda.c` no longer defines `vrna_mfe()`, and `vrna_mfe_cpu()` survives
+  only as a stale comment at `mfe_cuda.c:1107`. The per-fold-compound inside
+  engine seam (`vrna_gr_set_inside_engine()`) replaced the workaround entirely,
+  which is why §2's table now shows additions and almost no deletions. **The
+  ugliest thing in the fork is no longer in the fork.**
+
+### Where the merge actually stands
+
+| | |
+|---|---|
+| base | `v2.7.2` tag, exactly |
+| `make check` | **145/145** with CUDA (130 without + 15 CUDA) |
+| reference bar | byte-identical to upstream across the option surface, 18/18 with the route **asserted** |
+| option guard | **accepts six** — default, temperature, `noGU`, `uniq_ML`, salt, `noLP` — and declines the rest explicitly |
+| combinations | **36/36 pairs**, 24 focused triples (`verify_option_matrix.sh`, `verify_option_triples.sh`) |
+| performance | **32.4× over upstream** at 400 × 5601 nt, and **A/B = 0.990** — the port costs upstream's own CPU path nothing (`BENCH272_V5_RESULTS.md`) |
+
+That last row is the one that matters most to a maintainer, and it is worth
+stating in the PR before the speedup: **turning the accelerator off returns
+upstream's own numbers and upstream's own performance.** The seam is opt-in per
+fold compound and declining is part of its contract.
+
+### What is left before a PR can be written
+
+1. **An upstream decision, not code.** `postprocess_circular()` is `PRIVATE`
+   (`mfe/mfe.c:103`), which is the only thing blocking circular RNA. §3.3 of
+   `PORT_UPSTREAM_PROPOSAL.md`.
+2. **Send Part 1.** Four defects (A–D) with runnable probes, plus two build
+   defects — all independent of whether upstream ever wants the accelerator.
+3. §7's build integration is the remaining review risk: `nvcc-libtool.sh` and
+   126 lines of `Makefile.am` are the part most likely to draw objections, and
+   nothing about them has been negotiated with upstream.
+
+---
+
 ## 1. Lineage: what this is a fork of
 
 Three layers, and it matters which one a given line of code belongs to:
@@ -237,6 +317,21 @@ Ordered by increasing difficulty and decreasing independence:
    off, with the host path untouched when CUDA is absent.
 6. **Python bindings**, without which a merged CUDA path is unreachable for most
    users (§8).
+
+### Status of that plan, 2026-09-08
+
+| step | state |
+|---|---|
+| 1. `params.c` race fix | **superseded, deliberately.** Not patched; *reported* as Defect B in `PORT_UPSTREAM_PROPOSAL.md`. Patching an unrelated upstream bug inside a large feature branch buries it. |
+| 2. port onto current upstream | **DONE.** `port27` branches off the `v2.7.2` tag; `make check` 145/145. |
+| 3. remove the `vrna_mfe()` shadowing | **DONE.** The inside-engine seam replaced it; the fork now deletes 7 lines of upstream code in total. |
+| 4. configuration through `vrna_md_t` | **OPEN**, and the most reviewer-visible debt left. 22 environment variables (§6) are a testing surface, not an API. |
+| 5. land the batch entry point, opt-in | **BUILT, not landed.** `--enable-cuda` exists, defaults off, host path untouched without it. "Landing" now means an upstream decision, not code — §3.1/3.2 of the proposal. |
+| 6. Python bindings | **OPEN.** Users reach ViennaRNA through `import RNA`; until the CUDA path is reachable there, adoption is zero regardless of what merges. |
+
+**The critical path is no longer code.** Steps 2 and 3 were the engineering; 4
+and 6 are ours to do whenever we choose. Step 5 — and circular RNA with it —
+waits on a conversation with the maintainers that has not been started.
 
 ---
 
