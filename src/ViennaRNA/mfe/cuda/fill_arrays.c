@@ -221,6 +221,39 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
   // near-INF finite values) is what noLP breaks. Fixing that means changing
   // what the guard writes, which is a change to the DEFAULT path's semantics,
   // and is not worth doing to make two optional features compose.
+  // --noLP + RNA_ROW_VERIFY is REFUSED, and unlike the pairing below this one
+  // is a defect in the INSTRUMENT, not a limit of an encoding.
+  //
+  // RNA_ROW_VERIFY checks the device kernels against the host loops, and turns
+  // the GPU-resident sweep OFF so those loops run (mfe_cuda.c:132). The host
+  // new_c loop has never implemented noLP -- its branch is still the
+  // commented-out original at fill_arrays_loop.c:215, deleted on the same
+  // "gcov says not used" evidence that PORT_NOLP_SPEC.md is about. So with
+  // --noLP the verifier compares a device path that applies noLP against a
+  // host path that does not, and measured on 30 x 80-1240 nt it reports
+  // 922897 of 8262880 cells "mismatching" -- every one of them a FALSE alarm
+  // against a device result that is byte-identical to upstream.
+  //
+  // Worse, it is not only noisy. In verify mode load_my_c uploads the host's
+  // new_C over the device's, so the host's non-noLP values feed the rest of
+  // the sweep and upstream's backtrack then walks them under the noLP
+  // convention (mfe/mfe.c:4289). The fold that comes back is neither the noLP
+  // answer nor the plain one. A debug flag must not change the answer.
+  //
+  // The real repair is to implement noLP in the host loop; until then refusing
+  // is the honest option, because a bar that cries wolf gets bypassed and a
+  // bypassed bar is how a false pass gets through (see PORT_FEATURE_AUDIT.md).
+  if (noLP && getenv("RNA_ROW_VERIFY")) {
+    fprintf(stderr,
+            "%-24s --noLP and RNA_ROW_VERIFY cannot be combined: the host new_c "
+            "loop does not implement noLP, so the verifier would report ~11%% of "
+            "cells as false mismatches AND its host values would overwrite the "
+            "device's, returning a fold that is neither answer. Unset one. See "
+            "PORT_NOLP_SPEC.md.\n",
+            __FILE__);
+    exit(EXIT_FAILURE);
+  }
+
   if (noLP && rnafold_fml_int16()) {
     fprintf(stderr,
             "%-24s --noLP and RNA_FML_INT16 cannot be combined: noLP puts "

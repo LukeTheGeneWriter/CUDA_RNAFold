@@ -51,6 +51,27 @@ for fa in u900 u2000; do
   rc16=$?
   say "$fa: --noLP + RNA_FML_INT16 refuses at init" \
       "$( [ $rc16 -ne 0 ] && grep -q "cannot be combined" $W/$fa.i16.err && echo ok || echo FAIL)"
+
+  # --noLP + RNA_ROW_VERIFY must refuse too, and for a different reason: the
+  # host new_c loop does not implement noLP, so the verifier both reports ~11%
+  # of cells as false mismatches and -- because load_my_c uploads the host's
+  # new_C over the device's in verify mode -- returns a fold that is neither
+  # the noLP answer nor the plain one. A debug flag must not change the answer.
+  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_ROW_VERIFY=1 \
+      $GPU --noPS --noLP -i $F > $W/$fa.rv 2> $W/$fa.rv.err
+  rcrv=$?
+  say "$fa: --noLP + RNA_ROW_VERIFY refuses at init" \
+      "$( [ $rcrv -ne 0 ] && [ ! -s $W/$fa.rv ] && grep -q "cannot be combined" $W/$fa.rv.err \
+          && echo ok || echo FAIL)"
+  # ...and the verifier must still WORK without noLP, or the guard above has
+  # simply broken it. Zero mismatches over a non-zero cell count, both asserted.
+  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_ROW_VERIFY=1 \
+      $GPU --noPS -i $F > /dev/null 2> $W/$fa.rvp.err
+  rvline=$(grep -oE 'new_c: [0-9]+ cells checked, [0-9]+ mismatching' $W/$fa.rvp.err | tail -1)
+  rvcells=$(echo "$rvline" | awk '{print $2}')
+  rvbad=$(echo "$rvline" | awk '{print $5}')
+  say "$fa: RNA_ROW_VERIFY still works without noLP (${rvcells:-0} cells, ${rvbad:-?} bad)" \
+      "$( [ "${rvcells:-0}" -gt 0 ] && [ "${rvbad:-1}" -eq 0 ] && echo ok || echo FAIL)"
 done
 
 # --------------------------------------------------------------------------
