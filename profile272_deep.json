@@ -1,0 +1,310 @@
+{
+  "date": "2026-09-08",
+  "commit": "91fb763f",
+  "clocks": "NVIDIA L4, 2040 MHz, 2040 MHz, 71, 0x0000000000000000",
+  "clock_ratio": 1.0,
+  "sizes": [
+    [
+      16,
+      2000
+    ],
+    [
+      40,
+      2000
+    ],
+    [
+      40,
+      5601
+    ],
+    [
+      120,
+      5601
+    ]
+  ],
+  "phaseA": [
+    {
+      "n": 16,
+      "L": 2000,
+      "tag": "i32",
+      "wall": 2.5696651935577393,
+      "share": 0.16694781914605894,
+      "md": 0.429,
+      "sweeps": 1,
+      "sha": "ffc146ae16b1",
+      "gpu_total": 0.856,
+      "host_total": 0.0,
+      "phases": {
+        "int_loop": 0.032,
+        "hp_mb": 0.194,
+        "load_my_c": 0.053,
+        "modular_decomp": 0.429,
+        "fetch_mx": 0.148,
+        "new_c_host": 0.0,
+        "fml_host": 0.0,
+        "fml_prev_host": 0.0,
+        "gpu_total": 0.856,
+        "host_total": 0.0
+      },
+      "clock": 1.0
+    },
+    {
+      "n": 16,
+      "L": 2000,
+      "tag": "i16",
+      "wall": 2.3013064861297607,
+      "share": 0.12167001730868629,
+      "md": 0.28,
+      "sweeps": 1,
+      "sha": "ffc146ae16b1",
+      "gpu_total": 0.681,
+      "host_total": 0.0,
+      "phases": {
+        "int_loop": 0.031,
+        "hp_mb": 0.2,
+        "load_my_c": 0.051,
+        "modular_decomp": 0.28,
+        "fetch_mx": 0.12,
+        "new_c_host": 0.0,
+        "fml_host": 0.0,
+        "fml_prev_host": 0.0,
+        "gpu_total": 0.681,
+        "host_total": 0.0
+      },
+      "clock": 1.0
+    },
+    {
+      "n": 40,
+      "L": 2000,
+      "tag": "i32",
+      "wall": 5.422705411911011,
+      "share": 0.19528997420252608,
+      "md": 1.059,
+      "sweeps": 1,
+      "sha": "ed1136fd1fc8",
+      "gpu_total": 1.827,
+      "host_total": 0.0,
+      "phases": {
+        "int_loop": 0.034,
+        "hp_mb": 0.444,
+        "load_my_c": 0.097,
+        "modular_decomp": 1.059,
+        "fetch_mx": 0.193,
+        "new_c_host": 0.0,
+        "fml_host": 0.0,
+        "fml_prev_host": 0.0,
+        "gpu_total": 1.827,
+        "host_total": 0.0
+      },
+      "clock": 1.0
+    },
+    {
+      "n": 40,
+      "L": 2000,
+      "tag": "i16",
+      "wall": 5.092153072357178,
+      "share": 0.1362881260909827,
+      "md": 0.694,
+      "sweeps": 1,
+      "sha": "ed1136fd1fc8",
+      "gpu_total": 1.476,
+      "host_total": 0.0,
+      "phases": {
+        "int_loop": 0.033,
+        "hp_mb": 0.493,
+        "load_my_c": 0.099,
+        "modular_decomp": 0.694,
+        "fetch_mx": 0.158,
+        "new_c_host": 0.0,
+        "fml_host": 0.0,
+        "fml_prev_host": 0.0,
+        "gpu_total": 1.476,
+        "host_total": 0.0
+      },
+      "clock": 1.0
+    },
+    {
+      "n": 40,
+      "L": 5601,
+      "tag": "i32",
+      "wall": 68.46967148780823,
+      "share": 0.30204614029267657,
+      "md": 20.681,
+      "sweeps": 1,
+      "sha": "c44c5cf38831",
+      "gpu_total": 26.283,
+      "host_total": 0.001,
+      "phases": {
+        "int_loop": 0.138,
+        "hp_mb": 3.359,
+        "load_my_c": 0.697,
+        "modular_decomp": 20.681,
+        "fetch_mx": 1.408,
+        "new_c_host": 0.0,
+        "fml_host": 0.0,
+        "fml_prev_host": 0.0,
+        "gpu_total": 26.283,
+        "host_total": 0.001
+      },
+      "clock": 1.0
+    },
+    {
+      "n": 40,
+      "L": 5601,
+      "tag": "i16",
+      "wall": 61.598713636398315,
+      "share": 0.20961476689620961,
+      "md": 12.912,
+      "sweeps": 1,
+      "sha": "c44c5cf38831",
+      "gpu_total": 19.129,
+      "host_total": 0.001,
+      "phases": {
+        "int_loop": 0.143,
+        "hp_mb": 4.219,
+        "load_my_c": 0.715,
+        "modular_decomp": 12.912,
+        "fetch_mx": 1.139,
+        "new_c_host": 0.0,
+        "fml_host": 0.0,
+        "fml_prev_host": 0.0,
+        "gpu_total": 19.129,
+        "host_total": 0.001
+      },
+      "clock": 1.0
+    },
+    {
+      "n": 120,
+      "L": 5601,
+      "tag": "i32",
+      "wall": 201.44840455055237,
+      "share": 0.3095829929213952,
+      "md": 62.365,
+      "sweeps": 1,
+      "sha": "51fa12fae05a",
+      "gpu_total": 78.023,
+      "host_total": 0.001,
+      "phases": {
+        "int_loop": 0.287,
+        "hp_mb": 10.961,
+        "load_my_c": 1.933,
+        "modular_decomp": 62.365,
+        "fetch_mx": 2.476,
+        "new_c_host": 0.0,
+        "fml_host": 0.0,
+        "fml_prev_host": 0.0,
+        "gpu_total": 78.023,
+        "host_total": 0.001
+      },
+      "clock": 1.0
+    },
+    {
+      "n": 120,
+      "L": 5601,
+      "tag": "i16",
+      "wall": 180.4199230670929,
+      "share": 0.21467695663298061,
+      "md": 38.732,
+      "sweeps": 1,
+      "sha": "51fa12fae05a",
+      "gpu_total": 56.63,
+      "host_total": 0.001,
+      "phases": {
+        "int_loop": 0.287,
+        "hp_mb": 13.911,
+        "load_my_c": 1.968,
+        "modular_decomp": 38.732,
+        "fetch_mx": 1.732,
+        "new_c_host": 0.0,
+        "fml_host": 0.0,
+        "fml_prev_host": 0.0,
+        "gpu_total": 56.63,
+        "host_total": 0.001
+      },
+      "clock": 1.0
+    }
+  ],
+  "phaseB": [
+    {
+      "n": 16,
+      "L": 2000,
+      "s": 0.16694781914605894,
+      "k": 1.532142857142857,
+      "pred": 1.061553328562968,
+      "meas": 1.1166114592060672,
+      "meas_fixed": 1.0723301139855885,
+      "ch_i32": 1,
+      "ch_i16": 1,
+      "ch_fixed": [
+        1,
+        1
+      ]
+    },
+    {
+      "n": 40,
+      "L": 2000,
+      "s": 0.19528997420252608,
+      "k": 1.5259365994236311,
+      "pred": 1.0721671133989767,
+      "meas": 1.0649140618627984,
+      "meas_fixed": 1.0680378344213954,
+      "ch_i32": 1,
+      "ch_i16": 1,
+      "ch_fixed": [
+        1,
+        1
+      ]
+    },
+    {
+      "n": 40,
+      "L": 5601,
+      "s": 0.30204614029267657,
+      "k": 1.601688351920694,
+      "pred": 1.1279886994587929,
+      "meas": 1.1115438528792572,
+      "meas_fixed": 1.1165408785064002,
+      "ch_i32": 1,
+      "ch_i16": 1,
+      "ch_fixed": [
+        1,
+        1
+      ]
+    },
+    {
+      "n": 120,
+      "L": 5601,
+      "s": 0.3095829929213952,
+      "k": 1.610167303521636,
+      "pred": 1.132907495049346,
+      "meas": 1.1165529899690712,
+      "meas_fixed": 1.1195400696177535,
+      "ch_i32": 1,
+      "ch_i16": 1,
+      "ch_fixed": [
+        1,
+        1
+      ]
+    }
+  ],
+  "ncu": {
+    "modular_decomposition_kernel/i32": {
+      "dram__bytes_read.sum": 39315251.2,
+      "dram__bytes_write.sum": 158515.2,
+      "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed": 89.252,
+      "gpu__time_duration.sum": 147648.0,
+      "l1tex__t_sector_hit_rate.pct": 59.589999999999996,
+      "lts__t_sector_hit_rate.pct": 6.15,
+      "sm__throughput.avg.pct_of_peak_sustained_elapsed": 23.381999999999998
+    },
+    "modular_decomposition_kernel/i16": {
+      "dram__bytes_read.sum": 24531072.0,
+      "dram__bytes_write.sum": 512.0,
+      "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed": 80.684,
+      "gpu__time_duration.sum": 101555.2,
+      "l1tex__t_sector_hit_rate.pct": 75.862,
+      "lts__t_sector_hit_rate.pct": 9.346,
+      "sm__throughput.avg.pct_of_peak_sustained_elapsed": 45.95399999999999
+    },
+    "int_loop_kernel/i32": null,
+    "int_loop_kernel/i16": null
+  }
+}
