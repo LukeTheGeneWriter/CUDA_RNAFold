@@ -611,6 +611,17 @@ PUBLIC void
 #endif
 nolp_rotate_cc(void);
 
+// noLP + continuous flow phase C3: reset ONE slot's cc/cc1 rows to the INF a
+// chunk starts from. The noLP half of reset_slot_md(), which resets only the
+// buffers that existed when it was written. Called only when noLP is set.
+// See PORT_FEATURE_AUDIT.md for the defect this closes.
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+reset_slot_nolp(const size_t row_lo, const size_t row_n);
+
 // GPU-resident sweep, step 4: the device twin of fml_host -- the one loop of
 // the three that is a recurrence along j rather than elementwise. Implemented
 // as an inclusive scan over affine min-plus maps, one block per record.

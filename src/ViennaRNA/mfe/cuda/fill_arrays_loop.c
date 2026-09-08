@@ -466,6 +466,12 @@
         // device: this slot's sweep state, then its sequence-derived content.
         reset_slot_md(tri_off_H[s], tri_off_H[s+1]-tri_off_H[s],
                       row_off_H[s], row_off_H[s+1]-row_off_H[s]);
+        // noLP's cc/cc1 are row-shaped state that rotates, exactly like the
+        // DMLi generations reset just above, and reset_slot_md() predates them.
+        // Without this the incoming record reads the outgoing record's cc1 and
+        // returns a self-consistent but SUBOPTIMAL structure.
+        if(noLP)
+          reset_slot_nolp(row_off_H[s], row_off_H[s+1]-row_off_H[s]);
         refill_slot2(nfiles, VC, turn, length, 512, tri_off_H, row_off_H, cap_H, s);
         refill_gpu3 (nfiles, VC, turn, length, 512, row_off_H, cap_H);
 

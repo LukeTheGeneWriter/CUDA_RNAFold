@@ -521,8 +521,28 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   SLOT_ALLOC(&d_cc,  size);
   SLOT_ALLOC(&d_cc1, size);
   {
+    // `!g_refill3` is load-bearing, and it is the whole of the --noLP +
+    // RNA_SLOT_FLOW defect (found 2026-09-08, see PORT_FEATURE_AUDIT.md).
+    //
+    // SLOT_ALLOC skips the malloc on a refill, but a KERNEL LAUNCH in this
+    // function still runs on one -- which is correct for the sequence-derived
+    // content a refill exists to refresh, and wrong for SWEEP STATE. cc/cc1
+    // are the only sweep state prefilled here, which is exactly why no other
+    // option ever noticed.
+    //
+    // refill_gpu3() is called at EVERY slot handover and takes no slot
+    // argument, so without this guard each handover INF-filled cc/cc1 for the
+    // WHOLE batch -- wiping the mid-recursion cc1 of every record still
+    // running in every other slot, not just the incoming one. That is why the
+    // corrupted records included eleven that had already retired before their
+    // own slot was ever reset, and why the error was one-sided: c[ij] receives
+    // cc1[j-1]+stackEnergy, so an INF cc1 FORBIDS pairs rather than mispricing
+    // them, and the fold can only come out worse.
+    //
+    // On a refill the incoming record's own rows are put back to INF by
+    // reset_slot_nolp(), which is scoped to that ONE slot.
     const size_t nb = (g_row_total + 512 - 1)/512;
-    if(g_row_total) {
+    if(g_row_total && !g_refill3) {
       nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc);
       nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc1);
       gpuErrchk( cudaPeekAtLastError() );
@@ -1446,6 +1466,37 @@ nolp_rotate_cc(void) {
   if(g_row_total == 0) return;
   const size_t nb = (g_row_total + 512 - 1)/512;
   nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc);
+  gpuErrchk( cudaPeekAtLastError() );
+}
+
+// noLP + continuous flow phase C3: put ONE slot's cc/cc1 rows back to the INF a
+// chunk starts from, for a slot that has just been handed to a new record.
+//
+// WHY THIS EXISTS. reset_slot_md() resets "exactly the buffers init_fML()
+// fills" -- d_fml_j, d_dml, d_dml1, d_fml_prev. noLP added two more row-shaped
+// buffers after that was written, and nothing added them here, so a slot
+// handover left the incoming record reading the OUTGOING record's cc1. Found
+// 2026-09-08 by tools/verify_option_matrix.sh: --noLP and RNA_SLOT_FLOW are
+// each correct alone, and together disagree with the CPU route on 17 of 30
+// records. The structures stay SELF-CONSISTENT and are worse on 17, better on
+// 0 -- one-sided, because c[ij] receives cc1[j-1]+stackEnergy, so a stale cc1
+// FORBIDS pairs rather than mispricing them. See PORT_FEATURE_AUDIT.md.
+//
+// BOTH buffers, for the reason the host side already gives about the three
+// DMLi generations: they rotate, so whichever becomes cc1 on the next row must
+// read INF for a record that has no previous row yet. Resetting only the
+// current cc1 would leave the answer depending on whether nolp_rotate_cc() ran
+// between the handover and the incoming record's first row.
+//
+// This lives here rather than in reset_slot_md() because d_cc/d_cc1 belong to
+// this file, per its convention of not sharing device state with
+// int_loop.cu/modular_decomposition.cu.
+PUBLIC void
+reset_slot_nolp(const size_t row_lo, const size_t row_n) {
+  if(row_n == 0) return;
+  const size_t nb = (row_n + 512 - 1)/512;
+  nolp_init_kernel<<<(int)nb,512>>>(row_n, d_cc  + row_lo);
+  nolp_init_kernel<<<(int)nb,512>>>(row_n, d_cc1 + row_lo);
   gpuErrchk( cudaPeekAtLastError() );
 }
 
