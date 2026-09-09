@@ -145,6 +145,7 @@ STAGE_COUNTERS_FROM = "b799a820"
 REQUIRED_COMMITS = [
     ("a2d19bd2", "device-derived hard-constraint bitmasks (gpuinit)"),
     ("21c6f644", "prefolded fast path, no second fold compound (output)"),
+    ("5345f59f", "build/fold pipeline, RNA_BUILD_PIPELINE (build)"),
 ]
 
 sh("rm -rf %s && mkdir -p %s" % (ROOT, ROOT))
@@ -225,6 +226,12 @@ code(r"""PHASE_RE = re.compile(
 STAGE_RE = re.compile(
     r"build=([\d.]+) prepare=([\d.]+) prefill=([\d.]+) backtrack=([\d.]+) "
     r"output=([\d.]+) gpuinit=([\d.]+) teardown=([\d.]+) free=([\d.]+)")
+# The build/fold pipeline reports how much of the builder actually ran beside
+# the GPU. Wall clock cannot settle that; min(builder, fold) per chunk can, and
+# it is zero when there was nothing to overlap with -- the honest answer for a
+# single-chunk run.
+PIPE_RE = re.compile(
+    r"build pipeline: (\d+) chunks, builder ([\d.]+) s, OVERLAPPED ([\d.]+) s")
 SWEEP_RE = re.compile(r"sweep shape: (\d+) iterations, (\d+) active record-rows, "
                       r"(\d+) cells; peak/iteration (\d+) records (\d+) cells")
 # THE THIRD LINE. RNAfold prints a gpuinit breakdown too, and the 2026-09-09
@@ -241,14 +248,16 @@ PHASES = ("int_loop","hp_mb","load_my_c","modular_decomp","fetch_mx",
 STAGES = ("build","prepare","prefill","backtrack","output","gpuinit","teardown","free")
 IGPARTS = ("init_gpu","init_gpu2","init_gpu3","pack","cudaMalloc","other")
 
-def run(fa, int16=False, budget_mb=None, chunk=0, min_batch=1):
+def run(fa, int16=False, budget_mb=None, chunk=0, min_batch=1, pipeline=False):
     env = dict(os.environ)
     for k in ("RNA_FML_INT16","RNA_GPU_CHUNK","RNA_MIN_GPU_BATCH",
-              "RNA_GPU_VRAM_BUDGET_MB","RNA_SLOT_FLOW","RNA_CONTINUOUS_FLOW"):
+              "RNA_GPU_VRAM_BUDGET_MB","RNA_SLOT_FLOW","RNA_CONTINUOUS_FLOW",
+              "RNA_BUILD_PIPELINE"):
         env.pop(k, None)
     env["RNA_GPU_CHUNK"] = str(chunk); env["RNA_MIN_GPU_BATCH"] = str(min_batch)
     if int16:     env["RNA_FML_INT16"] = "1"
     if budget_mb: env["RNA_GPU_VRAM_BUDGET_MB"] = str(budget_mb)
+    if pipeline:  env["RNA_BUILD_PIPELINE"] = "1"
 
     c0 = clock_ratio(); t0 = time.time()
     p = subprocess.run(["/usr/bin/time","-v",BIN,"--noPS","-i",fa],
@@ -262,6 +271,9 @@ def run(fa, int16=False, budget_mb=None, chunk=0, min_batch=1):
          if STAGE_RE.search(err) else {}
     ig = dict(zip(IGPARTS, [float(x) for x in IG_RE.search(err).groups()])) \
          if IG_RE.search(err) else {}
+    pm = PIPE_RE.search(err)
+    pipe = dict(chunks=int(pm.group(1)), builder=float(pm.group(2)),
+                overlapped=float(pm.group(3))) if pm else {}
     shapes = SWEEP_RE.findall(err)
     rss = 0.0
     m = re.search(r"Maximum resident set size \(kbytes\): (\d+)", err)
@@ -269,6 +281,7 @@ def run(fa, int16=False, budget_mb=None, chunk=0, min_batch=1):
 
     acc = sum(ph.values()) + sum(st.values())
     return dict(wall=wall, rc=p.returncode, phases=ph, stages=st, gpuinit=ig,
+                pipeline=pipe,
                 chunks=len(shapes),
                 cells=sum(int(s[2]) for s in shapes),
                 gpu_records=sum(int(s[3]) for s in shapes),
@@ -299,6 +312,11 @@ def report(tag, r):
     else:
         print("     of gpuinit: BREAKDOWN LINE NOT FOUND -- is the binary older "
               "than b799a820, or was stderr truncated?")
+    pp = r.get("pipeline") or {}
+    if pp:
+        print("     pipeline: %d chunks, builder %.1fs, OVERLAPPED %.1fs (%.0f%% hidden)"
+              % (pp["chunks"], pp["builder"], pp["overlapped"],
+                 100*pp["overlapped"]/pp["builder"] if pp["builder"] else 0))
     print("   %-22s %8.1fs %5.1f%%   <- RESIDUAL, nothing measures this"
           % ("", r["residual"], 100*r["residual"]/r["wall"]))
 print("runner ready")""")
@@ -336,11 +354,16 @@ total_mb = int(sh("nvidia-smi --query-gpu=memory.total --format=csv,noheader,nou
                   quiet=True).stdout.strip())
 BUD_MB = {None: None, "half": total_mb//2, "quarter": total_mb//4}
 
+# Each budget also gets an int32 arm with the build/fold pipeline ON, paired with
+# the plain int32 arm at the SAME budget so the pipeline is the only variable.
+# The natural-budget pair matters least: the fewer the chunks, the less there is
+# to overlap, and (chunks-1)/chunks is the hard bound.
 RES = {}
+PLAN = [(tag, i16, False) for tag, i16 in ARMS] + [("i32pipe", False, True)]
 for b in BUDGETS:
-    for tag, i16 in ARMS:
+    for tag, i16, pipe in PLAN:
         key = "%s/%s" % (tag, b or "natural")
-        r = run(BIG, int16=i16, budget_mb=BUD_MB[b])
+        r = run(BIG, int16=i16, budget_mb=BUD_MB[b], pipeline=pipe)
         assert r["rc"] == 0, (key, r["rc"])
         assert r["int16_active"] == i16, "int16 gate disagreed with intent"
         RES[key] = r
