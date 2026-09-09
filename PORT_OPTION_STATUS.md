@@ -30,8 +30,13 @@ identities under `--nsp`: no `0 → 7` promotion, and an index swap in place of
 the second one. Full derivation, and what lifting the guard would take, in
 `PORT_NSP_PARAMFILE_SCOPE.md` §1.
 
-**Status: guarded and unbuilt.** No local toolchain was available on 2026-09-09,
-so neither the guard nor its test has been compiled or run.
+**Status: guarded, built and MEASURED** on an RTX 3050 (nvcc 12.4), 12 records
+of mixed length 62-401 nt. `default` → GPU, identical; `--nsp=GA` → **CPU**,
+identical; `--nsp="-GA"` → **CPU**, identical; and `--nsp` bites (8 lines differ
+from an unflagged fold), so the comparison is not vacuous. **The bar is RED with
+the guard neutered** — `--nsp=GA` takes the GPU route and differs on 8 lines —
+which reproduces the defect on this hardware and proves the check can fail.
+`make check` 146/146.
 
 ---
 
@@ -92,7 +97,7 @@ with the GPU path because they never touch it.
 | option | status |
 |---|---|
 | `--nsp` | **DECLINED 2026-09-09 — see the top of this file.** No longer ungoverned. |
-| `-P` / `--paramFile` | **UNTESTED, and it cannot be guarded** — `vrna_params_load()` mutates library globals, so by fold-compound time `-P` has left no flag for the guard to see. Its assumptions belong in `load_param()` instead. **One is already fixed:** `MAX_NINIO` was a `#define` of 300 on the device, "checked" by an `assert(300 == 300)`, while the real `MAX_NINIO` is a writable global a parameter file overwrites (`params/io.c:671`) — now carried per-batch in `cuda_param_t`. Six more assumptions ranked in `PORT_NSP_PARAMFILE_SCOPE.md` §2.3; the four bars are §2.4. |
+| `-P` / `--paramFile` | **PARTLY TESTED, and it cannot be guarded** — `vrna_params_load()` mutates library globals, so by fold-compound time `-P` has left no flag for the guard to see. Its assumptions belong in `load_param()` instead. **One was a LIVE wrong answer and is fixed:** `MAX_NINIO` was a `#define` of 300 on the device, "checked" by an `assert(300 == 300)`, while the real `MAX_NINIO` is a writable global a parameter file overwrites (`params/io.c:671`). Measured 2026-09-09 — with the stock file GPU == CPU, but with only the NINIO maximum moved 300 → 80 the **pre-fix binary differs on 9 of 12 records**; the fixed one is identical. Six more assumptions ranked in `PORT_NSP_PARAMFILE_SCOPE.md` §2.3; bars 1 and 3 pass, **bars 2 (`-P DNA`) and 4 (int16) remain open**. |
 | `--ImFeelingLucky` | GPU differs from CPU — **but that is noise, not a defect.** Two CPU runs of the same flag also differ, so the backtracking really is stochastic and **a byte-identical bar cannot judge this option at all.** It needs a distributional bar, or none. Checked before reporting, because "GPU ≠ CPU" looked exactly like `--nsp` until the CPU was compared against itself. |
 | `--batch` | **not reachable by this harness** — both sides produced *no output*, because `--batch` changes input parsing and the plain FASTA gave it nothing to do. Two empty outputs are not a match; scored as untested rather than passing. |
 | `--helical-rise`, `--backbone-length` | accelerated and identical, **but did not bite** on the test input — so the comparison proved nothing. Needs an input where they change the answer. |
@@ -147,7 +152,7 @@ unaffected either way.
 | | count |
 |---|---|
 | accelerated, verified | 8 CLI options (+ `uniq_ML`, no CLI flag) |
-| declined, route asserted | 20 + `--nsp` **(new 2026-09-09, route not yet asserted — unbuilt)** |
+| declined, route asserted | 21 — `--nsp` added 2026-09-09, route asserted and the bar confirmed RED without it |
 | neutral | 25 |
 | **ungoverned** | **5, of which 1 is untested and high-risk (`-P`, and it is unguardable by construction) and 1 cannot be judged by a byte bar at all (`--ImFeelingLucky`)** |
 

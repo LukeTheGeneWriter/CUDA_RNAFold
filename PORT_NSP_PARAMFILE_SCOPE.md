@@ -224,34 +224,71 @@ of scope, the *minimum* is to make the check real — refuse in `load_param()` w
    above it moves) and passed to `IntLoop_X()` in place of the macro. The
    `assert(300 == 300)` in `init_gpu2()` is deleted rather than repaired: with
    the value now flowing from the global there is nothing left for it to assert.
-3. **Run the four `-P` bars** (§2.4). Bar 1 is nearly free and tells us whether
-   the loading path itself is sound; bar 3 is the one that proves item 2 was a
-   live defect and not a tidy-up — **confirm it is RED on the pre-fix build**.
+3. ~~**Run the four `-P` bars** (§2.4).~~ **Bars 1 and 3 DONE 2026-09-09** —
+   both pass, and bar 3 is RED on the pre-fix build, so item 2 was a live defect
+   and not a tidy-up. **Bars 2 (`-P DNA`) and 4 (perturbed `stack` row under
+   `RNA_FML_INT16`) are still open**, and bar 2 is the one that also closes
+   `--helical-rise` / `--backbone-length`.
 4. **Fix `Energy()`'s two type divergences** (0-to-7 promotion, `rtype[]` instead
    of the index swap), then re-measure `--nsp` and lift the guard only on a
    byte-identical result over mixed lengths.
 5. **Derive the int16 bound from `P->stack`** rather than the literal 340.
 
-### Build status
+### Measured 2026-09-09 — both fixes verified on hardware
 
-**Items 1 and 2 are written but have never been compiled.** No toolchain was
-available in WSL on 2026-09-09 — `gcc` is absent from the distro entirely, and
-`~/port27head` (last built 2026-09-08 17:57) sits at `9d3f63cc`, seven commits
-behind and with uncommitted local modifications. Given this project's history
-with stale binaries and checks that could not fail, that is worth saying plainly
-rather than implying otherwise: **nothing below has been verified by execution.**
+Built and run in WSL on an **RTX 3050 Laptop GPU** (nvcc 12.4, `sm_86` in the
+gencode list), `~/port27head` at `8d2b174e`, 12 records of **mixed** length
+62-401 nt. Reference is the same binary with the accelerator off, which isolates
+it as the only variable.
 
-Three things to check first on a machine that can build:
+**`make check`: 146/146, 0 fail, 0 error** (145/145 before, plus the new guard
+case).
 
-- `engine.c` — the guard adds `unsigned int i, j;` at the top of
-  `vrna_cuda_engine_supports()` and a doubly-nested loop; watch for a shadow
-  warning against anything else named `i`/`j` in that function.
-- `int_loop.cu` — `params/default.h` does an unconditional `#define PUBLIC` and
-  carries no `extern "C"` guards. It was *already* reaching this translation
-  unit transitively (`loops/internal.h` → `eval/internal.h`), so including it
-  explicitly should change nothing, but it is the most likely place for a
-  surprise.
-- `cuda_param_t` grew by one `int`. Every site uses `sizeof(cuda_param_s)`
-  (malloc, `SLOT_ALLOC`, `cudaMemcpy`) so the growth is self-consistent, but the
-  struct carries a hand-maintained 128-byte padding scheme and the new field is
-  deliberately at the end, after the salt block, for that reason.
+**The `--nsp` guard, with the route asserted:**
+
+| | route | vs CPU |
+|---|---|---|
+| default | **GPU** (1 sweep) | identical |
+| `--nsp=GA` | **CPU** | identical |
+| `--nsp="-GA"` | **CPU** | identical |
+
+`--nsp` bites on this input (8 lines differ from an unflagged fold), so the
+comparison is not vacuous, and `default` still routes to the GPU, so the guard
+did not over-tighten.
+
+**And the bar goes RED without the guard.** With the `DECLINE` condition
+neutered and the library rebuilt, `--nsp=GA` takes the **GPU** route and
+**differs from the CPU on 8 lines**, while `default` stays identical. That both
+reproduces the reported defect on this hardware and proves the check can fail —
+the 2026-09-08 rule, after the noLP regression test that passed against a
+deliberately broken binary.
+
+**The `MAX_NINIO` fix — §2.4 bars 1 and 3, and the defect was live:**
+
+| binary | `-P` file | route | vs CPU |
+|---|---|---|---|
+| fixed | *(none)* | GPU | identical |
+| fixed | stock `rna_turner2004.par` | GPU | identical |
+| fixed | NINIO max 300 → **80** | GPU | identical |
+| **old hardcoded 300** | stock | GPU | identical |
+| **old hardcoded 300** | NINIO max **80** | GPU | **DIFFERS on 9 lines** |
+
+Bar 1 passes, so the loading path itself was never the problem. The perturbation
+bites (9 lines differ on the CPU side between stock and NINIO-80). And the
+pre-fix binary is wrong **only** on the perturbed file — which is the signature
+of a hardcoded constant, and confirms §2.2 was a live silent wrong answer for
+`-P`, not a hypothetical.
+
+Both experiments patch, rebuild, measure, then restore and rebuild; `git diff`
+on `engine.c` and `int_loop.cu` is empty afterwards. Scripts are in the session
+scratchpad, not the tree — they should be folded into
+`tools/verify_option_parity.sh` (an `--nsp` CPU-route row) and a new
+`tools/verify_paramfile_parity.sh`.
+
+**One trap worth recording.** The first `make check` reported **147 total, 1
+FAIL, 1 ERROR** on `test_guard_declines_nonstandard_pairs` — and the guard was
+fine. The red-team script had patched `engine.c` and rebuilt the library *while
+that `make check` was still running*, so the test linked against the neutered
+build. A new shape of the stale-binary trap this project keeps meeting: not an
+old binary, but a **concurrently mutated** one. Never run a red-team rebuild
+alongside a test suite in the same tree.
