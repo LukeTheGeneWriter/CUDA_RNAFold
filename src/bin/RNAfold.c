@@ -222,6 +222,11 @@ struct record_data {
   int             prefolded;
   float           prefolded_energy;
   char            *prefolded_structure;
+
+  /* Held back from a GPU chunk to fold on the CPU while the device works on the
+   * rest (option C). Only used to signal completion, so the slice size can adapt
+   * to how much the pool actually got through. */
+  int             cpu_slice;
 #endif
 };
 
@@ -1551,6 +1556,188 @@ flush_gpu_chunk(struct record_data **chunk,
 }
 
 
+/* ================= CPU slice: fold some records on the cores (option C) ======
+ *
+ * The accelerated path uses ~ONE core of twelve (measured: 98% of a possible
+ * 1200%, and 107% with A and B both on). Everything else is waiting on the
+ * device. So hold `m` records back from each chunk and hand them to the -j pool
+ * before folding the rest: the cores work through them while the GPU works
+ * through the chunk. PORT_CPU_QUEUE_SCOPE.md.
+ *
+ * NO NEW FOLDING CODE. A record that never entered a chunk has prefolded == 0,
+ * so process_record() folds it itself -- the same path an undersized chunk has
+ * always taken. What is new is only the decision to send it there.
+ *
+ * REQUIRES -j. Without a pool RUN_IN_PARALLEL() runs inline, so the slice would
+ * be folded SERIALLY BEFORE the GPU starts, which is strictly worse than not
+ * slicing at all. m is forced to 0 in that case, and that is asserted rather
+ * than assumed because the failure mode is a silent slowdown, not an error.
+ *
+ * SAFE ONLY BECAUSE Defect B IS FIXED: several pool threads now call
+ * vrna_fold_compound() at once. Before params.c was locked this was UB.
+ */
+static int
+rnafold_cpu_slice(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_CPU_SLICE");
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+  }
+
+  return v;
+}
+
+
+static pthread_mutex_t  g_slice_mtx  = PTHREAD_MUTEX_INITIALIZER;
+static long             g_slice_out  = 0;   /* dispatched but not yet finished */
+static long             g_slice_done = 0;   /* finished, for the report */
+static int              g_slice_m    = 0;   /* current slice size */
+
+
+/* Called by process_record() when a sliced record is finished. */
+static void
+cpu_slice_finished(void)
+{
+  pthread_mutex_lock(&g_slice_mtx);
+  g_slice_out--;
+  g_slice_done++;
+  pthread_mutex_unlock(&g_slice_mtx);
+}
+
+
+static long
+cpu_slice_outstanding(void)
+{
+  long v;
+
+  pthread_mutex_lock(&g_slice_mtx);
+  v = g_slice_out;
+  pthread_mutex_unlock(&g_slice_mtx);
+
+  return v;
+}
+
+
+/* Move the slice out of `chunk` and onto the pool. Returns how many records are
+ * left for the GPU, compacted to the front.
+ *
+ * WHICH records: the SHORTEST ones. CPU fold cost goes as ~n^3 while the slice's
+ * whole job is to finish before the GPU does, so a single long record in the
+ * slice is the tail-imbalance failure -- it can still be folding after the device
+ * has finished everything, which turns C from a disappointment into a
+ * regression. Selection is a partial sort by length, not a shuffle.
+ */
+static int
+cpu_slice_take(struct record_data **chunk,
+               int                  n,
+               struct options      *opt)
+{
+  int   m, i, k;
+  long  behind;
+
+  if ((!rnafold_cpu_slice()) || (opt->jobs <= 1) || (n < 2))
+    return n;                   /* no pool: RUN_IN_PARALLEL would be inline */
+
+  /* Adapt on OUTCOME, not on a model of the two throughputs: the ratio depends
+   * on the card's clock state, which moves. If the pool cleared its last slice
+   * before the device finished, it had spare capacity -- grow. If work is still
+   * outstanding, it did not -- shrink by the backlog. */
+  behind = cpu_slice_outstanding();
+
+  /* Additive increase, multiplicative decrease. The first version subtracted the
+   * backlog outright and OSCILLATED 0 -> jobs -> 0, averaging half the slice it
+   * should have run and converging on 1. AIMD is stable for the same reason it
+   * is everywhere else. */
+  if (behind > 0) {
+    g_slice_m /= 2;
+  } else {
+    const int step = (opt->jobs > 2) ? opt->jobs / 2 : 1;
+    g_slice_m += step;
+  }
+
+  if (g_slice_m < 0)
+    g_slice_m = 0;
+
+  /* THE CAP, and it was set wrong the first time.
+   *
+   * Every record handed to the cores is a record the GPU does not get, and the
+   * first version capped the slice at n/8 to protect BATCH WIDTH. That reasoning
+   * came from MIN_GPU_BATCH and the chunking work -- but the stress runs
+   * measured the opposite at scale: going from 5 chunks to 14 (2.8x NARROWER
+   * batches) cost 0.6% of wall. Batch width is nearly free to lose once the
+   * device is saturated, so n/8 was throttling the slice for a cost that is not
+   * there, and the measured result was a ~4% REGRESSION with only 5% of records
+   * offloaded.
+   *
+   * The real constraint is the TAIL: a slice still folding after the device has
+   * finished everything sets the wall. That is what the outcome feedback above
+   * is for, so the cap only has to keep the GPU above MIN_GPU_BATCH and leave
+   * the controller room to find the balance.
+   *
+   * RNA_CPU_SLICE_CAP is the maximum percent of a chunk, so the trade can be
+   * measured rather than argued. */
+  {
+    int         cap_pct = 33;
+    const char *e       = getenv("RNA_CPU_SLICE_CAP");
+    const int   floor_n = rnafold_min_gpu_batch();
+    int         width_cap;
+
+    if ((e) && (e[0])) {
+      cap_pct = atoi(e);
+      if (cap_pct < 0)   cap_pct = 0;
+      if (cap_pct > 90)  cap_pct = 90;
+    }
+
+    width_cap = (int)((long)n * cap_pct / 100);
+
+    if (g_slice_m > width_cap)
+      g_slice_m = width_cap;
+
+    if (n - g_slice_m < floor_n)
+      g_slice_m = (n > floor_n) ? (n - floor_n) : 0;
+  }
+
+  m = g_slice_m;
+
+  if (m <= 0)
+    return n;
+
+  /* Partial selection sort: pull the m shortest to the end of the array. */
+  for (k = 0; k < m; k++) {
+    int  best = 0;
+    size_t best_len = (size_t)-1;
+
+    for (i = 0; i < n - k; i++) {
+      size_t l = strlen(chunk[i]->sequence);
+
+      if (l < best_len) {
+        best_len = l;
+        best     = i;
+      }
+    }
+
+    {
+      struct record_data *t = chunk[best];
+      chunk[best]  = chunk[n - k - 1];
+      chunk[n - k - 1] = t;
+    }
+  }
+
+  pthread_mutex_lock(&g_slice_mtx);
+  g_slice_out += m;
+  pthread_mutex_unlock(&g_slice_mtx);
+
+  for (i = n - m; i < n; i++) {
+    chunk[i]->cpu_slice = 1;
+    RUN_IN_PARALLEL(process_record, chunk[i]);
+  }
+
+  return n - m;
+}
+
+
 /* One-deep pipeline state. Static because main()'s three flush sites share it. */
 static struct gpu_batch *g_pending = NULL;
 
@@ -1584,6 +1771,14 @@ pipeline_flush(struct record_data **chunk,
 
   if (n <= 0)
     return;
+
+  /* Hand part of the chunk to the cores first, so they are already working by
+   * the time the device starts. Returns the number of records still bound for
+   * the GPU, with those records compacted to the front of `chunk`. */
+  n = cpu_slice_take(chunk, n, opt);
+
+  if (n <= 0)
+    return;                     /* the whole chunk went to the cores */
 
   /* Declined when the output path builds compounds of its own: those run on the
    * -j pool from inside the fold and would race the builder thread through
@@ -1938,6 +2133,13 @@ process_input(FILE            *input_stream,
               "OVERLAPPED %.3f s (%.0f%% of builder time hidden behind the GPU)\n",
               "RNAfold.c", g_pipelined_n, g_builder_s, g_overlap_s,
               (g_builder_s > 0.0) ? 100.0 * g_overlap_s / g_builder_s : 0.0);
+
+    if ((rnafold_cpu_slice()) || (g_slice_done > 0))
+      fprintf(stderr,
+              "%-24s cpu slice: %ld records folded on the cores, "
+              "final slice size %d%s\n",
+              "RNAfold.c", g_slice_done, g_slice_m,
+              (opt->jobs > 1) ? "" : "  <-- -j not set, so the slice stayed 0");
 
     free(gpu_chunk);
     free(len_desc);
@@ -2410,6 +2612,12 @@ record_end:
 
 #ifdef VRNA_WITH_CUDA
   free(record->prefolded_structure);   /* handed over by flush_gpu_chunk() */
+
+  /* Signal AFTER the work, not after the dispatch: the slice controller asks
+   * "did the pool actually clear the last slice", and a counter decremented at
+   * dispatch would answer a different question and always say yes. */
+  if (record->cpu_slice)
+    cpu_slice_finished();
 #endif
 
   free(record);

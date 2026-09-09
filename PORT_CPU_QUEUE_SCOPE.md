@@ -128,3 +128,89 @@ records ever need to migrate between routes mid-flight, but it needs a shared
 structure the streaming reader does not currently have, and v1 answers the
 question the queue would answer — *how much is the CPU actually worth here* —
 with a fraction of the risk.
+
+---
+
+# 8. BUILT — and unmeasurable on this machine
+
+*Implemented 2026-09-09. Correct; performance **unresolved**, and the reason is
+worth recording because it invalidates §2's recommendation about where to measure.*
+
+## What landed
+
+`RNA_CPU_SLICE=1`, default off. At each flush, `cpu_slice_take()` moves `m`
+records out of the chunk and dispatches them to the `-j` pool, then the GPU folds
+the rest. No new folding code — a record that never entered a chunk has
+`prefolded == 0`, so `process_record()` folds it exactly as the `MIN_GPU_BATCH`
+fallback always has.
+
+- **`m` adapts by outcome, AIMD.** The first controller subtracted the backlog
+  outright and oscillated `0 → jobs → 0`, converging on 1. Additive increase,
+  halving on backlog, is stable.
+- **`RNA_CPU_SLICE_CAP`** (percent of a chunk, default 33). The first cap was
+  `n/8`, chosen to protect batch width — **wrong, and the stress data already
+  said so**: 5 → 14 chunks is 2.8× narrower batches for 0.6 % of wall, so width
+  is nearly free to lose once the device is saturated.
+- **`m = 0` without `-j`**, and the run says so, because the failure mode is a
+  silent slowdown rather than an error.
+- Records are selected **shortest-first**, which bounds tail risk — and also
+  bounds the benefit, since GPU cost scales with the same `n³` the CPU pays.
+
+**Correctness is settled: byte-identical output in every arm** — every cap from
+0 % to 50 %, every pool size from `-j2` to `-j12`, with and without A and B.
+
+## What is NOT settled, and why
+
+**The wall-clock effect is smaller than this machine's measurement error.**
+
+| | |
+|---|---|
+| GPU clock at sequence start | 1057 MHz, 68 °C |
+| GPU clock at sequence end | **712 MHz, 76 °C** |
+| control-arm drift across one 5-point sweep | 5.78 → 8.47 s (**+47 %**) |
+| control-arm drift across the contention sweep | 6.02 → 9.32 s (**+55 %**) |
+
+Under sustained load this laptop's GPU loses a third of its clock, and the drift
+swamps everything. Measured deltas ranged from **−2.9 % to +12.4 %** with no
+consistent ordering by cap or by pool size.
+
+**And my own interleave was biased.** Running `control, slice, control, slice…`
+puts the slice arm *second in every pair*, so a monotonic thermal trend penalises
+it systematically. Median delta came out **−1.0 %** while min-vs-min came out
+**+13.2 %** — from the same ten runs. Two summaries of one dataset disagreeing in
+*sign* is the signal that the dataset cannot answer the question. An ABBA
+ordering would cancel a linear trend; that is what to use next time.
+
+## The correction to §2
+
+§2 claimed C's bar *belongs here* rather than on Colab, because this box has 12
+cores and Colab's T4 instances have 2. **The core count argument still stands.
+The conclusion does not** — a thermally-limited laptop is the worst place to
+measure anything requiring sustained GPU load, which is exactly what a 240-record
+run is. Being the right *shape* of machine is not the same as being able to hold
+a clock steady for ten minutes.
+
+## What would settle it
+
+1. **A thermally stable many-core host** — a workstation or a cloud VM with a
+   datacenter card, where `clock_ratio` stays at 1.00 the way the L4 runs did.
+2. Failing that, **Colab's L4** (8–12 vCPU), where C predicts ~14 % — smaller
+   than here in theory, but on hardware that can actually hold still.
+3. Either way, **ABBA ordering and medians**, not a sweep of single runs.
+
+Until then C is committed, off by default, correct, and honestly unproven. It
+should not be enabled on the strength of the argument in §1 alone.
+
+## Open design questions this raises
+
+Thread counts are now genuinely oversubscribed: at `-j12` the process wants 12
+pool threads + 12 backtrack threads + the builder + the main GPU driver, on 12
+cores. Three things worth deciding before C is enabled anywhere:
+
+- **A shared core budget.** Each pool currently calls `nproc` independently.
+- **A reserved core for the device.** One thread drives every launch, sync and
+  transfer; starving it idles the GPU, which would make CPU folding a net loss no
+  matter how it is sized.
+- **Priority.** CPU folders are the only work here that is genuinely optional, so
+  they are the natural candidate for `nice`, leaving the driver and backtrack at
+  normal priority.
