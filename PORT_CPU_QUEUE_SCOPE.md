@@ -292,3 +292,56 @@ mechanism behind it rather than an estimate:
   the device.
 - **≥ 8 cores: enable it, with `SCHED_IDLE` on the folders**, so the guarantee is
   structural rather than tuned.
+
+## 9a. CORRECTION — the importer exists, and the answer is `cudaMemcpy`
+
+**§9 said `QdstrmImporter` was "nowhere on the system". That was wrong.** It is at
+`/usr/lib/nsight-systems/host-linux-x64/QdstrmImporter`; I concluded it was
+missing before the `find` searching for it had finished, and wrote the conclusion
+down. Running it by hand converts the `.qdstrm` fine.
+
+So the mechanism is now **measured rather than inferred**. 24 × 2000 nt, GPU path
+asserted (1 sweep):
+
+| CUDA API | % of host time in CUDA | total | calls | avg |
+|---|---|---|---|---|
+| **`cudaMemcpy`** | **70.4 %** | 4.23 s | **12 042** | 351 µs |
+| `cudaStreamSynchronize` | 16.3 % | 0.98 s | 1 996 | 489 µs |
+| `cudaMemGetInfo` | 4.3 % | 0.257 s | **1** | **257 ms** |
+| `cudaLaunchKernel` | 3.9 % | 0.236 s | 19 953 | 11.8 µs |
+| `cudaDeviceSynchronize` | 2.4 % | 0.142 s | 1 997 | 71 µs |
+| `cudaGraphLaunch` | 1.8 % | 0.107 s | 1 996 | 53.6 µs |
+
+The OS-runtime report is **empty** — not one blocking call — which independently
+confirms the `/proc` finding that the thread never parks.
+
+**The core goes into synchronous `cudaMemcpy`, 12 042 of them.** That is why
+`RNA_GPU_BLOCKING_SYNC` did nothing: `cudaDeviceSynchronize` is 2.4 % of the
+picture, so changing its wait policy could never have mattered. My §9 guess
+("busy-waiting in the launch/copy path, which API not directly measured") was
+half right, and would have sent the next reader to `cudaLaunchKernel` — 3.9 %.
+
+### Two real targets, neither of which is option C
+
+1. **Pageable `cudaMemcpy` is the whole story.** A synchronous copy from pageable
+   host memory makes the runtime stage through an internal pinned buffer with the
+   CPU participating, and it cannot overlap with compute. `cudaHostAlloc` +
+   `cudaMemcpyAsync` on a stream is the standard fix and would hand back most of
+   a core — on *every* host, not just small ones. `project_row_loop_dataflow`
+   already flagged six blocking pageable copies per row; this says they are now
+   **70 % of host CUDA time**.
+2. **`cudaMemGetInfo` takes 257 ms in a single call.** That is
+   `compute_gpu_usable_bytes()`, called once per chunk to size the next one. On a
+   many-chunk run it is paid repeatedly.
+
+### What does not change, and what does
+
+The conclusion for C **stands, and more firmly**: the core is consumed doing real
+staging work, not spinning on a flag we can flip. A 1–2 vCPU host still has no
+capacity to lend, `SCHED_IDLE` still makes a folder safe-but-useless there, and a
+many-core host is still worth ~27–44 %.
+
+**The ordering changes.** Pinned-memory transfers are now a better next move than
+option C: worth ~70 % of a core on *every* host, they help the 1-vCPU case C
+cannot help at all, and they make C *more* profitable afterwards by freeing the
+very core C wants to share.
