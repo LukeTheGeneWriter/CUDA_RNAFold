@@ -32,14 +32,32 @@
 #include "ViennaRNA/structured_domains.h"
 #include "ViennaRNA/fold_compound.h"
 #include "ViennaRNA/loops/internal.h"
+#include "ViennaRNA/params/default.h"   /* MAX_NINIO -- see the note below */
 
 //use GPU primitives in CUDA code
 #undef MIN2
 #define MIN2(x,y) min(x,y)
 #undef MAX2
 #define MAX2(x,y) max(x,y)
-//ViennaRNA/energy_par.c
-#define MAX_NINIO 300
+// The interior-loop asymmetry cap. This was `#define MAX_NINIO 300` until
+// 2026-09-09, and the #define was a silent wrong answer waiting for -P:
+// MAX_NINIO is not a constant, it is a WRITABLE library global
+// (params/default.c:70, declared extern at params/default.h:70) and reading a
+// parameter file overwrites it (params/io.c:671, the NINIO block's third
+// value; io.c:1601 writes it back out again).
+//
+// The check that used to sit in init_gpu2() -- `assert(MAX_NINIO == 300)` --
+// could not fail, because with the #define in scope it expanded to
+// assert(300 == 300). It read as a guard against exactly the hazard it did
+// not test. See PORT_NSP_PARAMFILE_SCOPE.md §2.2.
+//
+// The declaration comes from ViennaRNA/params/default.h, which is included
+// explicitly above. It was ALREADY reaching this file transitively (via
+// loops/internal.h -> eval/internal.h, and again via interior_loopx.h ->
+// energy_par.h), which is exactly why the old #define was dangerous: it sat
+// between two includes of the same header and only escaped mangling
+// `extern int MAX_NINIO;` into `extern int 300;` because the include guard had
+// already fired.
 #include           "interior_loopx.h"
 
 #include "stub2.h"
@@ -98,6 +116,11 @@ struct cuda_param_s {
   //branches in, so the kernel just indexes. All zero at default salt.
   int     SaltStack;
   int     SaltLoop[MAXLOOP+3];
+  //The asymmetry cap, appended last for the same reason the salt fields were:
+  //no offset above it moves. Carried per-batch because a parameter file can
+  //change it (params/io.c:671) -- see the note on MAX_NINIO at the top of this
+  //file and PORT_NSP_PARAMFILE_SCOPE.md §2.2.
+  int     max_ninio;
 //int     MLbase;
 //int     MLintern[NBPAIRS+1];
 //int     MLclosing;
@@ -268,6 +291,7 @@ void load_param(const vrna_param_t *P){
   memcpy(H->int21,        P->int21,        (NBPAIRS+1)*(NBPAIRS+1)*5*5*5*sizeof(int));
   memcpy(H->int22,        P->int22,        (NBPAIRS+1)*(NBPAIRS+1)*5*5*5*5*sizeof(int));
   H->SaltStack  =         P->SaltStack;
+  H->max_ninio  =         MAX_NINIO;   //the LIVE global, not a literal
   //n_max = MAXLOOP+1 fills exactly MAXLOOP+3 entries (n_max+2)
   rnafold_build_salt_table(P, MAXLOOP+1, H->SaltLoop);
 
@@ -327,7 +351,6 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   fprintf(stderr,"%-24s init_gpu2(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
   assert(turn_ == turn);
-  assert(MAX_NINIO == 300); //ViennaRNA/energy_par.c
 
   SLOT_ALLOC(&d_tri_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_tri_off_H, tri_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
@@ -1012,7 +1035,7 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 
 	      energy += IntLoop_X(u1, ns, nl, type, type_2,
 				  si1, sj1, sp1, sq1,
-				  TerminalAU,ninio2,
+				  TerminalAU,ninio2,P->max_ninio,
 				  P->bulge,P->internal_loop,lxc,
 				  mismatchI,
 				  mismatch1nI,

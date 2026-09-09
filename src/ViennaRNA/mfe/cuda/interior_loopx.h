@@ -100,6 +100,12 @@ IntLoop_X(const int n1,
 	  //approx in order of how much gcov says they are used
 	  const int TerminalAU,
 	  const int ninio2,
+	  //The asymmetry cap. It was a #define of 300 in int_loop.cu until
+	  //2026-09-09, which was wrong: MAX_NINIO is a WRITABLE library global
+	  //(params/default.c:70) that a parameter file overwrites (params/io.c:671,
+	  //the NINIO block's third value). It is now carried in cuda_param_t and
+	  //passed in from the live global. See PORT_NSP_PARAMFILE_SCOPE.md §2.2.
+	  const int max_ninio,
 	  const int bulge[MAXLOOP+1],
 	  const int internal_loop[MAXLOOP+1],
 	  const float lxc,
@@ -172,7 +178,7 @@ IntLoop_X(const int n1,
 	//if(v)printf("ns==1 nl!=1 && nl!=2 internal_loop[%d] ",nl+1);
 	//if(v)printf("mismatch1nI[%d][%d][%d] + mismatch1nI[%d][%d][%d]",type,si1,sj1, type_2,sq1,sp1);
         energy = (nl+1<=MAXLOOP)?(internal_loop[nl+1]) : (internal_loop[30]+(int)(lxc*log((nl+1)/30.0f)));
-        energy += MIN2(MAX_NINIO, (nl-ns)*ninio2);
+        energy += MIN2(max_ninio, (nl-ns)*ninio2);
         energy += mismatch1nI[type][si1][sj1] + mismatch1nI[type_2][sq1][sp1];
         return energy + salt;
       }
@@ -196,7 +202,7 @@ IntLoop_X(const int n1,
       //if(v)printf("mismatchI[%d][%d][%d] + mismatchI[%d][%d][%d]",type,si1,sj1, type_2,sq1,sp1);
       energy = (u <= MAXLOOP) ? (internal_loop[u]) : (internal_loop[30]+(int)(lxc*log((u)/30.0f)));
 
-      energy += MIN2(MAX_NINIO, (nl-ns)*ninio2);
+      energy += MIN2(max_ninio, (nl-ns)*ninio2);
 
       energy += mismatchI[type][si1][sj1] + mismatchI[type_2][sq1][sp1];
     }

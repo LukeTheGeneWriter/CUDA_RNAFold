@@ -7,21 +7,31 @@ the route asserted; "assumed" means the guard covers it but nothing has run.*
 
 ---
 
-## ⚠ One live wrong answer: `--nsp`
+## `--nsp` — GUARDED 2026-09-09 (was a live wrong answer)
 
-**`--nsp=GA` is accelerated, changes the answer, and the GPU disagrees with the
-CPU on 28 of 30 records — deterministically.** The GPU is *worse* on 27 and
-*better* on 1, so this is not a missing constraint, it is a **different energy
-model**: the device is not applying the non-standard pair table the way the host
-does. It is not ignored either — the GPU's `--nsp` output differs from the GPU's
-default output, so it is *partially* applied, which is the worst of the three
-possibilities because it looks like it is working.
+**`--nsp=GA` was accelerated, changed the answer, and the GPU disagreed with the
+CPU on 28 of 30 records — deterministically, worse on 27 and better on 1.** Not
+ignored, *partially* applied, which is the worst of the three possibilities
+because it looks like it is working. Same family as the `-C` defect.
 
-`nonstandards` appears **zero** times in `engine.c`. This is the same family as
-the `-C` hard-constraint defect: an option that changes the energy model, has no
-guard decision, is accelerated anyway, and returns a plausible wrong answer.
+**The guard now declines it** (`engine.c`, after the `energy_set` check). It
+tests `md->pair[i][j] == 7`, **not** `md->nonstandards[0]` — the pair table is
+where every route into the feature ends up, and the field is the one a copied or
+hand-built `md` walks straight past. Default `BP_pair` (`pair_mat.h:21-30`) holds
+only 0..6, so a 7 can mean nothing else. Bar:
+`tests/mfe_cuda_guard.ts::test_guard_declines_nonstandard_pairs`, which covers
+both routes and asserts the poke survives into the compound.
 
-**It needs a guard now.** The `-c`/`-g` precedent applies exactly.
+**The mechanism is now located**, and it is not in `engine.c` at all — it is
+`int_loop.cu`'s `Energy()`, which resolves the two interior-loop pair types with
+two shortcuts that are exact identities at default settings and stop being
+identities under `--nsp`: no `0 → 7` promotion, and an index swap in place of
+`rtype[]`. `rtype[7]` is *forced* to 7 at `model.c:1104`, which is what breaks
+the second one. Full derivation, and what lifting the guard would take, in
+`PORT_NSP_PARAMFILE_SCOPE.md` §1.
+
+**Status: guarded and unbuilt.** No local toolchain was available on 2026-09-09,
+so neither the guard nor its test has been compiled or run.
 
 ---
 
@@ -81,8 +91,8 @@ with the GPU path because they never touch it.
 
 | option | status |
 |---|---|
-| `--nsp` | **LIVE WRONG ANSWER — see the top of this file** |
-| `-P` / `--paramFile` | **UNTESTED.** Replaces the whole energy parameter set. If the device upload path misses any table this is another `--nsp`. Highest-priority test. |
+| `--nsp` | **DECLINED 2026-09-09 — see the top of this file.** No longer ungoverned. |
+| `-P` / `--paramFile` | **UNTESTED, and it cannot be guarded** — `vrna_params_load()` mutates library globals, so by fold-compound time `-P` has left no flag for the guard to see. Its assumptions belong in `load_param()` instead. **One is already fixed:** `MAX_NINIO` was a `#define` of 300 on the device, "checked" by an `assert(300 == 300)`, while the real `MAX_NINIO` is a writable global a parameter file overwrites (`params/io.c:671`) — now carried per-batch in `cuda_param_t`. Six more assumptions ranked in `PORT_NSP_PARAMFILE_SCOPE.md` §2.3; the four bars are §2.4. |
 | `--ImFeelingLucky` | GPU differs from CPU — **but that is noise, not a defect.** Two CPU runs of the same flag also differ, so the backtracking really is stochastic and **a byte-identical bar cannot judge this option at all.** It needs a distributional bar, or none. Checked before reporting, because "GPU ≠ CPU" looked exactly like `--nsp` until the CPU was compared against itself. |
 | `--batch` | **not reachable by this harness** — both sides produced *no output*, because `--batch` changes input parsing and the plain FASTA gave it nothing to do. Two empty outputs are not a match; scored as untested rather than passing. |
 | `--helical-rise`, `--backbone-length` | accelerated and identical, **but did not bite** on the test input — so the comparison proved nothing. Needs an input where they change the answer. |
@@ -137,6 +147,12 @@ unaffected either way.
 | | count |
 |---|---|
 | accelerated, verified | 8 CLI options (+ `uniq_ML`, no CLI flag) |
-| declined, route asserted | 20 |
+| declined, route asserted | 20 + `--nsp` **(new 2026-09-09, route not yet asserted — unbuilt)** |
 | neutral | 25 |
-| **ungoverned** | **6, of which 1 is a live defect (`--nsp`), 1 is untested and high-risk (`-P`), and 1 cannot be judged by a byte bar at all (`--ImFeelingLucky`)** |
+| **ungoverned** | **5, of which 1 is untested and high-risk (`-P`, and it is unguardable by construction) and 1 cannot be judged by a byte bar at all (`--ImFeelingLucky`)** |
+
+**No live silent wrong answer is currently known on the option surface.** That
+is the first time this file has been able to say so. It is a statement about
+what has been *looked at*: `-P` is untested, `--helical-rise` /
+`--backbone-length` have never been given an input where they bite, and
+`--batch` is unreachable by the harness.
