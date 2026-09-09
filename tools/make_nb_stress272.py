@@ -205,10 +205,19 @@ STAGE_RE = re.compile(
     r"output=([\d.]+) gpuinit=([\d.]+) teardown=([\d.]+) free=([\d.]+)")
 SWEEP_RE = re.compile(r"sweep shape: (\d+) iterations, (\d+) active record-rows, "
                       r"(\d+) cells; peak/iteration (\d+) records (\d+) cells")
+# THE THIRD LINE. RNAfold prints a gpuinit breakdown too, and the 2026-09-09
+# stress run parsed the first two and threw this one away -- leaving 22.9% of
+# wall as a single unattributed number, the same mistake the deep profile made
+# with the stage line. It splits gpuinit three ways and names the two suspects
+# (host bitmask packing vs cudaMalloc), which is what settles it.
+IG_RE = re.compile(
+    r"gpuinit breakdown \(s\): init_gpu=([\d.]+) init_gpu2=([\d.]+) init_gpu3=([\d.]+) "
+    r"\|\| of which pack=([\d.]+) cudaMalloc=([\d.]+) other=([\d.]+)")
 
 PHASES = ("int_loop","hp_mb","load_my_c","modular_decomp","fetch_mx",
           "new_c_host","fml_host","fml_prev_host")
 STAGES = ("build","prepare","prefill","backtrack","output","gpuinit","teardown","free")
+IGPARTS = ("init_gpu","init_gpu2","init_gpu3","pack","cudaMalloc","other")
 
 def run(fa, int16=False, budget_mb=None, chunk=0, min_batch=1):
     env = dict(os.environ)
@@ -229,13 +238,15 @@ def run(fa, int16=False, budget_mb=None, chunk=0, min_batch=1):
          if PHASE_RE.search(err) else {}
     st = dict(zip(STAGES, [float(x) for x in STAGE_RE.search(err).groups()])) \
          if STAGE_RE.search(err) else {}
+    ig = dict(zip(IGPARTS, [float(x) for x in IG_RE.search(err).groups()])) \
+         if IG_RE.search(err) else {}
     shapes = SWEEP_RE.findall(err)
     rss = 0.0
     m = re.search(r"Maximum resident set size \(kbytes\): (\d+)", err)
     if m: rss = int(m.group(1))/1e6
 
     acc = sum(ph.values()) + sum(st.values())
-    return dict(wall=wall, rc=p.returncode, phases=ph, stages=st,
+    return dict(wall=wall, rc=p.returncode, phases=ph, stages=st, gpuinit=ig,
                 chunks=len(shapes),
                 cells=sum(int(s[2]) for s in shapes),
                 gpu_records=sum(int(s[3]) for s in shapes),
@@ -253,6 +264,19 @@ def report(tag, r):
     for k in STAGES:
         v = r["stages"].get(k, 0.0)
         if v > 0.005: print("   stage %-16s %8.1fs %5.1f%%" % (k, v, 100*v/r["wall"]))
+    ig = r.get("gpuinit") or {}
+    if ig:
+        # The line the 2026-09-09 run discarded. pack is the O(n^2)-per-record
+        # HOST bitmask packing; it should be ~0 whenever the GPU derivation is
+        # active (everything except --noLP), and dominant when it is not.
+        print("     of gpuinit: %s"
+              % "  ".join("%s=%.1f" % (k, ig[k]) for k in IGPARTS if ig.get(k, 0) > 0.005))
+        if ig.get("gpuinit_total", r["stages"].get("gpuinit", 0)) > 0.005:
+            print("     pack is %.0f%% of gpuinit"
+                  % (100*ig.get("pack", 0)/max(r["stages"].get("gpuinit", 1e-9), 1e-9)))
+    else:
+        print("     of gpuinit: BREAKDOWN LINE NOT FOUND -- is the binary older "
+              "than b799a820, or was stderr truncated?")
     print("   %-22s %8.1fs %5.1f%%   <- RESIDUAL, nothing measures this"
           % ("", r["residual"], 100*r["residual"]/r["wall"]))
 print("runner ready")""")
