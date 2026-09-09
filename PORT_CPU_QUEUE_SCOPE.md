@@ -214,3 +214,81 @@ cores. Three things worth deciding before C is enabled anywhere:
 - **Priority.** CPU folders are the only work here that is genuinely optional, so
   they are the natural candidate for `nice`, leaving the driver and backtrack at
   normal priority.
+
+---
+
+# 9. Where the busy core actually goes
+
+*Profiled 2026-09-09. `nsys` collected 23 MB of data and then could not read it —
+Ubuntu's `nsight-systems` package ships without the `QdstrmImporter` binary, and
+it is nowhere on the system. The question was settled with `/proc` sampling
+instead (`tools/thread_states.py`), which needs no tooling at all.*
+
+## A probe that measured the wrong thing first
+
+The first sampling run used **8 records**. `MIN_GPU_BATCH` is 10, so the chunk
+fell to the CPU and the profile described a pure CPU fold — 43 s wall, no phase
+or stage lines at all. The "main thread is running 96 % of the time" it produced
+was true and irrelevant.
+
+**The tell was the missing timer lines**, and the fix is the same one this project
+keeps arriving at: assert the precondition. The rerun checks `sweep shape:` is
+present and aborts if not.
+
+## The measurement
+
+24 × 2000 nt, one sweep, GPU path confirmed:
+
+| | |
+|---|---|
+| wall | 12.11 s |
+| CPU burned | 12.36 s = **102 % of one core** |
+| main thread state | **R (executing) 95 %**, S 2 %, D 3 % |
+| every other thread | S 64–100 %, ≤0.07 CPU-s each |
+
+And where that CPU sits:
+
+| region | s | % of CPU burned |
+|---|---|---|
+| `hp_mb` | **7.42** | **60 %** |
+| `modular_decomp` | 2.54 | 21 % |
+| `load_my_c` | 0.53 | 4 % |
+| `int_loop` | 0.25 | 2 % |
+| `fetch_mx` | 0.22 | 2 % |
+| all host stages | 0.74 | 6 % |
+| **accounted** | **11.69** | **95 %** |
+
+**The host thread is executing in userspace, inside the GPU phase regions, for
+essentially the whole run.** It is not parked waiting on the device — the one
+thread that *is* parked (`cuda-EvtHandlr`) uses 0.03 CPU-seconds.
+
+`RNA_GPU_BLOCKING_SYNC=1` does not change this (95 % R either way), which rules
+out the CUDA sync policy as the mechanism. What remains is busy-waiting inside
+the launch/copy path itself — the runtime spinning when the launch queue is full
+against a slow device, which is exactly the regime a throttled laptop card
+creates. Which API is not directly measured, and saying so is more honest than
+naming one: the importer that would have shown it is missing.
+
+## What this settles for option C
+
+**On a 1–2 vCPU host there is no idle core to harvest.** The single core is
+already executing ~100 % of the time on behalf of the device. A CPU folder there
+takes time *directly* from the thread feeding the GPU — the "device waiting on
+the CPU" case.
+
+`SCHED_IDLE` on folder threads makes that **safe** — a SCHED_IDLE thread runs
+only when nothing else is runnable, so it cannot delay the driver — but it also
+makes it **worthless there**, because the driver is runnable ~95 % of the time.
+Safe and useless are the same outcome on a small host.
+
+**On a many-core host the arithmetic is unchanged and C remains worth ~27–44 %:**
+one core is busy, the rest genuinely are idle, and a SCHED_IDLE folder harvests
+them without ever contending with the one that matters.
+
+So the recommendation splits by host, which is what §2's table said, now with a
+mechanism behind it rather than an estimate:
+
+- **≤ 4 cores: do not enable C.** Not "it will not help much" — it will take from
+  the device.
+- **≥ 8 cores: enable it, with `SCHED_IDLE` on the folders**, so the guarantee is
+  structural rather than tuned.
