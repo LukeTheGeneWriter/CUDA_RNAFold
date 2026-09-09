@@ -348,7 +348,10 @@ moves between budget rows, which is what makes the comparison a price rather
 than a coincidence.""")
 
 code(r"""ARMS    = [("i32", False), ("i16", True)]
-BUDGETS = [None, "half", "quarter"]     # None = the card's natural budget
+# Quarter FIRST: smallest RSS, most chunks, so it is both the safest arm and the
+# one where the pipeline pays most ((chunks-1)/chunks). The natural budget, which
+# is where a pipelined i16 arm might not fit in host RAM, runs last.
+BUDGETS = ["quarter", "half", None]     # None = the card's natural budget
 
 total_mb = int(sh("nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits",
                   quiet=True).stdout.strip())
@@ -359,10 +362,35 @@ BUD_MB = {None: None, "half": total_mb//2, "quarter": total_mb//4}
 # The natural-budget pair matters least: the fewer the chunks, the less there is
 # to overlap, and (chunks-1)/chunks is the hard bound.
 RES = {}
-PLAN = [(tag, i16, False) for tag, i16 in ARMS] + [("i32pipe", False, True)]
+# i16pipe is the point of this run and has never been measured: int16 alone was
+# -3.6%, the pipeline alone -16.8/-19.2/-21.4%, and modular_decomp is 54% of the
+# post-pipeline wall, so the combination is the largest untested number left.
+#
+# MEMORY. The pipeline holds two chunks of fold compounds and roughly DOUBLES
+# peak host RSS (i32: 4.86 -> 9.40 GB at the natural budget). i16 already peaks
+# higher than i32 (6.41 GB), so i16pipe/natural projects to ~12.4 GB against a
+# Colab T4 instance's ~12.7 GB -- at the edge, hence the guard below.
+PLAN = ([(tag, i16, False) for tag, i16 in ARMS]
+        + [("i32pipe", False, True), ("i16pipe", True, True)])
 for b in BUDGETS:
     for tag, i16, pipe in PLAN:
         key = "%s/%s" % (tag, b or "natural")
+        # Host-RAM guard. A run that swaps reports a wall clock measuring the
+        # pagefile rather than the code -- an artifact already recorded once in
+        # this project. Projected from the SAME arm without the pipeline, which
+        # has run earlier in this loop.
+        if pipe:
+            free_gb = float(sh("free -g | awk '/^Mem/{print $7}'",
+                               quiet=True).stdout.strip() or 0)
+            prior = RES.get("%s/%s" % ("i16" if i16 else "i32", b or "natural"))
+            proj = (prior["rss"] * 2.0) if prior else 0.0
+            print("   [pipeline] projected peak RSS ~%.1f GB, %.1f GB free"
+                  % (proj, free_gb))
+            if proj and free_gb and proj > free_gb * 0.9:
+                print("   SKIPPED: projected RSS would not fit. Lower the VRAM "
+                      "budget and rerun this arm on its own.")
+                continue
+
         r = run(BIG, int16=i16, budget_mb=BUD_MB[b], pipeline=pipe)
         assert r["rc"] == 0, (key, r["rc"])
         assert r["int16_active"] == i16, "int16 gate disagreed with intent"
