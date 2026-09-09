@@ -215,3 +215,92 @@ that back. On a host-RAM-limited box int16 is the wrong trade.
 - All six arms fold the same 400 records and report the same 6 266 401 200 cells
   and 400 GPU records, so no arm silently fell back to the CPU — the failure that
   made int16 look like a regression in bench v3.
+
+---
+
+# Follow-up, same day: `gpuinit` attributed, and the "obvious fix" is WRONG
+
+*Measured locally on an RTX 3050 (4 GB), the build stood up this session. Small
+sizes, so read the RATIOS, not the seconds.*
+
+## 9. `gpuinit` is host bitmask packing, not `cudaMalloc`
+
+The breakdown line §2 asked for, read directly off the local binary:
+
+| input | `gpuinit` | `pack` | `cudaMalloc` | other |
+|---|---|---|---|---|
+| 24 × 1000 | 0.077 | 0.050 (65 %) | 0.004 | 0.023 |
+| 24 × 2000 | 0.219 | 0.181 (83 %) | 0.006 | 0.032 |
+| 48 × 2000 | 0.439 | 0.369 (84 %) | 0.011 | 0.059 |
+| 24 × 3000 | 0.599 | 0.521 (**87 %**) | 0.008 | 0.070 |
+
+**`cudaMalloc` is 1–5 % and falling.** The deferred-free hypothesis at
+`mfe_cuda.c:294` — that teardown frees ~20 GB in a reported 0.000 s so the cost
+lands in the next chunk's mallocs — is **wrong, and can be struck out.** It is
+the O(n²)-per-record host packing loops, in `init_gpu3` and `init_gpu2`, and it
+scales as records × n² (2× records → 2.04×; 2× length → 3.6×).
+
+## 10. The replacement exists, was written for exactly this, and is dead code
+
+`pack_hc_kernel` (`hp_mb_loop.cu`) derives all five bitmasks from the sequence on
+the device. It is gated on `g_hc_seq_derived`, whose declaration
+(`stub2.h:439`) says **"Set once by RNAfold.c"** and cites this very cost:
+*"that packing measured 197.4 s of a 769 s Colab run, 25.7 % of wall."*
+
+**Nothing sets it.** The only assignment in the tree is the initialiser
+`int g_hc_seq_derived = 0;` at `mfe_cuda.c:308`. On the 2.3.0 branch
+(`0b4bcf3e`) `RNAfold.c` set it; **the 2.7.2 port dropped that line** and kept
+everything else — the kernel, both gated branches, and `RNA_HC_VERIFY`.
+
+So it reads exactly like a port regression with a one-line fix. **It is not.**
+
+## 11. Enabling it is a SILENT WRONG ANSWER on 2.7.2
+
+Flipped the default, rebuilt, verified, measured, restored:
+
+| | result |
+|---|---|
+| `gpuinit` | 0.113 → **0.027 s**, a **4.2×** cut; `pack` 0.083 → 0.005 |
+| `RNA_HC_VERIFY` | **MISMATCHES in `hccc_mb`** |
+| fold vs host-packed GPU | **differs on 9 of 10 records** |
+| fold vs CPU route | **differs on 9 of 10 records** |
+
+The win is real and large. The answer is wrong.
+
+**So the missing line is load-bearing, not a regression.** Restoring it on the
+strength of the 2.3.0 commit message — which is what the evidence in §10 invites,
+and what I was about to do — would have put a silent wrong answer into the
+default path on nine records in ten. The port dropping that assignment is the
+only reason the answers are right today.
+
+### The lead
+
+Every sampled mismatch has the **host allowing MB where the device does not**
+(`gpu=09089c28` / `host=09289c28`, and so on — the host word always carries the
+extra bit). A too-restrictive multibranch mask forbids some closings, which is
+consistent with a suboptimal-but-self-consistent fold, the failure shape this
+project has now seen four times.
+
+`rnafold_hc_opt()` replicates **2.3.0's `hc_reset_to_default()` SINGLE case**.
+2.7.2 splits that into `default_pair_constraint()` (`hard.c:761`) plus a reset
+that writes `hc->mx[n*i+i] = ALL_LOOPS` on the diagonal (`hard.c:926`), and
+`ALL_LOOPS` includes the `_ENC` bits the device's `i == j` case omits. The
+pair-predicate halves do match — that was checked line by line while scoping
+`--nsp` — so the divergence is in the surrounding reset, not in the pair rule.
+The host side of `RNA_HC_VERIFY` uses `mx[n*i + j]`, which matches upstream's own
+indexing at `hard.c:926/966`, so the oracle is sound and it is the device that is
+wrong.
+
+### What to do
+
+1. **Leave `g_hc_seq_derived` at 0.** Add a comment at `mfe_cuda.c:308` saying
+   the flag is *known wrong* on 2.7.2, so the next reader does not restore the
+   line. Right now `stub2.h:439` actively invites them to.
+2. Close the `hccc_mb` divergence against `RNA_HC_VERIFY`, which already gives
+   word-level resolution and needs no new instrumentation.
+3. Only then wire the setter — and per `PORT_CONFIG_SCOPE.md` it should be an
+   honest setter on the seam, not a global poked from `RNAfold.c`.
+
+**This is worth ~20 % of wall at 400 × 5601** (87 % of `gpuinit`'s 22.9 %), which
+makes it the largest single win available anywhere in the port — bigger than
+everything int16 can offer, and on the host side where the wall now lives.
