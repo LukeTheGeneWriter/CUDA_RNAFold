@@ -108,18 +108,56 @@ One builder thread constructs chunk *N+1* while the GPU folds chunk *N*.
 
 ### C — Heterogeneous folding: give the `-j` pool a slice of each chunk
 
-The literal reading of "run the accelerator with the CPU".
+The literal reading of "run the accelerator with the CPU". **Measured
+2026-09-09** with `tools/cpu_gpu_ratio.sh`, both sides on the same machine at the
+same time — RTX 3050 laptop, 12 cores:
 
-- **Prize, and it is small.** Upstream folds 400 × 5601 in 25 633 s = **64 s per
-  record per core** (bench v5 arm A). The GPU does 335 s / 400 = **0.84 s per
-  record**. That is **~76× per core**; with 8 cores the CPU can add **~10 %**
-  throughput, and only while perfectly load-balanced.
-- **Cost:** those are the same cores A and B need, and building is worth more per
-  core than folding — build is on the critical path for *every* record, whereas
-  CPU folding substitutes for a device that is 76× faster at it.
-- **Verdict: do not do this before A or B.** It competes for the scarce resource
-  and pays the worst rate for it. It becomes interesting only once the GPU is
-  saturated and the cores are otherwise idle.
+| length | CPU s/rec (1 core) | GPU s/rec | ratio per core | CPU could add, 12 cores |
+|---|---|---|---|---|
+| 300 | 0.107 | 0.0033 | 32.9× | 36.5 % |
+| 600 | 0.394 | 0.0092 | 42.9× | 27.9 % |
+| 1200 | 1.420 | 0.0356 | 39.8× | 30.1 % |
+| 2400 | 7.046 | 0.1654 | 42.6× | 28.2 % |
+
+**Two corrections to what this document said before.**
+
+1. **The ratio is ~33–43×, not 76×, and it is roughly FLAT with length.** The
+   earlier 76× came from comparing upstream's CPU seconds in one Colab session
+   against GPU seconds from a *differently throttled* one — a cross-machine
+   comparison presented as a ratio. And the guess that "C gets much better at
+   short lengths" is **not supported**: 300 nt is only mildly better, and even
+   that is understated for the GPU, because 64 records at 300 nt sits right at
+   `MIN_GPU_BATCH`'s break-even and the device is not well used there.
+2. **C does NOT compete with A for cores.** They occupy *different phases*:
+   threaded build burns cores during the build, CPU folding burns them during the
+   GPU fill, and those are sequential. Only B overlaps the GPU window, and it
+   needs exactly one core. **C is largely additive to A, and costs B one core.**
+
+**The clock caveat, and it cuts against C.** This card was at 1057 / 2100 MHz —
+half clocks. A full-clock datacenter GPU roughly doubles the ratio to ~65–85×
+and halves the CPU's share.
+
+**So the honest figure is `c / ratio`, and the argument for C is core count:**
+
+| host | ratio ~70× (full-clock GPU) |
+|---|---|
+| Colab T4, 2 vCPU | ~3 % |
+| Colab L4, 8–12 vCPU | ~11–17 % |
+| 32-core workstation | ~46 % |
+| 64-core server | ~90 % |
+
+**Verdict: worth doing, and the earlier "declined" was wrong.** It is small on
+the machines we happen to benchmark on and large on the machines this tool would
+actually be deployed on. It is also the only option here whose value *grows* with
+the host rather than being capped by a fixed idle window.
+
+**Design it as a shared work queue, not a fixed split.** A predicted split needs
+the ratio, the core count and the GPU's clock state to be known in advance; a
+queue where the GPU takes batches and CPU workers take singles is self-balancing
+across all three, and degrades correctly when the GPU is absent, busy or slow.
+Records keep their `vrna_ostream_t` slots, so output order is unaffected — this
+is what `RNAfold_cpu_queue.c` did before it was retired, and reviving that idea
+is now justified where in §2 of this document it was not.
 
 ### D — Thread `build` *and* pipeline it (A + B)
 
@@ -148,12 +186,21 @@ The device probe already exists; what is missing is a CLI flag and a default.
 
 ## 4. Recommendation
 
-**B first, then A.** B is race-free, comparable in prize, and its only objection
-(RSS) is a measurement we can take. A is larger and simpler but requires
-shipping UB, or getting Defect B fixed upstream first.
+**B first, then C, then A.**
 
-**C is not worth doing** on these numbers and should be recorded as declined with
-the 76× ratio, so it does not get re-proposed.
+- **B** is race-free, worth ~18 %, and its only objection (RSS) is a measurement
+  we can take. It also unblocks C by construction: once the reader stops blocking
+  on `flush_gpu_chunk()`, there is a place to put CPU work.
+- **C** is worth `cores / ~70`, so ~3 % on a 2-vCPU Colab T4 and **~46 % on a
+  32-core workstation**. It is the only option whose value grows with the host.
+  Build it as a work queue, not a split.
+- **A** is the largest single number (~20 %) and the simplest code, but it needs
+  either shipping UB or Defect B fixed upstream, so it goes last despite being
+  the most obvious.
+
+**C was recorded as declined in the first draft of this document and that was
+wrong** — on a bad cross-machine ratio and on a "competes for cores" claim that
+does not survive looking at which phase each option occupies.
 
 Before any of it: **re-measure the wall on the current tree.** Both large host
 stages have changed since the numbers above were taken, and every figure in §0 is
