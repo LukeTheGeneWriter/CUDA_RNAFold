@@ -1164,6 +1164,36 @@ rnafold_min_gpu_batch(void)
 }
 
 
+/* Will process_record() have to construct a fold compound for an
+ * already-folded record? ONE predicate with two users, because they must not
+ * drift:
+ *
+ *   1. process_record() itself, to skip the construction (that skip is the whole
+ *      of stage_output -- 124.8 s of a 669 s run before it landed);
+ *   2. pipeline_flush(), which is only race-free while the answer is NO.
+ *
+ * (2) is the subtle one. The builder thread calls vrna_fold_compound() ->
+ * vrna_params(), whose SPEEDUP_PARAMS cache is unsynchronised (Defect B). The
+ * fold side is clean -- vrna_mfe_batch() reaches vrna_fold_compound_prepare()
+ * with VRNA_OPTION_MFE, and vrna_params_prepare() only touches the already-built
+ * fc->params on that path (params.c:428-441) -- but process_record() is
+ * dispatched to the -j pool from inside the fold, and if IT builds compounds
+ * they race the builder. So the pipeline declines whenever this returns true.
+ *
+ * Conservative in the same direction as process_record()'s own use: anything not
+ * enumerated counts as needing a compound, which costs speed, not correctness.
+ */
+static int
+output_needs_compound(struct options *opt)
+{
+  return !(opt->noPS && !opt->pf && !opt->MEA && !opt->lucky &&
+           !opt->verbose && !opt->benchmark &&
+           !fold_constrained && !opt->constraint_file &&
+           !opt->probing_data && !opt->ligandMotif &&
+           !opt->cmds && !opt->mod_params);
+}
+
+
 /* A chunk between its two halves.
  *
  * flush_gpu_chunk() used to do both -- build every fold compound, then fold them
@@ -1309,6 +1339,71 @@ fold_gpu_batch(struct gpu_batch *b,
 }
 
 
+/* ===================== the build/fold pipeline (option B) =====================
+ *
+ * One chunk deep: while the GPU folds chunk N, ONE host thread builds chunk
+ * N+1's fold compounds. Prize is (chunks-1)/chunks x build -- ~19.6% of wall at
+ * 400 x 5601, and exactly ZERO on a single-chunk run, because there is nothing
+ * to overlap with. PORT_HETEROGENEOUS_SCOPE.md option B.
+ *
+ * WHY ONE THREAD AND NOT A POOL. vrna_fold_compound() reaches vrna_params(),
+ * whose SPEEDUP_PARAMS cache is four unsynchronised file-scope statics
+ * (params.c:100-106, our Defect B). A pool of builders is a data race on it; a
+ * single builder never calls it concurrently with itself. The FOLD side must
+ * therefore never call vrna_params() either, or the race comes back through the
+ * other door -- that is asserted below rather than assumed, because it is the
+ * one property this whole design rests on.
+ *
+ * OFF BY DEFAULT. RNA_BUILD_PIPELINE=1 enables it. A pipelined run holds two
+ * chunks of compounds at once (~47 MB per record of ptype + hc->mx), so it
+ * trades host RAM for wall clock and the trade is the user's to make until it
+ * is measured at scale.
+ */
+static int
+rnafold_build_pipeline(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_BUILD_PIPELINE");
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+  }
+
+  return v;
+}
+
+
+struct builder_arg {
+  struct gpu_batch  *b;
+  struct options    *opt;
+  double             span;      /* builder wall time, for the overlap report */
+};
+
+
+static void *
+builder_main(void *p)
+{
+  struct builder_arg *a  = (struct builder_arg *)p;
+  const double        t0 = rnafold_now_seconds();
+
+  build_gpu_batch(a->b, a->opt);
+  a->span = rnafold_now_seconds() - t0;
+  return NULL;
+}
+
+
+/* How much of the build actually ran BESIDE the GPU.
+ *
+ * Wall clock alone cannot answer that on a machine whose ceiling is ~4% -- it is
+ * under run-to-run noise -- and `accounted - wall` only mirrors wall, so it is
+ * not independent evidence. min(builder span, fold span) per chunk is: it is
+ * bounded by both and is zero if either did not run. Reported once at the end so
+ * a pipelined run says what it achieved rather than leaving it to be inferred. */
+static double g_overlap_s   = 0.0;
+static double g_builder_s   = 0.0;
+static int    g_pipelined_n = 0;
+
+
 /* The original entry point, now just the two halves back to back. Behaviour is
  * unchanged: the split exists so a caller that wants to overlap them can. */
 static void
@@ -1341,6 +1436,103 @@ flush_gpu_chunk(struct record_data **chunk,
 
   build_gpu_batch(&b, opt);
   fold_gpu_batch(&b, opt);
+}
+
+
+/* One-deep pipeline state. Static because main()'s three flush sites share it. */
+static struct gpu_batch *g_pending = NULL;
+
+
+/* Fold and release whatever is waiting. Safe to call when nothing is. */
+static void
+pipeline_drain(struct options *opt)
+{
+  if (g_pending) {
+    struct gpu_batch *b = g_pending;
+
+    g_pending = NULL;          /* clear FIRST: fold_gpu_batch() dispatches output */
+    fold_gpu_batch(b, opt);
+    free(b->chunk);
+    free(b);
+  }
+}
+
+
+/* Pipelined replacement for flush_gpu_chunk(). Identical behaviour when
+ * RNA_BUILD_PIPELINE is unset. */
+static void
+pipeline_flush(struct record_data **chunk,
+               int                  n,
+               struct options      *opt)
+{
+  struct gpu_batch   *b;
+  struct builder_arg  a;
+  pthread_t           th;
+  int                 i;
+
+  if (n <= 0)
+    return;
+
+  /* Declined when the output path builds compounds of its own: those run on the
+   * -j pool from inside the fold and would race the builder thread through
+   * vrna_params(). Serial is slower, not wrong. */
+  if ((!rnafold_build_pipeline()) || (output_needs_compound(opt))) {
+    flush_gpu_chunk(chunk, n, opt);
+    return;
+  }
+
+  if (n < rnafold_min_gpu_batch()) {
+    /* Too small for the device, exactly as flush_gpu_chunk() decides. Dispatch
+     * down the per-record path; ordering is by ostream slot (requested at READ
+     * time, main loop), not by dispatch order, so this may precede a pending
+     * chunk's output without reordering the file. */
+    for (i = 0; i < n; i++)
+      RUN_IN_PARALLEL(process_record, chunk[i]);
+
+    return;
+  }
+
+  b        = (struct gpu_batch *)vrna_alloc(sizeof(*b));
+  memset(b, 0, sizeof(*b));
+  b->n     = n;
+  /* The caller REUSES its gpu_chunk[] array as soon as this returns, so the
+   * batch has to own a copy of the pointers -- not the records, which outlive
+   * it either way. */
+  b->chunk = (struct record_data **)vrna_alloc(sizeof(void *) * n);
+  memcpy(b->chunk, chunk, sizeof(void *) * n);
+
+  a.b   = b;
+  a.opt = opt;
+
+  if (pthread_create(&th, NULL, builder_main, &a) != 0) {
+    /* No thread available: degrade to the serial shape rather than fail. */
+    build_gpu_batch(b, opt);
+    pipeline_drain(opt);
+    g_pending = b;
+    return;
+  }
+
+  /* THE OVERLAP. The previous chunk folds on the GPU while `b` builds on the
+   * builder thread. Note the device is IDLE again by the time this returns --
+   * fold_gpu_batch() tears it down -- which is what keeps main()'s
+   * compute_gpu_usable_bytes() query correct without any change there. */
+  {
+    const double t_fold = rnafold_now_seconds();
+    double       fold_span;
+
+    pipeline_drain(opt);
+    fold_span = rnafold_now_seconds() - t_fold;
+
+    pthread_join(th, NULL);   /* `a` is a stack local; joining keeps it alive */
+
+    /* Zero on the first chunk, where pipeline_drain() had nothing to fold --
+     * which is exactly the (chunks-1)/chunks the prize is bounded by. */
+    g_overlap_s += (a.span < fold_span) ? a.span : fold_span;
+    g_builder_s += a.span;
+    g_pipelined_n++;
+  }
+
+  g_pending = b;
 }
 
 
@@ -1531,7 +1723,7 @@ process_input(FILE            *input_stream,
 
       if ((gpu_chunk_n > 0) && (this_len != gpu_chunk_len) &&
           (getenv("RNA_GPU_UNIFORM_CHUNKS"))) {
-        flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
+        pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
         gpu_chunk_n = len_desc_n = 0;
         chunk_started = 0;
       }
@@ -1546,7 +1738,7 @@ process_input(FILE            *input_stream,
         need_flush = 1;
 
       if (need_flush) {
-        flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
+        pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
         gpu_chunk_n = len_desc_n = 0;
 
         /* Query AFTER the flush: flush_gpu_chunk() tears the device state down,
@@ -1622,7 +1814,19 @@ process_input(FILE            *input_stream,
    * VRNA_MIN_GPU_BATCH -- which is exactly the tail-case fallback the 2.3.0
    * driver had, now expressed once rather than at each call site. */
   if (gpu_enabled) {
-    flush_gpu_chunk(gpu_chunk, gpu_chunk_n, opt);
+    pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
+    /* The pipeline leaves the last chunk built but unfolded by construction --
+     * there was no following chunk to overlap it with. Nothing else drains it,
+     * and skipping this loses the tail silently rather than loudly. */
+    pipeline_drain(opt);
+
+    if (g_pipelined_n > 0)
+      fprintf(stderr,
+              "%-24s build pipeline: %d chunks, builder %.3f s, "
+              "OVERLAPPED %.3f s (%.0f%% of builder time hidden behind the GPU)\n",
+              "RNAfold.c", g_pipelined_n, g_builder_s, g_overlap_s,
+              (g_builder_s > 0.0) ? 100.0 * g_overlap_s / g_builder_s : 0.0);
+
     free(gpu_chunk);
     free(len_desc);
   }
@@ -1696,12 +1900,7 @@ process_record(struct record_data *record)
     int need_vc = 1;
 
 #ifdef VRNA_WITH_CUDA
-    need_vc = !(record->prefolded &&
-                opt->noPS && !opt->pf && !opt->MEA && !opt->lucky &&
-                !opt->verbose && !opt->benchmark &&
-                !fold_constrained && !opt->constraint_file &&
-                !opt->probing_data && !opt->ligandMotif &&
-                !opt->cmds && !opt->mod_params);
+    need_vc = (!record->prefolded) || output_needs_compound(opt);
 
     /* The fast path needs `length` without a compound. rec_sequence is a strdup
      * of record->sequence put through toRNA and toupper, neither of which
