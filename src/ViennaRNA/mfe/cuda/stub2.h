@@ -432,10 +432,17 @@ fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H);
 #define FML_BASE_UNSET INT_MIN        /* baseline not yet established */
 
 // Non-zero when hc->matrix and ptype are pure functions of the sequence, i.e.
-// no user constraints/SHAPE/ligand-motifs/commands and noLP off. Set once by
-// RNAfold.c. When set, init_gpu2/init_gpu3 skip their O(n^2) host packing
-// loops and let the GPU derive the five bitmasks from the sequence instead --
-// that packing measured 197.4 s of a 769 s Colab run, 25.7% of wall.
+// no user constraints/SHAPE/ligand-motifs/commands and noLP off. When set,
+// init_gpu2/init_gpu3 skip their O(n^2) host packing loops and let the GPU
+// derive the five bitmasks from the sequence instead -- that packing measured
+// 197.4 s of a 769 s Colab run, 25.7% of wall, and 87% of gpuinit at 400x5601.
+//
+// "Set once by RNAfold.c" -- WHICH IT IS NOT, AND MUST NOT BE ON 2.7.2. That
+// sentence stood here while nothing in the tree assigned this, which reads as a
+// one-line port regression worth ~20% of wall. It is not: enabling it returns a
+// WRONG ANSWER on 9 of 10 records. Full measurement and the cause in the long
+// note at mfe_cuda.c's definition of this variable; read it before touching
+// this flag.
 extern int g_hc_seq_derived;
 
 // GPU-resident sweep, step 5a: non-zero when RNA_GPU_SWEEP selects the

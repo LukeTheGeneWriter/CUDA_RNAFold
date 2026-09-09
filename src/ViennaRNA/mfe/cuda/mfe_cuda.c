@@ -305,6 +305,29 @@ double stage_ig_malloc_s  = 0.0; //cudaMalloc inside the three init functions
 
 // See stub2.h. Default 0 = always use the host packing path, so anything that
 // forgets to set it stays correct rather than silently wrong.
+//
+// DO NOT "RESTORE THE MISSING SETTER". Measured 2026-09-09: the 2.3.0 branch
+// set this from RNAfold.c (0b4bcf3e) and the 2.7.2 port dropped that line, which
+// makes this look exactly like a one-line port regression worth ~20% of wall --
+// the packing it skips is 87% of gpuinit, and gpuinit is 22.9% of wall at
+// 400x5601 (STRESS272_RESULTS.md). It is not a regression. Flipping this to 1
+// on 2.7.2 cuts gpuinit 4.2x AND RETURNS A WRONG ANSWER ON 9 OF 10 RECORDS:
+// RNA_HC_VERIFY reports mismatching words in hccc_mb, with the host allowing MB
+// where the device does not, so the device mask is too restrictive and the fold
+// is suboptimal-but-self-consistent -- this project's recurring failure shape.
+//
+// Cause is NOT the pair predicate: rnafold_hc_cell() was compared line by line
+// against 2.7.2's default_pair_constraint() (hard.c:761) and matches. It is the
+// surrounding reset. rnafold_hc_opt() replicates 2.3.0's hc_reset_to_default()
+// SINGLE case, and 2.7.2 splits that into default_pair_constraint() plus a reset
+// that writes hc->mx[n*i+i] = ALL_LOOPS on the diagonal (hard.c:926) -- and
+// ALL_LOOPS carries the _ENC bits the device's i==j case omits.
+//
+// The dead code is worth keeping: it is the largest single win available
+// anywhere in the port, bigger than everything int16 can offer. Close the
+// hccc_mb divergence against RNA_HC_VERIFY (word-level, already written) first,
+// and wire an honest setter on the seam per PORT_CONFIG_SCOPE.md rather than
+// poking this global from RNAfold.c.
 int g_hc_seq_derived = 0;
 
 /* Salt correction table, shared by the hairpin and internal-loop kernels.
