@@ -1216,6 +1216,66 @@ struct gpu_batch {
 };
 
 
+/* How many threads build one chunk's fold compounds (option A).
+ *
+ * Unset or "0"/"1" is serial, which is the shipped default. "auto" is nproc.
+ *
+ * SAFE ONLY BECAUSE Defect B IS FIXED. vrna_fold_compound() reaches
+ * vrna_params(), whose SPEEDUP_PARAMS cache was shared mutable state with no
+ * lock; params.c now guards it. Before that fix this knob was undefined
+ * behaviour that happened to look fine whenever every record shared one model
+ * -- measured 0 of 160 000 tables corrupted with identical model details,
+ * 25 140 of 160 000 (15.7 %) when they differ. RNAfold always passes one md, so
+ * the failure would never have shown up here and would have shown up in a
+ * library caller doing a temperature sweep.
+ */
+static int
+rnafold_build_threads(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_BUILD_THREADS");
+
+    if ((!e) || (!e[0])) {
+      v = 1;
+    } else if (!strcmp(e, "auto")) {
+      long hw = sysconf(_SC_NPROCESSORS_ONLN);
+      v = (hw > 1) ? (int)hw : 1;
+    } else {
+      v = atoi(e);
+      if (v < 1)
+        v = 1;
+    }
+  }
+
+  return v;
+}
+
+
+struct build_range {
+  struct gpu_batch  *b;
+  struct options    *opt;
+  int                lo, hi;      /* [lo, hi) */
+};
+
+
+static void build_one(struct gpu_batch *b, struct options *opt, int i);
+
+
+static void *
+build_range_main(void *p)
+{
+  struct build_range *r = (struct build_range *)p;
+  int                 i;
+
+  for (i = r->lo; i < r->hi; i++)
+    build_one(r->b, r->opt, i);
+
+  return NULL;
+}
+
+
 /* Build every fold compound in the batch. Host-only; touches no device state,
  * which is what makes it safe to run beside another batch's GPU work. */
 static void
@@ -1243,33 +1303,85 @@ build_gpu_batch(struct gpu_batch *b,
    * vrna_fold_compound() builds the ptype and hard-constraint tables, which are
    * O(n^2) per record, so this is a genuine candidate for that remainder. */
   const double t_build = rnafold_now_seconds();
+  const int    nthr    = rnafold_build_threads();
 
-  for (i = 0; i < n; i++) {
-    VC[i]  = vrna_fold_compound(chunk[i]->sequence, &(opt->md), VRNA_OPTION_DEFAULT);
+  if ((nthr <= 1) || (n < 2)) {
+    for (i = 0; i < n; i++)
+      build_one(b, opt, i);
+  } else {
+    /* Records are independent: each writes only VC[i] and Str[i], and the only
+     * shared thing any of them touches is the parameter cache inside
+     * vrna_params(), which params.c now locks. Static contiguous ranges rather
+     * than a work queue -- the records in one chunk are close in length, so the
+     * imbalance is small and a queue would add a second shared structure for no
+     * measured gain. */
+    const int  t = (nthr < n) ? nthr : n;
+    pthread_t  *th = (pthread_t *)vrna_alloc(sizeof(pthread_t) * t);
+    struct build_range *rg =
+      (struct build_range *)vrna_alloc(sizeof(struct build_range) * t);
+    int        k, started = 0;
 
-    /* The chunk path builds its OWN fold compounds, so it has to apply every
-     * per-record constraint that process_record() would apply to its own. Skip
-     * this and the batch folds unconstrained and returns a plausible, wrong
-     * structure -- the precise failure mode the routing guard exists to
-     * prevent, arriving through the driver rather than through the device.
-     *
-     * process_record() still applies constraints to the compound it builds for
-     * the partition function, MEA and the no-solution check; these two
-     * compounds are separate objects, so nothing is constrained twice. */
-    if (fold_constrained)
-      apply_constraints(VC[i],
-                        opt->constraint_file,
-                        (const char **)chunk[i]->rest,
-                        chunk[i]->multiline_input,
-                        opt->constraint_enforce,
-                        opt->constraint_canonical,
-                        1 /* quiet: process_record() reports each record once */);
+    for (k = 0; k < t; k++) {
+      rg[k].b   = b;
+      rg[k].opt = opt;
+      rg[k].lo  = (int)((long)n * k / t);
+      rg[k].hi  = (int)((long)n * (k + 1) / t);
 
-    Str[i] = (char *)vrna_alloc(sizeof(char) * (strlen(chunk[i]->sequence) + 1));
+      if (pthread_create(&th[k], NULL, build_range_main, &rg[k]) == 0)
+        started++;
+      else
+        break;              /* fall through: this range is built inline below */
+    }
+
+    for (k = started; k < t; k++)
+      build_range_main(&rg[k]);
+
+    for (k = 0; k < started; k++)
+      pthread_join(th[k], NULL);
+
+    free(th);
+    free(rg);
   }
 
+  /* WALL time, not summed worker time. Threading a phase once made its timer go
+   * NEGATIVE on this project by subtracting worker-seconds from wall-seconds
+   * (trap 8, step 2a); this stays a plain wall-clock span so it keeps meaning
+   * the same thing whether or not the loop above threaded. */
   stage_build_s += rnafold_now_seconds() - t_build;
   b->built       = 1;
+}
+
+
+/* One record's fold compound. Split out so the serial and threaded paths cannot
+ * drift -- they are the same code, called from two loops. */
+static void
+build_one(struct gpu_batch *b,
+          struct options   *opt,
+          int               i)
+{
+  struct record_data **chunk = b->chunk;
+
+  b->VC[i] = vrna_fold_compound(chunk[i]->sequence, &(opt->md), VRNA_OPTION_DEFAULT);
+
+  /* The chunk path builds its OWN fold compounds, so it has to apply every
+   * per-record constraint that process_record() would apply to its own. Skip
+   * this and the batch folds unconstrained and returns a plausible, wrong
+   * structure -- the precise failure mode the routing guard exists to
+   * prevent, arriving through the driver rather than through the device.
+   *
+   * process_record() still applies constraints to the compound it builds for
+   * the partition function, MEA and the no-solution check; these two
+   * compounds are separate objects, so nothing is constrained twice. */
+  if (fold_constrained)
+    apply_constraints(b->VC[i],
+                      opt->constraint_file,
+                      (const char **)chunk[i]->rest,
+                      chunk[i]->multiline_input,
+                      opt->constraint_enforce,
+                      opt->constraint_canonical,
+                      1 /* quiet: process_record() reports each record once */);
+
+  b->Str[i] = (char *)vrna_alloc(sizeof(char) * (strlen(chunk[i]->sequence) + 1));
 }
 
 
