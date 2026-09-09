@@ -306,28 +306,22 @@ double stage_ig_malloc_s  = 0.0; //cudaMalloc inside the three init functions
 // See stub2.h. Default 0 = always use the host packing path, so anything that
 // forgets to set it stays correct rather than silently wrong.
 //
-// DO NOT "RESTORE THE MISSING SETTER". Measured 2026-09-09: the 2.3.0 branch
-// set this from RNAfold.c (0b4bcf3e) and the 2.7.2 port dropped that line, which
-// makes this look exactly like a one-line port regression worth ~20% of wall --
-// the packing it skips is 87% of gpuinit, and gpuinit is 22.9% of wall at
-// 400x5601 (STRESS272_RESULTS.md). It is not a regression. Flipping this to 1
-// on 2.7.2 cuts gpuinit 4.2x AND RETURNS A WRONG ANSWER ON 9 OF 10 RECORDS:
-// RNA_HC_VERIFY reports mismatching words in hccc_mb, with the host allowing MB
-// where the device does not, so the device mask is too restrictive and the fold
-// is suboptimal-but-self-consistent -- this project's recurring failure shape.
+// It is no longer set by any caller: par_fill_arrays() DERIVES it from the batch
+// just before init_gpu (see the long note there for why a caller-set flag was
+// the wrong shape). The initialiser stays 0 so that a path which somehow reaches
+// init_gpu2/init_gpu3 without passing through that derivation is slow rather
+// than wrong.
 //
-// Cause is NOT the pair predicate: rnafold_hc_cell() was compared line by line
-// against 2.7.2's default_pair_constraint() (hard.c:761) and matches. It is the
-// surrounding reset. rnafold_hc_opt() replicates 2.3.0's hc_reset_to_default()
-// SINGLE case, and 2.7.2 splits that into default_pair_constraint() plus a reset
-// that writes hc->mx[n*i+i] = ALL_LOOPS on the diagonal (hard.c:926) -- and
-// ALL_LOOPS carries the _ENC bits the device's i==j case omits.
-//
-// The dead code is worth keeping: it is the largest single win available
-// anywhere in the port, bigger than everything int16 can offer. Close the
-// hccc_mb divergence against RNA_HC_VERIFY (word-level, already written) first,
-// and wire an honest setter on the seam per PORT_CONFIG_SCOPE.md rather than
-// poking this global from RNAfold.c.
+// HISTORY, because this was two silent wrong answers deep and the second one
+// looked exactly like the fix for the first. On 2.3.0 RNAfold.c set this
+// (0b4bcf3e); the 2.7.2 port dropped that line, which read as a one-line
+// regression worth ~20% of wall. It was not: enabling it on 2.7.2 unchanged
+// returned a WRONG ANSWER on 9 of 10 records, because the device replica had
+// two divergences from 2.7.2's hard.c that nothing read and nothing checked --
+// the i==j diagonal open-coded CLOSING_LOOPS where upstream writes ALL_LOOPS,
+// and max_bp_span was passed as ONE SCALAR for a batch in which it is PER
+// RECORD. Both are fixed (stub2.h rnafold_hc_opt(), hp_mb_loop.cu init_gpu3);
+// RNA_HC_VERIFY=1 now reports 532928 words x 4 masks, zero mismatching.
 int g_hc_seq_derived = 0;
 
 /* Salt correction table, shared by the hairpin and internal-loop kernels.
@@ -970,6 +964,42 @@ par_mfe(const int nfiles,
   memcpy(g_cap_H, cap_H, sizeof(size_t) * nslots);
   size_t row_off_H[nslots+1], tri_off_H[nslots+1]; //Phase 2a, see compute_batch_offsets() above
   compute_batch_offsets(nslots, cap_H, row_off_H, tri_off_H);
+  /* Can the device DERIVE hc->mx and ptype from the sequence, instead of the
+   * host packing them in O(n^2) per record? That packing is 87% of gpuinit and
+   * gpuinit is 22.9% of wall at 400x5601 (STRESS272_RESULTS.md), so this is the
+   * largest single lever in the port.
+   *
+   * DERIVED HERE RATHER THAN SET BY THE CALLER, deliberately. On 2.3.0 this was
+   * an assignment in RNAfold.c; the 2.7.2 port dropped that line and nothing
+   * noticed, because a lost assignment to a default-0 flag is invisible -- it
+   * only makes you slower. Anything a caller must remember can be forgotten in
+   * exactly that silent direction, so the library works it out from the batch it
+   * was handed.
+   *
+   * It is sound because the LIBRARY GUARD already refuses everything that could
+   * perturb hc->mx after the default reset: hard constraints (hc->depot), soft
+   * constraints, SHAPE/probing, ligand motifs and command files are all declined
+   * by vrna_cuda_engine_supports() before a compound can reach this function.
+   * That leaves noLP, which IS accepted and which zeroes ptype entries for
+   * isolated pairs -- so the masks stop being a pure function of the sequence
+   * and the host loops have to run. sanity() already asserts noLP agrees across
+   * the batch; assert the rest of the precondition here rather than trusting the
+   * guard from a distance, because this is the file that would be wrong.
+   *
+   * Correctness bar is RNA_HC_VERIFY=1, which builds both ways and compares
+   * every word of all four masks -- 532928 words x 4, zero mismatching. */
+  {
+    const vrna_md_t *md0 = &(VCsl[0]->params->model_details);
+    int h;
+    g_hc_seq_derived = !md0->noLP;
+    for(h = 0; h < nslots; h++) {
+      if(VCsl[h] == NULL) continue;
+      assert(VCsl[h]->sc == NULL);
+      assert(VCsl[h]->hc == NULL || VCsl[h]->hc->depot == NULL);
+      assert(VCsl[h]->params->model_details.noLP == md0->noLP);
+    }
+  }
+
   const double t_gpuinit = rnafold_now_seconds();
   init_gpu(nslots,length,tri_off_H,row_off_H);
   init_gpu2(nslots,VCsl, turn, length, 512, tri_off_H, row_off_H, cap_H);

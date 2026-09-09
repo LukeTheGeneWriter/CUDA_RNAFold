@@ -563,7 +563,18 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     const int    bs  = 256;
     const size_t nbl = (total_words2 + bs - 1)/bs;
     assert(nbl <= 2147483647u);
-    pack_hc_kernel<<<(int)nbl,bs>>>(nfiles, turn_, md_->max_bp_span,
+    // max_bp_span is PER RECORD -- vrna_fold_compound() sets it to each
+    // compound's own length (fold_compound.c:598-601). Passing VC[0]'s here was
+    // wrong for every record longer than VC[0]: see the note in
+    // rnafold_hc_opt(). 0 means "unrestricted", which makes the device use each
+    // record's own len_H. Assert the precondition that makes that equivalent
+    // rather than trusting the guard from a distance.
+    for(int H=0;H<nfiles;H++) {
+      const vrna_md_t* md_H = &(VC[H]->params->model_details);
+      assert(md_H->max_bp_span <= 0 ||
+             (unsigned int)md_H->max_bp_span >= VC[H]->length);
+    }
+    pack_hc_kernel<<<(int)nbl,bs>>>(nfiles, turn_, 0 /*span: per-record len_H*/,
                                     md_->noGU, md_->noGUclosure,
                                     d_S2, d_pair2,
                                     d_hc2_off_H, d_hcoff, d_seq_off_H, d_len_H,

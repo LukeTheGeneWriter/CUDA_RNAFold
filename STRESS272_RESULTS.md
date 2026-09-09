@@ -304,3 +304,78 @@ wrong.
 **This is worth ~20 % of wall at 400 × 5601** (87 % of `gpuinit`'s 22.9 %), which
 makes it the largest single win available anywhere in the port — bigger than
 everything int16 can offer, and on the host side where the wall now lives.
+
+---
+
+# 12. CLOSED: two divergences, both fixed, the lever is live
+
+*Same day. Local RTX 3050, 12 records mixed 350-2400 nt.*
+
+`RNA_HC_VERIFY` located both, and neither was in the pair predicate.
+
+**Divergence 1 — the diagonal dropped the `_ENC` bits.** `default_hc_up()`
+(`hard.c:926`) writes `VRNA_CONSTRAINT_CONTEXT_ALL_LOOPS` at `mx[n*i+i]`.
+`rnafold_hc_opt()` open-coded that as `EXT|HP|INT|MB`, which is
+`CLOSING_LOOPS` only and drops `INT_LOOP_ENC` and `MB_LOOP_ENC`
+(`hard.h:324-333`). Nothing reads the diagonal of the `_ENC` masks, which is
+exactly why an open-coded copy of a **named upstream constant** could sit there
+being wrong. Now uses the constant, so it cannot drift again.
+
+**Divergence 2 — `max_bp_span` is per record and was passed as a batch scalar.**
+`vrna_fold_compound()` sets `md->window_size = fc->length` and then
+`md->max_bp_span = md->window_size` (`fold_compound.c:598-601`), so every
+compound's span is **its own length**. `init_gpu3` passed
+`VC[0]->params->model_details.max_bp_span` for the whole batch. The device's
+`max_span > len_H` clamp hides that when `VC[0]` is the longest record and
+silently truncates every longer record when it is not — forbidding their
+long-range pairs. That is why record 0 was clean and mismatches began at record 1,
+and why the device was uniformly *more* restrictive than the host. The caller now
+passes 0, which selects `len_H` per record, with a host-side assert of the
+precondition. **A restricted span would need a per-record table, not a wider
+scalar** — noted at both ends.
+
+## The flag is derived, not set
+
+The 2.3.0 shape — an assignment in `RNAfold.c` — is what got lost in the port,
+and a lost assignment to a default-0 flag is **invisible**: it only makes you
+slower. So `par_fill_arrays()` now works it out from the batch it was handed:
+
+```c
+g_hc_seq_derived = !md0->noLP;
+```
+
+Sound because the library guard has *already* declined hard constraints (via
+`hc->depot`), soft constraints, SHAPE, ligand motifs and command files before any
+compound reaches this function. `noLP` is the only accepted option that perturbs
+the masks, and it is the only discriminator left. The preconditions are asserted
+here rather than trusted from a distance.
+
+## Results
+
+| bar | route | `pack` | vs CPU |
+|---|---|---|---|
+| default | GPU | 0.005 | **identical** |
+| `--noGU` | GPU | 0.005 | **identical** |
+| `-T 25` | GPU | 0.005 | **identical** |
+| `RNA_SLOT_FLOW=2` | GPU | 0.013 | **identical** |
+| **`--noLP`** | GPU | **0.061** | **identical** |
+
+`--noLP` is the control: it must *keep* the host packing, and it does.
+
+- **`RNA_HC_VERIFY`: 326 711 words × 4 masks, 0 mismatching**, unchunked and
+  chunked.
+- **`make check` 146/146.**
+- `gpuinit` **0.082 → 0.026 s** on this input, a **3.2×** cut; `pack` 0.061 →
+  0.005.
+
+## What is NOT proven here
+
+- **Multi-chunk.** `RNA_GPU_VRAM_BUDGET_MB=700` still produced one sweep on this
+  input, so the chunked arm did not actually chunk. The masks are rebuilt per
+  chunk, so this needs a real multi-chunk run.
+- **The end-to-end win at scale.** These records are 350-2400 nt on a 4 GB laptop
+  card. The claim being made is ~20 % of wall at 400 × 5601, and that is an L4
+  number that has to be re-measured, not extrapolated from 3.2× on a small input.
+
+Both want the stress notebook re-run — with the `gpuinit` breakdown regex added
+this time, so the next reader gets the attribution for free.

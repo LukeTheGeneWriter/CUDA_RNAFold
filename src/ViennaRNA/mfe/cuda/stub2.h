@@ -437,12 +437,12 @@ fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H);
 // derive the five bitmasks from the sequence instead -- that packing measured
 // 197.4 s of a 769 s Colab run, 25.7% of wall, and 87% of gpuinit at 400x5601.
 //
-// "Set once by RNAfold.c" -- WHICH IT IS NOT, AND MUST NOT BE ON 2.7.2. That
-// sentence stood here while nothing in the tree assigned this, which reads as a
-// one-line port regression worth ~20% of wall. It is not: enabling it returns a
-// WRONG ANSWER on 9 of 10 records. Full measurement and the cause in the long
-// note at mfe_cuda.c's definition of this variable; read it before touching
-// this flag.
+// NOT set by a caller. par_fill_arrays() derives it from the batch immediately
+// before init_gpu, because the library guard has already refused everything that
+// could perturb hc->mx and noLP is the only remaining discriminator. This header
+// said "Set once by RNAfold.c" for the life of the port while nothing assigned
+// it -- read the history note at mfe_cuda.c's definition before changing that
+// arrangement, because the obvious repair was itself a wrong answer.
 extern int g_hc_seq_derived;
 
 // GPU-resident sweep, step 5a: non-zero when RNA_GPU_SWEEP selects the
@@ -744,15 +744,33 @@ inline unsigned char rnafold_hc_opt(const long long f, const int len_H,
   if(f < 1 || f > cells) return 0u;                 //slack: calloc'd zero on the host
   int i, j; rnafold_tri_unflatten(f, &i, &j);
 
-  if(i == j)                                        //loop 1: unpaired, all contexts
-    return (unsigned char)(  VRNA_CONSTRAINT_CONTEXT_EXT_LOOP
-                           | VRNA_CONSTRAINT_CONTEXT_HP_LOOP
-                           | VRNA_CONSTRAINT_CONTEXT_INT_LOOP
-                           | VRNA_CONSTRAINT_CONTEXT_MB_LOOP);
+  // Loop 1: the diagonal, unpaired in ALL contexts. default_hc_up()
+  // (hard.c:926) writes VRNA_CONSTRAINT_CONTEXT_ALL_LOOPS here, and this used
+  // to open-code that as EXT|HP|INT|MB -- which is CLOSING_LOOPS only, and drops
+  // the two ENCLOSED_LOOPS bits (INT_LOOP_ENC, MB_LOOP_ENC; hard.h:324-333).
+  // Nothing reads the diagonal of the _ENC masks today, which is exactly why an
+  // open-coded copy of a named upstream constant could sit here being wrong.
+  // Use upstream's own constant so it cannot drift again. Found 2026-09-09 by
+  // RNA_HC_VERIFY, which compares every word and not just the read ones.
+  if(i == j)
+    return (unsigned char)VRNA_CONSTRAINT_CONTEXT_ALL_LOOPS;
 
   //loop 2 writes only i in [1, j-turn-1] of columns j > turn+1
   if(!(j > turn + 1 && i < j - turn)) return 0u;
 
+  // THE SPAN IS PER RECORD, AND max_bp_span ARRIVES AS ONE SCALAR FOR THE WHOLE
+  // BATCH. vrna_fold_compound() sets md->window_size = fc->length and then
+  // md->max_bp_span = md->window_size (fold_compound.c:598-601), so every
+  // compound's max_bp_span is ITS OWN length -- and init_gpu3 was passing
+  // VC[0]'s to all of them. The clamp below hides that when VC[0] is the
+  // longest record and silently truncates every longer record when it is not,
+  // which forbids their long-range pairs and returns a suboptimal fold.
+  // Measured 2026-09-09: record 0 clean, mismatches from record 1 onward.
+  //
+  // The caller now passes 0 (see init_gpu3), which selects len_H per record --
+  // correct for every accelerated fold, because mfe/cuda/engine.c DECLINES any
+  // compound with a genuinely restricted span. If that guard ever lifts, this
+  // needs a per-record table like d_len_H, NOT a wider scalar.
   int max_span = max_bp_span;
   if((max_span < 5) || (max_span > len_H)) max_span = len_H;
   if((j - i + 1) > max_span) return 0u;
