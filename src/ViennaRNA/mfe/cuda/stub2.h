@@ -663,6 +663,56 @@ extern double stage_ig_pack_s, stage_ig_malloc_s;
 // from the host packing loops. Same gpuErrchk behaviour as the calls it
 // replaces -- only the timing is added.
 #ifdef __CUDACC__
+/* PINNED HOST STAGING FOR THE PER-ROW UPLOADS.
+ *
+ * Measured 2026-09-09 with nsys: cudaMemcpy is 70.4% of all host time spent
+ * inside CUDA calls -- 12042 calls averaging 351 us, against cudaLaunchKernel at
+ * 11.8 us and cudaDeviceSynchronize at 2.4% of the total. 351 us to move ~96
+ * bytes is not bandwidth, it is per-call overhead: a synchronous copy out of
+ * PAGEABLE host memory makes the runtime stage through an internal pinned buffer
+ * with the CPU participating, and it cannot overlap with anything. That is where
+ * the one busy core goes.
+ *
+ * The copies are already deduplicated by content (the shadow buffers at each
+ * call site), so what remains is genuinely per row: the per-record row index and
+ * the row-shape offsets, uploaded a few times a row by both kernel drivers.
+ *
+ * Allocating the shadow in PINNED memory and copying out of it removes the
+ * staging step. It stays SYNCHRONOUS deliberately -- cudaMemcpyAsync would let
+ * the host run ahead and overwrite the staging buffer while the previous copy
+ * was still in flight, which needs a ring plus events to be correct. That is a
+ * bigger change, to make only if pinned alone is not enough.
+ *
+ * CAVEAT ON THE 70%: it was measured under WSL2, whose WDDM submission path has
+ * unusually high per-call latency. The fix is right on any host; the MAGNITUDE
+ * may be much smaller on a native-Linux datacenter card, and should be
+ * re-measured there before being quoted.
+ *
+ * Falls back to malloc if pinning fails: a host that will not pin should be slow
+ * rather than broken.
+ */
+static inline void *
+rnafold_pinned_alloc(size_t bytes, int *pinned) {
+  void *p = NULL;
+
+  if(cudaHostAlloc(&p, bytes, cudaHostAllocDefault) == cudaSuccess) {
+    if(pinned) *pinned = 1;
+    return p;
+  }
+
+  cudaGetLastError();                 /* clear the sticky error */
+  if(pinned) *pinned = 0;
+  return malloc(bytes);
+}
+
+static inline void
+rnafold_pinned_free(void *p, int pinned) {
+  if(!p) return;
+  if(pinned) cudaFreeHost(p);
+  else       free(p);
+}
+
+
 #define TIMED_CUDAMALLOC(pp, sz) do {                                   \
     const double _tm = rnafold_now_seconds();                           \
     gpuErrchk( cudaMalloc((void **)(pp), (sz)) );                       \

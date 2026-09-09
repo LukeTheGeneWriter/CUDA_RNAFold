@@ -188,6 +188,8 @@ static size_t*       d_size_off_H;
 // its HAZARD note about the per-chunk reallocation.
 static size_t*       size_off_shadow   = NULL;
 static int           size_off_shadow_n = 0;
+static int           size_off_shadow_pinned = 0;  /* pinned staging, stub2.h */
+static int           i_H_shadow_pinned      = 0;
 static void          size_off_shadow_reset(void);  // defined below; called from init/teardown above it
 // Continuous flow phase A2: this file's own copy of the per-record row index.
 // hp_mb_loop.cu carries an identical one for its four kernels -- each
@@ -689,7 +691,7 @@ int_loop_row_buffers(int** energy_min2_out, int** new_e_out) {
 // comparison, same per-chunk reallocation hazard, same fix.
 static void
 i_H_shadow_reset(void) {
-  free(i_H_shadow);
+  rnafold_pinned_free(i_H_shadow, i_H_shadow_pinned);
   i_H_shadow   = NULL;
   i_H_shadow_n = 0;
 }
@@ -698,19 +700,26 @@ static void
 upload_i_H(const int nfiles, const int* i_H) {
   const size_t bytes = (size_t)nfiles * sizeof(int);
   if(i_H_shadow_n != nfiles) {
-    free(i_H_shadow);
-    i_H_shadow   = (int*)malloc(bytes);
+    rnafold_pinned_free(i_H_shadow, i_H_shadow_pinned);
+    i_H_shadow   = (int*)rnafold_pinned_alloc(bytes, &i_H_shadow_pinned);
     i_H_shadow_n = i_H_shadow ? nfiles : 0;
   } else if(i_H_shadow && memcmp(i_H_shadow, i_H, bytes) == 0) {
     return;
   }
-  gpuErrchk( cudaMemcpy(d_i_H, i_H, bytes, cudaMemcpyHostToDevice) );
-  if(i_H_shadow) memcpy(i_H_shadow, i_H, bytes);
+  /* Stage into the PINNED shadow and copy from there -- see the note on
+   * rnafold_pinned_alloc() in stub2.h. The shadow had to be written anyway; all
+   * that changes is that it is now also the copy source. */
+  if(i_H_shadow) {
+    memcpy(i_H_shadow, i_H, bytes);
+    gpuErrchk( cudaMemcpy(d_i_H, i_H_shadow, bytes, cudaMemcpyHostToDevice) );
+  } else {
+    gpuErrchk( cudaMemcpy(d_i_H, i_H, bytes, cudaMemcpyHostToDevice) );
+  }
 }
 
 static void
 size_off_shadow_reset(void) {
-  free(size_off_shadow);
+  rnafold_pinned_free(size_off_shadow, size_off_shadow_pinned);
   size_off_shadow   = NULL;
   size_off_shadow_n = 0;
 }
@@ -721,15 +730,19 @@ upload_size_off_H(const int nfiles, const size_t* size_off_H) {
   const size_t bytes = (size_t)n * sizeof(size_t);
 
   if(size_off_shadow_n != n) {
-    free(size_off_shadow);
-    size_off_shadow   = (size_t*)malloc(bytes);
+    rnafold_pinned_free(size_off_shadow, size_off_shadow_pinned);
+    size_off_shadow   = (size_t*)rnafold_pinned_alloc(bytes, &size_off_shadow_pinned);
     size_off_shadow_n = size_off_shadow ? n : 0;
   } else if(size_off_shadow && memcmp(size_off_shadow, size_off_H, bytes) == 0) {
     return;
   }
 
-  gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, bytes, cudaMemcpyHostToDevice) );
-  if(size_off_shadow) memcpy(size_off_shadow, size_off_H, bytes);
+  if(size_off_shadow) {
+    memcpy(size_off_shadow, size_off_H, bytes);
+    gpuErrchk( cudaMemcpy(d_size_off_H, size_off_shadow, bytes, cudaMemcpyHostToDevice) );
+  } else {
+    gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, bytes, cudaMemcpyHostToDevice) );
+  }
 }
 
 //perhaps this can be combined with other kernels?
