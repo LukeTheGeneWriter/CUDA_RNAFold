@@ -134,3 +134,75 @@ Then re-send Defect B with the measurement attached. `build` stays blocked until
 either upstream fixes the cache or we take the D2H route — and the D2H route only
 makes sense after `output` is gone, because the two are the same 122 s and fixing
 the constructor twice is wasted effort.
+
+---
+
+# 4. DONE: the prefolded fast path
+
+`process_record()` now builds its fold compound only when something will use it.
+The call is **not removed** — it is live and required on the CPU route, under
+`-p`, with plots, and for every other consumer. What is removed is the
+*redundant invocation* on a path where the fold has already happened.
+
+## The predicate
+
+Conservative by construction: it enumerates every remaining consumer of `vc` in
+the function, and **anything not listed still gets a compound**, so a consumer
+added later is slow rather than wrong.
+
+```c
+need_vc = !(record->prefolded &&
+            opt->noPS && !opt->pf && !opt->MEA && !opt->lucky &&
+            !opt->verbose && !opt->benchmark &&
+            !fold_constrained && !opt->constraint_file &&
+            !opt->probing_data && !opt->ligandMotif &&
+            !opt->cmds && !opt->mod_params);
+```
+
+`!opt->verbose` is not about speed — that branch dereferences `vc->domains_up`.
+`mod_bases_apply()` is safe unguarded: it touches `fc` only when
+`param_set_num > 0` (`modified_bases_helpers.c:101`), which `!opt->mod_params`
+already excludes. `vrna_fold_compound_free(NULL)` is a no-op upstream
+(`fold_compound.c:122`), and `vrna_mx_mfe_free()` is now guarded.
+
+**The `length` hazard is asserted, not assumed.** The fast path takes `length`
+from `strlen(rec_sequence)`, and the step-2b notes record `strlen(seq) !=
+vc->length` under whitespace. `rec_sequence` is a `strdup` of `record->sequence`
+through `toRNA`/`toupper`, neither of which changes length, and
+`flush_gpu_chunk()` sized `prefolded_structure` the same way — so they agree by
+construction. The code checks it anyway and **falls back to building** on
+disagreement.
+
+## The bar — byte-identical output, 12 records mixed 350-2400 nt
+
+| arm | `output` | vs CPU route |
+|---|---|---|
+| **fast path** | **0.000 s** | **identical** |
+| `-p` | 115.3 | identical |
+| `-p --MEA` | 114.2 | identical |
+| `-v` | 0.085 | identical |
+| no `--noPS` (plots) | 0.086 | identical |
+| `--ImFeelingLucky` | 2.272 | *differs — see below* |
+| short input, CPU route | — | identical |
+
+Every gating option sends the run back to building a compound, which is what the
+non-zero `output` in those rows shows. **`make check` 146/146.**
+
+### `--ImFeelingLucky` differs, and that is not this change
+
+Checked rather than assumed, the same way it was checked before being reported as
+a defect alongside `--nsp`: **two identical CPU runs of `--ImFeelingLucky`
+disagree on all 12 records**, while two plain CPU runs are identical. The option
+is stochastic; a byte bar cannot judge it in either direction. It is in the
+predicate, so it takes the compound-building path regardless (`output` 2.272 vs
+0.000).
+
+## What it is worth
+
+`output` was ~19 % of wall at 400 × 5601 (124.8 s of 669 s on the L4, 120.5 s of
+641.8 s on the T4) and is now zero on the default accelerated run. **Unmeasured
+at scale** — this is a 12-record local bar; the stress notebook re-run is what
+banks it, and it should show `output` collapse the way `gpuinit` did.
+
+`build` is untouched and still ~19 %. Its two routes are unchanged: threading is
+blocked on Defect B, and reusing the GPU's derivation is a design task.

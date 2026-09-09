@@ -1599,15 +1599,71 @@ process_record(struct record_data *record)
   /* convert sequence to uppercase letters only */
   vrna_seq_toupper(rec_sequence);
 
-  vc = vrna_fold_compound(rec_sequence, &(opt->md), VRNA_OPTION_DEFAULT);
+  /* THE SECOND FOLD COMPOUND, and why it is now conditional.
+   *
+   * process_record() is upstream's per-record path: build a compound, fold it,
+   * print it. The GPU chunker pre-folds instead and sets record->prefolded --
+   * and until 2026-09-09 that skipped only the vrna_mfe() call. The compound
+   * was still constructed, rebuilding ptype and the dense (n+1)^2
+   * hard-constraint matrix (31.4 MB per record at 5601 nt) for a fold that had
+   * already happened, and then freeing them unused.
+   *
+   * That WAS the whole of stage_output: 124.8 s of a 669 s run at 400 x 5601,
+   * and within 3% of stage_build in all twelve stress arms across two GPUs --
+   * because it is the same call flush_gpu_chunk() already made and freed.
+   *
+   * MEASURED, not assumed. Setting vc = NULL on this path and rebuilding took
+   * stage_output from 0.130 s to 0.000 s on a 12-record mixed-length batch with
+   * NOTHING dereferencing it. See PORT_HOST_WALL_SCOPE.md.
+   *
+   * The comment on the prefolded branch below used to say the compound was
+   * "still used for everything downstream". It is not, once everything
+   * downstream is switched off -- and that claim had never been checked.
+   *
+   * THE PREDICATE IS DELIBERATELY CONSERVATIVE. It enumerates every remaining
+   * consumer of `vc` in this function, and anything NOT listed still gets a
+   * compound, so a consumer added later is slow rather than wrong. Note
+   * !opt->verbose, which is not about speed: that branch dereferences
+   * vc->domains_up. mod_bases_apply() is safe unguarded -- it touches fc only
+   * when param_set_num > 0 (modified_bases_helpers.c:101), which !opt->mod_params
+   * already excludes.
+   */
+  {
+    int need_vc = 1;
 
-  if (!vc) {
-    vrna_log_warning("Skipping computations for \"%s\"",
-                     (record->id) ? record->id : "identifier unavailable");
-    return;
+#ifdef VRNA_WITH_CUDA
+    need_vc = !(record->prefolded &&
+                opt->noPS && !opt->pf && !opt->MEA && !opt->lucky &&
+                !opt->verbose && !opt->benchmark &&
+                !fold_constrained && !opt->constraint_file &&
+                !opt->probing_data && !opt->ligandMotif &&
+                !opt->cmds && !opt->mod_params);
+
+    /* The fast path needs `length` without a compound. rec_sequence is a strdup
+     * of record->sequence put through toRNA and toupper, neither of which
+     * changes its length, and flush_gpu_chunk() sized prefolded_structure by
+     * strlen(sequence) as well -- so the two agree by construction. ASSERT it
+     * anyway and fall back to building on disagreement: the step-2b notes
+     * record strlen(seq) != vc->length under whitespace, and if that ever bites
+     * here the structure would be printed against the wrong length. Slow rather
+     * than wrong. */
+    if ((!need_vc) &&
+        (strlen(record->prefolded_structure) != strlen(rec_sequence)))
+      need_vc = 1;
+#endif
+
+    vc = (need_vc)
+         ? vrna_fold_compound(rec_sequence, &(opt->md), VRNA_OPTION_DEFAULT)
+         : NULL;
+
+    if ((need_vc) && (!vc)) {
+      vrna_log_warning("Skipping computations for \"%s\"",
+                       (record->id) ? record->id : "identifier unavailable");
+      return;
+    }
+
+    length = (vc) ? vc->length : (unsigned int)strlen(rec_sequence);
   }
-
-  length = vc->length;
 
   if ((opt->md.circ) && (vrna_rotational_symmetry(rec_sequence) > 1))
     vrna_log_warning("Input sequence %ld is rotationally symmetric! "
@@ -1689,11 +1745,15 @@ process_record(struct record_data *record)
 
 #ifdef VRNA_WITH_CUDA
   if (record->prefolded) {
-    /* Already folded, as part of a GPU chunk. Only the MFE call is skipped;
-     * the fold compound above is still built and still used for everything
-     * downstream (constraint checks, plots, partition function, evaluation),
-     * so this path and the per-record path format identically by construction
-     * rather than by two implementations agreeing. */
+    /* Already folded, as part of a GPU chunk, so the MFE call is skipped.
+     *
+     * Everything downstream -- constraint checks, plots, partition function,
+     * evaluation -- still runs against the fold compound and still formats
+     * identically to the per-record path by construction rather than by two
+     * implementations agreeing. What changed 2026-09-09 is that the compound is
+     * only BUILT when one of those consumers is actually enabled; see the long
+     * note at its construction above. When none is, vc is NULL here and this
+     * branch needs nothing from it. */
     strncpy(mfe_structure, record->prefolded_structure, strlen(record->sequence) + 1);
     min_en = (double)record->prefolded_energy;
   } else {
@@ -1816,7 +1876,9 @@ process_record(struct record_data *record)
     }
   }
 
-  if (length > 2000)
+  /* vc is NULL on the prefolded fast path -- there are no MFE matrices to
+   * release because there is no compound. */
+  if ((vc) && (length > 2000))
     vrna_mx_mfe_free(vc);
 
   if (opt->pf) {
