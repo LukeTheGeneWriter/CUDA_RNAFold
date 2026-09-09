@@ -1,0 +1,213 @@
+{
+  "commit": "82fdbb07",
+  "clocks": "NVIDIA L4, 2040 MHz, 2040 MHz, 72, 0x0000000000000000, 23034 MiB",
+  "have_stage": true,
+  "n": 400,
+  "len": 5601,
+  "runs": {
+    "i32/natural": {
+      "wall": 669.185230255127,
+      "rc": 0,
+      "phases": {
+        "int_loop": 0.933,
+        "hp_mb": 38.423,
+        "load_my_c": 6.425,
+        "modular_decomp": 208.185,
+        "fetch_mx": 8.293,
+        "new_c_host": 0.001,
+        "fml_host": 0.001,
+        "fml_prev_host": 0.001
+      },
+      "stages": {
+        "build": 121.958,
+        "prepare": 0.253,
+        "prefill": 0.003,
+        "backtrack": 5.398,
+        "output": 124.751,
+        "gpuinit": 153.165,
+        "teardown": 0.099,
+        "free": 0.313
+      },
+      "chunks": 3,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": false,
+      "rss": 8.35882,
+      "accounted": 668.202,
+      "residual": 0.9832302551269549,
+      "clock_before": 1.0,
+      "clock_after": 1.0,
+      "sha": "7c0b3d633281"
+    },
+    "i16/natural": {
+      "wall": 600.4676878452301,
+      "rc": 0,
+      "phases": {
+        "int_loop": 0.857,
+        "hp_mb": 47.225,
+        "load_my_c": 6.614,
+        "modular_decomp": 129.47,
+        "fetch_mx": 5.791,
+        "new_c_host": 0.0,
+        "fml_host": 0.001,
+        "fml_prev_host": 0.001
+      },
+      "stages": {
+        "build": 123.178,
+        "prepare": 0.396,
+        "prefill": 0.002,
+        "backtrack": 6.386,
+        "output": 125.419,
+        "gpuinit": 153.55,
+        "teardown": 0.095,
+        "free": 0.403
+      },
+      "chunks": 3,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": true,
+      "rss": 11.47086,
+      "accounted": 599.388,
+      "residual": 1.0796878452300689,
+      "clock_before": 1.0,
+      "clock_after": 1.0,
+      "sha": "7c0b3d633281"
+    },
+    "i32/half": {
+      "wall": 674.4133207798004,
+      "rc": 0,
+      "phases": {
+        "int_loop": 1.055,
+        "hp_mb": 38.259,
+        "load_my_c": 6.588,
+        "modular_decomp": 207.159,
+        "fetch_mx": 10.051,
+        "new_c_host": 0.001,
+        "fml_host": 0.001,
+        "fml_prev_host": 0.001
+      },
+      "stages": {
+        "build": 121.633,
+        "prepare": 0.262,
+        "prefill": 0.002,
+        "backtrack": 5.433,
+        "output": 126.543,
+        "gpuinit": 156.007,
+        "teardown": 0.133,
+        "free": 0.203
+      },
+      "chunks": 5,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": false,
+      "rss": 5.66608,
+      "accounted": 673.331,
+      "residual": 1.0823207798003978,
+      "clock_before": 1.0,
+      "clock_after": 1.0,
+      "sha": "7c0b3d633281"
+    },
+    "i16/half": {
+      "wall": 602.5276608467102,
+      "rc": 0,
+      "phases": {
+        "int_loop": 1.01,
+        "hp_mb": 46.661,
+        "load_my_c": 6.627,
+        "modular_decomp": 129.126,
+        "fetch_mx": 6.734,
+        "new_c_host": 0.001,
+        "fml_host": 0.001,
+        "fml_prev_host": 0.001
+      },
+      "stages": {
+        "build": 121.659,
+        "prepare": 0.368,
+        "prefill": 0.002,
+        "backtrack": 6.502,
+        "output": 126.994,
+        "gpuinit": 155.381,
+        "teardown": 0.123,
+        "free": 0.258
+      },
+      "chunks": 4,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": true,
+      "rss": 8.35654,
+      "accounted": 601.448,
+      "residual": 1.079660846710226,
+      "clock_before": 1.0,
+      "clock_after": 1.0,
+      "sha": "7c0b3d633281"
+    },
+    "i32/quarter": {
+      "wall": 683.9725859165192,
+      "rc": 0,
+      "phases": {
+        "int_loop": 1.454,
+        "hp_mb": 38.217,
+        "load_my_c": 7.035,
+        "modular_decomp": 207.083,
+        "fetch_mx": 13.93,
+        "new_c_host": 0.002,
+        "fml_host": 0.002,
+        "fml_prev_host": 0.002
+      },
+      "stages": {
+        "build": 121.516,
+        "prepare": 0.076,
+        "prefill": 0.002,
+        "backtrack": 5.473,
+        "output": 127.624,
+        "gpuinit": 159.897,
+        "teardown": 0.167,
+        "free": 0.109
+      },
+      "chunks": 10,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": false,
+      "rss": 3.6234,
+      "accounted": 682.5889999999999,
+      "residual": 1.3835859165192232,
+      "clock_before": 1.0,
+      "clock_after": 1.0,
+      "sha": "7c0b3d633281"
+    },
+    "i16/quarter": {
+      "wall": 609.2152287960052,
+      "rc": 0,
+      "phases": {
+        "int_loop": 1.305,
+        "hp_mb": 46.509,
+        "load_my_c": 7.037,
+        "modular_decomp": 129.273,
+        "fetch_mx": 9.179,
+        "new_c_host": 0.001,
+        "fml_host": 0.001,
+        "fml_prev_host": 0.002
+      },
+      "stages": {
+        "build": 121.281,
+        "prepare": 0.023,
+        "prefill": 0.002,
+        "backtrack": 6.581,
+        "output": 127.628,
+        "gpuinit": 158.619,
+        "teardown": 0.202,
+        "free": 0.139
+      },
+      "chunks": 8,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": true,
+      "rss": 6.813636,
+      "accounted": 607.782,
+      "residual": 1.43322879600521,
+      "clock_before": 1.0,
+      "clock_after": 1.0,
+      "sha": "7c0b3d633281"
+    }
+  }
+}
