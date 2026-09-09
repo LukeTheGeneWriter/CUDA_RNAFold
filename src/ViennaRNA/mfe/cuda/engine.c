@@ -64,6 +64,7 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
 {
   const char  *why = NULL;
   vrna_md_t   *md;
+  unsigned int i, j;
 
 #define DECLINE(msg) do { why = (msg); goto done; } while (0)
 
@@ -131,6 +132,50 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
 
   if (md->energy_set != 0)
     DECLINE("non-default energy set");
+
+  /*
+   * NON-STANDARD BASE PAIRS (--nsp) are declined, and this closes a LIVE wrong
+   * answer rather than documenting a known gap: measured on 30 x 80-1240 nt,
+   * --nsp=GA disagreed with upstream on 28 records, deterministically, worse on
+   * 27 and better on 1. Not ignored -- partially applied, which is the worst of
+   * the three possibilities because it looks like it is working.
+   *
+   * The mechanism is in int_loop.cu's Energy(), not here. It resolves the two
+   * interior-loop pair types as
+   *
+   *     type   = Ptype(...,i,j)        raw, with no 0->7 promotion
+   *     type_2 = Ptype(...,q,p)        the index swapped, in place of rtype[]
+   *
+   * where upstream uses vrna_get_ptype() (alphabet.c:482, tt==0 ? 7 : tt) and
+   * then rtype[]. BOTH shortcuts are exact identities at default settings --
+   * rtype[] is BUILT as rtype[pair[i][j]] = pair[j][i] (model.c:1100), and a
+   * ptype-0 cell is refused by the hard constraint mask before Energy() runs --
+   * which is why the port has been byte-identical without them.
+   *
+   * --nsp breaks the first identity at model.c:1104, where rtype[7] is FORCED
+   * to 7 after the derivation loop. An asymmetric spec (--nsp=GA, no leading
+   * '-') leaves pair[A][G] == 0 while pair[G][A] == 7, so upstream reads row 7
+   * of stack/int11/int21/int22/mismatchI and the device reads row 0. Row 7 is
+   * the non-standard row (NST/NSM, default.c:53-56); row 0 is not.
+   *
+   * TEST THE EFFECT, NOT THE FIELD. md->nonstandards is only one of the routes
+   * in -- the deprecated global, a copied md, or a hand-built one all reach the
+   * same place -- and every one of them lands in md->pair via vrna_md_update().
+   * Default BP_pair (pair_mat.h:21-30) holds only 0..6, so a 7 anywhere in the
+   * pair table means non-standard pairs are enabled, however they got there.
+   * This is the -C lesson mirrored: there the queued depot was the honest
+   * thing to test and the materialised matrix was not; here the materialised
+   * table is honest and the request field is the one that can be bypassed.
+   *
+   * Lifting this needs Energy() fixed AND a byte-identical run over MIXED
+   * lengths for both --nsp=GA and --nsp="-GA" (the symmetric form masks the
+   * rtype divergence and would pass on its own). See
+   * PORT_NSP_PARAMFILE_SCOPE.md.
+   */
+  for (i = 0; i <= MAXALPHA; i++)
+    for (j = 0; j <= MAXALPHA; j++)
+      if (md->pair[i][j] == 7)
+        DECLINE("non-standard base pairs (--nsp)");
 
   /*
    * NOT md->window_size: vrna_fold_compound() sets both window_size and
