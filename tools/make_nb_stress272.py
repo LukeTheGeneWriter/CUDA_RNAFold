@@ -137,6 +137,12 @@ ROOT   = "/content/stress"
 # b799a820 wired up build/output/teardown/free. Older binaries print 0.000 for
 # them and the residual below will be overstated. Not fatal -- flagged, not fixed.
 STAGE_COUNTERS_FROM = "b799a820"
+# The commit that derives the hard-constraint bitmasks on the device. This run
+# exists to measure it, so a clone that predates it must FAIL LOUDLY rather than
+# quietly report gpuinit unchanged and read as "the fix does nothing" -- bench
+# v5 lost two arms to a stale origin/port27 and scored it `valid: False` for
+# reasons nobody could see from the numbers.
+HC_DERIVED_FROM = "a2d19bd2"
 
 sh("rm -rf %s && mkdir -p %s" % (ROOT, ROOT))
 sh("git clone -q %s %s/port27 && cd %s/port27 && git checkout -q %s"
@@ -146,7 +152,16 @@ print("commit :", sh("cd %s/port27 && git log --oneline -1" % ROOT, quiet=True).
 HAVE_STAGE = sh("cd %s/port27 && git merge-base --is-ancestor %s HEAD && echo yes || echo no"
                 % (ROOT, STAGE_COUNTERS_FROM), check=False, quiet=True).stdout.strip() == "yes"
 print("stage counters live:", HAVE_STAGE,
-      "" if HAVE_STAGE else "  <-- build/output/teardown/free will read 0.000")""")
+      "" if HAVE_STAGE else "  <-- build/output/teardown/free will read 0.000")
+
+HAVE_HC = sh("cd %s/port27 && git merge-base --is-ancestor %s HEAD && echo yes || echo no"
+             % (ROOT, HC_DERIVED_FROM), check=False, quiet=True).stdout.strip() == "yes"
+print("gpu bitmask derivation:", HAVE_HC)
+if not HAVE_HC:
+    raise SystemExit(
+        "STALE CLONE: this tree predates %s, the commit this run exists to measure.\n"
+        "gpuinit would come back at its old value and read as 'the fix does nothing'.\n"
+        "Push port27 and re-run the clone cell." % HC_DERIVED_FROM)""")
 
 code(r"""t0 = time.time()
 # Git-tree build needs the bundled tarballs unpacked, and PYTHON3 passed or
