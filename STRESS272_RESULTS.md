@@ -463,3 +463,78 @@ measured at this size.
 here** — far larger, and it is most of the reason int16 is worthless on this card.
 The regression is real, reproducible on two GPUs, and scales with how starved the
 card is. It remains the open question from §4.
+
+---
+
+# 14. Third run: `output` collapses, and the wall is 1.226× shorter
+
+*400 × 5601, commit `6d3bdc19`, **Tesla T4 at 585/1590 MHz — the same card and the
+same clock state as §13**, so this one IS a like-for-like comparison. Raw:
+`stress272_t4_fastpath.json`.*
+
+## 14.1 The result
+
+| i32/natural | §13 (`851d1b04`) | §14 (`6d3bdc19`) |
+|---|---|---|
+| **wall** | 641.8 s | **523.7 s** |
+| `output` | 120.5 | **0.1** |
+| `build` | 121.9 | 128.1 |
+| `modular_decomp` | 222.0 | 220.7 |
+| `hp_mb` | 112.1 | 103.8 |
+| `backtrack` | 40.6 | 47.1 |
+| `gpuinit` | 1.6 | 1.6 |
+
+**1.226× end-to-end**, and the saving is exactly the stage that was removed:
+Δwall 118.1 s against Δ`output` 120.4 s, with the other stages netting +2.9 s of
+run-to-run drift. Nothing else moved.
+
+**`sha` = `7c0b3d633281` in all six arms — the same hash as both previous runs.**
+Three runs, eighteen arms, one hash: the fast path is byte-identical at
+400 × 5601 across 5–14 chunks, which is the correctness bar the local 12-record
+comparison could not reach.
+
+## 14.2 The wall now
+
+i32/natural, 523.7 s:
+
+| item | s | share |
+|---|---|---|
+| `modular_decomp` | 220.7 | **42.1 %** |
+| **`build`** | **128.1** | **24.5 %** |
+| `hp_mb` | 103.8 | 19.8 % |
+| `backtrack` | 47.1 | 9.0 % |
+| `load_my_c` + `fetch_mx` | 18.9 | 3.6 % |
+| `gpuinit` | 1.6 | 0.3 % |
+| residual | 1.4 | 0.27 % |
+
+**GPU busy 62.2 %, host-only 33.9 %** — and `build` is **72 % of that idle**,
+`backtrack` the other 27 %. Two host stages are the entire remaining
+opportunity.
+
+`build` reads 128.1 here against 121.9 in §13; it is the same serial loop
+untouched by either fix, so that spread is instance-to-instance drift and a
+reminder not to quote these to three digits.
+
+## 14.3 Chunking is even flatter than §5 said
+
+5 → 7 → 14 chunks costs 523.7 → 525.9 → 526.7 s: **2.8× the chunks for 0.6 %.**
+The §5 figure was 2.2 % over a 3.3× range; with `output` gone the per-chunk
+overhead is an even smaller slice of a smaller wall. `gpu_bytes_per_file()` is
+close to irrelevant as a performance property at this size.
+
+## 14.4 int16 improves, because `output` was diluting it
+
+523.7 → 496.6 s = **1.055×**, against 1.00× in §13. Nothing about int16 changed;
+removing 120 s of int16-neutral host work simply stopped hiding it.
+`modular_decomp` saves 64.3 s and **`hp_mb` gives back 29.6 s** — the regression
+from §4 and §13.6, reproduced a third time. It is now the single clearest open
+question about int16.
+
+## 14.5 `backtrack` is already threaded, and that is informative
+
+`RNA_BACKTRACK_THREADS` defaults to `auto` = `nproc − cpu_queue_threads`
+(`mfe_cuda.c:541`), so backtrack is *already* using every core this instance has
+— and it is still 47.1 s, 9 % of wall. That is not a missing optimisation; it is
+a **core-starved host**, which is direct evidence for the core-count argument in
+`PORT_HETEROGENEOUS_SCOPE.md` §C: Colab's T4 instances are the worst case for any
+CPU-side scheme, and the machines this tool would be deployed on are not.

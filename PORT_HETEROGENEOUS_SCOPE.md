@@ -9,18 +9,24 @@ a design note over existing data, and every option ends with what would settle i
 
 ## 0. Where the machine actually idles
 
-T4, i32/natural, after the `output` fast path:
+**MEASURED 2026-09-09** on the run with both fixes in (`6d3bdc19`, T4, 523.7 s,
+`stress272_t4_fastpath.json`) — this section was arithmetic over a pre-fix run
+until then, and the arithmetic held to within 2 %:
 
-| | s | share of the ~521 s wall |
+| | s | share of the 523.7 s wall |
 |---|---|---|
-| GPU kernels | 335.5 | 64 % |
-| transfers | 19.7 | 4 % |
-| **host-only (GPU idle)** | **164.6** | **31.6 %** |
-| — of which `build` | 121.9 | **74 % of the idle** |
-| — of which `backtrack` | 40.6 | 25 % |
+| GPU kernels | 325.8 | 62.2 % |
+| transfers | 18.9 | 3.6 % |
+| **host-only (GPU idle)** | **177.6** | **33.9 %** |
+| — of which `build` | 128.1 | **72 % of the idle** |
+| — of which `backtrack` | 47.1 | 27 % |
 
-On the L4, applying both fixes arithmetically, the same figure is **~33 % idle
-with `build` at ~31 % of the new wall.** The two cards agree on the shape.
+Stable across all six arms (33.6–36.0 % idle).
+
+**`backtrack` is already threaded** — `RNA_BACKTRACK_THREADS` defaults to `auto`
+= `nproc − cpu_queue_threads` (`mfe_cuda.c:541`) — and is still 9 % of wall. That
+is not a missing optimisation, it is a **core-starved host**, and it is direct
+evidence for §C: Colab's T4 instances are the worst case for any CPU-side scheme.
 
 **So the prize is ~32 % of wall, and three quarters of it is one serial loop.**
 
@@ -202,8 +208,13 @@ The device probe already exists; what is missing is a CLI flag and a default.
 wrong** — on a bad cross-machine ratio and on a "competes for cores" claim that
 does not survive looking at which phase each option occupies.
 
-Before any of it: **re-measure the wall on the current tree.** Both large host
-stages have changed since the numbers above were taken, and every figure in §0 is
-arithmetic on a run that predates the `output` fix. Designing a scheduler against
-a stale decomposition is exactly the mistake the ~73 % `modular_decomp` share
-caused earlier.
+~~Before any of it: re-measure the wall on the current tree.~~ **DONE** — §0 is
+now measured rather than arithmetic (`6d3bdc19`, 523.7 s), and the predicted
+31.6 % idle came back as **33.9 %**. The design stands on real numbers.
+
+The one number that moved enough to matter: `backtrack` is **9 % of wall**, not
+the 1 % the L4 run suggested, and it is *already* using every core the instance
+has. On a core-rich host it shrinks and `build` becomes ~80 % of the idle; on a
+core-poor one it stays and caps what C can return. Both effects point the same
+way — **C's value is a property of the host**, which is the case for building it
+as a self-balancing queue rather than a tuned split.
