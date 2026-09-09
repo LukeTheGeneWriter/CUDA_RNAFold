@@ -379,3 +379,87 @@ here rather than trusted from a distance.
 
 Both want the stress notebook re-run — with the `gpuinit` breakdown regex added
 this time, so the next reader gets the attribution for free.
+
+---
+
+# 13. Colab re-run on a T4: `gpuinit` 153.2 s → 1.6 s, output byte-identical
+
+*400 × 5601, commit `851d1b04`, **Tesla T4**. Raw: `stress272_t4.json`.
+The previous run was an L4, so absolute walls are NOT comparable — see §13.4.*
+
+## 13.1 The result
+
+| arm | chunks | `gpuinit` | `pack` | pack % of gpuinit |
+|---|---|---|---|---|
+| i32 natural | 5 | **1.6** | 1.43 | 91 % |
+| i16 natural | 4 | 1.5 | 1.34 | 91 % |
+| i32 half | 7 | 1.8 | 1.68 | 92 % |
+| i16 half | 6 | 1.7 | 1.55 | 92 % |
+| i32 quarter | 14 | 2.2 | 2.05 | 93 % |
+| i16 quarter | 11 | 2.1 | 1.96 | 93 % |
+
+**`gpuinit` fell from 153.2 s to 1.6 s — 22.9 % of wall to 0.2 %.** The `pack`
+timer still dominates what is left because it deliberately wraps the *device*
+kernel too ("same timer, for comparability", `hp_mb_loop.cu`), and it grows with
+chunk count (1.43 → 1.68 → 2.05) exactly as it should: the masks are rebuilt per
+chunk.
+
+## 13.2 Why this is the fix and not a faster host
+
+Two machines, so the obvious objection is that the T4 instance simply has a
+quicker CPU. It does not:
+
+| | L4 run | T4 run |
+|---|---|---|
+| `build` (serial host, O(n²) per record) | 121.96 s | **121.9 s** |
+
+`build` is single-threaded by default and is pure host work. **0.1 % apart.** The
+host is the same speed; `gpuinit` fell 96× because the packing moved to the GPU.
+
+## 13.3 Correctness, at the size that matters
+
+**`sha` = `7c0b3d633281` — identical to the pre-fix L4 run, in all six arms of
+both runs.** 400 records × 5601 nt, twelve arms, one hash. The device-derived
+bitmasks produce the same output bytes as the host-packed ones at full scale,
+across 4–14 chunks. Every arm reports the same 6 266 401 200 cells and 400 GPU
+records, so no arm quietly fell back to the CPU.
+
+That closes the two things §12 said were unproven: **multi-chunk works** (this run
+really chunked, 4–14 of them, unlike the local 700 MB arm), and the masks are
+right at 5601 nt, not just at 2400.
+
+## 13.4 What this run CANNOT tell us: the end-to-end win
+
+**The T4 ran at `clock_before` = `clock_after` = 0.368 for the whole run** — 585
+of 1590 MHz, throttled to 37 %. Every GPU phase inflates accordingly (`hp_mb`
+38.4 → 112.1 s, ×2.9 ≈ 1/0.368), which swamps the 151 s of host time the fix
+removes. Wall went 669.2 → 641.8 s, and that number means nothing across two
+different, differently-throttled cards.
+
+**So the ~20 %-of-wall claim is still not measured end to end.** What IS measured
+is that the item was 22.9 % of wall and is now 0.2 %, on the same workload with a
+verified-equivalent host. An unthrottled run is needed to bank the wall-clock
+figure.
+
+`backtrack` also went 5.4 → 40.6 s. It is threaded (`RNA_BACKTRACK_THREADS`) and
+`build` is not, so the likely cause is a smaller vCPU count on the T4 instance
+rather than anything in this change — **not verified**, and worth a look, since
+backtrack is now 6.3 % of wall.
+
+## 13.5 The wall decomposition, with `gpuinit` gone
+
+T4, i32/natural: `modular_decomp` 34.6 %, **`build` 19.0 %, `output` 18.8 %**,
+`hp_mb` 17.5 %, `backtrack` 6.3 %, residual **0.23 %**.
+
+**`build` + `output` = 37.8 % and are now the largest host target**, as §7
+predicted. Both have thread-pool routes that default off and have never been
+measured at this size.
+
+## 13.6 int16 on a throttled T4 is a wash, and `hp_mb` is why
+
+641.8 → 642.2 s: **1.00×**, matching bench v5's 1.009×. `modular_decomp` saves
+56.3 s (222.0 → 165.7) but **`hp_mb` costs 40.1 s (112.1 → 152.2)** and
+`fetch_mx` another 6.9. The +8.8 s `hp_mb` regression seen on the L4 is **+40.1 s
+here** — far larger, and it is most of the reason int16 is worthless on this card.
+The regression is real, reproducible on two GPUs, and scales with how starved the
+card is. It remains the open question from §4.
