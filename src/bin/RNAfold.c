@@ -1164,35 +1164,46 @@ rnafold_min_gpu_batch(void)
 }
 
 
-static void
-flush_gpu_chunk(struct record_data **chunk,
-                int                  n,
-                struct options      *opt)
-{
+/* A chunk between its two halves.
+ *
+ * flush_gpu_chunk() used to do both -- build every fold compound, then fold them
+ * -- in one serial pass, which means the GPU sits idle for the whole build and
+ * the cores sit idle for the whole fold. At 400 x 5601 that idle is 33.9% of
+ * wall and `build` is 72% of it (STRESS272_RESULTS.md §14).
+ *
+ * Splitting it here is a PURE REFACTOR and changes nothing on its own; it exists
+ * so the build of one chunk can later be overlapped with the fold of the
+ * previous one. `built` is what separates a batch that owns compounds from one
+ * that does not, so the teardown path can tell them apart.
+ */
+struct gpu_batch {
+  struct record_data    **chunk;
+  int                     n;
   vrna_fold_compound_t  **VC;
   char                  **Str;
   float                  *EN;
-  int                     i;
+  int                     built;
+};
 
-  if (n <= 0)
-    return;
 
-  if (n < rnafold_min_gpu_batch()) {
-    /* CPU fallback. Not a separate worker queue: upstream's driver already has
-     * a per-record parallel path, so an undersized chunk simply goes down it.
-     * That is the fork's RNAfold_cpu_queue.c retired rather than ported --
-     * MERGING.md flagged it as largely redundant once upstream grew its own
-     * thread pool and vrna_ostream_t, and this is where that pays off. The
-     * records keep their ostream slots, so output order is unaffected. */
-    for (i = 0; i < n; i++)
-      RUN_IN_PARALLEL(process_record, chunk[i]);
+/* Build every fold compound in the batch. Host-only; touches no device state,
+ * which is what makes it safe to run beside another batch's GPU work. */
+static void
+build_gpu_batch(struct gpu_batch *b,
+                struct options   *opt)
+{
+  struct record_data  **chunk = b->chunk;
+  int                   n     = b->n;
+  int                   i;
 
-    return;
-  }
+  vrna_fold_compound_t  **VC;
+  char                  **Str;
 
-  VC  = (vrna_fold_compound_t **)vrna_alloc(sizeof(void *) * n);
-  Str = (char **)vrna_alloc(sizeof(char *) * n);
-  EN  = (float *)vrna_alloc(sizeof(float) * n);
+  b->VC  = (vrna_fold_compound_t **)vrna_alloc(sizeof(void *) * n);
+  b->Str = (char **)vrna_alloc(sizeof(char *) * n);
+  b->EN  = (float *)vrna_alloc(sizeof(float) * n);
+  VC     = b->VC;
+  Str    = b->Str;
 
   /* stage_build_s was DECLARED and PRINTED but never incremented, so the stage
    * line reported build=0.000 for the life of the project -- which reads as
@@ -1227,6 +1238,25 @@ flush_gpu_chunk(struct record_data **chunk,
     Str[i] = (char *)vrna_alloc(sizeof(char) * (strlen(chunk[i]->sequence) + 1));
   }
 
+  stage_build_s += rnafold_now_seconds() - t_build;
+  b->built       = 1;
+}
+
+
+/* Fold a built batch, hand the answers back to the records, release the device
+ * and dispatch the output. Everything here that touches the GPU lives on ONE
+ * thread; build_gpu_batch() is the half that may run beside it. */
+static void
+fold_gpu_batch(struct gpu_batch *b,
+               struct options   *opt)
+{
+  struct record_data    **chunk = b->chunk;
+  int                     n     = b->n;
+  vrna_fold_compound_t  **VC    = b->VC;
+  char                  **Str   = b->Str;
+  float                  *EN    = b->EN;
+  int                     i;
+
   /* THE SEAM. Not par_mfe(): the driver asks the LIBRARY to fold a batch, and
    * the library uses whatever backend is registered -- the CUDA one here, or
    * a plain loop over vrna_mfe() if none is. Nothing below this line, and
@@ -1234,8 +1264,6 @@ flush_gpu_chunk(struct record_data **chunk,
    *
    * That is what makes the diff presentable: the accelerator is a backend, not
    * a fork of the driver, and removing it leaves a correct program. */
-  stage_build_s += rnafold_now_seconds() - t_build;
-
   vrna_mfe_batch(VC, (size_t)n, Str, EN);
 
   /* stage_free_s: also a dead counter until 2026-09-08. Freeing a fold
@@ -1277,6 +1305,42 @@ flush_gpu_chunk(struct record_data **chunk,
   free(VC);
   free(Str);
   free(EN);
+  b->VC = NULL; b->Str = NULL; b->EN = NULL; b->built = 0;
+}
+
+
+/* The original entry point, now just the two halves back to back. Behaviour is
+ * unchanged: the split exists so a caller that wants to overlap them can. */
+static void
+flush_gpu_chunk(struct record_data **chunk,
+                int                  n,
+                struct options      *opt)
+{
+  struct gpu_batch b;
+  int              i;
+
+  if (n <= 0)
+    return;
+
+  if (n < rnafold_min_gpu_batch()) {
+    /* CPU fallback. Not a separate worker queue: upstream's driver already has
+     * a per-record parallel path, so an undersized chunk simply goes down it.
+     * That is the fork's RNAfold_cpu_queue.c retired rather than ported --
+     * MERGING.md flagged it as largely redundant once upstream grew its own
+     * thread pool and vrna_ostream_t, and this is where that pays off. The
+     * records keep their ostream slots, so output order is unaffected. */
+    for (i = 0; i < n; i++)
+      RUN_IN_PARALLEL(process_record, chunk[i]);
+
+    return;
+  }
+
+  memset(&b, 0, sizeof(b));
+  b.chunk = chunk;
+  b.n     = n;
+
+  build_gpu_batch(&b, opt);
+  fold_gpu_batch(&b, opt);
 }
 
 
