@@ -1,6 +1,6 @@
 # Session 2026-09-10 — the wall is 394.8 s, and a five-times-reproduced regression was never real
 
-*2 commits, `e478419e` → `d5a03af0`. Previous handoff: `PORT_SESSION_2026-09-09.md`.
+*4 commits, `e478419e` → `ff4911fd`, all pushed. Previous handoff: `PORT_SESSION_2026-09-09.md`.
 Read this, then `STRESS272_RESULTS.md` §16–§18.*
 
 ---
@@ -14,8 +14,9 @@ Read this, then `STRESS272_RESULTS.md` §16–§18.*
    22 arms across five runs on one hash.
 2. **"int16 makes `hp_mb` 23–30 s slower" is a timer artifact.** It has been
    reproduced five times and called the clearest open int16 question since
-   2026-09-06. `hp_mb`'s phase timer is charged **6.2×** its own GPU time.
-   `RNA_PHASE_SYNC=1` is the new instrument that shows it.
+   2026-09-06. `hp_mb`'s phase timer is charged **6.2×** its own GPU time, and
+   under `RNA_PHASE_SYNC=1` — the new instrument — int16's effect on it is
+   **−0.6 %**, indistinguishable from zero. See §3 and §4a.
 3. **`fetch_fML_one_H`'s decode is 5.3× faster** and byte-identical — but **no
    end-to-end win has been measured**, and this laptop cannot measure one.
 
@@ -143,7 +144,7 @@ Cooling fixes the drift; nothing fixes the cap, so the card will not reach its
 2100 MHz max however cold it is. `nvidia-smi -lgc` is refused under WDDM and
 needs an Administrator shell besides — and would not defeat the cap either.
 
-**That upgrade is what settled §4's question**, which the first, badly-cooled
+**That upgrade is what settled §3's question**, which the first, badly-cooled
 attempt had to record as unsettleable. **Local A/B is usable for effects above
 ~5 %** when the run is ABBA and the drift is quoted beside the result.
 
