@@ -415,6 +415,16 @@ extern "C"
 #endif
 int rnafold_fml_int16(void);
 
+// Vet the LOADED parameter table against the int16 offset bound and shut the
+// gate if it cannot hold. Called from load_param() with the most negative stack
+// entry of the table actually in use -- a -P file replaces stack37, so the -340
+// the bound is normally quoted from is a property of the DEFAULT table only.
+// Declines to int32 (right answer, slower) rather than refusing the run.
+#ifdef __cplusplus
+extern "C"
+#endif
+void rnafold_fml_int16_vet_params(const int worst_stack, const int blk);
+
 // Block size for the int16 offset baseline. 64, not 128: the provable bound is
 // B/2 * 340, so B=64 gives |offset| <= 10880 against 32766 (~3x headroom, and
 // ~5x against what was measured) where B=128 gives 21760. B=64 costs 1.6% more

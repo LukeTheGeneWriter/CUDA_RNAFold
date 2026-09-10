@@ -281,6 +281,20 @@ void load_param(const vrna_param_t *P){
   cuda_param_t* H = (cuda_param_t*) malloc(sizeof(cuda_param_s));
 
   memcpy(H->stack,        P->stack,        (NBPAIRS+1)*(NBPAIRS+1)*sizeof(int));
+  // The int16 fML bound is derived from the LOADED table, not from the literal
+  // -340 of the default one -- a -P file replaces stack37 and can push the
+  // offset past int16. Vetted here because this is the first point at which the
+  // real table is in hand, and long before any cell is packed. See
+  // rnafold_fml_int16_vet_params().
+  {
+    int worst = 0;   /* most negative entry; INF guards the unused NN slots */
+    for(int a=0; a<=NBPAIRS; a++)
+      for(int b=0; b<=NBPAIRS; b++) {
+        const int v = P->stack[a][b];
+        if(v < worst && v > -INF/2) worst = v;
+      }
+    rnafold_fml_int16_vet_params(worst, FML_BLK);
+  }
   H->ninio2     =         P->ninio[2];
   H->lxc        =  (float)P->lxc;
   H->TerminalAU =         P->TerminalAU;

@@ -292,3 +292,97 @@ that `make check` was still running*, so the test linked against the neutered
 build. A new shape of the stale-binary trap this project keeps meeting: not an
 old binary, but a **concurrently mutated** one. Never run a red-team rebuild
 alongside a test suite in the same tree.
+
+---
+
+## 2026-09-10 — bars 2 and 4 RUN. Bar 4 was a live silent wrong answer.
+
+*`tools/verify_paramfile_bars.sh` now carries all four bars plus two
+"did-it-bite" and two "did-it-over-tighten" checks. **13/13 on an RTX 3050,
+12 records of mixed length 62–401 nt**, reference = the same binary with the
+accelerator off. `make check` unchanged.*
+
+### Bar 2 (`-P DNA`) — PASSES, and closes `--backbone-length`
+
+`-P DNA` is identical GPU vs CPU, and it **bites** (24 lines against the
+unflagged fold), so the comparison is not vacuous. Salted arms (`--salt 0.2`,
+`--salt 1.5`) are identical too, which is the coupling that matters: `-P DNA`
+calls `set_salt_DNA()` and moves `helical_rise`, `backbone_length` and
+`saltDPXInitFact` (`gengetopt_helpers.c:15`).
+
+**`--backbone-length` is CLOSED.** At the DNA value 6.76 under salt it bites
+(24 lines) and the GPU matches the CPU.
+
+**`--helical-rise` is closed only in part, and the reason is worth recording.**
+It does **not** bite at the DNA value 3.4 — 2.8 → 3.4 moves no integer energy at
+these lengths. It bites at 10 and at 100 (24 lines each), and parity holds
+there. So the option **is** wired, and `PORT_OPTION_STATUS.md` §4's "did not
+bite" was a property of the *value*, not of the plumbing — but `-P DNA` does
+**not** close it, because DNA's own value is one that does not bite.
+
+### Bar 4 (perturbed `stack` + `RNA_FML_INT16=1`) — was RED, now fixed
+
+With every negative `stack` entry set to −2000, `RNA_FML_INT16=1` produced a
+**wrong answer on 8 of 12 records, by up to 31.8 kcal/mol** — well-formed
+structures, plausible energies. int32 with the same file was identical, and int16
+with the stock file was identical, so the defect is exactly the interaction the
+bar was written to find.
+
+**Three things failed at once, and the third is the interesting one.**
+
+1. The offset bound `(FML_BLK/2) × 340 = 10 880` is derived from the most
+   negative entry of the **default** `stack37`. A `-P` file replaces that table.
+   At −2000 the bound is 64 000, twice int16's ceiling.
+2. `pack_fml_kernel`'s range check said **"TRAP, never wrap"** and called
+   `assert(0)`. **Release builds define `-DNDEBUG`, so that assert compiled to
+   nothing.** It detected the overflow, printed, and then wrapped anyway. Another
+   entry for `project_port27_checks_that_lied`: the check could not fail.
+3. Device-side `printf` goes to the process **stdout**, so **48 781 diagnostic
+   lines landed inside the fold output.** The check that was supposed to protect
+   the answer corrupted it instead.
+
+**The fix, and where it had to go.** `rnafold_fml_int16_vet_params()` computes
+the bound from the table actually loaded and shuts the int16 gate if it cannot
+hold, declining to int32 — right answer, slower, and it says so. It is called
+from **`par_mfe()`, before `init_gpu()`**, not from `load_param()`:
+
+> `init_gpu()` is where the mode is **committed** — it allocates `d_fml_j16`
+> instead of `d_fml_j`. Vetting in `load_param()` alone was too late by exactly
+> one call: the decline printed, and the already-allocated int16 path packed
+> anyway and hit the trap. The first version of this fix did exactly that, and
+> the bar caught it.
+
+`load_param()` still calls it, harmlessly, for any entry point that does not come
+through `par_mfe()`. The kernel range check stays as a backstop but now uses
+`__trap()`, which is unconditional and survives `NDEBUG` — reaching it is now a
+bug, not a user error, and it kills the run rather than emitting a plausible
+wrong answer.
+
+**Both directions checked.** Bar 4b asserts the vet fires on the perturbed table
+and does **not** fire on the stock one, with int16 confirmed *requested* in both
+— a guard that shuts on everything would otherwise pass every parity test in
+this file.
+
+### A harness bug worth remembering
+
+The first run of these bars put its fixtures in `/tmp`, which **WSL cleared
+between invocations**. Every arm then reported *0 lines differ*, which reads as
+"nothing bites" rather than "nothing ran" — and briefly produced the wrong
+conclusion that `--helical-rise` was not wired at all. The harness now defaults
+to `$HOME/parbars`. Same family as the six probes in
+`feedback_probes_that_could_not_reach`: **the probe could not reach what it
+claimed to test, and reported success for that reason.**
+
+### Where `-P` now stands
+
+| bar | status |
+|---|---|
+| 1 — stock file re-read | **PASS** (2026-09-09) |
+| 2 — `-P DNA`, ± salt | **PASS** — closes `--backbone-length` |
+| 3 — perturbed NINIO max | **PASS**, red on the pre-fix build (2026-09-09) |
+| 4 — perturbed `stack` + int16 | **PASS after a fix**, and it was red first |
+
+Still open from §2.3: **#3 `lxc` narrowed to `float`** (assert the round-trip),
+**#4 `mismatchExt`/`dangle5`/`dangle3` re-asserted against a non-default table**,
+**#5 special-hairpin strides**, **#6 one parameter set per batch** (reachable
+from `vrna_mfe_batch()`, not from the CLI).

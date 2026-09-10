@@ -1,4 +1,4 @@
-# RNAfold option surface — what is accelerated, 2026-09-08
+# RNAfold option surface — what is accelerated, updated 2026-09-10
 
 *All 60 CLI options in `src/bin/RNAfold.ggo`, classified against the library
 guard (`mfe/cuda/engine.c`) and, where stated, against a measured run on
@@ -97,10 +97,11 @@ with the GPU path because they never touch it.
 | option | status |
 |---|---|
 | `--nsp` | **DECLINED 2026-09-09 — see the top of this file.** No longer ungoverned. |
-| `-P` / `--paramFile` | **PARTLY TESTED, and it cannot be guarded** — `vrna_params_load()` mutates library globals, so by fold-compound time `-P` has left no flag for the guard to see. Its assumptions belong in `load_param()` instead. **One was a LIVE wrong answer and is fixed:** `MAX_NINIO` was a `#define` of 300 on the device, "checked" by an `assert(300 == 300)`, while the real `MAX_NINIO` is a writable global a parameter file overwrites (`params/io.c:671`). Measured 2026-09-09 — with the stock file GPU == CPU, but with only the NINIO maximum moved 300 → 80 the **pre-fix binary differs on 9 of 12 records**; the fixed one is identical. Six more assumptions ranked in `PORT_NSP_PARAMFILE_SCOPE.md` §2.3; bars 1 and 3 pass, **bars 2 (`-P DNA`) and 4 (int16) remain open**. |
+| `-P` / `--paramFile` | **ALL FOUR BARS NOW RUN, 2026-09-10 — and bar 4 found a second live silent wrong answer.** `RNA_FML_INT16=1` plus a parameter file with large `stack` magnitudes folded **wrong on 8 of 12 records, by up to 31.8 kcal/mol**: the int16 offset bound is derived from the DEFAULT table's −340, the pack kernel's `assert(0)` guard was a **no-op under `-DNDEBUG`**, and its device `printf` corrupted stdout with 48 781 lines. Fixed by vetting the loaded table in `par_mfe()` **before `init_gpu()` commits the mode**, declining to int32. Bars 1–4 + both over-tightening checks: **13/13**. **Still cannot be guarded** — `vrna_params_load()` mutates library globals, so by fold-compound time `-P` has left no flag for the guard to see. Its assumptions belong in `load_param()` instead. **One was a LIVE wrong answer and is fixed:** `MAX_NINIO` was a `#define` of 300 on the device, "checked" by an `assert(300 == 300)`, while the real `MAX_NINIO` is a writable global a parameter file overwrites (`params/io.c:671`). Measured 2026-09-09 — with the stock file GPU == CPU, but with only the NINIO maximum moved 300 → 80 the **pre-fix binary differs on 9 of 12 records**; the fixed one is identical. Six more assumptions were ranked in `PORT_NSP_PARAMFILE_SCOPE.md` §2.3; **four of them (`lxc` narrowed to float, the dead mismatch/dangle tables, special-hairpin strides, one-parameter-set-per-batch) are still unchecked** against a non-default table. |
 | `--ImFeelingLucky` | GPU differs from CPU — **but that is noise, not a defect.** Two CPU runs of the same flag also differ, so the backtracking really is stochastic and **a byte-identical bar cannot judge this option at all.** It needs a distributional bar, or none. Checked before reporting, because "GPU ≠ CPU" looked exactly like `--nsp` until the CPU was compared against itself. |
 | `--batch` | **not reachable by this harness** — both sides produced *no output*, because `--batch` changes input parsing and the plain FASTA gave it nothing to do. Two empty outputs are not a match; scored as untested rather than passing. |
-| `--helical-rise`, `--backbone-length` | accelerated and identical, **but did not bite** on the test input — so the comparison proved nothing. Needs an input where they change the answer. |
+| `--backbone-length` | **CLOSED 2026-09-10.** Bites at the DNA value 6.76 **under `--salt`** (24 lines) and the GPU matches the CPU. The earlier "did not bite" was a missing `--salt`: the geometry feeds the salt model only. Bar: `tools/verify_paramfile_bars.sh`. |
+| `--helical-rise` | **PARTLY CLOSED 2026-09-10.** It is wired and parity holds where it bites — but it does **not** bite at the DNA value 3.4 (2.8 → 3.4 moves no integer energy at 62–401 nt); it bites at 10 and 100. So `-P DNA` closes `--backbone-length` and **not** this. "Did not bite" was a property of the value, not of the plumbing. |
 | `--maxBPspan` *(== length)* | identical, did not bite; the restricted case is declined |
 
 ## 5. Circular (`-c`) — the blocker is narrower than recorded
@@ -158,6 +159,10 @@ unaffected either way.
 
 **No live silent wrong answer is currently known on the option surface.** That
 is the first time this file has been able to say so. It is a statement about
-what has been *looked at*: `-P` is untested, `--helical-rise` /
-`--backbone-length` have never been given an input where they bite, and
-`--batch` is unreachable by the harness.
+what has been *looked at*, and that set grew on 2026-09-10: all four `-P` bars
+now run (13/13), `--backbone-length` is closed, and `--helical-rise` is closed
+wherever it bites. **`-P` found a second live silent wrong answer on the way**
+(int16 + a large-`stack` file, 8 of 12 records, up to 31.8 kcal/mol) — now fixed
+and barred. What remains unlooked-at: four of `-P`'s seven ranked assumptions,
+`--batch` (unreachable by the harness), and `--ImFeelingLucky` (no byte bar can
+judge it).

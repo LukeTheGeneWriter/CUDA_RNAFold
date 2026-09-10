@@ -169,6 +169,12 @@ rnafold_gpu_sweep(void) {
 // and a 64-entry window admits at most 32 stacked pairs, so |offset| <= 10880
 // against int16's 32766 -- but that bound is for the DEFAULT parameter table,
 // so the pack kernel range-checks and traps rather than wrapping.
+// Set by rnafold_fml_int16_vet_params() when the LOADED parameter table cannot
+// support the encoding. Sticky: once a table has been rejected the gate stays
+// shut for the rest of the process, because the tables are global and a later
+// batch cannot un-load them.
+static int g_fml_int16_unsafe = 0;
+
 PUBLIC int
 rnafold_fml_int16(void) {
   static int v = -1;
@@ -178,7 +184,61 @@ rnafold_fml_int16(void) {
     if(v) fprintf(stderr,"%-24s RNA_FML_INT16=1: fml_j is 16-bit offsets from a "
                          "per-%d baseline\n", __FILE__, 64);
   }
-  return v;
+  return v && !g_fml_int16_unsafe;
+}
+
+// The int16 fML offset bound is (FML_BLK/2) * |most negative stack entry|: a
+// window of B consecutive positions admits at most B/2 stacked pairs. For the
+// DEFAULT table the worst entry is -340, giving 32 * 340 = 10880 against int16's
+// 32766 -- about 3x headroom, which is why the encoding is length-independent by
+// construction rather than by extrapolation.
+//
+// **A -P FILE REPLACES stack37, SO THAT BOUND IS AN ASSUMPTION, NOT A PROOF.**
+// Measured 2026-09-10 with every negative stack entry set to -2000: the encoding
+// overflowed, and the pack kernel's range check did NOT save us --
+//
+//   * its `assert(0)` is a NO-OP, because release builds define NDEBUG. The
+//     comment above it said "TRAP, never wrap"; under -DNDEBUG it printed and
+//     then wrapped.
+//   * device-side printf goes to the process STDOUT, so 48 781 diagnostic lines
+//     landed IN THE FOLD OUTPUT, and
+//   * the answer underneath was wrong anyway on 8 of 12 records, by up to
+//     31.8 kcal/mol -- well-formed structures, plausible energies.
+//
+// So the check has to happen HERE, on the host, before any folding: a kernel is
+// the wrong place to decide a whole run is impossible. Declining to int32 is the
+// same shape as every other routing guard in this port -- the user gets the
+// right answer, more slowly, and is told why.
+//
+// The bound counts STACKING ONLY; tetraloop bonuses and dangles also contribute,
+// so it is the right shape of argument rather than a finished proof. The pack
+// kernel's range check therefore stays as a backstop -- now one that actually
+// stops (see pack_fml_kernel).
+PUBLIC void
+rnafold_fml_int16_vet_params(const int worst_stack, const int blk) {
+  const long long bound = (long long)(blk/2) * (long long)(worst_stack < 0 ? -worst_stack
+                                                                           : worst_stack);
+  // No "already done" flag: this is called once per batch and costs 64 int
+  // comparisons, and a vrna_mfe_batch() caller CAN load a different table
+  // between batches. The stickiness lives in g_fml_int16_unsafe, deliberately:
+  // once a table has been rejected the gate stays shut, because the device
+  // buffers for the run were sized for int32 the moment we declined.
+  if(g_fml_int16_unsafe) return;
+  if(bound <= 32766) return;
+
+  g_fml_int16_unsafe = 1;
+  // Only worth saying if the user actually asked for int16.
+  {
+    const char *e = getenv("RNA_FML_INT16");
+    if(e && e[0] && strcmp(e,"0"))
+      fprintf(stderr,
+              "%-24s RNA_FML_INT16 DECLINED: this parameter table's worst stack "
+              "entry is %d, so the fML offset bound is %d/2 * %d = %lld, past "
+              "int16's 32766. Folding in int32 instead -- the answer is "
+              "unaffected. See INT16_FML_SCOPE.md.\n",
+              __FILE__, worst_stack, blk,
+              worst_stack < 0 ? -worst_stack : worst_stack, bound);
+  }
 }
 
 PUBLIC int
@@ -908,6 +968,23 @@ par_mfe(const int nfiles,
     if((int)VC[H]->length > length) length = (int)VC[H]->length;
   const vrna_md_t* md = &(VC[0]->params->model_details);
   const int turn      = md->min_loop_size;
+  // Vet the parameter table against the int16 bound HERE, before init_gpu(),
+  // because init_gpu() is where the mode is COMMITTED: it allocates d_fml_j16
+  // instead of d_fml_j, and after that a decline cannot be honoured. Doing this
+  // in load_param() alone was too late by exactly one call -- the decline
+  // printed, and the already-allocated int16 path packed anyway and hit the
+  // pack kernel's trap. load_param() still calls it, harmlessly, as the second
+  // line of defence for any entry point that does not come through here.
+  {
+    const vrna_param_t *P = VC[0]->params;
+    int worst = 0;
+    for(int a=0; a<=NBPAIRS; a++)
+      for(int b=0; b<=NBPAIRS; b++) {
+        const int v = P->stack[a][b];
+        if(v < worst && v > -INF/2) worst = v;
+      }
+    rnafold_fml_int16_vet_params(worst, FML_BLK);
+  }
   // Continuous flow phase C1: the per-slot capacity, in nucleotides. Every
   // LAYOUT table below is built from this; every BOUND stays on the occupant's
   // own VC[H]->length. Equal by default -- see rnafold_slot_capacity_max().

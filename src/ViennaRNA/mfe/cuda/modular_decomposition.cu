@@ -852,13 +852,29 @@ pack_fml_kernel(const int nfiles, const int i_row, const int turn, const int len
     fml_b[bidx] = b = v;
   }
   const long long d = (long long)v - (long long)b;
-  // TRAP, never wrap. The bound is provable for the default parameter table
-  // (B/2 * 340 = 10880) but a -P file or a rescaled temperature can move it, and
-  // a silent wrap here is a plausible, self-consistent, WRONG answer.
+  // TRAP, never wrap -- AND IT NOW ACTUALLY TRAPS.
+  //
+  // This said "TRAP, never wrap" while calling assert(0), which is a NO-OP in
+  // every release build because they define NDEBUG. Measured 2026-09-10 with a
+  // -P file whose stack entries were all -2000: it printed 48 781 lines, wrapped,
+  // and returned a wrong answer on 8 of 12 records (up to 31.8 kcal/mol). Worse,
+  // device printf goes to the process STDOUT, so the diagnostics landed inside
+  // the fold output.
+  //
+  // __trap() is not assert(): it is unconditional, survives NDEBUG, and kills
+  // the context, so the run dies instead of emitting a plausible wrong answer.
+  //
+  // Reaching this at all is now a BUG rather than a user error --
+  // rnafold_fml_int16_vet_params() declines the encoding on the host before any
+  // fold begins. This stays because that bound counts stacking only (tetraloop
+  // bonuses and dangles also contribute), so it is a backstop for the gap
+  // between "provable" and "proved", not the primary check.
   if(d > 32766 || d < -32766) {
     printf("RNA_FML_INT16 range: H=%d (i=%d,j=%d) value %d baseline %d delta %lld "
-           "exceeds int16. See INT16_FML_SCOPE.md.\n", H, i, j, v, b, d);
-    assert(0);
+           "exceeds int16 -- ABORTING. The host-side vet should have declined "
+           "int16 for this parameter table; that it did not is a bug. See "
+           "INT16_FML_SCOPE.md.\n", H, i, j, v, b, d);
+    __trap();
   }
   fml_j16[t] = (short)d;
 }
