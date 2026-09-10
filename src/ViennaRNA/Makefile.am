@@ -144,7 +144,8 @@ libRNA_conv_la_LIBADD += libRNA_mfe_cuda.la
 ## is written against, which cites it by line number.
 libRNA_mfe_cuda_la_SOURCES = \
     mfe/cuda/engine.c \
-    mfe/cuda/mfe_cuda.c
+    mfe/cuda/mfe_cuda.c \
+    mfe/cuda/gquad.c
 
 ## A libtool object (.lo), NOT a plain .o. libRNA_mfe_cuda is a convenience
 ## library that is itself consumed by libRNA_conv, and a raw .o listed in a
@@ -156,7 +157,8 @@ libRNA_mfe_cuda_la_LIBADD = \
     mfe/cuda/device.lo \
     mfe/cuda/modular_decomposition.lo \
     mfe/cuda/int_loop.lo \
-    mfe/cuda/hp_mb_loop.lo
+    mfe/cuda/hp_mb_loop.lo \
+    mfe/cuda/gquad.lo
 
 ## -DSTUB is what the 2.3.0 build used for this file and it is still required:
 ## without it the .c side sees ~26 bogus implicit declarations at the .c/.cu
@@ -924,10 +926,21 @@ mfe/cuda/hp_mb_loop.lo: $(srcdir)/mfe/cuda/hp_mb_loop.cu \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
 	  -c $(srcdir)/mfe/cuda/hp_mb_loop.cu -o mfe/cuda/hp_mb_loop.lo
 
+## G-quadruplex stage G0: carries c_gq to the device. Compiled whether or
+## not -g is accepted by the routing guard -- it is inert until the two
+## call sites in G1/G2 read it.
+mfe/cuda/gquad.lo: $(srcdir)/mfe/cuda/gquad.cu \
+                   $(srcdir)/mfe/cuda/stub2.h
+	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
+	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
+	  -c $(srcdir)/mfe/cuda/gquad.cu -o mfe/cuda/gquad.lo
+
 CLEANFILES = mfe/cuda/device.lo mfe/cuda/device.$(OBJEXT) \
              mfe/cuda/modular_decomposition.lo mfe/cuda/modular_decomposition.$(OBJEXT) \
              mfe/cuda/int_loop.lo mfe/cuda/int_loop.$(OBJEXT) \
-             mfe/cuda/hp_mb_loop.lo mfe/cuda/hp_mb_loop.$(OBJEXT)
+             mfe/cuda/hp_mb_loop.lo mfe/cuda/hp_mb_loop.$(OBJEXT) \
+             mfe/cuda/gquad.lo mfe/cuda/gquad.$(OBJEXT)
 endif
 
 ## distributed whether or not CUDA is enabled, so `make dist` from a
@@ -938,10 +951,12 @@ EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/modular_decomposition.cu \
               mfe/cuda/int_loop.cu \
               mfe/cuda/hp_mb_loop.cu \
+              mfe/cuda/gquad.cu \
               mfe/cuda/int_loop_kernel_body.inc \
               mfe/cuda/interior_loopx.h \
               mfe/cuda/nth.h \
               mfe/cuda/stub2.h \
+              mfe/cuda/gquad.c \
               mfe/cuda/fill_arrays.c \
               mfe/cuda/fill_arrays_loop.c \
               mfe/cuda/mb_loop_fast.c

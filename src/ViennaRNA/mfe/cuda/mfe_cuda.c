@@ -1097,6 +1097,23 @@ par_mfe(const int nfiles,
     }
     stage_prepare_s += rnafold_now_seconds() - t_prepare;
 
+    /*
+     * G-quadruplex stage G0: carry c_gq to the device.
+     *
+     * Here and not earlier, because c_gq is created by
+     * vrna_fold_compound_prepare() just above -- dp_matrices.c:547, gated on
+     * md.gquad. Here and not later, because the c/fML free below does not
+     * touch c_gq but everything after this is the sweep.
+     *
+     * A no-op today: nothing reads the table until G1/G2, and -g is still
+     * declined by the routing guard, so this only ever fires for a caller that
+     * reached vrna_mfe_batch() with gquad set some other way. It is wired in
+     * now so the transfer has its own bar (tests/mfe_cuda_gquad.ts) separately
+     * from the recursion work -- if the table does not arrive intact, every
+     * later stage debugs the wrong thing.
+     */
+    (void)rnafold_gq_upload(nfiles, VC);
+
     // Release every record's c/fML now. Nothing reads either between here and
     // backtrack_one(), which reattaches a pooled scratch pair per record --
     // new_c_host stopped writing My_c in a1430bd, fml_host stopped writing

@@ -415,6 +415,26 @@ extern "C"
 #endif
 int rnafold_fml_int16(void);
 
+// G-quadruplex stage G0 (PORT_GQUAD_SPEC.md). Carries the batch's c_gq to the
+// device; the two call sites that will READ it land in G1/G2, so today this is
+// uploaded and unused, and -g stays declined by the routing guard.
+//
+// rnafold_gq_upload() returns 1 if something was uploaded, 0 if there was
+// nothing to upload (gquad off, or no record has a matrix), -1 on failure.
+// Safe to call unconditionally. rnafold_gq_probe() is the read-back bar and is
+// test-only: it evaluates the device lookup over a list of (H,i,j).
+#ifdef __cplusplus
+extern "C" {
+#endif
+int  rnafold_gq_upload(const int nfiles, const vrna_fold_compound_t **VC);
+void rnafold_gq_free(void);
+int  rnafold_gq_active(void);
+int  rnafold_gq_probe(const size_t n, const int *pH, const unsigned int *pi,
+                      const unsigned int *pj, int *out);
+#ifdef __cplusplus
+}
+#endif
+
 // Vet the LOADED parameter table against the int16 offset bound and shut the
 // gate if it cannot hold. Called from load_param() with the most negative stack
 // entry of the table actually in use -- a -P file replaces stack37, so the -340
