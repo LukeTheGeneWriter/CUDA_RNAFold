@@ -82,11 +82,16 @@ vrna_gr_prepare(vrna_fold_compound_t  *fc,
                                                          options,
                                                          NULL);
 
+/* VRNA-PATCH-BEGIN(inside-engine-prepare, SEAM) -- PORT_LOCAL_PATCHES.md
+ * Give the bound engine the same prepare/free lifecycle the other
+ * aux-grammar callbacks already have.
+ */
     /* prepare inside engine data */
     if ((fc->aux_grammar->engine) &&
         (fc->aux_grammar->engine_prepare_data))
       ret &= fc->aux_grammar->engine_prepare_data(fc,
                                                   fc->aux_grammar->engine_data,
+/* VRNA-PATCH-END(inside-engine-prepare) */
                                                   options,
                                                   NULL);
   }

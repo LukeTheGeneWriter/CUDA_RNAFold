@@ -105,6 +105,11 @@ PRIVATE unsigned char     p_pre_init  = 0;
 PRIVATE vrna_exp_param_t  pf_pre = { 0 };
 PRIVATE unsigned char     pf_pre_init  = 0;
 
+/* VRNA-PATCH-BEGIN(params-cache-race, DEFECT) -- PORT_LOCAL_PATCHES.md
+ * SPEEDUP_PARAMS is shared mutable state and was unsynchronised.
+ * Reproducer: tools/params_race.c -- 11999 of 16000 parameter tables wrong
+ * without the lock, 0 of 16000 with it. Submittable on its own.
+ */
 /*
  * The SPEEDUP_PARAMS cache is SHARED MUTABLE STATE and was unsynchronised.
  *
@@ -137,6 +142,7 @@ PRIVATE pthread_mutex_t   p_pre_mtx  = PTHREAD_MUTEX_INITIALIZER;
 PRIVATE pthread_mutex_t   pf_pre_mtx = PTHREAD_MUTEX_INITIALIZER;
 # define PARAM_CACHE_LOCK(m)    pthread_mutex_lock(&(m))
 # define PARAM_CACHE_UNLOCK(m)  pthread_mutex_unlock(&(m))
+/* VRNA-PATCH-END(params-cache-race) */
 # define PARAM_CACHE_USABLE     1
 #else
 # define PARAM_CACHE_LOCK(m)    do {} while (0)

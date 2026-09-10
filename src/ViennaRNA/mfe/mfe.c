@@ -204,6 +204,9 @@ BT_fms3_split(vrna_fold_compound_t  *fc,
  # BEGIN OF FUNCTION DEFINITIONS #
  #################################
  */
+/* VRNA-PATCH-BEGIN(batch-backend-state, SEAM) -- PORT_LOCAL_PATCHES.md
+ * Process-wide registry for a batch MFE backend.
+ */
 /*
  * The batch MFE backend. Process-wide and at most one, because a batch is not a
  * property of any single fold compound -- unlike the inside-engine seam, which
@@ -211,6 +214,7 @@ BT_fms3_split(vrna_fold_compound_t  *fc,
  */
 PRIVATE vrna_mfe_batch_f  batch_backend       = NULL;
 PRIVATE void              *batch_backend_data = NULL;
+/* VRNA-PATCH-END(batch-backend-state) */
 
 
 PUBLIC unsigned int
@@ -303,6 +307,11 @@ vrna_mfe(vrna_fold_compound_t *fc,
     if (fc->strands > 1)
       ms_dat = get_ms_helpers(fc);
 
+/* VRNA-PATCH-BEGIN(inside-engine-hook, SEAM) -- PORT_LOCAL_PATCHES.md
+ * THE ONE-LINE SEAM. An alternative inside (matrix fill) implementation
+ * may be bound per fold compound; it fills the same matrices and reports the
+ * same energy, or declines. Everything after this point is unchanged.
+ */
     /*
      * An alternative inside (matrix fill) implementation may have been bound to
      * this fold compound with vrna_gr_set_inside_engine(). It fills the same
@@ -318,6 +327,7 @@ vrna_mfe(vrna_fold_compound_t *fc,
 
     if (!handled)
       energy = fill_arrays(fc, ms_dat);
+/* VRNA-PATCH-END(inside-engine-hook) */
 
     if (fc->params->model_details.circ)
       energy = postprocess_circular(fc, bt_stack);

@@ -207,6 +207,10 @@ vrna_gr_add_aux(vrna_fold_compound_t    *fc,
 }
 
 
+/* VRNA-PATCH-BEGIN(inside-engine-bind, SEAM) -- PORT_LOCAL_PATCHES.md
+ * vrna_gr_set_inside_engine(): bind an alternative matrix-fill
+ * implementation to one fold compound. The public half of the seam.
+ */
 PUBLIC unsigned int
 vrna_gr_set_inside_engine(vrna_fold_compound_t    *fc,
                           vrna_gr_engine_f        cb,
@@ -228,6 +232,7 @@ vrna_gr_set_inside_engine(vrna_fold_compound_t    *fc,
       fc->aux_grammar->engine_data          = data;
       fc->aux_grammar->engine_prepare_data  = prepare_cb;
       fc->aux_grammar->engine_free_data     = free_cb;
+/* VRNA-PATCH-END(inside-engine-bind) */
 
       ret = 1;
     }

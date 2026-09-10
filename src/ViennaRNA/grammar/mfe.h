@@ -322,6 +322,9 @@ vrna_gr_add_aux(vrna_fold_compound_t    *fc,
                 vrna_auxdata_free_f     data_release);
 
 
+/* VRNA-PATCH-BEGIN(inside-engine-api, SEAM) -- PORT_LOCAL_PATCHES.md
+ * The inside-engine callback type and binder declarations.
+ */
 /**
  *  @brief  An alternative implementation of the MFE inside (matrix fill) step
  *
@@ -388,6 +391,7 @@ vrna_gr_set_inside_engine(vrna_fold_compound_t    *fc,
                           void                    *data,
                           vrna_auxdata_prepare_f  prepare_cb,
                           vrna_auxdata_free_f     free_cb);
+/* VRNA-PATCH-END(inside-engine-api) */
 
 
 /**

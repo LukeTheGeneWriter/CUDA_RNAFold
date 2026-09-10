@@ -70,6 +70,10 @@ vrna_mfe(vrna_fold_compound_t *fc,
          char                 *structure);
 
 
+/* VRNA-PATCH-BEGIN(batch-backend-api, SEAM) -- PORT_LOCAL_PATCHES.md
+ * vrna_mfe_batch() and its backend registration. Useful to upstream on
+ * CPU on its own: it is a place to put ANY many-at-once folder.
+ */
 /**
  *  @brief  A backend that folds many fold compounds at once
  *
@@ -132,6 +136,7 @@ vrna_mfe_batch(vrna_fold_compound_t **fcs,
                size_t                 n,
                char                 **structures,
                float                 *energies);
+/* VRNA-PATCH-END(batch-backend-api) */
 
 
 /**

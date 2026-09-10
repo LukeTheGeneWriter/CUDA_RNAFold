@@ -1,3 +1,19 @@
+/* VRNA-PATCH-FILE(rnafold-driver, DRIVER) -- PORT_LOCAL_PATCHES.md
+ *
+ * THIS WHOLE FILE IS A LOCAL PATCH, declared once rather than bracketed hunk
+ * by hunk: it is +1333 lines against v2.7.2 and the changes are pervasive,
+ * not surgical. Marking each one would be noise pretending to be precision.
+ *
+ * What it adds: chunked batch folding on the GPU (gpu_path_usable(), the VRAM
+ * budget, the chunk loop, the build/fold pipeline, the CPU queue) around
+ * upstream own per-record processing. Everything that decides an ANSWER still
+ * comes from RNAlib; this file only decides which records go to the device.
+ *
+ * It is NOT part of any upstream proposal. The library-side patches -- the
+ * ones tools/list_local_patches.sh lists -- are what a pull request carries.
+ * A driver is the caller business, and upstream RNAfold has no reason to grow
+ * a CUDA chunker.
+ */
 /*
  *                Ineractive Access to folding Routines
  *
