@@ -7,10 +7,10 @@ Raw: `stress272.json`, notebook `CUDA_RNAFold_Stress272.ipynb`. Run 2026-09-09.*
 > **LATEST: read §16 first.** Five runs on, the wall at 400 × 5601 is
 > **394.8 s** (was 641.8 on 2026-09-09), int16 and the build pipeline
 > **compose**, and the top open performance item is int16's **34.8 s give-back**
-> in `hp_mb` (+27.1) and `fetch_mx` (+7.7) -- but read §17 before acting on
-> that split: `hp_mb`'s timer is charged ~6x its own GPU time, so the
-> `hp_mb` half of the give-back is very likely attribution, not a
-> regression. §1–§14 are kept in run order.
+> in `hp_mb` (+27.1) and `fetch_mx` (+7.7). **§19 SETTLES THAT SPLIT AT SCALE
+> AND IT WAS WRONG:** phase-synced, `hp_mb` is **+0.27 s**, not +27, and the
+> real cost is **`int_loop` +30.44 s**. `int_loop` is **30 % of GPU time**,
+> recorded for the life of this project as 0.8 %. §1–§14 are kept in run order.
 
 **The three questions this was posed all came back NO, and a fourth answer
 arrived unasked: `gpuinit` is 22.9 % of wall and nobody has ever looked at it.**
@@ -937,3 +937,131 @@ local box cannot test the thing the fix is for.
 What is claimed: the loop is 5.3× faster and identical. What is not claimed: that
 this is worth seconds at 400 × 5601. The projection is 15.4 → 2.9 worker-seconds;
 turning that into wall needs the T4, in the same run as §17.4.
+
+---
+
+# 19. SETTLED AT SCALE: the `hp_mb` regression was attribution, and the cost is `int_loop`
+
+*400 × 5601, commit `6517b1b6`, Tesla T4 at 645/1590 MHz. Nine async arms plus
+the **phase-synced pair** §17.4 asked for. Raw: `stress272_t4_syncpair.json`
+(async) and `stress272_t4_sync.json` (synced). This is the run that closes
+§17.3, §17.4 and §18.3.*
+
+## 19.1 The answer
+
+`RNA_PHASE_SYNC=1`, both arms, quarter budget:
+
+| phase | i32 | i16 | delta | |
+|---|---|---|---|---|
+| `int_loop` | 107.26 | 137.70 | **+30.44** | **+28.4 %** |
+| **`hp_mb`** | **14.52** | **14.79** | **+0.27** | **+1.9 %** |
+| `load_my_c` | 10.84 | 11.20 | +0.36 | +3.3 % |
+| `modular_decomp` | 216.60 | 156.49 | **−60.11** | −27.8 % |
+| `fetch_mx` | 7.92 | 10.56 | +2.63 | +33.3 % |
+
+Against the async timers on the **same binary, same input, same budget**:
+
+| phase | int16 delta, async | int16 delta, synced |
+|---|---|---|
+| `int_loop` | −0.25 | **+30.44** |
+| `hp_mb` | **+31.65** | **+0.27** |
+| `modular_decomp` | −58.49 | −60.11 |
+
+**"int16 makes `hp_mb` 23–30 s slower" — reproduced five times across three
+sessions and called the clearest open int16 question — is +0.27 s when the timer
+is honest.** It was attribution, exactly as §17.3 predicted from the source.
+
+**But the cost is real, and it is `int_loop`: +30.44 s, +28.4 %.** The local
+40 × 3000 probe put it at +3.8 % and said "may be real, but it is not 20 %".
+It is 28 %. The small box understated it by 7×, which is worth remembering
+about that box rather than about int16.
+
+## 19.2 The arithmetic closes
+
+Net GPU-phase change under int16, phase-synced: **−26.41 s**.
+Async wall change at the same budget: **−27.71 s** (535.1 → 507.4).
+
+Within 1.3 s. The synced split fully accounts for the wall difference, which is
+the strongest available check that the synced timers are measuring the real
+thing rather than an artefact of the syncing.
+
+## 19.3 The true wall decomposition, and how wrong the recorded one was
+
+i32, quarter, share of GPU-phase time:
+
+| phase | async says | **truth** |
+|---|---|---|
+| `modular_decomp` | 63.1 % | **60.6 %** |
+| **`int_loop`** | **0.8 %** | **30.0 %** |
+| **`hp_mb`** | **29.8 %** | **4.1 %** |
+| `load_my_c` | 3.9 % | 3.0 % |
+| `fetch_mx` | 2.4 % | 2.2 % |
+
+**`int_loop` is the second-largest GPU phase and has been recorded as 0.8 % of
+wall for the entire life of this project.** Anyone optimising from the async
+profile would have gone after `hp_mb` — 4 % of the work — and left the 30 %
+alone. `modular_decomp` was always honest, because it always ended in a sync.
+
+## 19.4 Phase-sync cost ~nothing, which is itself the proof
+
+§17 warned "never quote the wall of a synced run — destroying phase overlap
+costs ~9 % by construction". Measured: **i32 535.14 synced against 535.11
+async**, i.e. **zero**; i16 511.3 against 507.4, +0.8 %.
+
+That warning was right to state and wrong in magnitude, and the reason is the
+finding itself: **there was no phase overlap to destroy.** The two synchronous
+pageable H2Ds at the top of `hp_mb_3p_i()` were already serialising every row.
+Forcing a sync at each boundary costs nothing because the boundaries were
+already hard. Cheap diagnostic, and re-runnable at any scale.
+
+## 19.5 The fML decode fix: measured, and honestly not a wall win
+
+This run carries the blocked decode (`d5a03af0`); the previous one (`16d77147`)
+did not. Same arms, same size:
+
+| arm | `fetch_mx` before | after | delta | |
+|---|---|---|---|---|
+| **i16/quarter** | 16.41 | **10.33** | **−6.08** | |
+| **i16pipe/quarter** | 15.95 | **10.58** | **−5.37** | |
+| i32/quarter | 8.70 | 8.51 | −0.20 | **control** |
+| i32pipe/quarter | 8.17 | 8.16 | −0.00 | **control** |
+
+**The controls are flat and the treatment moves 6 s** — which is the A/B §18.3
+could not get locally, where the control drifted as far as the effect. The
+decode rewrite does what it was built to do: int16's `fetch_mx` penalty over
+int32 falls from +7.7 s to +1.8 s.
+
+**It is still not a wall win.** i16/quarter walls 507.1 → 507.4. Against the i32
+arm as a drift control, the attributable changes are `fetch_mx` −5.88 s but
+`hp_mb` +4.58 and `modular_decomp` +3.92 — and those two are *async* timers on a
+*different instance*, so they are the least trustworthy numbers here. The
+defensible statement is the narrow one: **the decode is ~6 s faster and the wall
+did not move.** That is what was claimed when it landed, and it stays claimed.
+
+## 19.6 Reproducibility, and one guard that was too tight
+
+`i16pipe/quarter` = **394.9 s** against 394.8 s in the previous run — **0.03 %**.
+`sha 7c0b3d633281` in all eleven arms.
+
+**Three arms did not run**: `i16pipe/half`, `i32pipe/natural`,
+`i16pipe/natural`. That is §16.4's RSS guard, which §17-era work raised from
+2.0× to **2.8×** on the strength of the quarter-budget measurement. At the
+natural budget the measured multiplier is **1.93×**, so 2.8 over-projects there
+and skipped `i32pipe/natural`, which is *known to fit* (9.40 GB measured in
+§15.1 against ~12.7 available).
+
+**The multiplier should be per-budget, not global** — it rises with chunk count
+(1.93× at 5 chunks, 2.7× at 14). Raising it to the worst case traded two real
+arms for safety at the wrong end. Cheap to fix, and it cost this run three arms.
+
+## 19.7 What this changes about what to do next
+
+1. **`int_loop` is the target, not `hp_mb`.** 30 % of GPU time, and int16 makes
+   it 28 % worse. Both facts were invisible in every profile before this run.
+2. **int16's remaining give-back is one phase, not three.** `+30.44` in
+   `int_loop` against `+0.27` / `+0.36` / `+2.63` elsewhere. Whatever int16 does
+   to the interior-loop kernel is the entire story.
+3. **Re-derive §14.2's decomposition** from a phase-synced run before using it to
+   plan anything. No wall figure changes — those came from a stopwatch on the
+   whole process — but the split for `int_loop`, `hp_mb` and `load_my_c` was
+   wrong by an order of magnitude in both directions.

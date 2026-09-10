@@ -1,0 +1,417 @@
+{
+  "commit": "6517b1b6",
+  "clocks": "Tesla T4, 645 MHz, 1590 MHz, 76, 0x0000000000000000, 15360 MiB",
+  "have_stage": true,
+  "n": 400,
+  "len": 5601,
+  "runs": {
+    "i32/quarter": {
+      "wall": 535.1094634532928,
+      "rc": 0,
+      "phases": {
+        "int_loop": 2.813,
+        "hp_mb": 106.558,
+        "load_my_c": 13.924,
+        "modular_decomp": 225.286,
+        "fetch_mx": 8.506,
+        "new_c_host": 0.003,
+        "fml_host": 0.003,
+        "fml_prev_host": 0.004
+      },
+      "stages": {
+        "build": 124.318,
+        "prepare": 0.042,
+        "prefill": 0.001,
+        "backtrack": 48.876,
+        "output": 0.036,
+        "gpuinit": 2.185,
+        "teardown": 0.214,
+        "free": 0.072
+      },
+      "gpuinit": {
+        "init_gpu": 0.021,
+        "init_gpu2": 0.019,
+        "init_gpu3": 2.146,
+        "pack": 2.032,
+        "cudaMalloc": 0.017,
+        "other": 0.136
+      },
+      "pipeline": {},
+      "chunks": 14,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": false,
+      "phase_sync": false,
+      "rss": 1.705828,
+      "accounted": 532.841,
+      "residual": 2.2684634532928385,
+      "clock_before": 0.5283018867924528,
+      "clock_after": 0.4528301886792453,
+      "sha": "7c0b3d633281"
+    },
+    "i16/quarter": {
+      "wall": 507.3990066051483,
+      "rc": 0,
+      "phases": {
+        "int_loop": 2.566,
+        "hp_mb": 138.208,
+        "load_my_c": 14.583,
+        "modular_decomp": 166.799,
+        "fetch_mx": 10.333,
+        "new_c_host": 0.002,
+        "fml_host": 0.002,
+        "fml_prev_host": 0.004
+      },
+      "stages": {
+        "build": 124.996,
+        "prepare": 0.136,
+        "prefill": 0.001,
+        "backtrack": 45.264,
+        "output": 0.028,
+        "gpuinit": 2.154,
+        "teardown": 0.24,
+        "free": 0.096
+      },
+      "gpuinit": {
+        "init_gpu": 0.024,
+        "init_gpu2": 0.018,
+        "init_gpu3": 2.112,
+        "pack": 2.0,
+        "cudaMalloc": 0.031,
+        "other": 0.123
+      },
+      "pipeline": {},
+      "chunks": 11,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": true,
+      "phase_sync": false,
+      "rss": 2.799688,
+      "accounted": 505.41200000000003,
+      "residual": 1.9870066051482809,
+      "clock_before": 0.4528301886792453,
+      "clock_after": 0.3867924528301887,
+      "sha": "7c0b3d633281"
+    },
+    "i32pipe/quarter": {
+      "wall": 428.0036313533783,
+      "rc": 0,
+      "phases": {
+        "int_loop": 2.867,
+        "hp_mb": 106.703,
+        "load_my_c": 14.884,
+        "modular_decomp": 232.174,
+        "fetch_mx": 8.164,
+        "new_c_host": 0.003,
+        "fml_host": 0.003,
+        "fml_prev_host": 0.007
+      },
+      "stages": {
+        "build": 189.915,
+        "prepare": 0.007,
+        "prefill": 0.002,
+        "backtrack": 47.057,
+        "output": 0.132,
+        "gpuinit": 2.228,
+        "teardown": 0.235,
+        "free": 0.275
+      },
+      "gpuinit": {
+        "init_gpu": 0.015,
+        "init_gpu2": 0.066,
+        "init_gpu3": 2.147,
+        "pack": 2.005,
+        "cudaMalloc": 0.055,
+        "other": 0.168
+      },
+      "pipeline": {
+        "chunks": 14,
+        "builder": 189.915,
+        "overlapped": 180.126
+      },
+      "chunks": 14,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": false,
+      "phase_sync": false,
+      "rss": 4.598104,
+      "accounted": 604.656,
+      "residual": -176.65236864662165,
+      "clock_before": 0.3867924528301887,
+      "clock_after": 0.5943396226415094,
+      "sha": "7c0b3d633281"
+    },
+    "i16pipe/quarter": {
+      "wall": 394.9412350654602,
+      "rc": 0,
+      "phases": {
+        "int_loop": 2.687,
+        "hp_mb": 134.47,
+        "load_my_c": 15.322,
+        "modular_decomp": 167.072,
+        "fetch_mx": 10.579,
+        "new_c_host": 0.003,
+        "fml_host": 0.003,
+        "fml_prev_host": 0.006
+      },
+      "stages": {
+        "build": 186.521,
+        "prepare": 0.01,
+        "prefill": 0.002,
+        "backtrack": 46.793,
+        "output": 0.388,
+        "gpuinit": 1.894,
+        "teardown": 0.246,
+        "free": 0.275
+      },
+      "gpuinit": {
+        "init_gpu": 0.037,
+        "init_gpu2": 0.048,
+        "init_gpu3": 1.809,
+        "pack": 1.681,
+        "cudaMalloc": 0.055,
+        "other": 0.158
+      },
+      "pipeline": {
+        "chunks": 11,
+        "builder": 186.521,
+        "overlapped": 174.454
+      },
+      "chunks": 11,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": true,
+      "phase_sync": false,
+      "rss": 5.989132,
+      "accounted": 566.271,
+      "residual": -171.32976493453975,
+      "clock_before": 0.5943396226415094,
+      "clock_after": 0.4056603773584906,
+      "sha": "7c0b3d633281"
+    },
+    "i32/half": {
+      "wall": 528.5276260375977,
+      "rc": 0,
+      "phases": {
+        "int_loop": 1.716,
+        "hp_mb": 111.181,
+        "load_my_c": 12.249,
+        "modular_decomp": 222.942,
+        "fetch_mx": 7.214,
+        "new_c_host": 0.001,
+        "fml_host": 0.001,
+        "fml_prev_host": 0.002
+      },
+      "stages": {
+        "build": 125.808,
+        "prepare": 0.089,
+        "prefill": 0.001,
+        "backtrack": 43.452,
+        "output": 0.028,
+        "gpuinit": 1.876,
+        "teardown": 0.184,
+        "free": 0.143
+      },
+      "gpuinit": {
+        "init_gpu": 0.021,
+        "init_gpu2": 0.017,
+        "init_gpu3": 1.839,
+        "pack": 1.73,
+        "cudaMalloc": 0.012,
+        "other": 0.135
+      },
+      "pipeline": {},
+      "chunks": 7,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": false,
+      "phase_sync": false,
+      "rss": 3.099212,
+      "accounted": 526.887,
+      "residual": 1.6406260375977126,
+      "clock_before": 0.4056603773584906,
+      "clock_after": 0.8113207547169812,
+      "sha": "7c0b3d633281"
+    },
+    "i16/half": {
+      "wall": 505.5474112033844,
+      "rc": 0,
+      "phases": {
+        "int_loop": 1.747,
+        "hp_mb": 141.344,
+        "load_my_c": 13.091,
+        "modular_decomp": 164.411,
+        "fetch_mx": 9.412,
+        "new_c_host": 0.001,
+        "fml_host": 0.001,
+        "fml_prev_host": 0.002
+      },
+      "stages": {
+        "build": 125.145,
+        "prepare": 0.408,
+        "prefill": 0.001,
+        "backtrack": 46.29,
+        "output": 0.028,
+        "gpuinit": 1.777,
+        "teardown": 0.173,
+        "free": 0.182
+      },
+      "gpuinit": {
+        "init_gpu": 0.022,
+        "init_gpu2": 0.015,
+        "init_gpu3": 1.74,
+        "pack": 1.631,
+        "cudaMalloc": 0.016,
+        "other": 0.13
+      },
+      "pipeline": {},
+      "chunks": 6,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": true,
+      "phase_sync": false,
+      "rss": 4.257848,
+      "accounted": 504.01300000000003,
+      "residual": 1.5344112033843658,
+      "clock_before": 0.8113207547169812,
+      "clock_after": 0.36792452830188677,
+      "sha": "7c0b3d633281"
+    },
+    "i32pipe/half": {
+      "wall": 428.4540431499481,
+      "rc": 0,
+      "phases": {
+        "int_loop": 1.744,
+        "hp_mb": 109.837,
+        "load_my_c": 12.935,
+        "modular_decomp": 226.409,
+        "fetch_mx": 7.386,
+        "new_c_host": 0.002,
+        "fml_host": 0.002,
+        "fml_prev_host": 0.005
+      },
+      "stages": {
+        "build": 179.297,
+        "prepare": 1.687,
+        "prefill": 0.002,
+        "backtrack": 44.201,
+        "output": 0.165,
+        "gpuinit": 2.035,
+        "teardown": 0.186,
+        "free": 0.376
+      },
+      "gpuinit": {
+        "init_gpu": 0.014,
+        "init_gpu2": 0.644,
+        "init_gpu3": 1.377,
+        "pack": 1.256,
+        "cudaMalloc": 0.632,
+        "other": 0.147
+      },
+      "pipeline": {
+        "chunks": 7,
+        "builder": 179.297,
+        "overlapped": 160.06
+      },
+      "chunks": 7,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": false,
+      "phase_sync": false,
+      "rss": 8.605088,
+      "accounted": 586.269,
+      "residual": -157.81495685005189,
+      "clock_before": 0.36792452830188677,
+      "clock_after": 0.8962264150943396,
+      "sha": "7c0b3d633281"
+    },
+    "i32/natural": {
+      "wall": 529.3205082416534,
+      "rc": 0,
+      "phases": {
+        "int_loop": 1.585,
+        "hp_mb": 112.028,
+        "load_my_c": 11.802,
+        "modular_decomp": 221.998,
+        "fetch_mx": 7.072,
+        "new_c_host": 0.001,
+        "fml_host": 0.001,
+        "fml_prev_host": 0.002
+      },
+      "stages": {
+        "build": 127.431,
+        "prepare": 0.229,
+        "prefill": 0.001,
+        "backtrack": 43.916,
+        "output": 0.025,
+        "gpuinit": 1.535,
+        "teardown": 0.13,
+        "free": 0.228
+      },
+      "gpuinit": {
+        "init_gpu": 0.019,
+        "init_gpu2": 0.015,
+        "init_gpu3": 1.501,
+        "pack": 1.394,
+        "cudaMalloc": 0.009,
+        "other": 0.133
+      },
+      "pipeline": {},
+      "chunks": 5,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": false,
+      "phase_sync": false,
+      "rss": 4.863664,
+      "accounted": 527.9839999999999,
+      "residual": 1.3365082416535188,
+      "clock_before": 0.8962264150943396,
+      "clock_after": 0.5283018867924528,
+      "sha": "7c0b3d633281"
+    },
+    "i16/natural": {
+      "wall": 508.839079618454,
+      "rc": 0,
+      "phases": {
+        "int_loop": 1.608,
+        "hp_mb": 148.089,
+        "load_my_c": 12.614,
+        "modular_decomp": 163.42,
+        "fetch_mx": 8.682,
+        "new_c_host": 0.001,
+        "fml_host": 0.001,
+        "fml_prev_host": 0.001
+      },
+      "stages": {
+        "build": 126.65,
+        "prepare": 0.479,
+        "prefill": 0.001,
+        "backtrack": 44.023,
+        "output": 0.025,
+        "gpuinit": 1.451,
+        "teardown": 0.116,
+        "free": 0.29
+      },
+      "gpuinit": {
+        "init_gpu": 0.021,
+        "init_gpu2": 0.016,
+        "init_gpu3": 1.414,
+        "pack": 1.308,
+        "cudaMalloc": 0.012,
+        "other": 0.13
+      },
+      "pipeline": {},
+      "chunks": 4,
+      "cells": 6266401200,
+      "gpu_records": 400,
+      "int16_active": true,
+      "phase_sync": false,
+      "rss": 6.410244,
+      "accounted": 507.451,
+      "residual": 1.3880796184539577,
+      "clock_before": 0.5283018867924528,
+      "clock_after": 0.5094339622641509,
+      "sha": "7c0b3d633281"
+    }
+  }
+}
