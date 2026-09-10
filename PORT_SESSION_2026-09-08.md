@@ -3,6 +3,13 @@
 *16 commits, `9d3f63cc` → `486d277a`, all pushed to `origin/port27`.
 Previous handoffs: `PORT_SESSION_2026-09-06.md`, `PORT_SESSION_2026-09-05.md`.*
 
+**SUPERSEDED by `PORT_SESSION_2026-09-09.md` — `--nsp` and `MAX_NINIO` are both fixed, and the wall is now 424.5 s. Kept for the audit and the five instruments that lied.**
+
+> **SUPERSEDED 2026-09-09 by `PORT_SESSION_2026-09-09.md`.** The live defect
+> below (`--nsp`) is guarded, `MAX_NINIO` is fixed, and the wall has gone
+> 641.8 → 424.5 s at 400 × 5601. Kept for the pairwise audit, the noLP/slot-flow
+> diagnosis, and the five instruments that lied — all still current.
+
 **Read this first, then `PORT_OPTION_STATUS.md` (one live defect is open),
 then `PROFILE272_DEEP_RESULTS.md` (the performance picture changed).**
 
