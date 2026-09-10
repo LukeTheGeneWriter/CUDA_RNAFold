@@ -4,6 +4,11 @@
 commit `82fdbb07`. Six arms: {int32, int16} × {natural, half, quarter} VRAM budget.
 Raw: `stress272.json`, notebook `CUDA_RNAFold_Stress272.ipynb`. Run 2026-09-09.*
 
+> **LATEST: read §16 first.** Five runs on, the wall at 400 × 5601 is
+> **394.8 s** (was 641.8 on 2026-09-09), int16 and the build pipeline
+> **compose**, and the top open performance item is int16's **34.8 s give-back**
+> in `hp_mb` (+27.1) and `fetch_mx` (+7.7). §1–§14 are kept in run order.
+
 **The three questions this was posed all came back NO, and a fourth answer
 arrived unasked: `gpuinit` is 22.9 % of wall and nobody has ever looked at it.**
 
@@ -538,3 +543,179 @@ question about int16.
 a **core-starved host**, which is direct evidence for the core-count argument in
 `PORT_HETEROGENEOUS_SCOPE.md` §C: Colab's T4 instances are the worst case for any
 CPU-side scheme, and the machines this tool would be deployed on are not.
+
+---
+
+# 15. Fourth run: the pipeline at every budget, and int16 at every budget
+
+*400 × 5601, commit `837cc6db`, **Tesla T4 at 945/1590 MHz**. Nine arms:
+{i32, i16, i32pipe} × {natural, half, quarter}. Raw: `stress272_t4_pipeline.json`,
+committed 2026-09-10 — the numbers below were quoted in `PORT_SESSION_2026-09-09.md`
+§2 from the notebook output, but the raw file was never checked in until now.*
+
+## 15.1 The pipeline result
+
+| budget | chunks | i32 | i32pipe | delta | overlap | `(k−1)/k` |
+|---|---|---|---|---|---|---|
+| natural | 5 | 527.5 | 438.7 | **−16.8 %** | 82.2 % | 80.0 % |
+| half | 7 | 530.4 | 428.5 | **−19.2 %** | 89.0 % | 85.7 % |
+| quarter | 14 | 539.8 | **424.5** | **−21.4 %** | 94.8 % | 92.9 % |
+
+Overlap tracks `(chunks−1)/chunks` and sits slightly *ahead* of it at all three
+budgets. `sha` = `7c0b3d633281` in all nine arms.
+
+**Read the pipelined `build` timer with care.** It goes 125.2 → 177.9, 128.6 →
+182.9, 128.2 → 191.6 — up 42–49 %. That is the builder thread's wall including
+contention and back-pressure, not the cost of building. The non-pipelined
+`build` is the honest figure, and it is what §16.3's model uses.
+
+## 15.2 int16 at all three budgets — and it is budget-insensitive
+
+§14.4 had int16 only at the natural budget. With all three:
+
+| budget | i32 | i16 | delta | i32 chunks | i16 chunks |
+|---|---|---|---|---|---|
+| natural | 527.5 | 508.3 | −3.6 % | 5 | 4 |
+| half | 530.4 | 511.3 | −3.6 % | 7 | 6 |
+| quarter | 539.8 | 507.7 | −5.9 % | 14 | 11 |
+
+**int16 lands within 0.7 % of itself across a 2.75× chunk range** (507.7–511.3)
+while int32 spreads 2.3 % (527.5–539.8). Note also that int16 gets **fewer chunks
+at the same budget** — smaller matrices fit more records — so an int16 arm is
+never chunk-matched to its int32 counterpart.
+
+## 15.3 The give-back: `hp_mb` has a companion, and it is `fetch_mx`
+
+i32 → i16, per budget:
+
+| stage | natural | half | quarter |
+|---|---|---|---|
+| `modular_decomp` | −63.5 | −62.5 | −66.6 |
+| `hp_mb` | **+29.3** | **+26.8** | **+23.2** |
+| `fetch_mx` | **+12.0** | **+12.5** | **+11.8** |
+| net wall | −19.2 | −19.1 | −32.1 |
+
+`hp_mb` is the regression §4, §13.6 and §14.4 already track. **`fetch_mx` is the
+one nobody has chased**: it is 2.2–2.6× slower under int16, at every budget, and
+§13.6 recorded it as "another 6.9" without comment.
+
+That shape is worth stating plainly, because it rules out the obvious
+explanation. **int16 halves the bytes `fetch_mx` reads back.** A readback that
+moves half the data in 2.5× the time is not a bandwidth story at all — it is the
+signature of a per-element widening conversion on the host where the int32 path
+is a straight `memcpy`.
+
+## 15.4 Clock caveat: this run is not internally comparable
+
+`clock_before`/`clock_after` swing **0.368 → 0.925** of maximum across the nine
+arms. The walls are stable enough that it evidently averages out, but it is why
+this run puts chunking at 2.3 % (527.5 → 539.8 over 5 → 14 chunks) where §14.3
+put it at 0.6 %. **The between-run spread is the noise floor**, and neither
+figure should be quoted as though it were the other.
+
+---
+
+# 16. Fifth run: int16 and the pipeline compose — 394.8 s
+
+*400 × 5601, commit `16d77147`, **Tesla T4 at 675/1590 MHz**, `clock_before`/
+`clock_after` inside a 0.368–0.500 band across all four arms — a much tighter
+spread than §15, so this run IS internally comparable. Four arms at the quarter
+budget only: `BUDGETS` was deliberately narrowed in the executed notebook, so
+half and natural were **scoped out, not lost**. Raw:
+`stress272_t4_i16pipe.json`.*
+
+## 16.1 The result
+
+| arm | wall | vs i32 | chunks | RSS (GB) |
+|---|---|---|---|---|
+| i32/quarter | 535.9 | — | 14 | 1.71 |
+| i16/quarter | 507.1 | −5.4 % | 11 | 2.80 |
+| i32pipe/quarter | 423.8 | −20.9 % | 14 | 4.64 |
+| **i16pipe/quarter** | **394.8** | **−26.3 %** | 11 | 6.20 |
+
+`sha` = `7c0b3d633281` in all four arms. **Twenty-two arms across five runs on
+one hash**, now including the most aggressive combination in the tree.
+
+**They compose, slightly better than multiplicatively.** Naive composition
+(0.946 × 0.791) predicts 401.0 s; the arm came in at 394.8, **6.1 s / 1.5 %
+ahead**. And int16 is worth *more* with the pipeline on — **−6.8 % against
+i32pipe, against −5.4 % against i32** — by exactly the mechanism §14.4 described
+for `output`: hiding host `build` raises the GPU's share of the wall, so int16's
+kernel win is diluted less.
+
+This closes the branch `PORT_SESSION_2026-09-09.md` §7 opened. It did **not**
+come in flat, so "the `hp_mb` regression eats the gain once build is hidden" is
+answered NO.
+
+## 16.2 The gap to 360 s is exactly the two regressions
+
+The §7 prediction was 360–370 s. It is worth being precise about why 394.8 is
+not a miss. i32 → i16 at the quarter budget:
+
+| stage | i32 | i16 | Δ |
+|---|---|---|---|
+| `modular_decomp` | 225.0 | 162.6 | **−62.4** |
+| `hp_mb` | 105.5 | 132.6 | **+27.1** |
+| `fetch_mx` | 8.70 | 16.41 | **+7.7** |
+| everything else | | | ±2 |
+| **wall** | 535.9 | 507.1 | **−28.8** |
+
+The stages account for the wall exactly (−28.8 against −28.8). **int16 wins
+62.4 s and hands back 34.8 s of it — it is delivering 44 % of its own kernel
+gain.** In the pipelined pair the same shape holds: −66.7 won, +31.4 handed back,
+47 % delivered.
+
+**394.8 − 34.8 = 360.0 s.** The §7 prediction was a correct statement about what
+int16 *should* deliver; the arm we measured is that figure plus the two
+regressions, itemised. Closing them is worth more than anything else currently
+on the list.
+
+Note `fetch_mx` is +7.7 here against +12.0 in §15.3 — the **magnitude is
+instance-dependent**. What is solid is the direction: **7 of 7 measurements
+positive**, ratio 1.9–2.6×.
+
+## 16.3 A validated model for what the pipeline will buy
+
+    wall_pipe  ~=  wall_nonpipe  -  build_nonpipe * (chunks-1)/chunks
+
+| arm | predicted | actual | error |
+|---|---|---|---|
+| §15 i32pipe/natural (5) | 427.3 | 438.7 | +2.6 % |
+| §15 i32pipe/half (7) | 420.2 | 428.5 | +2.0 % |
+| §15 i32pipe/quarter (14) | 420.7 | 424.5 | +0.9 % |
+| §16 i32pipe/quarter (14) | 420.3 | 423.8 | +0.8 % |
+| §16 i16pipe/quarter (11) | 392.8 | 394.8 | +0.5 % |
+
+Five arms, two runs, two datatypes. It always over-predicts the win slightly,
+**and the error shrinks as chunk count rises** (2.6 % at 5 chunks, 0.5 % at 11) —
+consistent with the unhidden first chunk being a smaller fraction of the wall.
+Good enough to plan with; do not quote it below ~1 %.
+
+## 16.4 Host RAM
+
+The pipeline costs ×2.2–2.7 RSS at this budget (1.71 → 4.64 for int32, 2.80 →
+6.20 for int16), and int16 costs ×1.6 on top of int32 before pipelining. **The
+guard's skip projection is optimistic**: extrapolating §15's natural-budget
+pipeline multiplier (×1.93) onto i16/quarter predicted 5.4 GB against an actual
+6.20 — **15 % low**. `i16pipe/natural` still projects past a T4 instance's
+~12.7 GB and would still be skipped, but the multiplier should be re-fitted
+per-budget rather than carried over from `natural`.
+
+## 16.5 Where this leaves the queue
+
+Wall at 400 × 5601 is **394.8 s**, from **641.8 s** at the start of 2026-09-09 —
+**1.63×**, every arm byte-identical.
+
+**The int16 give-back has overtaken `backtrack` as the top performance item.**
+`backtrack` is ~47 s and is a core-starvation question that a Colab T4 instance
+is the worst available host for answering. The int16 give-back is **34.8 s on the
+same workload, on hardware we have, with the decomposition already in hand**, and
+it is a GPU-side question, so NCU can reach it. `hp_mb` is 78 % of it.
+
+The probe: **NCU on `hp_mb` alone, i32 vs i16, same launch.** The existing NCU
+work settled the *aggregate* int16 kernel story (1.46–1.61×, never leaving the
+DRAM roof); `hp_mb` is the kernel moving the *wrong* way, so it cannot be the one
+that aggregate described. A kernel that slows 27 % when its operands halve in
+width is losing vectorised or aligned access, gaining a conversion in the inner
+loop, or hitting bank conflicts on a narrower type — all three of which NCU names
+directly.
