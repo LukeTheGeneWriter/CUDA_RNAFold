@@ -19,6 +19,13 @@ with `tests/upstream/run_probes.sh`.*
 > workload. Section 3.3 is new, and is the one thing we have found that the seam
 > does not by itself make possible.
 
+> **THE PATCH SET IS NOW MARKED IN-SOURCE.** Run
+> `tools/list_local_patches.sh` for the live inventory of every change this
+> project makes to a file upstream owns -- 10 regions in 8 files, classified
+> DEFECT / SEAM / REACH -- and see `PORT_LOCAL_PATCHES.md` for what the classes
+> mean. Two REACH patches were added on 2026-09-10 that this document predates:
+> `bps-backtrack` and `circular-postprocess`.
+
 This is the phase that decides whether the CUDA path is upstreamable. It is a
 conversation with Lorenz, Stadler and Langdon — the defects in Part 1 are
 submittable today, and Part 3 is now a description of working code rather than
@@ -89,6 +96,14 @@ any rule whose contribution does not depend on `i` still gives the right answer.
 typed registrations (`_f`, `_c`, `_m`, `_m1`, `_m2`) are unaffected — they are
 called from the loop-energy functions with the real indices; only the generic
 `aux` bucket is wrong.
+
+> **STATUS 2026-09-10 — B IS NO LONGER A REPORT, IT IS A PATCH.** The fix is in
+> the tree as `VRNA-PATCH(params-cache-race, DEFECT)`
+> (`src/ViennaRNA/params/params.c`), with `tools/params_race.c` as the failing
+> test: **11 999 of 16 000 parameter tables wrong without the lock, 0 of 16 000
+> with it.** Send the diff and the reproducer, not the description. It carries a
+> measured performance consequence too -- it was what blocked threading 24.5 % of
+> our wall.
 
 ## Defect B — the `SPEEDUP_PARAMS` cache is an unsynchronised data race
 

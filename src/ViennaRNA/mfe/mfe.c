@@ -266,6 +266,42 @@ vrna_mfe_batch(vrna_fold_compound_t **fcs,
 }
 
 
+
+/* VRNA-PATCH-BEGIN(circular-postprocess, REACH) -- PORT_LOCAL_PATCHES.md
+ *
+ * postprocess_circular() is PRIVATE, and vrna_mfe() calls it unconditionally on
+ * md.circ AFTER the inside-engine branch -- so a fold compound folded through
+ * vrna_mfe() gets circular post-processing for free even with an alternative
+ * engine attached. What cannot reach it is vrna_mfe_batch(), which hands the
+ * whole batch to a backend and never returns through mfe.c's per-fold path.
+ *
+ * This exposes it. It is a thin wrapper rather than a linkage change so the
+ * internal call site, its signature and its static-ness are all untouched.
+ *
+ * NOT YET CALLED BY THIS PROJECT, AND THE REASON MATTERS: exposing it is
+ * NECESSARY BUT NOT SUFFICIENT. postprocess_circular() reads fM2 in 14 places
+ * and the CUDA sweep does not fill fM2 at all. PORT_CIRC_SPEC.md proves by
+ * measurement that fM2_real[i,j] == min_k(fML[i,k]+fML[k+1,j]), which is
+ * exactly what DMLi already holds -- the device computes it per row as d_dml
+ * and DISCARDS it after new_c_kernel consumes it. So the remaining work is
+ * OURS (keep DMLi into a triangular fM2, download it), not upstream's, and it
+ * costs one chunk width of VRAM.
+ *
+ * It is added now because it completes the upstream patch set: the ask is
+ * "make this reachable", and it is the same shape as bps-backtrack.
+ */
+PUBLIC int
+vrna_mfe_postprocess_circular(vrna_fold_compound_t  *fc,
+                              vrna_bts_t            bt_stack)
+{
+  if (fc == NULL)
+    return INF;
+
+  return postprocess_circular(fc, bt_stack);
+}
+/* VRNA-PATCH-END(circular-postprocess) */
+
+
 PUBLIC float
 vrna_mfe(vrna_fold_compound_t *fc,
          char                 *structure)

@@ -70,6 +70,22 @@ vrna_mfe(vrna_fold_compound_t *fc,
          char                 *structure);
 
 
+/* VRNA-PATCH-BEGIN(circular-postprocess, REACH) -- PORT_LOCAL_PATCHES.md
+ *
+ * Circular post-processing for a fold compound whose matrices were filled by
+ * something other than vrna_mfe() -- e.g. a vrna_mfe_batch() backend, which
+ * never returns through mfe.c's per-fold path and so cannot reach the private
+ * postprocess_circular().
+ *
+ * Requires fM2 to be filled, which is why this project does not call it yet;
+ * see the definition in mfe.c.
+ */
+int
+vrna_mfe_postprocess_circular(vrna_fold_compound_t  *fc,
+                              vrna_bts_t            bt_stack);
+/* VRNA-PATCH-END(circular-postprocess) */
+
+
 /* VRNA-PATCH-BEGIN(batch-backend-api, SEAM) -- PORT_LOCAL_PATCHES.md
  * vrna_mfe_batch() and its backend registration. Useful to upstream on
  * CPU on its own: it is a place to put ANY many-at-once folder.
