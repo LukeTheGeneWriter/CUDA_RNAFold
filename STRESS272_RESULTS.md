@@ -7,7 +7,10 @@ Raw: `stress272.json`, notebook `CUDA_RNAFold_Stress272.ipynb`. Run 2026-09-09.*
 > **LATEST: read §16 first.** Five runs on, the wall at 400 × 5601 is
 > **394.8 s** (was 641.8 on 2026-09-09), int16 and the build pipeline
 > **compose**, and the top open performance item is int16's **34.8 s give-back**
-> in `hp_mb` (+27.1) and `fetch_mx` (+7.7). §1–§14 are kept in run order.
+> in `hp_mb` (+27.1) and `fetch_mx` (+7.7) -- but read §17 before acting on
+> that split: `hp_mb`'s timer is charged ~6x its own GPU time, so the
+> `hp_mb` half of the give-back is very likely attribution, not a
+> regression. §1–§14 are kept in run order.
 
 **The three questions this was posed all came back NO, and a fourth answer
 arrived unasked: `gpuinit` is 22.9 % of wall and nobody has ever looked at it.**
@@ -719,3 +722,165 @@ that aggregate described. A kernel that slows 27 % when its operands halve in
 width is losing vectorised or aligned access, gaining a conversion in the inner
 loop, or hitting bank conflicts on a narrower type — all three of which NCU names
 directly.
+
+---
+
+# 17. The `hp_mb` int16 regression is measured on a timer that is mostly not `hp_mb`
+
+*Local, RTX 3050 laptop, 2026-09-10. 40 × 3000 and 20 × 1200. This section does
+NOT re-measure 400 × 5601 — it shows that the instrument used to measure it
+reports something other than what its name says, and it introduces the knob that
+fixes that. The T4 re-measurement is the follow-up, not this.*
+
+## 17.1 What the phase timers actually time
+
+`fill_arrays_loop.c` wraps four GPU phases in host wall-clock timers. Three of
+those phases only *launch* kernels and return; the work lands later, and the
+host stops at whichever call next touches the device synchronously.
+
+In the GPU-resident sweep that call is at the **start of `hp_mb`**:
+
+```c
+  upload_size_off_H(nfiles, size_off_H);   /* synchronous pageable H2D */
+  upload_i_H(nfiles, i_H);                 /* synchronous pageable H2D */
+  hp_mb_3p_kernel<<<...>>>(...);           /* only now the launch */
+```
+
+Both uploads change every row, so neither hits its `memcmp` shortcut, and a
+pageable H2D stream-syncs before it copies. **So `hp_mb`'s timer opens by
+draining everything the previous phase queued.** `modular_decomposition.cu:1853`
+already says this in as many words — it just had not been connected to the phase
+numbers.
+
+`modular_decomp` is the exception: it ends with `cudaStreamSynchronize`
+(`:1792`, `:1859`), so **its timer is truthful**. `int_loop`'s is not.
+
+## 17.2 Measured: `hp_mb` is overstated ~6×
+
+`RNA_PHASE_SYNC=1` (new, default off, `device.cu`) syncs at every phase
+boundary, so each timer holds its own GPU time. Same binary, same input:
+
+| phase | async | RNA_PHASE_SYNC=1 |
+|---|---|---|
+| `int_loop` | 0.469 | **6.879** |
+| `hp_mb` | **5.595** | **0.907** |
+| `load_my_c` | 0.468 | 0.483 |
+| `modular_decomp` | 5.379 | 5.318 |
+
+40 × 3000, int32. `hp_mb` is **6.2× smaller** once it is charged only its own
+work, `int_loop` **14.7× larger**, and `modular_decomp` — the one that already
+synced — **does not move** (5.379 → 5.318, 1.1 %). That last row is the control:
+the only phase whose timer was already honest is the only one that stays put.
+
+Reproduced at 20 × 1200: `hp_mb` 0.597 → 0.227, `int_loop` 0.154 → 0.619.
+
+## 17.3 What this does to the int16 finding
+
+"int16 makes `hp_mb` 23–30 s slower", reproduced in §4, §13.6, §14.4, §15.3 and
+§16.2, is measured on a timer that mostly holds **`int_loop`'s** GPU time.
+
+**And `hp_mb_loop.cu` contains no int16 code at all.** `fml_decode()` is called
+from exactly one site, `modular_decomposition.cu:1299`; `hp_mb_3p_kernel` never
+reads the int16 stream, and its launch shape and block size do not depend on the
+gate. There is no mechanism by which its kernel could slow by 27 %.
+
+The shape fits attribution exactly: int16 speeds up `modular_decomp`'s kernels,
+so the host reaches `hp_mb`'s upload sooner and waits there instead. The
+regression has reproduced five times **because a systematic attribution artifact
+reproduces perfectly** — which is precisely why five reproductions did not make
+it true.
+
+**This does not prove int16 costs nothing.** It proves the 62.4/−27.1 split is
+not evidence of where. The quantity that survives is the sum,
+`modular_decomp + hp_mb`, which is invariant to where the drain lands: **−35.3 s
+at 400 × 5601 quarter (330.5 → 295.1)**, an improvement with no regression in
+it.
+
+## 17.4 What is NOT settled, and why this box cannot settle it
+
+Under `RNA_PHASE_SYNC` locally, `int_loop` reads +1.358 s (+20 %) under int16.
+**That is not a result.** The four sync arms walled 16.46 / 17.22 / 18.59 /
+21.21 s in run order — a monotonic climb of ~1.6 s per position as the laptop
+GPU throttled, which is larger than the effect and runs the same direction. ABBA
+plus min-of-pair does not rescue a drift that big. All it says is that the
+question is open and belongs on a card that holds its clock.
+
+**The single follow-up that settles it: one pair of arms at 400 × 5601 on a T4
+with `RNA_PHASE_SYNC=1`, int32 and int16.** Compare splits between two arms both
+run with it — never a split from a sync run against one without, and never the
+wall of a sync run against anything, because destroying the phase overlap costs
+~9 % of wall by construction.
+
+**Do not optimise `hp_mb` until that run exists.** On the numbers here it is
+~6 % of GPU time, not the 20–25 % of wall the async profile shows, and the work
+would land on the wrong kernel.
+
+## 17.5 Consequence beyond int16
+
+If `hp_mb`'s 105.5 s at 400 × 5601 is mostly `int_loop`'s, then `int_loop` is
+not the 0.5 % of wall the profile has recorded all along, and the wall
+decomposition in §14.2 and §16 needs re-deriving from a phase-synced run. That
+does not change any wall figure — every wall in this file was measured with a
+stopwatch on the whole process — only the **split**, and only for the three
+phases that never synced. `modular_decomp`, `build`, `backtrack`, `output` and
+`gpuinit` are unaffected.
+
+---
+
+# 18. `fetch_fML_one_H`'s decode: 5.3× in isolation, unproven end-to-end
+
+## 18.1 The loop
+
+The int16 fML stream stores each cell as a short offset from a baseline shared by
+`FML_BLK` (64) consecutive entries in a column. The host decode did one
+**dependent** baseline load per cell:
+
+```c
+  dst[t] = (o == FML_INF16) ? INF
+         : hb[colb[j] + (size_t)((i-1)/FML_BLK)] + (int)o;   /* per cell */
+```
+
+The baseline is constant across each block, so it can be loaded once per 64
+cells. `tools/fml_decode_equiv.c` holds the old loop verbatim as the reference,
+proves the rewrite identical over **1500 shapes** — including the ragged ones
+where `cells` cuts the final row, which is the only reason the old loop needed a
+per-cell bound test — and times both:
+
+| | ns/cell | worker-s over 400 × 5601 |
+|---|---|---|
+| reference | 2.46 | 15.4 |
+| blocked | **0.46** | **2.9** |
+
+**5.3×.** The bar goes RED on a one-off block boundary: 1151 mismatches of 1500.
+
+A red-team mutation that shifted the block index by 7 instead of 6 made the loop
+**spin rather than answer wrongly** — the rewrite terminates only while
+`end >= i`. That is now a comment on the function and on the bar.
+
+## 18.2 Correctness end-to-end
+
+int16 and int32 output `sha b47ca67676f6` across all 8 arms of §17's runs with
+the new decode, and the same hash with the old one. int16 is exact on this
+workload, and the rewrite does not change that.
+
+## 18.3 What is NOT shown
+
+**No end-to-end win has been measured.** At 40 × 3000 the decode is ~0.44 worker-s
+total, which over ~12 backtrack workers is ~0.04 s of wall — and the int32
+control, which neither build touches, moved 0.038 s between the two builds. The
+effect is at the noise floor, so the A/B is honestly a null:
+
+| build | i32 `fetch_mx` (control) | i16 `fetch_mx` |
+|---|---|---|
+| old decode | 0.438 | 0.269 |
+| new decode | 0.476 | 0.275 |
+
+**The control moving as much as the treatment is the reason this cannot be
+called a win.** It is also worth recording that on this box i16's `fetch_mx` was
+*already* faster than i32's before the fix (0.269 vs 0.438) — the T4's 1.9–2.6×
+regression does not reproduce at 1/35th the cells on a 12-core host, so the
+local box cannot test the thing the fix is for.
+
+What is claimed: the loop is 5.3× faster and identical. What is not claimed: that
+this is worth seconds at 400 × 5601. The projection is 15.4 → 2.9 worker-seconds;
+turning that into wall needs the T4, in the same run as §17.4.

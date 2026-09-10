@@ -115,3 +115,65 @@ vrna_cuda_device_count(void)
 
   return (n > 0) ? (unsigned int)n : 0u;
 }
+
+
+/*
+ * RNA_PHASE_SYNC -- turn the per-phase timers from an ATTRIBUTION into a
+ * MEASUREMENT.
+ *
+ * The sweep launches its kernels asynchronously and then blocks, not at a
+ * sync, but at whichever call next touches the device synchronously. In the
+ * GPU-resident sweep that is hp_mb_3p_i()'s two H2D uploads of size_off_H and
+ * i_H, which run BEFORE its kernel -- so the queue drains inside the `hp_mb`
+ * timer, and `hp_mb` is charged for work the modular decomposition queued.
+ *
+ * That makes the phase split move when kernel speeds change even if no phase
+ * got slower. It is the leading explanation for the long-standing "int16 makes
+ * hp_mb 23-30 s slower" result (STRESS272_RESULTS.md 4, 13.6, 14.4, 15.3):
+ * int16 speeds up modular_decomp's kernels, the host arrives at hp_mb's upload
+ * sooner, and waits there instead. hp_mb_loop.cu contains no int16 code at all
+ * -- fml_decode() is called from modular_decomposition.cu and nowhere else --
+ * so there is no mechanism by which its kernel could slow down.
+ *
+ * With this set, every timed phase ends with a device sync, so each timer
+ * holds that phase's own GPU time. WALL GOES UP: the overlap between phases is
+ * destroyed, so this is a diagnostic, never a run mode. Compare SPLITS between
+ * two arms both run with it, never a split from here against one without.
+ *
+ *   RNA_PHASE_SYNC=1   sync at every phase boundary; timers become truthful
+ *   unset              normal asynchronous operation (default)
+ */
+extern "C" int
+rnafold_phase_sync_enabled(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_PHASE_SYNC");
+
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+
+    if (v)
+      fprintf(stderr,
+              "device.cu                RNA_PHASE_SYNC=1: syncing at every "
+              "phase boundary. Phase timers are now true GPU times and the "
+              "WALL IS NOT COMPARABLE to a normal run.\n");
+  }
+
+  return v;
+}
+
+
+extern "C" void
+rnafold_phase_sync(void)
+{
+  if (rnafold_phase_sync_enabled()) {
+    const cudaError_t rc = cudaDeviceSynchronize();
+
+    if (rc != cudaSuccess) {
+      fprintf(stderr, "device.cu                RNA_PHASE_SYNC sync failed: %s\n",
+              cudaGetErrorString(rc));
+      cudaGetLastError();
+    }
+  }
+}

@@ -1682,14 +1682,42 @@ fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H) 
   colb[0] = colb[1] = 0;
   for(int j=1;j<=n;j++) colb[j+1] = colb[j] + (size_t)((j + FML_BLK - 1)/FML_BLK);
 
-  for(int j=1;j<=n;j++)
-    for(int i=1;i<=j;i++) {
-      const size_t t = (size_t)j*(j-1)/2 + i;
-      if(t >= cells) continue;
-      const short o = h16[t];
-      dst[t] = (o == FML_INF16) ? INF
-             : hb[colb[j] + (size_t)((i-1)/FML_BLK)] + (int)o;
+  // The baseline is constant across FML_BLK consecutive i, so load it once per
+  // block rather than once per cell. That one dependent load per cell WAS the
+  // cost of this function: 2.46 -> 0.46 ns/cell, 5.3x, which over 400 x 5601 is
+  // 15.4 -> 2.9 worker-seconds. int16 already saves ~2.1 s of PCIe by moving
+  // half the bytes, so this is what turns the int16 fML fetch from more
+  // expensive than the int32 one into less. See STRESS272_RESULTS.md 15.3.
+  //
+  // tools/fml_decode_equiv.c holds the old loop verbatim as the reference and
+  // compares the two over 1500 shapes -- including the ragged ones where
+  // `cells` cuts the last row, which is the only reason the old loop needed a
+  // per-cell bound test. It goes RED (1151/1500) on a one-off block boundary.
+  //
+  // `i` advances only in the inner loop, so this terminates only while
+  // end >= i. That holds because end comes from i's own block:
+  // ((i-1)/BLK + 1)*BLK > i-1, hence >= i. A red-team mutation that shifted the
+  // block index by 7 instead of 6 made this spin rather than answer wrongly --
+  // do not restructure `end` without re-checking it.
+  for(int j=1;j<=n;j++) {
+    const size_t row = (size_t)j*(j-1)/2;
+    if(row >= cells) break;              // rows only grow: nothing after is ours
+    int hi = j;
+    if(row + (size_t)hi >= cells) hi = (int)(cells - row) - 1;
+    const int*   b   = hb + colb[j];
+    const short* src = h16 + row;
+    int*         out = dst + row;
+    for(int i=1;i<=hi;) {
+      const int blk  = (i-1)/FML_BLK;
+      const int base = b[blk];
+      int       end  = (blk+1)*FML_BLK;  // last i sharing this baseline
+      if(end > hi) end = hi;
+      for(; i<=end; i++) {
+        const short o = src[i];
+        out[i] = (o == FML_INF16) ? INF : base + (int)o;
+      }
     }
+  }
   free(hb); free(colb);
 }
 

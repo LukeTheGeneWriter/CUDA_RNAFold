@@ -471,6 +471,14 @@ extern int g_hc_seq_derived;
 // within the same row -- later than before, but not silently.
 PUBLIC int rnafold_gpu_sweep(void);
 
+// RNA_PHASE_SYNC (default off) -- sync at every phase boundary so the per-phase
+// timers measure their own GPU time instead of attributing the queue drain to
+// whichever phase happens to block first. Diagnostic only: it destroys the
+// overlap between phases, so the wall of such a run is not comparable to a
+// normal one. See the definition in device.cu for why it exists.
+PUBLIC void rnafold_phase_sync(void);
+PUBLIC int  rnafold_phase_sync_enabled(void);
+
 // Continuous flow phase B (RNA_CONTINUOUS_FLOW, default off) -- see the
 // definition in mfe_cuda.c.
 PUBLIC int rnafold_continuous_flow(void);

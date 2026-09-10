@@ -145,6 +145,7 @@
 		 hard_constraints, my_c,*/
 		 energy_min, //replaces vrna_E_int_loop(vc, i, j);
 		 size_off_H,i_H);
+      rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
       phase_int_loop_s += now_seconds() - t0;
     }
 
@@ -155,6 +156,7 @@
     {
       const double t0 = now_seconds();
       hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row,gate_row,size_off_H,i_H);
+      rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
       phase_hp_mb_s += now_seconds() - t0;
     }
 
@@ -245,6 +247,7 @@
     {
       const double t0 = now_seconds();
       load_my_c(nfiles,i,turn,length,new_C,size_off_H,i_H); //keep my_c on GPU instep with my_c
+      rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
       phase_load_my_c_s += now_seconds() - t0;
     }
 
@@ -370,6 +373,7 @@
       }
 
       load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H,i_H);
+      rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
       phase_modular_decomp_s += now_seconds() - t0;
     }
 
