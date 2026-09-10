@@ -64,7 +64,6 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
 {
   const char  *why = NULL;
   vrna_md_t   *md;
-  unsigned int i, j;
 
 #define DECLINE(msg) do { why = (msg); goto done; } while (0)
 
@@ -134,11 +133,13 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
     DECLINE("non-default energy set");
 
   /*
-   * NON-STANDARD BASE PAIRS (--nsp) are declined, and this closes a LIVE wrong
-   * answer rather than documenting a known gap: measured on 30 x 80-1240 nt,
-   * --nsp=GA disagreed with upstream on 28 records, deterministically, worse on
-   * 27 and better on 1. Not ignored -- partially applied, which is the worst of
-   * the three possibilities because it looks like it is working.
+   * NON-STANDARD BASE PAIRS (--nsp) were DECLINED here from 2026-09-09 to
+   * 2026-09-10. That closed a LIVE wrong answer rather than documenting a known
+   * gap: measured on 30 x 80-1240 nt, --nsp=GA disagreed with upstream on 28
+   * records, deterministically, worse on 27 and better on 1. Not ignored --
+   * partially applied, which is the worst of the three possibilities because it
+   * looks like it is working. The guard is gone because the CAUSE is fixed; the
+   * history is kept because it is why Energy() looks the way it does.
    *
    * The mechanism is in int_loop.cu's Energy(), not here. It resolves the two
    * interior-loop pair types as
@@ -158,24 +159,32 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    * of stack/int11/int21/int22/mismatchI and the device reads row 0. Row 7 is
    * the non-standard row (NST/NSM, default.c:53-56); row 0 is not.
    *
-   * TEST THE EFFECT, NOT THE FIELD. md->nonstandards is only one of the routes
-   * in -- the deprecated global, a copied md, or a hand-built one all reach the
-   * same place -- and every one of them lands in md->pair via vrna_md_update().
-   * Default BP_pair (pair_mat.h:21-30) holds only 0..6, so a 7 anywhere in the
-   * pair table means non-standard pairs are enabled, however they got there.
-   * This is the -C lesson mirrored: there the queued depot was the honest
-   * thing to test and the materialised matrix was not; here the materialised
-   * table is honest and the request field is the one that can be bypassed.
+   * The guard tested md->pair[i][j] == 7 -- THE EFFECT, NOT THE FIELD -- because
+   * md->nonstandards is only one of the routes in. That reasoning is preserved
+   * in PORT_NSP_PARAMFILE_SCOPE.md; it is worth keeping for the next guard that
+   * has to choose between a request field and a materialised table.
    *
-   * Lifting this needs Energy() fixed AND a byte-identical run over MIXED
-   * lengths for both --nsp=GA and --nsp="-GA" (the symmetric form masks the
-   * rtype divergence and would pass on its own). See
-   * PORT_NSP_PARAMFILE_SCOPE.md.
+   * LIFTED 2026-09-10, because the cause was fixed rather than worked around.
+   *
+   * Energy() now promotes ptype 0 -> 7 and applies rtype[] instead of swapping
+   * the index order, so all three of the fork's type-resolution sites agree
+   * with upstream and with each other. The guard existed only to hide that.
+   *
+   * The bar, on an RTX 3050 over 30 records of 45-1200 nt, GPU vs the same
+   * binary with the accelerator off: byte-identical for --nsp=GA, --nsp=-GA
+   * and --nsp=-AC,GA, and in combination with int16, --noLP, --noGU, -4,
+   * --salt and -T -- nine arms, every one of which BITES (54-60 lines against
+   * the unflagged fold). RED without the Energy() fix on the same binary:
+   * --nsp=GA differs on 20 lines, --nsp=AC on 22.
+   *
+   * KEEP THE SYMMETRIC/ASYMMETRIC DISTINCTION IN MIND if this is ever
+   * re-tested: --nsp="-GA" sets both directions to 7 and MASKS the rtype
+   * divergence entirely -- it read 0 differing lines even on the broken
+   * binary. A symmetric-only test is a false green. Any regression test for
+   * this must use an ASYMMETRIC spec.
+   *
+   * Regression bar: tests/mfe_cuda_nsp.ts.
    */
-  for (i = 0; i <= MAXALPHA; i++)
-    for (j = 0; j <= MAXALPHA; j++)
-      if (md->pair[i][j] == 7)
-        DECLINE("non-standard base pairs (--nsp)");
 
   /*
    * NOT md->window_size: vrna_fold_compound() sets both window_size and

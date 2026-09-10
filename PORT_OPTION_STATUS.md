@@ -7,36 +7,52 @@ the route asserted; "assumed" means the guard covers it but nothing has run.*
 
 ---
 
-## `--nsp` — GUARDED 2026-09-09 (was a live wrong answer)
+## `--nsp` — GUARD LIFTED 2026-09-10, because the CAUSE was fixed
 
-**`--nsp=GA` was accelerated, changed the answer, and the GPU disagreed with the
-CPU on 28 of 30 records — deterministically, worse on 27 and better on 1.** Not
-ignored, *partially* applied, which is the worst of the three possibilities
-because it looks like it is working. Same family as the `-C` defect.
+**`--nsp` is now ACCELERATED and byte-identical.** It was declined from
+2026-09-09 to 2026-09-10 while a live wrong answer (28 of 30 records, worse on
+27, better on 1) was diagnosed. The guard is gone because `int_loop.cu`'s
+`Energy()` was fixed, not because the risk was re-assessed.
 
-**The guard now declines it** (`engine.c`, after the `energy_set` check). It
-tests `md->pair[i][j] == 7`, **not** `md->nonstandards[0]` — the pair table is
-where every route into the feature ends up, and the field is the one a copied or
-hand-built `md` walks straight past. Default `BP_pair` (`pair_mat.h:21-30`) holds
-only 0..6, so a 7 can mean nothing else. Bar:
-`tests/mfe_cuda_guard.ts::test_guard_declines_nonstandard_pairs`, which covers
-both routes and asserts the poke survives into the compound.
+**The fix is four lines.** `Energy()` resolved the two interior-loop pair types
+as `type = Ptype(i,j)` raw and `type_2 = Ptype(q,p)` — no `0 → 7` promotion, and
+an index swap in place of `rtype[]`. Both are exact identities at default
+settings (`rtype[]` is *built* as `rtype[pair[i][j]] = pair[j][i]`, and a ptype-0
+cell is refused by the hard-constraint mask before `Energy()` runs), which is why
+the port was byte-identical for a year without them. `--nsp` breaks the second at
+`model.c:1104`, where `rtype[7]` is **forced** to 7. It now promotes and applies
+`rtype[]`, so all three of the fork's type-resolution sites agree with upstream
+and with each other — under `--nsp` the fork previously disagreed with *itself*.
 
-**The mechanism is now located**, and it is not in `engine.c` at all — it is
-`int_loop.cu`'s `Energy()`, which resolves the two interior-loop pair types with
-two shortcuts that are exact identities at default settings and stop being
-identities under `--nsp`: no `0 → 7` promotion, and an index swap in place of
-`rtype[]`. `rtype[7]` is *forced* to 7 at `model.c:1104`, which is what breaks
-the second one. Full derivation, and what lifting the guard would take, in
-`PORT_NSP_PARAMFILE_SCOPE.md` §1.
+`rtype[8]` is carried per batch in `cuda_param_t`, appended last so no offset
+above it moves — the same shape as the `MAX_NINIO` and salt fields.
 
-**Status: guarded, built and MEASURED** on an RTX 3050 (nvcc 12.4), 12 records
-of mixed length 62-401 nt. `default` → GPU, identical; `--nsp=GA` → **CPU**,
-identical; `--nsp="-GA"` → **CPU**, identical; and `--nsp` bites (8 lines differ
-from an unflagged fold), so the comparison is not vacuous. **The bar is RED with
-the guard neutered** — `--nsp=GA` takes the GPU route and differs on 8 lines —
-which reproduces the defect on this hardware and proves the check can fail.
-`make check` 146/146.
+**Measured, RTX 3050, 30 records of 45–1200 nt**, GPU vs the same binary with the
+accelerator off: byte-identical for `--nsp=GA`, `--nsp=-GA` and `--nsp=-AC,GA`,
+and in combination with int16, `--noLP`, `--noGU`, `-4`, `--salt` and `-T`.
+**Nine arms, every one of which BITES** (54–60 lines against the unflagged fold).
+
+**RED without the fix, on the same binary:** `--nsp=GA` differs on 20 lines,
+`--nsp=AC` on 22.
+
+### The symmetric form is a FALSE GREEN — this is the part to remember
+
+`--nsp="-GA"` sets **both** directions to 7, which restores
+`rtype[pair[p][q]] == pair[q][p]` and masks the divergence completely. On the
+broken binary it gave **0 differing lines** while the asymmetric specs gave 20
+and 22. A symmetric-only test passes against the bug.
+
+`tests/mfe_cuda_nsp.ts` (3 cases, replacing the guard test) therefore leads with
+two **asymmetric** specs and asserts the pair table really is asymmetric rather
+than trusting the spec string. Confirmed RED before the green was believed: with
+`Energy()` reverted, both asymmetric cases fail and the symmetric one passes.
+
+**Its fixture is not hand-picked either.** The first version used five 80–92 nt
+sequences chosen by eye and **passed against the broken binary** — because
+`--nsp` changing the answer and the GPU/CPU divergence being *exercised* are two
+different things, and `bites > 0` only establishes the first. The four sequences
+now used were selected by folding 30 random 45–1200 nt sequences on a
+deliberately broken build and keeping the shortest that disagreed.
 
 ---
 
@@ -64,7 +80,7 @@ Verified as *CPU route asserted*, not merely observed (`verify_option_parity.sh`
 
 | option | guard reason |
 |---|---|
-| `-c` / `--circ` | circular RNA — see §4, the story has changed |
+| `-c` / `--circ` | circular RNA — see §5, the story has changed |
 | `-g` / `--gquad` | G-quadruplexes (`PORT_GQUAD_SPEC.md`) |
 | `-d0`, `-d1`, `-d3` | dangle model other than 2 |
 | `--noClosingGU` | |
@@ -96,7 +112,7 @@ with the GPU path because they never touch it.
 
 | option | status |
 |---|---|
-| `--nsp` | **DECLINED 2026-09-09 — see the top of this file.** No longer ungoverned. |
+| `--nsp` | **ACCELERATED 2026-09-10 — see the top of this file.** No longer ungoverned, and no longer declined: the `Energy()` divergence behind it is fixed. |
 | `-P` / `--paramFile` | **ALL FOUR BARS NOW RUN, 2026-09-10 — and bar 4 found a second live silent wrong answer.** `RNA_FML_INT16=1` plus a parameter file with large `stack` magnitudes folded **wrong on 8 of 12 records, by up to 31.8 kcal/mol**: the int16 offset bound is derived from the DEFAULT table's −340, the pack kernel's `assert(0)` guard was a **no-op under `-DNDEBUG`**, and its device `printf` corrupted stdout with 48 781 lines. Fixed by vetting the loaded table in `par_mfe()` **before `init_gpu()` commits the mode**, declining to int32. Bars 1–4 + both over-tightening checks: **13/13**. **Still cannot be guarded** — `vrna_params_load()` mutates library globals, so by fold-compound time `-P` has left no flag for the guard to see. Its assumptions belong in `load_param()` instead. **One was a LIVE wrong answer and is fixed:** `MAX_NINIO` was a `#define` of 300 on the device, "checked" by an `assert(300 == 300)`, while the real `MAX_NINIO` is a writable global a parameter file overwrites (`params/io.c:671`). Measured 2026-09-09 — with the stock file GPU == CPU, but with only the NINIO maximum moved 300 → 80 the **pre-fix binary differs on 9 of 12 records**; the fixed one is identical. Six more assumptions were ranked in `PORT_NSP_PARAMFILE_SCOPE.md` §2.3; **four of them (`lxc` narrowed to float, the dead mismatch/dangle tables, special-hairpin strides, one-parameter-set-per-batch) are still unchecked** against a non-default table. |
 | `--ImFeelingLucky` | GPU differs from CPU — **but that is noise, not a defect.** Two CPU runs of the same flag also differ, so the backtracking really is stochastic and **a byte-identical bar cannot judge this option at all.** It needs a distributional bar, or none. Checked before reporting, because "GPU ≠ CPU" looked exactly like `--nsp` until the CPU was compared against itself. |
 | `--batch` | **not reachable by this harness** — both sides produced *no output*, because `--batch` changes input parsing and the plain FASTA gave it nothing to do. Two empty outputs are not a match; scored as untested rather than passing. |
@@ -152,10 +168,10 @@ unaffected either way.
 
 | | count |
 |---|---|
-| accelerated, verified | 8 CLI options (+ `uniq_ML`, no CLI flag) |
-| declined, route asserted | 21 — `--nsp` added 2026-09-09, route asserted and the bar confirmed RED without it |
+| accelerated, verified | **10** CLI options (+ `uniq_ML`, no CLI flag) — `--nsp` and `--backbone-length` added 2026-09-10 |
+| declined, route asserted | **20** — `--nsp` moved OUT on 2026-09-10 when its cause was fixed |
 | neutral | 25 |
-| **ungoverned** | **5, of which 1 is untested and high-risk (`-P`, and it is unguardable by construction) and 1 cannot be judged by a byte bar at all (`--ImFeelingLucky`)** |
+| **ungoverned** | **3 — `-P` (unguardable by construction, but all four bars now run), `--ImFeelingLucky` (no byte bar can judge it) and `--batch` (unreachable by the harness)** |
 
 **No live silent wrong answer is currently known on the option surface.** That
 is the first time this file has been able to say so. It is a statement about

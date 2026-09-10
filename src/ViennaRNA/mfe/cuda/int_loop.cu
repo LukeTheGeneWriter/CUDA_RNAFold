@@ -121,6 +121,13 @@ struct cuda_param_s {
   //change it (params/io.c:671) -- see the note on MAX_NINIO at the top of this
   //file and PORT_NSP_PARAMFILE_SCOPE.md §2.2.
   int     max_ninio;
+  //rtype[], appended last for the same reason. Energy() used to obtain type_2
+  //by SWAPPING the index order (pair[S[q]][S[p]]) instead of applying rtype[].
+  //That is an exact identity at default settings -- md->rtype[] is BUILT from
+  //md->pair[] (model.c:1098-1100, rtype[pair[i][j]] = pair[j][i]) -- and stops
+  //being one under --nsp, where model.c:1104 FORCES rtype[7] = 7 over whatever
+  //the derivation loop wrote. See PORT_NSP_PARAMFILE_SCOPE.md §1.
+  int     rtype[8];
 //int     MLbase;
 //int     MLintern[NBPAIRS+1];
 //int     MLclosing;
@@ -308,6 +315,7 @@ void load_param(const vrna_param_t *P){
   memcpy(H->int22,        P->int22,        (NBPAIRS+1)*(NBPAIRS+1)*5*5*5*5*sizeof(int));
   H->SaltStack  =         P->SaltStack;
   H->max_ninio  =         MAX_NINIO;   //the LIVE global, not a literal
+  memcpy(H->rtype,        P->model_details.rtype, 8*sizeof(int));
   //n_max = MAXLOOP+1 fills exactly MAXLOOP+3 entries (n_max+2)
   rnafold_build_salt_table(P, MAXLOOP+1, H->SaltLoop);
 
@@ -1042,10 +1050,32 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 	    if(energy != INF){
 	      //assert(ptype[pq]>=0 && ptype[pq]<8);
 	      //const unsigned char type_2 = rtype[(unsigned char)ptype[pq]];
-	      const unsigned char type   = Ptype(S,pair_,H,nfiles,i,j);
-	      //assert(type == Ptype(S,pair_,H,nfiles,i,j));
+	      //
+	      // Upstream (mfe/internal.c, via vrna_get_ptype()) computes:
+	      //     type   = vrna_get_ptype(ij, ptype);          // 0 -> 7
+	      //     type_2 = rtype[vrna_get_ptype(pq, ptype)];   // promote, THEN rtype
+	      // This site used to do neither: it took the raw pair value for `type`
+	      // and obtained `type_2` by swapping the index order. Both are exact
+	      // identities at default settings -- rtype[] is built from pair[], and
+	      // a ptype-0 cell is refused by the hard-constraint mask before
+	      // Energy() runs -- which is why the port was byte-identical for a year
+	      // with them. --nsp breaks the second: model.c:1104 FORCES rtype[7]=7,
+	      // so with an asymmetric spec upstream reads row 7 (the NST/NSM
+	      // non-standard row) of stack/int11/int21/int22/mismatchI where this
+	      // read row 0. A different energy model, PARTIALLY applied.
+	      //
+	      // The fork's other two type-resolution sites already did it properly:
+	      // stack_row_kernel() promotes then applies rtype[], and
+	      // hp_mb_3p_kernel() applies rtype[] with a documented raw-index
+	      // convention. Only Energy() did neither, so under --nsp the fork
+	      // disagreed with ITSELF. See PORT_NSP_PARAMFILE_SCOPE.md §1.
+	      const unsigned char type_raw = Ptype(S,pair_,H,nfiles,i,j);
+	      const unsigned char type     = (type_raw == 0) ? 7 : type_raw;
 	      assert(type<8);
-	      const unsigned char type_2 = Ptype(S,pair_,H,nfiles,q,p);
+	      // p,q -- NOT q,p. The reversal is rtype[]'s job, not the index's.
+	      const unsigned char t2_raw   = Ptype(S,pair_,H,nfiles,p,q);
+	      assert(t2_raw<8);
+	      const unsigned char type_2   = (unsigned char)P->rtype[(t2_raw == 0) ? 7 : t2_raw];
 	      assert(type_2<8);
 	      //assert(i+pp  >=0 && i+pp  <length+2);
 

@@ -150,69 +150,23 @@ declines(vrna_fold_compound_t *fc)
   vrna_fold_compound_free(fc);
 }
 
-#test test_guard_declines_nonstandard_pairs
-{
-  /*
-   * Regression, and like the -C case it closed a LIVE wrong answer: --nsp=GA
-   * was accelerated, ungoverned, and disagreed with upstream on 28 of 30
-   * records deterministically -- worse on 27, better on 1. Not ignored,
-   * PARTIALLY applied, which is the worst of the three because it looks like
-   * it is working. Mechanism in int_loop.cu's Energy(); see
-   * PORT_NSP_PARAMFILE_SCOPE.md §1.2.
-   *
-   * TWO cases, and the second is the point of the test.
-   */
-  vrna_md_t             md;
-  vrna_fold_compound_t  *fc;
-  unsigned int          i, j, sevens;
-
-  /* 1. the CLI route: RNAfold's ggo helper calls vrna_md_set_nonstandards() */
-  vrna_md_set_default(&md);
-  vrna_md_set_nonstandards(&md, "GA");
-
-  /* the effect the guard actually looks for must really be there, or this
-   * test would pass for the wrong reason */
-  sevens = 0;
-  for (i = 0; i <= MAXALPHA; i++)
-    for (j = 0; j <= MAXALPHA; j++)
-      if (md.pair[i][j] == 7)
-        sevens++;
-  ck_assert(sevens > 0);
-
-  fc = vrna_fold_compound(guard_seq, &md, VRNA_OPTION_DEFAULT);
-  ck_assert(declines(fc));
-  vrna_fold_compound_free(fc);
-
-  /* vrna_md_set_nonstandards() also writes the deprecated process-wide
-   * `nonstandards` global (model.c:322-326). Clear it before leaving, so a
-   * later test in this same process does not inherit it. */
-  vrna_md_set_nonstandards(&md, NULL);
-
-  /*
-   * 2. THE EFFECT, NOT THE FIELD. This is the case that fails if the guard is
-   * ever "simplified" to test md->nonstandards[0]. Nothing here touches that
-   * field -- only the pair table, which is where every route into the feature
-   * ends up (vrna_md_update() rebuilds it from md->nonstandards, the
-   * deprecated global, or a copied md alike). Default BP_pair holds only 0..6
-   * (pair_mat.h:21-30), so a 7 can mean nothing else.
-   *
-   * The mirror of the -C lesson: there the QUEUED depot was the honest thing
-   * to test and the materialised matrix was not; here the materialised table
-   * is honest and the request field is the one that can be bypassed.
-   */
-  vrna_md_set_default(&md);
-  ck_assert(md.nonstandards[0] == '\0');
-  md.pair[3][1] = 7;                    /* G-A, as --nsp=GA would leave it */
-
-  fc = vrna_fold_compound(guard_seq, &md, VRNA_OPTION_DEFAULT);
-  /* vrna_md_copy() memcpy's the pair matrix and does NOT re-run
-   * vrna_md_update() (model.c:222-224), so the poke survives -- assert it
-   * rather than trust the reading, or this case passes vacuously. */
-  ck_assert(fc->params->model_details.pair[3][1] == 7);
-  ck_assert(fc->params->model_details.nonstandards[0] == '\0');
-  ck_assert(declines(fc));
-  vrna_fold_compound_free(fc);
-}
+/*
+ * test_guard_declines_nonstandard_pairs lived here from 2026-09-09 to
+ * 2026-09-10. THE GUARD WAS LIFTED, so an assertion that it declines would
+ * now be asserting the bug back into existence.
+ *
+ * It was not deleted for being wrong -- it closed a live wrong answer, and it
+ * tested md->pair[i][j] == 7 (the EFFECT) rather than md->nonstandards (the
+ * request field), which is still the right shape for any future guard. It was
+ * replaced because int_loop.cu's Energy() was fixed: it now promotes ptype
+ * 0 -> 7 and applies rtype[] instead of swapping the index order, so --nsp is
+ * byte-identical GPU vs CPU.
+ *
+ * The replacement is tests/mfe_cuda_nsp.ts, which compares the batch backend
+ * against upstream under an ASYMMETRIC spec. That distinction is not
+ * cosmetic: a symmetric spec (--nsp="-GA") masks the divergence completely
+ * and passes against the BROKEN binary. See PORT_NSP_PARAMFILE_SCOPE.md 1.
+ */
 
 #test test_guard_declines_hard_structure_constraints
 {

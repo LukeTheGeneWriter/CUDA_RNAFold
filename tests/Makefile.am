@@ -217,12 +217,14 @@ LIBRARY_TESTS = energy_evaluation \
 
 ## The CUDA suites are only built when the backend is, so they join the others
 ## only under --enable-cuda. `make check` therefore reports 130 without CUDA and
-## 145 with it: 11 routing-guard tests, 2 for the fM1 reconstruction under
-## uniq_ML, and 2 for the noLP recursion.
+## 145 with it: routing-guard tests, 2 for the fM1 reconstruction under
+## uniq_ML, 2 for the noLP recursion, and 3 for --nsp. The --nsp trio replaced
+## a guard test when the guard was LIFTED on 2026-09-10 -- see
+## mfe_cuda_nsp.ts on why two of the three must use an ASYMMETRIC spec.
 if VRNA_AM_SWITCH_CUDA
-CHECKMK_FILES += mfe_cuda_guard.ts mfe_cuda_fm1.ts mfe_cuda_nolp.ts
-CHECK_CFILES  += mfe_cuda_guard.c mfe_cuda_fm1.c mfe_cuda_nolp.c
-LIBRARY_TESTS += mfe_cuda_guard mfe_cuda_fm1 mfe_cuda_nolp
+CHECKMK_FILES += mfe_cuda_guard.ts mfe_cuda_fm1.ts mfe_cuda_nolp.ts mfe_cuda_nsp.ts
+CHECK_CFILES  += mfe_cuda_guard.c mfe_cuda_fm1.c mfe_cuda_nolp.c mfe_cuda_nsp.c
+LIBRARY_TESTS += mfe_cuda_guard mfe_cuda_fm1 mfe_cuda_nolp mfe_cuda_nsp
 endif
 
 check_PROGRAMS = ${LIBRARY_TESTS}
