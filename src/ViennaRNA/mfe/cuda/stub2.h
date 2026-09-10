@@ -431,6 +431,23 @@ void rnafold_gq_free(void);
 int  rnafold_gq_active(void);
 int  rnafold_gq_probe(const size_t n, const int *pH, const unsigned int *pi,
                       const unsigned int *pj, int *out);
+
+/* G1: the per-row expansion of c_gq into a dense j-indexed buffer, shaped
+ * exactly like energy_3p00_row (g_row_total ints, addressed row_off_H[H]+j).
+ * rnafold_gq_row_device() returns NULL whenever gquad is inactive, which is
+ * what fml_scan_kernel tests -- so with -g off the cost is a kernel-uniform
+ * null pointer, not a lookup. */
+int          rnafold_gq_row_alloc(const size_t row_total);
+void         rnafold_gq_row_free(void);
+const int   *rnafold_gq_row_device(void);
+void         rnafold_gq_fill_row(const int nfiles, const int turn,
+                                 const int *d_i_H, const size_t *d_row_off_H,
+                                 const size_t *d_size_off_H, const size_t max_width);
+
+/* Device offset tables owned by hp_mb_loop.cu, needed by the row expansion. */
+const int    *rnafold_i_H_device(void);
+const size_t *rnafold_row_off_device(void);
+const size_t *rnafold_size_off_device(void);
 #ifdef __cplusplus
 }
 #endif

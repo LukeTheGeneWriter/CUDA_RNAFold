@@ -87,7 +87,18 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   if (md->dangles != 2)
     DECLINE("dangle model other than 2");
 
-  if (md->gquad)
+  /*
+   * STILL DECLINED. G0 carries c_gq to the device and G1 adds the multibranch
+   * term, but the INTERIOR-LOOP term (three bounded (p,q) sweeps,
+   * vrna_mfe_gquad_internal_loop()) lands in G2 -- so the answer is not yet
+   * upstream's and this must not accept.
+   *
+   * RNA_GQUAD_STAGING is a TEMPORARY development escape hatch so the staged
+   * work can be measured end to end before it is correct. It is not a feature,
+   * it is scaffolding, and it MUST be deleted in G3 when the guard is lifted
+   * properly. Anyone finding it still here after G3 should remove it.
+   */
+  if ((md->gquad) && (getenv("RNA_GQUAD_STAGING") == NULL))
     DECLINE("G-quadruplexes (see PORT_GQUAD_SPEC.md)");
 
   if (md->circ)

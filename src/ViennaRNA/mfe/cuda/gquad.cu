@@ -291,3 +291,142 @@ out:
 
   return rc;
 }
+
+
+/* ============================ G1: the per-row expansion ==================== */
+/*
+ * WHY A ROW BUFFER RATHER THAN A LOOKUP IN THE HOT KERNEL.
+ *
+ * extend_fm_3p()'s gquad case needs c_gq(i, j) for the very cell being
+ * computed, and fml_scan_kernel is organised as "row i, all records H, all j".
+ * The measured row structure (tools: gquad_rowstats_probe.c) says a row holds
+ * at most ~12-45 entries and that number is roughly CONSTANT in n, while the
+ * fraction of rows holding any entry RISES with n (5-48%). So a per-row skip is
+ * weak and a per-cell scan would run inside the scan kernel's inner loop.
+ *
+ * Expanding one row into a dense j-indexed buffer instead makes the lookup an
+ * INDEX. The buffer is exactly the shape the port already uses for
+ * energy_hp_row / energy_mb_row / energy_3p00_row / gate_row -- g_row_total
+ * ints, addressed row_off_H[H]+j -- so the scan kernel gains one more
+ * `const int *` argument and one MIN2, and nothing else changes.
+ *
+ * Cost: one cheap kernel per sweep row, and it runs ONLY when a c_gq was
+ * uploaded. With -g off nothing here executes.
+ */
+
+static int    *d_gq_row      = NULL;   /* g_row_total ints, like energy_*_row */
+static size_t  g_gq_row_total = 0;
+
+
+__global__ void
+gq_row_kernel(const int                   nfiles,
+              const int                   turn,
+              const int          *__restrict__ i_H,
+              const size_t       *__restrict__ row_off_H,
+              const size_t       *__restrict__ size_off_H,
+                    int          *__restrict__ gq_row,
+              const int          *__restrict__ v,
+              const unsigned int *__restrict__ col,
+              const unsigned int *__restrict__ rowoff,
+              const size_t       *__restrict__ ent_off,
+              const size_t       *__restrict__ row_off)
+{
+  const int H = blockIdx.y;
+
+  if (H >= nfiles)
+    return;
+
+  {
+    const long long width = (long long)size_off_H[H + 1] - (long long)size_off_H[H];
+    const long long k     = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+
+    if ((width <= 0) || (k >= width))
+      return;                       /* record has not joined, or past its end */
+
+    {
+      const int    i = i_H[H];
+      const int    j = i + turn + 1 + (int)k;
+      const size_t o = row_off_H[H];
+
+      gq_row[o + j] = gq_get(H, (unsigned int)i, (unsigned int)j,
+                             v, col, rowoff, ent_off, row_off);
+    }
+  }
+}
+
+
+extern "C" int
+rnafold_gq_row_alloc(const size_t row_total)
+{
+  if (d_gq_row) {
+    cudaFree(d_gq_row);
+    d_gq_row = NULL;
+  }
+
+  g_gq_row_total = 0;
+
+  if ((!g_gq_active) || (row_total == 0))
+    return 0;                        /* nothing uploaded: no row buffer needed */
+
+  if (cudaMalloc((void **)&d_gq_row, row_total * sizeof(int)) != cudaSuccess) {
+    fprintf(stderr, "gquad.cu                 cudaMalloc failed for gq_row "
+                    "(%zu ints)\n", row_total);
+    return -1;
+  }
+
+  g_gq_row_total = row_total;
+
+  return 1;
+}
+
+
+extern "C" void
+rnafold_gq_row_free(void)
+{
+  if (d_gq_row)
+    cudaFree(d_gq_row);
+
+  d_gq_row = NULL;
+  g_gq_row_total = 0;
+}
+
+
+/*
+ * The pointer the fML scan kernel reads. NULL whenever gquad is inactive, which
+ * is what the kernel tests -- so the gquad term costs one null check per row on
+ * the default path, not per cell.
+ */
+extern "C" const int *
+rnafold_gq_row_device(void)
+{
+  return (g_gq_active && d_gq_row) ? d_gq_row : NULL;
+}
+
+
+/* Fill this sweep row. Caller supplies the device offset tables it already
+ * owns; nothing here duplicates them. */
+extern "C" void
+rnafold_gq_fill_row(const int     nfiles,
+                    const int     turn,
+                    const int    *d_i_H,
+                    const size_t *d_row_off_H,
+                    const size_t *d_size_off_H,
+                    const size_t  max_width)
+{
+  if ((!g_gq_active) || (!d_gq_row) || (nfiles <= 0) || (max_width == 0))
+    return;
+
+  {
+    const int block = 128;
+    const dim3 grid((unsigned int)((max_width + block - 1) / block),
+                    (unsigned int)nfiles, 1u);
+
+    gq_row_kernel<<<grid, block>>>(nfiles, turn, d_i_H, d_row_off_H, d_size_off_H,
+                                   d_gq_row,
+                                   d_gq_v, d_gq_col, d_gq_rowoff,
+                                   d_gq_ent_off, d_gq_row_off);
+
+    if (cudaPeekAtLastError() != cudaSuccess)
+      fprintf(stderr, "gquad.cu                 gq_row_kernel launch failed\n");
+  }
+}

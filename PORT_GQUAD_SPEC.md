@@ -332,3 +332,76 @@ self-consistent, **worse** answer, and comparing only against the `-g` reference
 would say "different" without saying "worse in the way we already saw". Every one
 of the 6 records gains between 9.09 and 789.01 kcal/mol from `-g`, so there are
 no weak vectors in it.
+
+---
+
+## G0 and G1 LANDED, 2026-09-10
+
+**G0** (`673d439c`) carries `c_gq` to the device: `v`/`col_idx`/`row_idx`
+flattened across the batch with two per-record offset tables, 112.6 KiB for the
+frozen bar's six records (12 873 entries). Bar: `tests/mfe_cuda_gquad.ts`,
+device lookup vs `vrna_smx_csr_int_get()` over the full triangle of every
+record, red-teamed two ways.
+
+**G1** adds the multibranch term. It is **one `MIN2` in `fml_scan_kernel`**, fed
+by a per-row expansion of `c_gq` into a dense `j`-indexed buffer shaped exactly
+like `energy_3p00_row` — the design §4 recommended, and it needed no new
+machinery.
+
+### The stem constant is `MLintern[0]`, and this is worth knowing
+
+`extend_fm_3p()`'s gquad case adds `vrna_E_multibranch_stem(0, -1, -1, P)`.
+`E_MLstem()` (`eval/multibranch.h:171-176`) takes **none** of its dangle
+branches when `si1 == sj1 == -1`, and `0 > 2` is false so no `TerminalAU` —
+so it reduces to exactly **`P->MLintern[0]`**, already in `cuda_param2_t`.
+
+**Do not reach for `E_MLstem_device()` here.** It indexes
+`mismatchM[type][si1][sj1]` unconditionally, so `(0, -1, -1)` reads out of
+bounds. The device helper assumes `dangles == 2` with valid neighbours; the
+host identity is what makes the constant safe.
+
+### G1 measured on the frozen bar — closer, and never past
+
+| record | gap before | gap after G1 | closed | below reference? |
+|---|---|---|---|---|
+| 80 nt | 25.31 | **1.78** | 93.0 % | no |
+| 150 nt | 9.09 | **0.00** | 100.0 % | no |
+| 300 nt | 125.48 | **8.63** | 93.1 % | no |
+| 500 nt | 258.33 | **3.36** | 98.7 % | no |
+| 800 nt | 443.63 | **24.75** | 94.4 % | no |
+| 1200 nt | 789.01 | **41.65** | 94.7 % | no |
+
+"gap" is against `gquad_reference.txt`; "before" is the plain fold, which is
+what a GPU with no quadruplex support returns.
+
+**The last column is the real check.** A recursion missing a term can only be
+SUBOPTIMAL, never better — so every G1 energy must sit at or above the
+reference. One coming in below would mean double counting or a wrong stem
+energy, and would not be visible in "how close did it get". None does.
+
+The residue is the interior-loop term, which is G2.
+
+**`make check` 150/150 and `verify_paramfile_bars.sh` 13/13 with `-g` off**, so
+the hot-path edit is behaviour-neutral where it has to be: `gq_row` is NULL
+unless a `c_gq` was uploaded, making the added cost a kernel-uniform null test.
+
+### The staging correction: `-g` has THREE gates, not one
+
+§7 recorded G3 as "lift the `-g` guard (`engine.c:90`)". That is wrong, and the
+G1 measurement found it the hard way — twice, each time as a silent
+CPU fold or a hard exit:
+
+1. `src/bin/RNAfold.c:1003` — `gpu_path_usable()`, the driver's own gate;
+2. `src/ViennaRNA/mfe/cuda/engine.c` — `vrna_cuda_engine_supports()`;
+3. `src/ViennaRNA/mfe/cuda/fill_arrays.c:185` — `VRNA_CUDA_BACKSTOP`, which
+   `exit()`s rather than folding.
+
+That is defence in depth working exactly as intended, and it is why the first
+two G1 measurements were vacuous (`sweep ran: 0`, two CPU folds compared to each
+other). All three now carry a **temporary** `RNA_GQUAD_STAGING` escape hatch so
+the staged work can be measured before it is correct.
+
+> **`RNA_GQUAD_STAGING` IS SCAFFOLDING AND MUST BE DELETED IN G3**, in all three
+> files. It is not a feature and must never appear in a release note. G3's own
+> task list is: implement the interior-loop term, prove byte-identity on the
+> frozen bar, delete the three hatches, and lift the three gates properly.

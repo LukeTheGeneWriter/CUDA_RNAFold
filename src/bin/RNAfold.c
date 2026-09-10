@@ -1000,7 +1000,13 @@ gpu_path_usable(struct options *opt,
   /* Model details the sweep does not implement. Mirrors
    * vrna_cuda_engine_supports() in mfe/cuda/engine.c; kept in step with it. */
   if (md->dangles != 2)         NO("dangle model other than 2");
-  if (md->gquad)                NO("G-quadruplexes (-g)");
+  /* G-quadruplexes: TWO gates say no, this one and vrna_cuda_engine_supports()
+   * in mfe/cuda/engine.c. Both must be opened to lift -g, and both carry the
+   * same TEMPORARY RNA_GQUAD_STAGING escape hatch so the staged G0/G1/G2 work
+   * can be measured end to end before it is correct. Scaffolding, not a
+   * feature -- DELETE BOTH IN G3. */
+  if ((md->gquad) && (getenv("RNA_GQUAD_STAGING") == NULL))
+                                NO("G-quadruplexes (-g)");
   if (md->circ)                 NO("circular RNA (-c)");
   if (md->noGUclosure)          NO("noClosingGU");
 

@@ -1010,6 +1010,7 @@ __global__ void
 fml_scan_kernel(const int nfiles, const int i_row, const int turn,
                 const int*  __restrict__ new_e,      //in  d_new_e      == host new_C
                 const int*  __restrict__ e3p00,      //in  d_energy_3p00_row
+                const int*  __restrict__ gq_row,     //in  d_gq_row, or NULL when -g is off
                 const int*  __restrict__ fml_prev,   //in  d_fml_prev   (previous row)
                 const char* __restrict__ up_ml_ok,   //in  d_up_ml_ok
                 const cuda_param2_t* __restrict__ P, //in  d_param2 (MLbase)
@@ -1049,6 +1050,26 @@ fml_scan_kernel(const int nfiles, const int i_row, const int turn,
       const int fp     = fml_prev[o+j];
       const int e3     = (fp != INF) ? fp + en_i : INF;   // hazard 1: en_i NOT guarded
       a = fml_tmin(c_term, e3);
+      // G-quadruplex (G1). extend_fm_3p()'s gquad case is a SIBLING of its
+      // c[ij] stem case at the same MIN2, not a modifier of it: fM[i][j] can be
+      // one quadruplex spanning i..j instead of one base pair spanning i..j.
+      //
+      //     en = c_gq(i,j) + vrna_E_multibranch_stem(0,-1,-1,P) * n_seq
+      //
+      // and that stem energy is exactly P->MLintern[0]: E_MLstem() takes NONE
+      // of its dangle branches when si1==sj1==-1 (eval/multibranch.h:171-176),
+      // and 0 > 2 is false so no TerminalAU. n_seq == 1 for a single sequence.
+      // Do NOT reach for E_MLstem_device() here -- it indexes
+      // mismatchM[type][si1][sj1] unconditionally, so (0,-1,-1) reads out of
+      // bounds. The host-side identity is what makes the constant safe.
+      //
+      // gq_row is NULL unless a c_gq was uploaded, so with -g off this is one
+      // predicted null test per cell against a kernel-uniform pointer.
+      if (gq_row) {
+        const int g = gq_row[o+j];
+        if (g != INF)
+          a = fml_tmin(a, g + P->MLintern[0]);
+      }
       c = up_ml_ok[so + (size_t)j] ? MLbase : INF;
     }
     sa[t] = a; sc[t] = c;
@@ -1199,6 +1220,12 @@ fml_scan_tile(void) {
 // graph trio: that trio uploads the host's energy_min over d_energy_min, so the
 // readback has to happen first -- and the upload landing afterwards is what
 // keeps this step behaviour-neutral while both paths run.
+// The device offset tables gquad.cu's row expansion needs. Accessors rather
+// than externs so the pointers stay owned here, where they are allocated.
+extern "C" const int*    rnafold_i_H_device(void)       { return d_i_H; }
+extern "C" const size_t* rnafold_row_off_device(void)   { return d_row_off_H; }
+extern "C" const size_t* rnafold_size_off_device(void)  { return d_size_off_H; }
+
 PUBLIC void
 fml_scan_i(const int nfiles, const int i, const int turn,
            const int* energy_min_host,            //in, host's own result (verify only)
@@ -1223,7 +1250,8 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   // 128/256 precedent, and the env override follows RNA_MD_TILE's.
 #define FML_SCAN_LAUNCH(TW) \
   fml_scan_kernel<TW><<<nfiles,TW>>>(nfiles, RNA_I_ROW(i), turn, \
-                                     d_new_e_, d_energy_3p00_row, d_fml_prev_, \
+                                     d_new_e_, d_energy_3p00_row, \
+                                     rnafold_gq_row_device(), d_fml_prev_, \
                                      d_up_ml_ok, d_param2, d_energy_min_, \
                                      d_row_off_H, d_seq_off_H, d_size_off_H, d_i_H)
   switch(fml_scan_tile()) {

@@ -347,6 +347,15 @@
     // RNA_ROW_VERIFY has something to compare) and the graph trio below, which
     // uploads the host's energy_min over d_energy_min -- so the readback must
     // precede it and the sweep still consumes the host's values either way.
+    /* G-quadruplex G1: expand this row's c_gq into the dense row buffer that
+     * fml_scan_kernel indexes. MUST precede fml_scan_i(), which reads it, and
+     * it uses the device offset tables hp_mb_loop.cu already owns rather than
+     * re-uploading them. Returns immediately unless a c_gq was uploaded. */
+    rnafold_gq_fill_row(nfiles, turn,
+                        rnafold_i_H_device(), rnafold_row_off_device(),
+                        rnafold_size_off_device(),
+                        size_off_H[nfiles]);
+
     fml_scan_i(nfiles, i, turn,
                rnafold_gpu_sweep() ? NULL : energy_min,  // no host result to verify against in device mode
                row_off_H, size_off_H, i_H);

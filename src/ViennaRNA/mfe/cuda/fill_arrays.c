@@ -182,7 +182,16 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
                      "the sweep implements the linear recursion only and would "
                      "return the LINEAR answer");
 
-  VRNA_CUDA_BACKSTOP(P->model_details.gquad, "G-quadruplexes (-g/--gquad)",
+  /* The G-quadruplex backstop is the THIRD gate, after RNAfold.c's
+   * gpu_path_usable() and vrna_cuda_engine_supports(). All three must be
+   * opened to lift -g, which PORT_GQUAD_SPEC.md's staging originally recorded
+   * as a single edit in engine.c -- it is three.
+   *
+   * RNA_GQUAD_STAGING is the same TEMPORARY development hatch the other two
+   * carry, so G0/G1/G2 can be measured end to end before the answer is right.
+   * DELETE ALL THREE IN G3. */
+  VRNA_CUDA_BACKSTOP(P->model_details.gquad && (getenv("RNA_GQUAD_STAGING") == NULL),
+                     "G-quadruplexes (-g/--gquad)",
                      "the sweep never scores a G-quad contribution into c/fML "
                      "and would return a self-consistent structure 15-31 "
                      "kcal/mol above the true MFE");
@@ -344,6 +353,12 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
  }//endfor H
   stage_prefill_s += rnafold_now_seconds() - t_prefill;
   init_fML(nfiles,length,tri_off_H[nfiles],row_off_H[nfiles]);//on GPU
+
+  /* G-quadruplex G1: the per-row expansion buffer, same extent as
+   * energy_3p00_row and the other row scratch. A no-op returning 0 unless
+   * rnafold_gq_upload() actually uploaded a c_gq for this batch, so with -g off
+   * nothing is allocated. */
+  (void)rnafold_gq_row_alloc(row_off_H[nfiles]);
 
   /* start recursion */
 
