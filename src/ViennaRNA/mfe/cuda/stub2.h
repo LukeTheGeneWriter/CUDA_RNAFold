@@ -445,6 +445,16 @@ void         rnafold_gq_fill_row(const int nfiles, const int turn,
                                  const size_t *d_size_off_H, const size_t max_width);
 
 /* Device offset tables owned by hp_mb_loop.cu, needed by the row expansion. */
+int  rnafold_gq_csr_device(const int **v, const unsigned int **col,
+                           const unsigned int **rowoff,
+                           const size_t **ent_off, const size_t **row_off);
+
+/* G2: the interior-loop gquad term, MIN2'd into int_loop_kernel's own output.
+ * A separate kernel from int_loop_kernel on purpose -- see its definition in
+ * int_loop.cu. No-op unless a c_gq was uploaded. */
+void gq_internal_i(const int nfiles, const int turn_, const size_t *size_off_H,
+                   const int *i_H);
+
 const int    *rnafold_i_H_device(void);
 const size_t *rnafold_row_off_device(void);
 const size_t *rnafold_size_off_device(void);

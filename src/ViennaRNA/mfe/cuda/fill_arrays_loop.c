@@ -145,6 +145,12 @@
 		 hard_constraints, my_c,*/
 		 energy_min, //replaces vrna_E_int_loop(vc, i, j);
 		 size_off_H,i_H);
+      /* G-quadruplex G2: the interior-loop term, MIN2 into the same
+       * d_energy_min2 int_loop_kernel just wrote. Inside this phase's
+       * timer because it IS interior-loop work, and before the sync so it
+       * is charged honestly rather than draining into the next phase --
+       * which is the mistake this file spent a session unpicking. */
+      gq_internal_i(nfiles, turn, size_off_H, i_H);
       rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
       phase_int_loop_s += now_seconds() - t0;
     }

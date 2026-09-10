@@ -61,6 +61,7 @@
 #include           "interior_loopx.h"
 
 #include "stub2.h"
+#include "gquad_dev.h"
 #include <assert.h>
 
 //Avoiding passing turn as a kernel parameter make only a tiny saving
@@ -1171,6 +1172,164 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 // not from bigger blocks. See RNA_INT_LOOP_BLOCK_SIZE just below to
 // re-test 64/128/256 directly if this ever needs re-checking on different
 // hardware, without reintroducing an in-process benchmark.
+
+
+// ===================== G-quadruplex G2: the interior-loop term ==============
+//
+// The device twin of vrna_mfe_gquad_internal_loop() (mfe/mfe_gquad.c:269-470):
+// "all cases where a g-quadruplex may be enclosed by base pair (i,j)".
+// mfe_internal.c:637 MIN2s it into the interior-loop energy, so this MIN2s into
+// d_energy_min2, which is int_loop_kernel's output for exactly that quantity.
+//
+// A SEPARATE KERNEL, DELIBERATELY. int_loop_kernel is 30% of GPU time
+// (STRESS272_RESULTS.md 19) and has a recorded history of regressions from
+// being touched without measurement. Folding three more (p,q) sweeps into it
+// would put gquad-only work inside the hottest loop in the project and risk the
+// default path for a feature almost nobody runs. This launches only when a c_gq
+// was uploaded, so with -g off it does not exist.
+//
+// ONE THREAD PER (H,j) CELL, not one block: unlike the interior loop proper,
+// each cell's three sweeps are short (p bounded by MAXLOOP=30, q by
+// VRNA_GQUAD_MAX_BOX_SIZE=73) and heavily filtered -- upstream skips unless
+// S1[p]==3 AND S1[q]==3, both must be G. Scanning is cheaper than cooperating.
+__global__ void
+gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn` is a #define (:70)
+                   const cuda_param_t* __restrict__ P,
+                   const unsigned int* __restrict__ S,     // packed sequence_encoding
+                   const char* __restrict__ pair_,
+                   const size_t* __restrict__ row_off_H,
+                   const size_t* __restrict__ size_off_H,
+                   const int* __restrict__ i_H,
+                         int* __restrict__ energy_min,     // in/out, MIN2'd
+                   const int* __restrict__ gq_v,
+                   const unsigned int* __restrict__ gq_col,
+                   const unsigned int* __restrict__ gq_rowoff,
+                   const size_t* __restrict__ gq_ent_off,
+                   const size_t* __restrict__ gq_row_off) {
+  const size_t k = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
+  if(k >= size_off_H[nfiles]) return;
+
+  const int H = flatten_index_to_H(k, size_off_H, nfiles);
+  const int i = i_H[H];
+  const int j = (int)(k - size_off_H[H]) + i + turn_ + 1;
+
+  // Upstream's own entry guard (mfe_gquad.c:283-285). i>0 always holds here,
+  // and j <= this record's length because size_off_H[H] is built from
+  // VC[H]->length - i - turn (fill_arrays_loop.c) -- so no len_H bound is
+  // needed, and taking one from the BATCH max would be the 00d1e07 bug again.
+  if(i + VRNA_GQUAD_MIN_BOX_SIZE >= j) return;
+
+  // The closing pair's contribution, computed once (mfe_gquad.c:304-312).
+  // vrna_get_ptype_md() PROMOTES 0 -> 7 (alphabet.c:475-477); the raw pair
+  // value is not the same thing, and this is the identical trap that made
+  // --nsp a live wrong answer in Energy(). dangles==2 on this fork, so the
+  // mismatchI term is unconditional.
+  const int si = unpack(S,H,nfiles,i+1);
+  const int sj = unpack(S,H,nfiles,j-1);
+  unsigned char type = Ptype(S,pair_,H,nfiles,i,j);
+  if(type == 0) type = 7;
+  int energy = P->mismatchI[type][si][sj];
+  if(type > 2) energy += P->TerminalAU;
+
+  int ge = INF;
+
+#define GQ_AT(p_,q_) gq_lookup(H,(unsigned int)(p_),(unsigned int)(q_), \
+                               gq_v,gq_col,gq_rowoff,gq_ent_off,gq_row_off)
+
+  // ---- sweep 1: p == i+1, the quadruplex abuts the closing pair on the 5' side
+  {
+    const int p = i + 1;
+    if((unpack(S,H,nfiles,p) == 3) && (p + VRNA_GQUAD_MIN_BOX_SIZE < j)) {
+      int minq = p + VRNA_GQUAD_MIN_BOX_SIZE - 1;
+      if(minq + 1 + MAXLOOP < j) minq = j - MAXLOOP - 1;
+      int maxq = p + VRNA_GQUAD_MAX_BOX_SIZE + 1;
+      if(maxq + 3 > j) maxq = j - 3;
+      for(int q = minq; q < maxq; q++) {
+        if(unpack(S,H,nfiles,q) != 3) continue;
+        const int e_gq = GQ_AT(p,q);
+        if(e_gq != INF) {
+          const int u = j - q - 1;
+          assert(u >= 0 && u <= MAXLOOP);
+          const int c0 = energy + e_gq + P->internal_loop[u];
+          if(c0 < ge) ge = c0;
+        }
+      }
+    }
+  }
+
+  // ---- sweep 2: p from i+2, both linkers non-empty
+  for(int p = i + 2; p + VRNA_GQUAD_MIN_BOX_SIZE < j; p++) {
+    const int l1 = p - i - 1;
+    if(l1 > MAXLOOP) break;
+    if(unpack(S,H,nfiles,p) != 3) continue;
+    int minq = p + VRNA_GQUAD_MIN_BOX_SIZE - 1;
+    if(minq + 1 + MAXLOOP - l1 < j) minq = j - MAXLOOP + l1 - 1;
+    int maxq = p + VRNA_GQUAD_MAX_BOX_SIZE + 1;
+    if(maxq >= j) maxq = j - 1;
+    for(int q = minq; q < maxq; q++) {
+      if(unpack(S,H,nfiles,q) != 3) continue;
+      const int e_gq = GQ_AT(p,q);
+      if(e_gq != INF) {
+        const int u = l1 + j - q - 1;
+        assert(u >= 0 && u <= MAXLOOP);
+        const int c0 = energy + e_gq + P->internal_loop[u];
+        if(c0 < ge) ge = c0;
+      }
+    }
+  }
+
+  // ---- sweep 3: q == j-1, the quadruplex abuts the closing pair on the 3' side
+  {
+    const int q = j - 1;
+    if(unpack(S,H,nfiles,q) == 3) {
+      const int p0 = (i + 4 + VRNA_GQUAD_MAX_BOX_SIZE - 1 < q)
+                     ? q - VRNA_GQUAD_MAX_BOX_SIZE + 1 : i + 4;
+      for(int p = p0; p + VRNA_GQUAD_MIN_BOX_SIZE - 1 < j; p++) {
+        const int l1 = p - i - 1;
+        if(l1 > MAXLOOP) break;
+        if(unpack(S,H,nfiles,p) != 3) continue;
+        const int e_gq = GQ_AT(p,q);
+        if(e_gq != INF) {
+          assert(l1 >= 0 && l1 <= MAXLOOP);
+          const int c0 = energy + e_gq + P->internal_loop[l1];
+          if(c0 < ge) ge = c0;
+        }
+      }
+    }
+  }
+#undef GQ_AT
+
+  if(ge != INF) {
+    const size_t o = row_off_H[H] + j;
+    if(ge < energy_min[o]) energy_min[o] = ge;   // MIN2, mfe_internal.c:640
+  }
+}
+
+
+// Launch it for this sweep row. A no-op unless rnafold_gq_upload() put a c_gq
+// on the device, so the default path never reaches the kernel.
+PUBLIC void
+gq_internal_i(const int nfiles, const int turn_, const size_t* size_off_H,
+              const int* i_H) {
+  const int* gv; const unsigned int *gc, *gr; const size_t *ge_, *gro;
+
+  if(!rnafold_gq_csr_device(&gv,&gc,&gr,&ge_,&gro)) return;
+
+  const size_t total = size_off_H[nfiles];
+  if(total == 0) return;
+
+  upload_size_off_H(nfiles, size_off_H);
+  upload_i_H(nfiles, i_H);
+
+  const int block = 128;
+  const size_t grid = (total + block - 1)/block;
+  gq_internal_kernel<<<(unsigned int)grid,block>>>(
+      nfiles, turn_, d_param, d_S, d_pair,
+      d_row_off_H, d_size_off_H, d_i_H, d_energy_min2,
+      gv, gc, gr, ge_, gro);
+  gpuErrchk( cudaPeekAtLastError() );
+}
+
 
 //Host (ie non-GPU) code
 PRIVATE void

@@ -405,3 +405,79 @@ the staged work can be measured before it is correct.
 > files. It is not a feature and must never appear in a release note. G3's own
 > task list is: implement the interior-loop term, prove byte-identity on the
 > frozen bar, delete the three hatches, and lift the three gates properly.
+
+---
+
+## G2 LANDED: the ENERGY is exact, and the STRUCTURE is blocked upstream
+
+`gq_internal_kernel` (`int_loop.cu`) is the device twin of
+`vrna_mfe_gquad_internal_loop()` — the three bounded `(p,q)` sweeps —
+`MIN2`'d into `d_energy_min2`, which is `int_loop_kernel`'s own output for
+exactly that quantity (`mfe_internal.c:640`).
+
+**A separate kernel, deliberately.** `int_loop_kernel` is **30 % of GPU time**
+(`STRESS272_RESULTS.md` §19) with a recorded history of regressions from being
+touched without measurement. Folding gquad-only sweeps into the hottest loop in
+the project to serve a feature almost nobody runs is the wrong trade. One thread
+per `(H,j)` cell, launched only when a `c_gq` was uploaded.
+
+Two traps worth recording:
+
+- **`vrna_get_ptype_md()` promotes 0 → 7** (`alphabet.c:475-477`). The raw pair
+  value is not the same thing — the identical trap that made `--nsp` a live wrong
+  answer in `Energy()`.
+- **`turn` is a `#define` in `int_loop.cu:70`**, so a kernel parameter named
+  `turn` expands to `const int 3`. The file already uses `turn_` elsewhere for
+  this reason.
+
+### The result: energies byte-exact, structures not
+
+Against the frozen pristine-2.7.2 reference, all six records:
+
+| | |
+|---|---|
+| **energy mismatches** | **0 of 6** |
+| structure lines differing | 6 of 6 |
+
+The energies are **exactly** upstream's — G0+G1+G2 make the *recursion* correct,
+which is the hard part and the part this project exists to do. The structures
+differ in one specific way: where the reference has `++.++.++.+~`, the GPU emits
+a single `+` and dots. Record 1 has **2** `+` characters against the reference's
+**14** — precisely **one marker per quadruplex, with no box expansion**.
+
+### Why, and it is not our code
+
+`vrna_db_from_bps()` (`structure_dotbracket.c:585-590`) expands a quadruplex via
+`vrna_db_insert_gq(structure, i, bp.L, bp.l, length)`. That needs `L` and `l[3]`,
+the layer/linker layout, which live on the **modern** `vrna_bp_t`.
+
+The port renders with `vrna_db_from_bp_stack()` on the **legacy**
+`vrna_bp_stack_t`, which has only `.i` and `.j`. It has no choice:
+**`vrna_backtrack_from_intervals()` is the only PUBLIC backtrack entry**, and
+internally it builds a modern `vrna_bps_t`, calls the PRIVATE `backtrack()`
+— which *does* produce full layout — and then **downconverts, keeping only `.i`
+and `.j` and discarding `L`/`l`** (`mfe.c:406-415`). Upstream's own comment on
+that loop reads `/* copy bps elements to bp_stack?! */`.
+
+Nor is it recoverable afterwards: `vrna_bt_gquad(fc, i, j, &L, l)` is public, but
+needs the `(i,j)` span — and the marker sets `i == j`, so the span is discarded
+too.
+
+**This is the same shape as the circular finding** (`PORT_OPTION_STATUS.md` §5):
+the capability exists upstream, and the PUBLIC entry point cannot reach it. It
+belongs in `PORT_UPSTREAM_PROPOSAL.md` beside the `postprocess_circular()` ask,
+as a narrow, concrete request — *expose the `vrna_bps_t` form of
+`vrna_backtrack_from_intervals()`, or stop discarding `L`/`l` in the shim*.
+
+### So `-g` stays declined, and G3 is not "lift the gates"
+
+A structure that says `+` where a quadruplex belongs is a **wrong answer**, even
+with the right energy — the structure is the output. All three gates stay shut
+and `RNA_GQUAD_STAGING` remains scaffolding.
+
+**Revised G3:** it is now an *upstream* task, not a kernel task. Either upstream
+exposes the bps backtrack, or the port carries a local patch — and the local
+patch is the thing to weigh against `MERGING.md`'s "seven deleted lines" budget.
+
+`make check` **150/150**; `verify_paramfile_bars.sh` **13/13** with `-g` off, so
+the default path is untouched.

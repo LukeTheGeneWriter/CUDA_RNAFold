@@ -61,6 +61,7 @@
 #include "ViennaRNA/datastructures/dp_matrices.h"
 
 #include "stub2.h"
+#include "gquad_dev.h"
 
 #ifndef INF
 #define INF 10000000
@@ -88,28 +89,10 @@ static int           g_gq_nfiles   = 0;
  * Returns INF for a cell with no quadruplex, which is what every upstream call
  * site passes as its default and then tests for.
  */
-__device__ int
-gq_get(const int                   H,
-       const unsigned int          i,
-       const unsigned int          j,
-       const int          *__restrict__ v,
-       const unsigned int *__restrict__ col,
-       const unsigned int *__restrict__ rowoff,
-       const size_t       *__restrict__ ent_off,
-       const size_t       *__restrict__ row_off)
-{
-  const size_t        ro    = row_off[H];
-  const size_t        base  = ent_off[H];
-  const unsigned int  s     = rowoff[ro + i];
-  const unsigned int  d     = rowoff[ro + i + 1];
-  unsigned int        p;
-
-  for (p = s; p < d; p++)
-    if (col[base + p] == j)
-      return v[base + p];
-
-  return INF;
-}
+/* Now gq_lookup() in gquad_dev.h -- int_loop.cu's G2 sweeps need the same
+ * scan, and two copies of upstream's arithmetic is one too many. */
+#define gq_get(H,i,j,v,col,rowoff,ent,row) \
+        gq_lookup((H),(i),(j),(v),(col),(rowoff),(ent),(row))
 
 
 /* The read-back bar's kernel: evaluate gq_get() over an explicit list of
@@ -396,6 +379,23 @@ rnafold_gq_row_free(void)
  * is what the kernel tests -- so the gquad term costs one null check per row on
  * the default path, not per cell.
  */
+/* Hand the flattened CSR to int_loop.cu, which owns the G2 sweeps. Returns 0
+ * when nothing was uploaded, which is how the caller decides not to launch. */
+extern "C" int
+rnafold_gq_csr_device(const int **v, const unsigned int **col,
+                      const unsigned int **rowoff,
+                      const size_t **ent_off, const size_t **row_off)
+{
+  if (!g_gq_active)
+    return 0;
+
+  *v = d_gq_v; *col = d_gq_col; *rowoff = d_gq_rowoff;
+  *ent_off = d_gq_ent_off; *row_off = d_gq_row_off;
+
+  return 1;
+}
+
+
 extern "C" const int *
 rnafold_gq_row_device(void)
 {

@@ -910,6 +910,7 @@ mfe/cuda/modular_decomposition.lo: $(srcdir)/mfe/cuda/modular_decomposition.cu \
 	  -c $(srcdir)/mfe/cuda/modular_decomposition.cu -o mfe/cuda/modular_decomposition.lo
 
 mfe/cuda/int_loop.lo: $(srcdir)/mfe/cuda/int_loop.cu \
+                      $(srcdir)/mfe/cuda/gquad_dev.h \
                       $(srcdir)/mfe/cuda/stub2.h \
                       $(srcdir)/mfe/cuda/interior_loopx.h \
                       $(srcdir)/mfe/cuda/nth.h \
@@ -930,6 +931,7 @@ mfe/cuda/hp_mb_loop.lo: $(srcdir)/mfe/cuda/hp_mb_loop.cu \
 ## not -g is accepted by the routing guard -- it is inert until the two
 ## call sites in G1/G2 read it.
 mfe/cuda/gquad.lo: $(srcdir)/mfe/cuda/gquad.cu \
+                   $(srcdir)/mfe/cuda/gquad_dev.h \
                    $(srcdir)/mfe/cuda/stub2.h
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
@@ -951,6 +953,7 @@ EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/modular_decomposition.cu \
               mfe/cuda/int_loop.cu \
               mfe/cuda/hp_mb_loop.cu \
+              mfe/cuda/gquad_dev.h \
               mfe/cuda/gquad.cu \
               mfe/cuda/int_loop_kernel_body.inc \
               mfe/cuda/interior_loopx.h \
