@@ -796,24 +796,77 @@ not evidence of where. The quantity that survives is the sum,
 at 400 × 5601 quarter (330.5 → 295.1)**, an improvement with no regression in
 it.
 
-## 17.4 What is NOT settled, and why this box cannot settle it
+## 17.4 SETTLED at this scale: under truthful timers the regression is ZERO
 
-Under `RNA_PHASE_SYNC` locally, `int_loop` reads +1.358 s (+20 %) under int16.
-**That is not a result.** The four sync arms walled 16.46 / 17.22 / 18.59 /
-21.21 s in run order — a monotonic climb of ~1.6 s per position as the laptop
-GPU throttled, which is larger than the effect and runs the same direction. ABBA
-plus min-of-pair does not rescue a drift that big. All it says is that the
-question is open and belongs on a card that holds its clock.
+*The first version of this section said the laptop could not settle this,
+because four sync arms walled 16.46 / 17.22 / 18.59 / 21.21 s — a ~1.6 s
+monotonic climb per run position, larger than the effect. **That was a cooling
+problem, not a property of the box.** Re-run on a cool flat surface with airflow,
+under `tools/gpu_thermal_watch.py`, the same four arms wall 15.28 / 13.79 /
+13.78 / 15.79 — ABBA, with the two i16 arms agreeing to **0.07 %**.*
 
-**The single follow-up that settles it: one pair of arms at 400 × 5601 on a T4
-with `RNA_PHASE_SYNC=1`, int32 and int16.** Compare splits between two arms both
-run with it — never a split from a sync run against one without, and never the
-wall of a sync run against anything, because destroying the phase overlap costs
-~9 % of wall by construction.
+`RNA_PHASE_SYNC=1`, 40 × 3000, ABBA, drift −3.9 % across the whole run:
 
-**Do not optimise `hp_mb` until that run exists.** On the numbers here it is
-~6 % of GPU time, not the 20–25 % of wall the async profile shows, and the work
-would land on the wrong kernel.
+| phase | i32 | i16 | delta | |
+|---|---|---|---|---|
+| `int_loop` | 5.703 | 5.922 | +0.219 | +3.8 % |
+| **`hp_mb`** | **0.859** | **0.854** | **−0.005** | **−0.6 %** |
+| `load_my_c` | 0.482 | 0.474 | −0.008 | −1.7 % |
+| `modular_decomp` | 5.287 | 3.856 | −1.431 | −27.1 % |
+| `fetch_mx` | 0.489 | 0.292 | −0.197 | −40.3 % |
+
+**int16's effect on `hp_mb` is −0.6 %, against a 3–5 % run-to-run spread on that
+phase. It is indistinguishable from zero.** The async timer on the same binary
+and input put it at +4.3 %. The regression does not survive being measured
+properly, which is what §17.3 predicted from the source.
+
+The earlier "+1.358 s (+20 %) on `int_loop`" was drift: on the cool run the same
+comparison is **+0.219 s (+3.8 %)**, six times smaller. A small positive int16
+cost on `int_loop` may be real and is worth a look, but it is not 20 %.
+
+### What is still open
+
+**The artifact is confirmed at 40 × 3000, where the async delta was +4.3 %. The
+T4's async delta at 400 × 5601 is +26 %.** Six times larger, on a host with far
+fewer cores and 35× the cells. So this settles the *mechanism* and settles it at
+this scale; it does not by itself prove the whole +27.1 s at 400 × 5601 is
+attribution, only that the instrument reporting it cannot be trusted to say.
+
+**The follow-up is unchanged: one pair of arms at 400 × 5601 on a T4 with
+`RNA_PHASE_SYNC=1`.** Compare splits between two arms both run with it — never a
+synced split against an unsynced one, and never the wall of a synced run against
+anything, because destroying the phase overlap costs ~9 % by construction.
+
+**Do not optimise `hp_mb` before that run.** On truthful timers it is ~6 % of GPU
+time, not the 20–25 % of wall the async profile shows.
+
+## 17.4a The laptop is POWER-capped, not thermally throttled
+
+`tools/gpu_thermal_watch.py` samples the card every 250 ms and names the reason.
+Over the 115.8 s run above:
+
+| | |
+|---|---|
+| SM clock | min 1057, median 1485, max 1740 MHz (50–83 % of the 2100 max) |
+| temperature | 43 → 74 °C |
+| drift, first third → last third | 1496 → 1437 MHz, **−3.9 %** |
+| `SwPowerCap` | **66.8 % of samples** |
+| `SwThermal` | 9.3 % of samples |
+
+**The dominant limiter is the 65 W power cap, not heat.** That corrects the
+standing note that "this laptop cannot hold a GPU clock under sustained load
+(1057 → 712 MHz)": with airflow it holds within 4 %, and what stops it reaching
+2100 MHz is the power budget, which no amount of cooling changes.
+
+**Consequence: local A/B is usable again for effects above ~5 %**, provided the
+run is ABBA, the machine is on a hard surface, and the drift is reported
+alongside the result. It is still the wrong place for anything smaller, and for
+anything needing many cores.
+
+`nvidia-smi -lgc` — which would pin the clock and remove even the 4 % — is
+refused from inside WSL (WDDM owns the device) and needs an **Administrator**
+shell on the Windows side. It is not required for effects of this size, and it
+would not defeat the power cap either.
 
 ## 17.5 Consequence beyond int16
 
