@@ -128,6 +128,25 @@ was *already* faster than i32's before the fix (0.269 vs 0.438), so the T4's
 
 ---
 
+## 4a. The laptop was mis-diagnosed, and that changed a result
+
+The standing note "this laptop cannot hold a GPU clock under sustained load
+(1057 → 712 MHz); any local measurement below ~15 % is noise" was a **cooling**
+problem, not a property of the machine. On a cool flat surface with airflow, the
+same four ABBA arms wall **15.28 / 13.79 / 13.78 / 15.79** instead of
+16.46 / 17.22 / 18.59 / 21.21 — the two i16 arms agreeing to **0.07 %**.
+
+`tools/gpu_thermal_watch.py` (new) wraps a timed run and names the reason. Over
+115.8 s: drift **−3.9 %**, max 74 °C, and **`SwPowerCap` in 66.8 % of samples
+against `SwThermal` in 9.3 %**. **The limiter is the 65 W power cap, not heat.**
+Cooling fixes the drift; nothing fixes the cap, so the card will not reach its
+2100 MHz max however cold it is. `nvidia-smi -lgc` is refused under WDDM and
+needs an Administrator shell besides — and would not defeat the cap either.
+
+**That upgrade is what settled §4's question**, which the first, badly-cooled
+attempt had to record as unsettleable. **Local A/B is usable for effects above
+~5 %** when the run is ABBA and the drift is quoted beside the result.
+
 ## 5. Do this first next time
 
 **One pair of arms at 400 × 5601 on a T4 with `RNA_PHASE_SYNC=1`, int32 and
@@ -147,7 +166,7 @@ split, and only for `int_loop`, `hp_mb` and `load_my_c`.
 
 ## 6. Operational
 
-- `origin/port27` needs a push: local is at `d5a03af0`.
+- **`origin/port27` is at `72d37d8e`. Pushed.**
 - **`~/port27head` is STALE** — 75db36a1 plus partial local edits, ~3000 lines
   behind. It was left untouched. The live tree for this work is **`~/port27fml`**,
   a fresh clone at `e478419e` plus the files under test, and it is where
