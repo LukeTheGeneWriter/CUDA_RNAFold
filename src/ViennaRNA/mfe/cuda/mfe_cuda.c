@@ -504,14 +504,27 @@ callback_backtrack(const vrna_fold_compound_t* vc,
 
   float   mfe = (float)(INF/100.);
   char    *ss;
-  vrna_bp_stack_t   *bp;
+  vrna_bps_t        bp;
   const int length  = (int) vc->length;
 
     if(vc->stat_cb)
       vc->stat_cb(vc, VRNA_STATUS_MFE_POST, vc->auxdata);  /* PORT: 2.7.2 added the fold compound as first argument */
 
     if(structure && vc->params->model_details.backtrack){
-      bp = (vrna_bp_stack_t *)vrna_alloc(sizeof(vrna_bp_stack_t) * (4*(1+length/2))); /* add a guess of how many G's may be involved in a G quadruplex */
+      /* vrna_bps_t, NOT the legacy vrna_bp_stack_t.
+       *
+       * The legacy form carries only .i and .j. A G-quadruplex needs its
+       * layer/linker layout (bp.L, bp.l[3]) to render, and
+       * vrna_backtrack_from_intervals() DISCARDS both when it downconverts --
+       * so through that entry a gquad can only ever come out as a single '+'
+       * where the box belongs, however correct the energy is. Measured in
+       * PORT_GQUAD_SPEC.md G2: 2 '+' characters against upstream's 14, on a
+       * fold whose energy was byte-exact.
+       *
+       * vrna_backtrack_from_intervals_bps() is the VRNA-PATCH that fills this
+       * directly. It grows on demand, so the old "guess how many G's" sizing
+       * is gone rather than merely enlarged. */
+      bp = vrna_bps_init(4*(1+length/2));
 
       switch(vc->type){
         /* PORT TO 2.7.2: backtrack_comparative() is flagged for deletion with
@@ -526,7 +539,7 @@ callback_backtrack(const vrna_fold_compound_t* vc,
           vrna_log_error("%s: comparative fold compound reached the CUDA "
                          "backtrack path; the routing guard should have "
                          "declined it", __FILE__);
-          free(bp);
+          vrna_bps_free(bp);
           return (float)(INF/100.);
 
         case VRNA_FC_TYPE_SINGLE:     /* fall through */
@@ -543,14 +556,17 @@ callback_backtrack(const vrna_fold_compound_t* vc,
          * in fML" / "in repeat", then a segfault). Same lesson as the private
          * vrna_mfe() copy: the copy exists because 2.3.0 had no seam, and it
          * goes as soon as upstream offers the entry point. */
-        default:                      vrna_backtrack_from_intervals(vc, bp, bt_stack, s);
+        default:                      vrna_backtrack_from_intervals_bps(vc, bp, bt_stack, s);
                                       break;
       }
 
-      ss = vrna_db_from_bp_stack(bp, length);
+      /* vrna_db_from_bps() expands a quadruplex via
+       * vrna_db_insert_gq(structure, i, bp.L, bp.l, length); the legacy
+       * vrna_db_from_bp_stack() has no layout to expand and writes one '+'. */
+      ss = vrna_db_from_bps(bp, length);
       strncpy(structure, ss, length + 1);
       free(ss);
-      free(bp);
+      vrna_bps_free(bp);
     }
 
     if (vc->params->model_details.backtrack_type=='C')

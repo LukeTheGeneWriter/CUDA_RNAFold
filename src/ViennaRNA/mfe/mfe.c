@@ -380,6 +380,66 @@ vrna_mfe(vrna_fold_compound_t *fc,
 }
 
 
+
+/* VRNA-PATCH-BEGIN(bps-backtrack, REACH) -- PORT_LOCAL_PATCHES.md
+ *
+ * vrna_backtrack_from_intervals() is the only PUBLIC entry that backtracks
+ * pre-filled matrices. It builds a modern vrna_bps_t, calls backtrack() -- which
+ * DOES produce a G-quadruplex's layer/linker layout in bp.L and bp.l[3] -- and
+ * then downconverts to the legacy vrna_bp_stack_t, which has only .i and .j.
+ * L and l are DISCARDED. Upstream's own comment on that loop reads
+ * "copy bps elements to bp_stack?!".
+ *
+ * The consequence is not cosmetic. vrna_db_from_bps() renders a quadruplex with
+ * vrna_db_insert_gq(structure, i, bp.L, bp.l, length); with the layout gone,
+ * vrna_db_from_bp_stack() can only write a single '+' where the box belongs.
+ * Measured: a fold whose ENERGY is byte-exact against upstream renders 2 '+'
+ * characters where upstream renders 14 (PORT_GQUAD_SPEC.md, G2).
+ *
+ * Nor is it recoverable afterwards: vrna_bt_gquad(fc, i, j, &L, l) is public but
+ * needs the (i,j) span, and the gquad marker sets i == j, so the span is gone
+ * too.
+ *
+ * This adds the bps form rather than changing the legacy one, so every existing
+ * caller is untouched. It is the same shape of ask as the batch seam: expose
+ * what already exists internally.
+ */
+PUBLIC int
+vrna_backtrack_from_intervals_bps(vrna_fold_compound_t  *fc,
+                                  vrna_bps_t            bp_stack,
+                                  sect                  bt_stack[],
+                                  int                   s)
+{
+  int ret = 0;
+
+  if (fc) {
+    int         i;
+    vrna_bts_t  bts;
+
+    if (s > 0) {
+      bts = vrna_bts_init((unsigned int)s);
+      for (i = 0; i < s; i++)
+        vrna_bts_push(bts,
+                      (vrna_sect_t){
+                        .i = bt_stack[i].i,
+                        .j = bt_stack[i].j,
+                        .ml = bt_stack[i].ml
+                      });
+    } else {
+      bts = vrna_bts_init(0);
+    }
+
+    /* the caller's own bps, filled in place -- no downconversion, so L/l live */
+    ret = backtrack(fc, bp_stack, bts, NULL);
+
+    vrna_bts_free(bts);
+  }
+
+  return ret;
+}
+/* VRNA-PATCH-END(bps-backtrack) */
+
+
 PUBLIC int
 vrna_backtrack_from_intervals(vrna_fold_compound_t  *fc,
                               vrna_bp_stack_t       *bp_stack,

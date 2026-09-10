@@ -14,14 +14,16 @@
 #include <ViennaRNA/mfe/cuda/engine.h>
 
 /*
- * G-quadruplex stage G0: does c_gq reach the device unchanged?
+ * G-quadruplexes on the batch backend.
  *
- * -g DOES NOT WORK YET and this file does not claim it does. The routing guard
- * still declines gquad compounds; the two device call sites that will read the
- * table land in G1/G2. This bar exists on its own because both of those sites
- * only ever READ c_gq -- so if the table arrives intact, a later wrong answer
- * is a recursion bug, and if it does not, every later stage debugs the wrong
- * thing. See PORT_GQUAD_SPEC.md "SCOPED AGAINST THE PORT".
+ * Two tcases, and they test different things on purpose. `Transport` is G0: does
+ * c_gq reach the device unchanged, checked against vrna_smx_csr_int_get() cell
+ * for cell. `Recursion` is G3: does a -g fold through the batch backend match
+ * upstream folding the same compounds one at a time.
+ *
+ * -g is ACCEPTED as of 2026-09-10. It was declined for a real reason -- the
+ * sweep scored no quadruplex contribution at all and returned a self-consistent
+ * structure 15-31 kcal/mol above the true MFE. See PORT_GQUAD_SPEC.md.
  *
  * The comparison is against vrna_smx_csr_int_get() itself, cell for cell, over
  * the FULL triangle of every record -- not against a remembered dump. Diffing
@@ -210,6 +212,115 @@ gq_fc(const char *seq)
   for (k = 0; k < 2; k++)
     vrna_fold_compound_free(fc[k]);
 }
+
+#tcase Recursion
+
+/*
+ * G3: -g through the batch backend, against upstream folding the same
+ * compounds one at a time.
+ *
+ * THIS IS A STRUCTURE COMPARISON, NOT AN ENERGY ONE, AND THAT IS THE POINT.
+ * At the end of G2 every ENERGY was already byte-exact against pristine 2.7.2
+ * while every STRUCTURE was still wrong: the backtrack rendered a single '+'
+ * where a quadruplex belongs, because vrna_backtrack_from_intervals() discards
+ * bp.L/bp.l when it downconverts to the legacy vrna_bp_stack_t. An energy-only
+ * bar is structurally blind to exactly that failure -- the same lesson
+ * tests/mfe_cuda_nolp.ts records for --noLP.
+ *
+ * So this asserts the structures match AND that they actually contain
+ * quadruplex notation, which is what the old rendering could not produce.
+ */
+#test test_batch_matches_upstream_with_gquad
+{
+  vrna_fold_compound_t  *ref[GQ_N], *bat[GQ_N];
+  char                  *s_ref[GQ_N], *s_bat[GQ_N];
+  float                 e_bat[GQ_N];
+  size_t                k;
+  unsigned int          devices, registered, with_gq = 0;
+
+  for (k = 0; k < GQ_N; k++) {
+    size_t n = strlen(gq_seqs[k]);
+
+    ref[k]    = gq_fc(gq_seqs[k]);
+    bat[k]    = gq_fc(gq_seqs[k]);
+    s_ref[k]  = (char *)vrna_alloc(sizeof(char) * (n + 1));
+    s_bat[k]  = (char *)vrna_alloc(sizeof(char) * (n + 1));
+    ck_assert(ref[k]->params->model_details.gquad == 1);
+  }
+
+  for (k = 0; k < GQ_N; k++) {
+    (void)vrna_mfe(ref[k], s_ref[k]);
+    if (strchr(s_ref[k], '+'))
+      with_gq++;
+  }
+
+  /* Every record must actually fold a quadruplex, or this compares two
+   * gquad-free folds and proves nothing about gquads at all. */
+  ck_assert(with_gq == GQ_N);
+
+  devices     = vrna_cuda_devices();
+  registered  = vrna_cuda_register_batch_backend();
+
+  if (devices == 0) {
+    ck_assert(registered == 0);
+  } else {
+    ck_assert(registered != 0);
+    /* The guard must now ACCEPT -g. Without this the test silently becomes the
+     * no-device case and folds on the CPU twice -- which is exactly how it
+     * would look if any of the three gates were reinstated. */
+    ck_assert(vrna_cuda_engine_supports(bat[0], NULL) == 1);
+  }
+
+  ck_assert(vrna_mfe_batch(bat, GQ_N, s_bat, e_bat) != 0);
+
+  for (k = 0; k < GQ_N; k++) {
+    /* structure first: it is the assertion that fails when only the RENDERING
+     * is broken, which was the state at the end of G2 */
+    ck_assert_str_eq(s_ref[k], s_bat[k]);
+
+    /*
+     * AND THE BOX IS EXPANDED, NOT MERELY MARKED.
+     *
+     * ck_assert_str_eq above CANNOT catch a broken renderer, and this was
+     * confirmed by red-team rather than assumed: disabling the layout expansion
+     * in vrna_db_from_bps() left this test fully GREEN, because s_ref and s_bat
+     * are rendered by the same function in the same process, so the damage
+     * cancels on both sides. Self-comparison is the right default in this
+     * project, and this is precisely its blind spot -- a defect on the SHARED
+     * path is invisible to it.
+     *
+     * So assert an ABSOLUTE property no shared bug can fake: an expanded
+     * quadruplex contains CONSECUTIVE '+' (>= VRNA_GQUAD_MIN_STACK_SIZE == 2
+     * per G-tract), whereas the legacy vrna_bp_stack_t rendering produced
+     * exactly one ISOLATED '+' per quadruplex. Measured on this fixture: 33
+     * '+' when correct, 3 when the expansion is disabled.
+     */
+    {
+      const char   *c;
+      unsigned int  run = 0, best = 0, total = 0;
+
+      for (c = s_bat[k]; *c; c++) {
+        if (*c == '+') {
+          total++;
+          if (++run > best)
+            best = run;
+        } else {
+          run = 0;
+        }
+      }
+
+      ck_assert(total >= 8);   /* 4 tracts x >= 2 layers */
+      ck_assert(best  >= 2);   /* a lone marker is a run of exactly 1 */
+    }
+  }
+
+  for (k = 0; k < GQ_N; k++) {
+    free(s_ref[k]); free(s_bat[k]);
+    vrna_fold_compound_free(ref[k]);
+    vrna_fold_compound_free(bat[k]);
+  }
+}
+
 
 #main-pre
     srunner_set_tap(sr, "-");

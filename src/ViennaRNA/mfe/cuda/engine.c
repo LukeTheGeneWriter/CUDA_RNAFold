@@ -87,19 +87,25 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   if (md->dangles != 2)
     DECLINE("dangle model other than 2");
 
-  /*
-   * STILL DECLINED. G0 carries c_gq to the device and G1 adds the multibranch
-   * term, but the INTERIOR-LOOP term (three bounded (p,q) sweeps,
-   * vrna_mfe_gquad_internal_loop()) lands in G2 -- so the answer is not yet
-   * upstream's and this must not accept.
+  /* G-QUADRUPLEXES ACCEPTED 2026-09-10 (G3).
+
+   * The sweep now scores quadruplexes into c and fML: c_gq is carried to the
+   * device (G0), extend_fm_3p()'s multibranch term is in fml_scan_kernel (G1),
+   * and vrna_mfe_gquad_internal_loop()'s three bounded (p,q) sweeps are in
+   * gq_internal_kernel (G2).
    *
-   * RNA_GQUAD_STAGING is a TEMPORARY development escape hatch so the staged
-   * work can be measured end to end before it is correct. It is not a feature,
-   * it is scaffolding, and it MUST be deleted in G3 when the guard is lifted
-   * properly. Anyone finding it still here after G3 should remove it.
+   * The last blocker was NOT the recursion. With the energy already byte-exact,
+   * the STRUCTURE still came out with a single '+' where a quadruplex belongs,
+   * because vrna_backtrack_from_intervals() discards a gquad's layout when it
+   * downconverts to the legacy vrna_bp_stack_t. Fixed by
+   * VRNA-PATCH(bps-backtrack): the port now backtracks into a vrna_bps_t and
+   * renders with vrna_db_from_bps().
+   *
+   * BAR: byte-identical to pristine 2.7.2 on the frozen tests/gquad/ set (6
+   * records, 80-1200 nt, every one containing a quadruplex), and GPU==CPU on 20
+   * further G-rich records at 70-1100 nt, alone and combined with --noLP,
+   * --noGU, -4, --salt and -T. Regression test: tests/mfe_cuda_gquad.ts.
    */
-  if ((md->gquad) && (getenv("RNA_GQUAD_STAGING") == NULL))
-    DECLINE("G-quadruplexes (see PORT_GQUAD_SPEC.md)");
 
   if (md->circ)
     DECLINE("circular RNA (see PORT_CIRC_SPEC.md)");

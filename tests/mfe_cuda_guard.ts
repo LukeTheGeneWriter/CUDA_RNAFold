@@ -73,12 +73,12 @@ declines(vrna_fold_compound_t *fc)
    * Each of these changes the recursion or the energies. Every one was either
    * silently wrong or half-applied on the 2.3.0 GPU path before it was guarded.
    */
-  /* md_uniqml, md_salt and md_nolp are deliberately NOT here any more -- all
-   * three are supported, and each has its own accepts- test below so that a guard
-   * silently re-tightening shows up as a failure rather than as a quiet loss
-   * of acceleration. */
+  /* md_uniqml, md_salt, md_nolp and md_gquad are deliberately NOT here any
+   * more -- all four are supported, and each has its own accepts- test below so
+   * that a guard silently re-tightening shows up as a failure rather than as a
+   * quiet loss of acceleration. md_gquad moved out on 2026-09-10 (G3). */
   void (*tweaks[])(vrna_md_t *) = {
-    md_dangles0, md_gquad, md_circ, md_noguclose
+    md_dangles0, md_circ, md_noguclose
   };
   size_t i;
 
@@ -111,6 +111,27 @@ declines(vrna_fold_compound_t *fc)
 
   ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
 
+  vrna_fold_compound_free(fc);
+}
+
+#test test_guard_accepts_gquad
+{
+  /* -g was declined because the sweep scored no quadruplex contribution into
+   * c/fML at all and returned a valid, self-consistent structure 15-31
+   * kcal/mol above the true MFE -- the worst failure shape available. It is
+   * accepted as of 2026-09-10: c_gq is carried to the device (G0),
+   * extend_fm_3p()'s term is in fml_scan_kernel (G1), and
+   * vrna_mfe_gquad_internal_loop()'s three sweeps are in gq_internal_kernel
+   * (G2). The last blocker was the BACKTRACK, not the recursion -- see
+   * VRNA-PATCH(bps-backtrack).
+   *
+   * tests/mfe_cuda_gquad.ts checks the STRUCTURES; this only asserts the
+   * routing decision, so a guard silently re-tightening shows up here rather
+   * than as a quiet loss of acceleration. */
+  vrna_fold_compound_t *fc = fc_with(md_gquad);
+
+  ck_assert(fc->params->model_details.gquad == 1);
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
   vrna_fold_compound_free(fc);
 }
 

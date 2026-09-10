@@ -41,6 +41,22 @@ vrna_backtrack_from_intervals(vrna_fold_compound_t  *fc,
                               int                   s);
 
 
+/* VRNA-PATCH-BEGIN(bps-backtrack, REACH) -- PORT_LOCAL_PATCHES.md
+ *
+ * As vrna_backtrack_from_intervals(), but fills the caller's vrna_bps_t
+ * directly instead of downconverting to vrna_bp_stack_t. The legacy form
+ * discards a G-quadruplex's layout (bp.L / bp.l[3]), which vrna_db_from_bps()
+ * needs to render the box -- so a caller backtracking pre-filled matrices
+ * cannot produce a correct gquad structure through the legacy entry at all.
+ */
+int
+vrna_backtrack_from_intervals_bps(vrna_fold_compound_t  *fc,
+                                  vrna_bps_t            bp_stack,
+                                  sect                  bt_stack[],
+                                  int                   s);
+/* VRNA-PATCH-END(bps-backtrack) */
+
+
 /**
  *  @brief Backtrack an MFE (sub)structure
  *

@@ -1000,13 +1000,25 @@ gpu_path_usable(struct options *opt,
   /* Model details the sweep does not implement. Mirrors
    * vrna_cuda_engine_supports() in mfe/cuda/engine.c; kept in step with it. */
   if (md->dangles != 2)         NO("dangle model other than 2");
-  /* G-quadruplexes: TWO gates say no, this one and vrna_cuda_engine_supports()
-   * in mfe/cuda/engine.c. Both must be opened to lift -g, and both carry the
-   * same TEMPORARY RNA_GQUAD_STAGING escape hatch so the staged G0/G1/G2 work
-   * can be measured end to end before it is correct. Scaffolding, not a
-   * feature -- DELETE BOTH IN G3. */
-  if ((md->gquad) && (getenv("RNA_GQUAD_STAGING") == NULL))
-                                NO("G-quadruplexes (-g)");
+  /* G-QUADRUPLEXES ACCEPTED 2026-09-10 (G3).
+
+   * The sweep now scores quadruplexes into c and fML: c_gq is carried to the
+   * device (G0), extend_fm_3p()'s multibranch term is in fml_scan_kernel (G1),
+   * and vrna_mfe_gquad_internal_loop()'s three bounded (p,q) sweeps are in
+   * gq_internal_kernel (G2).
+   *
+   * The last blocker was NOT the recursion. With the energy already byte-exact,
+   * the STRUCTURE still came out with a single '+' where a quadruplex belongs,
+   * because vrna_backtrack_from_intervals() discards a gquad's layout when it
+   * downconverts to the legacy vrna_bp_stack_t. Fixed by
+   * VRNA-PATCH(bps-backtrack): the port now backtracks into a vrna_bps_t and
+   * renders with vrna_db_from_bps().
+   *
+   * BAR: byte-identical to pristine 2.7.2 on the frozen tests/gquad/ set (6
+   * records, 80-1200 nt, every one containing a quadruplex), and GPU==CPU on 20
+   * further G-rich records at 70-1100 nt, alone and combined with --noLP,
+   * --noGU, -4, --salt and -T. Regression test: tests/mfe_cuda_gquad.ts.
+   */
   if (md->circ)                 NO("circular RNA (-c)");
   if (md->noGUclosure)          NO("noClosingGU");
 

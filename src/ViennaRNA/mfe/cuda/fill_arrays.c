@@ -182,19 +182,15 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
                      "the sweep implements the linear recursion only and would "
                      "return the LINEAR answer");
 
-  /* The G-quadruplex backstop is the THIRD gate, after RNAfold.c's
-   * gpu_path_usable() and vrna_cuda_engine_supports(). All three must be
-   * opened to lift -g, which PORT_GQUAD_SPEC.md's staging originally recorded
-   * as a single edit in engine.c -- it is three.
+  /* The G-quadruplex backstop is GONE (G3, 2026-09-10). It was the third of
+   * three gates -- after RNAfold.c's gpu_path_usable() and
+   * vrna_cuda_engine_supports() -- and it is removed rather than loosened
+   * because the sweep now scores quadruplexes into c and fML and the answer is
+   * byte-identical to upstream. See PORT_GQUAD_SPEC.md.
    *
-   * RNA_GQUAD_STAGING is the same TEMPORARY development hatch the other two
-   * carry, so G0/G1/G2 can be measured end to end before the answer is right.
-   * DELETE ALL THREE IN G3. */
-  VRNA_CUDA_BACKSTOP(P->model_details.gquad && (getenv("RNA_GQUAD_STAGING") == NULL),
-                     "G-quadruplexes (-g/--gquad)",
-                     "the sweep never scores a G-quad contribution into c/fML "
-                     "and would return a self-consistent structure 15-31 "
-                     "kcal/mol above the true MFE");
+   * The circular and --noClosingGU backstops below STAY: neither of those is
+   * implemented, and this file's whole point is that "unreachable" is enforced
+   * rather than assumed. */
 
   VRNA_CUDA_BACKSTOP(P->model_details.noGUclosure, "--noClosingGU",
                      "half implemented -- the hairpin/multibranch kernel "
