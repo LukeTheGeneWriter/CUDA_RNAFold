@@ -178,3 +178,51 @@ split, and only for `int_loop`, `hp_mb` and `load_my_c`.
   worth deleting.
 - **Next session's front is feature integration**, per Luke: the `-P` bars,
   `Energy()`'s two latent divergences, G-quad, and Defect B as an upstream patch.
+
+---
+
+## 7. LATER THE SAME DAY: the T4 pair landed, and §5's question is closed
+
+`cd2b000b`. The phase-synced pair at 400 × 5601 that §5 named as the one run
+that settles everything:
+
+| phase | i32 | i16 | delta | async said |
+|---|---|---|---|---|
+| `int_loop` | 107.26 | 137.70 | **+30.44 (+28.4 %)** | −0.25 |
+| `hp_mb` | 14.52 | 14.79 | **+0.27 (+1.9 %)** | +31.65 |
+| `modular_decomp` | 216.60 | 156.49 | −60.11 | −58.49 |
+
+**The `hp_mb` regression was attribution — +0.27 s honest.** And **the cost is
+real and it is `int_loop`**, which every profile in this project has recorded as
+**0.8 % of wall** and which is actually **30 % of GPU time**. `hp_mb` is 4.1 %,
+not 29.8 %. Optimising from the async profile would have attacked 4 % of the
+work and left the 30 % alone.
+
+Net GPU-phase change −26.41 s against an async wall change of −27.71 s — the
+split accounts for the wall.
+
+Phase-sync cost **nothing** (535.14 synced vs 535.11 async), which is itself the
+proof: there was no overlap to destroy, because the blocking H2Ds already
+serialised every row. §3's "costs ~9 % by construction" was right to state and
+wrong in magnitude, for the same reason as the finding. **Run it routinely.**
+
+**The fML decode fix is measured at last**: i16 `fetch_mx` 16.41 → 10.33 with the
+i32 **controls at −0.20 and −0.00**. That is the A/B §4 could not get locally.
+It is still **not** a wall win, which is what §4 claimed and still claims.
+
+Also from this session: **G-quads scoped and G0/G1 landed** (`315e3759`,
+`673d439c`, `58829b0b`) — the device work is two sites, not the spec's 49, and
+G1 already closes 93–100 % of the gap on the frozen bar without any record
+falling below the reference. **`-g` has THREE gates**, not the one the spec
+recorded, all currently holding a temporary `RNA_GQUAD_STAGING` hatch that
+**must be deleted in G3**.
+
+### Next
+
+1. **`int_loop`** — 30 % of GPU time and int16 makes it 28 % worse. That is the
+   whole of int16's remaining give-back, in one phase.
+2. **G2**: the interior-loop gquad term, then delete the three hatches.
+3. Re-derive §14.2's decomposition from a phase-synced run before planning from
+   it.
+4. The pipeline RSS multiplier should be **per-budget**: 2.8× is right at
+   quarter and over-projects at natural, and it cost the last run three arms.
