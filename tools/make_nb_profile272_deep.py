@@ -397,7 +397,21 @@ count**. Run it on `modular_decomposition_kernel` for continuity with the first
 profile, and on `int_loop_kernel` too, since that kernel has led the wall before
 and nothing has profiled it since the batch-width work.""")
 
-code(r"""KERNELS = ["modular_decomposition_kernel", "int_loop_kernel"]
+code(r"""# (display name, ncu -k pattern).
+#
+# THE SECOND ENTRY USED TO BE PLAIN "int_loop_kernel" AND MATCHED NOTHING.
+# int_loop_kernel_body.inc is #included once per candidate BLOCK_SIZE and
+# concatenates the size onto the name, so the real symbols are
+# int_loop_kernel_32 / _64 / _128 / _256 -- there is no symbol called
+# "int_loop_kernel" at all. ncu matched none of them, the run recorded
+# "int_loop_kernel/i32": null, and nobody chased the null for three weeks.
+# So the ONE kernel that turned out to be 30% of GPU time has never been
+# profiled (STRESS272_RESULTS.md 19).
+#
+# regex: so it keeps working under RNA_INT_LOOP_BLOCK_SIZE, which selects a
+# differently-named instantiation.
+KERNELS = [("modular_decomposition_kernel", "modular_decomposition_kernel"),
+           ("int_loop_kernel",              "regex:^int_loop_kernel_[0-9]+$")]
 METRICS = ",".join([
     "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed",
     "sm__throughput.avg.pct_of_peak_sustained_elapsed",
@@ -421,16 +435,22 @@ SKIP, COUNT = max(1, LAUNCH // 2), 5
 print("~%d launches; sampling %d from %d" % (LAUNCH, COUNT, SKIP))
 
 PROF = {}
-for kern in KERNELS:
+for kern, pattern in KERNELS:
     for tag, i16 in (("i32", False), ("i16", True)):
         key, log = "%s/%s" % (kern, tag), "/content/d_%s_%s.csv" % (kern[:12], tag)
         env = "RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1" + (" RNA_FML_INT16=1" if i16 else "")
         sh("%s ncu --target-processes all -k %s --launch-skip %d --launch-count %d "
            "--metrics %s --csv --log-file %s %s --noPS -i %s > /dev/null 2>&1"
-           % (env, kern, SKIP, COUNT, METRICS, log, BIN, pfa), check=False, quiet=True)
+           % (env, pattern, SKIP, COUNT, METRICS, log, BIN, pfa), check=False, quiet=True)
         body = open(log).read() if os.path.exists(log) else ""
         if "No kernels were profiled" in body or "dram__bytes_read" not in body:
-            print("  %-40s NO KERNELS PROFILED" % key); PROF[key] = None; continue
+            # LOUD. A quiet null here is exactly how int_loop_kernel went
+            # three weeks unprofiled while being 30% of GPU time.
+            print("  %-40s *** NO KERNELS PROFILED -- the -k pattern %r matched\n"
+                  "      nothing, or the sample landed past the end of the sweep.\n"
+                  "      THIS IS A BROKEN PROBE, NOT A RESULT. Do not record the\n"
+                  "      null and move on." % (key, pattern))
+            PROF[key] = None; continue
         rows = list(csv.DictReader(io.StringIO(
             "\n".join(l for l in body.splitlines() if not l.startswith("==")))))
         agg = {}
@@ -441,7 +461,7 @@ for kern in KERNELS:
         PROF[key] = {k: sum(v)/len(v) for k, v in agg.items()}
         print("  %-40s ok (%d rows)" % (key, len(rows)))""")
 
-code(r"""for kern in KERNELS:
+code(r"""for kern, _pattern in KERNELS:
     a, b = PROF.get("%s/i32"%kern), PROF.get("%s/i16"%kern)
     if not a or not b: continue
     print("=== %s ===" % kern)
