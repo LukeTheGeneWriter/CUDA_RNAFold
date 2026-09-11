@@ -272,14 +272,26 @@ unmarked. It caught four I had missed. Classes: **DEFECT** (submittable alone),
 **SEAM** (needs the strongest case), **REACH** (*"you already do this, we just
 cannot call it"* — the easiest to defend), **DRIVER** (not proposed).
 
-### Where circular actually stands
+### Where circular actually stands — SHIPPED 2026-09-11 (`1159616d`)
 
-`-c` is the one genuinely missing capability, and the remaining work is **ours,
-not upstream's**: the sweep must keep `DMLi` into a triangular `fM2`
-(`PORT_CIRC_SPEC.md` proved `fM2_real == min_k(fML[i,k]+fML[k+1,j])` by
-measurement). The upstream half is already patched as
-`VRNA-PATCH(circular-postprocess)`. `PORT_OPTION_STATUS.md` §5 used to imply the
-exposure was the blocker; it is the smaller of two.
+Written as "the one genuinely missing capability"; closed the next day, and the
+sentence above was right about why it was cheap. The sweep now keeps `DMLi` into
+a triangular `fM2` — `PORT_CIRC_SPEC.md` had proved
+`fM2_real == min_k(fML[i,k]+fML[k+1,j])` by measurement, and the kernel was
+already reducing exactly that every row and discarding it. **No new arithmetic**;
+it costs a chunk width of VRAM and one extra store.
+
+Byte-identical on the frozen `tests/circ/` set, 0 cells disagreeing under
+`RNA_CIRC_VERIFY`, 20 further records green across 8 arms, `make check` 154/154.
+Two things were not mechanical: `postprocess_circular()` seeds its own interval
+stack (so `VRNA-PATCH(bps-backtrack)` now takes `vrna_bts_t` on both sides), and
+the reduction leaks near-INF sentinels (clamped circular-only;
+`PORT_INVESTIGATIONS.md` item 3).
+
+**The list of genuinely missing capabilities for single-sequence folding is now
+empty.** What remains unsupported is multistrand/comparative (unreachable from
+`RNAfold`) and the constraint family (declined by design). The last multi-gate
+option is `--noClosingGU`.
 
 ### Out for results
 

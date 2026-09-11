@@ -4,9 +4,15 @@
 establish what the kernels actually need, cost it honestly, and freeze a
 reference bar now so the implementation is mechanical when the rebase lands.*
 
-**Current status:** `-c` is **guarded and refuses** on the GPU path as of
-`a6bcc3b`. Before that it was accepted and silently returned the *linear*
-answer (`PORT_FEATURE_AUDIT.md`) — the worst failure mode there is.
+**Current status: LANDED 2026-09-11 (`1159616d`).** `-c` is ACCELERATED and
+byte-identical to pristine 2.7.2. All three gates are gone. The history below is
+kept because the design it argued for is the design that shipped — see
+[LANDED](#landed-2026-09-11) at the end for what actually changed and what the
+spec got wrong.
+
+*Superseded:* `-c` was **guarded and refuses** as of `a6bcc3b`; before that it
+was accepted and silently returned the *linear* answer
+(`PORT_FEATURE_AUDIT.md`) — the worst failure mode there is.
 
 ---
 
@@ -173,3 +179,77 @@ verbatim is meant to prevent.
   combination needs no work beyond keeping that refusal intact.
 - **Circular multistrand** (`fms5`/`fms3`) is out of scope with the rest of
   multistrand.
+
+---
+
+## LANDED 2026-09-11
+
+Commit `1159616d`, branch `port27`. **Accelerated, byte-identical, zero gates.**
+
+### What shipped
+
+`modular_decomposition_kernel` now writes the value it already reduced into a
+persistent triangle as well as into `DMLi`:
+
+```c
+if (active && lane == 0) {
+  dml[out] = value;
+  if (fm2) fm2[fm2_out] = (value > INF / 2) ? INF : value;   /* circular only */
+}
+```
+
+`fm2_out = tri_off_H[H] + Indx(i, j)`, computed beside the existing
+`out = row_off_H[H] + j`. One extra store, no extra reads, and the whole thing is
+`NULL`-gated so a linear batch pays nothing but a predictable branch.
+
+Host side: `rnafold_circ_expect()` is set by the driver **before the first chunk
+is sized**, so `modular_decomposition_bytes_per_file()` counts the second
+triangle in both the int32 and int16 branches; `bt_scratch_t` gained an
+`int *fM2` pooled beside `c`/`fML`; and `backtrack_one_slot()` calls
+`VRNA-PATCH(circular-postprocess)` then continues the backtrack from the interval
+stack that function seeds.
+
+### What the spec got right
+
+Everything in "The headline" — `fM2_real == min_k(fML[i,k] + fML[k+1,j])` **is**
+`DMLi`, the kernel was already computing it, and there was **no new arithmetic**.
+"Costs a chunk width" was also right: a circular batch admits proportionally
+fewer records rather than OOMing.
+
+### What the spec got wrong
+
+**"Mechanical" was optimistic, in two places.**
+
+1. `postprocess_circular()` **seeds its own interval stack**; the backtrack must
+   *continue* from it rather than start at `f5[n]`. That forced
+   `VRNA-PATCH(bps-backtrack)` to take `vrna_bts_t` on both sides — converting a
+   seeded stack down to `sect[]` and back is exactly the lossy hop that patch
+   exists to avoid on the `bp` side.
+
+2. The transported value was not identical to upstream's. `RNA_CIRC_VERIFY=1`
+   found `fM2_real[58][70] = 9999750` where upstream has exactly `INF`: the
+   reduction adds `fml_i + fml_j` with no INF guard, so `INF` plus a real
+   negative energy lands just *below* INF and wins the `min`. It matters only
+   because `postprocess_circular()` tests `!= INF`, so it is clamped at the
+   store and the linear hot path is untouched. The open question about
+   `new_c_kernel` is `PORT_INVESTIGATIONS.md` item 3.
+
+### The bars, run
+
+- **Frozen `tests/circ/`** (the 6 records above): **0 differing lines** vs
+  pristine 2.7.2.
+- **`RNA_CIRC_VERIFY=1`**: **0 cells disagree** over 6 records. This is the check
+  with no oracle in it — it recomputes `fM2_real` from the *fetched* `fML` and
+  diffs it against its own definition, O(n^3).
+- **20 records, 45–570 nt, 8 arms** (plain / chunked / int16 / `--noLP` /
+  `--noGU` / `--salt` / `-T` / `-4`): all identical, `sweeps=1` asserted in each.
+- **`make check` 154/154**; `tools/verify_option_matrix.sh` green after moving
+  `circ` to the accelerated list — the harness flagged
+  "UNEXPECTEDLY ACCELERATED" before I updated it, which is the direction you want
+  that error to point.
+- **Red-team:** suppressing the `fm2` store makes `tests/mfe_cuda_circ.ts` fail.
+
+`tests/mfe_cuda_circ.ts` asserts the batch answer matches upstream **and** that
+it differs from the linear fold on every record — without the second assertion, a
+path that silently dropped `-c` would pass on any sequence whose two folds
+coincide, which is precisely the bug this feature had.
