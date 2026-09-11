@@ -38,7 +38,6 @@ things gate 2 declines that gate 1 never checks:
 
 | declined by gate 2 only | consequence |
 |---|---|
-| `--maxBPspan` < length | measured: routes to the CPU correctly |
 | `logML` | no CLI flag exists, so unreachable from RNAfold |
 | multistrand / comparative compounds | not constructible from RNAfold's input |
 
@@ -79,7 +78,7 @@ left to watch.
 | `--helical-rise` | **ACCEL** | — | measured *(only bites under `--salt`)* |
 | `--backbone-length` | **ACCEL** | — | measured *(only bites under `--salt`)* |
 | `--maxBPspan` == length | **ACCEL** | — | measured |
-| `--maxBPspan` < length | DECLINED | **2 only** | measured |
+| **`--maxBPspan` < length** | **ACCEL** *(new, 2026-09-11)* | — | measured at spans 3–400; `RNA_HC_VERIFY` 0/185 716 words; `tests/mfe_cuda_span.ts` |
 | `-j` / `--jobs` | **ACCEL** | — | measured |
 | `--unordered` | **ACCEL** | — | measured **sorted** — see note |
 | `--ImFeelingLucky` | **ACCEL** | — | route measured; **no byte bar possible** — see note |
@@ -130,8 +129,8 @@ the CPU was compared against itself.
 
 | | count |
 |---|---|
-| **ACCELERATED, byte-identical** | **26** |
-| DECLINED, CPU route asserted | 14 |
+| **ACCELERATED, byte-identical** | **27** |
+| DECLINED, CPU route asserted | 13 |
 | NEUTRAL | 19 |
 | UNREACHABLE from this CLI | 1 |
 
@@ -154,6 +153,20 @@ on guard reading.
   arithmetic: `DMLi` **is** `fM2_real`, and the sweep discarded it one row
   later. It costs a **chunk width** of VRAM, counted in
   `modular_decomposition_bytes_per_file()`.
+- **`--maxBPspan` moved DECLINED → ACCELERATED (2026-09-11).** The span is a
+  pure hard constraint (`hard.c:778`, `(j - i) < md->max_bp_span`) and the device
+  replica already had the test; what was missing is that the span arrived as
+  **one scalar for a batch in which it is per record** — `vrna_fold_compound()`
+  gives every compound its own length as a default span, so even the default
+  model differs per record in a mixed-length batch. `d_span_H` is now a table
+  beside `d_len_H`. A second defect went with it: the device clamped `span < 5`
+  up to the record length, which would have turned `--maxBPspan=3` into an
+  **unrestricted** fold.
+  **Neither defect could have changed an answer**, and the reason is structural:
+  the span is **nested-monotone**, so an over-permissive mask can only admit
+  extra *outermost* pairs and `vrna_mfe_exterior_f5()` — host-side, upstream's
+  own — filters exactly those. Measured both ways; see
+  `tests/mfe_cuda_span.ts`.
 - **`-d0` moved DECLINED → ACCELERATED (2026-09-11), for ONE line.** d0 and d2
   share the recursion (`mfe_multibranch.c:686` dispatches `ml_pair_d0` or
   `ml_pair_d2`, both reading only `dmli1`), and — the part I got wrong first —

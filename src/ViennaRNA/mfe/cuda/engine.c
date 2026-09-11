@@ -256,9 +256,29 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   if ((fc->hc != NULL) && (fc->hc->type != VRNA_HC_DEFAULT))
     DECLINE("sliding window hard constraints");
 
-  /* a genuinely restricted span, as opposed to the default span == length */
-  if ((md->max_bp_span > 0) && ((unsigned int)md->max_bp_span < fc->length))
-    DECLINE("restricted base pair span");
+  /* --maxBPspan ACCEPTED 2026-09-11.
+   *
+   * It was never new arithmetic either: the span is a pure HARD CONSTRAINT
+   * (hard.c:778 keeps a pair only when `(j - i) < md->max_bp_span`), and
+   * rnafold_hc_opt() -- the device replica of hc_reset_to_default() -- has
+   * carried that test all along. What was missing was that the span arrived as
+   * ONE SCALAR for the whole batch while it is PER RECORD, so the only honest
+   * way to accept a restricted span was a table. d_span_H is that table, built
+   * beside d_len_H for the same reason.
+   *
+   * Restricting the span changes no extent in the sweep -- the triangles, the
+   * row offsets and the chunk sizing are all derived from LENGTHS. It only
+   * makes more cells INF, which is why this cost nothing in the hot path.
+   *
+   * The bar is RNA_HC_VERIFY=1: it rebuilds all four masks the host way,
+   * straight out of VC[H]->hc->mx, and compares them word for word. That is a
+   * check with NO ORACLE in it, and it is the right one here because the whole
+   * feature is "does the device's hard-constraint replica agree with upstream's".
+   *
+   * Sliding-window folds are still declined, one check above -- a restricted
+   * span is not a window, and conflating them is what made the first version of
+   * this guard decline the default model.
+   */
 
   /*
    * Salt is ACCEPTED. The hot multibranch kernel needed nothing at all for it:

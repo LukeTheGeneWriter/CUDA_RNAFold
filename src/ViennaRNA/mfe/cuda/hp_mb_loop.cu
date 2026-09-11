@@ -168,6 +168,7 @@ static size_t* d_seq_off_H;
 // read that produced the OOB bug fixed in 00d1e07. A real table, uploaded once
 // per chunk beside the offset tables, is what makes an over-sized slot safe.
 static int*    d_len_H;
+static int*    d_span_H;   //per-record max_bp_span, see init_gpu3
 // GPU-resident sweep, step 1: hc->up_ml[j] > 0, one byte per sequence
 // position, indexed by seq_off_H[H]+j exactly like d_S2/d_sequence.
 //
@@ -264,7 +265,8 @@ void load_param2(const vrna_param_t *P){
 // here share hc2_off_H/Hc_ints2 extents; int_loop.cu's d_hccc has its own
 // (Hc_ints pads by MAXLOOP), hence the separate offset table.
 __global__ void
-pack_hc_kernel(const int nfiles, const int turn, const int max_bp_span,
+pack_hc_kernel(const int nfiles, const int turn,
+               const int* __restrict__ span_H,
                const int noGU, const int noGUclosure,
                const short* __restrict__ S, const char* __restrict__ pair,
                const size_t* __restrict__ hc2_off_H,
@@ -293,7 +295,7 @@ pack_hc_kernel(const int nfiles, const int turn, const int max_bp_span,
   #pragma unroll
   for(int b=0; b<32; b++) {
     const long long f = base + b;
-    const unsigned char opt = rnafold_hc_opt(f, n, turn, max_bp_span,
+    const unsigned char opt = rnafold_hc_opt(f, n, turn, span_H[H],
                                              noGU, noGUclosure, S_H, pair);
     const int pt = rnafold_ptype(f, n, turn, S_H, pair);
     m_mb    |= ((opt & VRNA_CONSTRAINT_CONTEXT_MB_LOOP)      ? 1u : 0u) << b;
@@ -449,6 +451,25 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     SLOT_ALLOC(&d_len_H, (size_t)nfiles*sizeof(int));
     gpuErrchk( cudaMemcpy(d_len_H, len_H, (size_t)nfiles*sizeof(int), cudaMemcpyHostToDevice) );
   }
+  {
+    // THE SPAN IS PER RECORD, and that is not an edge case: vrna_fold_compound()
+    // sets md->max_bp_span to each compound's OWN length when the user gives no
+    // --maxBPspan (fold_compound.c:598-601), so a mixed-length batch has a
+    // different span per record even on the default model. Passing one scalar
+    // was wrong for every record longer than VC[0] and cost a wrong answer on 9
+    // of 10 records when RNA_HC_SEQ_DERIVED was first tried (mfe_cuda.c:378).
+    //
+    // A table, for the same reason d_len_H is one. The <= 0 defaulting is done
+    // HERE rather than on the device so the kernel's test can be upstream's
+    // literal `(j - i) < span` with nothing else in it.
+    int span_H[nfiles];
+    for(int H=0;H<nfiles;H++) {
+      const int mbs = VC[H]->params->model_details.max_bp_span;
+      span_H[H] = (mbs > 0) ? mbs : (int)VC[H]->length;
+    }
+    SLOT_ALLOC(&d_span_H, (size_t)nfiles*sizeof(int));
+    gpuErrchk( cudaMemcpy(d_span_H, span_H, (size_t)nfiles*sizeof(int), cudaMemcpyHostToDevice) );
+  }
 
   // Salt correction table. Length-dependent, so unlike d_param2 it belongs with
   // the per-batch buffers rather than the allocate-once ones. `length` is the
@@ -575,18 +596,11 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     const int    bs  = 256;
     const size_t nbl = (total_words2 + bs - 1)/bs;
     assert(nbl <= 2147483647u);
-    // max_bp_span is PER RECORD -- vrna_fold_compound() sets it to each
-    // compound's own length (fold_compound.c:598-601). Passing VC[0]'s here was
-    // wrong for every record longer than VC[0]: see the note in
-    // rnafold_hc_opt(). 0 means "unrestricted", which makes the device use each
-    // record's own len_H. Assert the precondition that makes that equivalent
-    // rather than trusting the guard from a distance.
-    for(int H=0;H<nfiles;H++) {
-      const vrna_md_t* md_H = &(VC[H]->params->model_details);
-      assert(md_H->max_bp_span <= 0 ||
-             (unsigned int)md_H->max_bp_span >= VC[H]->length);
-    }
-    pack_hc_kernel<<<(int)nbl,bs>>>(nfiles, turn_, 0 /*span: per-record len_H*/,
+    // d_span_H carries max_bp_span PER RECORD (see where it is built above).
+    // The scalar that used to be here, and the precondition assert that stood in
+    // for a real table, are both gone: --maxBPspan is implemented rather than
+    // declined as of 2026-09-11, so there is no precondition left to assert.
+    pack_hc_kernel<<<(int)nbl,bs>>>(nfiles, turn_, d_span_H,
                                     md_->noGU, md_->noGUclosure,
                                     d_S2, d_pair2,
                                     d_hc2_off_H, d_hcoff, d_seq_off_H, d_len_H,
@@ -693,6 +707,7 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_hc2_off_H) );
   gpuErrchk( cudaFree(d_seq_off_H) );
   gpuErrchk( cudaFree(d_len_H) );
+  gpuErrchk( cudaFree(d_span_H) );
   gpuErrchk( cudaFree(d_size_off_H) );
   size_off_shadow_reset();   // the device buffer is gone; the shadow must not outlive it
   gpuErrchk( cudaFree(d_i_H) );

@@ -155,6 +155,8 @@ check paramfile         gpu -P PARAMFILE
 check helical_rise      gpu --salt=0.2 --helical-rise=10
 check backbone_len      gpu --salt=0.2 --backbone-length=6.76
 check maxbpspan_full    gpu --maxBPspan=100000
+check maxbpspan_50      gpu --maxBPspan=50
+check maxbpspan_3       gpu --maxBPspan=3
 check jobs2             gpu -j2
 check_sorted unordered  gpu -j2 --unordered
 check noconv            gpu --noconv
@@ -169,7 +171,6 @@ echo
 echo "--- DECLINED: must route to the CPU and give the same answer"
 check dangles1          cpu -d1
 check dangles3          cpu -d3
-check maxbpspan_50      cpu --maxBPspan=50
 check energymodel       cpu --energyModel=1
 check constraint        cpu -C
 check canonicalonly     cpu -C --canonicalBPonly

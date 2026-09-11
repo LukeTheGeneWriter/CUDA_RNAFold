@@ -309,9 +309,16 @@ declines(vrna_fold_compound_t *fc)
   vrna_fold_compound_free(fc);
 }
 
-#test test_guard_declines_a_restricted_bp_span
+#test test_guard_accepts_a_restricted_bp_span
 {
-  /* a span genuinely shorter than the sequence, unlike the default span == n */
+  /* A span genuinely shorter than the sequence, unlike the default span == n.
+   * This test asserted the OPPOSITE until 2026-09-11 and is what caught the
+   * --maxBPspan change being half-finished -- the guard had been lifted and the
+   * routing test had not, which is exactly what it is for.
+   *
+   * The span is a pure hard constraint and restricting it changes no extent in
+   * the sweep; what had to change was that it reached the device as one scalar
+   * for a PER-RECORD quantity. See tests/mfe_cuda_span.ts. */
   vrna_md_t             md;
   vrna_fold_compound_t  *fc;
 
@@ -320,7 +327,7 @@ declines(vrna_fold_compound_t *fc)
 
   fc = vrna_fold_compound(guard_seq, &md, VRNA_OPTION_DEFAULT);
 
-  ck_assert(declines(fc));
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
 
   vrna_fold_compound_free(fc);
 }

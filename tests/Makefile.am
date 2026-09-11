@@ -222,9 +222,9 @@ LIBRARY_TESTS = energy_evaluation \
 ## a guard test when the guard was LIFTED on 2026-09-10 -- see
 ## mfe_cuda_nsp.ts on why two of the three must use an ASYMMETRIC spec.
 if VRNA_AM_SWITCH_CUDA
-CHECKMK_FILES += mfe_cuda_guard.ts mfe_cuda_fm1.ts mfe_cuda_nolp.ts mfe_cuda_nsp.ts mfe_cuda_gquad.ts mfe_cuda_circ.ts mfe_cuda_noclosinggu.ts mfe_cuda_dangles.ts
-CHECK_CFILES  += mfe_cuda_guard.c mfe_cuda_fm1.c mfe_cuda_nolp.c mfe_cuda_nsp.c mfe_cuda_gquad.c mfe_cuda_circ.c mfe_cuda_noclosinggu.c mfe_cuda_dangles.c
-LIBRARY_TESTS += mfe_cuda_guard mfe_cuda_fm1 mfe_cuda_nolp mfe_cuda_nsp mfe_cuda_gquad mfe_cuda_circ mfe_cuda_noclosinggu mfe_cuda_dangles
+CHECKMK_FILES += mfe_cuda_guard.ts mfe_cuda_fm1.ts mfe_cuda_nolp.ts mfe_cuda_nsp.ts mfe_cuda_gquad.ts mfe_cuda_circ.ts mfe_cuda_noclosinggu.ts mfe_cuda_dangles.ts mfe_cuda_span.ts
+CHECK_CFILES  += mfe_cuda_guard.c mfe_cuda_fm1.c mfe_cuda_nolp.c mfe_cuda_nsp.c mfe_cuda_gquad.c mfe_cuda_circ.c mfe_cuda_noclosinggu.c mfe_cuda_dangles.c mfe_cuda_span.c
+LIBRARY_TESTS += mfe_cuda_guard mfe_cuda_fm1 mfe_cuda_nolp mfe_cuda_nsp mfe_cuda_gquad mfe_cuda_circ mfe_cuda_noclosinggu mfe_cuda_dangles mfe_cuda_span
 endif
 
 check_PROGRAMS = ${LIBRARY_TESTS}

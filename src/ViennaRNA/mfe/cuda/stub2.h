@@ -881,7 +881,7 @@ inline void rnafold_tri_unflatten(const long long f, int* pi, int* pj) {
 // compared by eye as well as by memcmp.
 __device__
 inline unsigned char rnafold_hc_opt(const long long f, const int len_H,
-                                    const int turn, const int max_bp_span,
+                                    const int turn, const int span,
                                     const int noGU, const int noGUclosure,
                                     const short* __restrict__ S_H,
                                     const char*  __restrict__ pair) {
@@ -903,22 +903,26 @@ inline unsigned char rnafold_hc_opt(const long long f, const int len_H,
   //loop 2 writes only i in [1, j-turn-1] of columns j > turn+1
   if(!(j > turn + 1 && i < j - turn)) return 0u;
 
-  // THE SPAN IS PER RECORD, AND max_bp_span ARRIVES AS ONE SCALAR FOR THE WHOLE
-  // BATCH. vrna_fold_compound() sets md->window_size = fc->length and then
-  // md->max_bp_span = md->window_size (fold_compound.c:598-601), so every
-  // compound's max_bp_span is ITS OWN length -- and init_gpu3 was passing
-  // VC[0]'s to all of them. The clamp below hides that when VC[0] is the
-  // longest record and silently truncates every longer record when it is not,
-  // which forbids their long-range pairs and returns a suboptimal fold.
-  // Measured 2026-09-09: record 0 clean, mismatches from record 1 onward.
+  // THE SPAN IS PER RECORD. vrna_fold_compound() sets md->window_size =
+  // fc->length and then md->max_bp_span = md->window_size
+  // (fold_compound.c:598-601), so every compound's span is ITS OWN length even
+  // on the default model -- and init_gpu3 used to pass VC[0]'s to all of them,
+  // which cost a wrong answer on 9 of 10 records (mfe_cuda.c:378). It now
+  // arrives per record from d_span_H and `span` below is that record's.
   //
-  // The caller now passes 0 (see init_gpu3), which selects len_H per record --
-  // correct for every accelerated fold, because mfe/cuda/engine.c DECLINES any
-  // compound with a genuinely restricted span. If that guard ever lifts, this
-  // needs a per-record table like d_len_H, NOT a wider scalar.
-  int max_span = max_bp_span;
-  if((max_span < 5) || (max_span > len_H)) max_span = len_H;
-  if((j - i + 1) > max_span) return 0u;
+  // UPSTREAM'S TEST, VERBATIM: hard.c:778 keeps a pair when
+  // `(j - i) < md->max_bp_span`. It does NOT clamp, and this used to:
+  //
+  //     if((max_span < 5) || (max_span > len_H)) max_span = len_H;
+  //
+  // The `> len_H` half was harmless -- no pair can span more than the record.
+  // The `< 5` half was a latent WRONG ANSWER waiting for the guard to lift:
+  // `--maxBPspan=3` is expressible at the CLI, and that line would have turned
+  // it into an UNRESTRICTED fold rather than one that forbids almost every
+  // pair. It was unreachable only because engine.c declined a restricted span.
+  // Removed when --maxBPspan was implemented (2026-09-11); the <= 0 defaulting
+  // that remains is done host-side when d_span_H is built.
+  if((j - i) >= span) return 0u;
 
   const int t = (int)pair[S_H[i]*8 + S_H[j]];
   if(t == 0) return 0u;
