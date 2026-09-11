@@ -1243,13 +1243,37 @@ Chunk cap 37, i32, the same configuration run both ways:
 work drains into the blocking upload — so there is no correction to apply to old
 async profiles. They have to be re-run.
 
+## 20.5a DONE: 64 replicated on sm_86, and promoted
+
+Before changing a default on one machine's evidence — int16's value turned out
+machine-dependent, and the 16-blocks/SM limit that makes 64 pay is an sm_75
+number — the same comparison was run on the local RTX 3050 (sm_86), 60 × 2400,
+**ABBA within each pass** so a monotone drift cancels:
+
+| pass | bs32 (mean of 2) | bs64 (mean of 2) | delta | `modular_decomp` spread |
+|---|---|---|---|---|
+| 1 | 5.511 s | 4.519 s | **−18.0%** | 4.157–4.181 (0.6%) |
+| 2 | 6.389 s | 5.342 s | **−16.4%** | 4.163–4.243 |
+| 3 | 9.508 s | 8.247 s | **−13.3%** | 4.331–4.499 |
+
+Three passes, same direction, larger than the T4's −10.8%. The absolute numbers
+climb hard across passes — `int_loop` 5.5 → 9.5 s while `modular_decomp` moves
+only 8% — which is the laptop's power cap, and is why the comparison lives inside
+a pass and never across one. It is also a second hint that this kernel is
+clock-sensitive rather than bandwidth-bound: it degrades far faster than the
+DRAM-bound phase does.
+
+**Output sha identical in all 12 local arms and all 12 Colab arms.** Block size
+must not change the answer; it does not.
+
+`INT_LOOP_DEFAULT_BLOCK_SIZE` is now 64, named beside the four instantiations so
+it cannot drift from them, with the block-size history rewritten to record the
+measurement that retired the STOPGAP. `RNA_INT_LOOP_BLOCK_SIZE` still forces any
+of the four.
+
 ## 20.6 What to do
 
-1. **Promote block size 64**, and rewrite the STOPGAP comment to record the
-   measurement that retired it. `RNA_INT_LOOP_BLOCK_SIZE` stays as the override.
-   **Confirm the direction on a second architecture first** — int16's value was
-   machine-dependent, and the 16-blocks/SM limit that makes 64 pay is an sm_75
-   number.
+1. ~~Promote block size 64~~ **DONE, see 20.5a.**
 2. **Do not chase bandwidth in `int_loop_kernel`.** It runs at under 5% of DRAM
    peak. Shared-memory staging, better coalescing and an int16 `my_c` are all
    answers to a question this kernel is not asking. Occupancy and per-cell work

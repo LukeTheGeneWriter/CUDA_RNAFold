@@ -938,9 +938,11 @@ Max_p(const int i, const int j, const int q,
 //each block has (MAXLOOP+1)*(MAXLOOP+2)/2 worker threads
 //present reduction code needs BLOCK_SIZE to be at least 32 and a power of 2
 //
-// BLOCK_SIZE=32 below is now just the fallback/default -- Hc()/
-// decode_column()/Energy() above are shared by every instantiation
-// regardless of block size.
+// BLOCK_SIZE=32 below is a placeholder for the shared device helpers only --
+// Hc()/decode_column()/Energy() below are compiled once and used by every
+// instantiation regardless of block size, so its value is irrelevant to them.
+// It is NOT the default any more: that is INT_LOOP_DEFAULT_BLOCK_SIZE (64),
+// named beside the four instantiations further down.
 #define BLOCK_SIZE 32
 
 //emulate hc[pq] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC;
@@ -1167,8 +1169,11 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 
 #define BLOCK_SIZE 256
 #include "int_loop_kernel_body.inc"
-// leave BLOCK_SIZE defined as the fallback/default (32) used below
-#define BLOCK_SIZE 32
+#undef BLOCK_SIZE
+
+// The default, named here beside the instantiations so it cannot drift away
+// from them. 64 since 2026-09-11; see the block-size history immediately below.
+#define INT_LOOP_DEFAULT_BLOCK_SIZE 64
 
 // Block-size history: int_loop_choose_block_size() (timed microbenchmark,
 // tried the occupancy API before that) was removed after both proved
@@ -1182,29 +1187,48 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 // decode/prefix-sum/lookup in int_loop_kernel_body.inc (see the
 // "Cooperative Column Scan" design doc).
 //
-// Re-measured against real hardware 2026-08-20 (local RTX 3050, CC 8.6, via
-// ncu --set basic, RNA_INT_LOOP_BLOCK_SIZE=32 vs 256, sampled across grid
-// sizes from ~40 blocks up to ~54000): BLOCK_SIZE=32 remains the better
-// choice, but for a *different* reason than the old setpq() liability above
-// -- that liability really is gone (aggregate work no longer scales with
-// BLOCK_SIZE), and occupancy at BLOCK_SIZE=256 is indeed dramatically
-// higher (36-62% vs 5-33% depending on grid size) exactly as the old
-// reasoning here predicted. But higher occupancy didn't translate into
-// less time: BLOCK_SIZE=256 was slower at every grid size tested, from
-// 1.07x slower at small grids up to 2.35x slower at grid~500, narrowing
-// back to ~1.09x slower even at grid~54000 (a genuinely large batch of
-// long sequences) -- never faster, at any scale tried. The likely cause:
-// each (i,j) cell's interior-loop search space is inherently small
-// (bounded by MAXLOOP=30), so the cooperative decode/prefix-sum/lookup
-// below only ever needs one warp's worth of work regardless of BLOCK_SIZE
-// -- a bigger block just adds synchronization/scheduling overhead (the
-// extra warp_min combine + __syncthreads() under #if BLOCK_SIZE > 32) for
-// threads that have nothing to do. Real occupancy gains for this kernel
-// come from more *blocks* in flight (bigger batches, more concurrent
-// (H,j) cells -- exactly what staggering/mixed-length batching is for),
-// not from bigger blocks. See RNA_INT_LOOP_BLOCK_SIZE just below to
-// re-test 64/128/256 directly if this ever needs re-checking on different
-// hardware, without reintroducing an in-process benchmark.
+// Re-measured 2026-08-20 (local RTX 3050, CC 8.6, ncu --set basic,
+// RNA_INT_LOOP_BLOCK_SIZE=32 vs 256, grids from ~40 blocks to ~54000):
+// BLOCK_SIZE=256 was slower at every grid size tested -- 1.07x at small grids,
+// 2.35x at grid~500, ~1.09x even at grid~54000 -- despite occupancy rising from
+// 5-33% to 36-62%. That conclusion still stands and is reproduced below.
+//
+// THE STOPGAP IS RETIRED, 2026-09-11, AND THE DEFAULT IS NOW 64. The 08-20
+// sweep compared 32 against 256 and never tried 64, so the conclusion it drew
+// ("real occupancy gains come from more BLOCKS, not bigger blocks") was
+// generalised from the two ends of the range. It is wrong in the middle.
+//
+// Measured at 400 x 5601 on a T4, phase-synced, i32 (STRESS272_RESULTS.md 20.1):
+//
+//     block size     int_loop      modular_decomp (control)     wall
+//         32         102.95 s            215.4 s               523.9 s
+//       * 64  *       91.80 s            216.3 s               512.4 s
+//        128         110.31 s            216.1 s               528.2 s
+//        256         153.56 s            215.7 s               572.5 s
+//
+// modular_decomp cannot be touched by this knob and is flat to 0.34% across all
+// four arms, so it is a free control for device drift -- and there was none.
+// The wall delta (-11.5 s) and the phase delta (-11.15 s) agree to 0.4 s, which
+// is the real evidence: two independently measured quantities moved together.
+//
+// REPLICATED ON A SECOND ARCHITECTURE before this default changed, because
+// int16's value turned out to be machine-dependent and the 16-blocks/SM limit
+// that makes 64 pay is an sm_75 number. RTX 3050 (sm_86), 60 x 2400, ABBA
+// within each pass so a monotone drift cancels: -18.0%, -16.4%, -13.3% across
+// three passes. Output sha identical in all 12 local and all 12 Colab arms.
+//
+// WHY 64 AND NOT MORE, which is the part the old comment had half-right. NCU
+// (the kernel's first profile ever, 20.3) puts it at 44-48% occupancy -- exactly
+// the >=50% ceiling that 16 blocks/SM x 1 warp implies -- with DRAM at 4.2-5.2%
+// of peak and SM throughput at 40-44%. It is latency-bound with too few warps
+// resident, NOT bandwidth-bound, so lifting the block-count ceiling pays. But
+// each (H,j) cell's search space is bounded by MAXLOOP=30, so past 64 threads a
+// block is mostly idle and pays the cross-warp combine (#if BLOCK_SIZE > 32) for
+// nothing. 64 is where occupancy doubles before the work runs out.
+//
+// Use RNA_INT_LOOP_BLOCK_SIZE to re-test 32/128/256 on new hardware without
+// reintroducing an in-process benchmark -- which is what caused the last two
+// regressions.
 
 
 // ===================== G-quadruplex G2: the interior-loop term ==============
@@ -1393,18 +1417,15 @@ int_loop_cuda(const int nfiles,
 
   dim3 blocks((unsigned int)flat_nblocks);
 
-  // Default is still the conservative STOPGAP (BLOCK_SIZE==32, hardcoded
-  // not auto-tuned) -- see the comment above this kernel's four #include
-  // instantiations. RNA_INT_LOOP_BLOCK_SIZE lets a live run force any of
-  // the four candidates directly (32/64/128/256) to measure the
-  // cooperative-scan rewrite against real hardware, same pattern as this
-  // file's other RNA_*-prefixed env knobs (e.g. RNA_CUDA_GRAPH in
-  // modular_decomposition.cu) -- deliberately *not* an in-process
-  // benchmark picking automatically, since that's exactly the mechanism
-  // that caused the last two regressions.
+  // Default 64, MEASURED on two architectures -- see the block-size history
+  // above this kernel's four #include instantiations. Still a fixed constant
+  // rather than an in-process benchmark: auto-tuning this kernel caused the last
+  // two regressions, because it only ever sampled the first (always-tiny)
+  // launch. RNA_INT_LOOP_BLOCK_SIZE forces any of the four candidates for a
+  // re-test on new hardware, same pattern as this file's other RNA_*- knobs.
   static int block_size = 0;
   if(!block_size) {
-    block_size = BLOCK_SIZE; // == 32, the STOPGAP default
+    block_size = INT_LOOP_DEFAULT_BLOCK_SIZE;
     const char* env = getenv("RNA_INT_LOOP_BLOCK_SIZE");
     if(env) {
       const int requested = atoi(env);
@@ -1417,7 +1438,7 @@ int_loop_cuda(const int nfiles,
     }
     fprintf(stderr,"%-24s int_loop_kernel block size %d%s\n",
 	    __FILE__, block_size,
-	    env ? " (from RNA_INT_LOOP_BLOCK_SIZE)" : " (STOPGAP default -- see comment above)");
+	    env ? " (from RNA_INT_LOOP_BLOCK_SIZE)" : " (measured default -- see comment above)");
   }
 
   switch(block_size) {

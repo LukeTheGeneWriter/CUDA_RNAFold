@@ -1,5 +1,9 @@
 # `int_loop_kernel` — scoped 2026-09-10, and the obvious lever is already closed
 
+> **ANSWERED 2026-09-11. The lever was NOT closed: block size 64 is now the
+> default, measured on two architectures. This document was wrong twice and the
+> scoring is at the end — jump there, then read the body for how it got there.**
+
 *Written after the phase-synced T4 run (`cd2b000b`, `STRESS272_RESULTS.md` §19)
 made this the second-largest GPU phase. Read §19 first.*
 
@@ -118,3 +122,53 @@ int16 that int16 only *enabled*.
 Every arm must report `sha 7c0b3d633281` and a `sweep shape:` line. Compare
 **synced** `int_loop` between arms; never a synced wall, never synced against
 unsynced.
+
+---
+
+# ANSWERED 2026-09-11 — and this document was wrong twice
+
+The run is `CUDA_RNAFold_IntLoop.ipynb`, 12 arms on a T4 at 400 × 5601, plus four
+NCU CSVs. Full write-up: `STRESS272_RESULTS.md` §20. Short version, scored
+against what this document predicted:
+
+| this document said | what happened |
+|---|---|
+| "the obvious lever is CLOSED" — 32 stays | **WRONG. 64 wins by 10.8% on the T4 and 13–18% on an RTX 3050.** The closed sweep compared 32 against 256 and never tried 64. |
+| 50% occupancy ceiling from 16 blocks/SM | **RIGHT, and now measured: NCU says 44–48%.** |
+| the int16 penalty tracks records-per-chunk | **WRONG, and refuted by the arms built to test it.** Chunk width costs ~3.5 s; the datatype costs ~25 s at either width. |
+| "this kernel has never been profiled" | fixed — and it is **not bandwidth-bound**: 4.2–5.2% of DRAM peak. |
+
+## The one that matters most
+
+**NCU says `int_loop_kernel` is identical under int16 and int32 — 717 676.8 ns
+against 717 683.2 ns, and every other counter matches too.** So the +25 s in the
+`int_loop` *phase* is not this kernel doing more work, and no amount of kernel
+tuning will recover it. At scale every phase except `modular_decomp` is slower
+under int16, including two (`hp_mb`, `load_my_c`) that touch no int16 data at
+all. That is a device-level signature and it needs the probes named in §20.4,
+not more work here.
+
+## The lesson this document already tried to teach itself, restated
+
+Its own §"The obvious lever is CLOSED" opened by correcting a wrong headline —
+I had proposed 32 → 64 as a free occupancy win without reading the 30 lines
+above the STOPGAP comment, which recorded an NCU sweep. Reading them closed the
+question.
+
+**They should not have closed it.** That sweep tested 32 and 256 and generalised
+from the two ends of the range: *"real occupancy gains for this kernel come from
+more blocks in flight, not from bigger blocks."* The generalisation is false in
+the middle, and 64 — the one value that lifts the block-count ceiling without
+outrunning a MAXLOOP-bounded search space — was never run.
+
+So the sequence was: a wrong headline, corrected by reading; the correction
+believed because it cited a measurement; and **the measurement did not cover the
+case.** The fix is not "read more carefully" — that step worked. It is to check
+what a cited sweep actually *varied* before treating it as closing a range.
+
+## What is left here
+
+Nothing. Block size is promoted (`INT_LOOP_DEFAULT_BLOCK_SIZE`, 64, with the
+history rewritten at the instantiation site). The remaining `int_loop` questions
+are in `STRESS272_RESULTS.md` §20.6, and the live one is the device-level int16
+slowdown, which is not an `int_loop` problem at all.
