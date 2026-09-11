@@ -13,6 +13,7 @@ export PATH="$HOME/miniforge3/bin:$PATH"
 B=${1:-$HOME/port27cuda}
 IN=${2:-$HOME/rnatest/asc.fa}
 BIN=$B/src/bin/RNAfold
+PARFILE=$B/misc/rna_turner2004.par
 . "$(dirname "$0")/bar_preflight.sh"
 bar_preflight "$BIN" "$B" || exit 2
 CUDA_LIBDIR=$(dirname "$(command -v nvcc)")/../lib
@@ -29,6 +30,31 @@ pass=0; fail=0; n=0
 
 NREC=$(grep -c '^>' "$IN")
 
+# check_sorted TAG EXPECT OPTIONS...
+#   As check(), but compares the SORTED outputs. For options whose contract is
+#   "same answers, order not guaranteed" -- --unordered emits records in
+#   completion order by design, so byte-identity is simply the wrong bar and a
+#   plain check() reports a DIFFERS that is the option working correctly.
+check_sorted() {
+  local tag=$1 expect=$2; shift 2
+  n=$((n+1))
+  "$BIN" --noPS "$@" -i "$IN" 2> "$W/$tag.off.err" | sort > "$W/$tag.off"
+  RNA_GPU_CHUNK=0 "$BIN" --noPS "$@" -i "$IN" 2> "$W/$tag.on.err" | sort > "$W/$tag.on"
+  local sweeps; sweeps=$(grep -c 'sweep shape:' "$W/$tag.on.err")
+
+  if [ ! -s "$W/$tag.off" ]; then
+    printf '  %-22s NO OUTPUT from either side\n' "$tag"; fail=$((fail+1)); return
+  fi
+  if ! cmp -s "$W/$tag.off" "$W/$tag.on"; then
+    printf '  %-22s *** DIFFERS (sorted) ***\n' "$tag"; fail=$((fail+1)); return
+  fi
+  if [ "$expect" = gpu ] && [ "$sweeps" -eq 0 ]; then
+    printf '  %-22s *** SILENT CPU ROUTE ***\n' "$tag"; fail=$((fail+1)); return
+  fi
+  printf '  %-22s identical when sorted  [%s route]\n' "$tag" "$expect"
+  pass=$((pass+1))
+}
+
 # check TAG EXPECT OPTIONS...
 #   EXPECT is `gpu` (must be accelerated, and for EVERY record) or `cpu` (must
 #   route to the CPU). Added 2026-09-08: this file used to PRINT the route and
@@ -40,6 +66,7 @@ NREC=$(grep -c '^>' "$IN")
 check() {
   local tag=$1 expect=$2; shift 2
   n=$((n+1))
+  set -- "${@//PARAMFILE/$PARFILE}"
   "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.off" 2> "$W/$tag.off.err"; rc_off=$?
   RNA_GPU_CHUNK=0 "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.on" 2> "$W/$tag.on.err"; rc_on=$?
   local sweeps; sweeps=$(grep -c 'sweep shape:' "$W/$tag.on.err")
@@ -92,42 +119,55 @@ check() {
 }
 
 echo "--- options the GPU path supports (must be accelerated, for EVERY record)"
+echo "--- ACCELERATED: must take the GPU route AND give the same answer"
 check default           gpu
 check temp37            gpu -T 37
 check temp25            gpu -T 25
-check nolp_off          gpu --dangles=2
+check dangles2          gpu --dangles=2
 check partfunc          gpu -p
 check partfunc0         gpu -p0
 check mea               gpu -p --MEA
-check centroid          gpu -p
 check bppm_thresh       gpu -p --bppmThreshold=1e-4
-# noLP moved here 2026-09-07 (9d3f63cc): it is ACCEPTED now. It sat in the
-# "must route to the CPU" list below until 2026-09-08, which was not merely
-# stale bookkeeping -- with the route unasserted, an accepted noLP and a
-# declined noLP produced the same green line.
+check betascale         gpu -p --betaScale=1.2
+check pfscale           gpu -p --pfScale=1.07
 check noLP              gpu --noLP
 check noGU              gpu --noGU
+check noTetra           gpu -4
 check salt              gpu --salt=0.2
+check salt_hi           gpu --salt=1.5
+# ACCELERATED 2026-09-10 (G3): the sweep now scores quadruplexes into c/fML and
+# the bps backtrack renders the box. Was `cpu` in this file until then.
+check gquad             gpu -g
+# int16 is a run-time gate, not a CLI flag -- set it for this arm only
+RNA_FML_INT16=1 check gquad_i16 gpu -g
+# ACCELERATED 2026-09-10: Energy()'s 0->7 promotion and rtype[] fixed, guard lifted.
+check nsp_sym           gpu --nsp=-GA
+check nsp_asym          gpu --nsp=GA
+check paramfile         gpu -P PARAMFILE
+check helical_rise      gpu --salt=0.2 --helical-rise=10
+check backbone_len      gpu --salt=0.2 --backbone-length=6.76
+check maxbpspan_full    gpu --maxBPspan=100000
+check jobs2             gpu -j2
+check_sorted unordered  gpu -j2 --unordered
+check noconv            gpu --noconv
+check autoid            gpu --auto-id
+check idprefix          gpu --auto-id --id-prefix=zz
+check noDP              gpu -p --noDP
+check verbose           gpu -v
+check loglevel          gpu --log-level=3
 
 echo
-echo "--- options that must route to the CPU (expect CPU route, same answer)"
-check gquad             cpu -g
+echo "--- DECLINED: must route to the CPU and give the same answer"
 check circ              cpu -c
 check dangles0          cpu -d0
 check dangles1          cpu -d1
 check dangles3          cpu -d3
 check noClosingGU       cpu --noClosingGU
-# NOT tested: RNAfold has no --logML flag. The check that used to sit here
-# compared two EMPTY outputs from a rejected option and reported "identical"
-# every run -- a green line for a test that never ran anything.
-# NOT tested here: uniq_ML has no RNAfold flag, so an option-surface check
-# cannot reach it. An earlier version of this file listed a "uniqML" case that
-# actually passed `-p --MEA` -- a duplicate of the mea case above wearing a
-# label for something it never exercised. The guard's uniq_ML branch is covered
-# by tests/mfe_cuda_guard.ts instead, which sets the model detail directly.
-
-echo
-printf '\n%d checks: %d identical, %d differing\n' "$n" "$pass" "$fail"
+check maxbpspan_50      cpu --maxBPspan=50
+check energymodel       cpu --energyModel=1
+check constraint        cpu -C
+check canonicalonly     cpu -C --canonicalBPonly
+check enforce           cpu -C --enforceConstraint
 [ $fail -eq 0 ] && echo "RESULT: the CUDA build matches the CPU build across the option surface" \
                 || echo "RESULT: $fail options differ"
 exit $fail

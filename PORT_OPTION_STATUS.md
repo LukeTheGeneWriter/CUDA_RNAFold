@@ -1,166 +1,114 @@
-# RNAfold option surface — what is accelerated, updated 2026-09-10
+# RNAfold option surface: acceleration state and guard state
 
-*All 60 CLI options in `src/bin/RNAfold.ggo`, classified against the library
-guard (`mfe/cuda/engine.c`) and, where stated, against a measured run on
-30 × 80–1240 nt. "Verified" means byte-identical GPU vs CPU on that input with
-the route asserted; "assumed" means the guard covers it but nothing has run.*
+*All **60** options in `src/bin/RNAfold.ggo`, audited 2026-09-11.*
 
----
-
-## `--nsp` — GUARD LIFTED 2026-09-10, because the CAUSE was fixed
-
-**`--nsp` is now ACCELERATED and byte-identical.** It was declined from
-2026-09-09 to 2026-09-10 while a live wrong answer (28 of 30 records, worse on
-27, better on 1) was diagnosed. The guard is gone because `int_loop.cu`'s
-`Energy()` was fixed, not because the risk was re-assessed.
-
-**The fix is four lines.** `Energy()` resolved the two interior-loop pair types
-as `type = Ptype(i,j)` raw and `type_2 = Ptype(q,p)` — no `0 → 7` promotion, and
-an index swap in place of `rtype[]`. Both are exact identities at default
-settings (`rtype[]` is *built* as `rtype[pair[i][j]] = pair[j][i]`, and a ptype-0
-cell is refused by the hard-constraint mask before `Energy()` runs), which is why
-the port was byte-identical for a year without them. `--nsp` breaks the second at
-`model.c:1104`, where `rtype[7]` is **forced** to 7. It now promotes and applies
-`rtype[]`, so all three of the fork's type-resolution sites agree with upstream
-and with each other — under `--nsp` the fork previously disagreed with *itself*.
-
-`rtype[8]` is carried per batch in `cuda_param_t`, appended last so no offset
-above it moves — the same shape as the `MAX_NINIO` and salt fields.
-
-**Measured, RTX 3050, 30 records of 45–1200 nt**, GPU vs the same binary with the
-accelerator off: byte-identical for `--nsp=GA`, `--nsp=-GA` and `--nsp=-AC,GA`,
-and in combination with int16, `--noLP`, `--noGU`, `-4`, `--salt` and `-T`.
-**Nine arms, every one of which BITES** (54–60 lines against the unflagged fold).
-
-**RED without the fix, on the same binary:** `--nsp=GA` differs on 20 lines,
-`--nsp=AC` on 22.
-
-### The symmetric form is a FALSE GREEN — this is the part to remember
-
-`--nsp="-GA"` sets **both** directions to 7, which restores
-`rtype[pair[p][q]] == pair[q][p]` and masks the divergence completely. On the
-broken binary it gave **0 differing lines** while the asymmetric specs gave 20
-and 22. A symmetric-only test passes against the bug.
-
-`tests/mfe_cuda_nsp.ts` (3 cases, replacing the guard test) therefore leads with
-two **asymmetric** specs and asserts the pair table really is asymmetric rather
-than trusting the spec string. Confirmed RED before the green was believed: with
-`Energy()` reverted, both asymmetric cases fail and the symmetric one passes.
-
-**Its fixture is not hand-picked either.** The first version used five 80–92 nt
-sequences chosen by eye and **passed against the broken binary** — because
-`--nsp` changing the answer and the GPU/CPU divergence being *exercised* are two
-different things, and `bites > 0` only establishes the first. The four sequences
-now used were selected by folding 30 random 45–1200 nt sequences on a
-deliberately broken build and keeping the shortest that disagreed.
+*Most rows are **measured**, not argued: `tools/verify_option_parity.sh` runs 40
+checks over 12 mixed-length records (62–401 nt) and asserts, for each, that the
+answer is byte-identical to the same binary with the accelerator off **and** that
+the run took the route it claims. Result: `the CUDA build matches the CPU build
+across the option surface`. Rows marked **(asserted)** were read from the guard
+rather than run — they are named so the distinction stays visible.*
 
 ---
 
-## 1. Accelerated — verified byte-identical
+## There are THREE gates, and they are not the same gate
 
-| option | note |
+This was not written down before, and it changes how to read every "declined"
+row.
+
+| # | gate | where | what it is for |
+|---|---|---|---|
+| **1** | `gpu_path_usable()` | `src/bin/RNAfold.c` | **an optimisation.** Decides whether the driver registers the backend at all. |
+| **2** | `vrna_cuda_engine_supports()` | `src/ViennaRNA/mfe/cuda/engine.c` | **the authority.** Consulted per fold compound; a decline falls back to upstream's own `vrna_mfe()`. |
+| **3** | `VRNA_CUDA_BACKSTOP` | `src/ViennaRNA/mfe/cuda/fill_arrays.c` | **a tripwire.** `exit()`s if an unsupported model reaches the sweep — i.e. if 1 and 2 both have a hole. |
+
+**Gate 1 is a strict subset of gate 2, and that is correct.** `RNAfold.c`'s
+comment claims it "mirrors" gate 2; it does not, and it does not need to. Three
+things gate 2 declines that gate 1 never checks:
+
+| declined by gate 2 only | consequence |
 |---|---|
-| *(default)* | the reference bar |
-| `-T` / `--temp` | affine on the parameters at init; 37 °C is the identity |
-| `--salt` | hot multibranch kernel needed nothing (`PORT_SALT_SPEC.md`) |
-| `--noLP` | accepted `9d3f63cc`; `+RNA_SLOT_FLOW` fixed `364f92f6` |
-| `--noGU` | |
-| `-4` / `--noTetra` | **verified today** — identical, and it bites |
-| `-d2` / `--dangles=2` | the only accepted dangle model |
-| `-p`, `--MEA`, `--bppmThreshold`, `--betaScale`, `-S` | the **MFE fill** is accelerated; the partition function itself runs on the CPU afterwards |
+| `--maxBPspan` < length | measured: routes to the CPU correctly |
+| `logML` | no CLI flag exists, so unreachable from RNAfold |
+| multistrand / comparative compounds | not constructible from RNAfold's input |
 
-Also accepted by the guard but **unreachable from the CLI**: `uniq_ML` (only
-`--ImFeelingLucky` sets it, and that also enables stochastic backtracking, so no
-byte-comparable bar exists). Covered by `tests/mfe_cuda_fm1.ts` instead.
+**A hole in gate 1 costs performance. A hole in gate 2 costs correctness.** Only
+`-c` and `--noClosingGU` are covered by all three.
 
-## 2. Declined — correctly routed to the CPU, same answer
+---
 
-Verified as *CPU route asserted*, not merely observed (`verify_option_parity.sh`,
-18/18):
+## The table
 
-| option | guard reason |
-|---|---|
-| `-c` / `--circ` | circular RNA — see §5, the story has changed |
-| `-g` / `--gquad` | G-quadruplexes (`PORT_GQUAD_SPEC.md`) |
-| `-d0`, `-d1`, `-d3` | dangle model other than 2 |
-| `--noClosingGU` | |
-| `-C`, `--enforceConstraint`, `--canonicalBPonly`, `--batch` | hard structure constraints — closed a live defect |
-| `--shape`, `--shapeMethod`, `--shapeConversion` | soft constraints |
-| `--sp-data`, `--sp-strategy`, `--sp-preprocess` | soft constraints |
-| `--motif` | unstructured domains (ligand motifs) |
-| `--commands` | auxiliary grammar rules |
-| `-m` / `--modifications`, `--mod-file` | host callbacks in a kernel |
-| `--energyModel` | non-default energy set |
-| `--maxBPspan` *(when < length)* | restricted base pair span |
-| *(multi-strand input)* | `fms5`/`fms3` are a rewrite |
-| *(comparative / alignment)* | different recursion entirely |
+**ACCEL** — folds on the GPU, byte-identical to the CPU path ·
+**DECLINED** — routes to the CPU, byte-identical ·
+**NEUTRAL** — never reaches the recursion; the fold is still accelerated ·
+**UNREACHABLE** — cannot be exercised from this CLI
 
-## 3. Neutral — never reach the recursion (25)
+| option | acceleration | guard | evidence |
+|---|---|---|---|
+| *(default)* | **ACCEL** | — | measured |
+| `-T` / `--temp` | **ACCEL** | — | measured, 37 and 25 °C |
+| `-d2` / `--dangles=2` | **ACCEL** | — | measured |
+| `-d0`, `-d1`, `-d3` | DECLINED | 1, 2 | measured |
+| `-p` / `--partfunc` | **ACCEL** *(MFE fill)* | — | measured, `-p` and `-p0` |
+| `--MEA` | **ACCEL** *(MFE fill)* | — | measured |
+| `--bppmThreshold` | **ACCEL** *(MFE fill)* | — | measured |
+| `--betaScale` | **ACCEL** *(MFE fill)* | — | measured |
+| `--pfScale` | **ACCEL** *(MFE fill)* | — | measured |
+| `--noLP` | **ACCEL** | — | measured; `tests/mfe_cuda_nolp.ts` |
+| `--noGU` | **ACCEL** | — | measured |
+| `-4` / `--noTetra` | **ACCEL** | — | measured |
+| `--salt` | **ACCEL** | — | measured, 0.2 and 1.5 M |
+| **`-g` / `--gquad`** | **ACCEL** *(new, 2026-09-10)* | — | measured, incl. int16; `tests/mfe_cuda_gquad.ts` |
+| **`--nsp`** | **ACCEL** *(new, 2026-09-10)* | — | measured, symmetric **and asymmetric**; `tests/mfe_cuda_nsp.ts` |
+| `-P` / `--paramFile` | **ACCEL** | **none possible** | measured; 4 bars in `verify_paramfile_bars.sh` |
+| `--helical-rise` | **ACCEL** | — | measured *(only bites under `--salt`)* |
+| `--backbone-length` | **ACCEL** | — | measured *(only bites under `--salt`)* |
+| `--maxBPspan` == length | **ACCEL** | — | measured |
+| `--maxBPspan` < length | DECLINED | **2 only** | measured |
+| `-j` / `--jobs` | **ACCEL** | — | measured |
+| `--unordered` | **ACCEL** | — | measured **sorted** — see note |
+| `--ImFeelingLucky` | **ACCEL** | — | route measured; **no byte bar possible** — see note |
+| `-c` / `--circ` | DECLINED | **1, 2, 3** | measured |
+| `--noClosingGU` | DECLINED | **1, 2, 3** | measured |
+| `--energyModel` | DECLINED | 1, 2 | measured |
+| `-C` / `--constraint` | DECLINED | 1, 2 | measured |
+| `--canonicalBPonly` | DECLINED | 1, 2 | measured |
+| `--enforceConstraint` | DECLINED | 1, 2 | measured |
+| `--shape` | DECLINED | 1, 2 | measured |
+| `--shapeMethod` | DECLINED | 1, 2 | asserted *(same path as `--shape`)* |
+| `--shapeConversion` | DECLINED | 1, 2 | asserted |
+| `--sp-data` | DECLINED | 1, 2 | asserted |
+| `--sp-strategy` | DECLINED | 1, 2 | asserted |
+| `--sp-preprocess` | DECLINED | 1, 2 | asserted |
+| `--motif` | DECLINED | 1, 2 | measured |
+| `--commands` | DECLINED | 1, 2 | measured |
+| `-m` / `--modifications` | DECLINED | 1 | measured |
+| `--mod-file` | DECLINED | 1 | asserted *(requires `--modifications`)* |
+| `--batch` | **UNREACHABLE** | — | measured: exits 1 on FASTA input |
+| `-v`, `-i`, `-o`, `--noconv` | NEUTRAL | — | measured |
+| `--auto-id`, `--id-prefix` | NEUTRAL | — | measured |
+| `--id-delim`, `--id-digits`, `--id-start` | NEUTRAL | — | asserted |
+| `--filename-delim`, `--filename-full` | NEUTRAL | — | asserted |
+| `--log-level` | NEUTRAL | — | measured |
+| `--log-file`, `--log-time`, `--log-call` | NEUTRAL | — | asserted |
+| `--noPS` | NEUTRAL | — | measured *(used by every arm)* |
+| `--noDP` | NEUTRAL | — | measured *(requires `-p`)* |
+| `-t` / `--layout-type` | NEUTRAL | — | asserted |
+| `--benchmark`, `--bm-*` | NEUTRAL | — | asserted *(post-hoc scoring)* |
 
-`-v`, `-i`, `-o`, `-j`, `--unordered`, `--noconv`, `--auto-id`, `--id-prefix`,
-`--id-delim`, `--id-digits`, `--id-start`, `--filename-delim`,
-`--filename-full`, `--log-level`, `--log-file`, `--log-time`, `--log-call`,
-`--benchmark`, `--bm-output`, `--bm-output-append`, `--bm-rm-pk`, `--bm-rm-nc`,
-`--noPS`, `--noDP`, `-t` / `--layout-type`.
+### Two options a byte bar cannot judge, for different reasons
 
-I/O, identifiers, logging, plotting and post-hoc accuracy scoring. They compose
-with the GPU path because they never touch it.
+**`--unordered`** emits records in *completion* order by design, so a
+byte-identity check reports a difference that is **the option working
+correctly**. `check_sorted()` exists for it: same records, same answers, any
+order. Measured identical when sorted.
 
-## 4. Ungoverned — no guard decision, and only partly tested
-
-**This is the category that matters, and it is where `--nsp` was found.**
-
-| option | status |
-|---|---|
-| `--nsp` | **ACCELERATED 2026-09-10 — see the top of this file.** No longer ungoverned, and no longer declined: the `Energy()` divergence behind it is fixed. |
-| `-P` / `--paramFile` | **ALL FOUR BARS NOW RUN, 2026-09-10 — and bar 4 found a second live silent wrong answer.** `RNA_FML_INT16=1` plus a parameter file with large `stack` magnitudes folded **wrong on 8 of 12 records, by up to 31.8 kcal/mol**: the int16 offset bound is derived from the DEFAULT table's −340, the pack kernel's `assert(0)` guard was a **no-op under `-DNDEBUG`**, and its device `printf` corrupted stdout with 48 781 lines. Fixed by vetting the loaded table in `par_mfe()` **before `init_gpu()` commits the mode**, declining to int32. Bars 1–4 + both over-tightening checks: **13/13**. **Still cannot be guarded** — `vrna_params_load()` mutates library globals, so by fold-compound time `-P` has left no flag for the guard to see. Its assumptions belong in `load_param()` instead. **One was a LIVE wrong answer and is fixed:** `MAX_NINIO` was a `#define` of 300 on the device, "checked" by an `assert(300 == 300)`, while the real `MAX_NINIO` is a writable global a parameter file overwrites (`params/io.c:671`). Measured 2026-09-09 — with the stock file GPU == CPU, but with only the NINIO maximum moved 300 → 80 the **pre-fix binary differs on 9 of 12 records**; the fixed one is identical. Six more assumptions were ranked in `PORT_NSP_PARAMFILE_SCOPE.md` §2.3; **four of them (`lxc` narrowed to float, the dead mismatch/dangle tables, special-hairpin strides, one-parameter-set-per-batch) are still unchecked** against a non-default table. |
-| `--ImFeelingLucky` | GPU differs from CPU — **but that is noise, not a defect.** Two CPU runs of the same flag also differ, so the backtracking really is stochastic and **a byte-identical bar cannot judge this option at all.** It needs a distributional bar, or none. Checked before reporting, because "GPU ≠ CPU" looked exactly like `--nsp` until the CPU was compared against itself. |
-| `--batch` | **not reachable by this harness** — both sides produced *no output*, because `--batch` changes input parsing and the plain FASTA gave it nothing to do. Two empty outputs are not a match; scored as untested rather than passing. |
-| `--backbone-length` | **CLOSED 2026-09-10.** Bites at the DNA value 6.76 **under `--salt`** (24 lines) and the GPU matches the CPU. The earlier "did not bite" was a missing `--salt`: the geometry feeds the salt model only. Bar: `tools/verify_paramfile_bars.sh`. |
-| `--helical-rise` | **PARTLY CLOSED 2026-09-10.** It is wired and parity holds where it bites — but it does **not** bite at the DNA value 3.4 (2.8 → 3.4 moves no integer energy at 62–401 nt); it bites at 10 and 100. So `-P DNA` closes `--backbone-length` and **not** this. "Did not bite" was a property of the value, not of the plumbing. |
-| `--maxBPspan` *(== length)* | identical, did not bite; the restricted case is declined |
-
-## 5. Circular (`-c`) — the blocker is narrower than recorded
-
-`PORT_CIRC_SPEC.md` and `PORT_UPSTREAM_PROPOSAL.md` §3.3 record circular as
-blocked on `postprocess_circular()` being `PRIVATE` (`mfe/mfe.c:103`). Re-reading
-`mfe.c` today, that is **only true of the batch path**:
-
-```c
-    if (!handled)
-      energy = fill_arrays(fc, ms_dat);
-
-    if (fc->params->model_details.circ)
-      energy = postprocess_circular(fc, bt_stack);      /* mfe.c:322 */
-```
-
-`postprocess_circular()` runs **after** the engine branch, on whatever matrices
-the engine filled, unconditionally on `md.circ`. The seam's own comment says so:
-*"Everything after this point — backtracking, circular post-processing, output —
-is unchanged either way."*
-
-So for the **single-fold path** (`vrna_mfe()` with the engine attached), circular
-post-processing is already done for us by upstream, with no new API. What
-genuinely bypasses it is **`vrna_mfe_batch()`**, which hands the whole batch to
-the backend and never reaches `mfe.c:322`.
-
-**Two consequences.**
-
-1. The upstream ask should be re-scoped. It is not "please make
-   `postprocess_circular()` public so we can do circular RNA" — it is "our batch
-   entry point cannot reach the post-processing that the per-fold path gets for
-   free". Narrower, more defensible, and it invites the obvious counter-question:
-   should `vrna_mfe_batch()`'s fallback loop be the answer instead?
-2. **There may be a route with no upstream change at all**: let the batch
-   backend *decline* circular fold compounds, so `vrna_mfe_batch()`'s own
-   per-record loop calls `vrna_mfe()` — which does the post-processing. Circular
-   inputs would fold correctly at CPU speed while everything else is accelerated,
-   instead of being refused outright.
-
-Neither is verified. What is verified is that the recorded blocker does not
-apply to the path most library callers use, and `PORT_CIRC_SPEC.md`'s §"cost a
-chunk width" analysis (fM2 already computed by the hot kernel and discarded) is
-unaffected either way.
+**`--ImFeelingLucky`** uses stochastic backtracking, so **two CPU runs of the
+same flag also differ.** It is accelerated and its route is asserted, but no
+deterministic bar can judge its output. The reason this is written down rather
+than just noted: "GPU ≠ CPU" here looked exactly like the `--nsp` defect until
+the CPU was compared against itself.
 
 ---
 
@@ -168,17 +116,52 @@ unaffected either way.
 
 | | count |
 |---|---|
-| accelerated, verified | **10** CLI options (+ `uniq_ML`, no CLI flag) — `--nsp` and `--backbone-length` added 2026-09-10 |
-| declined, route asserted | **20** — `--nsp` moved OUT on 2026-09-10 when its cause was fixed |
-| neutral | 25 |
-| **ungoverned** | **3 — `-P` (unguardable by construction, but all four bars now run), `--ImFeelingLucky` (no byte bar can judge it) and `--batch` (unreachable by the harness)** |
+| **ACCELERATED, byte-identical** | **23** |
+| DECLINED, CPU route asserted | 17 |
+| NEUTRAL | 19 |
+| UNREACHABLE from this CLI | 1 |
 
-**No live silent wrong answer is currently known on the option surface.** That
-is the first time this file has been able to say so. It is a statement about
-what has been *looked at*, and that set grew on 2026-09-10: all four `-P` bars
-now run (13/13), `--backbone-length` is closed, and `--helical-rise` is closed
-wherever it bites. **`-P` found a second live silent wrong answer on the way**
-(int16 + a large-`stack` file, 8 of 12 records, up to 31.8 kcal/mol) — now fixed
-and barred. What remains unlooked-at: four of `-P`'s seven ranked assumptions,
-`--batch` (unreachable by the harness), and `--ImFeelingLucky` (no byte bar can
-judge it).
+**No silent wrong answer is known anywhere on the option surface** — and unlike
+earlier versions of that claim, it now rests mostly on measurements rather than
+on guard reading.
+
+### What changed on 2026-09-10/11
+
+- **`-g` moved DECLINED → ACCELERATED.** Three gates lifted; the last blocker was
+  the *backtrack*, not the recursion (`VRNA-PATCH(bps-backtrack)`).
+- **`--nsp` moved DECLINED → ACCELERATED.** `Energy()`'s missing 0 → 7 promotion
+  and its index-swap-for-`rtype[]` were fixed.
+- **`--backbone-length` and `--helical-rise` closed.** They only bite under
+  `--salt`; the earlier "did not bite" was a missing `--salt`.
+- **`-P`'s four bars all run.** Bar 4 found a live silent wrong answer (int16
+  plus a large-`stack` file), now fixed.
+- The harness went from 18 checks to 40 and gained `check_sorted()`.
+
+### Still honestly open
+
+1. **`-P` cannot be guarded at all**, by construction: `vrna_params_load()`
+   mutates library globals and leaves no flag for a guard to test. Its
+   assumptions live in `load_param()` instead, and **four of seven ranked ones
+   are still unchecked** against a non-default table (`lxc` narrowed to `float`,
+   the dead mismatch/dangle tables, special-hairpin strides,
+   one-parameter-set-per-batch).
+2. **`--batch` is unreachable by this harness**, so it is untested — not passing.
+3. **`--ImFeelingLucky` has no bar** and cannot have one of this kind.
+4. **11 rows are asserted, not measured.** Each is either a pure I/O option or
+   shares a code path with a measured sibling — but that is an argument, not a
+   run.
+5. **`-c` is the one genuinely missing capability.** It is correctly declined by
+   all three gates, and what stands between it and acceleration is **ours**, not
+   upstream's: the sweep must keep `DMLi` into a triangular `fM2`
+   (`PORT_CIRC_SPEC.md`), costing one chunk width of VRAM. The upstream half —
+   reaching `postprocess_circular()` — is already patched as
+   `VRNA-PATCH(circular-postprocess)`.
+
+### Re-running this audit
+
+```
+tools/verify_option_parity.sh <build-tree> <mixed-length.fa>
+```
+
+Mixed lengths matter: the `--noLP` + `RNA_SLOT_FLOW` defect was invisible to
+uniform-length fixtures.

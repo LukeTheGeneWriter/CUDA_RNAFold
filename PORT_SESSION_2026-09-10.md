@@ -226,3 +226,62 @@ recorded, all currently holding a temporary `RNA_GQUAD_STAGING` hatch that
    it.
 4. The pipeline RSS multiplier should be **per-budget**: 2.8× is right at
    quarter and over-projects at natural, and it cost the last run three arms.
+
+---
+
+## 8. 2026-09-11 — feature integration audited, and the patch set is marked
+
+**`-g` and `--nsp` are ACCELERATED.** The option surface now reads:
+
+| | count |
+|---|---|
+| **ACCELERATED, byte-identical** | **23** |
+| DECLINED, CPU route asserted | 17 |
+| NEUTRAL | 19 |
+| UNREACHABLE from the CLI (`--batch`) | 1 |
+
+`PORT_OPTION_STATUS.md` is the table, and **most of it is measured rather than
+argued** — `tools/verify_option_parity.sh` grew from 18 checks to 40, each
+asserting byte-identity against the same binary with the accelerator off *and*
+the route it claims. 11 rows are still asserted from the guard, and they say so.
+
+### The finding: there are THREE gates and they are not the same gate
+
+1. `gpu_path_usable()` (`RNAfold.c`) — an **optimisation**
+2. `vrna_cuda_engine_supports()` (`engine.c`) — **the authority**
+3. `VRNA_CUDA_BACKSTOP` (`fill_arrays.c`) — a **tripwire**
+
+**Gate 1 is a strict subset of gate 2**, despite `RNAfold.c`'s comment claiming
+it mirrors it. Gate 2 alone declines `--maxBPspan` < length, `logML`, and
+multistrand. **A hole in gate 1 costs performance; a hole in gate 2 costs
+correctness.** Only `-c` and `--noClosingGU` sit behind all three — which is why
+lifting `-g` took three edits and not one.
+
+### Two options no byte bar can judge
+
+`--unordered` emits in *completion* order by design, so byte-identity reports a
+difference that is the option working; `check_sorted()` was added for it.
+`--ImFeelingLucky` is stochastic — **two CPU runs of the same flag differ** — so
+it has a route assertion and no output bar, and cannot get one of this kind.
+
+### Every upstream edit is now marked, and unmarked is a failure
+
+`VRNA-PATCH-BEGIN/END(id, CLASS)` brackets all **10 regions in 8 files**, and
+`tools/list_local_patches.sh` fails if a file changed against `v2.7.2` is
+unmarked. It caught four I had missed. Classes: **DEFECT** (submittable alone),
+**SEAM** (needs the strongest case), **REACH** (*"you already do this, we just
+cannot call it"* — the easiest to defend), **DRIVER** (not proposed).
+
+### Where circular actually stands
+
+`-c` is the one genuinely missing capability, and the remaining work is **ours,
+not upstream's**: the sweep must keep `DMLi` into a triangular `fM2`
+(`PORT_CIRC_SPEC.md` proved `fM2_real == min_k(fML[i,k]+fML[k+1,j])` by
+measurement). The upstream half is already patched as
+`VRNA-PATCH(circular-postprocess)`. `PORT_OPTION_STATUS.md` §5 used to imply the
+exposure was the blocker; it is the smaller of two.
+
+### Out for results
+
+`CUDA_RNAFold_IntLoop.ipynb` is running on Colab — chunk width vs datatype,
+block size re-opened, and the first NCU counters this kernel has ever had.
