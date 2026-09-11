@@ -1447,3 +1447,242 @@ does not.
 That is the same discipline that would have caught the block-size verdict a day
 earlier: the sweep that "closed" it tested 32 against 256 and was read as closing
 64 (§20.1, `PORT_INT_LOOP_SCOPE.md`).
+
+---
+
+# 22. ANSWERED: the int16 give-back is a POWER CAP, and all three levers are dead
+
+*T4, 400 × 5601, commit `a8c3be1b`, 12 arms plus five NCU profiles and a
+three-block-size stall breakdown. `CUDA_RNAFold_IntLoop2.ipynb` +
+`tools/intloop2_addendum.py`. `sha 7c0b3d633281` in every arm.*
+
+## 22.1 The answer to §20.4
+
+§20 left one question: NCU says `int_loop_kernel` is **identical** under int16 and
+int32, while the phase is 25 s slower. Probe P1 (`RNA_LAUNCH_STATS`) and probe
+P2 (the concurrent clock sampler) settle it.
+
+| | i32 | i16 | delta |
+|---|---|---|---|
+| `int_loop` PHASE (s) | 89.33 | 115.41 | **+29.2 %** |
+| **of which the KERNEL** (`sum(device_ms)`) | **84.98** | **110.74** | **+30.3 %** |
+| launch overhead (s) | 1.67 | 1.73 | +3.2 % |
+| launches | 78 358 | 78 358 | 0 |
+| p50 launch (ms) | 1.0361 | 1.2142 | +17.2 % |
+| **SM clock (MHz, sampled DURING the arm)** | **1044** | **781** | **−25.2 %** |
+| power (W) | 66.0 | 65.8 | −0.3 % |
+| temp max (°C) | 82 | 81 | −0.6 % |
+| throttle reason on busy samples | `0x4` on 98.4 % | `0x4` on 98.8 % | — |
+
+**It is not launch overhead** — that is 1.67 s against 1.73 s, a difference of
+60 ms across 78 358 launches. **It is the kernel**, and the kernel is slower
+because **the clock is 25 % lower**.
+
+`0x4` is the SW power cap. **Both arms are pinned at the T4's 70 W board limit**,
+drawing the same 66 W at the same temperature, and the int16 arm gets 781 MHz
+where the int32 arm gets 1044 MHz.
+
+### The arithmetic closes
+
+If `int_loop_kernel` were purely SM-clock-bound its time would scale as 1/clock:
+
+```
+clock ratio      1044 / 781   = 1.337
+kernel ratio   110.74 / 84.98 = 1.303
+```
+
+**97.5 % of the +30 % is the clock.** Which is exactly what §20.3 predicted
+without being able to say so: a kernel at 4.2–5.2 % of DRAM peak and 40–44 % SM
+throughput is latency-bound, and a latency-bound kernel tracks the SM clock.
+
+And it is why NCU could not see it. **NCU locks clocks.** The kernel really is
+identical at equal clock — 717 676.8 ns against 717 683.2 ns — and 30 % slower
+at the clock it actually gets. Both measurements are correct; neither alone is
+the answer.
+
+### Every phase pays in proportion to its clock sensitivity
+
+| phase | i32 | i16 | delta | what it is bound by |
+|---|---|---|---|---|
+| `int_loop` | 89.33 | 115.41 | **+29.2 %** | SM clock (pays ~the full 33.7 %) |
+| `hp_mb` | 14.78 | 16.04 | +8.5 % | small kernels, part launch-bound |
+| `load_my_c` | 11.06 | 11.47 | +3.7 % | transfers, barely clock-bound |
+| `fetch_mx` | 9.42 | 11.47 | +21.7 % | **host-side** int16 decode — a real cost |
+| `modular_decomp` | 217.49 | 155.69 | **−28.4 %** | DRAM-bound; wins anyway |
+| **wall** | **526.6** | **494.1** | **−6.2 %** | |
+
+The ordering predicted in §20.4 from "clock sensitivity" holds exactly.
+
+### So it is a COST OF THE WIN, not a defect
+
+int16 removes DRAM work from `modular_decomp` and replaces it with decode
+arithmetic. On a power-capped card, ALU work is what costs watts — the SMs do
+more per cycle, the governor drops the clock 25 %, and every SM-clock-bound
+phase pays. *(Same power, lower clock, decode arithmetic added: the mechanism is
+inference from those three measurements, not a direct measurement of where the
+watts go.)*
+
+Two consequences worth stating plainly:
+
+1. **The give-back is not recoverable by optimising `int_loop`.** It is a
+   power-budget reallocation, not a kernel defect. The only thing that would
+   reduce it is making `int_loop_kernel` *less* clock-sensitive.
+2. **On a card with power headroom, int16 is worth MORE than 6.2 %.** The
+   measured figure is a T4 number that includes a 25 % clock penalty on three of
+   five phases. This is a prediction, not a measurement — it needs a card that
+   is not pinned at `0x4`.
+
+## 22.2 Lever 1: shared-memory staging is dead, with the premise measured
+
+**§B, the premise check.** DRAM bytes against bytes requested, for
+`modular_decomposition_kernel`:
+
+| | requested | DRAM read | **ratio** | sectors/req | L1 | L2 |
+|---|---|---|---|---|---|---|
+| `md_i32` | 1.10 MB | 0.60 MB | **0.55** | 2.18 | 69.0 % | 30.8 % |
+| `md_i16` | 1.17 MB | 0.53 MB | **0.46** | 1.66 | 78.2 % | 41.0 % |
+
+The decision rule was written down before the run: **ratio ≈ 0.5 means `fml_i`
+is already resident and staging has nothing to win**. It is 0.55. The two streams
+issue one load each per `y`, so half the traffic being cache-served is exactly
+"one stream is cached, the other is not" — `fml_i` resident, `fml_j` streamed.
+**Premise refuted by measurement.**
+
+**§C, the lever itself**, 400 × 5601, ABBA, with `int_loop` as the control:
+
+| | off | on | delta |
+|---|---|---|---|
+| `modular_decomp` (the lever) | 217.51 | 216.93 | **−0.27 %** |
+| `int_loop` (the CONTROL) | 91.32 | 91.94 | +0.68 % |
+| wall | 528.8 | 528.5 | −0.05 % |
+| SM clock | 1005 MHz | 998 MHz | — |
+
+A wash. (On sm_86 it was a 15 % regression; on the T4, with twice the L2, it is
+neutral. Either way: no win.)
+
+**And the staged kernel did do what it claimed** — which is the difference
+between "it is slower" and "it did not work":
+
+| | twin | staged | |
+|---|---|---|---|
+| requested | 1.10 MB | **1.03 MB** | −6 %, so global loads really were removed |
+| DRAM read | 0.60 MB | **0.65 MB** | +8 %, the removed loads were cache hits |
+| duration | 10.9 µs | **15.2 µs** | **+39 %** |
+
+It replaced cache hits with shared-memory traffic and two `__syncthreads()` per
+tile. **Retire "shared-memory staging is a LIVE lever" for good.**
+
+## 22.3 Lever 2: coalescing was never a problem
+
+`l1tex__average_t_sectors_per_request`: **2.18** (`modular_decomposition_kernel`)
+and **2.23** (`int_loop_kernel`). Perfect coalescing for 32 lanes × 4 B is 4.0
+sectors/request; below that means L1 is *deduplicating* requests as well. Both
+kernels are already better than ideal-coalesced. **Closed — there is nothing to
+win, and the `TILE=32` rewrite is why.**
+
+## 22.4 Lever 3: int16 `my_c` — do not build it
+
+Both ceilings measured, neither needing the feature to exist.
+
+**The speed ceiling is zero.** `int_loop_kernel`, i32 against i16:
+
+| | requested | DRAM read | ratio | DRAM % of peak | duration |
+|---|---|---|---|---|---|
+| `il_i32` | 5.19 MB | 0.51 MB | **0.10** | 4.0 % | 41.3 µs |
+| `il_i16` | 5.19 MB | 0.51 MB | **0.10** | 4.0 % | 41.4 µs |
+
+**90 % of what this kernel requests is already served by cache**, and what
+reaches DRAM is 4 % of peak. Halving `my_c` cannot speed it up. (It also
+re-confirms §20.3 at a third fixture: identical under both encodings.)
+
+**The capacity benefit is negative.** int16 `my_c` buys VRAM, VRAM buys records
+per chunk, and that is all. Asked for directly with `RNA_GPU_CHUNK`:
+
+| cap | chunks | `int_loop` | `modular_decomp` | wall | **SM clock** |
+|---|---|---|---|---|---|
+| 29 | 14 | 116.69 | 157.19 | **499.1** | 769 MHz |
+| 37 | 11 | 120.76 | 159.21 | 502.3 (+0.6 %) | 736 MHz |
+| 45 | 9 | 124.02 | 161.34 | 504.7 (+1.1 %) | 719 MHz |
+| 58 | 7 | 128.66 | 164.13 | 511.4 (+2.5 %) | 691 MHz |
+
+**Wall rises monotonically.** int16 `my_c` would buy a cap of ~58, which is
+**2.5 % slower** than the cap it already gets. **Do not build it.**
+
+### And the chunk-width penalty is the SAME power-cap effect
+
+§20.2 measured chunk 29 → 37 costing +3.7 s of `int_loop` and offered a
+*locality* explanation (a bigger `my_c` working set per chunk). That was wrong
+too. Look at the clock column: 769 → 691 MHz as the chunk widens, because more
+concurrent work draws more power.
+
+```
+clock ratio      769 / 691    = 1.113
+int_loop ratio  128.66/116.69 = 1.103
+```
+
+**The chunk-width cost is 99 % clock, not locality.** One mechanism now explains
+both the int16 give-back and the chunk-width penalty, and neither is about
+memory.
+
+## 22.5 The stall breakdown: `wait` dominates, and `barrier` is why 128 loses
+
+`tools/intloop2_addendum.py`, `int_loop_kernel` at three block sizes. **This is
+the occupancy half §20.1 never measured.**
+
+| bs | achieved occupancy | duration | binding limiter (blocks/regs/smem/warps) |
+|---|---|---|---|
+| 32 | **39.6 %** | 127.2 µs | 16 / 36 / 128 / 32 → **blocks** |
+| **64** | **69.8 %** | **97.9 µs** | 16 / 18 / 64 / 16 → blocks *and* warps |
+| 128 | **86.9 %** | 107.3 µs | 16 / 9 / 64 / 8 → **warps** |
+
+**The block-count limit really is what bound block size 32**, exactly as the
+arithmetic said, and lifting it nearly doubles achieved occupancy (39.6 → 69.8 %)
+for a 23 % shorter kernel. The §20.1 mechanism is now measured, not inferred.
+
+**And 128 gets even more occupancy (86.9 %) while being slower.** The stall
+breakdown says why:
+
+| stall reason | bs 32 | bs 64 | bs 128 |
+|---|---|---|---|
+| **`wait`** (fixed-latency ALU dependency) | **23.3 %** | **23.9 %** | **24.4 %** |
+| **`barrier`** (`__syncthreads()`) | **0.1 %** | **6.6 %** | **20.7 %** |
+| `long_scoreboard` (global memory) | 12.0 % | 14.2 % | 15.8 % |
+| `short_scoreboard` (shared memory) | 9.4 % | 9.4 % | 8.9 % |
+| `not_selected` | 3.3 % | 7.1 % | 6.7 % |
+| **total stall cycles per issue** | **8.63** | **10.83** | **12.72** |
+
+In absolute cycles per issue, `barrier` goes **0.010 → 0.833 → 2.633**. At one
+warp per block the two `__syncthreads()` are warp-synchronous and free; at four
+warps they are a barrier across warps doing *data-dependent* amounts of work,
+and they become the second-largest stall in the kernel. **That is the toll that
+eats the occupancy win, and it is why the curve turns over at 64.**
+
+### The energy-table hypothesis is refuted
+
+§20.3 speculated that the latency was the interior-loop energy tables (`int22`
+≈ 202 KB, `int21` ≈ 40 KB thrashing a 64 KB L1). **`long_scoreboard` — global
+memory latency — is only 12–16 %, while `wait` is 23–24 % and roughly flat in
+absolute terms across every block size.** Memory is the *third* cost, not the
+first. More warps do not hide `wait`, which is exactly why doubling the occupancy
+ceiling bought 23 % rather than 2×.
+
+## 22.6 What to do now
+
+1. **Stop looking for the int16 give-back in `int_loop`.** It is the power cap.
+   Re-measure int16's value on a card that is not pinned at `0x4` before quoting
+   6.2 % as its worth.
+2. **All three proposed levers are closed with data** — shared-memory staging
+   (premise refuted *and* lever neutral), coalescing (2.2 sectors/request, better
+   than ideal), int16 `my_c` (no speed ceiling, negative capacity benefit). None
+   should be re-proposed without new evidence.
+3. **The measured target in `int_loop_kernel` is the dependent chain, then the
+   scan machinery** — `wait` 23 %, `barrier` + `short_scoreboard` 9.5 % at bs32
+   rising to 29.6 % at bs128, `long_scoreboard` 12–16 %. The shape that attacks
+   two of those at once is a **warp-synchronous scan**: give each *warp* its own
+   (H,j) cell and replace `col_mask[]`/`prefix[]`/`__syncthreads()` with
+   `__shfl`. That removes `barrier` entirely and lets block size rise for
+   occupancy without paying for it. Not attempted — recorded as the direction the
+   data actually points at.
+4. **Chunk width is a clock lever, not a locality lever.** Narrower chunks run at
+   a higher clock. The quarter budget being both fastest and smallest
+   (§"BUILD PIPELINE VALIDATED") now has a mechanism.

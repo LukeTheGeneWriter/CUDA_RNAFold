@@ -172,3 +172,37 @@ Nothing. Block size is promoted (`INT_LOOP_DEFAULT_BLOCK_SIZE`, 64, with the
 history rewritten at the instantiation site). The remaining `int_loop` questions
 are in `STRESS272_RESULTS.md` §20.6, and the live one is the device-level int16
 slowdown, which is not an `int_loop` problem at all.
+
+---
+
+## FULLY CLOSED 2026-09-11 (STRESS272_RESULTS.md 22)
+
+The one question left after the first run -- why the phase is 25 s slower under
+int16 while NCU says the kernel is identical -- is answered: **a POWER CAP.**
+Both arms sit at 66 W with throttle reason 0x4; the int16 arm runs at 781 MHz
+against 1044, and 97.5% of the slowdown is that clock ratio. Per-launch device
+time (84.98 s vs 110.74 s) says it is the kernel and not launch overhead
+(1.67 s vs 1.73 s).
+
+**NCU locks clocks**, so it could never have seen this. Both of its numbers were
+right and neither was the answer.
+
+Scored against what this document predicted, the final tally is 1 of 4:
+
+| this document said | outcome |
+|---|---|
+| the obvious lever is CLOSED -- 32 stays | **WRONG.** 64, measured on two architectures. |
+| 50% occupancy ceiling from 16 blocks/SM | **RIGHT**, and now measured: 39.6% achieved at bs32, 69.8% at bs64. |
+| the int16 penalty tracks records-per-chunk | **WRONG**, refuted by the arms built to test it -- and the chunk-width penalty turned out to be the SAME clock effect, not locality. |
+| the kernel has never been profiled | fixed, twice: traffic, then stalls. |
+
+And the three levers proposed afterwards are all closed with data: shared-memory
+staging (premise refuted at ratio 0.55, lever neutral), coalescing (2.2
+sectors/request, better than ideal), int16 `my_c` (no speed ceiling,
+negative capacity benefit).
+
+**The measured next target** is not memory at all: `wait` is 23-24% of
+stall cycles, `barrier` + `short_scoreboard` 9.5% rising to 29.6% at
+bs128, and `long_scoreboard` only 12-16%. A warp-synchronous scan attacks
+the first two together. See STRESS272_RESULTS.md 22.5.
+
