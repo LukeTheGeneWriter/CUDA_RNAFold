@@ -1345,6 +1345,14 @@ clock, memory clock, temperature, power and the `clocks_throttle_reasons` bitmas
 device-wide slowdown that tracks power would make the +25 s a **cost of
 `modular_decomp`'s −66 s win**, not an `int_loop` defect.
 
+**Validated locally, and it already says something.** Run against a 60 × 2400
+fold on the RTX 3050 it collected 47 samples, 38 of them busy, and reported
+SM **1431 MHz** mean against a **1732 MHz** maximum with **37 of 38 busy samples
+carrying throttle reason `0x4`, the SW power cap**. That is the laptop's known
+cap ([[project_laptop_is_power_capped_not_thermal]]), measured *during* the work
+for the first time rather than inferred from before-and-after idle readings. The
+instrument works. Whether a T4 shows the same under int16 is the question.
+
 ## 21.4 Lever 1 — shared-memory staging, built and already losing
 
 `RNA_MD_SMEM=1` routes to `modular_decomposition_smem_kernel`, a separate kernel

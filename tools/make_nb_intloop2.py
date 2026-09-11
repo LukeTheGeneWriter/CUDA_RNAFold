@@ -625,7 +625,11 @@ Sectors per request answers the coalescing question at the same time: 32 lanes Ã
 give.""")
 
 code(r"""
-NCU = "ncu --target-processes all --csv --page raw"
+# NO --page raw. It emits a WIDE table (one row per launch, one COLUMN per
+# metric) and the parser below wants the long form with Metric Name / Metric
+# Value. A local dry-run with it produced a clean-looking table of ZEROES --
+# exactly the kind of result this project keeps having to catch.
+NCU = "ncu --target-processes all --csv"
 METRICS = ",".join([
     "gpu__time_duration.sum",
     "dram__bytes_read.sum",
@@ -654,28 +658,53 @@ def ncu(tag, kernel_regex, int16=False, chunk_cap=8, n=60, ln=1800,
     if int16:   env["RNA_FML_INT16"] = "1"
     if md_smem: env["RNA_MD_SMEM"] = "1"
     out = "/content/ncu2_%s.csv" % tag
+    # --log-file, NOT a stdout redirect. RNAfold writes every folded structure to
+    # STDOUT, so `> out` interleaves a megabyte of dot-bracket with the CSV and
+    # the header line is never found. Verified the hard way on a local dry-run.
     cmd = ("%s --metrics %s -k regex:'%s' --launch-skip %d --launch-count %d "
-           "%s --noPS -i %s > %s 2>/content/ncu2_%s.err"
-           % (NCU, METRICS, kernel_regex, skip, count, BIN, fa, out, tag))
-    p = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env)
-    rows = []
-    try:
-        _csv = _csvmod
-        with open(out) as f:
-            lines = [l for l in f if l.strip()]
-        start = next(i for i, l in enumerate(lines) if l.startswith('"ID"'))
-        for rec in _csv.DictReader(lines[start:]):
-            rows.append(rec)
-    except Exception as e:
-        print("  %s: could not parse NCU output (%s)" % (tag, e))
-        print(open("/content/ncu2_%s.err" % tag).read()[-1500:])
+           "--log-file %s %s --noPS -i %s > /dev/null 2>&1"
+           % (NCU, METRICS, kernel_regex, skip, count, out, BIN, fa))
+    subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env)
+
+    body = open(out).read() if os.path.exists(out) else ""
+    # A probe that profiled NOTHING must say so rather than returning {} that
+    # reads as "the metric was zero". This project has eleven checks in its
+    # memory that reported success because they could not reach what they tested.
+    if ("No kernels were profiled" in body) or ("lts__t_sector_hit_rate" not in body):
+        print("  %-14s *** NO KERNELS PROFILED -- broken probe, not a result ***" % tag)
+        print("      regex was %r; kernel symbols are int_loop_kernel_<bs>, not "
+              "int_loop_kernel" % kernel_regex)
+        RESULTS.setdefault("_ncu", {})[tag] = None; save()
         return {}
+
+    rows = list(_csvmod.DictReader(io.StringIO(
+        "\n".join(l for l in body.splitlines() if not l.startswith("==")))))
+
+    # The rows must BE the kernel that was asked for. -k regex: filters on the
+    # kernel name, and a pattern that matches nothing has been observed coming
+    # back with a DIFFERENT kernel's rows rather than with none.
+    # The LITERAL PREFIX of the pattern, not the pattern -- "int_loop_kernel_[0-9]+"
+    # is not a substring of "int_loop_kernel_64(...)", and a guard that fires on
+    # every correct run is worse than no guard at all. Split on metacharacters
+    # by hand rather than with a regex: escaping a character class through two
+    # levels of quoting is how the first attempt at this line broke.
+    want = kernel_regex.strip("^$")
+    for _ch in "[(.*+?|{":
+        want = want.split(_ch)[0]
+    names = set(r.get("Kernel Name", "") for r in rows)
+    if names and not any(want in nm for nm in names):
+        print("  %-14s *** WRONG KERNEL: asked %r, profiled %r ***"
+              % (tag, kernel_regex, sorted(names)[:2]))
+        RESULTS.setdefault("_ncu", {})[tag] = None; save()
+        return {}
+
     agg = collections.defaultdict(list)
     for rec in rows:
-        try: agg[rec["Metric Name"]].append(float(rec["Metric Value"].replace(",", "")))
+        try: agg[rec["Metric Name"]].append(float((rec["Metric Value"] or "").replace(",", "")))
         except Exception: pass
     res = {k: sum(v)/len(v) for k, v in agg.items() if v}
     RESULTS.setdefault("_ncu", {})[tag] = res; save()
+    print("  %-14s ok (%d rows)" % (tag, len(rows)))
     return res
 
 print("ncu helper ready")
@@ -685,7 +714,7 @@ code(r"""
 print("B: modular_decomposition_kernel traffic, i32 vs i16")
 B = {}
 for tag, kw in (("md_i32", dict(int16=False)), ("md_i16", dict(int16=True))):
-    B[tag] = ncu(tag, "modular_decomposition_kernel", **kw)
+    B[tag] = ncu(tag, "^modular_decomposition_kernel$", **kw)
 
 for tag, r in B.items():
     if not r: continue
@@ -770,7 +799,7 @@ whether the traffic actually moved â€” which is the difference between "it is
 slower" and "it did not do what it was supposed to do".""")
 
 code(r"""
-r = ncu("md_smem_i32", "modular_decomposition_smem_kernel", int16=False, md_smem=True)
+r = ncu("md_smem_i32", "^modular_decomposition_smem_kernel$", int16=False, md_smem=True)
 base = RESULTS.get("_ncu", {}).get("md_i32", {})
 if r and base:
     for label, key, scale in (("requested (MB)", "l1tex__t_bytes_pipe_lsu_mem_global_op_ld.sum", 1e6),
@@ -812,7 +841,7 @@ is the result to hope for, because it is the cheap one.""")
 code(r"""
 print("D.1: int_loop_kernel traffic -- how much is there to halve?")
 for tag, kw in (("il_i32", dict(int16=False)), ("il_i16", dict(int16=True))):
-    r = ncu(tag, "int_loop_kernel_.*", **kw)
+    r = ncu(tag, "^int_loop_kernel_[0-9]+$", **kw)
     if not r: continue
     req  = r.get("l1tex__t_bytes_pipe_lsu_mem_global_op_ld.sum", 0)
     dram = r.get("dram__bytes_read.sum", 0)
