@@ -96,6 +96,53 @@ silent wrong answer of the same family as `--nsp` and `MAX_NINIO`.
 
 ---
 
+## 3. DMLi carries near-INF sentinels that upstream's fM2_real never would
+
+**Found by `RNA_CIRC_VERIFY` while landing circular support, 2026-09-11.**
+
+`modular_decomposition_kernel`'s reduction is
+
+```c
+value = MIN2(fml_i[row_off_H[H]+y] + fml_j[tri_off_H[H]+yij], value);
+```
+
+with **no INF guard on either operand**. When one is `INF` (10000000) and the
+other is a real negative energy, the sum lands just *below* INF and wins the
+`min`. Measured: `fM2_real[58][70] = 9999750` where upstream has exactly
+`10000000`.
+
+Upstream's `mfe_multibranch_m2_fast()` guards each operand, so it never produces
+such a value.
+
+### What was checked
+
+- It is **real and reproducible** — one cell on a 75 nt record, found the first
+  time the verifier ran.
+- It **matters for circular**, because `postprocess_circular()` tests
+  `fM2_real[...] != INF` and would treat 9999750 as a two-branch decomposition
+  that does not exist. Fixed by clamping at the fM2 store (`> INF/2 -> INF`),
+  which is circular-only.
+- **It was NOT fixed in the reduction itself**, deliberately. That value also
+  feeds `DMLi`, consumed by `new_c_kernel` on the linear path, which is
+  byte-identical to upstream across every test this project has — including
+  400 x 5601 with `sha 7c0b3d633281` across 22 arms. Adding two INF tests to the
+  inner loop of the largest GPU phase to fix a value the linear path evidently
+  tolerates would trade a measured-good hot path for a theoretical one.
+
+### The open question
+
+**Can a near-INF `DMLi` bite `new_c_kernel`?** It evidently does not on any
+input tested so far, but "evidently does not" is the same standing the `--nsp`
+identities had for a year before an asymmetric spec broke them. The shape to
+look for: a cell where `new_c` compares `DMLi1[j-1]` against a threshold or
+adds to it, such that INF-minus-a-bit behaves differently from INF.
+
+**What to do:** construct an input where an INF `fML` sits adjacent to a large
+negative one in the reduction's range, and diff the linear fold against
+upstream. If it holds, record *why* it cannot bite rather than that it has not.
+
+---
+
 ## How to use this file
 
 Add an entry when you notice something that (a) could change an answer, (b) you
