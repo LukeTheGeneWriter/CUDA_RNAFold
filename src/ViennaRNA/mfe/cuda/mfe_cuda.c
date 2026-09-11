@@ -472,6 +472,11 @@ print_phase_timing_stats(void) {
     __FILE__, phase_int_loop_s, phase_hp_mb_s, phase_load_my_c_s,
     phase_modular_decomp_s, phase_fetch_mx_s, phase_new_c_host_s, phase_fml_host_s,
     phase_fml_prev_host_s, gpu_transfer_total, host_combine_total);
+
+  // RNA_LAUNCH_STATS, printed immediately after the phase line so the two can be
+  // read together: the kernel's own device time against the phase that contains
+  // it. Silent unless the knob is set.
+  rnafold_launch_stats_report();
 }
 
 /*

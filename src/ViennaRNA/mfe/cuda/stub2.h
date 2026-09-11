@@ -554,6 +554,18 @@ PUBLIC int rnafold_gpu_sweep(void);
 PUBLIC void rnafold_phase_sync(void);
 PUBLIC int  rnafold_phase_sync_enabled(void);
 
+// RNA_LAUNCH_STATS -- per-launch DEVICE time for int_loop_kernel, so a phase
+// total can be split into the kernel and everything else. Exists because NCU
+// says the kernel is identical under int16 while the PHASE is 25 s slower
+// (STRESS272_RESULTS.md 20.3/20.4), and no phase total can tell those apart.
+// Every instrumented launch ends in an event sync, so like RNA_PHASE_SYNC it is
+// a diagnostic and its wall is not comparable to a normal run. Defined in
+// device.cu.
+PUBLIC int  rnafold_launch_stats_enabled(void);
+PUBLIC void rnafold_launch_stats_begin(void);
+PUBLIC void rnafold_launch_stats_end(unsigned int grid);
+PUBLIC void rnafold_launch_stats_report(void);
+
 // Continuous flow phase B (RNA_CONTINUOUS_FLOW, default off) -- see the
 // definition in mfe_cuda.c.
 PUBLIC int rnafold_continuous_flow(void);

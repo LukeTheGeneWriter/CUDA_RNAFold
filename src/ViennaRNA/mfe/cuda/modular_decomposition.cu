@@ -1405,6 +1405,185 @@ modular_decomposition_kernel(
   }
 }
 
+// RNA_MD_SMEM=1 -- route to modular_decomposition_smem_kernel, which stages the
+// fml_i row buffer in shared memory. An EXPERIMENT with a measured premise
+// (L2 hit ~6% while one of the two streams is a 22 KB array read O(n^2) times);
+// off by default until it beats its twin on wall clock with an unchanged sha.
+// See the kernel for what it targets and why it cannot help the other stream.
+PUBLIC int
+rnafold_md_smem(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_SMEM");
+
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+
+    if (v)
+      fprintf(stderr, "%-24s RNA_MD_SMEM=1: staging fml_i in shared memory "
+                      "(experimental; sha must not move)\n", __FILE__);
+  }
+
+  return v;
+}
+
+// ============ RNA_MD_SMEM: stage fml_i in shared memory =====================
+//
+// A SEPARATE KERNEL, DELIBERATELY, for the same reason gq_internal_kernel is:
+// modular_decomposition_kernel is 40-60% of GPU time and has a documented
+// history of regressions from being edited without measurement. This is an
+// experiment. It is byte-identical to its twin above or it is wrong, and
+// tests/ plus the sha bar say which; nothing in the default path changes.
+//
+// WHAT IT TARGETS. The inner loop reads two streams per y:
+//
+//     fml_i[row_off_H[H] + y]              a ROW buffer, O(n) per record
+//     fml_j[tri_off_H[H] + y + ij0]        a TRIANGLE, O(n^2) per record
+//
+// `fml_j` has NO intra-row reuse -- cell (i,j) walks column j from row i, and
+// cells with different j walk disjoint columns -- so it is streamed once per
+// row and is the O(n^3) DRAM traffic. Nothing can cache it and shared memory
+// cannot help it.
+//
+// `fml_i` is the opposite: ~22 KB at n=5601, and EVERY cell in the row reads a
+// prefix of it. Total reads are O(n^2) from an O(n) array, so it ought to sit
+// in cache permanently. The NCU finding that motivates this kernel says it does
+// not: modular_decomposition_kernel's L2 hit rate is ~6%, and since the two
+// streams issue one load each per y, a perfectly-cached fml_i alone would put
+// the floor near 50%. The stream is evicting the small array.
+//
+// So: load a tile of fml_i into shared once per block, and read it from there.
+// If the 6% is really fml_i thrashing, DRAM traffic should fall by up to half.
+// If it does not move, fml_i was already resident and the 6% is something else
+// -- which is a result worth having, and the reason this is measured rather
+// than assumed.
+//
+// BLOCKS THAT SPAN TWO RECORDS FALL BACK. `row_off_H[H]` differs per record, so
+// one staged tile cannot serve two. The check is block-uniform (first and last
+// m of the block), so the __syncthreads() below is never divergent. With ~29
+// records per chunk and thousands of blocks, the fallback is a rounding error.
+#define MD_SMEM_TILE 1024   /* ints; 4 KB per block, small enough not to cost occupancy */
+
+template <int TILE>
+__global__ void
+modular_decomposition_smem_kernel(
+  const int nfiles, const int i_row, const int turn, const int length,
+  const int* __restrict__ fml_i, const int* __restrict__ fml_j,
+  const short* __restrict__ fml_j16, const int* __restrict__ fml_b,
+  const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
+  int* __restrict__ dml,
+  int* __restrict__ fm2,
+  const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+  const size_t* __restrict__ side_off_H, const size_t total,
+  const int* __restrict__ i_H) {
+  static_assert(TILE >= 1 && TILE <= 32 && (TILE & (TILE-1)) == 0,
+                "TILE must be a power of two in [1,32]");
+
+  __shared__ int sfi[MD_SMEM_TILE];
+
+  const long long gtid = (long long)blockIdx.x*blockDim.x + threadIdx.x;
+  const long long m    = gtid / TILE;
+  const int       lane = (int)(gtid & (TILE-1));
+  const bool      active = ((size_t)m < total);
+
+  // Block-uniform range. blockDim.x is a multiple of 32 and TILE divides 32, so
+  // these are exact and every thread computes the same pair.
+  const long long m_first = (long long)blockIdx.x * blockDim.x / TILE;
+  long long       m_last  = ((long long)(blockIdx.x + 1) * blockDim.x - 1) / TILE;
+  if (m_last > (long long)total - 1) m_last = (long long)total - 1;
+
+  int  value = INF;
+  size_t out = 0, fm2_out = 0;
+
+  // Per-cell state, hoisted out of the `active` block because the staged loop
+  // below needs it and __syncthreads() must be reached by every thread.
+  int       x = -1, idx0 = 0;
+  long long ij0 = 0;
+  size_t    triH = 0, rowH = 0, bcell = 0;
+
+  if (active) {
+    const int H  = flatten_index_to_H((size_t)m, side_off_H, nfiles);
+    const long long mj = (long long)m - (long long)side_off_H[H];
+    const int i  = i_H[H];
+    assert(i_row < 0 || i == i_row);
+    x   = (int)mj;
+    const int j = x + (i + 2*(turn+1)) + 1;
+    ij0  = Indx(i,j) + (turn+1) + 1;
+    triH = tri_off_H[H];
+    rowH = row_off_H[H];
+    out  = rowH + j;
+    if (fm2) fm2_out = triH + Indx(i,j);
+    if (fml_j16) {
+      bcell = base_off_H[H] + colb_off[j];
+      idx0  = i + turn + 2;
+    }
+  }
+
+  // Can one staged tile serve the whole block?
+  const int H_first = flatten_index_to_H((size_t)m_first, side_off_H, nfiles);
+  const int H_last  = (m_last >= m_first)
+                        ? flatten_index_to_H((size_t)m_last, side_off_H, nfiles)
+                        : H_first;
+  const bool one_H  = (H_first == H_last) && (m_last >= m_first);
+
+  if (one_H) {
+    const size_t row_base = row_off_H[H_first];
+    const int    x_max    = (int)(m_last - (long long)side_off_H[H_first]);
+
+    for (int yt = 0; yt <= x_max; yt += MD_SMEM_TILE) {
+      const int cnt = MIN2(MD_SMEM_TILE, x_max - yt + 1);
+
+      __syncthreads();   // previous tile's readers are done
+      for (int t = threadIdx.x; t < cnt; t += blockDim.x)
+        sfi[t] = fml_i[row_base + (size_t)(yt + t)];
+      __syncthreads();
+
+      if (active) {
+        const int yhi = MIN2(x, yt + cnt - 1);
+        // First y >= yt congruent to `lane` mod TILE. TILE is a power of two so
+        // the mask is the modulus, and it is correct for a negative difference
+        // in two's complement.
+        int y = yt + ((lane - yt) & (TILE - 1));
+
+        if (fml_j16) {
+          for (; y <= yhi; y += TILE) {
+            const long long yij = y + ij0;
+            const int d = fml_decode(fml_j16, fml_b, triH + yij,
+                                     bcell + (size_t)((unsigned)(idx0 + y - 1)/FML_BLK));
+            value = MIN2(sfi[y - yt] + d, value);
+          }
+        } else {
+          for (; y <= yhi; y += TILE)
+            value = MIN2(sfi[y - yt] + fml_j[triH + (size_t)(y + ij0)], value);
+        }
+      }
+    }
+  } else if (active) {
+    // Straddling block: the unstaged loop, identical to the twin above.
+    if (fml_j16) {
+      for (int y = lane; y <= x; y += TILE) {
+        const long long yij = y + ij0;
+        const int d = fml_decode(fml_j16, fml_b, triH + yij,
+                                 bcell + (size_t)((unsigned)(idx0 + y - 1)/FML_BLK));
+        value = MIN2(fml_i[rowH + (size_t)y] + d, value);
+      }
+    } else {
+      for (int y = lane; y <= x; y += TILE)
+        value = MIN2(fml_i[rowH + (size_t)y] + fml_j[triH + (size_t)(y + ij0)], value);
+    }
+  }
+
+#pragma unroll
+  for (int off = TILE/2; off > 0; off >>= 1)
+    value = MIN2(value, __shfl_down_sync(0xffffffff, value, off, TILE));
+
+  if (active && lane == 0) {
+    dml[out] = value;
+    if (fm2) fm2[fm2_out] = (value > INF/2) ? INF : value;   // see the twin
+  }
+}
+
 /* ===================== CIRCULAR RNA: the persistent fM2_real ==============
  *
  * postprocess_circular() (mfe/mfe.c) reads fM2_real in 13 places and the sweep
@@ -1627,14 +1806,22 @@ void modular_decomposition_cuda(const int nfiles,
   assert(nblocks_sz <= 2147483647u); //gridDim.x limit
   const int nblocks = (int)nblocks_sz;
 
-#define MD_LAUNCH(T) modular_decomposition_kernel<T><<<nblocks,block_size,0,graph_stream>>>( \
-                       nfiles, RNA_I_ROW(i), turn, length, \
-                       d_fml_i, d_fml_j, \
-                       d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, \
-                       d_dml,   /*Out*/ \
-                       rnafold_circ_fm2_device(), /*Out, NULL unless circular*/ \
-                       d_tri_off_H, d_row_off_H, \
-                       d_side_off_H, total, d_i_H)
+// The two kernels take identical arguments by construction -- one macro feeds
+// both, so a parameter added to one cannot be forgotten in the other.
+#define MD_ARGS nfiles, RNA_I_ROW(i), turn, length, \
+                d_fml_i, d_fml_j, \
+                d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, \
+                d_dml,   /*Out*/ \
+                rnafold_circ_fm2_device(), /*Out, NULL unless circular*/ \
+                d_tri_off_H, d_row_off_H, \
+                d_side_off_H, total, d_i_H
+#define MD_LAUNCH(T) \
+  do { \
+    if(rnafold_md_smem()) \
+      modular_decomposition_smem_kernel<T><<<nblocks,block_size,0,graph_stream>>>(MD_ARGS); \
+    else \
+      modular_decomposition_kernel<T><<<nblocks,block_size,0,graph_stream>>>(MD_ARGS); \
+  } while(0)
   switch(g_md_tile) {
     case  1: MD_LAUNCH(1);  break;
     case  2: MD_LAUNCH(2);  break;
@@ -1644,6 +1831,7 @@ void modular_decomposition_cuda(const int nfiles,
     default: MD_LAUNCH(32); break;
   }
 #undef MD_LAUNCH
+#undef MD_ARGS
 
   gpuErrchk( cudaPeekAtLastError() );
 

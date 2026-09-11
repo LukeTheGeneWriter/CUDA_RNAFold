@@ -1441,6 +1441,11 @@ int_loop_cuda(const int nfiles,
 	    env ? " (from RNA_INT_LOOP_BLOCK_SIZE)" : " (measured default -- see comment above)");
   }
 
+  // RNA_LAUNCH_STATS: bracket the kernel ALONE -- not the two offset uploads
+  // above, which belong to the phase but not to the kernel. Splitting those two
+  // apart is the entire point (STRESS272_RESULTS.md 20.4).
+  rnafold_launch_stats_begin();
+
   switch(block_size) {
     case 256: int_loop_kernel_256<<<blocks,256>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
@@ -1495,6 +1500,8 @@ int_loop_cuda(const int nfiles,
 						  d_i_H,
 						  d_energy_min2); break; //Out
   }
+
+  rnafold_launch_stats_end((unsigned int)flat_nblocks);
 
   gpuErrchk( cudaPeekAtLastError() );
   // Step 5b: pointless once the D2H is gone; stream order already covers it.

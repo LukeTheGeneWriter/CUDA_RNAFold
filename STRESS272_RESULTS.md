@@ -1282,3 +1282,160 @@ of the four.
    worth ~29 s of the 66.5 s that `modular_decomp` wins.
 4. **Chunk width is a ~3.5 s lever on `int_loop`, in both encodings** — small
    enough to ignore when choosing a VRAM budget.
+
+---
+
+# 21. The two probes, and three levers with their premises checked
+
+*Built 2026-09-11 for the one question §20 left open. Notebook:
+`CUDA_RNAFold_IntLoop2.ipynb` (`tools/make_nb_intloop2.py`). This section records
+what was built and what the local dry-runs already say; the T4 numbers land when
+the notebook does.*
+
+## 21.1 What §20 left, restated
+
+`int_loop_kernel` is **identical** under int16 and int32 in isolation
+(717 676.8 ns against 717 683.2 ns, every counter matching) while the `int_loop`
+*phase* is 25 s slower at 400 × 5601 — and `hp_mb` (+7.5 %) and `load_my_c`
+(+5.3 %) are slower too, though neither touches int16 data. Every phase already
+ends in a sync, so this is not §19's attribution artifact.
+
+§20.4 named two probes. Neither existed. Both do now.
+
+## 21.2 Probe P1 — `RNA_LAUNCH_STATS`
+
+`device.cu`. Brackets `int_loop_kernel` **alone** with CUDA events — not the two
+offset uploads that share its phase — and records `(grid, device_ms, host_ms)`
+for every launch, with `RNA_LAUNCH_STATS_CSV=path` for the raw series.
+
+It splits the phase three ways, and the three readings are decided in advance:
+
+| reading | means |
+|---|---|
+| `sum(device_ms)` differs by ~25 s | the kernel IS slower in situ; NCU's locked-clock isolation hid it |
+| `sum(device_ms)` matches, overhead differs | 78 000 launches, each costing more in the int16 arm |
+| both match, phase still differs | the time is in the offset uploads the probe excludes |
+
+**The summary line reports ns/block, not ms/launch, and that is not a nicety.**
+Grid grows through a sweep — row *i* launches one block per (H,j) cell and *j*
+ranges further as *i* falls — so raw ms of the last tenth is several times the
+first tenth in a perfectly steady run. The first version of that line printed
+**+1518 %** on an idle laptop, which is a thermal story manufactured out of row
+geometry. It now normalises, and says in the output that it is a smell test:
+the grid-matched comparison needs the CSV, and the notebook does it by binning.
+
+Diagnostic only: every instrumented launch ends in an event sync, so the wall is
+not comparable to a normal run. Measured overhead 3.6 % at 60 × 2400.
+
+## 21.3 Probe P2 — the clock sampler, and why the last one was not one
+
+`CUDA_RNAFold_IntLoop.ipynb` sampled `clocks.sm / clocks.max.sm` **before and
+after** each arm. That is while the GPU is **idle**. Its 0.19–0.78 spread with no
+pattern measured idle clock states, and it looked like a clock measurement
+without being one — it is in `intloop.json` for all twelve arms.
+
+The new sampler runs **concurrently** at 4 Hz (`nvidia-smi -lms 250`) and keeps
+only samples where `utilization.gpu >= 50`, so an idle teardown tail cannot drag
+the mean down and manufacture throttling in the other direction. It reports SM
+clock, memory clock, temperature, power and the `clocks_throttle_reasons` bitmask
+— `0x4` is the SW power cap, `0x8` HW slowdown.
+
+**The hypothesis it tests:** a T4 is a 70 W card, and the int16 arm finishes its
+`modular_decomp` work sooner, so it asks more of the device per unit time. A
+device-wide slowdown that tracks power would make the +25 s a **cost of
+`modular_decomp`'s −66 s win**, not an `int_loop` defect.
+
+## 21.4 Lever 1 — shared-memory staging, built and already losing
+
+`RNA_MD_SMEM=1` routes to `modular_decomposition_smem_kernel`, a separate kernel
+(same reason `gq_internal_kernel` is separate: the twin is 40–60 % of GPU time
+and has a documented history of regressions from being edited). It stages a
+1024-int tile of `fml_i` in shared memory, turning ~24 global loads per element
+into one. Blocks straddling two records fall back to the unstaged loop; the check
+is block-uniform so the `__syncthreads()` is never divergent.
+
+**The premise.** The inner loop reads two streams per `y`:
+
+* `fml_j` — the O(n²) triangle. Cell (i,j) walks column *j*; cells with different
+  *j* walk **disjoint** columns. **No intra-row reuse at all**, so it is streamed
+  once per row, it is the O(n³) DRAM traffic, and nothing can cache it.
+  Shared memory cannot help it. The only lever on a stream with no reuse is
+  fewer bytes — which is what int16 fML already did, for −31 %.
+* `fml_i` — the O(n) row buffer, ~22 KB at n = 5601, of which every cell in the
+  row reads a prefix. It *ought* to be permanently resident. The memory note
+  that motivated this says it is not: L2 hit ~6 %, and since the two streams
+  issue one load each per `y`, a perfectly-cached `fml_i` alone would floor that
+  near 50 %.
+
+### The local result: a clean 15 % regression
+
+RTX 3050, 60 × 2400, ABBA, four arms each:
+
+| | `modular_decomp` (the lever) | `int_loop` (the CONTROL) |
+|---|---|---|
+| off | 4.547 / 4.556 / 4.544 / 4.558 → **4.551** | 8.466 – 8.527 |
+| on | 5.230 / 5.231 / 5.243 / 5.233 → **5.234** | 8.523 – 8.539 |
+| | **+15.0 %** | flat to 0.9 % |
+
+Spread within each arm is 0.3 % and the control is flat, so this is not noise
+and not a near miss. **Byte-identical in all seven configurations tried** —
+default, int16, chunked, `RNA_MD_TILE` 1 and 8, int16+chunked, and `-c` (which
+exercises the `fm2` store in both kernels).
+
+The reading: **`fml_i` was already cache-resident**, and the 6 % L2 hit is the
+`fml_j` stream, exactly as the access pattern predicts. Staging bought nothing
+and cost two `__syncthreads()` per tile.
+
+The notebook still runs it on the T4, because the cache sizes differ and because
+a measured null is what retires the note — and §B measures DRAM bytes against
+bytes requested, which says whether the *mechanism* is what the premise claimed
+rather than only that the wall did not move.
+
+## 21.5 Lever 2 — coalescing, measured rather than assumed
+
+With `TILE=32` one warp owns one cell and adjacent lanes walk adjacent `y`, so
+**both** streams are unit-stride: `fml_i[row_off+y]` and `fml_j[tri_off+y+ij0]`.
+32 lanes × 4 B = 128 B = **4 sectors**, which is perfect. The kernel comment
+already says the 22 Aug rewrite improved coalescing as a side effect.
+
+So the expectation is that there is nothing to win — and the notebook measures
+`l1tex__average_t_sectors_per_request_pipe_lsu_mem_global_op_ld.ratio` for both
+kernels rather than asserting it. A value near 4.0 closes the question; anything
+higher is a finding.
+
+## 21.6 Lever 3 — int16 `my_c`: NOT built, ceiling measured first
+
+It is the largest buffer and halving it roughly doubles chunk capacity, which
+makes it sound like the obvious next move. Two ceilings say otherwise, and both
+can be measured without writing it.
+
+**The speed ceiling is ~zero.** `int_loop_kernel` runs at **4.2–5.2 % of DRAM
+peak** (§20.3). A kernel nowhere near the memory roof cannot be sped up by
+halving one of its inputs. The notebook re-measures this and adds what §20.3 did
+not have: how much of that traffic is `my_c` at all.
+
+**The capacity ceiling is emulated with `RNA_GPU_CHUNK`.** int16 `my_c` buys
+VRAM, VRAM buys records per chunk, and nothing else. So ask for the wider chunk
+directly:
+
+| configuration | bytes/cell | cap at today's budget |
+|---|---|---|
+| i32 `my_c` + i32 fML | 8 | 29 |
+| i32 `my_c` + i16 fML | 6 | ~37 *(measured, §20.2)* |
+| **i16 `my_c` + i16 fML** | **4** | **~58** |
+
+§20.2 already measured chunk 29 → 37 **costing** 3.7 s of `int_loop`. If the
+curve keeps rising to 58, int16 `my_c` is worth nothing before a line is
+written — and that is the outcome to hope for, because it is the cheap one.
+
+## 21.7 The shape of this section, which is the point
+
+Two of the three levers are plausible-sounding answers to a question the profile
+says the kernel is not asking. Each gets a **cheap test of its premise before an
+expensive test of itself**, and the expensive test runs anyway where the premise
+check says it will lose — because a measured null retires a note and a prediction
+does not.
+
+That is the same discipline that would have caught the block-size verdict a day
+earlier: the sweep that "closed" it tested 32 against 256 and was read as closing
+64 (§20.1, `PORT_INT_LOOP_SCOPE.md`).
