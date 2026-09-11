@@ -1018,7 +1018,34 @@ gpu_path_usable(struct options *opt,
 
   /* Model details the sweep does not implement. Mirrors
    * vrna_cuda_engine_supports() in mfe/cuda/engine.c; kept in step with it. */
-  if (md->dangles != 2)         NO("dangle model other than 2");
+  /* DANGLE MODEL 0 ACCEPTED 2026-09-11, alongside the long-standing 2.
+   *
+   * d0 and d2 share the RECURSION -- mfe_multibranch.c:686 dispatches
+   * ml_pair_d0 or ml_pair_d2 and BOTH read only dmli1 -- so no new DP state was
+   * needed.
+   *
+   * AND IT NEEDED EXACTLY ONE DEVICE CHANGE, which is not where I first looked.
+   * Upstream ZEROES P->mismatchM when dangles == 0 (params.c:644-646), so
+   * E_MLstem() already returns the bare-stem energy under d0 and both
+   * multibranch sites were ALREADY correct. Measured: 0 nonzero mismatchM
+   * entries at d0 against 175 at d2, and red-teaming those two sites changes
+   * nothing. The one term that genuinely differed is
+   * vrna_mfe_gquad_internal_loop()'s mismatchI (mfe_gquad.c:306, `if
+   * (dangles)`) -- mismatchI is NOT zeroed (158 nonzero at both models), so
+   * -d0 -g was the only combination actually returning a wrong answer.
+   * Red-team: 20 differing lines with that gate removed.
+   *
+   * d1 AND d3 STAY DECLINED, and not for want of effort: ml_pair_d1 needs
+   * dmli2 as WELL as dmli1 -- a second DMLi generation the sweep does not
+   * carry -- plus the `dangle_model % 2` terms at :1015 and :1376, and d3 adds
+   * coaxial stacking at :1501. That is new DP state, not new arithmetic.
+   *
+   * The exterior loop needed nothing: vrna_mfe_exterior_f5() is upstream's own
+   * and runs on the host, as does vrna_mfe_multibranch_m1() for fM1 under
+   * uniq_ML, so both are dangle-correct for every model by construction.
+   */
+  if ((md->dangles != 0) && (md->dangles != 2))
+    NO("dangle model 1 or 3 (0 and 2 are accelerated)");
   /* G-QUADRUPLEXES ACCEPTED 2026-09-10 (G3).
 
    * The sweep now scores quadruplexes into c and fML: c_gq is carried to the

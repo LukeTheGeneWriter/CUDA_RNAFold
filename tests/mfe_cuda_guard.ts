@@ -28,6 +28,8 @@ fc_with(void (*tweak)(vrna_md_t *))
 }
 
 static void md_dangles0(vrna_md_t *md)  { md->dangles = 0;      }
+static void md_dangles1(vrna_md_t *md)  { md->dangles = 1;      }
+static void md_dangles3(vrna_md_t *md)  { md->dangles = 3;      }
 static void md_gquad(vrna_md_t *md)     { md->gquad = 1;        }
 static void md_circ(vrna_md_t *md)      { md->circ = 1;         }
 static void md_nolp(vrna_md_t *md)      { md->noLP = 1;         }
@@ -73,17 +75,21 @@ declines(vrna_fold_compound_t *fc)
    * Each of these changes the recursion or the energies. Every one was either
    * silently wrong or half-applied on the 2.3.0 GPU path before it was guarded.
    */
-  /* md_uniqml, md_salt, md_nolp, md_gquad, md_circ and md_noguclose are
-   * deliberately NOT here any more -- all are supported, and each has its own
-   * accepts- test below so that a guard silently re-tightening shows up as a
-   * failure rather than as a quiet loss of acceleration. md_gquad moved out on
-   * 2026-09-10 (G3), md_circ and md_noguclose on 2026-09-11.
+  /* md_uniqml, md_salt, md_nolp, md_gquad, md_circ, md_noguclose and
+   * md_dangles0 are deliberately NOT here any more -- all are supported, and
+   * each has its own accepts- test so that a guard silently re-tightening shows
+   * up as a failure rather than as a quiet loss of acceleration. md_gquad moved
+   * out on 2026-09-10 (G3); md_circ, md_noguclose and md_dangles0 on
+   * 2026-09-11.
    *
-   * ONE ENTRY LEFT. That is worth saying out loud: this list is the fork's
-   * record of what it cannot do to a single sequence, and it is down to the
-   * dangle model. */
+   * WHAT IS LEFT IS DANGLE MODELS 1 AND 3, and they are a different kind of
+   * "no" from everything that has left this list. The others were unimplemented
+   * arithmetic. These need new DP STATE: ml_pair_d1() reads dmli2 as well as
+   * dmli1, a second DMLi generation the sweep does not carry, and d3 adds
+   * coaxial stacking on top. tests/mfe_cuda_dangles.ts says the same thing from
+   * the other side and explains why d0 was cheap. */
   void (*tweaks[])(vrna_md_t *) = {
-    md_dangles0
+    md_dangles1, md_dangles3
   };
   size_t i;
 
@@ -101,6 +107,19 @@ declines(vrna_fold_compound_t *fc)
 
   vrna_sc_init(fc);
   ck_assert(declines(fc));
+
+  vrna_fold_compound_free(fc);
+}
+
+#test test_guard_accepts_dangles0
+{
+  /* Dangle model 0, accepted 2026-09-11. d0 and d2 share the recursion --
+   * mfe_multibranch.c:686 dispatches ml_pair_d0 or ml_pair_d2 and both read
+   * only dmli1 -- so it cost two energy terms and no new DP state.
+   * tests/mfe_cuda_dangles.ts checks the ANSWER; this only asserts routing. */
+  vrna_fold_compound_t *fc = fc_with(md_dangles0);
+
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
 
   vrna_fold_compound_free(fc);
 }

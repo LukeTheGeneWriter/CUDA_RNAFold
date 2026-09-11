@@ -133,15 +133,26 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
   const size_t* cap_H = rnafold_chunk_capacities(nfiles);
   compute_batch_offsets(nfiles, cap_H, row_off_H, tri_off_H);
   // The GPU-accelerated hairpin/multibranch energy precompute (hp_mb_3p_i(),
-  // hp_mb_loop.cu) hardcodes the dangle_model==2 simplifications already
-  // assumed throughout this CUDA fork's fill_arrays_loop.c/mb_loop_fast.c
-  // (see the assert(dangle_model==2) calls there). Those are compiled out
-  // under NDEBUG, and RNAfold_cmdl still technically accepts other --dangles
-  // values at the CLI, so check for real here rather than relying on asserts.
-  if (P->model_details.dangles != 2) {
+  // GATE 3 IS NOT EMPTY AGAIN, and deliberately so.
+  //
+  // Dangle models 0 and 2 are both implemented (2026-09-11): they share the
+  // recursion and differ in two energy terms, E_MLstem_device()'s two callers
+  // in hp_mb_loop.cu plus gq_internal_kernel's mismatchI. Models 1 and 3 do
+  // NOT share it -- ml_pair_d1() reads dmli2 as well as dmli1, a second DMLi
+  // generation the sweep never carries -- so reaching the sweep with one would
+  // silently produce the d0/d2 answer under a d1/d3 request.
+  //
+  // E_MLstem_device() is the specific reason this must be enforced rather than
+  // asserted: it implements only upstream's two-sided and no-sided cases,
+  // because d0 and d2 are the only models that can ask for the others. A d1
+  // single-sided call would return 0 where upstream returns a dangle5/dangle3
+  // term. assert() is compiled out here (NVCC_ASSERT_FLAGS is -DNDEBUG by
+  // design -- PORT_INVESTIGATIONS.md item 4), so this check is the enforcement.
+  if ((P->model_details.dangles != 0) && (P->model_details.dangles != 2)) {
     fprintf(stderr,
-            "par_fill_arrays: this CUDA build requires --dangles=2 (got %d); "
-            "the GPU hairpin/multibranch energy path assumes dangle_model==2.\n",
+            "par_fill_arrays: this CUDA build implements dangle models 0 and 2 "
+            "(got %d); 1 and 3 need a second DMLi generation the sweep does not "
+            "carry. vrna_cuda_engine_supports() should have declined this.\n",
             P->model_details.dangles);
     exit(EXIT_FAILURE);
   }

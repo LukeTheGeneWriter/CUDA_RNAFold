@@ -124,6 +124,7 @@ check default           gpu
 check temp37            gpu -T 37
 check temp25            gpu -T 25
 check dangles2          gpu --dangles=2
+check dangles0          gpu -d0
 check partfunc          gpu -p
 check partfunc0         gpu -p0
 check mea               gpu -p --MEA
@@ -166,7 +167,6 @@ check noClosingGU       gpu --noClosingGU
 
 echo
 echo "--- DECLINED: must route to the CPU and give the same answer"
-check dangles0          cpu -d0
 check dangles1          cpu -d1
 check dangles3          cpu -d3
 check maxbpspan_50      cpu --maxBPspan=50

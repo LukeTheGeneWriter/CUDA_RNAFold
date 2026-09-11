@@ -136,6 +136,10 @@ struct cuda_param_s {
   //sanity() asserts every record in a batch agrees on it, so one batch-wide
   //value is sound.
   int     noGUclosure;
+  //Dangle model, 0 or 2. Read only by gq_internal_kernel, whose mismatchI term
+  //upstream gates on `if (dangles)` (mfe_gquad.c:306). Appended last, like
+  //everything else here.
+  int     dangles;
 //int     MLbase;
 //int     MLintern[NBPAIRS+1];
 //int     MLclosing;
@@ -325,6 +329,7 @@ void load_param(const vrna_param_t *P){
   H->max_ninio  =         MAX_NINIO;   //the LIVE global, not a literal
   memcpy(H->rtype,        P->model_details.rtype, 8*sizeof(int));
   H->noGUclosure =        P->model_details.noGUclosure;
+  H->dangles     =        P->model_details.dangles;
   //n_max = MAXLOOP+1 fills exactly MAXLOOP+3 entries (n_max+2)
   rnafold_build_salt_table(P, MAXLOOP+1, H->SaltLoop);
 
@@ -1292,7 +1297,11 @@ gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn
   // enclosed-pair half here: what is enclosed is a quadruplex, not a pair.
   if(P->noGUclosure && ((type == 3) || (type == 4))) return;
 
-  int energy = P->mismatchI[type][si][sj];
+  // vrna_mfe_gquad_internal_loop() gates this on `if (dangles)`
+  // (mfe_gquad.c:306), so dangle model 0 closes the quadruplex with a bare
+  // pair. The only dangle-dependent term in the whole interior-loop family --
+  // vrna_E_internal() itself has no dangle branch at all.
+  int energy = (P->dangles) ? P->mismatchI[type][si][sj] : 0;
   if(type > 2) energy += P->TerminalAU;
 
   int ge = INF;

@@ -57,10 +57,17 @@ inline void gpuAssert(cudaError_t code, const char *file, const int line, const 
 
 int first3 = 1; //avoid id clash with int_loop.cu's first2 / modular_decomposition.cu's first
 
-//Only the parameter-table fields E_Hairpin/E_MLstem actually read on this
-//fork's fixed dangle_model==2, cp==-1, with_ud==0, sc==NULL path (verified
-//against hairpin_loops.h/multibranch_loops.h/mb_loop_fast.c/fill_arrays.c
-//directly, not re-derived from memory).
+//Only the parameter-table fields E_Hairpin/E_MLstem actually read on the
+//cp==-1, with_ud==0, sc==NULL path (verified against
+//hairpin_loops.h/multibranch_loops.h/mb_loop_fast.c/fill_arrays.c directly,
+//not re-derived from memory).
+//
+//DANGLE MODEL 0 AND 2 ONLY, and that is why dangle5[]/dangle3[] are absent.
+//Upstream's E_MLstem() has three cases -- both neighbours (mismatchM), 5' only
+//(dangle5), 3' only (dangle3) -- but d0 passes (-1,-1) and d2 passes
+//(>=0,>=0), so the one-sided cases belong exclusively to d1/d3. Those are
+//declined at vrna_cuda_engine_supports() and tripwired in fill_arrays.c, so
+//the tables would be dead weight in a struct that is memcpy'd per batch.
 typedef struct  cuda_param2_s cuda_param2_t;
 struct cuda_param2_s {
   int   hairpin[31];
@@ -73,6 +80,7 @@ struct cuda_param2_s {
   int   TerminalAU;
   float lxc;
   int   special_hp; //bool, but stored as int for simple memcpy from vrna_md_t
+  int   dangles;    //0 or 2; anything else is refused before the sweep starts
   int   Tetraloop_E[200];
   char  Tetraloops[1401];
   int   Triloop_E[40];
@@ -232,6 +240,8 @@ void load_param2(const vrna_param_t *P){
   H->TerminalAU = P->TerminalAU;
   H->lxc        = (float)P->lxc;
   H->special_hp = P->model_details.special_hp;
+  // Dangle model. 0 and 2 only -- see the struct comment and E_MLstem_device().
+  H->dangles    = P->model_details.dangles;
   memcpy(H->Tetraloop_E, P->Tetraloop_E, 200*sizeof(int));
   memcpy(H->Tetraloops,  P->Tetraloops,  1401*sizeof(char));
   memcpy(H->Triloop_E,   P->Triloop_E,   40*sizeof(int));
@@ -815,13 +825,34 @@ E_Hairpin_device(const int size, const int type, const int si1, const int sj1,
   return energy;
 }
 
-//Replicates E_MLstem(), multibranch_loops.h:168-186. si1/sj1 are always >=0
-//on every call site reachable from energy_mb/energy_3p_00 in this fork
-//(cp==-1 enforced -- verified against mb_loop_fast.c/fill_arrays.c), so the
-//dangle5/dangle3 branches are dead and deliberately not ported.
+// Replicates E_MLstem(), eval/multibranch.h:163-184. si1/sj1 of -1 mean "no
+// neighbour", which is how dangle model 0 asks for a bare stem; both callers
+// below choose between the real bases and -1 on P->dangles. (This comment used
+// to say si1/sj1 are ALWAYS >=0 -- true while d2 was the only accepted model,
+// false since d0 landed 2026-09-11.)
+//
+// ONLY TWO OF UPSTREAM'S THREE CASES ARE HERE. The one-sided dangle5/dangle3
+// cases cannot arise under d0 (passes -1,-1) or d2 (passes >=0,>=0), and d1/d3
+// are declined by the engine guard and tripwired in fill_arrays.c. Testing both
+// operands rather than one keeps a stray single-sided call out of
+// mismatchM[type][si1][-1] -- an out-of-bounds read -- and makes it a plain 0
+// instead, which the tripwire is there to catch.
+//
+// AND THE -1 HANDLING IS CURRENTLY REDUNDANT, deliberately. Upstream ZEROES
+// P->mismatchM when dangles == 0 (params.c:644-646), so passing the real bases
+// under d0 already yields the bare-stem energy. Measured, not assumed: 0 of the
+// mismatchM entries are nonzero at d0 against 175 at d2. Red-teamed too --
+// reverting either caller below to the unconditional d2 form changes NOTHING
+// (0 differing lines on the 20-record bar).
+//
+// It stays because it makes this function's correctness LOCAL. As written, the
+// port is right whether or not a parameter table two files away is zeroed;
+// without it, d0 would silently become d2 if that zeroing ever changed, and
+// nothing here would notice. Do not delete it as dead code -- it is a
+// deliberate, measured redundancy.
 __device__ inline int
 E_MLstem_device(const int type, const int si1, const int sj1, const cuda_param2_t* __restrict__ P) {
-  int energy = P->mismatchM[type][si1][sj1];
+  int energy = ((si1 >= 0) && (sj1 >= 0)) ? P->mismatchM[type][si1][sj1] : 0;
   if(type > 2) energy += P->TerminalAU;
   energy += P->MLintern[type];
   return energy;
@@ -899,7 +930,16 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
     if(Hc2(ij,Hccc_mb)){
       int tt = P->rtype[raw_type]; //raw_type, NOT type -- see comment above
       if(tt == 0) tt = 7;
-      decomp = E_MLstem_device(tt, S_H[j-1], S_H[i+1], P) + P->MLclosing;
+      // mfe_multibranch.c:686 dispatches ml_pair_d0 / ml_pair_d2 here: d0 closes
+      // the multiloop with a bare stem, d2 with the two flanking bases. Both
+      // read only dmli1, which is why d0 needs no new DP state -- d1/d3 would,
+      // and are declined.
+      //
+      // Belt and braces: mismatchM is already all-zero at d0 (see
+      // E_MLstem_device above), so this selection is redundant TODAY.
+      const int md2 = (P->dangles == 2);
+      decomp = E_MLstem_device(tt, md2 ? S_H[j-1] : -1, md2 ? S_H[i+1] : -1, P)
+               + P->MLclosing;
     }
     energy_mb_row[row_off_H[H]+j] = decomp;
   }
@@ -932,7 +972,13 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
       // fill_arrays_loop.c), making j < length_H + 1.
       assert(length_H >= 0 && j <= length_H);
       const short s_i1 = (i==1) ? S_H[length_H] : S_H[i-1];
-      e00 = E_MLstem_device(type, s_i1, S_H[j+1], P);
+      // extend_fm_3p(), mfe_multibranch.c:956 -- `if (dangle_model == 2)` takes
+      // the flanking bases, every other model takes a bare stem. The i==1 wrap
+      // above is still evaluated under d0 so its bounds logic stays exercised;
+      // only the value is discarded. Redundant today for the same reason as the
+      // closing site above.
+      const int md2 = (P->dangles == 2);
+      e00 = E_MLstem_device(type, md2 ? s_i1 : -1, md2 ? S_H[j+1] : -1, P);
     }
     energy_3p00_row[row_off_H[H]+j] = e00;
   }

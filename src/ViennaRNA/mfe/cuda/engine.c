@@ -84,8 +84,14 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    * Model details. Each of these changes the recursion or the energies in a
    * way the device path does not reproduce today.
    */
-  if (md->dangles != 2)
-    DECLINE("dangle model other than 2");
+  /* Dangle model 0 accepted 2026-09-11 alongside 2. It cost ONE device change
+   * -- gq_internal_kernel's mismatchI gate -- because upstream zeroes
+   * P->mismatchM at d0 and the multibranch sites were already right. 1 and 3
+   * stay declined because ml_pair_d1() needs a second DMLi generation (dmli2)
+   * the sweep does not carry, and d3 adds coaxial stacking on top. See the
+   * note in RNAfold.c's gpu_path_usable(). */
+  if ((md->dangles != 0) && (md->dangles != 2))
+    DECLINE("dangle model 1 or 3 (0 and 2 are accelerated)");
 
   /* G-QUADRUPLEXES ACCEPTED 2026-09-10 (G3).
 

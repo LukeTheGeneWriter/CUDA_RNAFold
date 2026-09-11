@@ -2,10 +2,13 @@
 
 *All **60** options in `src/bin/RNAfold.ggo`, audited 2026-09-11.*
 
-***Gate 3 is now EMPTY.*** *`fill_arrays.c` carries no backstop at all: all three
-options that had one -- `-g`, `-c`, `--noClosingGU` -- were retired by
-implementation rather than by argument, on 2026-09-10 and -11. The macro stays
-defined for the next one.*
+***Gate 3 has ONE entry, and it is a different kind of entry.*** *The three
+options that used to be backstopped -- `-g`, `-c`, `--noClosingGU` -- were all
+retired by implementation on 2026-09-10/11. `fill_arrays.c` was empty for a few
+hours, then gained a backstop on **dangle models 1 and 3** when 0 was
+implemented (2026-09-11). Everything that left the list was missing arithmetic;
+what is on it now needs missing DP **state**, which is why it is not simply the
+next thing to write.*
 
 *Most rows are **measured**, not argued: `tools/verify_option_parity.sh` runs 40
 checks over 30 mixed-length records and asserts, for each, that the answer is
@@ -59,7 +62,8 @@ left to watch.
 | *(default)* | **ACCEL** | — | measured |
 | `-T` / `--temp` | **ACCEL** | — | measured, 37 and 25 °C |
 | `-d2` / `--dangles=2` | **ACCEL** | — | measured |
-| `-d0`, `-d1`, `-d3` | DECLINED | 1, 2 | measured |
+| **`-d0` / `--dangles=0`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/chunked/`-g`/`-c`/`-p`; `tests/mfe_cuda_dangles.ts` |
+| `-d1`, `-d3` | DECLINED | **1, 2, 3** *(the only backstopped option)* | measured |
 | `-p` / `--partfunc` | **ACCEL** *(MFE fill)* | — | measured, `-p` and `-p0` |
 | `--MEA` | **ACCEL** *(MFE fill)* | — | measured |
 | `--bppmThreshold` | **ACCEL** *(MFE fill)* | — | measured |
@@ -126,8 +130,8 @@ the CPU was compared against itself.
 
 | | count |
 |---|---|
-| **ACCELERATED, byte-identical** | **25** |
-| DECLINED, CPU route asserted | 15 |
+| **ACCELERATED, byte-identical** | **26** |
+| DECLINED, CPU route asserted | 14 |
 | NEUTRAL | 19 |
 | UNREACHABLE from this CLI | 1 |
 
@@ -150,8 +154,20 @@ on guard reading.
   arithmetic: `DMLi` **is** `fM2_real`, and the sweep discarded it one row
   later. It costs a **chunk width** of VRAM, counted in
   `modular_decomposition_bytes_per_file()`.
-- **`--noClosingGU` moved DECLINED → ACCELERATED (2026-09-11), and gate 3 is now
-  empty.** It was HALF implemented, which is worse than unimplemented: the
+- **`-d0` moved DECLINED → ACCELERATED (2026-09-11), for ONE line.** d0 and d2
+  share the recursion (`mfe_multibranch.c:686` dispatches `ml_pair_d0` or
+  `ml_pair_d2`, both reading only `dmli1`), and — the part I got wrong first —
+  upstream **zeroes `P->mismatchM` at d0** (`params.c:644`), so both multibranch
+  sites were already correct. Measured: 0 nonzero `mismatchM` entries at d0
+  against 175 at d2; red-teaming those two sites changes nothing. The single
+  real gap was `vrna_mfe_gquad_internal_loop()`'s `mismatchI`, which is **not**
+  zeroed (158 nonzero at both) — so `-d0` alone was already right and merely
+  refused, and `-d0 -g` was the one combination that answered wrongly.
+  **d1 and d3 stay declined**: `ml_pair_d1()` reads `dmli2` as well as `dmli1`,
+  a second `DMLi` generation the sweep does not carry, and d3 adds coaxial
+  stacking. That is new DP state, not new arithmetic — and it is why gate 3 is
+  not empty any more.
+- **`--noClosingGU` moved DECLINED → ACCELERATED (2026-09-11).** It was HALF implemented, which is worse than unimplemented: the
   hairpin/multibranch half was applied and the interior-loop half was not, so `c`
   was the minimum of *no* model rather than of a different one. The missing half
   is upstream's own `mfe_internal.c` skips, stack case exempted.
