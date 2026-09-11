@@ -162,13 +162,13 @@ check idprefix          gpu --auto-id --id-prefix=zz
 check noDP              gpu -p --noDP
 check verbose           gpu -v
 check loglevel          gpu --log-level=3
+check noClosingGU       gpu --noClosingGU
 
 echo
 echo "--- DECLINED: must route to the CPU and give the same answer"
 check dangles0          cpu -d0
 check dangles1          cpu -d1
 check dangles3          cpu -d3
-check noClosingGU       cpu --noClosingGU
 check maxbpspan_50      cpu --maxBPspan=50
 check energymodel       cpu --energyModel=1
 check constraint        cpu -C

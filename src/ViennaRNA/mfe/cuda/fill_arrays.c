@@ -182,8 +182,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
    * gates listed in PORT_OPTION_STATUS.md, and it is removed rather than
    * loosened because the sweep now persists fM2_real and the answer is
    * byte-identical to upstream. See PORT_CIRC_SPEC.md.
-   *
-   * The --noClosingGU backstop below STAYS: it is still half implemented. */
+ */
 
   /* The G-quadruplex backstop is GONE (G3, 2026-09-10). It was the third of
    * three gates -- after RNAfold.c's gpu_path_usable() and
@@ -191,14 +190,19 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
    * because the sweep now scores quadruplexes into c and fML and the answer is
    * byte-identical to upstream. See PORT_GQUAD_SPEC.md.
    *
-   * The circular and --noClosingGU backstops below STAY: neither of those is
-   * implemented, and this file's whole point is that "unreachable" is enforced
-   * rather than assumed. */
+   * This file's whole point is that "unreachable" is ENFORCED rather than
+   * assumed; all three of its backstops have now been retired by
+   * implementation, not by argument. */
 
-  VRNA_CUDA_BACKSTOP(P->model_details.noGUclosure, "--noClosingGU",
-                     "half implemented -- the hairpin/multibranch kernel "
-                     "applies it but the internal-loop kernel does not, leaving "
-                     "c internally inconsistent");
+  /* The --noClosingGU backstop is GONE (2026-09-11). It was the LAST of the
+   * three gates listed in PORT_OPTION_STATUS.md. Removed rather than loosened:
+   * Energy() now implements the interior-loop half the backstop existed to
+   * describe, and the answer is byte-identical to upstream. See
+   * PORT_NOCLOSINGGU_SPEC.md.
+   *
+   * NO BACKSTOP REMAINS IN THIS FILE. That is not the same as "nothing needs
+   * one": the macro above stays defined so the next half-implemented option
+   * can be gated the same way. */
 
 #undef VRNA_CUDA_BACKSTOP
   noGUclosure       = P->model_details.noGUclosure;

@@ -129,6 +129,13 @@ struct cuda_param_s {
   //being one under --nsp, where model.c:1104 FORCES rtype[7] = 7 over whatever
   //the derivation loop wrote. See PORT_NSP_PARAMFILE_SCOPE.md §1.
   int     rtype[8];
+  //VRNA-PATCH free: this is OURS. noGUclosure is a MODEL DETAIL, not an energy
+  //parameter, and it sits here for the same reason rtype[] does -- it is read
+  //by Energy() and gq_internal_kernel, both of which already take a
+  //cuda_param_t* and nothing else. Appended last so no offset above it moves.
+  //sanity() asserts every record in a batch agrees on it, so one batch-wide
+  //value is sound.
+  int     noGUclosure;
 //int     MLbase;
 //int     MLintern[NBPAIRS+1];
 //int     MLclosing;
@@ -317,6 +324,7 @@ void load_param(const vrna_param_t *P){
   H->SaltStack  =         P->SaltStack;
   H->max_ninio  =         MAX_NINIO;   //the LIVE global, not a literal
   memcpy(H->rtype,        P->model_details.rtype, 8*sizeof(int));
+  H->noGUclosure =        P->model_details.noGUclosure;
   //n_max = MAXLOOP+1 fills exactly MAXLOOP+3 entries (n_max+2)
   rnafold_build_salt_table(P, MAXLOOP+1, H->SaltLoop);
 
@@ -1083,6 +1091,31 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 	      const int u1 = p - 1 - i; //u1 = p1 - i;
 	      const int u2 = j - 1 - q; //u2 = j1 - q;
 
+	      // --noClosingGU, the interior-loop half (upstream:
+	      // mfe/mfe_internal.c:305 noclose, :339/:415/:579 the type2 skips).
+	      // A GU/UG pair may neither CLOSE nor BE ENCLOSED BY an interior
+	      // loop or bulge. STACKS ARE EXEMPT -- upstream's mfe_stacks() has
+	      // no such test at all, and vrna_E_internal() returns the stack
+	      // energy BEFORE consulting no_close (eval/eval_internal.c:104-108).
+	      // u1==0 && u2==0 is exactly the stack, so (u1||u2) reproduces that.
+	      //
+	      // WHY THE SKIP IS HERE AND NOT INSIDE IntLoop_X(), even though
+	      // upstream's own guard lives in vrna_E_internal(): the caller does
+	      // `energy = my_c[pq]; energy += IntLoop_X(...)`. An INF returned
+	      // from the callee would be ADDED to a real negative c[pq] and land
+	      // just BELOW INF, winning the min -- the same near-INF sentinel
+	      // mechanism recorded in PORT_INVESTIGATIONS.md item 3. Upstream
+	      // avoids it the same way, with explicit `continue`s before the
+	      // call; its in-callee test is unreachable from this path.
+	      //
+	      // type is the PROMOTED enclosing ptype and type_2 is rtype[] of the
+	      // promoted inner one, matching upstream literally. Neither
+	      // transform can move a value into or out of {3,4}: 0->7 never
+	      // lands on 3 or 4, and rtype[] only swaps 3<->4.
+	      if (P->noGUclosure && (u1 || u2) &&
+	          ((type == 3) || (type == 4) || (type_2 == 3) || (type_2 == 4)))
+	        return INF;
+
 	      const int ns = (u1>u2)? u2 : u1;
 	      const int nl = (u1>u2)? u1 : u2;
 
@@ -1228,6 +1261,13 @@ gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn
   const int sj = unpack(S,H,nfiles,j-1);
   unsigned char type = Ptype(S,pair_,H,nfiles,i,j);
   if(type == 0) type = 7;
+
+  // --noClosingGU. vrna_mfe_gquad_internal_loop() is called from INSIDE
+  // mfe_internal.c's `if (!noclose)` block (:637), so a GU/UG closing pair
+  // contributes no quadruplex-in-interior-loop term at all. There is no
+  // enclosed-pair half here: what is enclosed is a quadruplex, not a pair.
+  if(P->noGUclosure && ((type == 3) || (type == 4))) return;
+
   int energy = P->mismatchI[type][si][sj];
   if(type > 2) energy += P->TerminalAU;
 

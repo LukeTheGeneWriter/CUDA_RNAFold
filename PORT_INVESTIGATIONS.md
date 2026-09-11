@@ -129,6 +129,28 @@ such a value.
   inner loop of the largest GPU phase to fix a value the linear path evidently
   tolerates would trade a measured-good hot path for a theoretical one.
 
+### A SIBLING OF THIS WAS FOUND AND FIXED, 2026-09-11 -- it is NOT this one
+
+`fml_scan_kernel` (`hp_mb_loop.cu`) composed its two fML terms with the guard on
+**one side only**:
+
+```c
+const int c_term = (e3p00[o+j] != INF) ? new_e[o+j] + e3p00[o+j] : INF;
+const int e3     = (fp != INF) ? fp + en_i : INF;   // its own comment said
+                                                    // "hazard 1: en_i NOT guarded"
+```
+
+so fML could carry `INF` minus a real energy. Invisible on int32 for the same
+reason as below; **fatal** under `RNA_FML_INT16` + `--noClosingGU`, where
+9999890 became a block baseline and tripped `__trap()`. Both are `fml_tadd()`
+now. See `PORT_NOCLOSINGGU_SPEC.md`.
+
+**That does not close this item.** The reduction below adds two fML values with
+no guard of its own, which is a separate instance of the same family -- and the
+measured 9999750 came from the reduction, not from fML. What the fix does change
+is the *input*: the reduction's operands are now clean, so the only remaining
+source of a near-INF `DMLi` is the reduction itself.
+
 ### The open question
 
 **Can a near-INF `DMLi` bite `new_c_kernel`?** It evidently does not on any

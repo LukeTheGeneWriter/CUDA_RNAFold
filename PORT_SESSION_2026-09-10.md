@@ -293,6 +293,30 @@ empty.** What remains unsupported is multistrand/comparative (unreachable from
 `RNAfold`) and the constraint family (declined by design). The last multi-gate
 option is `--noClosingGU`.
 
+### `--noClosingGU` shipped too, and gate 3 is now EMPTY (2026-09-11)
+
+The last option behind all three gates. It was **half** implemented, which is
+worse than not implemented: `rnafold_hc_opt()` dropped `HP_LOOP` and `MB_LOOP`
+for a GU/UG pair, but nothing applied the interior-loop half, so `c` was the
+minimum of **no** model rather than of a different one.
+
+The missing half is upstream's own `mfe_internal.c` skips -- a GU/UG pair may
+neither close nor be enclosed by a bulge or interior loop -- with **stacks
+exempt**, which is exactly why the rule cannot be a hard constraint in the first
+place.
+
+**It uncovered a year-old latent defect.** `fml_scan_kernel` guarded only ONE
+side of each of two `INF`-capable sums, so fML could carry `INF` minus a real
+energy. Invisible on int32 (such a value never wins a `min`), fatal under int16,
+where it became a block baseline and tripped `__trap()`. Both are `fml_tadd()`
+now. That fix touches the DEFAULT path: byte-identical locally across 3 arms on
+20 records, but **the 400 x 5601 `sha 7c0b3d633281` has not been re-confirmed at
+scale** -- check it on the next stress run.
+
+`fill_arrays.c` now carries **no `VRNA_CUDA_BACKSTOP` at all**, and the guard
+test's declines-list is down to one entry: the dangle model. See
+`PORT_NOCLOSINGGU_SPEC.md`.
+
 ### Out for results
 
 `CUDA_RNAFold_IntLoop.ipynb` is running on Colab — chunk width vs datatype,

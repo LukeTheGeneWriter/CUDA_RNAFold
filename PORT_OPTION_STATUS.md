@@ -2,6 +2,11 @@
 
 *All **60** options in `src/bin/RNAfold.ggo`, audited 2026-09-11.*
 
+***Gate 3 is now EMPTY.*** *`fill_arrays.c` carries no backstop at all: all three
+options that had one -- `-g`, `-c`, `--noClosingGU` -- were retired by
+implementation rather than by argument, on 2026-09-10 and -11. The macro stays
+defined for the next one.*
+
 *Most rows are **measured**, not argued: `tools/verify_option_parity.sh` runs 40
 checks over 12 mixed-length records (62–401 nt) and asserts, for each, that the
 answer is byte-identical to the same binary with the accelerator off **and** that
@@ -32,8 +37,11 @@ things gate 2 declines that gate 1 never checks:
 | `logML` | no CLI flag exists, so unreachable from RNAfold |
 | multistrand / comparative compounds | not constructible from RNAfold's input |
 
-**A hole in gate 1 costs performance. A hole in gate 2 costs correctness.** Only
-`-c` and `--noClosingGU` are covered by all three.
+**A hole in gate 1 costs performance. A hole in gate 2 costs correctness.**
+**Nothing is covered by all three any more** -- `-c` and `--noClosingGU` were the
+last two and both shipped on 2026-09-11. Gate 3 is not obsolete; it is the reason
+"unreachable" was enforced rather than assumed for a year. It simply has nothing
+left to watch.
 
 ---
 
@@ -70,7 +78,7 @@ things gate 2 declines that gate 1 never checks:
 | `--unordered` | **ACCEL** | — | measured **sorted** — see note |
 | `--ImFeelingLucky` | **ACCEL** | — | route measured; **no byte bar possible** — see note |
 | **`-c` / `--circ`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/`--noLP`/`--salt`; `tests/mfe_cuda_circ.ts` |
-| `--noClosingGU` | DECLINED | **1, 2** *(the last multi-gate option)* | measured |
+| **`--noClosingGU`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/chunked/`-c`/`-g`; `tests/mfe_cuda_noclosinggu.ts` |
 | `--energyModel` | DECLINED | 1, 2 | measured |
 | `-C` / `--constraint` | DECLINED | 1, 2 | measured |
 | `--canonicalBPonly` | DECLINED | 1, 2 | measured |
@@ -116,8 +124,8 @@ the CPU was compared against itself.
 
 | | count |
 |---|---|
-| **ACCELERATED, byte-identical** | **24** |
-| DECLINED, CPU route asserted | 16 |
+| **ACCELERATED, byte-identical** | **25** |
+| DECLINED, CPU route asserted | 15 |
 | NEUTRAL | 19 |
 | UNREACHABLE from this CLI | 1 |
 
@@ -140,6 +148,16 @@ on guard reading.
   arithmetic: `DMLi` **is** `fM2_real`, and the sweep discarded it one row
   later. It costs a **chunk width** of VRAM, counted in
   `modular_decomposition_bytes_per_file()`.
+- **`--noClosingGU` moved DECLINED → ACCELERATED (2026-09-11), and gate 3 is now
+  empty.** It was HALF implemented, which is worse than unimplemented: the
+  hairpin/multibranch half was applied and the interior-loop half was not, so `c`
+  was the minimum of *no* model rather than of a different one. The missing half
+  is upstream's own `mfe_internal.c` skips, stack case exempted.
+  **It also uncovered a year-old latent defect**: `fml_scan_kernel` guarded only
+  ONE side of each of two `INF`-capable sums, so fML could carry `INF` minus a
+  real energy. Invisible on int32 (such a value never wins a `min`), fatal under
+  int16, where it became a block baseline and tripped `__trap()`. Both sums now
+  use `fml_tadd()`. See `PORT_NOCLOSINGGU_SPEC.md`.
 
 ### Still honestly open
 

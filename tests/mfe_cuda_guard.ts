@@ -73,12 +73,17 @@ declines(vrna_fold_compound_t *fc)
    * Each of these changes the recursion or the energies. Every one was either
    * silently wrong or half-applied on the 2.3.0 GPU path before it was guarded.
    */
-  /* md_uniqml, md_salt, md_nolp and md_gquad are deliberately NOT here any
-   * more -- all four are supported, and each has its own accepts- test below so
-   * that a guard silently re-tightening shows up as a failure rather than as a
-   * quiet loss of acceleration. md_gquad moved out on 2026-09-10 (G3). */
+  /* md_uniqml, md_salt, md_nolp, md_gquad, md_circ and md_noguclose are
+   * deliberately NOT here any more -- all are supported, and each has its own
+   * accepts- test below so that a guard silently re-tightening shows up as a
+   * failure rather than as a quiet loss of acceleration. md_gquad moved out on
+   * 2026-09-10 (G3), md_circ and md_noguclose on 2026-09-11.
+   *
+   * ONE ENTRY LEFT. That is worth saying out loud: this list is the fork's
+   * record of what it cannot do to a single sequence, and it is down to the
+   * dangle model. */
   void (*tweaks[])(vrna_md_t *) = {
-    md_dangles0, md_noguclose
+    md_dangles0
   };
   size_t i;
 
@@ -96,6 +101,22 @@ declines(vrna_fold_compound_t *fc)
 
   vrna_sc_init(fc);
   ck_assert(declines(fc));
+
+  vrna_fold_compound_free(fc);
+}
+
+#test test_guard_accepts_noGUclosure
+{
+  /* --noClosingGU was the LAST option behind all three gates. It was declined
+   * because it was HALF implemented: rnafold_hc_opt() dropped HP_LOOP and
+   * MB_LOOP for a GU/UG pair, but nothing applied the interior-loop half, so c
+   * was internally inconsistent rather than merely suboptimal. Energy() now
+   * skips GU-closed and GU-enclosed bulges and interior loops (stacks exempt,
+   * as in upstream's mfe_stacks()). tests/mfe_cuda_noclosinggu.ts checks the
+   * ANSWER; this only asserts the routing decision. */
+  vrna_fold_compound_t *fc = fc_with(md_noguclose);
+
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
 
   vrna_fold_compound_free(fc);
 }

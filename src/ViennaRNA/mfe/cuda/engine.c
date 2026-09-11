@@ -139,8 +139,27 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    * Bar: tests/mfe_cuda_nolp.ts and tools/verify_nolp_parity.sh, neither of
    * which is an energy comparison. See PORT_NOLP_SPEC.md. */
 
-  if (md->noGUclosure)
-    DECLINE("noClosingGU");
+  /* --noClosingGU ACCEPTED 2026-09-11.
+
+   * It was the last multi-gate option, and it was half implemented: the
+   * hairpin/multibranch half already worked (rnafold_hc_opt() drops HP_LOOP and
+   * MB_LOOP for a GU/UG pair exactly as hard.c:786-791 does, and new_c_kernel
+   * skips both terms on gate bit 1), while the interior-loop half did nothing
+   * at all -- so c was internally inconsistent rather than merely suboptimal.
+   *
+   * The missing half is two rules, both from mfe/mfe_internal.c: a GU/UG pair
+   * may neither CLOSE nor BE ENCLOSED BY a bulge or interior loop. STACKS ARE
+   * EXEMPT -- mfe_stacks() carries no such test, and vrna_E_internal() returns
+   * the stack energy before consulting no_close. Energy() now skips those
+   * candidates, and gq_internal_kernel returns early for a GU closing pair
+   * because vrna_mfe_gquad_internal_loop() is called from inside upstream's
+   * own `if (!noclose)` block.
+   *
+   * BAR: byte-identical to pristine 2.7.2 with --noClosingGU across the frozen
+   * fixtures; RNA_HC_VERIFY=1 proves the mask half against the host's own
+   * hc->mx under this flag. tests/mfe_cuda_noclosinggu.ts is the regression
+   * bar.
+   */
 
   /* logML stays DECLINED. It measured 12/12 at 160 nt in the scope probe, but
    * that is a 12-sequence sample and RNAfold has NO --logML flag, so there is

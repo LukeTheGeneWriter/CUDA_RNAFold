@@ -1046,9 +1046,38 @@ fml_scan_kernel(const int nfiles, const int i_row, const int turn,
     int a = INF, c = 0;                   // identity, for lanes past the end
     if(k < width) {
       const int j = j0 + (int)k;
-      const int c_term = (e3p00[o+j] != INF) ? new_e[o+j] + e3p00[o+j] : INF;
-      const int fp     = fml_prev[o+j];
-      const int e3     = (fp != INF) ? fp + en_i : INF;   // hazard 1: en_i NOT guarded
+      // BOTH OPERANDS, BOTH TERMS. These two lines each guarded exactly one
+      // side of a sum whose other side can be INF, and INF is a SENTINEL, not a
+      // number: INF plus a real negative energy lands just BELOW INF, so it is
+      // no longer recognisable as "no such decomposition" while still being far
+      // too large to win any min against a real energy. The value therefore
+      // survives, invisibly, in fML.
+      //
+      // Upstream guards the operand this code did not: extend_fm_3p()
+      // (mfe/mfe_multibranch.c:949-950) reads `en = c[ij]` and tests
+      // `if (en != INF)` BEFORE adding the stem energy. The e3p00 test here
+      // stands in for its enclosing evaluate(..., VRNA_DECOMP_ML_STEM) instead,
+      // so the c[ij] side was never tested at all. The second line's own
+      // comment already said "hazard 1: en_i NOT guarded" -- it was a known
+      // hazard that had not bitten.
+      //
+      // HOW IT SURFACED: --noClosingGU + RNA_FML_INT16, 2026-09-11. GU/UG pairs
+      // keep MB_LOOP_ENC but lose HP_LOOP and MB_LOOP, so c[i][j] is INF for
+      // many more (i,j) that still reach this sum -- and fML then carried
+      // 9999890 (INF minus an E_MLstem of 110). pack_fml_kernel tests `v == INF`
+      // to choose the FML_INF16 sentinel, 9999890 is not INF, so it became a
+      // block BASELINE and the next real value in that block was 9999710 away
+      // from it. __trap(), correctly.
+      //
+      // On the int32 path this was invisible and harmless -- a ~1e7 value never
+      // wins a min against a real energy -- which is why it survived every
+      // byte-identical run this project has. It is fixed rather than clamped
+      // because the same fML feeds DMLi, and DMLi carrying near-INF sentinels is
+      // PORT_INVESTIGATIONS.md item 3.
+      //
+      // fml_tadd() is the INF-safe add already defined above for exactly this.
+      const int c_term = fml_tadd(new_e[o+j], e3p00[o+j]);
+      const int e3     = fml_tadd(fml_prev[o+j], en_i);
       a = fml_tmin(c_term, e3);
       // G-quadruplex (G1). extend_fm_3p()'s gquad case is a SIBLING of its
       // c[ij] stem case at the same MIN2, not a modifier of it: fM[i][j] can be
