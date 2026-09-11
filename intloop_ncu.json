@@ -1,0 +1,34 @@
+{
+ "i32/c8": {
+  "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed": 4.465999999999999,
+  "gpu__time_duration.sum": 258617.6,
+  "l1tex__t_sector_hit_rate.pct": 73.464,
+  "lts__t_sector_hit_rate.pct": 89.798,
+  "sm__throughput.avg.pct_of_peak_sustained_elapsed": 41.263999999999996,
+  "sm__warps_active.avg.pct_of_peak_sustained_active": 45.12
+ },
+ "i32/c24": {
+  "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed": 4.8100000000000005,
+  "gpu__time_duration.sum": 717676.8,
+  "l1tex__t_sector_hit_rate.pct": 76.20599999999999,
+  "lts__t_sector_hit_rate.pct": 90.436,
+  "sm__throughput.avg.pct_of_peak_sustained_elapsed": 44.215999999999994,
+  "sm__warps_active.avg.pct_of_peak_sustained_active": 47.738
+ },
+ "i16/c8": {
+  "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed": 4.4719999999999995,
+  "gpu__time_duration.sum": 258969.6,
+  "l1tex__t_sector_hit_rate.pct": 73.452,
+  "lts__t_sector_hit_rate.pct": 90.24600000000001,
+  "sm__throughput.avg.pct_of_peak_sustained_elapsed": 41.296,
+  "sm__warps_active.avg.pct_of_peak_sustained_active": 45.14
+ },
+ "i16/c24": {
+  "gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed": 4.808,
+  "gpu__time_duration.sum": 717683.2,
+  "l1tex__t_sector_hit_rate.pct": 76.162,
+  "lts__t_sector_hit_rate.pct": 90.3,
+  "sm__throughput.avg.pct_of_peak_sustained_elapsed": 44.15,
+  "sm__warps_active.avg.pct_of_peak_sustained_active": 47.751999999999995
+ }
+}

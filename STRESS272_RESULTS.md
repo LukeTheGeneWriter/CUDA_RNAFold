@@ -1065,3 +1065,196 @@ arms for safety at the wrong end. Cheap to fix, and it cost this run three arms.
    plan anything. No wall figure changes — those came from a stopwatch on the
    whole process — but the split for `int_loop`, `hp_mb` and `load_my_c` was
    wrong by an order of magnitude in both directions.
+
+---
+
+# 20. IntLoop: block size 64 wins, and the int16 penalty is NOT the kernel
+
+*T4, 400 × 5601, commit `7fa85d4e`, 12 arms, all phase-synced except one.
+`CUDA_RNAFold_IntLoop.ipynb` / `intloop.json` / four NCU CSVs. This is the run
+`PORT_INT_LOOP_SCOPE.md` was written for.*
+
+## 20.0 First: the sha held in all 12 arms
+
+**`7c0b3d633281` in every arm.** That is the outstanding debt from the
+`fml_scan_kernel` INF-guard fix (`7fa85d4e`), which touched the default path: it
+is byte-identical at 400 × 5601, not merely on the 20-record local bar. Paid with
+no arm run for the purpose — it came free, because the sha assertion is in the
+harness rather than in a particular test.
+
+## 20.1 Block size: 64, and `modular_decomp` is a built-in control
+
+i32, chunk cap 29, phase-synced:
+
+| block size | `int_loop` (s) | `modular_decomp` (s) | wall (s) | ns/cell |
+|---|---|---|---|---|
+| 32 (the STOPGAP default) | 105.50 | 215.60 | 524.3 | 16.84 |
+| **64** | **91.80** | 216.34 | **512.4** | **14.65** |
+| 128 | 110.31 | 216.14 | 528.2 | 17.60 |
+| 256 | 153.56 | 215.69 | 572.5 | 24.50 |
+
+**`modular_decomp` is flat to 0.34% across all four arms.** It cannot be affected
+by `RNA_INT_LOOP_BLOCK_SIZE`, so it is a free control for device drift — and it
+says there was none. The `int_loop` column is a measurement, not a clock story.
+
+A fifth arm (`A_i32_c29`) is the same configuration as the bs32 row and gives
+`int_loop` 100.40 with `modular_decomp` 215.21. So **bs32 = {100.40, 105.50},
+mean 102.95** — `int_loop` carries ~5% run-to-run noise where `modular_decomp`
+carries 0.34%. Worth remembering before believing any single arm.
+
+**bs64 vs bs32: −11.15 s of `int_loop` (−10.8%) and −11.5 s of wall (−2.2%).**
+The two agree to within 0.4 s, which is the strongest evidence available here
+that it is real: the phase delta and the wall delta are independently measured
+and they moved together.
+
+**Replicated under int16**, where the raw numbers are muddier and the control
+earns its keep. bs32 = {128.06, 128.61} with `modular_decomp` {148.74, 149.00};
+bs64 = 120.17 with `modular_decomp` **159.42** — a 7% outlier, so that arm ran on
+a slower device. Normalising by the control gives 112.2, i.e. **−16 s**. Same
+direction, larger after correction.
+
+### Why 64 and not more
+
+**The STOPGAP's fear was right in direction and wrong about 64.**
+`int_loop.cu:1152-1173` recorded an NCU sweep in which 256 was slower at every
+grid; this run reproduces that (153.56 s, +49%) and adds 128 (+7%). The kernel
+launches **one block per (H,j) cell** with a *variable* amount of work — at most
+`(MAXLOOP+1) × 32` candidates, usually far fewer — so a large block spends most
+of its threads on nothing and pays a cross-warp reduction for the privilege. 64
+is where the occupancy ceiling lifts before the work runs out.
+
+That ceiling is now measured rather than derived: see 20.3.
+
+## 20.2 The int16 penalty is NOT about chunk width — the hypothesis is refuted
+
+`PORT_INT_LOOP_SCOPE.md` step 2 proposed that int16's `int_loop` cost tracks
+records-per-chunk rather than the encoding, because int16 halves the fML triangle
+so more records fit while `d_my_c` stays int32. Arms C and D were built to test
+it, with predictions **C ≈ 107 s** and **D ≈ 138 s**.
+
+| datatype | chunk cap | `int_loop` (s) | `modular_decomp` (s) |
+|---|---|---|---|
+| i32 | 29 | 100.40 / 105.50 → 102.95 | 215.21 / 215.60 |
+| i32 | 37 | 106.74 / 106.59 → 106.67 | 214.40 / 214.39 |
+| i16 | 29 | 128.61 / 128.06 → 128.30 | 149.00 / 148.74 |
+| i16 | 37 | 131.35 | 149.38 |
+
+- **Chunk width 29 → 37 costs +3.7 s (i32) and +3.0 s (i16).** Real, small, and
+  the same for both encodings.
+- **Datatype at a FIXED width costs +25.4 s (cap 29) and +24.7 s (cap 37).**
+
+**Both predictions were wrong, in opposite directions** — C came out 128.6 where
+107 was predicted, D came out 106.7 where 138 was predicted. The two variables
+are cleanly separated, and chunk width accounts for about an eighth of the
+effect. Do not re-propose it.
+
+## 20.3 NCU: the kernel is IDENTICAL under int16, to four significant figures
+
+`int_loop_kernel`'s first NCU profile ever. Five launches sampled mid-sweep at
+two chunk widths, i32 against i16:
+
+| | i32 | i16 | delta |
+|---|---|---|---|
+| duration, cap 24, launch 0 | 722,880 ns | 721,664 ns | **−0.17%** |
+| duration, cap 24, mean of 5 | 717,676.8 ns | 717,683.2 ns | **+0.0009%** |
+| duration, cap 8, mean of 5 | 258,617.6 ns | 258,969.6 ns | +0.14% |
+| occupancy (`sm__warps_active`) | 47.74% | 47.75% | — |
+| SM throughput | 44.22% | 44.15% | — |
+| DRAM throughput | 4.81% | 4.81% | — |
+| L1 hit | 76.21% | 76.16% | — |
+| L2 hit | 90.44% | 90.30% | — |
+
+**Every counter matches. `int_loop_kernel` does the same work at the same speed
+regardless of the fML encoding** — which it should, since it reads `d_my_c`
+(int32) and touches no int16 data at all. **So the +25 s is not the kernel.**
+See 20.4.
+
+### What the kernel actually is, which nobody knew
+
+| | `int_loop_kernel` | `modular_decomposition_kernel` |
+|---|---|---|
+| DRAM throughput | **4.2 – 5.2%** | pinned at the DRAM roof |
+| occupancy | **44 – 48%** | — |
+| SM throughput | 40 – 44% | — |
+| L1 / L2 hit | 73–76% / 89–91% | L2 6% on the fML re-reads |
+
+**The two largest GPU phases are limited by opposite things.** `int_loop_kernel`
+is **not bandwidth-bound** — at under 5% of DRAM peak it is nowhere near it. It
+is latency-bound with too few warps resident, and its caches are working well.
+That is precisely the profile in which raising occupancy pays, and 20.1 measured
+it paying.
+
+The 44–48% also **confirms the 50% ceiling by measurement**: sm_75 allows 32
+warps/SM but only **16 blocks/SM**, so at one warp per block the block limit
+binds first. The figure in `PORT_INT_LOOP_SCOPE.md` was arithmetic; this is the
+counter.
+
+## 20.4 The real int16 story: every non-`md` phase is slower at scale
+
+Chunk cap 29, phase-synced, means of two arms each:
+
+| phase | i32 | i16 | delta |
+|---|---|---|---|
+| `modular_decomp` | 215.41 | 148.87 | **−30.9%** |
+| `int_loop` | 102.95 | 128.30 | **+24.6%** |
+| `fetch_mx` | 8.59 | 10.99 | +27.9% |
+| `hp_mb` | 14.25 | 15.32 | +7.5% |
+| `load_my_c` | 10.58 | 11.14 | +5.3% |
+| **GPU+transfer total** | **351.78** | **314.62** | **−10.6%** |
+
+`fetch_mx` is explained — it decodes int16 on the host. **`hp_mb` and
+`load_my_c` are not.** Neither touches int16 data, neither has a kernel that
+could have changed, and both are 5–8% slower anyway. That is a **device-level
+signature, not an `int_loop` one**, and it is the missing context for the +25 s:
+NCU proves the kernel is identical in isolation, and at scale everything except
+`modular_decomp` slows down together.
+
+A uniform 6–8% device slowdown would take `int_loop` from 103 to ~111, so it
+accounts for roughly a third of the +25 s. The rest is still unexplained.
+
+**This is §19's family one level down.** §19 established that a phase timer which
+does not end in a sync is an attribution rather than a measurement. These phases
+*do* end in syncs, and they still move together — so the next suspect is the
+device, not the instrument.
+
+### The probe that separates them, and why this run could not
+
+The notebook samples `clocks.sm / clocks.max.sm` **before and after** each run,
+i.e. while the GPU is idle. Those numbers (0.19–0.78 across arms, no pattern)
+measure idle clock states and **cannot answer the question they look like they
+answer**. To settle it: sample the SM clock *during* both arms, and add a
+per-launch timer inside `int_loop_cuda()`. 25 s over ~78 400 launches is
+**~319 µs per launch** against a ~720 µs kernel — large enough that a per-launch
+timer will see it immediately.
+
+## 20.5 Phase-sync costs 0.34%, and the async arm shows why it is worth it
+
+Chunk cap 37, i32, the same configuration run both ways:
+
+| | synced | async | |
+|---|---|---|---|
+| wall | 526.9 | 525.1 | **sync costs 1.8 s, 0.34%** |
+| `int_loop` | 106.59 | 2.30 | **understated 46×** |
+| `hp_mb` | 13.38 | 105.94 | **overstated 7.9×** |
+| `modular_decomp` | 214.39 | 223.02 | +4% |
+
+§19 measured 14.7× and 6.2× on the same artifact. At this chunk width it is
+**46× and 7.9×**. The distortion is not a fixed factor — it scales with how much
+work drains into the blocking upload — so there is no correction to apply to old
+async profiles. They have to be re-run.
+
+## 20.6 What to do
+
+1. **Promote block size 64**, and rewrite the STOPGAP comment to record the
+   measurement that retired it. `RNA_INT_LOOP_BLOCK_SIZE` stays as the override.
+   **Confirm the direction on a second architecture first** — int16's value was
+   machine-dependent, and the 16-blocks/SM limit that makes 64 pay is an sm_75
+   number.
+2. **Do not chase bandwidth in `int_loop_kernel`.** It runs at under 5% of DRAM
+   peak. Shared-memory staging, better coalescing and an int16 `my_c` are all
+   answers to a question this kernel is not asking. Occupancy and per-cell work
+   are.
+3. **Settle the device-level int16 slowdown** with the two probes in 20.4. It is
+   worth ~29 s of the 66.5 s that `modular_decomp` wins.
+4. **Chunk width is a ~3.5 s lever on `int_loop`, in both encodings** — small
+   enough to ignore when choosing a VRAM budget.
