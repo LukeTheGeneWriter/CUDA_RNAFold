@@ -165,73 +165,39 @@ upstream. If it holds, record *why* it cannot bite rather than that it has not.
 
 ---
 
-## 4. EVERY device `assert()` is compiled out of a release build
+## 4. CLOSED: device `assert()`s are compiled out of release builds BY DESIGN
 
-**Found 2026-09-11 while checking whether the build carries `-lineinfo`.**
+**Raised and closed 2026-09-11. Recorded so it is not re-raised.**
 
 `m4/ac_rna_asserts.m4` sets `NVCC_ASSERT_FLAGS="-DNDEBUG"` unless
-`--enable-asserts` is given. The generated `src/ViennaRNA/Makefile` in a default
-build confirms it:
+`--enable-asserts`, so every `assert()` in every `.cu` is a no-op in a default
+build. Verified in the binary with a control: `strings RNAfold` finds **zero**
+assert expressions and zero `__assertfail`, while the device `printf` in
+`pack_fml_kernel` -- which we have watched fire -- appears **6 times**, once per
+`-gencode` arch. Device strings are visible; their absence is evidence, not a
+limitation of the check.
 
-```
-NVCC_FLAGS = -O3  -gencode arch=compute_60,... -gencode arch=compute_89,...
-NVCC_ASSERT_FLAGS = -DNDEBUG
-```
+**That is the intent (Luke, 2026-09-11), and the design is coherent:**
 
-So `assert()` in every `.cu` is a no-op in every build this project actually
-runs, ships or benchmarks.
+| mechanism | role | survives release? |
+|---|---|---|
+| `assert()` | development check, run under `--enable-asserts` | no, deliberately |
+| `__trap()` / device `printf` | runtime guard | yes |
 
-### Why that is worse than it sounds
+Which is exactly why `pack_fml_kernel`'s int16 range check was moved from
+`assert(0)` to `__trap()` -- that one was a *guard* wearing a *check*'s clothing.
+The remaining asserts are checks, and O(n^3) inner loops are the last place to
+want them enabled by default.
 
-**Several of those asserts carry comments claiming the opposite.** The pattern
-appears in at least three kernels:
+**Do not "fix" this**, and do not enable `--enable-asserts` for release: the
+byte-identical bars were all measured without device asserts, and adding them to
+the hot path would change what is being measured.
 
-```c
-assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-```
-
-introduced with: *"It equals `i_row` today, and the assert proves that at
-RUNTIME rather than by argument -- `.cu` files never see `-DNDEBUG`, so a table
-that ever disagrees traps instead of folding silently wrong."*
-
-That sentence is false for a default build. The same is true of the bounds
-asserts added to `hp_mb_3p_kernel` after the `00d1e07` out-of-bounds bug --
-whose own comment says *"This kernel carried no asserts at all, which is the
-reason the bug above survived"* -- and of `assert(column <= maxcol)` in
-`int_loop_kernel_body.inc`.
-
-**This is the third time this family has bitten.** `pack_fml_kernel` called
-`assert(0)` under a comment reading "TRAP, never wrap"; it was measured printing
-48 781 lines and returning a wrong answer before being replaced with `__trap()`
-(2026-09-10).
-
-### What was checked
-
-- `m4/ac_rna_asserts.m4:45,49` -- the polarity, and that `-DNDEBUG` is the
-  DEFAULT rather than the opt-in.
-- The generated `Makefile` of a real build: `NVCC_ASSERT_FLAGS = -DNDEBUG`.
-- **The binary, with a control.** `strings RNAfold` finds **zero** occurrences of
-  any assert expression text and zero `__assertfail`, while the device `printf`
-  in `pack_fml_kernel` -- which we have watched fire -- appears **6 times** (once
-  per `-gencode` arch). So device strings ARE visible to `strings(1)`, and their
-  absence is evidence rather than a limitation of the check.
-
-### What to do
-
-Decide, per assert, whether it is a **development check** or a **runtime guard**,
-because they need different mechanisms:
-
-- development checks are fine as `assert()` and simply do not run in release;
-- **runtime guards must be `__trap()` or an explicit `if`**, exactly as
-  `pack_fml_kernel` now is.
-
-Then fix the comments either way -- a comment that asserts a safety property the
-build does not provide is worse than no comment, because it stops the next
-person checking.
-
-Do **not** simply turn `--enable-asserts` on for release: device asserts in an
-O(n^3) inner loop are not free, and the byte-identical bars were all measured
-without them.
+The one residue, not worth work on its own: a few comments overstate what the
+asserts do -- e.g. *"`.cu` files never see `-DNDEBUG`, so a table that ever
+disagrees traps instead of folding silently wrong"* (several kernels, and the
+bounds checks added after the `00d1e07` OOB bug). Correct them if one is edited
+for another reason.
 
 ---
 
