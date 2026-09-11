@@ -8,11 +8,13 @@ implementation rather than by argument, on 2026-09-10 and -11. The macro stays
 defined for the next one.*
 
 *Most rows are **measured**, not argued: `tools/verify_option_parity.sh` runs 40
-checks over 12 mixed-length records (62–401 nt) and asserts, for each, that the
-answer is byte-identical to the same binary with the accelerator off **and** that
-the run took the route it claims. Result: `the CUDA build matches the CPU build
-across the option surface`. Rows marked **(asserted)** were read from the guard
-rather than run — they are named so the distinction stays visible.*
+checks over 30 mixed-length records and asserts, for each, that the answer is
+byte-identical to the same binary with the accelerator off **and** that the run
+took the route it claims. Re-run 2026-09-11 against `7fa85d4e`: **all 40 green**,
+`the CUDA build matches the CPU build across the option surface`, with
+`noClosingGU` now in the ACCELERATED block at `1 sweeps, 30/30 records`. Rows
+marked **(asserted)** were read from the guard rather than run — they are named
+so the distinction stays visible.*
 
 ---
 
