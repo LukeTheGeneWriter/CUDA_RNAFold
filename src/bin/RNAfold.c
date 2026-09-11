@@ -95,6 +95,9 @@ extern void teardown_gpu3(void);
  *                                it, never raise it)
  * and the slot-flow knobs the projection has to respect. */
 extern size_t gpu_bytes_per_file(const int length);
+/* CIRCULAR: tell the VRAM model that fM2_real will be allocated, before any
+ * chunk is sized against it. See modular_decomposition.cu. */
+extern void   rnafold_circ_expect(const int circ);
 extern size_t compute_gpu_usable_bytes(void);
 /* The four stage counters that mfe_cuda.c PRINTS but nothing incremented until
  * 2026-09-08. They cover work that happens in this file rather than in the CUDA
@@ -1035,7 +1038,27 @@ gpu_path_usable(struct options *opt,
    * further G-rich records at 70-1100 nt, alone and combined with --noLP,
    * --noGU, -4, --salt and -T. Regression test: tests/mfe_cuda_gquad.ts.
    */
-  if (md->circ)                 NO("circular RNA (-c)");
+  /* CIRCULAR RNA ACCEPTED 2026-09-11.
+
+   * The sweep now persists fM2_real. It was never new arithmetic:
+   * modular_decomposition_kernel already reduces min_k(fML[i,k]+fML[k+1,j])
+   * into DMLi every row -- exactly what upstream's mfe_multibranch_m2_fast()
+   * computes -- and the fork discarded it one row later. It now also stores it
+   * into a persistent triangle, and backtrack_one_slot() calls
+   * VRNA-PATCH(circular-postprocess) on it.
+   *
+   * COSTS A CHUNK WIDTH. fM2_real is a second full int32 triangle per record,
+   * counted in modular_decomposition_bytes_per_file() under
+   * rnafold_circ_expect(), so a circular batch admits proportionally fewer
+   * records rather than OOMing.
+   *
+   * BAR: byte-identical to pristine 2.7.2 on the frozen tests/circ/ set (6
+   * records, 60-600 nt, every circular energy differing from its linear one),
+   * and GPU==CPU on 20 further records at 45-570 nt -- plain, chunked, int16,
+   * --noLP, --noGU, --salt, -T and -4. tests/mfe_cuda_circ.ts is the
+   * regression bar; RNA_CIRC_VERIFY=1 re-checks fM2_real against its own
+   * definition, O(n^3), for small inputs.
+   */
   if (md->noGUclosure)          NO("noClosingGU");
 
   /* NOT rejected, and each for a reason that was measured rather than assumed:
@@ -1957,6 +1980,9 @@ process_input(FILE            *input_stream,
        * asks for batches through vrna_mfe_batch() and the library decides;
        * every other line of the chunking machinery is backend-agnostic, which
        * is the claim that actually matters and the one MERGING.md repeats. */
+      /* CIRCULAR: the VRAM model must know BEFORE the first chunk is sized,
+       * because fM2_real is a second full triangle per record. */
+      rnafold_circ_expect(opt->md.circ);
       vrna_cuda_register_batch_backend();
     }
   }

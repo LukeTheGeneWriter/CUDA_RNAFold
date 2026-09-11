@@ -495,11 +495,11 @@ PRIVATE int           fill_arrays(vrna_fold_compound_t *vc){exit(99);}//use par_
 
 //callback_backtrack essentially existing code but packaged to make easier to call from nfiles in parallel version
 PRIVATE float
-callback_backtrack(const vrna_fold_compound_t* vc,
-		   int     s,
+callback_backtrack_bts(const vrna_fold_compound_t* vc,
 		   const int energy,
 		   char *structure, //out
-		   sect    bt_stack[MAXSECTORS]) { /* stack of partial structures for backtracking */
+		   vrna_bts_t bt_stack) { /* interval stack, possibly PRE-SEEDED by
+                                           * postprocess_circular() */
     /* call user-defined recursion status callback function */
 
   float   mfe = (float)(INF/100.);
@@ -556,7 +556,7 @@ callback_backtrack(const vrna_fold_compound_t* vc,
          * in fML" / "in repeat", then a segfault). Same lesson as the private
          * vrna_mfe() copy: the copy exists because 2.3.0 had no seam, and it
          * goes as soon as upstream offers the entry point. */
-        default:                      vrna_backtrack_from_intervals_bps(vc, bp, bt_stack, s);
+        default:                      vrna_backtrack_from_intervals_bps(vc, bp, bt_stack);
                                       break;
       }
 
@@ -631,6 +631,24 @@ backtrack_thread_count(const int nfiles, const int cpu_queue_threads) {
   return n;
 }
 
+PRIVATE float
+callback_backtrack(const vrna_fold_compound_t* vc, int s, const int energy,
+                   char *structure, sect bt_stack[MAXSECTORS]);
+
+/* RNA_CIRC_VERIFY -- see the check in backtrack_one_slot(). O(n^3) per record,
+ * so it is for small inputs and never a run mode. */
+PRIVATE int
+rnafold_circ_verify(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_CIRC_VERIFY");
+    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
+    if(v) fprintf(stderr,"%-24s RNA_CIRC_VERIFY=1: checking fM2_real against its "
+                         "definition, O(n^3) per record\n", __FILE__);
+  }
+  return v;
+}
+
 // One reusable c/fML pair, sized to the longest record in the chunk. This is
 // the point of the whole arrangement: host matrix memory becomes
 // (workers) x 125.6 MB at 5601nt instead of (records in chunk) x 125.6 MB,
@@ -638,18 +656,30 @@ backtrack_thread_count(const int nfiles, const int cpu_queue_threads) {
 typedef struct {
   int    *c;
   int    *fML;
-  size_t  cells;   /* capacity, in ints, of each of the two above */
+  /* CIRCULAR: fM2_real, pooled for the same reason as the other two -- it is a
+   * third full triangle per record, and holding one per RECORD instead of one
+   * per WORKER would cost as much host RAM again as c and fML together. */
+  int    *fM2;
+  size_t  cells;   /* capacity, in ints, of each of the above */
   double  fetch_s; /* per-worker, so the timer needs no lock */
   double  busy_s;  /* likewise: this worker's active span, for attribution */
 } bt_scratch_t;
 
 PRIVATE void
-bt_scratch_ensure(bt_scratch_t *sc, const size_t cells) {
-  if(sc->cells >= cells) return;
+bt_scratch_ensure(bt_scratch_t *sc, const size_t cells, const int want_fm2) {
+  /* want_fm2 rather than always: fM2_real is a THIRD full triangle and a
+   * linear fold must not pay for it. At 5601 nt that is 125.6 MB per worker,
+   * which on a 12-worker pool is 1.5 GB of host RAM for a matrix nothing
+   * would read. */
+  if((sc->cells >= cells) && ((!want_fm2) || (sc->fM2)))
+    return;
+
   free(sc->c);
   free(sc->fML);
+  free(sc->fM2);
   sc->c     = (int *) vrna_alloc(sizeof(int) * cells);
   sc->fML   = (int *) vrna_alloc(sizeof(int) * cells);
+  sc->fM2   = want_fm2 ? (int *) vrna_alloc(sizeof(int) * cells) : NULL;
   sc->cells = cells;
 }
 
@@ -691,9 +721,15 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
   assert(cells > 0);
   assert(cells <= a->tri_off_H[slot+1] - lo);  // the occupant must fit its slot
 
-  bt_scratch_ensure(sc, cells);
+  bt_scratch_ensure(sc, cells, vc->params->model_details.circ);
   vc->matrices->c   = sc->c;
   vc->matrices->fML = sc->fML;
+  /* CIRCULAR: fM2_real is allocated by upstream under ALLOC_CIRC and freed by
+   * par_mfe() alongside c/fML, so it is reattached from the pool here exactly
+   * like them. Only under md.circ -- otherwise the pointer stays whatever
+   * upstream left it (NULL), and postprocess_circular() never runs. */
+  if(vc->params->model_details.circ)
+    vc->matrices->fM2_real = sc->fM2;
 
   const double t0 = rnafold_now_seconds();
   fetch_my_c_one(sc->c,   lo, cells);
@@ -701,7 +737,57 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
   // baselines. Widening happens here, at the device boundary -- the host's fML
   // is int32 and every consumer of it expects that.
   fetch_fML_one_H(sc->fML, lo, cells, slot);
+  /* CIRCULAR: the third triangle. Same slice, same offsets -- fM2_real shares
+   * c/fML's layout exactly, which is why the device store needed no new
+   * indexing. */
+  if(vc->params->model_details.circ)
+    fetch_fm2_one(sc->fM2, lo, cells);
   sc->fetch_s += rnafold_now_seconds() - t0;
+
+  /*
+   * RNA_CIRC_VERIFY (default off, O(n^3) -- small inputs only).
+   *
+   * Checks the device's fM2_real against its own DEFINITION using the fML this
+   * same fetch just brought back:
+   *
+   *     fM2_real[i][j] == min over k in [i+1, j-2] of ( fML[i][k] + fML[k+1][j] )
+   *
+   * which is what mfe_multibranch_m2_fast() computes (mfe_multibranch.c:1205-1245).
+   * No oracle and no second fold: it diffs the transported value against the
+   * thing it is supposed to be, which is the self-comparison shape this project
+   * keeps returning to. The k range is the part worth testing -- an off-by-one
+   * at either end is a silent wrong answer, not a crash.
+   */
+  if((vc->params->model_details.circ) && (rnafold_circ_verify())) {
+    const int   *idx  = vc->jindx;
+    unsigned int i, j, bad = 0;
+
+    for(i = 1; i + 1 <= len; i++) {
+      for(j = i + 1; j <= len; j++) {
+        int want = INF, kk;
+
+        for(kk = (int)i + 1; kk + 2 <= (int)j; kk++) {
+          const int a = sc->fML[idx[kk] + (int)i];
+          const int b = sc->fML[idx[j] + kk + 1];
+          if((a != INF) && (b != INF) && (a + b < want))
+            want = a + b;
+        }
+
+        if(sc->fM2[idx[j] + (int)i] != want) {
+          if(bad < 5)
+            fprintf(stderr, "RNA_CIRC_VERIFY: fM2_real[%u][%u] device=%d "
+                            "definition=%d\n", i, j,
+                    sc->fM2[idx[j] + (int)i], want);
+          bad++;
+        }
+      }
+    }
+
+    fprintf(stderr, "RNA_CIRC_VERIFY: record len %u -- %u cells disagree\n",
+            len, bad);
+    if(bad)
+      exit(EXIT_FAILURE);
+  }
 
   /*
    * fM1 under uniq_ML -- "multibranch loop part with exactly one branch".
@@ -742,6 +828,28 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
   a->energy[idx] = vc->matrices->f5[vc->length];     /* was par_fill_arrays()'s job */
 
   sect bt_stack[MAXSECTORS]; /* thread-local */
+
+  /*
+   * CIRCULAR RNA. vrna_mfe() runs postprocess_circular() unconditionally on
+   * md.circ right after the inside-engine branch, so a fold that goes through
+   * upstream gets it free. vrna_mfe_batch() never returns through that path,
+   * which is the whole reason -c was declined -- see
+   * VRNA-PATCH(circular-postprocess).
+   *
+   * It REPLACES the energy (the exterior-loop f5 answer is the LINEAR one) and
+   * SEEDS the backtrack stack itself, which is the part PORT_CIRC_SPEC.md
+   * flagged as "not obviously mechanical": the backtrack must continue from a
+   * pre-seeded stack rather than starting from f5[n]. That is why
+   * vrna_backtrack_from_intervals_bps() takes a vrna_bts_t.
+   */
+  if(vc->params->model_details.circ) {
+    vrna_bts_t cbt = vrna_bts_init(MAXSECTORS);
+
+    a->energy[idx] = vrna_mfe_postprocess_circular(vc, cbt);
+    a->EN[idx]     = callback_backtrack_bts(vc, a->energy[idx],
+                                            a->Structure[idx], cbt);
+    vrna_bts_free(cbt);
+  } else
   a->EN[idx] = callback_backtrack(vc, 0, a->energy[idx], a->Structure[idx], bt_stack);
 
   // Detach before anything can free the compound: the scratch outlives it and
@@ -749,7 +857,33 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
   // does not own. free(NULL) in there is a no-op.
   vc->matrices->c   = NULL;
   vc->matrices->fML = NULL;
+  vc->matrices->fM2_real = NULL;   /* CIRCULAR: pooled, same reason */
 }
+
+/* The linear entry: an EMPTY interval stack, which is what the old sect[]
+ * form always passed (every call site used s == 0). Circular seeds its own and
+ * calls callback_backtrack_bts() directly. */
+PRIVATE float
+callback_backtrack(const vrna_fold_compound_t* vc,
+                   int s,
+                   const int energy,
+                   char *structure,
+                   sect bt_stack[MAXSECTORS]) {
+  vrna_bts_t bts = vrna_bts_init(MAXSECTORS);
+  float      mfe;
+
+  /* s has always been 0 at every call site -- the sweep fills the matrices and
+   * the backtrack starts from f5[n] -- so there is nothing to carry over. The
+   * parameter stays for signature compatibility and is asserted, not trusted. */
+  assert(s == 0);
+  (void)s; (void)bt_stack;
+
+  mfe = callback_backtrack_bts(vc, energy, structure, bts);
+  vrna_bts_free(bts);
+
+  return mfe;
+}
+
 
 PRIVATE void
 backtrack_one(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {

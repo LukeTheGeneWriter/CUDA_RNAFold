@@ -178,9 +178,12 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
     exit(EXIT_FAILURE);                                                        \
   }
 
-  VRNA_CUDA_BACKSTOP(P->model_details.circ, "circular RNA (-c/--circ)",
-                     "the sweep implements the linear recursion only and would "
-                     "return the LINEAR answer");
+  /* The circular backstop is GONE (2026-09-11). It was the first of the three
+   * gates listed in PORT_OPTION_STATUS.md, and it is removed rather than
+   * loosened because the sweep now persists fM2_real and the answer is
+   * byte-identical to upstream. See PORT_CIRC_SPEC.md.
+   *
+   * The --noClosingGU backstop below STAYS: it is still half implemented. */
 
   /* The G-quadruplex backstop is GONE (G3, 2026-09-10). It was the third of
    * three gates -- after RNAfold.c's gpu_path_usable() and
@@ -355,6 +358,15 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
    * rnafold_gq_upload() actually uploaded a c_gq for this batch, so with -g off
    * nothing is allocated. */
   (void)rnafold_gq_row_alloc(row_off_H[nfiles]);
+
+  /* CIRCULAR: the persistent fM2_real triangle, same extent as fML. Allocated
+   * only under md->circ, so a linear fold pays nothing. Must precede the sweep,
+   * which writes into it row by row. */
+  if (rnafold_circ_alloc(P->model_details.circ, tri_off_H[nfiles]) < 0) {
+    vrna_message_warning("par_fill_arrays: could not allocate fM2_real for "
+                         "circular folding");
+    exit(EXIT_FAILURE);
+  }
 
   /* start recursion */
 

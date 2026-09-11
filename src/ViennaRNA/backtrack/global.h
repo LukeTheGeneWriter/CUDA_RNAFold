@@ -52,8 +52,7 @@ vrna_backtrack_from_intervals(vrna_fold_compound_t  *fc,
 int
 vrna_backtrack_from_intervals_bps(vrna_fold_compound_t  *fc,
                                   vrna_bps_t            bp_stack,
-                                  sect                  bt_stack[],
-                                  int                   s);
+                                  vrna_bts_t            bt_stack);
 /* VRNA-PATCH-END(bps-backtrack) */
 
 

@@ -321,6 +321,7 @@ __global__ void modular_decomposition_kernel(
   const short* __restrict__ fml_j16, const int* __restrict__ fml_b,
   const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
   int* __restrict__ dml,
+  int* __restrict__ fm2,          // CIRCULAR: triangular fM2_real, or NULL
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H);   // continuous flow phase A2
@@ -683,6 +684,20 @@ teardown_gpu(void) {
 // given length -- the 3 mem_size_len-scale buffers (d_energy_min, d_fml_i,
 // d_dml) plus the dominant ijsize_len-scale one (d_fml_j), mirroring
 // init_gpu()'s own size formulas exactly.
+/* CIRCULAR: whether this run will need the fM2_real triangle. Set by the
+ * driver BEFORE any chunk is admitted, because the byte model below drives
+ * chunk admission and is consulted long before rnafold_circ_alloc() runs.
+ * Under-counting here does not merely mis-report -- it admits a chunk that
+ * does not fit, and the failure surfaces as an OOM inside par_mfe(). */
+static int g_circ_expected = 0;
+
+extern "C" void
+rnafold_circ_expect(const int circ)
+{
+  g_circ_expected = circ ? 1 : 0;
+}
+
+
 PUBLIC size_t
 modular_decomposition_bytes_per_file(const int length) {
   // x5, not x3: d_energy_min, d_fml_i, d_dml, and (GPU-resident sweep step 1)
@@ -698,11 +713,16 @@ modular_decomposition_bytes_per_file(const int length) {
     const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 6;
     const size_t tri16        = cells * sizeof(short);
     const size_t base_bytes   = ((cells + FML_BLK - 1)/FML_BLK + (size_t)length + 2) * sizeof(int);
-    return mem_size_len + tri16 + base_bytes;
+    return mem_size_len + tri16 + base_bytes
+         + (g_circ_expected ? cells * sizeof(int) : 0);   /* fM2_real stays int32 */
   }
   const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 5;
   const size_t ijsize_len   = cells * sizeof(int);
-  return mem_size_len + ijsize_len;
+  /* CIRCULAR costs a SECOND full triangle -- fM2_real, the same extent as
+   * d_fml_j. This is the "costs a chunk width" trade PORT_CIRC_SPEC.md names:
+   * the arithmetic is free, the memory is not. */
+  return mem_size_len + ijsize_len
+       + (g_circ_expected ? cells * sizeof(int) : 0);
 }
 
 // Staggered_Row_Batching Phase 6b: replaces compute_max_gpu_batch() (which
@@ -1241,6 +1261,7 @@ modular_decomposition_kernel(
   const short* __restrict__ fml_j16, const int* __restrict__ fml_b, //int16 path
   const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
   int* __restrict__ dml,                            //Out d_dml (h_dml)
+  int* __restrict__ fm2,                            //Out d_fm2, or NULL
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H) {
@@ -1267,6 +1288,10 @@ modular_decomposition_kernel(
   //typically values in fml_i read many times, assume many !=INF and that GPU cache will cope
   int value = INF;
   size_t out = 0;
+  // CIRCULAR: where this cell lands in the persistent fM2_real triangle.
+  // Computed beside `out` because i and j only exist inside the `active`
+  // block below, and the store has to happen after the cross-lane reduction.
+  size_t fm2_out = 0;
   if(active) {
     const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
     const long long mj = (long long)m - (long long)side_off_H[H];
@@ -1282,6 +1307,7 @@ modular_decomposition_kernel(
 
     assert(H >= 0 && H < nfiles);
     out = row_off_H[H]+j;
+    if(fm2) fm2_out = tri_off_H[H] + Indx(i,j);
     // int16 path: the cell at yij sits at within-column index i+turn+2+y, and
     // its baseline slot advances once every FML_BLK steps of y. The per-cell
     // part of the slot index is loop-invariant, so it is hoisted; only the
@@ -1334,8 +1360,131 @@ modular_decomposition_kernel(
   for(int off = TILE/2; off > 0; off >>= 1)
     value = MIN2(value, __shfl_down_sync(0xffffffff, value, off, TILE));
 
-  if(active && lane == 0) dml[out] = value;
+  if(active && lane == 0) {
+    dml[out] = value;
+    /*
+     * CIRCULAR RNA, and this is the whole of the new arithmetic: none.
+     *
+     * upstream fills fM2_real[i][j] with mfe_multibranch_m2_fast(), which is
+     *     min over k in [i+1, j-2] of ( fML[i][k] + fML[k+1][j] )
+     * and that is exactly what this kernel already reduced into `value` and
+     * hands to new_c_kernel as DMLi. The fork threw it away one row later;
+     * postprocess_circular() needs it kept. PORT_CIRC_SPEC.md proved the
+     * equality by measurement (circ_fm2_probe.c, 8853 cells, zero differences)
+     * and tests/mfe_cuda_circ.ts re-checks it cell for cell on the device.
+     *
+     * fm2 is NULL unless md->circ, so a linear fold pays one kernel-uniform
+     * null test and no memory at all.
+     */
+    /*
+     * CLAMP SENTINEL-CONTAMINATED VALUES TO INF, and this is a real defect the
+     * verifier caught rather than a tidy-up.
+     *
+     * The reduction above adds fml_i[y] + fml_j[yij] with NO INF guard, so when
+     * one operand is INF and the other is a real negative energy the sum comes
+     * out just BELOW INF -- measured: fM2_real[58][70] = 9999750 where upstream
+     * has exactly 10000000. Upstream's mfe_multibranch_m2_fast() guards each
+     * operand, so it never produces such a value.
+     *
+     * It matters because postprocess_circular() tests `fM2_real[...] != INF`
+     * and would treat 9999750 as a REAL two-branch decomposition that does not
+     * exist. Legitimate fM2_real values are energies in dacal -- thousands, not
+     * millions -- so INF/2 separates the two cleanly and cannot catch a real
+     * one.
+     *
+     * Clamping HERE rather than fixing the reduction is deliberate: the
+     * reduction feeds DMLi, which is consumed by new_c_kernel on the LINEAR
+     * path that is byte-identical to upstream across every test this project
+     * has. Adding two INF tests to the inner loop of the largest GPU phase to
+     * fix a value the linear path evidently tolerates would be trading a
+     * measured-good hot path for a theoretical one. Whether DMLi's near-INF
+     * values can bite new_c_kernel is a separate question -- see
+     * PORT_INVESTIGATIONS.md.
+     */
+    if(fm2) fm2[fm2_out] = (value > INF/2) ? INF : value;
+  }
 }
+
+/* ===================== CIRCULAR RNA: the persistent fM2_real ==============
+ *
+ * postprocess_circular() (mfe/mfe.c) reads fM2_real in 13 places and the sweep
+ * never filled it -- which is the entire reason -c was declined. It is not new
+ * arithmetic: modular_decomposition_kernel already reduces exactly this
+ * quantity into DMLi every row and the fork discarded it. See the store in
+ * that kernel.
+ *
+ * The cost is memory, not compute: one triangular int matrix per record, the
+ * same extent as fML. Allocated ONLY when md->circ, so a linear fold pays
+ * nothing -- which is why this is a runtime pointer rather than a compile flag.
+ */
+static int    *d_fm2        = NULL;
+static size_t  g_fm2_cells  = 0;
+
+extern "C" int *
+rnafold_circ_fm2_device(void)
+{
+  return d_fm2;
+}
+
+
+extern "C" void
+rnafold_circ_free(void)
+{
+  if(d_fm2) cudaFree(d_fm2);
+  d_fm2 = NULL;
+  g_fm2_cells = 0;
+}
+
+
+/* Allocate and prefill. `circ` 0 frees and returns 0; returns 1 on success,
+ * -1 on failure. Prefill is INF because upstream prefills fM2_real to INF and
+ * the kernel only writes cells with j >= i+2*turn+3 -- every shorter span has
+ * no two-branch decomposition and must stay INF. */
+extern "C" int
+rnafold_circ_alloc(const int circ, const size_t tri_cells)
+{
+  rnafold_circ_free();
+
+  if((!circ) || (tri_cells == 0))
+    return 0;
+
+  if(cudaMalloc((void **)&d_fm2, tri_cells * sizeof(int)) != cudaSuccess) {
+    fprintf(stderr, "modular_decomposition.cu  cudaMalloc failed for fM2_real "
+                    "(%zu cells, %.1f MB)\n", tri_cells,
+            tri_cells * sizeof(int) / 1048576.0);
+    d_fm2 = NULL;
+    return -1;
+  }
+
+  g_fm2_cells = tri_cells;
+  {
+    const size_t nb = (tri_cells + BLOCK_SIZE - 1)/BLOCK_SIZE;
+    init_fML_kernel<<<nb,BLOCK_SIZE>>>(tri_cells, d_fm2);   /* fills INF */
+    gpuErrchk( cudaPeekAtLastError() );
+  }
+
+  fprintf(stderr, "modular_decomposition.cu  circular: fM2_real allocated, "
+                  "%zu cells, %.1f MB\n", tri_cells,
+          tri_cells * sizeof(int) / 1048576.0);
+
+  return 1;
+}
+
+
+/* One record's fM2_real triangle, the twin of fetch_my_c_one(). */
+extern "C" void
+fetch_fm2_one(int *dst, const size_t tri_lo, const size_t cells)
+{
+  if(!d_fm2) {
+    fprintf(stderr, "modular_decomposition.cu  fetch_fm2_one with no fM2 "
+                    "allocated -- the circular guard has a hole\n");
+    return;
+  }
+
+  gpuErrchk( cudaMemcpy(dst, &d_fm2[tri_lo], cells*sizeof(int),
+                        cudaMemcpyDeviceToHost) );
+}
+
 
 void modular_decomposition_cuda(const int nfiles,
 				const int i, const int turn, const int length,
@@ -1483,6 +1632,7 @@ void modular_decomposition_cuda(const int nfiles,
                        d_fml_i, d_fml_j, \
                        d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, \
                        d_dml,   /*Out*/ \
+                       rnafold_circ_fm2_device(), /*Out, NULL unless circular*/ \
                        d_tri_off_H, d_row_off_H, \
                        d_side_off_H, total, d_i_H)
   switch(g_md_tile) {

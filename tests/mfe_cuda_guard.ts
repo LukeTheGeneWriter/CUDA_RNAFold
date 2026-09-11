@@ -78,7 +78,7 @@ declines(vrna_fold_compound_t *fc)
    * that a guard silently re-tightening shows up as a failure rather than as a
    * quiet loss of acceleration. md_gquad moved out on 2026-09-10 (G3). */
   void (*tweaks[])(vrna_md_t *) = {
-    md_dangles0, md_circ, md_noguclose
+    md_dangles0, md_noguclose
   };
   size_t i;
 
@@ -111,6 +111,24 @@ declines(vrna_fold_compound_t *fc)
 
   ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
 
+  vrna_fold_compound_free(fc);
+}
+
+#test test_guard_accepts_circ
+{
+  /* -c was declined because the sweep never filled fM2_real, which
+   * postprocess_circular() reads in 13 places -- so the GPU returned the LINEAR
+   * answer for a circular fold. Accepted as of 2026-09-11: DMLi, which the
+   * modular decomposition already reduces every row and the fork discarded, IS
+   * fM2_real, and it is now persisted into a triangle.
+   *
+   * tests/mfe_cuda_circ.ts checks the STRUCTURES; this only asserts the routing
+   * decision, so a guard silently re-tightening shows up here rather than as a
+   * quiet loss of acceleration. */
+  vrna_fold_compound_t *fc = fc_with(md_circ);
+
+  ck_assert(fc->params->model_details.circ == 1);
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
   vrna_fold_compound_free(fc);
 }
 

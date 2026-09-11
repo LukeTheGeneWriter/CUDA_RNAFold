@@ -107,8 +107,27 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    * --noGU, -4, --salt and -T. Regression test: tests/mfe_cuda_gquad.ts.
    */
 
-  if (md->circ)
-    DECLINE("circular RNA (see PORT_CIRC_SPEC.md)");
+  /* CIRCULAR RNA ACCEPTED 2026-09-11.
+
+   * The sweep now persists fM2_real. It was never new arithmetic:
+   * modular_decomposition_kernel already reduces min_k(fML[i,k]+fML[k+1,j])
+   * into DMLi every row -- exactly what upstream's mfe_multibranch_m2_fast()
+   * computes -- and the fork discarded it one row later. It now also stores it
+   * into a persistent triangle, and backtrack_one_slot() calls
+   * VRNA-PATCH(circular-postprocess) on it.
+   *
+   * COSTS A CHUNK WIDTH. fM2_real is a second full int32 triangle per record,
+   * counted in modular_decomposition_bytes_per_file() under
+   * rnafold_circ_expect(), so a circular batch admits proportionally fewer
+   * records rather than OOMing.
+   *
+   * BAR: byte-identical to pristine 2.7.2 on the frozen tests/circ/ set (6
+   * records, 60-600 nt, every circular energy differing from its linear one),
+   * and GPU==CPU on 20 further records at 45-570 nt -- plain, chunked, int16,
+   * --noLP, --noGU, --salt, -T and -4. tests/mfe_cuda_circ.ts is the
+   * regression bar; RNA_CIRC_VERIFY=1 re-checks fM2_real against its own
+   * definition, O(n^3), for small inputs.
+   */
 
   /* noLP is ACCEPTED as of 2026-09-07. It was declined because the sweep
    * filtered ptype for it but never applied the recursion constraint, which

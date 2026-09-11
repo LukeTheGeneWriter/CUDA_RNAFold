@@ -143,6 +143,13 @@ RNA_FML_INT16=1 check gquad_i16 gpu -g
 # ACCELERATED 2026-09-10: Energy()'s 0->7 promotion and rtype[] fixed, guard lifted.
 check nsp_sym           gpu --nsp=-GA
 check nsp_asym          gpu --nsp=GA
+# ACCELERATED 2026-09-11: the sweep now persists fM2_real (which IS DMLi), so
+# postprocess_circular() has the matrix it reads in 13 places. Was `cpu` until
+# then, and the GPU returned the LINEAR answer for a circular fold.
+check circ              gpu -c
+RNA_FML_INT16=1 check circ_i16 gpu -c
+check circ_noLP         gpu -c --noLP
+check circ_salt         gpu -c --salt=0.2
 check paramfile         gpu -P PARAMFILE
 check helical_rise      gpu --salt=0.2 --helical-rise=10
 check backbone_len      gpu --salt=0.2 --backbone-length=6.76
@@ -158,7 +165,6 @@ check loglevel          gpu --log-level=3
 
 echo
 echo "--- DECLINED: must route to the CPU and give the same answer"
-check circ              cpu -c
 check dangles0          cpu -d0
 check dangles1          cpu -d1
 check dangles3          cpu -d3

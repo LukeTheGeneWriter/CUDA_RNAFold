@@ -415,6 +415,24 @@ extern "C"
 #endif
 int rnafold_fml_int16(void);
 
+// CIRCULAR RNA (PORT_CIRC_SPEC.md). fM2_real is the ONE matrix
+// postprocess_circular() needs that the sweep never filled -- and it is not new
+// arithmetic: modular_decomposition_kernel already reduces exactly
+// min_k(fML[i,k]+fML[k+1,j]) into DMLi every row, and the fork discarded it.
+// rnafold_circ_alloc() is a no-op unless md->circ, so a linear fold pays no
+// memory and one kernel-uniform null test.
+#ifdef __cplusplus
+extern "C" {
+#endif
+void  rnafold_circ_expect(const int circ);   /* before any chunk is admitted */
+int   rnafold_circ_alloc(const int circ, const size_t tri_cells);
+void  rnafold_circ_free(void);
+int  *rnafold_circ_fm2_device(void);
+void  fetch_fm2_one(int *dst, const size_t tri_lo, const size_t cells);
+#ifdef __cplusplus
+}
+#endif
+
 // G-quadruplex stage G0 (PORT_GQUAD_SPEC.md). Carries the batch's c_gq to the
 // device; the two call sites that will READ it land in G1/G2, so today this is
 // uploaded and unused, and -g stays declined by the routing guard.

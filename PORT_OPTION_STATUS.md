@@ -69,8 +69,8 @@ things gate 2 declines that gate 1 never checks:
 | `-j` / `--jobs` | **ACCEL** | — | measured |
 | `--unordered` | **ACCEL** | — | measured **sorted** — see note |
 | `--ImFeelingLucky` | **ACCEL** | — | route measured; **no byte bar possible** — see note |
-| `-c` / `--circ` | DECLINED | **1, 2, 3** | measured |
-| `--noClosingGU` | DECLINED | **1, 2, 3** | measured |
+| **`-c` / `--circ`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/`--noLP`/`--salt`; `tests/mfe_cuda_circ.ts` |
+| `--noClosingGU` | DECLINED | **1, 2** *(the last multi-gate option)* | measured |
 | `--energyModel` | DECLINED | 1, 2 | measured |
 | `-C` / `--constraint` | DECLINED | 1, 2 | measured |
 | `--canonicalBPonly` | DECLINED | 1, 2 | measured |
@@ -116,8 +116,8 @@ the CPU was compared against itself.
 
 | | count |
 |---|---|
-| **ACCELERATED, byte-identical** | **23** |
-| DECLINED, CPU route asserted | 17 |
+| **ACCELERATED, byte-identical** | **24** |
+| DECLINED, CPU route asserted | 16 |
 | NEUTRAL | 19 |
 | UNREACHABLE from this CLI | 1 |
 
@@ -136,6 +136,10 @@ on guard reading.
 - **`-P`'s four bars all run.** Bar 4 found a live silent wrong answer (int16
   plus a large-`stack` file), now fixed.
 - The harness went from 18 checks to 40 and gained `check_sorted()`.
+- **`-c` moved DECLINED → ACCELERATED (2026-09-11).** It was never new
+  arithmetic: `DMLi` **is** `fM2_real`, and the sweep discarded it one row
+  later. It costs a **chunk width** of VRAM, counted in
+  `modular_decomposition_bytes_per_file()`.
 
 ### Still honestly open
 
@@ -150,12 +154,11 @@ on guard reading.
 4. **11 rows are asserted, not measured.** Each is either a pure I/O option or
    shares a code path with a measured sibling — but that is an argument, not a
    run.
-5. **`-c` is the one genuinely missing capability.** It is correctly declined by
-   all three gates, and what stands between it and acceleration is **ours**, not
-   upstream's: the sweep must keep `DMLi` into a triangular `fM2`
-   (`PORT_CIRC_SPEC.md`), costing one chunk width of VRAM. The upstream half —
-   reaching `postprocess_circular()` — is already patched as
-   `VRNA-PATCH(circular-postprocess)`.
+5. **`-c` shipped on 2026-09-11**, so the list of genuinely missing capabilities
+   is now empty for single-sequence linear-or-circular folding. What remains
+   unsupported is *multistrand* and *comparative*, neither reachable from
+   RNAfold's input, and the constraint family (`-C`, `--shape`, `--motif`,
+   `--commands`, `-m`), which is declined by design rather than by gap.
 
 ### Re-running this audit
 

@@ -453,35 +453,21 @@ vrna_mfe(vrna_fold_compound_t *fc,
 PUBLIC int
 vrna_backtrack_from_intervals_bps(vrna_fold_compound_t  *fc,
                                   vrna_bps_t            bp_stack,
-                                  sect                  bt_stack[],
-                                  int                   s)
+                                  vrna_bts_t            bt_stack)
 {
-  int ret = 0;
+  /*
+   * MODERN TYPES ON BOTH SIDES, and the bt_stack side matters as much as the
+   * bp_stack side. postprocess_circular() SEEDS its own vrna_bts_t and the
+   * backtrack has to continue from it; taking sect[] here would mean
+   * converting that down and back, which is exactly the lossy hop this patch
+   * exists to avoid on the bp side.
+   *
+   * The caller owns and frees bt_stack, so a seeded stack survives the call.
+   */
+  if (fc == NULL)
+    return 0;
 
-  if (fc) {
-    int         i;
-    vrna_bts_t  bts;
-
-    if (s > 0) {
-      bts = vrna_bts_init((unsigned int)s);
-      for (i = 0; i < s; i++)
-        vrna_bts_push(bts,
-                      (vrna_sect_t){
-                        .i = bt_stack[i].i,
-                        .j = bt_stack[i].j,
-                        .ml = bt_stack[i].ml
-                      });
-    } else {
-      bts = vrna_bts_init(0);
-    }
-
-    /* the caller's own bps, filled in place -- no downconversion, so L/l live */
-    ret = backtrack(fc, bp_stack, bts, NULL);
-
-    vrna_bts_free(bts);
-  }
-
-  return ret;
+  return backtrack(fc, bp_stack, bt_stack, NULL);
 }
 /* VRNA-PATCH-END(bps-backtrack) */
 
