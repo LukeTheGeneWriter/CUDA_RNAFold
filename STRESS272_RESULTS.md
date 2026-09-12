@@ -2151,3 +2151,156 @@ its effect on the dependency chain, not by how much work it deletes.
 `int_loop` is 12 % of the A100 wall, so −3.7 % is **0.45 % of wall**. H1 is worth
 keeping because it is free, correct and helps both kernels — not because it is
 significant. The honest ranking after §23.5 has not changed.
+
+---
+
+# 27. A100 WarpScan: build threading delivers −45 %, the warp scan generalises, and the GPU is the target again
+
+*A100-SXM4-40GB, 12 vCPUs, 400 × 5601, commit `2ec95dcb` (pre-H1), 12 arms plus
+three NCU profiles. `sha 7c0b3d633281` in every arm; clock pinned at
+1410/1410 MHz with `clocks_throttle_reasons` `0x0` throughout.*
+
+## 27.1 §A — build threading: the extrapolation was right
+
+| | serial | `auto` (12) | delta |
+|---|---|---|---|
+| **`build`** | 122.89 s | **20.98 s** | **−82.9 %** |
+| `int_loop` (**control**) | 26.55 | 26.18 | −1.4 % |
+| `modular_decomp` | 42.81 | 42.70 | −0.3 % |
+| `backtrack` | 5.62 | 5.59 | −0.4 % |
+| **wall** | 225.2 s | **123.5 s** | **−45.1 %** |
+| peak RSS | 2.98 GB | 2.98 GB | 0.0 % |
+
+**5.86× on 12 cores.** §25 predicted 24.0 s from a 5.12× laptop measurement; the
+A100 delivered **21.0 s**, and the predicted −44 % wall came in at **−45.1 %**.
+The controls are flat and RSS did not move — threading the build costs nothing
+in memory.
+
+This is the largest single improvement in the project's history and it was a
+**default**, not a feature: the code, the safety proof (Defect B) and the
+documentation all already said `auto`.
+
+## 27.2 And the wall has flipped back to the GPU
+
+| | before §25 | **now** |
+|---|---|---|
+| `build` | 121.4 s — **54.0 %** | 21.0 s — **17.0 %** |
+| GPU + transfer | 95.2 s — 42.3 % | 93.8 s — **75.9 %** |
+| `backtrack` | 5.7 s — 2.6 % | 5.6 s — 4.5 % |
+
+**§23.7 said "the next hour belongs to the host". It no longer does.** One
+change moved the host from the majority of the wall to 17 % of it, and the GPU
+phases — which did not move — are now three quarters. The kernel work this
+project spent a week deprioritising is the target again.
+
+## 27.3 §B — the warp scan generalises, cleanly
+
+| | twin | warp | delta |
+|---|---|---|---|
+| `int_loop` (the lever) | 26.25 / 26.21 → **26.23** | 20.84 / 20.81 → **20.82** | **−20.61 %** |
+| `modular_decomp` (**control**) | 42.71 | 42.71 | **+0.01 %** |
+| `hp_mb` | 4.56 | 4.56 | +0.10 % |
+| wall | 123.8 | 118.3 | **−4.43 %** |
+| SM clock | 1410 MHz | 1410 MHz | — |
+
+**−20.61 % on sm_80 against −21.3 % on sm_86.** Spread inside each arm is
+0.15 %, the control is flat to one part in ten thousand, neither arm throttled,
+and the sha never moved. Two architectures, same answer.
+
+**Promoted to default** (`RNA_INT_LOOP_WARP=0` restores the twin, which stays as
+the reference implementation and the A/B).
+
+## 27.4 §C — cells per block: 1 is best, and my prediction was backwards
+
+| threads | cells/block | `int_loop` | vs best |
+|---|---|---|---|
+| **32** | **1** | **20.65 s** | — |
+| 64 | 2 | 20.86 | +1.0 % |
+| 128 | 4 | 21.35 | +3.4 % |
+| 256 | 8 | 22.88 | **+10.8 %** |
+
+The prediction written into the notebook was: *"the warp kernel has NO barrier,
+so if it keeps improving past 64 that is the mechanism confirming itself."* It
+does the opposite — **monotone in the wrong direction.**
+
+**Why, and it is not the barrier.** The block is still the *allocation and
+retirement* unit: it holds its registers until its **last** warp finishes, and
+cells have wildly different candidate counts. Bigger blocks therefore re-couple
+the cells the design had just decoupled — through the block lifetime rather than
+through `__syncthreads()`.
+
+The occupancy ceiling is identical either way: at 58 regs/thread sm_80 allows
+32 blocks × 1 warp or 16 blocks × 2 warps — 32 warps both times. **The
+difference is scheduling granularity, not capacity.**
+
+`INT_LOOP_WARP_DEFAULT_BLOCK_SIZE` is 32, separate from the twin's 64, because
+the knob means a different quantity for each.
+
+## 27.5 §D — Step 0: both questions answered, and the ranking changes
+
+| | twin bs64 | warp bs64 | warp bs128 |
+|---|---|---|---|
+| achieved occupancy | 32.7 % | **20.7 %** | 21.9 % |
+| **registers/thread** | 50 | **58** | 58 |
+| shared memory | 1408 B | 1024 B *(the driver's reserved minimum — the kernel uses none)* | 1024 B |
+| binding limiter | **registers** (18) | **registers** (16) | warps (8) |
+
+### Question 1: did `barrier` and `short_scoreboard` go to zero?
+
+**`barrier`: 0.933 → 0.000 cycles per issue. Exactly zero.** The design did
+precisely what it claimed.
+
+`short_scoreboard` fell 1.167 → 0.710 but **not** to zero — and the reason is
+worth recording, because the kernel contains no shared memory at all. On Ampere
+`short_scoreboard` covers the MIO pipe, and **warp shuffles are MIO
+instructions**. The residual is the scan, the binary search and the reduction.
+So in this kernel `short_scoreboard` now reads "shuffle latency", not "shared
+memory" — and it fell even though the shuffle count went *up*, because the twin
+was paying for both.
+
+### Question 2: registers
+
+**50 → 58, and registers are the binding limiter in both kernels.** Achieved
+occupancy is 20.7 % against the twin's 32.7 %. The flagged risk was real: part
+of the win is being paid back in occupancy, and the kernel still wins by 20 %.
+
+### And the stall ranking has inverted
+
+| stall | twin bs64 | **warp bs64** | absolute (twin → warp) |
+|---|---|---|---|
+| **`long_scoreboard`** | 31.4 % | **44.4 %** | 4.263 → **6.023** |
+| `wait` | 23.5 % | 20.4 % | 3.197 → 2.767 |
+| `short_scoreboard` | 8.6 % | 5.2 % | 1.167 → 0.710 |
+| `barrier` | 6.9 % | **0.0 %** | 0.933 → **0.000** |
+| `imc_miss` | 2.1 % | 4.3 % | 0.287 → 0.583 |
+
+**Memory latency is now nearly half of all stall cycles, and it went UP in
+absolute terms.** That is consistent rather than contradictory: removing the
+barrier exposed what was behind it, and the lower occupancy (20.7 % vs 32.7 %)
+leaves fewer warps to hide the same latency.
+
+## 27.6 What this does to the hypothesis series
+
+**H5 (new, and now the best-founded): cut registers to raise occupancy.**
+Registers are the *measured* binding limiter at 58/thread, occupancy is 20.7 %,
+and `long_scoreboard` — the thing more warps would hide — is 44 % of stalls.
+Every link in that chain is measured rather than argued. `__launch_bounds__` or
+spilling the least-hot live values are the obvious routes; both need care,
+because forcing registers down can trade occupancy for local-memory traffic.
+
+**H3b is promoted, H3a is confirmed dead.** `long_scoreboard` at 44 % means the
+hot tables' *latency* is the dominant cost, which is exactly H3b's argument
+(shared memory is lower-latency than L1 and services divergent addresses in
+parallel). H3a — `__ldcs` on the cold tables — targets under 1 % of accesses and
+should not be written. §26's "justify by the dependency chain" test passes for
+H3b and fails for H3a.
+
+**H2 keeps its place.** `wait` is still 20.4 % and 2.767 cycles/issue, and H2 is
+a one-line, exhaustively-verified change to a six-deep chain on the critical
+path of every candidate.
+
+**H4 is effectively closed.** The column lookup's cost lives in
+`short_scoreboard`, now 0.710 cycles/issue and 5.2 % of stalls — the smallest of
+the named targets.
+
+**Revised order: H5, then H3b, then H2.**

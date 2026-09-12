@@ -12,12 +12,17 @@ wrong.*
 
 | | |
 |---|---|
-| §0 profile the new kernel | **running on the A100** (`CUDA_RNAFold_WarpScan.ipynb` §D) |
+| the kernel itself | **PROMOTED TO DEFAULT 2026-09-12** — −20.6 % on sm_80 as well as −21.3 % on sm_86, control flat, sha unchanged; `RNA_INT_LOOP_WARP=0` restores the twin. §27.3 |
+| cells per block | **SWEPT: 1 is best** (32 threads), monotone, and the opposite of the prediction. §27.4 |
+| §0 profile the new kernel | **DONE**, §27.5 — `barrier` 0.933 → **0.000**, `short_scoreboard` 1.167 → 0.710, **registers 50 → 58 and binding** |
 | H1 hoist cell invariants | **DONE, −3.7 %**, §26 |
 | H1b `--noClosingGU` short-circuit | not started |
 | H2 `fns` instruction | **scoped and DE-RISKED** — exhaustive equivalence proven on device, one-line change, no arch fallback needed |
 | H3 cold-table eviction | **re-scoped: the premise is DOUBTFUL.** Split into H3a (4 lines, predicted null) and H3b (shared-memory staging of the HOT tables); both gated on a source-level profile |
-| H4 cheaper column lookup | gated on §0 |
+| H4 cheaper column lookup | **effectively CLOSED by §0** — its cost lives in `short_scoreboard`, now 0.710 cycles/issue and 5.2 % of stalls, the smallest named target |
+| **H5 cut registers to raise occupancy** | **NEW and now first** — registers are the *measured* binding limiter at 58/thread, achieved occupancy 20.7 %, and `long_scoreboard` (what more warps would hide) is **44.4 % of stalls**. §27.6 |
+
+**Revised order after the A100 profile: H5, then H3b, then H2.** H3a is dead (under 1 % of accesses) and H4 is closed.
 
 ---
 

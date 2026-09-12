@@ -1398,12 +1398,49 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
 // from them. 64 since 2026-09-11; see the block-size history immediately below.
 #define INT_LOOP_DEFAULT_BLOCK_SIZE 64
 
-// RNA_INT_LOOP_WARP=1 -- route to int_loop_warp_kernel, which owns one (H,j)
-// cell per WARP instead of per block. An EXPERIMENT with a measured premise:
-// STRESS272_RESULTS.md 22.5 puts `barrier` at 20.7% of stall cycles at block
-// size 128 and `short_scoreboard` at 8.9%, both of them this kernel's own scan
-// machinery, while global memory is only 12-16%. Off by default until it beats
-// its twin on wall clock with an unchanged sha.
+// AND A SEPARATE DEFAULT FOR THE WARP KERNEL, because the knob means a
+// DIFFERENT QUANTITY there: for the twin it is threads cooperating on ONE cell,
+// for the warp kernel it is 32 x the number of INDEPENDENT cells in a block.
+// 64 being right for one says nothing about the other, which is why it was
+// swept separately (A100, 400 x 5601, int_loop):
+//
+//     32 threads = 1 cell   20.65 s    <-- best
+//     64         = 2        20.86 s   +1.0%
+//    128         = 4        21.35 s   +3.4%
+//    256         = 8        22.88 s  +10.8%
+//
+// Monotone, and the opposite of the prediction. There is no __syncthreads() in
+// this kernel, so the expectation was that occupancy would scale with block
+// size for free. It does not, because the BLOCK is still the allocation and
+// retirement unit: a block holds its registers until its LAST warp finishes,
+// and cells have wildly different candidate counts. Bigger blocks re-couple
+// cells that the design had just decoupled.
+//
+// (The occupancy ceiling is identical either way -- at 58 regs/thread sm_80
+// allows 32 blocks x 1 warp or 16 blocks x 2 warps, 32 warps both times. The
+// difference is scheduling granularity, not capacity.)
+#define INT_LOOP_WARP_DEFAULT_BLOCK_SIZE 32
+
+// int_loop_warp_kernel -- one (H,j) cell per WARP instead of per block.
+//
+// DEFAULT SINCE 2026-09-12, on two architectures:
+//
+//     RTX 3050 (sm_86), 60 x 2400   int_loop 8.543 -> 6.727 s   -21.3%
+//     A100     (sm_80), 400 x 5601  int_loop 26.23 -> 20.82 s   -20.6%
+//
+// with `modular_decomposition` -- which this knob cannot reach -- flat to
+// +0.01% on the A100 and the sha unchanged in every arm. The A100 pair spread
+// 0.15% within each arm and neither arm throttled (1410/1410 MHz both).
+//
+// IT WAS BUILT FROM THE STALL DATA AND THE STALL DATA CONFIRMS THE MECHANISM.
+// `barrier` was 20.7% of stall cycles at block size 128 on the twin; the design
+// deletes both __syncthreads() and both shared arrays by giving one warp the
+// whole cell, so col_mask[] and prefix[] live in registers. Measured on the
+// A100: barrier 0.933 -> 0.000 cycles per issue, EXACTLY zero, and
+// short_scoreboard 1.167 -> 0.710. See STRESS272_RESULTS.md 27.
+//
+// RNA_INT_LOOP_WARP=0 restores the block-per-cell twin, which is kept as the
+// reference implementation and as the A/B.
 PUBLIC int
 rnafold_int_loop_warp(void)
 {
@@ -1412,12 +1449,11 @@ rnafold_int_loop_warp(void)
   if (v < 0) {
     const char *e = getenv("RNA_INT_LOOP_WARP");
 
-    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+    v = (e && e[0]) ? (e[0] != '0') : 1;
 
-    if (v)
-      fprintf(stderr, "%-24s RNA_INT_LOOP_WARP=1: one warp per cell, no shared "
-                      "memory and no __syncthreads() (experimental; sha must not "
-                      "move)\n", __FILE__);
+    fprintf(stderr, "%-24s int_loop kernel: %s%s\n", __FILE__,
+            v ? "warp-per-cell" : "block-per-cell (twin)",
+            (e && e[0]) ? " (from RNA_INT_LOOP_WARP)" : " (the measured default)");
   }
 
   return v;
@@ -1677,7 +1713,8 @@ int_loop_cuda(const int nfiles,
   // re-test on new hardware, same pattern as this file's other RNA_*- knobs.
   static int block_size = 0;
   if(!block_size) {
-    block_size = INT_LOOP_DEFAULT_BLOCK_SIZE;
+    block_size = rnafold_int_loop_warp() ? INT_LOOP_WARP_DEFAULT_BLOCK_SIZE
+                                         : INT_LOOP_DEFAULT_BLOCK_SIZE;
     const char* env = getenv("RNA_INT_LOOP_BLOCK_SIZE");
     if(env) {
       const int requested = atoi(env);
