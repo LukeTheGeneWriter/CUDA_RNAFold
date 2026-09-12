@@ -1686,3 +1686,268 @@ ceiling bought 23 % rather than 2×.
 4. **Chunk width is a clock lever, not a locality lever.** Narrower chunks run at
    a higher clock. The quarter budget being both fastest and smallest
    (§"BUILD PIPELINE VALIDATED") now has a mechanism.
+
+---
+
+# 23. A100: the power-cap diagnosis confirmed, my prediction refuted, and the wall is now 54 % `build`
+
+*A100-SXM4-40GB, same 400 × 5601 workload, same commit, same 12 arms as §22.
+`sha 7c0b3d633281` throughout. Clock pinned at **1410 / 1410 MHz** and
+**`clocks_throttle_reasons.active` is `0x0` in every sample of every arm** —
+197–217 W against a 400 W board, 46–48 °C.*
+
+## 23.1 The int16 give-back is GONE
+
+| | T4 (§22.1) | **A100** |
+|---|---|---|
+| `int_loop` PHASE | 89.33 → 115.41 s (**+29.2 %**) | 27.23 → 27.24 s (**+0.0 %**) |
+| of which the KERNEL | 84.98 → 110.74 s (**+30.3 %**) | 23.79 → 23.80 s (**+0.0 %**) |
+| `hp_mb` | +8.5 % | +0.2 % |
+| `load_my_c` | +3.7 % | +1.0 % |
+| SM clock | 1044 → 781 MHz (−25.2 %) | **1410 → 1409 MHz (−0.0 %)** |
+| throttle on busy samples | `0x4` on ~98 % | **`0x0` on 100 %** |
+
+**Remove the cap, remove the penalty — to two decimal places.** §22 said 97.5 %
+of the give-back was the clock; the A100 says it was all of it. And NCU was right
+the whole time: the kernel is identical, and always was.
+
+That is as clean a confirmation as this project has ever got, because it did not
+come from a better measurement of the same machine — it came from removing the
+mechanism.
+
+## 23.2 My prediction was WRONG, and the reason is worth more than the prediction
+
+§22.1 predicted: *"on a card with power headroom, int16 is worth MORE than
+6.2 %."*
+
+| | T4 | A100 |
+|---|---|---|
+| wall, i32 | 526.6 s | 224.9 s |
+| wall, i16 | 494.1 s | 215.1 s |
+| **int16's benefit** | **−6.2 %** | **−4.3 %** |
+
+**It is worth LESS.** The reasoning was half an argument: removing the cap does
+remove int16's *cost*, but the same card removes most of its *benefit*. int16
+relieves DRAM pressure on `modular_decomp`, and on an A100 there is little to
+relieve:
+
+| | T4 | A100 |
+|---|---|---|
+| `modular_decomp` as a share of wall | 217.5 / 526.6 = **41 %** | 42.9 / 224.9 = **19 %** |
+| `modular_decomp` i32 → i16 | −61.8 s | −7.0 s |
+| NCU DRAM throughput, `md_i32` | 18.1 % of peak | **3.4 % of peak** |
+
+On the T4 int16 buys 61.8 s and gives 29.8 s back. On the A100 it buys 7.0 s and
+gives nothing back. **A lever that relieves a bottleneck is worth less on a
+machine that does not have that bottleneck** — which is obvious stated plainly,
+and I did not state it.
+
+## 23.3 Chunk width REVERSES, which closes §22.4's mechanism
+
+| cap | T4 wall | T4 clock | **A100 wall** | **A100 clock** |
+|---|---|---|---|---|
+| 29 | 499.1 s | 769 MHz | 214.3 s | 1410 MHz |
+| 37 | 502.3 (+0.6 %) | 736 MHz | 207.7 (**−3.1 %**) | 1410 MHz |
+| 45 | 504.7 (+1.1 %) | 719 MHz | 204.2 (**−4.7 %**) | 1409 MHz |
+| 58 | 511.4 (+2.5 %) | 691 MHz | 200.5 (**−6.5 %**) | 1410 MHz |
+
+On the T4 wall rises monotonically and the clock falls monotonically. On the
+A100 the clock does not move at all and **wall falls monotonically** — wider
+chunks mean fewer chunks and less per-chunk fixed cost, which is what one would
+naively expect and what the T4 hid completely.
+
+So §22.4's claim that the chunk-width penalty is "99 % clock, not locality" is
+confirmed by its disappearance. **There is no locality penalty. There never
+was.**
+
+### And it sharpens the int16 `my_c` verdict rather than reversing it
+
+§22.4 said *don't build it* because wall rises with chunk width. That
+observation was T4-specific. The verdict survives, for a better reason:
+
+- **On a card where capacity is the constraint (T4, 15 GB), more capacity is
+  HARMFUL** — cap 58 is 2.5 % slower than cap 29.
+- **On a card where more capacity helps (A100, −6.5 %), capacity is not the
+  constraint** — 40 GB already reaches cap 58 at this workload without it.
+
+int16 `my_c` buys capacity. There is no machine in evidence where that is worth
+having. It would take a card that is *both* VRAM-constrained *and* not
+power-capped to make it pay, and that combination has not been observed.
+
+## 23.4 Shared-memory staging: three architectures, never a win
+
+| | sm_86 (RTX 3050) | sm_75 (T4) | sm_80 (A100) |
+|---|---|---|---|
+| `modular_decomp` with `RNA_MD_SMEM=1` | **+15.0 %** | −0.27 % | **+2.26 %** |
+| control (`int_loop`) | flat | +0.68 % | +0.19 % |
+
+Closed. The premise (`fml_i` thrashing) was refuted by the DRAM/requested ratio
+on both measured cards — 0.55 on the T4, **0.38** on the A100, i.e. even more
+cache-served — and the lever loses or ties on every architecture tried.
+
+## 23.5 THE HEADLINE: the wall is 54 % `build`, and the GPU is no longer the problem
+
+| | T4 | **A100** | speedup |
+|---|---|---|---|
+| `modular_decomp` | 217.49 s | 42.88 s | **5.07×** |
+| `int_loop` kernel | 84.98 s | 23.79 s | **3.57×** |
+| `hp_mb` | 14.78 s | 4.63 s | 3.19× |
+| **`build` (host)** | **~122 s** | **121.4 s** | **1.00×** |
+| **wall** | 526.6 s | 224.9 s | **2.34×** |
+
+The GPU phases got 3–5× faster. **`build` did not move at all.** So:
+
+| A100 wall, i32 | share |
+|---|---|
+| **`build`** | **121.4 s — 54.0 %** |
+| GPU + transfer | 95.2 s — 42.3 % |
+| `backtrack` | 5.7 s — 2.6 % |
+
+**`build` is now the majority of the wall**, and it is single-threaded *because
+of a defect this project already found and already wrote up*: the `params.c`
+race (Defect B), recorded in the memory as "a MEASURED blocker on 24.5 % of
+wall". **On an A100 it blocks 54 %.**
+
+`RNA_BUILD_THREADS` existed on the 2.3.0 branch and was never ported to 2.7.2
+(step 2b). That port, plus Defect B, is now worth more than every remaining GPU
+optimisation combined:
+
+- `int_loop` is **12 %** of the A100 wall. A 20 % win on it is **2.4 %** of wall.
+- `build` is **54 %**. Threading it across even 4 cores is ~40 % of wall.
+
+## 23.6 Two smaller findings worth recording
+
+**`fetch_mx` is 2× SLOWER on the A100** — 18.22 s against 9.42 s on the T4, for
+identical bytes — and is now 8 % of the wall, the third-largest GPU-phase entry.
+It is a host/transfer quantity, so this is about the Colab A100 instance's
+transfer path rather than the card.
+
+**And int16 flips its sign there**: `fetch_mx` is **−24.4 %** under int16 on the
+A100 (halved bytes win) against **+21.7 %** on the T4 (host decode dominates).
+Any claim about int16's cost in this phase is host-dependent and must name the
+machine.
+
+**`int_loop_kernel` is even further from the memory roof on an A100**: DRAM
+0.8 % of peak (against 4.0 % on the T4), ratio 0.05 — 95 % of its requests are
+cache-served. Whatever limits it, it is not bandwidth, on either card.
+
+## 23.7 What this changes
+
+1. **Re-order the work.** GPU kernels are 42 % of the A100 wall and `build` is
+   54 %. Finish the warp-synchronous scan (it is written and measured), then go
+   to the host.
+2. **Defect B is the highest-value item in the project.** It was worth 24.5 % of
+   wall when it was written up; it is worth 54 % on the hardware people would
+   actually run this on.
+3. **Quote int16's value with a machine attached.** −6.2 % on a T4, −4.3 % on an
+   A100, and the split between "what it buys" and "what it gives back" is
+   completely different on the two.
+4. **Chunk width: wider is better when not power-capped.** The VRAM budget
+   should probably be chosen per-machine rather than pinned at a quarter, and
+   §"BUILD PIPELINE VALIDATED"'s "the quarter budget is both fastest and
+   smallest" is a T4 statement.
+
+---
+
+# 24. The warp-synchronous scan: −21.3 %, byte-identical, gated off
+
+*Prototype, `RNA_INT_LOOP_WARP=1`, `int_loop_warp_kernel` in `int_loop.cu`.
+Measured on the local RTX 3050 only — the T4/A100 arms have not been run.*
+
+## 24.1 What the stall data asked for
+
+§22.5 and §23 measured `int_loop_kernel`'s stalls on two architectures:
+
+| stall | T4 bs32→128 | A100 bs32→128 | what it is |
+|---|---|---|---|
+| `wait` | 23.3 → 24.4 % | 19.6 → 20.1 % | the ALU dependency chain |
+| `barrier` | **0.1 → 20.7 %** | **0.0 → 19.4 %** | `__syncthreads()` |
+| `long_scoreboard` | 12.0 → 15.8 % | **22.7 → 27.5 %** | global memory latency |
+| `short_scoreboard` | 9.4 → 8.9 % | 7.6 → 6.7 % | shared memory |
+
+Two of the top three are **this kernel's own scan machinery**, not the problem it
+is solving. And `barrier` is why block size 128 gets more occupancy than 64 on
+*both* cards and is slower on both.
+
+*(The ranking differs by card — `wait` leads on the T4, `long_scoreboard` on the
+A100, which is consistent with latency rather than bandwidth: the A100 runs at a
+higher clock with lower achieved occupancy, 16.8 % against 39.6 % at bs32, so it
+has more latency and less to hide it with. Neither card is near the memory roof:
+4.0 % and 0.8 % of DRAM peak.)*
+
+## 24.2 Three changes, each aimed at a measured stall
+
+**One WARP owns a cell, not one block.** `col_mask[]` and `prefix[]` were shared
+only so warp 0 could publish them to the rest of the block. With the cell owned
+by a single warp they live in **registers**, one column per lane — and `maxcol`
+is bounded by `MAXLOOP = 30`, so one warp covers every column there can be. That
+deletes both `__syncthreads()` and both shared arrays, and a block now holds
+`BLOCK/32` *independent* cells, so occupancy can rise with block size without the
+barrier toll.
+
+**The column lookup becomes a 5-step shuffle binary search.** The twin does
+
+```c
+while(column <= maxcol && prefix[column+1] <= work) column++;
+```
+
+restarting at 0 for **every work item** — up to 31 dependent shared-memory loads
+each. That is a prime suspect for `wait` and it is all of `short_scoreboard`.
+The replacement keeps the prefix distributed across lanes and searches it with
+five `__shfl_sync`es: register speed, no memory in the dependent chain.
+
+**A fixed five iterations, not `while (lo < hi)`.** A divergent trip count would
+make the shuffles undefined — the kind of bug that yields a plausible wrong
+answer rather than a crash. Lanes that have converged still execute the shuffle
+and discard it.
+
+A side effect worth noting: the twin needs an explicit clamp because
+`maxcol <= -2` would read `prefix[maxcol+1]` *before* the shared array, a real
+memory-safety bug it hit once. With the prefix in registers that index cannot
+exist — `maxcol < 0` simply gives every lane `popc = 0` and no iterations.
+
+## 24.3 Result
+
+RTX 3050, 60 × 2400, ABBA, two passes. **`modular_decomp` is the control** —
+`RNA_INT_LOOP_WARP` cannot reach it.
+
+| | `int_loop` | `modular_decomp` (control) |
+|---|---|---|
+| twin (`warp=0`) | 8.534 / 8.554 / 8.551 / 8.534 → **8.543** | 4.556 – 4.599 |
+| **warp (`warp=1`)** | 6.720 / 6.727 / 6.735 / 6.727 → **6.727** | 4.542 – 4.567 |
+| | **−21.3 %** | flat to 1.3 % |
+
+**0.22 % spread within each arm** and a flat control. This is not a marginal
+result needing statistics.
+
+## 24.4 Byte-identical, and checked where it could differ
+
+The claim is structural: `min` is associative and commutative over exact ints,
+and this enumerates the **same set** of `(p,q)` candidates in a different order.
+
+| check | result |
+|---|---|
+| vs its own twin, same binary, cells/block 32/64/128/256 | **identical sha** at all four |
+| vs pristine 2.7.2, 20 records, across `--noLP` `-d0` `--noGU` `--noClosingGU` `-c` `-g` `--maxBPspan=60` `--salt` `-T` `-p` | **0 differing lines**, `sweeps` asserted on every arm |
+| chunked, int16, chunked+int16, and block size 32 and 256 | **0 differing lines** |
+
+## 24.5 What is NOT done
+
+- **Only sm_86 has been measured.** The stall data that motivated it comes from
+  the T4 and A100; the win does not. Both need an arm before this becomes the
+  default, and the block-size interaction needs re-running — the warp kernel's
+  `RNA_INT_LOOP_BLOCK_SIZE` now selects *cells per block*, which is a different
+  quantity from the twin's *threads per cell*, so 64 being right for one says
+  nothing about the other.
+- **No NCU profile of the new kernel.** The prediction is `barrier` → 0,
+  `short_scoreboard` → 0, `wait` down; that should be confirmed rather than
+  assumed, and it is the check that says whether the −21.3 % came from the
+  mechanism intended.
+- **It stays gated off** until both land.
+
+## 24.6 And in context: this is 12 % of the A100 wall
+
+§23.5 put `int_loop` at 27.23 s of a 224.9 s A100 wall. A 21 % win on it is
+**2.6 % of wall** there, against `build`'s **54 %**. The kernel work is worth
+finishing because it is written and measured — but it is not where the next hour
+should go.

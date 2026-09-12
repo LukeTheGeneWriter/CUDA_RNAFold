@@ -1176,9 +1176,216 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 #include "int_loop_kernel_body.inc"
 #undef BLOCK_SIZE
 
+// ============ RNA_INT_LOOP_WARP: one WARP per cell, no shared, no barrier ====
+//
+// A SEPARATE KERNEL, for the third time and the same reason (gq_internal_kernel,
+// modular_decomposition_smem_kernel): int_loop_kernel is 20-30% of GPU time and
+// has a recorded history of regressions from being edited. This is an
+// experiment. It is byte-identical to its twin or it is wrong.
+//
+// WHAT THE MEASUREMENT SAID, and this kernel is the shape it pointed at.
+// STRESS272_RESULTS.md 22.5 profiled int_loop_kernel's warp stalls at three
+// block sizes:
+//
+//     stall              bs 32    bs 64   bs 128
+//     wait               23.3%    23.9%    24.4%     <- ALU dependency chain
+//     barrier             0.1%     6.6%    20.7%     <- __syncthreads()
+//     long_scoreboard    12.0%    14.2%    15.8%     <- global memory
+//     short_scoreboard    9.4%     9.4%     8.9%     <- shared memory
+//
+// Memory is the THIRD cost. The first two are this kernel's own scan machinery,
+// and `barrier` is why block size 128 gets MORE occupancy (86.9% against 69.8%)
+// and is SLOWER: at one warp per block the two __syncthreads() are
+// warp-synchronous and free, at four warps they are a barrier across warps doing
+// DATA-DEPENDENT amounts of work.
+//
+// THREE CHANGES, each aimed at a measured stall:
+//
+//  1. ONE WARP PER CELL, not one block. col_mask[] and prefix[] were shared only
+//     so warp 0 could publish them to the rest of the block; with the cell owned
+//     by a single warp they live in REGISTERS, one column per lane. That deletes
+//     both __syncthreads() (`barrier` -> 0) and both shared arrays
+//     (`short_scoreboard` -> 0), and a block now holds BLOCK/32 INDEPENDENT
+//     cells, so occupancy rises with block size without the barrier toll.
+//
+//  2. THE COLUMN LOOKUP BECOMES A 5-STEP SHUFFLE BINARY SEARCH. The twin does
+//         while(column <= maxcol && prefix[column+1] <= work) column++;
+//     -- restarting at 0 for EVERY work item, up to 31 dependent shared-memory
+//     loads each. That is a prime suspect for `wait` and it is all of
+//     `short_scoreboard`. Here the prefix lives distributed across lanes and the
+//     search is 5 register-speed shuffles with no memory in the chain at all.
+//
+//  3. NO NEGATIVE-INDEX HAZARD. The twin needs an explicit clamp because
+//     maxcol <= -2 would read prefix[maxcol+1] BEFORE the shared array (a real
+//     memory-safety bug it hit once). With the prefix in registers, maxcol < 0
+//     simply gives every lane popc = 0, total = 0, and no iterations.
+//
+// WHY THE SHUFFLES ARE SAFE. Every __shfl_*_sync below is reached by all 32
+// lanes: the warp owns ONE cell, so `cell`, `Hc(ij)`, `maxcol`, `total` and
+// `iters` are warp-uniform, and the early return is taken by the whole warp or
+// none of it. The binary search runs a FIXED five iterations rather than
+// `while (lo < hi)` for exactly this reason -- a divergent trip count would make
+// the shuffles undefined, which is the kind of bug that produces a plausible
+// wrong answer rather than a crash.
+//
+// Byte-identity is not an aspiration here, it is the definition: min is
+// associative and commutative over exact ints, and this enumerates the SAME set
+// of (p,q) candidates in a different order.
+
+#define INT_LOOP_WARP_KERNEL_NAME2(cpb) int_loop_warp_kernel_##cpb
+#define INT_LOOP_WARP_KERNEL_NAME(cpb) INT_LOOP_WARP_KERNEL_NAME2(cpb)
+
+template <int CELLS_PER_BLOCK>
+__global__ void
+int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
+                const int TerminalAU, const int ninio2,
+                const cuda_param_t* __restrict__ P, const float lxc,
+                const char* __restrict__ pair_,
+                const unsigned int* __restrict__ S,
+                const unsigned int* __restrict__ hccc,
+                const int* __restrict__ my_c,
+                const size_t* __restrict__ tri_off_H,
+                const size_t* __restrict__ row_off_H,
+                const size_t* __restrict__ hc_off_H,
+                const size_t* __restrict__ size_off_H,
+                const int* __restrict__ i_H,
+                      int* __restrict__ energy_min) {
+  static_assert(CELLS_PER_BLOCK >= 1 && CELLS_PER_BLOCK <= 32,
+                "one warp per cell; blockDim.x must be CELLS_PER_BLOCK*32");
+
+  const int    lane = (int)(threadIdx.x & 31u);
+  const int    wib  = (int)(threadIdx.x >> 5);          // warp within the block
+  const size_t cell = (size_t)blockIdx.x * CELLS_PER_BLOCK + wib;
+
+  // Whole-warp exit: every lane of this warp shares `cell`, so no lane is left
+  // behind to be named by a shuffle mask below. This is the one thing the
+  // block-per-cell twin could not do (its warps straddle cells).
+  if(cell >= size_off_H[nfiles]) return;
+
+  const int H = flatten_index_to_H(cell, size_off_H, nfiles);
+  const int i = i_H[H];
+  assert(i_row < 0 || i == i_row);
+  const int j = (int)(cell - size_off_H[H]) + i + turn + 1;
+
+  const long long ij = Indx(i,j);
+  int energy = INF;
+
+  if(Hc(ij,&hccc[hc_off_H[H]])) {
+    const int p0 = i+1;
+    const int q0 = Min_q(i,j,turn);
+    const int maxcol = MIN2(MAXLOOP,(j - 1) - q0);
+    const unsigned int* __restrict__ hccc_H = &hccc[hc_off_H[H]];
+
+    // LANE c OWNS COLUMN c, in registers. maxcol <= MAXLOOP = 30 always, so one
+    // warp covers every column there can be -- which is what makes the whole
+    // design possible.
+    unsigned int my_mask = 0u;
+    int          popc    = 0;
+    if(lane <= maxcol) {
+      my_mask = decode_column(p0,q0,lane,hccc_H);
+      popc    = __popc(my_mask);
+    }
+
+    // Inclusive Hillis-Steele scan of popc, unchanged from the twin except that
+    // the result stays in registers. Lanes past maxcol contribute 0 and cannot
+    // affect lower lanes, since __shfl_up_sync only pulls from lower lanes.
+    int incl = popc;
+#pragma unroll
+    for(int off = 1; off < 32; off <<= 1) {
+      const int nv = __shfl_up_sync(0xffffffff, incl, off);
+      if(lane >= off) incl += nv;
+    }
+    const int excl  = incl - popc;                              // prefix[c]
+    const int total = __shfl_sync(0xffffffff, incl, 31);        // prefix[maxcol+1]
+
+    const int iters = (total + 31) >> 5;                        // warp-uniform
+    for(int k = 0; k < iters; k++) {
+      const int  w   = (k << 5) + lane;
+      const bool has = (w < total);
+
+      // Smallest column c with prefix[c+1] > w. FIVE FIXED STEPS, not
+      // `while(lo < hi)`: 2^5 = 32 covers every column, and a fixed trip count
+      // keeps all 32 lanes in every shuffle. Lanes that have already converged
+      // (lo == hi) still execute the shuffle and discard it.
+      int lo = 0;
+      int hi = (maxcol > 0) ? maxcol : 0;
+#pragma unroll
+      for(int s = 0; s < 5; s++) {
+        const int  mid = (lo + hi) >> 1;
+        const int  v   = __shfl_sync(0xffffffff, incl, mid);
+        const bool act = (lo < hi);
+        const bool go  = act && (v > w);
+        hi = go ? mid : hi;
+        lo = (act && !go) ? (mid + 1) : lo;
+      }
+      const int column = lo;
+
+      // Column `column`'s mask and prefix, gathered from the lane that owns
+      // them. A per-lane source index is a legal gather, and both are register
+      // reads -- this is the shared-memory traffic the twin pays.
+      const unsigned int cmask = __shfl_sync(0xffffffff, my_mask, column);
+      const int          cbase = __shfl_sync(0xffffffff, excl,    column);
+
+      if(has) {
+        int popc_unused;
+        const int row = find_nth_set_bit(cmask, w - cbase, popc_unused);
+        assert(row >= 0);
+        const int p = p0 + row;
+        const int q = q0 + column;
+        const int energy2 = Energy(H,nfiles,i,j,q,p,
+                      &my_c[tri_off_H[H]],
+                      S,pair_,P,
+                      TerminalAU,ninio2,
+                      P->bulge,P->internal_loop,lxc,
+                      P->mismatchI,
+                      P->mismatch1nI,
+                      P->mismatch23I,
+                      P->stack,
+                      P->int11,
+                      P->int21,
+                      P->int22);
+        energy = MIN2(energy,energy2);
+      }
+    }
+  }
+
+  // Warp-wide min. No shared memory and no __syncthreads() at any block size --
+  // which is the whole point.
+#pragma unroll
+  for(int off = 16; off > 0; off >>= 1)
+    energy = MIN2(energy, __shfl_down_sync(0xffffffff, energy, off));
+
+  if(lane == 0) energy_min[row_off_H[H]+j] = energy;
+}
+
 // The default, named here beside the instantiations so it cannot drift away
 // from them. 64 since 2026-09-11; see the block-size history immediately below.
 #define INT_LOOP_DEFAULT_BLOCK_SIZE 64
+
+// RNA_INT_LOOP_WARP=1 -- route to int_loop_warp_kernel, which owns one (H,j)
+// cell per WARP instead of per block. An EXPERIMENT with a measured premise:
+// STRESS272_RESULTS.md 22.5 puts `barrier` at 20.7% of stall cycles at block
+// size 128 and `short_scoreboard` at 8.9%, both of them this kernel's own scan
+// machinery, while global memory is only 12-16%. Off by default until it beats
+// its twin on wall clock with an unchanged sha.
+PUBLIC int
+rnafold_int_loop_warp(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_INT_LOOP_WARP");
+
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+
+    if (v)
+      fprintf(stderr, "%-24s RNA_INT_LOOP_WARP=1: one warp per cell, no shared "
+                      "memory and no __syncthreads() (experimental; sha must not "
+                      "move)\n", __FILE__);
+  }
+
+  return v;
+}
 
 // Block-size history: int_loop_choose_block_size() (timed microbenchmark,
 // tried the occupancy API before that) was removed after both proved
@@ -1455,6 +1662,30 @@ int_loop_cuda(const int nfiles,
   // apart is the entire point (STRESS272_RESULTS.md 20.4).
   rnafold_launch_stats_begin();
 
+  // RNA_INT_LOOP_WARP: one warp per cell, so the grid is sized in WARPS rather
+  // than in cells and block_size selects how many independent cells share a
+  // block. Same launch-stats bracket, same grid quantity reported, so the
+  // per-launch numbers stay comparable between the two kernels.
+  if(rnafold_int_loop_warp()) {
+    const int    cpb = block_size / 32;
+    const size_t nb  = (flat_nblocks + (size_t)cpb - 1)/(size_t)cpb;
+    assert(nb <= 2147483647u);
+#define IL_WARP_LAUNCH(C) int_loop_warp_kernel<C><<<(unsigned int)nb, 32*(C)>>>( \
+        nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
+        d_pair, d_S, d_hccc, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
+        d_size_off_H, d_i_H, d_energy_min2)
+    switch(cpb) {
+      case 8: IL_WARP_LAUNCH(8); break;
+      case 4: IL_WARP_LAUNCH(4); break;
+      case 2: IL_WARP_LAUNCH(2); break;
+      default: IL_WARP_LAUNCH(1); break;
+    }
+#undef IL_WARP_LAUNCH
+  } else
+  // NOT an early return: the tail of this function still owns the launch-stats
+  // end, the error check, the optional sync and -- in non-GPU-resident mode --
+  // the D2H of energy_min. Returning here would have skipped that copy and left
+  // the host reading a stale row, which is a wrong answer rather than a crash.
   switch(block_size) {
     case 256: int_loop_kernel_256<<<blocks,256>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
