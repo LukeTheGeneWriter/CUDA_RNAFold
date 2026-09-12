@@ -111,6 +111,10 @@ the host declines it otherwise, and then H7 is the only thing that helps.
 * **Warm up first.** The local box needed *four* discarded folds to reach steady
   clocks; one was not enough and produced a 2.84 → 5.25 s ramp that looked like
   a result.
+* **Preflight every configuration on 8 × 300 nt before running it long.**
+  `RNA_GPU_CHUNK` is the *master switch*, not a cap — unset means **fold on the
+  CPU**, which at 400 × 5601 is an hour per arm that looks exactly like a hang.
+  The `sweep shape:` guard catches it, but only *after* the fold.
 """)
 
 # --------------------------------------------------------------------------
@@ -423,7 +427,13 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
               "RNA_INT_LOOP_GRIDY","RNA_INT_LOOP_WSEARCH"):
         env.pop(k, None)
     env["RNA_MIN_GPU_BATCH"] = "1"
-    if chunk_cap is not None: env["RNA_GPU_CHUNK"] = str(chunk_cap)
+    # RNA_GPU_CHUNK IS THE MASTER SWITCH, NOT A CAP. RNAfold.c:2038 gates
+    #     gpu_enabled = (vrna_cuda_devices() > 0) && (e) && (e[0]);
+    # on the variable being SET and non-empty, and "0" means "no cap, the VRAM
+    # budget alone decides". Leaving it unset does not mean "default chunking",
+    # it means FOLD ON THE CPU -- which at 400 x 5601 is about an hour per arm
+    # and looks exactly like a hang. Never leave it unset.
+    env["RNA_GPU_CHUNK"] = "0" if chunk_cap is None else str(chunk_cap)
     if int16:          env["RNA_FML_INT16"] = "1"
     if phase_sync:     env["RNA_PHASE_SYNC"] = "1"
     if block_size:     env["RNA_INT_LOOP_BLOCK_SIZE"] = str(block_size)
@@ -487,6 +497,29 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
                  clkinfo.get("sm_mean",0), clkinfo.get("power_mean",0), g, sha))
     return r
 
+PRE = ROOT + "/fa/preflight.fa"
+random.seed(4242)
+with open(PRE, "w") as f:
+    for i in range(8):
+        f.write(">p%d\n%s\n" % (i, "".join(random.choice("ACGU") for _ in range(300))))
+
+# Run the section's configuration on 8 x 300 nt FIRST and assert the GPU
+# engaged. run() already refuses a CPU fold -- but only AFTER the fold, and at
+# 400 x 5601 that verdict arrives an hour late. Two seconds here instead.
+#
+# Not hypothetical: D3 passed chunk_cap=None believing it meant "default
+# chunking". RNA_GPU_CHUNK went unset, which is the master switch, and four
+# arms folded on the CPU while the run looked hung.
+def preflight(label, **kw):
+    kw.pop("fa", None); kw.pop("quiet", None); kw.pop("tag", None)
+    try:
+        r = run("PRE_" + label, fa=PRE, quiet=True, **kw)
+    except SystemExit as e:
+        raise SystemExit("PREFLIGHT FAILED for %s: %s" % (label, e))
+    print("  preflight %-22s ok (%d chunk(s), %.1fs, sha %s)"
+          % (label, r["chunks"], r["wall"], r["sha"]))
+    return r
+
 def mean(xs):
     xs = [x for x in xs if x == x]
     return sum(xs)/len(xs) if xs else float("nan")
@@ -536,11 +569,15 @@ field of the decision line reads `none`. H7's knob still announces itself —
 for it can be *checked* on a workload where it is never reached.""")
 
 code(r"""
-print("A: the four lookups at 400 x 5601 (modular_decomp is the CONTROL)")
 ARMS = {"base":    dict(),
         "wsearch": dict(wsearch=True),
         "gridy":   dict(gridy=True),
         "both":    dict(gridy=True, wsearch=True)}
+
+print("A: preflight -- every arm must reach the GPU before any of them runs long")
+for a in ARMS: preflight("A_" + a, **ARMS[a])
+
+print("\nA: the four lookups at 400 x 5601 (modular_decomp is the CONTROL)")
 order = ["base","wsearch","gridy","both","both","gridy","wsearch","base"]
 for n, a in enumerate(order):
     run("A_%s_%d" % (a, n), **ARMS[a])
@@ -851,9 +888,15 @@ that was measured at one size on a T4. A 40 GB card chunks for entirely
 different reasons, and `chunks` is reported so the cost can be read per chunk.""")
 
 code(r"""
-print("D3: VRAM budget squeezed (400 x 5601, shipped defaults)")
+# chunk_cap=0 -- "no cap, the VRAM budget alone decides". NOT None, which
+# would leave RNA_GPU_CHUNK unset and fold the whole thing on the CPU.
+print("D3: preflight")
 for mb in (None, 8192, 4096, 2048):
-    run("D3_vram%s" % (mb or "full"), vram_mb=mb, chunk_cap=None)
+    preflight("D3_%s" % (mb or "full"), vram_mb=mb, chunk_cap=0)
+
+print("\nD3: VRAM budget squeezed (400 x 5601, the budget alone deciding)")
+for mb in (None, 8192, 4096, 2048):
+    run("D3_vram%s" % (mb or "full"), vram_mb=mb, chunk_cap=0)
 """)
 
 code(r"""
