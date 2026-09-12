@@ -15,8 +15,8 @@ wrong.*
 | §0 profile the new kernel | **running on the A100** (`CUDA_RNAFold_WarpScan.ipynb` §D) |
 | H1 hoist cell invariants | **DONE, −3.7 %**, §26 |
 | H1b `--noClosingGU` short-circuit | not started |
-| H2 `fns` instruction | not started — *promoted* by H1's result |
-| H3 non-temporal loads for the cold tables | not started |
+| H2 `fns` instruction | **scoped and DE-RISKED** — exhaustive equivalence proven on device, one-line change, no arch fallback needed |
+| H3 cold-table eviction | **re-scoped: the premise is DOUBTFUL.** Split into H3a (4 lines, predicted null) and H3b (shared-memory staging of the HOT tables); both gated on a source-level profile |
 | H4 cheaper column lookup | gated on §0 |
 
 ---
@@ -156,6 +156,63 @@ not. Both are checkable.
 instructions; MEDIUM that it moves the wall**, since it is one chain among
 several.
 
+### SCOPED AND DE-RISKED 2026-09-12 — the change is one line
+
+Both risks named above are closed, and neither cost a kernel edit.
+
+**The mapping is exact, including the error value.** `find_nth_set_bit(a,n,c32)`
+returns the 0-indexed position of the n-th set bit and **−1** when
+`n >= popcount`. The replacement is
+
+```c
+c32 = __popc(a);
+return (int)__fns(a, 0u, n + 1);
+```
+
+and `(int)0xFFFFFFFF == -1`, so `__fns`'s not-found sentinel maps onto the
+reference's error return **for free** rather than needing a branch.
+
+**Verified exhaustively on the device**, because `__fns` is an instruction and
+cannot be brute-forced on the host:
+
+| domain | comparisons | mismatches |
+|---|---|---|
+| every mask `0 .. 2²¹−1`, every `n` in `[0, popc+1]` — i.e. including out of range | ~35 M | **0** |
+| every mask `0xFFE00000 .. 0xFFFFFFFE`, same `n` range | ~40 M | **0** |
+
+Both the return value *and* the `c32` popcount output agree everywhere.
+
+**Portability is a non-issue.** The concern was that `fns` is sm_70+ while the
+build carries `-gencode arch=compute_60,code=sm_60`. It compiles for sm_60, so
+**no `__CUDA_ARCH__` fallback is needed** — which was going to be the ugliest
+part of the change.
+
+**Both callers discard `c32`** (`popc_unused` in the twin and the warp kernel),
+so the `__popc` is dead and will be elided; the signature is kept only so the
+two call sites do not have to change at all.
+
+### The change, in full
+
+| file | edit |
+|---|---|
+| `nth.h` | rename the current body to `find_nth_set_bit_ref()`, keep it — it is the test oracle and the documentation of intent; add the two-line `__fns` version under the original name |
+| callers | **none** |
+
+### The bar
+
+1. The exhaustive device test above, committed as a tool so it can be re-run on
+   a new architecture rather than trusted from this session.
+2. The usual byte bar across the option surface, both kernels.
+3. SASS: the ~15 instructions with a six-deep chain should collapse to one
+   `FNS` (plus a `POPC` that ought to vanish). `tools/sass_loop_profile.py`
+   counts it.
+4. ABBA on `int_loop` with `modular_decomp` as the control.
+
+**H1's recalibration applies and it FAVOURS this one.** Deleting work is a weak
+predictor of time here; shortening a *dependency chain* is the mechanism `wait`
+responds to, and this replaces a six-deep chain with a single instruction on the
+critical path of every candidate.
+
 ---
 
 ## H3. Stop the rarely-used energy tables from evicting the hot ones
@@ -195,6 +252,80 @@ A/B. If L1 hit rises and `long_scoreboard` falls, the mechanism is confirmed.
 
 **Expected value: MEDIUM-HIGH on the A100** (where `long_scoreboard` is the top
 stall at 27 %), **LOWER on the T4** (12–16 %). Confidence: MEDIUM.
+
+### RE-SCOPED 2026-09-12 — the premise is now DOUBTFUL, and two facts did it
+
+**Fact 1: the compiler already routes every one of these loads through the
+read-only path.** Every global load in the work loop disassembles as
+`LDG.E.CONSTANT` — the non-coherent read-only cache — because the pointers are
+`const __restrict__`. So "use `__ldg`" is not an available lever; it is already
+applied. What remains is only the *eviction policy* (`__ldcs`), a narrower
+change than the hypothesis assumed.
+
+**Fact 2: the cold tables are read by well under 1 % of candidates.** The
+branches are exclusive on `(ns, nl)`, the min and max of the two loop sides:
+
+| table | condition | `(u1,u2)` pairs |
+|---|---|---|
+| `int11` | `ns==1, nl==1` | 1 |
+| `int21` | `ns==1, nl==2` | 2 |
+| `int22` | `ns==2, nl==2` | 1 |
+| | **4 of 496** reachable pairs | **0.8 %** |
+
+So the three tables are 250 KB of a 256 KB struct and are touched roughly **once
+per 125 candidates**. A line pulled that rarely cannot plausibly be what drives
+L1 hit down to 72–74 %.
+
+**So what IS missing?** The far likelier candidate is `my_c` — a 15.7 MB
+triangle at n = 5601, read once per candidate. But it has *cross-cell* reuse
+(cells `(i,j)` and `(i,j+1)` read overlapping column ranges), so marking **it**
+streaming would probably hurt. That is a guess, and guessing is what this
+document exists to stop.
+
+*(SASS offset attribution is what produced Fact 2: bucketing the loop's `LDG`
+immediates against `offsetof` in `cuda_param_s` identifies `bulge` at `0x100`,
+`internal_loop` at `0x180`, `mismatchI` at `0x280`, `mismatch1nI` at `0x600`,
+`mismatch23I` at `0x980`, `int11` at `0xd00`, `int22` at `0xa300`, `SaltLoop` at
+`0x31404` and `rtype` at `0x3148c`. Seventeen further loads use fully computed
+addresses and cannot be attributed this way — which is the limit of the
+method.)*
+
+### What H3 becomes
+
+**H3a — `__ldcs` on the three cold tables.** Four call sites in
+`interior_loopx.h` (lines ~164, 169, 173, 189). Trivial, and *because* it is
+trivial, measuring beats arguing: NCU `l1tex__t_sector_hit_rate.pct` before and
+after settles Fact 2's implication directly. **Predicted outcome: a null**, on
+the 0.8 % access rate. Worth running precisely so the note can be retired with a
+number rather than an argument.
+
+**H3b — stage the ~3–4 KB HOT tables in shared memory.** `bulge`,
+`internal_loop`, `mismatchI`, `mismatch1nI`, `mismatch23I`, `stack` and
+`SaltLoop` together are about 3.5 KB and are read by *every* candidate. Shared
+memory is banked and services divergent addresses in parallel, which is exactly
+this access pattern — and it is why **`__constant__` remains the wrong answer**
+(it broadcasts one address per cycle and serialises divergence).
+
+This is a *latency* argument, not a work-deletion argument, so it survives H1's
+recalibration: shared memory is lower-latency than L1, and these loads sit on
+the dependency chain. It costs one `__syncthreads()` at kernel entry — not in
+the inner loop — and 3.5 KB of shared per block.
+
+**But note the tension**: shared-memory staging is exactly what lost in
+`modular_decomposition_kernel`, on three architectures. The difference is that
+there the staged array was *already resident* and the win was supposed to come
+from traffic; here the claim is latency on a set that may or may not be
+resident. **That "may or may not" is the whole question, and it is unanswered.**
+
+### The measurement H3 is actually gated on
+
+Per-array attribution of L1 misses. That needs source-level counters, which need
+`-lineinfo`, which is **Part 2 of `tools/intloop2_addendum.py`** — already
+written, opt-in, and it restores the original binary afterwards.
+
+**Do H3a first** (it is four lines and its null is informative), and do **not**
+start H3b until the source-level profile says the hot tables are the ones
+missing.
 
 ---
 
