@@ -1378,6 +1378,15 @@ rnafold_build_threads(void)
       if (v < 1)
         v = 1;
     }
+
+    /* ANNOUNCE IT. Every other knob in this driver that changes what runs says
+     * so on stderr, for one reason: a run that did not apply a setting must not
+     * be able to pass for one that did. This one was silent for three days
+     * while its default disagreed with MERGING.md, and no harness could have
+     * caught that. */
+    fprintf(stderr,
+            "%-24s build threads %d%s\n", "bin/RNAfold.c", v,
+            (e && e[0]) ? " (from RNA_BUILD_THREADS)" : " (auto: nproc, the default)");
   }
 
   return v;
