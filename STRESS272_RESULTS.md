@@ -2380,6 +2380,13 @@ describe the production kernel at all.**
 
 ## 28.3 And a register count that does not reproduce
 
+> **WRONG, AND CORRECTED IN §30.4.** The 58 was the **pre-H1 source**, not
+> the toolkit: compiled on one toolkit, `2ec95dcb` gives 58 and the current
+> tree gives 48, and Colab's nvcc 12.8 agrees with local 12.4 on the current
+> tree. I compared a current local build against a stale remote measurement
+> and blamed the variable I had noticed instead of the one I had changed.
+> H1's hoist *reduced* registers by ten.
+
 | build | `int_loop_warp_kernel<1>` | `int_loop_kernel_64` |
 |---|---|---|
 | Colab A100, `launch__registers_per_thread` | **58** | **50** |
@@ -2418,7 +2425,9 @@ inline int flatten_index_to_H(const size_t idx, const size_t* flat_off_H, const 
 ```
 
 In SASS that is a **12-instruction loop carrying one `LDG`**, run
-⌈log₂(nfiles)⌉ times — and every probe address depends on the previous probe's
+⌈log₂(nfiles)⌉ times — where `nfiles` is the records in a *chunk*, not in
+the file, so at the `RNA_GPU_CHUNK=29` every measurement here uses it is
+about **5 deep, not 9** (§30.9) — and every probe address depends on the previous probe's
 value, so nothing else can issue behind it. Then `i_H[H]`, `tri_off_H[H]`,
 `row_off_H[H]` and `hc_off_H[H]` all queue behind its result. In a kernel whose
 stalls are 44.4 % `long_scoreboard` (§27.5), that is the prologue.
@@ -2610,3 +2619,234 @@ mixed-length FASTA, and every row in which continuous flow has retired a record.
 deleted more instructions than H7 does and won the same amount; H6 and H7 differ
 only in how many links they remove, and their wins are in that ratio. Nothing
 here is about instruction count or bytes moved.
+
+---
+
+# 30. A100 Lookup: both changes generalise, H7 earns its place — and chunking costs 2.15 s a chunk
+
+*A100-SXM4-40GB, 12 vCPUs, commit `731200c6`, 37 arms. 1410/1410 MHz and
+`clocks_throttle_reasons` `0x0` in every sample of every run.*
+
+## 30.1 §A — uniform 400 × 5601: both generalise
+
+| arm | `int_loop` | raw | vs control | `modular_decomp` | grid | spread |
+|---|---|---|---|---|---|---|
+| base (binary search) | 18.791 | — | — | 42.736 | — | 0.49 % |
+| **H7** 32-ary warp | **18.113** | **−3.61 %** | **−3.55 %** | 42.706 | — | 0.43 % |
+| **H6** 2-D grid | **17.729** | **−5.65 %** | **−5.64 %** | 42.728 | **2D** | 0.71 % |
+| both | 17.707 | −5.77 % | −5.72 % | 42.715 | **2D** | 0.69 % |
+
+The control moves **0.07 % across all four arms**, `sha 7c0b3d633281` everywhere,
+and the 2-D grid is proven taken (`lookup: none` in the decision trace).
+
+| | sm_86 | **sm_80** |
+|---|---|---|
+| H7 | −3.73 % | **−3.61 %** |
+| H6 | −7.54 % | **−5.65 %** |
+
+**H7 reproduces almost exactly; H6 is worth less on the A100 than on the
+laptop.** And `both` lands on `gridy` within the spread, exactly as predicted —
+where the 2-D grid is taken there is no search left for H7 to speed up.
+
+## 30.2 §B — and this is the section that decided something
+
+| arm | `int_loop` | vs control | grid |
+|---|---|---|---|
+| base | 2.771 | — | — |
+| **H7** | **2.712** | **−2.11 %** | — |
+| H6 | 2.764 | **−0.15 %** | **flat** |
+| both | 2.716 | −2.10 % | **flat** |
+
+**The waste guard declined the 2-D grid on every single launch of the ragged
+workload**, and the decision trace says why: one change, at the first row, and it
+never flipped back.
+
+So H6 delivers **nothing** on ragged data — −0.15 % is the control's noise — and
+H7 delivers −2.1 %. **H7 is the load-bearing change for anything that is not an
+equal-length batch**, which is what the pre-run decision table said would settle
+it. It is not redundant and it should not be dropped.
+
+## 30.3 §C — the mechanism is what we said, and the ranking holds
+
+`long_scoreboard`, absolute cycles per issue:
+
+| | base | H7 | H6 |
+|---|---|---|---|
+| **`long_scoreboard`** | **5.893** | **5.550** | **5.517** |
+| `wait` | 2.823 | 2.760 | 2.657 |
+| `short_scoreboard` | 0.757 | 0.813 | **0.870** |
+| (total) | 12.623 | 12.267 | 12.120 |
+| kernel duration µs | 31.7 | 29.7 | **29.1** |
+
+**Monotone in chain order, which is what was predicted in writing before the
+run.** `short_scoreboard` moves the other way (+15 %) — with the search gone, a
+larger share of what remains is the shuffle machinery, which is the same MIO
+effect §27.5 identified.
+
+**And the grids are identical this time** — 3408 blocks in all three arms — so
+unlike §27.5 the occupancy comparison is not confounded: 18.6 / 17.9 / 17.3 %.
+
+### H5 is dead, now directly rather than by arithmetic
+
+| limiter | blocks | registers | shared mem | warps |
+|---|---|---|---|---|
+| **allows** | **32** | 40 | 32 | 64 |
+
+**The 32-blocks-per-SM hardware limit binds; registers would allow 40.** §28.1
+derived this; NCU now reports it. No register reduction can raise occupancy at
+one warp per block.
+
+`L1 hit 74 %`, `DRAM 1.6 % of peak` — still latency-bound, still nowhere near a
+bandwidth roof.
+
+## 30.4 §C — CORRECTION: the 58 registers were the SOURCE, not the toolkit
+
+§28.3 recorded that the same source reported 48 registers locally and 58 on
+Colab, and concluded *"a register count is a property of the toolkit, not of the
+source."* **That was wrong.** Compiled on one toolkit (local nvcc 12.4, sm_80,
+`-O3 -DNDEBUG`):
+
+| source | `int_loop_warp_kernel<1>` | `int_loop_kernel_64` |
+|---|---|---|
+| **pre-H1** (`2ec95dcb`, what §27 profiled) | **58** | 52 |
+| **current** | **48** | 42 |
+| Colab nvcc 12.8, current | **48** | 40 |
+
+The 58 was the **pre-H1 code**. Colab's 12.8 and local 12.4 agree to within two
+registers on the twin and exactly on the warp kernel.
+
+**How the error was made is the part worth keeping**: I compared a *current
+local build* against a *stale remote measurement* and attributed the gap to the
+one variable I had noticed — the toolkit — without checking the variable I had
+changed myself. The two builds differed by a commit, and the commit was mine.
+
+**And the direction is the opposite of what I assumed.** H1's hoist *reduced*
+registers by ten. Hoisting an invariant out of a loop looks like it should raise
+pressure by extending a live range; here it lowered it, because computing
+`type`/`si1`/`sj1` per candidate kept `S`, `pair_` and the indices live across
+the whole loop body, and computing them once lets all of that die.
+
+## 30.5 §D1 — the A100 sustains, completely
+
+Six consecutive 400 × 5601 folds:
+
+| | |
+|---|---|
+| SM clock | **1410 MHz mean, 1410 MHz minimum**, every sample |
+| throttle reasons | `0x0` in all ~284 samples of all six runs |
+| power | 215 W mean, 246 W peak — **of a 400 W card** |
+| temperature | 46 → 47 °C |
+| wall, first → last | **−0.65 %** |
+| sha | `7c0b3d633281` throughout |
+
+**No cap, no drift, no thermal effect.** The T4's answer was a 70 W power cap
+costing 25 % of its clock (§22); this card is not close to any of its limits.
+**Every A100 number in this results file stands**, and A/B on this host does not
+need the drift machinery the laptop does.
+
+The warm-up section says the same thing from the other end: four folds at
+0.750 / 0.736 / 0.732 / 0.739 s. **The A100 needs no warming** — the 2.84 → 5.25 s
+ramp that wasted a local measurement was a property of the laptop, not of the
+method.
+
+## 30.6 §D2 — scale: flat in records, rising in length
+
+| shape | cells | GPU s | **ns/cell** |
+|---|---|---|---|
+| 100 × 5601 | 1.57 G | 22.4 | 14.31 |
+| 200 × 5601 | 3.13 G | 43.1 | 13.76 |
+| 400 × 5601 | 6.27 G | 86.3 | 13.77 |
+| 400 × 2000 | 0.80 G | 10.0 | 12.57 |
+| 400 × 3500 | 2.45 G | 28.4 | **11.60** |
+
+**Record count saturates the device by 200** — 200 and 400 agree to 0.1 %, and
+100 is 4 % worse, so a hundred 5601-mers do not quite fill an A100.
+
+**Per-cell cost rises with length**: 11.60 → 13.77 ns from 3500 to 5601 nt,
++19 % for the same per-cell work. `my_c` is an O(n²) triangle, so the working set
+grows quadratically while the per-cell reads stay the same size — this is the
+cache falling behind, and it is the one place in the sweep where the cost model
+is not linear in cells.
+
+## 30.7 §D3 — chunking costs 2.15 s per chunk, and it contradicts a standing finding
+
+| budget | chunks | wall | GPU | vs full |
+|---|---|---|---|---|
+| **full (the card decides)** | **2** | **91.0** | 64.9 | — |
+| 8192 MB | 7 | 101.9 | 73.6 | **+12.0 %** |
+| 4096 MB | 13 | 114.2 | 84.5 | **+25.5 %** |
+| 2048 MB | 27 | 145.2 | 110.5 | **+59.6 %** |
+
+**2.18, 2.11, 2.17 s per extra chunk** — linear across a 13× range of chunk
+counts, and **84 % of it is GPU-side**, not host.
+
+`project_chunking_costs_batch_width` says chunking costs **0.6 %, not k×**,
+measured at 400 × 5601 on a T4. **On the A100 it is 12–60 %.** The mechanism is
+not mysterious: each chunk pays a fixed prologue and drain, and the A100 executes
+the *work* between them 3–5× faster than the T4, so the fixed part is a much
+larger share. The old finding is not wrong, it is host-dependent — and its
+memory says the cost only binds "when one chunk cannot saturate the device",
+which is exactly backwards for this card.
+
+### The measurement configuration has been carrying a 28 % handicap
+
+Every arm in every notebook since §14 uses `RNA_GPU_CHUNK=29`, a constant chosen
+for a 16 GB T4. On this card:
+
+| | chunks | wall | GPU |
+|---|---|---|---|
+| `chunk_cap=29` (what we always measure) | 14 | **116.2 s** | 86.5 |
+| budget alone deciding | **2** | **91.0 s** | 64.9 |
+
+**+27.7 % of wall**, and it lands on exactly the phases that are per-chunk fixed
+costs rather than work:
+
+| | cap 29 | full | |
+|---|---|---|---|
+| `fetch_mx` | 17.97 | 7.27 | **−59.5 %** |
+| `hp_mb` | 4.58 | 1.89 | **−58.7 %** |
+| `load_my_c` | 2.30 | 1.39 | −39.4 % |
+| `modular_decomp` | 42.77 | 37.84 | −11.5 % |
+| `int_loop` | 18.84 | 16.49 | −12.4 % |
+
+**The A100 wall at 400 × 5601 is 91.0 s, not 116.** Nothing is wrong with the
+product — the budget picks 2 chunks on its own — but every phase number this
+project has quoted for this card was taken in a needlessly chunked
+configuration.
+
+## 30.8 §D4 — the answer survives contention
+
+Two folds at once, no MPS:
+
+| | wall | `int_loop` | sha |
+|---|---|---|---|
+| solo | 116.2 | 18.76 | `7c0b3d633281` |
+| concurrent 0 | 258.3 | 55.15 | **`7c0b3d633281`** |
+| concurrent 1 | 262.3 | 53.42 | **`7c0b3d633281`** |
+
+**Both answers are correct**, which was the only question that mattered. The
+pair costs 2.26× one fold against 2.00× for perfect time-slicing — a 13 %
+contention overhead — and `int_loop` degrades harder (2.9×) than
+`modular_decomp` (1.64×), which is consistent with a latency-bound kernel losing
+more when its warps are evicted.
+
+## 30.9 What this changes
+
+**Both lookups should be defaulted on.** Two architectures each, controls flat,
+sha unchanged, and the mechanism confirmed in the stall data. H6 where the widths
+allow it, H7 everywhere else.
+
+**H7 is not redundant** — §B is unambiguous. On ragged input H6 delivers nothing
+and H7 delivers −2.1 %.
+
+**But both were measured in the handicapped configuration.** With
+`chunk_cap=29` a chunk holds 29 records, so the binary search is
+`ceil(log2(29))` ≈ **5 deep, not 9** — the "nine-deep chain" in §28 and §29 was
+computed from 400 records, not from the 29 a chunk actually holds. At the full
+budget a chunk holds ~200 and the chain is ~8 deep, so **both fixes should be
+worth more in the configuration that is actually fastest.** That is the next
+measurement, and it is cheap.
+
+**And the chunking result outranks both of them.** 2.15 s per chunk is 2.4 % of
+the A100 wall *per chunk*, against −5.65 % for the best lookup fix. Anything that
+widens a chunk is worth more than anything that speeds up a cell.

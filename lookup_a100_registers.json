@@ -1,0 +1,24 @@
+{
+ "nvcc": "Cuda compilation tools, release 12.8, V12.8.93",
+ "regs": {
+  "_Z20int_loop_warp_kernelILi1ELb0ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi2ELb0ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi4ELb0ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi8ELb0ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi1ELb0ELb1EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi2ELb0ELb1EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi4ELb0ELb1EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi8ELb0ELb1EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi1ELb1ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi2ELb1ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi4ELb1ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi8ELb1ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z18gq_internal_kerneliiPK12cuda_param_sPKjPKcPKmS7_PKiPiS9_S3_S3_S7_S7_": 31,
+  "_Z19int_loop_kernel_256iiiiiPK12cuda_param_sfPKcPKjS5_PKiPKmS9_S9_S9_S7_Pi": 40,
+  "_Z19int_loop_kernel_128iiiiiPK12cuda_param_sfPKcPKjS5_PKiPKmS9_S9_S9_S7_Pi": 40,
+  "_Z18int_loop_kernel_64iiiiiPK12cuda_param_sfPKcPKjS5_PKiPKmS9_S9_S9_S7_Pi": 40,
+  "_Z18int_loop_kernel_32iiiiiPK12cuda_param_sfPKcPKjS5_PKiPKmS9_S9_S9_S7_Pi": 40,
+  "_Z16load_my_c_kerneliiiPKiPiPKmS3_S3_mS0_": 18,
+  "_Z16init_my_c_kernelmPi": 8
+ }
+}
