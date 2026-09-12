@@ -14,15 +14,18 @@ wrong.*
 |---|---|
 | the kernel itself | **PROMOTED TO DEFAULT 2026-09-12** — −20.6 % on sm_80 as well as −21.3 % on sm_86, control flat, sha unchanged; `RNA_INT_LOOP_WARP=0` restores the twin. §27.3 |
 | cells per block | **SWEPT: 1 is best** (32 threads), monotone, and the opposite of the prediction. §27.4 |
-| §0 profile the new kernel | **DONE**, §27.5 — `barrier` 0.933 → **0.000**, `short_scoreboard` 1.167 → 0.710, **registers 50 → 58 and binding** |
+| §0 profile the new kernel | **DONE**, §27.5 — `barrier` 0.933 → **0.000**, `short_scoreboard` 1.167 → 0.710, **registers 50 → 58** (binding only at 2+ cells per block — §28.1) |
 | H1 hoist cell invariants | **DONE, −3.7 %**, §26 |
 | H1b `--noClosingGU` short-circuit | not started |
 | H2 `fns` instruction | **scoped and DE-RISKED** — exhaustive equivalence proven on device, one-line change, no arch fallback needed |
 | H3 cold-table eviction | **re-scoped: the premise is DOUBTFUL.** Split into H3a (4 lines, predicted null) and H3b (shared-memory staging of the HOT tables); both gated on a source-level profile |
 | H4 cheaper column lookup | **effectively CLOSED by §0** — its cost lives in `short_scoreboard`, now 0.710 cycles/issue and 5.2 % of stalls, the smallest named target |
-| **H5 cut registers to raise occupancy** | **NEW and now first** — registers are the *measured* binding limiter at 58/thread, achieved occupancy 20.7 %, and `long_scoreboard` (what more warps would hide) is **44.4 % of stalls**. §27.6 |
+| **H5 cut registers to raise occupancy** | **DEAD ON ARITHMETIC, §28.1** — at the shipped one-warp-per-block the ceiling is 32 warps and it is the 32-blocks-per-SM *hardware* limit, not registers; driving registers to zero would not move it. The occupancy figure it was ranked on was also confounded by grid size (§28.2). *Superseded reasoning:* **NEW and now first** — registers are the *measured* binding limiter at 58/thread, achieved occupancy 20.7 %, and `long_scoreboard` (what more warps would hide) is **44.4 % of stalls**. §27.6 |
+| **H6 2-D grid: `blockIdx.y` is the record** | **BUILT, −7.6 %, byte-identical, gated off** (`RNA_INT_LOOP_GRIDY=1`) pending an A100 arm. Deletes the nine-deep chain of *dependent* global loads every warp runs before it can start — `flatten_index_to_H()`'s binary search. §28.4 |
 
-**Revised order after the A100 profile: H5, then H3b, then H2.** H3a is dead (under 1 % of accesses) and H4 is closed.
+**Revised order after H6: H6 (confirm on an A100, then default it), then H3b, then H2.** H3a, H4 and now H5 are dead.
+
+**And a rule this kernel has now earned three times over: what pays here is removing links from a DEPENDENCY CHAIN, not removing work.** H1 deleted 14 % of the loads and bought 3.7 %. H5 would have lifted a limit that was not binding and bought nothing. H6 deletes nine *serialised* loads and buys 7.6 %.
 
 ---
 

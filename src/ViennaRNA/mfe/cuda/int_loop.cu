@@ -1268,7 +1268,7 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 #define INT_LOOP_WARP_KERNEL_NAME2(cpb) int_loop_warp_kernel_##cpb
 #define INT_LOOP_WARP_KERNEL_NAME(cpb) INT_LOOP_WARP_KERNEL_NAME2(cpb)
 
-template <int CELLS_PER_BLOCK>
+template <int CELLS_PER_BLOCK, bool GRIDY>
 __global__ void
 int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -1286,19 +1286,31 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
   static_assert(CELLS_PER_BLOCK >= 1 && CELLS_PER_BLOCK <= 32,
                 "one warp per cell; blockDim.x must be CELLS_PER_BLOCK*32");
 
-  const int    lane = (int)(threadIdx.x & 31u);
-  const int    wib  = (int)(threadIdx.x >> 5);          // warp within the block
-  const size_t cell = (size_t)blockIdx.x * CELLS_PER_BLOCK + wib;
+  const int lane = (int)(threadIdx.x & 31u);
+  const int wib  = (int)(threadIdx.x >> 5);             // warp within the block
 
-  // Whole-warp exit: every lane of this warp shares `cell`, so no lane is left
-  // behind to be named by a shuffle mask below. This is the one thing the
-  // block-per-cell twin could not do (its warps straddle cells).
-  if(cell >= size_off_H[nfiles]) return;
+  // Whole-warp exit in both grids: every lane of this warp shares the cell, so
+  // no lane is left behind to be named by a shuffle mask below. This is the one
+  // thing the block-per-cell twin could not do (its warps straddle cells).
+  int    H;
+  size_t local;                                          // cell within record H
 
-  const int H = flatten_index_to_H(cell, size_off_H, nfiles);
+  if(GRIDY) {
+    // H6: blockIdx.y IS the record. Two adjacent size_off_H reads give the
+    // record's width; no search, and the reads below do not queue behind one.
+    H     = (int)blockIdx.y;
+    local = (size_t)blockIdx.x * CELLS_PER_BLOCK + wib;
+    if(local >= size_off_H[H+1] - size_off_H[H]) return; // the padding blocks
+  } else {
+    const size_t cell = (size_t)blockIdx.x * CELLS_PER_BLOCK + wib;
+    if(cell >= size_off_H[nfiles]) return;
+    H     = flatten_index_to_H(cell, size_off_H, nfiles);
+    local = cell - size_off_H[H];
+  }
+
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);
-  const int j = (int)(cell - size_off_H[H]) + i + turn + 1;
+  const int j = (int)local + i + turn + 1;
 
   const long long ij = Indx(i,j);
   int energy = INF;
@@ -1393,6 +1405,57 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
 
   if(lane == 0) energy_min[row_off_H[H]+j] = energy;
 }
+
+// H6: WHICH RECORD IS THIS CELL IN? -- asked once per cell, answered with a
+// NINE-DEEP CHAIN OF DEPENDENT GLOBAL LOADS.
+//
+// The grid is flat (one index over every cell of every record), so every warp
+// opens by running flatten_index_to_H()'s binary search over size_off_H[] --
+// 12 SASS instructions and ONE dependent LDG per iteration, ceil(log2(nfiles))
+// iterations, nothing else able to issue behind it because each probe address
+// depends on the previous probe's value. That is the prologue of a kernel whose
+// stalls are now 44.4% `long_scoreboard` (STRESS272_RESULTS.md 27.5).
+//
+// The host already knows the answer. It knew it before the flattening: the
+// comment in int_loop_cuda() records that this WAS a dim3(nblocks,nfiles) grid,
+// and was flattened in Staggered_Row_Batching Phase 5 to allow ragged per-record
+// widths and to lift an nfiles<=65535 limit. That bought generality and paid a
+// dependent chain per cell.
+//
+// GRIDY restores blockIdx.y == H, so H is free and the five per-record table
+// reads (i_H, tri_off_H, row_off_H, hc_off_H, size_off_H) become INDEPENDENT
+// loads that issue together instead of queueing behind a search. The cost is
+// blocks launched past a short record's width, which exit on one comparison --
+// so the host picks the grid per launch and only takes it when the waste is
+// small. See rnafold_int_loop_gridy() and int_loop_cuda().
+PUBLIC int
+rnafold_int_loop_gridy(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_INT_LOOP_GRIDY");
+
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+
+    if (v)
+      fprintf(stderr, "%-24s RNA_INT_LOOP_GRIDY=1: blockIdx.y is the record, no "
+                      "per-cell binary search (experimental; sha must not move)\n",
+              __FILE__);
+  }
+
+  return v;
+}
+
+// Waste budget for the 2-D grid: a ragged chunk launches nfiles*ceil(maxw/cpb)
+// blocks against sum(w_H)/cpb cells of real work, and the excess blocks exit on
+// one comparison. 25% is a guess and is MEANT to be one -- the length-sorted
+// chunker makes near-uniform widths the common case, and the fallback exists so
+// that a chunk which is not near-uniform simply keeps today's flat grid rather
+// than paying for the generality. If a workload ever trips it often, measure
+// before widening it.
+#define INT_LOOP_GRIDY_WASTE_NUM 5
+#define INT_LOOP_GRIDY_WASTE_DEN 4
 
 // The default, named here beside the instantiations so it cannot drift away
 // from them. 64 since 2026-09-11; see the block-size history immediately below.
@@ -1743,16 +1806,61 @@ int_loop_cuda(const int nfiles,
     const int    cpb = block_size / 32;
     const size_t nb  = (flat_nblocks + (size_t)cpb - 1)/(size_t)cpb;
     assert(nb <= 2147483647u);
-#define IL_WARP_LAUNCH(C) int_loop_warp_kernel<C><<<(unsigned int)nb, 32*(C)>>>( \
+
+    // H6: take the 2-D grid only when it is nearly free. `maxw` is the widest
+    // record in this chunk, so the 2-D grid launches nfiles*ceil(maxw/cpb)
+    // blocks where the flat grid launches `nb`; the excess exit on one
+    // comparison, but they are still blocks to schedule. gridDim.y is capped
+    // at 65535 -- the sub-limit the flattening lifted -- so the flat grid is
+    // not a fallback of convenience, it is still the general case.
+    size_t maxw = 0;
+    for(int H = 0; H < nfiles; H++) {
+      const size_t w = size_off_H[H+1] - size_off_H[H];
+      if(w > maxw) maxw = w;
+    }
+    const size_t nbx   = (maxw + (size_t)cpb - 1)/(size_t)cpb;
+    const int    gridy = rnafold_int_loop_gridy() &&
+                         nfiles > 0 && nfiles <= 65535 && maxw > 0 &&
+                         ((size_t)nfiles * nbx) * INT_LOOP_GRIDY_WASTE_DEN
+                           <= nb * INT_LOOP_GRIDY_WASTE_NUM;
+
+    // WHICH GRID DID IT ACTUALLY TAKE? The knob only says what was ASKED;
+    // the waste guard decides, and a bar that checks the knob rather than
+    // the decision is the shape of check this project keeps catching. Print
+    // on every CHANGE of decision, so one line proves the 2-D grid ran and a
+    // second proves the fallback is reachable.
+    if(rnafold_int_loop_gridy()) {
+      static int last_decision = -1;
+
+      if(gridy != last_decision) {
+        fprintf(stderr,
+                "%-24s int_loop grid: %s (nfiles %d, maxw %llu, blocks %llu vs flat %llu)\n",
+                __FILE__, gridy ? "2-D, blockIdx.y = record" : "flat (waste guard declined)",
+                nfiles, (unsigned long long)maxw,
+                (unsigned long long)((size_t)nfiles * nbx), (unsigned long long)nb);
+        last_decision = gridy;
+      }
+    }
+
+#define IL_WARP_LAUNCH(C, G, GRID) int_loop_warp_kernel<C,G><<<GRID, 32*(C)>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
         d_size_off_H, d_i_H, d_energy_min2)
-    switch(cpb) {
-      case 8: IL_WARP_LAUNCH(8); break;
-      case 4: IL_WARP_LAUNCH(4); break;
-      case 2: IL_WARP_LAUNCH(2); break;
-      default: IL_WARP_LAUNCH(1); break;
+#define IL_WARP_DISPATCH(G, GRID) \
+    switch(cpb) { \
+      case 8: IL_WARP_LAUNCH(8, G, GRID); break; \
+      case 4: IL_WARP_LAUNCH(4, G, GRID); break; \
+      case 2: IL_WARP_LAUNCH(2, G, GRID); break; \
+      default: IL_WARP_LAUNCH(1, G, GRID); break; \
     }
+    if(gridy) {
+      const dim3 g2((unsigned int)nbx, (unsigned int)nfiles);
+      IL_WARP_DISPATCH(true, g2);
+    } else {
+      const dim3 g1((unsigned int)nb);
+      IL_WARP_DISPATCH(false, g1);
+    }
+#undef IL_WARP_DISPATCH
 #undef IL_WARP_LAUNCH
   } else
   // NOT an early return: the tail of this function still owns the launch-stats

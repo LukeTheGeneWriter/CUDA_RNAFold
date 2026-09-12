@@ -2260,6 +2260,14 @@ was paying for both.
 
 ### Question 2: registers
 
+> **CORRECTED IN §28.1-§28.2.** Registers bind at `CELLS_PER_BLOCK` = 2, which
+> is the configuration profiled here — but **not** at the `CELLS_PER_BLOCK` = 1
+> that §27.4 measured as fastest and that shipped, where the 32-blocks-per-SM
+> hardware limit binds first and registers cannot matter. The
+> achieved-occupancy comparison below is also confounded: the two arms had
+> different grid sizes (1692 vs 3384 blocks) for the same work, so one refills
+> and the other cannot.
+
 **50 → 58, and registers are the binding limiter in both kernels.** Achieved
 occupancy is 20.7 % against the twin's 32.7 %. The flagged risk was real: part
 of the win is being paid back in occupancy, and the kernel still wins by 20 %.
@@ -2280,6 +2288,11 @@ barrier exposed what was behind it, and the lower occupancy (20.7 % vs 32.7 %)
 leaves fewer warps to hide the same latency.
 
 ## 27.6 What this does to the hypothesis series
+
+> **H5 IS DEAD — see §28.1.** The argument below is right about the profiled
+> configuration and wrong about the shipped one. What replaced it is **H6**
+> (§28.4): delete the nine-deep dependent load chain the flat grid makes every
+> warp run before it can start. Measured **−7.6 %**, byte-identical.
 
 **H5 (new, and now the best-founded): cut registers to raise occupancy.**
 Registers are the *measured* binding limiter at 58/thread, occupancy is 20.7 %,
@@ -2304,3 +2317,180 @@ path of every candidate.
 the named targets.
 
 **Revised order: H5, then H3b, then H2.**
+
+---
+
+# 28. H5 is dead on arithmetic, and the thing actually worth hoisting was the question "which record is this?"
+
+*Local, RTX 3050 (sm_86) for timing, sm_80 for every static number so it is
+comparable with §27. Two corrections to §27 come first, because H5 was ranked
+on them.*
+
+## 28.1 CORRECTION: registers cannot be the limiter at the shipped block size
+
+§27.6 ranked **H5 — cut registers to raise occupancy** first, on the strength of
+NCU's `launch__occupancy_limit_registers` = 16 blocks against a block limit of
+32. That reading was right for the configuration it was measured in
+(`CELLS_PER_BLOCK` = 2) and **wrong for the one that shipped** (`CELLS_PER_BLOCK`
+= 1), which the same notebook had just shown to be the fastest.
+
+sm_80 gives 64 warps, 32 blocks and 65536 registers per SM, and allocates
+registers per warp in units of 256:
+
+| regs/thread | per-warp alloc | warps/SM from registers | CPB=1: blocks/SM | warps resident | occupancy |
+|---|---|---|---|---|---|
+| 58 (the profiled build) | 2048 | 32 | min(32, 32) = **32** | 32 | **50 %** |
+| 48 (the local build) | 1536 | 42 | min(32, 42) = **32** | 32 | **50 %** |
+| 32 (hypothetical) | 1024 | 64 | min(32, 64) = **32** | 32 | **50 %** |
+
+**At one warp per block the ceiling is 32 warps of 64, and it is set by the
+32-blocks-per-SM hardware limit. Driving registers to zero would not move it.**
+H5 cannot pay at the shipped block size, and the arithmetic says so without an
+experiment.
+
+It is only at `CELLS_PER_BLOCK` ≥ 2 that registers bind — 58 regs gives 16
+blocks × 2 warps = 32 warps (50 %), while 48 would give 21 × 2 = 42 warps
+(66 %). But §27.4 measured `CELLS_PER_BLOCK` = 2 at **+1.0 %** *slower*, so H5's
+payoff is gated behind a configuration that already lost.
+
+## 28.2 CORRECTION: the achieved-occupancy comparison was confounded by grid size
+
+§27.5 reported achieved occupancy falling 32.7 % → 20.7 % and read it as the
+price of the extra registers. The two arms did not have comparable grids:
+
+| | blocks in the profiled launch | blocks/SM wanted (108 SMs) | blocks/SM allowed | waves |
+|---|---|---|---|---|
+| twin bs64 | 3384 | 31.3 | 18 | **~1.7 — it refills** |
+| warp bs64 | **1692** | **15.7** | 16 | **1.0 — nothing refills it** |
+
+The warp kernel packs two cells per block, so it launches **half the blocks for
+the same work** — and at 15.7 blocks per SM against a 16-block limit the entire
+grid is resident at once. A single wave has no replacement warps, so its average
+occupancy decays with its own tail and can never approach the ceiling. The twin,
+wanting 31 blocks per SM where 18 fit, refills.
+
+**So 32.7 % vs 20.7 % compares a kernel that refills against one that cannot.
+It is not evidence about registers.**
+
+And the launch itself is unrepresentative: the profile uses `--launch-skip 140`
+on 60 × 1800, which lands on a sweep row about 141 cells wide per record —
+among the *smallest* grids in the whole sweep. Production rows are hundreds of
+times bigger and are many waves deep. **The achieved-occupancy number does not
+describe the production kernel at all.**
+
+## 28.3 And a register count that does not reproduce
+
+| build | `int_loop_warp_kernel<1>` | `int_loop_kernel_64` |
+|---|---|---|
+| Colab A100, `launch__registers_per_thread` | **58** | **50** |
+| local, nvcc 12.4, `-O3 -DNDEBUG`, sm_80, ptxas `-v` | **48** | **42** |
+| local, same but asserts left in | 90 | 74 |
+
+Exactly **+10 on both kernels**, and it is not the assert flag — asserts cost
++42 and +32. Same source, same arch, same optimisation level, so the difference
+is the toolchain. The A100 numbers stand for the binary that was profiled; the
+shipped binary here is a 48-register kernel. **It changes no conclusion above
+(50 % either way at one warp per block) but it means a register count is a
+property of the toolkit, not of the source**, and any future `__launch_bounds__`
+work has to be measured on the toolkit that will build it.
+
+## 28.4 H6 — the prologue asks a question the host already answered
+
+The grid is flat: one index over every cell of every record. So the first thing
+every warp does is find out which record it is in:
+
+```c
+inline int flatten_index_to_H(const size_t idx, const size_t* flat_off_H, const int nfiles) {
+  int lo = 0, hi = nfiles;
+  while(lo+1 < hi) {
+    const int mid = lo + (hi-lo)/2;
+    if(flat_off_H[mid] <= idx) lo = mid; else hi = mid;   // <-- dependent global load
+  }
+  return lo;
+}
+```
+
+In SASS that is a **12-instruction loop carrying one `LDG`**, run
+⌈log₂(nfiles)⌉ times — and every probe address depends on the previous probe's
+value, so nothing else can issue behind it. Then `i_H[H]`, `tri_off_H[H]`,
+`row_off_H[H]` and `hc_off_H[H]` all queue behind its result. In a kernel whose
+stalls are 44.4 % `long_scoreboard` (§27.5), that is the prologue.
+
+**The host has always known the answer.** `int_loop_cuda()`'s own comment records
+that this *was* a `dim3(nblocks, nfiles)` grid and was flattened in
+Staggered_Row_Batching Phase 5 to allow ragged per-record widths and to lift an
+implicit `nfiles <= 65535` limit. The flattening bought generality and paid a
+dependent chain per cell — and nobody costed the chain, because at the time
+`int_loop` was recorded as 0.8 % of the wall (§19).
+
+### What H6 does
+
+`blockIdx.y` is the record. `H` is then free, and the four table reads become
+**independent** loads that issue together.
+
+```c
+if(GRIDY) {
+  H     = (int)blockIdx.y;
+  local = (size_t)blockIdx.x * CELLS_PER_BLOCK + wib;
+  if(local >= size_off_H[H+1] - size_off_H[H]) return;   // the padding blocks
+} else { /* the flat grid, unchanged */ }
+```
+
+The cost is blocks launched past a short record's width. So **the host chooses
+the grid per launch**: it takes the 2-D grid only when `nfiles * ⌈maxw/cpb⌉` is
+within 25 % of the flat grid's block count, and `nfiles <= 65535`. The flat grid
+is not a fallback of convenience — it is still the general case, and it is what
+the 65535 limit forces.
+
+### The SASS says the chain is gone
+
+| | `<1, false>` (flat) | `<1, true>` (2-D) |
+|---|---|---|
+| the 12-instruction 1-`LDG` loop at `0x0140` | **present** | **gone** |
+| backward branches | 8 | **7** |
+| registers | 48 | **48** |
+
+### Measured: −7.6 % on `int_loop`, control flat, byte-identical
+
+RTX 3050, 40 × 2400 nt uniform, `RNA_PHASE_SYNC=1`, ABBA ×3 after one discarded
+warm-up:
+
+| | flat grid | 2-D grid | delta |
+|---|---|---|---|
+| **`int_loop`** (the lever) | 5.279 5.296 5.300 5.279 5.317 → **5.294** | 4.881 4.887 4.892 4.896 4.900 → **4.891** | **−7.61 %** |
+| `modular_decomp` (**control**) | **3.215** | **3.214** | **−0.02 %** |
+| sha | `b30501a54c50` | `b30501a54c50` | — |
+
+Spread inside an arm is 0.72 % (flat) and 0.39 % (2-D); the effect is ten times
+the spread and the control does not move. **Twice H1's −3.7 %, and for the same
+reason H1 was worth less than its instruction count suggested: this one shortens
+a dependency chain rather than deleting arithmetic** (§26.6).
+
+### The first bar I wrote was green and had never run the new code
+
+`ngu.fa`, this project's option-surface fixture, is 45–700 nt — **deliberately
+ragged**, so the waste guard declined the 2-D grid on every launch. The bar
+asserted `RNA_INT_LOOP_GRIDY=1` was *set*, which proves only what was asked for,
+not what was chosen. It reported GREEN across ten option arms and eight
+configurations having never once taken the new path.
+
+The fix is in the kernel, not the script: the launch site now prints on every
+*change* of decision, so one line proves the 2-D grid ran and a second proves
+the fallback is reachable. The bar asserts the line. **Twelfth entry for
+`project_port27_checks_that_lied`, and the same shape as the other eleven.**
+
+## 28.5 Where this leaves the series
+
+| | |
+|---|---|
+| **H5 cut registers** | **DEAD at the shipped block size** — 32 blocks/SM is the binding limit, not registers, and the arithmetic settles it without an experiment (§28.1) |
+| **H6 2-D grid** | **−7.6 %, byte-identical, gated off pending an A100 arm** |
+| H3b shared-memory staging | still the best remaining *memory* lever, still gated on the source-level L1 attribution |
+| H2 `fns` | unchanged — one line, exhaustively verified, shortens a six-deep chain |
+| H3a, H4 | dead (§27.6) |
+
+**The pattern across H1, H5 and H6 is consistent enough to state as a rule for
+this kernel: what pays is removing links from a dependency chain.** H1 deleted
+14 % of the loads and bought 3.7 %. H5 would have deleted a resource limit that
+was not binding and bought nothing. H6 deletes nine *serialised* loads and buys
+7.6 %.
