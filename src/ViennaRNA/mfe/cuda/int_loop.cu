@@ -1009,9 +1009,42 @@ unsigned int decode_column(const int p0, const int q0, const int column,
   return mask;
 }
 
+// H1: THE PART OF Energy() THAT DEPENDS ONLY ON THE CELL, NOT THE CANDIDATE.
+//
+// `type`, `si1` and `sj1` are functions of (i,j) alone, so they are constant for
+// every candidate of one (H,j) cell -- and Energy() was recomputing all three
+// per candidate. Each is a packed-sequence read: Ptype() is two unpack()s plus a
+// pair_ lookup, and unpack() is an index computation, a global load and a
+// shift/mask. Call it four redundant loads and thirty redundant instructions per
+// candidate, against an IntLoop_X() body of perhaps fifty to a hundred.
+//
+// ONE HELPER, TWO KERNELS. The block-per-cell twin and the warp kernel both
+// hoist it to exactly the same place -- outside their work loop -- through this
+// function, so the two cannot drift. Byte-identity is by construction: the same
+// values, computed once instead of N times.
+//
+// Whether nvcc's LICM had already done this is a question the SASS answers, not
+// a question this comment should assert. See PORT_WARP_SCAN_SCOPE.md H1.
+struct cell_inv_t { int type; int si1; int sj1; };
+
+__device__ inline cell_inv_t
+cell_invariants(const unsigned int* __restrict__ S, const char* __restrict__ pair_,
+                const int H, const int nfiles, const int i, const int j) {
+  cell_inv_t c;
+  // vrna_get_ptype_md() PROMOTES 0 -> 7 (alphabet.c:475-477); the raw pair value
+  // is not the same thing, and omitting it here is the trap that made --nsp a
+  // live wrong answer. See PORT_NSP_PARAMFILE_SCOPE.md 1.
+  const unsigned char t = Ptype(S,pair_,H,nfiles,i,j);
+  c.type = (t == 0) ? 7 : (int)t;
+  c.si1  = unpack(S,H,nfiles,i+1);
+  c.sj1  = unpack(S,H,nfiles,j-1);
+  return c;
+}
+
 //interface to interior_loopx.h via IntLoop_X()
 __device__ inline int
 Energy(const int H, const int nfiles, const int i, const int j, const int q, const int p,
+       const cell_inv_t ci,   //H1: computed once per cell by the caller
 	  /*const char* hard_constraints,*/ const int* my_c,
 	  /*const int* hc_up, const char* hc, const unsigned int* __restrict__ hccc,*/
 	  const unsigned int* __restrict__ S, const char* __restrict__ pair_,//[NBPAIRS+1][NBPAIRS+1],
@@ -1085,8 +1118,8 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 	      // hp_mb_3p_kernel() applies rtype[] with a documented raw-index
 	      // convention. Only Energy() did neither, so under --nsp the fork
 	      // disagreed with ITSELF. See PORT_NSP_PARAMFILE_SCOPE.md §1.
-	      const unsigned char type_raw = Ptype(S,pair_,H,nfiles,i,j);
-	      const unsigned char type     = (type_raw == 0) ? 7 : type_raw;
+	      // H1: hoisted to cell_invariants(), computed once per cell.
+	      const int type = ci.type;
 	      assert(type<8);
 	      // p,q -- NOT q,p. The reversal is rtype[]'s job, not the index's.
 	      const unsigned char t2_raw   = Ptype(S,pair_,H,nfiles,p,q);
@@ -1126,8 +1159,8 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 	      const int ns = (u1>u2)? u2 : u1;
 	      const int nl = (u1>u2)? u1 : u2;
 
-	      const int si1 = unpack(S,H,nfiles,i+1);
-	      const int sj1 = unpack(S,H,nfiles,j-1);
+	      const int si1 = ci.si1;    //H1: hoisted
+	      const int sj1 = ci.sj1;    //H1: hoisted
 	      const int sp1 = unpack(S,H,nfiles,i+pp);
 	      const int sq1 = unpack(S,H,nfiles,q+1);
 
@@ -1276,6 +1309,9 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
     const int maxcol = MIN2(MAXLOOP,(j - 1) - q0);
     const unsigned int* __restrict__ hccc_H = &hccc[hc_off_H[H]];
 
+    // H1: once per cell, not once per candidate.
+    const cell_inv_t ci = cell_invariants(S,pair_,H,nfiles,i,j);
+
     // LANE c OWNS COLUMN c, in registers. maxcol <= MAXLOOP = 30 always, so one
     // warp covers every column there can be -- which is what makes the whole
     // design possible.
@@ -1332,7 +1368,7 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
         assert(row >= 0);
         const int p = p0 + row;
         const int q = q0 + column;
-        const int energy2 = Energy(H,nfiles,i,j,q,p,
+        const int energy2 = Energy(H,nfiles,i,j,q,p, ci,
                       &my_c[tri_off_H[H]],
                       S,pair_,P,
                       TerminalAU,ninio2,

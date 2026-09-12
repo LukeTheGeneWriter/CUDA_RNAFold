@@ -8,6 +8,19 @@ wrong.*
 
 ---
 
+## Status
+
+| | |
+|---|---|
+| §0 profile the new kernel | **running on the A100** (`CUDA_RNAFold_WarpScan.ipynb` §D) |
+| H1 hoist cell invariants | **DONE, −3.7 %**, §26 |
+| H1b `--noClosingGU` short-circuit | not started |
+| H2 `fns` instruction | not started — *promoted* by H1's result |
+| H3 non-temporal loads for the cold tables | not started |
+| H4 cheaper column lookup | gated on §0 |
+
+---
+
 ## 0. THE FIRST STEP IS NOT AN OPTIMISATION
 
 **Profile the new kernel before proposing anything for it.**
@@ -77,6 +90,24 @@ H1 is closed for free. If they are not, hoist them by hand — pass `type`, `si1
 
 **Expected value if real: HIGH. Confidence it is real: LOW-MEDIUM.** Cheap to
 settle, which is why it is first.
+
+### DONE 2026-09-12 — the compiler had NOT hoisted it
+
+SASS settled it for free, as planned. Work-loop `LDG` **36 → 31 in BOTH
+kernels** — exactly the five predicted loads — with loop instructions down
+~7 %. The register-pressure counter-argument was the right one.
+
+Measured **−3.7 %** on `int_loop` (twin, cooled ABBA, control flat to 0.18 %)
+and **−4.8 %** on the warp kernel after normalising by its control.
+Byte-identical across nine option arms × both kernels and six pre/post
+configurations. `STRESS272_RESULTS.md` §26.
+
+**AND IT RECALIBRATES H2–H4.** Removing 14 % of the loop's loads and 7 % of its
+instructions returned 3.7 %, so **instruction and load counts are a weak
+predictor of time in this kernel**. Justify the rest by their effect on the
+DEPENDENCY CHAIN, not by how much work they delete — which strengthens H2 (a
+six-deep chain replaced by one instruction) and weakens any argument of the form
+"this does less work".
 
 ### H1b — the `--noClosingGU` corollary
 

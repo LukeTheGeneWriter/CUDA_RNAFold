@@ -68,6 +68,10 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
     const int maxcol = MIN2(MAXLOOP,(j - 1) - q0);
     const unsigned int* __restrict__ hccc_H = &hccc[hc_off_H[H]];
 
+    // H1: once per cell, not once per candidate. Same helper as the warp
+    // kernel, hoisted to the same point, so the two cannot drift.
+    const cell_inv_t ci = cell_invariants(S,pair_,H,nfiles,i,j);
+
     // Cooperative decode + prefix-sum (see decode_column(), int_loop.cu,
     // and the "Cooperative Column Scan" design doc). maxcol+1 <= MAXLOOP+1
     // = 31 always fits in one warp regardless of BLOCK_SIZE -- only the
@@ -123,7 +127,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
       assert(row >= 0); //guaranteed by construction: work-prefix[column] < popcount(col_mask[column])
       const int p = p0 + row;
       const int q = q0 + column;
-      const int energy2 = Energy(H,nfiles,i,j,q,p,
+      const int energy2 = Energy(H,nfiles,i,j,q,p, ci,
 	            &my_c[tri_off_H[H]],
 	            S,pair_,P,
 	            TerminalAU,ninio2,

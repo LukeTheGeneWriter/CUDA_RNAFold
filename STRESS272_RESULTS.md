@@ -2048,3 +2048,106 @@ branch and is always 0 here, so there is nothing to subtract.
 
 **`"0"` and `"1"` still force serial**, which is how the A/B is run and how
 anyone pins it down if it ever misbehaves.
+
+---
+
+# 26. H1: the compiler had NOT hoisted it — −3.7 %, byte-identical, both kernels
+
+*`PORT_WARP_SCAN_SCOPE.md` H1, executed 2026-09-12 on the local RTX 3050.*
+
+## 26.1 The claim, and the reason to doubt it
+
+`Energy()` is called once per candidate and recomputed three quantities that
+depend only on `(i, j)` — constant for the whole cell:
+
+```c
+const unsigned char type_raw = Ptype(S,pair_,H,nfiles,i,j);   // (i,j) only
+const int si1 = unpack(S,H,nfiles,i+1);                        // i only
+const int sj1 = unpack(S,H,nfiles,j-1);                        // j only
+```
+
+`Ptype` is two `unpack`s plus a `pair_` lookup, and each `unpack` is an index
+computation, a global load and a shift — so **five global loads per candidate**
+producing identical values.
+
+**H1 was filed at LOW-MEDIUM confidence**, and the reason matters: everything
+involved is loop-invariant with `__restrict__` pointers, so nvcc's LICM may
+legally hoist all of it. The counter-argument was register pressure — a compiler
+short of registers rematerialises rather than keeping values live across a long
+loop body.
+
+## 26.2 The SASS settles it for free, and the counter-argument was right
+
+`cuobjdump -sass -arch sm_86`, work loop identified by its backward branch:
+
+| kernel | | loop instructions | **loop `LDG`** | `LDS` | `BAR` |
+|---|---|---|---|---|---|
+| `int_loop_warp_kernel<2>` | before | 605 | **36** | 0 | 0 |
+| | after | 562 (−7.1 %) | **31** | 0 | 0 |
+| `int_loop_kernel_64` | before | 571 | **36** | 6 | 2 |
+| | after | 533 (−6.7 %) | **31** | 6 | 2 |
+
+**Exactly the five predicted loads, in both kernels.** LICM had not hoisted
+them.
+
+*(The same dump incidentally confirms the warp kernel's design claim from a
+direction the profiler cannot: `LDS 0` and `BAR 0` in every loop of every
+instantiation, against `LDS 6` / `BAR 2` in the twin.)*
+
+## 26.3 The fix: one helper, two kernels
+
+```c
+struct cell_inv_t { int type; int si1; int sj1; };
+__device__ inline cell_inv_t cell_invariants(...);
+```
+
+Both kernels call it once, at the same point — immediately after `maxcol`,
+before the work loop — and pass the result into `Energy()`. **One helper so the
+two cannot drift**, which is the same reason `build_one()` exists on the host
+side.
+
+Byte-identity is by construction: the same values, computed once instead of N
+times.
+
+## 26.4 Measured: −3.7 %, with the control flat
+
+ABBA over the two **binaries** (`RNAfold.pre_h1` against the rebuilt one), 60 ×
+2400, cooled, `modular_decomp` as the control:
+
+| | `int_loop` | `modular_decomp` (control) |
+|---|---|---|
+| before | 21.976 / 22.113 → **22.045** | 8.504 / 8.562 → 8.533 |
+| after | 21.180 / 21.287 → **21.234** | 8.519 / 8.577 → 8.548 |
+| | **−3.7 %** | **+0.18 %** |
+
+The hot run's first pass gave −3.6 % independently, and the warp kernel gives
+**−4.8 %** after normalising by its control. *(That run drifted hard — the
+laptop's `modular_decomp` went 8.5 → 12.2 s across sixteen arms — which is
+exactly why the controls are reported and why the clean number comes from a
+cooled ABBA.)*
+
+## 26.5 The interesting part: 14 % fewer loads bought 3.7 %
+
+Removing **five of thirty-six** loop loads (−14 %) and 7 % of loop instructions
+returned **3.7 %**. So the kernel is **not instruction-issue bound and not
+load-count bound** — which is consistent with, and independent evidence for, the
+stall profile: `wait` is a *fixed-latency dependency* stall, and removing work
+that was not on the critical path pays back less than its share.
+
+That is worth carrying into H2–H4: **instruction and load counts are a weak
+predictor of time in this kernel.** Anything proposed here should be justified by
+its effect on the dependency chain, not by how much work it deletes.
+
+## 26.6 Verification
+
+| check | result |
+|---|---|
+| vs pristine 2.7.2, 9 option arms × **both kernels** | 0 differing lines, `sweeps` asserted on all 18 |
+| pre vs post sha: default, warp, int16, chunked, block size 32 and 256 | identical on all six |
+| `make check` | 161/161 |
+
+## 26.7 In context
+
+`int_loop` is 12 % of the A100 wall, so −3.7 % is **0.45 % of wall**. H1 is worth
+keeping because it is free, correct and helps both kernels — not because it is
+significant. The honest ranking after §23.5 has not changed.
