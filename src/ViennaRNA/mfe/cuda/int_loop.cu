@@ -1494,6 +1494,14 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
 // blocks launched past a short record's width, which exit on one comparison --
 // so the host picks the grid per launch and only takes it when the waste is
 // small. See rnafold_int_loop_gridy() and int_loop_cuda().
+// NOTE ON THE BANNER: int_loop_cuda() calls this UNCONDITIONALLY, before it
+// decides which grid to use, so the knob announces itself even on a run where
+// every launch takes the 2-D grid and this lookup is never reached. It was
+// originally read inside the flat arm only, which meant asking for both knobs
+// on a uniform workload produced no WSEARCH banner at all -- and a harness that
+// checks "the knob I asked for engaged" would have failed that arm for telling
+// the truth. A knob that cannot announce itself cannot be asserted on.
+//
 // RNA_INT_LOOP_WSEARCH=1 -- keep the flat grid, replace the per-cell binary
 // search with the warp-cooperative 32-ary one above. Orthogonal to
 // RNA_INT_LOOP_GRIDY, which deletes the search by deleting the flat grid; when
@@ -1909,6 +1917,8 @@ int_loop_cuda(const int nfiles,
       if(w > maxw) maxw = w;
     }
     const size_t nbx   = (maxw + (size_t)cpb - 1)/(size_t)cpb;
+    const int    wsearch = rnafold_int_loop_wsearch();   // read UNCONDITIONALLY:
+                                                        // see the banner note
     const int    gridy = rnafold_int_loop_gridy() &&
                          nfiles > 0 && nfiles <= 65535 && maxw > 0 &&
                          ((size_t)nfiles * nbx) * INT_LOOP_GRIDY_WASTE_DEN
@@ -1924,8 +1934,10 @@ int_loop_cuda(const int nfiles,
 
       if(gridy != last_decision) {
         fprintf(stderr,
-                "%-24s int_loop grid: %s (nfiles %d, maxw %llu, blocks %llu vs flat %llu)\n",
+                "%-24s int_loop grid: %s, lookup: %s "
+                "(nfiles %d, maxw %llu, blocks %llu vs flat %llu)\n",
                 __FILE__, gridy ? "2-D, blockIdx.y = record" : "flat (waste guard declined)",
+                gridy ? "none" : (wsearch ? "32-ary warp" : "binary"),
                 nfiles, (unsigned long long)maxw,
                 (unsigned long long)((size_t)nfiles * nbx), (unsigned long long)nb);
         last_decision = gridy;
@@ -1951,7 +1963,7 @@ int_loop_cuda(const int nfiles,
       IL_WARP_DISPATCH(true, false, g2);
     } else {
       const dim3 g1((unsigned int)nb);
-      if(rnafold_int_loop_wsearch()) IL_WARP_DISPATCH(false, true,  g1)
+      if(wsearch) IL_WARP_DISPATCH(false, true,  g1)
       else                           IL_WARP_DISPATCH(false, false, g1)
     }
 #undef IL_WARP_DISPATCH
