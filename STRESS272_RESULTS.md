@@ -2396,6 +2396,13 @@ work has to be measured on the toolkit that will build it.
 
 ## 28.4 H6 — the prologue asks a question the host already answered
 
+> **§29 QUALIFIES THIS.** Deleting the flat grid is one way to delete the
+> search, and it is the fastest — but flattening earns its keep (a retired
+> record has width 0, so raggedness is what the normal path produces, and the
+> flat grid is what lifts `gridDim.y <= 65535`). **H7** keeps the flat grid
+> and makes the search 32-ary instead: −3.7 % where H6 gets −7.5 %, but it
+> applies where H6's waste guard declines. They compose.
+
 The grid is flat: one index over every cell of every record. So the first thing
 every warp does is find out which record it is in:
 
@@ -2494,3 +2501,112 @@ this kernel: what pays is removing links from a dependency chain.** H1 deleted
 14 % of the loads and bought 3.7 %. H5 would have deleted a resource limit that
 was not binding and bought nothing. H6 deletes nine *serialised* loads and buys
 7.6 %.
+
+---
+
+# 29. H7: flattening was never the cost — the SEARCH was
+
+*RTX 3050 (sm_86) for timing, sm_80 for every static number. Three arms,
+palindromic order, `modular_decomp` as the control none of them can reach.*
+
+## 29.1 The objection to §28, and it is right
+
+§28 removed `flatten_index_to_H()`'s nine-deep dependent chain by **deleting the
+flat grid**. But the flat grid earns its keep:
+
+- **Ragged widths are not an edge case.** A record's width is
+  `length_H − i_H − turn`, and a *retired* record has width **0**. Continuous
+  flow retires records every row, so raggedness is what the normal path
+  produces, not an unusual input.
+- **It lifts `gridDim.y <= 65535`.** That cap is a real limit on records per
+  chunk, and the flattening is what removed it.
+
+So H6's waste guard is not a tidy-up — it is the admission that the 2-D grid
+cannot always be taken. On `ngu.fa`, this project's own option-surface fixture
+(45–700 nt), the guard declines **every launch**.
+
+**But flattening is not what costs. The SEARCH is.** Nothing about a flat index
+requires nine dependent probes; that is just how the mapping happened to be
+computed.
+
+## 29.2 H7 — ask the same question 32 ways at once
+
+A warp has 32 lanes and, at that point in the kernel, nothing for them to do:
+every lane already shares `idx`. Probe 32 points of the interval at once and the
+search is 32-ary instead of binary:
+
+| nfiles | binary | **32-ary** |
+|---|---|---|
+| ≤ 32 | 5 steps | **1** |
+| ≤ 1024 | 10 | **2** |
+| ≤ 32768 | 15 | **3** |
+
+**No shuffles are needed.** Each probe position is a pure function of
+`(lo, span, lane)`, so once `__ballot_sync` names the winning lane, every lane
+recomputes that position — and the next one — arithmetically.
+
+**The trip count is warp-uniform**: `idx` is shared by the warp and `nfiles` by
+the whole grid, so every lane runs the same number of iterations and every
+ballot names all 32 lanes. (A divergent ballot is undefined — the same trap the
+work loop's 5-step binary search is written around.)
+
+Termination is by construction, not by hope: if `win < 31` then
+`p(win+1) > p(win)` strictly, because equal positions would have made lane
+`win+1` vote the same way and `win` would not be the highest; if `win == 31`
+then `p(31) ≤ lo+span−1 < hi`. Either way the interval shrinks.
+
+## 29.3 Measured
+
+40 × 2400 uniform, `RNA_PHASE_SYNC=1`, **four discarded warm-up folds** then
+three full A-B-C-C-B-A cycles (the first attempt at this measurement was
+useless — `int_loop` rose 2.84 → 5.25 s across twelve folds with the control
+tracking it, so one warm-up is not enough to reach steady clocks on this box):
+
+| arm | `int_loop` | control | raw | vs control | spread |
+|---|---|---|---|---|---|
+| **A** flat grid + binary search (today) | 5.288 | 3.197 | — | — | 0.51 % |
+| **B** flat grid + 32-ary warp search (**H7**) | 5.078 | 3.189 | **−3.99 %** | **−3.73 %** | 1.13 % |
+| **C** 2-D grid, no search (**H6**) | 4.872 | 3.186 | **−7.87 %** | **−7.54 %** | 0.39 % |
+
+n = 6 per arm; the control moves 0.35 % across the whole run, and the effects
+are 3–7× the within-arm spread. `sha b30501a54c50` in all eighteen folds.
+
+Static cost, sm_80: the search loop grows 12 → 27 instructions per iteration but
+runs `log₃₂` instead of `log₂` times, and **registers go 48 → 50** — still far
+under the 32-blocks-per-SM limit that §28.1 showed is what actually binds, so it
+costs no occupancy.
+
+## 29.4 They compose, and that is the point
+
+**H7 recovers about half of what deleting the search entirely recovers.** That
+is the expected shape: two dependent steps is not zero, and each step pays 32
+strided probes where the binary search paid one. It reads more *bytes* — but
+`size_off_H` is `nfiles+1` size_t (3.2 KB at nfiles = 400) and every warp reads
+it, so it is L1-resident after the first. Bytes are not what this kernel is
+short of.
+
+So they are not competitors, and the launch site already wires them as
+complements:
+
+| chunk | grid | lookup | |
+|---|---|---|---|
+| near-uniform widths, `nfiles ≤ 65535` | **2-D** | none | **−7.5 %** |
+| ragged, or `nfiles > 65535` | flat | **32-ary** | **−3.7 %** |
+
+H6 alone leaves the ragged case at zero — and the ragged case is `ngu.fa`, any
+mixed-length FASTA, and every row in which continuous flow has retired a record.
+**H7 is what makes the improvement unconditional.**
+
+## 29.5 The rule, now on four data points
+
+| | what it changed | won |
+|---|---|---|
+| H1 | deleted 14 % of the loads | 3.7 % |
+| H5 | would have lifted a limit that was not binding | **nothing — not built** |
+| **H7** | 9 dependent loads → **2** | **3.7 %** |
+| **H6** | 9 dependent loads → **0** | **7.5 %** |
+
+**What pays in this kernel is removing links from a dependency chain.** H1
+deleted more instructions than H7 does and won the same amount; H6 and H7 differ
+only in how many links they remove, and their wins are in that ratio. Nothing
+here is about instruction count or bytes moved.

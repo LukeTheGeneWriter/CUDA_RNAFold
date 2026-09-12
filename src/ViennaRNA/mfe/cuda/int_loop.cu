@@ -1265,10 +1265,75 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 // associative and commutative over exact ints, and this enumerates the SAME set
 // of (p,q) candidates in a different order.
 
+// H7: THE SAME QUESTION, ASKED 32 WAYS AT ONCE.
+//
+// H6 removed flatten_index_to_H()'s nine-deep dependent chain by deleting the
+// FLAT GRID. But the flat grid is not what costs -- the SEARCH is. Flattening
+// is what lets records have ragged widths (a retired record has width 0, so
+// raggedness is not an edge case, it is what continuous flow does every row)
+// and it is what lifts the gridDim.y <= 65535 cap. Those are worth keeping.
+//
+// So keep the flat index and change only the lookup. A warp has 32 lanes and,
+// at this point in the kernel, nothing for them to do: every lane already
+// shares `idx`. Probe 32 points of the interval at once and the search becomes
+// 32-ary instead of binary -- ceil(log32(nfiles)) DEPENDENT steps rather than
+// ceil(log2(nfiles)):
+//
+//     nfiles <=    32   1 step   (was 5)
+//     nfiles <=  1024   2 steps  (was 10)
+//     nfiles <= 32768   3 steps  (was 15)
+//
+// It reads more BYTES per step -- 32 strided 8-byte probes instead of one --
+// but flat_off_H is nfiles+1 size_t (3.2 KB at nfiles=400), read by every warp,
+// so it is L1-resident after the first. Bytes are not what this kernel is short
+// of; the dependency chain is (STRESS272_RESULTS.md 26.6, 28.5).
+//
+// NO SHUFFLES ARE NEEDED. Each probe position is a pure function of
+// (lo, span, lane), so once the ballot names the winning lane every lane can
+// recompute that lane's position -- and the next one's -- arithmetically.
+//
+// The trip count is WARP-UNIFORM: `idx` is shared by the warp and `nfiles` by
+// the whole grid, so every lane runs the same number of iterations and every
+// __ballot_sync names all 32 lanes. (A divergent ballot is undefined, which is
+// the same trap the 5-step binary search in the work loop is written around.)
+__device__ inline int
+flatten_index_to_H_warp(const size_t idx, const size_t* __restrict__ flat_off_H,
+                        const int nfiles, const int lane) {
+  int lo = 0;
+  int hi = nfiles;
+
+  while(hi - lo > 1) {
+    const int span = hi - lo;
+
+    // Lane k probes lo + floor(span*k/32). For span < 32 the tail lanes
+    // duplicate the last position, which is harmless: a duplicate can only
+    // re-elect a position already known to satisfy the predicate.
+    const int pk = lo + (int)(((long long)span * lane) >> 5);
+    const unsigned int vote =
+        __ballot_sync(0xffffffff, flat_off_H[pk] <= idx);
+
+    // flat_off_H[lo] <= idx is the loop invariant, so lane 0 always votes and
+    // `vote` is never 0.
+    const int win = 31 - __clz((int)vote);
+
+    const int newlo = lo + (int)(((long long)span * win) >> 5);
+    const int newhi = (win == 31) ? hi
+                                  : lo + (int)(((long long)span * (win+1)) >> 5);
+
+    // PROGRESS IS GUARANTEED, and this guard is belt-and-braces. If win < 31
+    // then p(win+1) > p(win) strictly -- equal positions would have made lane
+    // win+1 vote the same way, so win would not be the highest. If win == 31
+    // then p(31) <= lo+span-1 < hi. Either way the interval strictly shrinks.
+    lo = newlo;
+    hi = (newhi > newlo) ? newhi : (newlo + 1);
+  }
+
+  return lo;
+}
 #define INT_LOOP_WARP_KERNEL_NAME2(cpb) int_loop_warp_kernel_##cpb
 #define INT_LOOP_WARP_KERNEL_NAME(cpb) INT_LOOP_WARP_KERNEL_NAME2(cpb)
 
-template <int CELLS_PER_BLOCK, bool GRIDY>
+template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH>
 __global__ void
 int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -1304,7 +1369,8 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
   } else {
     const size_t cell = (size_t)blockIdx.x * CELLS_PER_BLOCK + wib;
     if(cell >= size_off_H[nfiles]) return;
-    H     = flatten_index_to_H(cell, size_off_H, nfiles);
+    H     = WSEARCH ? flatten_index_to_H_warp(cell, size_off_H, nfiles, lane)
+                    : flatten_index_to_H(cell, size_off_H, nfiles);
     local = cell - size_off_H[H];
   }
 
@@ -1428,6 +1494,30 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
 // blocks launched past a short record's width, which exit on one comparison --
 // so the host picks the grid per launch and only takes it when the waste is
 // small. See rnafold_int_loop_gridy() and int_loop_cuda().
+// RNA_INT_LOOP_WSEARCH=1 -- keep the flat grid, replace the per-cell binary
+// search with the warp-cooperative 32-ary one above. Orthogonal to
+// RNA_INT_LOOP_GRIDY, which deletes the search by deleting the flat grid; when
+// both are asked for, the 2-D grid wins on the launches where its waste guard
+// accepts and this covers the rest.
+PUBLIC int
+rnafold_int_loop_wsearch(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_INT_LOOP_WSEARCH");
+
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+
+    if (v)
+      fprintf(stderr, "%-24s RNA_INT_LOOP_WSEARCH=1: 32-ary warp-cooperative cell "
+                      "-> record lookup, flat grid kept (experimental; sha must not "
+                      "move)\n", __FILE__);
+  }
+
+  return v;
+}
+
 PUBLIC int
 rnafold_int_loop_gridy(void)
 {
@@ -1842,23 +1932,27 @@ int_loop_cuda(const int nfiles,
       }
     }
 
-#define IL_WARP_LAUNCH(C, G, GRID) int_loop_warp_kernel<C,G><<<GRID, 32*(C)>>>( \
+#define IL_WARP_LAUNCH(C, G, W, GRID) int_loop_warp_kernel<C,G,W><<<GRID, 32*(C)>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
         d_size_off_H, d_i_H, d_energy_min2)
-#define IL_WARP_DISPATCH(G, GRID) \
+#define IL_WARP_DISPATCH(G, W, GRID) \
     switch(cpb) { \
-      case 8: IL_WARP_LAUNCH(8, G, GRID); break; \
-      case 4: IL_WARP_LAUNCH(4, G, GRID); break; \
-      case 2: IL_WARP_LAUNCH(2, G, GRID); break; \
-      default: IL_WARP_LAUNCH(1, G, GRID); break; \
+      case 8: IL_WARP_LAUNCH(8, G, W, GRID); break; \
+      case 4: IL_WARP_LAUNCH(4, G, W, GRID); break; \
+      case 2: IL_WARP_LAUNCH(2, G, W, GRID); break; \
+      default: IL_WARP_LAUNCH(1, G, W, GRID); break; \
     }
+    // WSEARCH only exists on the flat side -- the 2-D grid has no search left
+    // to speed up -- so the 2-D arm instantiates it false and does not double
+    // the object code for nothing.
     if(gridy) {
       const dim3 g2((unsigned int)nbx, (unsigned int)nfiles);
-      IL_WARP_DISPATCH(true, g2);
+      IL_WARP_DISPATCH(true, false, g2);
     } else {
       const dim3 g1((unsigned int)nb);
-      IL_WARP_DISPATCH(false, g1);
+      if(rnafold_int_loop_wsearch()) IL_WARP_DISPATCH(false, true,  g1)
+      else                           IL_WARP_DISPATCH(false, false, g1)
     }
 #undef IL_WARP_DISPATCH
 #undef IL_WARP_LAUNCH

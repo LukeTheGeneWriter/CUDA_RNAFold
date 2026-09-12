@@ -23,7 +23,11 @@ wrong.*
 | **H5 cut registers to raise occupancy** | **DEAD ON ARITHMETIC, §28.1** — at the shipped one-warp-per-block the ceiling is 32 warps and it is the 32-blocks-per-SM *hardware* limit, not registers; driving registers to zero would not move it. The occupancy figure it was ranked on was also confounded by grid size (§28.2). *Superseded reasoning:* **NEW and now first** — registers are the *measured* binding limiter at 58/thread, achieved occupancy 20.7 %, and `long_scoreboard` (what more warps would hide) is **44.4 % of stalls**. §27.6 |
 | **H6 2-D grid: `blockIdx.y` is the record** | **BUILT, −7.6 %, byte-identical, gated off** (`RNA_INT_LOOP_GRIDY=1`) pending an A100 arm. Deletes the nine-deep chain of *dependent* global loads every warp runs before it can start — `flatten_index_to_H()`'s binary search. §28.4 |
 
-**Revised order after H6: H6 (confirm on an A100, then default it), then H3b, then H2.** H3a, H4 and now H5 are dead.
+| **H7 32-ary warp-cooperative lookup** | **BUILT, −3.7 %, byte-identical, gated off** (`RNA_INT_LOOP_WSEARCH=1`). Keeps the flat grid and makes the search `log32` instead of `log2` — so it applies where H6's waste guard DECLINES, which is every ragged chunk and every row continuous flow has retired a record in. §29 |
+
+**H6 and H7 are COMPLEMENTS, not competitors**, and the launch site already wires them that way: 2-D grid where the widths allow it (−7.5 %), 32-ary search everywhere else (−3.7 %). H6 alone leaves the ragged case at zero.
+
+**Revised order: confirm H6+H7 on an A100 and default them, then H3b, then H2.** H3a, H4 and H5 are dead.
 
 **And a rule this kernel has now earned three times over: what pays here is removing links from a DEPENDENCY CHAIN, not removing work.** H1 deleted 14 % of the loads and bought 3.7 %. H5 would have lifted a limit that was not binding and bought nothing. H6 deletes nine *serialised* loads and buys 7.6 %.
 
