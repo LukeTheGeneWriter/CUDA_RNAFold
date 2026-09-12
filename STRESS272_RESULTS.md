@@ -1951,3 +1951,100 @@ and this enumerates the **same set** of `(p,q)` candidates in a different order.
 **2.6 % of wall** there, against `build`'s **54 %**. The kernel work is worth
 finishing because it is written and measured — but it is not where the next hour
 should go.
+
+---
+
+# 25. `build` threading is ON by default: 5.12×, and the doc had said so all along
+
+*2026-09-12, prompted by §23.5 — `build` is **54 % of the A100 wall** and did not
+move at all when the GPU got 3–5× faster.*
+
+## 25.1 It was already built, already safe, and already documented as on
+
+`RNA_BUILD_THREADS` exists, is correct, and has been since 2026-09-09. Two
+things had to be true for it to be safe and both were made true then:
+
+- **Defect B is fixed.** `vrna_fold_compound()` reaches `vrna_params()`, whose
+  `SPEEDUP_PARAMS` cache was unsynchronised shared mutable state; `params.c` now
+  guards it. `tools/params_race.c` is the bar and it goes red without the lock:
+  **0 of 16 000 wrong with it, 11 999 of 16 000 (75 %) without.**
+- **Records are independent** — each writes only `VC[i]` and `Str[i]`.
+
+And `MERGING.md` has listed it under **"Default ON"** with default `auto` that
+whole time. **The code defaulted it to 1.** The document was describing the
+intent; the code never got there. That disagreement is the change.
+
+## 25.2 What changed is the size of the prize
+
+It was measured once, on 2026-09-09, at a build of **0.471 s** — 4.5× on 12
+cores. At that size it is a rounding error, and shipping a brand-new threading
+knob default-off was the right call.
+
+§23.5 changed the arithmetic:
+
+| | T4 | A100 |
+|---|---|---|
+| `build` | ~122 s (23 %) | **121.4 s (54.0 %)** |
+| GPU + transfer | 352 s (67 %) | 95.2 s (42.3 %) |
+
+**The GPU phases got 3–5× faster and `build` did not move at all**, so a knob
+that was worth a rounding error on the card the project tuned against is worth
+half the wall on the card anyone would actually run it on.
+
+## 25.3 Measured properly this time
+
+60 × 2400, 12 cores, **ABBA × 2** — because the first sweep's baseline arm was
+cold and returned a superlinear 2.58× at two threads, which is an allocator
+warm-up artefact rather than a result.
+
+| | `build` | mean |
+|---|---|---|
+| `RNA_BUILD_THREADS=1` | 1.492 / 1.531 / 1.291 / 1.337 | **1.413 s** |
+| `auto` (12) | 0.258 / 0.297 / 0.285 / 0.265 | **0.276 s** |
+| | | **5.12×** |
+
+7 % spread within each arm. The full thread sweep, for the shape:
+
+| threads | build | speedup |
+|---|---|---|
+| 1 | 1.413 | 1.00× |
+| 2 | 0.651 | 2.2× |
+| 4 | 0.358 | 3.9× |
+| 6 | 0.340 | 4.2× |
+| 12 | 0.260 | **5.4×** |
+
+**Scaling flattens past four to six threads**, which is what an allocation- and
+bandwidth-heavy O(n²) table build should do. The remaining gain to 12 is real
+but shallow, and the right number is a property of the *host* — hence `auto`
+rather than a tuned constant.
+
+*(Extrapolating to the A100: 121.4 s ÷ 5.12 ≈ **24 s**, taking a 224.9 s wall to
+roughly **127 s, −44 %**. That is an extrapolation, not a measurement — the
+Colab A100 host's core count and memory bandwidth are not this laptop's, and
+this needs an arm to confirm.)*
+
+## 25.4 Byte-identical, checked where it could matter
+
+| check | result |
+|---|---|
+| vs pristine 2.7.2, 20 records × 12 option arms including `-j` and `-j4` | **0 differing lines** each, `sweeps` asserted |
+| serial vs `auto`, default / `RNA_BUILD_PIPELINE=1` / int16 / chunked | **identical sha** on all four |
+| thread counts 2 / 3 / 4 / 6 / 8 / 12 / `auto` | identical sha on all seven |
+| `make check` | 161/161 |
+
+`-j` is in that list deliberately: the output pool and these builders can
+overlap on the pipeline path, and that is the one combination where a race would
+show.
+
+## 25.5 What was deliberately left alone
+
+**Oversubscription with `-j`.** A `-j nproc` run briefly has 2 × nproc runnable
+threads during the pipeline's overlap window. Left as is: the builders are
+short-lived and the fold they overlap is GPU-bound, so the cost is context
+switches rather than contention, and capping it properly would need a shared
+thread budget this driver does not have. `RNA_BACKTRACK_THREADS` subtracts
+`cpu_queue_threads` for exactly this reason — but that queue is retired on this
+branch and is always 0 here, so there is nothing to subtract.
+
+**`"0"` and `"1"` still force serial**, which is how the A/B is run and how
+anyone pins it down if it ever misbehaves.

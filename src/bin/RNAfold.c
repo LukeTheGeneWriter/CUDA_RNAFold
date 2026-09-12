@@ -1327,7 +1327,31 @@ struct gpu_batch {
 
 /* How many threads build one chunk's fold compounds (option A).
  *
- * Unset or "0"/"1" is serial, which is the shipped default. "auto" is nproc.
+ * DEFAULT "auto" (nproc) SINCE 2026-09-12. It shipped serial as a new,
+ * unproven knob, and `MERGING.md` has listed it under "Default ON" that whole
+ * time -- the doc was describing the intent and the code never got there.
+ *
+ * WHAT CHANGED IS THE SIZE OF THE PRIZE, not the confidence. `build` was 24.5%
+ * of wall on a T4. On an A100 the GPU phases are 3-5x faster and `build` does
+ * not move at all -- 121.4 s of a 224.9 s wall, **54%**
+ * (STRESS272_RESULTS.md 23.5). Measured here at 60 x 2400 on 12 cores:
+ * build 1.684 -> 0.260 s, **6.47x**, byte-identical at 2/3/4/6/8/12/auto.
+ *
+ * Scaling flattens past ~4-6 threads, which is what an allocation- and
+ * bandwidth-heavy O(n^2) table build should do; the remaining gain to 12 is
+ * real but shallow. `auto` rather than a tuned constant because the right
+ * number is a property of the HOST, and this project has been wrong before
+ * about numbers that are (see the heterogeneous scope note).
+ *
+ * ON OVERSUBSCRIPTION WITH -j: the output pool and these builders can overlap
+ * on the pipeline path, so a `-j nproc` run briefly has 2x nproc runnable
+ * threads. Left alone deliberately -- the builders are short-lived and the
+ * fold they overlap is GPU-bound, so the cost is context switches rather than
+ * contention, and capping it would need a shared thread budget this driver
+ * does not have. RNA_BACKTRACK_THREADS subtracts `cpu_queue_threads` for the
+ * same reason, but that queue is retired on this branch and is always 0 here.
+ *
+ * "0" or "1" still forces serial, which is how the A/B is run.
  *
  * SAFE ONLY BECAUSE Defect B IS FIXED. vrna_fold_compound() reaches
  * vrna_params(), whose SPEEDUP_PARAMS cache was shared mutable state with no
@@ -1346,9 +1370,7 @@ rnafold_build_threads(void)
   if (v < 0) {
     const char *e = getenv("RNA_BUILD_THREADS");
 
-    if ((!e) || (!e[0])) {
-      v = 1;
-    } else if (!strcmp(e, "auto")) {
+    if ((!e) || (!e[0]) || (!strcmp(e, "auto"))) {
       long hw = sysconf(_SC_NPROCESSORS_ONLN);
       v = (hw > 1) ? (int)hw : 1;
     } else {
