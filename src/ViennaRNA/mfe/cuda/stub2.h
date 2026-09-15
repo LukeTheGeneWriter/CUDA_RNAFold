@@ -552,6 +552,8 @@ PUBLIC int rnafold_gpu_sweep(void);
 // overlap between phases, so the wall of such a run is not comparable to a
 // normal one. See the definition in device.cu for why it exists.
 PUBLIC void rnafold_phase_sync(void);
+PUBLIC int  rnafold_sync_probe(void);       /* RNA_SYNC_PROBE, negative control */
+PUBLIC void rnafold_sync_probe_tick(void);
 PUBLIC int  rnafold_phase_sync_enabled(void);
 
 // RNA_LAUNCH_STATS -- per-launch DEVICE time for int_loop_kernel, so a phase

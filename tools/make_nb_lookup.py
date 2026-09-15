@@ -358,6 +358,11 @@ SWEEP_RE = re.compile(r"sweep shape: (\d+) iterations, (\d+) active record-rows,
                       r"(\d+) cells; peak/iteration (\d+) records (\d+) cells")
 BS_RE    = re.compile(r"int_loop_kernel block size (\d+)")
 BT_RE    = re.compile(r"build threads (\d+)")
+# The pipeline reports what it ACHIEVED, not merely that it was asked for --
+# and with one chunk there is nothing to overlap, so 0% is the correct answer
+# there rather than a failure. Assert the report exists; read the number.
+PIPE_RE  = re.compile(r"build pipeline: (\d+) chunks, builder ([\d.]+) s, "
+                      r"OVERLAPPED ([\d.]+) s \((\d+)% of builder time hidden")
 GRID_RE  = re.compile(r"int_loop grid: (2-D, blockIdx\.y = record|flat \(waste guard declined\)), "
                       r"lookup: (none|32-ary warp|binary) "
                       r"\(nfiles (\d+), maxw (\d+), blocks (\d+) vs flat (\d+)\)")
@@ -419,7 +424,7 @@ class ClockSampler(object):
 
 def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
         block_size=None, warp=None, build_threads=None, phase_sync=True,
-        vram_mb=None, extra_args="", quiet=False):
+        vram_mb=None, pipeline=False, extra_args="", quiet=False):
     env = dict(os.environ)
     for k in ("RNA_FML_INT16","RNA_GPU_CHUNK","RNA_MIN_GPU_BATCH","RNA_PHASE_SYNC",
               "RNA_GPU_VRAM_BUDGET_MB","RNA_INT_LOOP_BLOCK_SIZE","RNA_BUILD_PIPELINE",
@@ -442,6 +447,7 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
     if wsearch:        env["RNA_INT_LOOP_WSEARCH"] = "1"
     if build_threads is not None: env["RNA_BUILD_THREADS"] = str(build_threads)
     if vram_mb is not None: env["RNA_GPU_VRAM_BUDGET_MB"] = str(vram_mb)
+    if pipeline:       env["RNA_BUILD_PIPELINE"] = "1"
 
     clk = "/content/clk/%s.csv" % tag
     cmd = (TIME_BIN + BIN + " --noPS " + extra_args + " -i " + (fa or BIG)).split()
@@ -462,6 +468,10 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
                                (wsearch,"RNA_INT_LOOP_WSEARCH=1","H7 wsearch")):
         if bool(want) != (token in err):
             raise SystemExit("%s: %s knob did not engage as asked" % (tag, label))
+    pm = PIPE_RE.search(err)
+    if bool(pipeline) != bool(pm):
+        raise SystemExit("%s: build pipeline asked=%s but it %s report"
+                         % (tag, pipeline, "did not" if pipeline else "did"))
     if block_size:
         g = BS_RE.search(err)
         if (not g) or int(g.group(1)) != block_size:
@@ -483,10 +493,15 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
     bt = BT_RE.search(err)
     r = dict(wall=wall, phases=ph, stages=st, chunks=len(shapes),
              cells=sum(int(s[2]) for s in shapes), gridy=gridy, wsearch=wsearch,
-             int16=int16, chunk_cap=chunk_cap, vram_mb=vram_mb, fa=os.path.basename(fa or BIG),
+             int16=int16, chunk_cap=chunk_cap, vram_mb=vram_mb, pipeline=pipeline,
+             phase_sync=phase_sync, fa=os.path.basename(fa or BIG),
              block_size=int(BS_RE.search(err).group(1)) if BS_RE.search(err) else None,
              build_threads=int(bt.group(1)) if bt else None,
-             grid_trace=trace, rss=rss, clock=clkinfo, sha=sha)
+             grid_trace=trace, rss=rss, clock=clkinfo, sha=sha,
+             pipe_chunks=int(pm.group(1)) if pm else None,
+             pipe_builder=float(pm.group(2)) if pm else None,
+             pipe_hidden_s=float(pm.group(3)) if pm else None,
+             pipe_hidden_pct=int(pm.group(4)) if pm else None)
     RESULTS[tag] = r; save()
     if not quiet:
         g = "-" if not trace else ("2D" if all(t["grid"] == "2D" for t in trace)
@@ -962,7 +977,91 @@ print("  ANSWERS:", "correct under contention" if ok else "*** A SHA MOVED ***")
 """)
 
 # --------------------------------------------------------------------------
-md("## E. Summary and export")
+md(r"""## E. The two questions §31 could not answer locally
+
+### E1 — what is the production wall, and what do per-row barriers cost?
+
+**Every arm above carries `RNA_PHASE_SYNC=1`**, which serialises every phase
+boundary so the phase timers are true GPU times. `device.cu` says plainly that
+such a wall *"is not comparable to a normal run"* — so the project has never
+measured this card's production wall, and §30's absolute figures are all
+phase-synced quantities.
+
+One pair settles it. It also prices what `PORT_STREAM_OVERLAP_SCOPE.md` stage 0
+wanted: `RNA_PHASE_SYNC` adds ~5 device syncs per sweep row, so the difference
+**is** the cost of per-row barriers, run-ahead included.
+
+**The `nosync` arm's phase timers are meaningless and must not be reported** —
+reading them is the mistake §19 spent a session unpicking.
+"""); 
+code(r"""
+print("E1: production wall vs phase-synced wall, full VRAM budget")
+for tag, ps in (("E1_sync_1", True), ("E1_nosync_1", False),
+                ("E1_nosync_2", False), ("E1_sync_2", True)):
+    run(tag, chunk_cap=0, phase_sync=ps)
+"""); 
+code(r"""
+syn = [v for k, v in RESULTS.items() if k.startswith("E1_sync")]
+nos = [v for k, v in RESULTS.items() if k.startswith("E1_nosync")]
+if syn and nos:
+    a, b = mean([v["wall"] for v in syn]), mean([v["wall"] for v in nos])
+    print("  phase-synced wall  %8.1f s" % a)
+    print("  production wall    %8.1f s   %+.1f%%" % (b, 100.0*(b-a)/a))
+    print()
+    print("  ~5 syncs per row x %d rows x %d chunks" % (5601, syn[0]["chunks"]))
+    print("  -> per-row barriers cost %.1f s, %.1f%% of the production wall."
+          % (a-b, 100.0*(a-b)/b))
+    print("  That is the PORT_STREAM_OVERLAP_SCOPE stage 0 number: it bounds what\n"
+          "  removing the two synchronous uploads and the graph sync could pay.")
+    print("  shas:", set(v["sha"] for v in syn+nos))
+    print()
+    print("  NOTE: the nosync arms' phase timers are NOT reported and must not be.")
+"""); 
+md(r"""### E2 — the build pipeline, and where the chunk optimum really is
+
+`RNA_BUILD_PIPELINE` is **off by default**, and `RNAfold.c:1609` says why:
+*"the trade is the user's to make **until it is measured at scale**."* It has
+since been measured at scale — 16.8–21.4 % at 400 × 5601, sha unchanged across
+nine arms, at ~2× host RSS — and the default never moved. Every arm in §30 ran
+with it off, so `build`'s 18.35 s was fully exposed in all of them.
+
+**But it pulls against §30.7.** The pipeline hides `(chunks−1)/chunks` of
+`build`, so it wants MORE chunks; chunking costs 2.15 s each, which wants
+FEWER. §30.7 swept chunk count with the pipeline off, so the optimum is
+unmeasured in both directions at once. This is the 2-D sweep.
+
+**Watch host RSS.** Two chunks of 200 × 5601 nt compounds is simultaneously the
+best case for chunking and the worst for memory.
+"""); 
+code(r"""
+print("E2: chunk count x build pipeline, production settings (no phase sync)")
+for mb, chunks in ((None, "full"), (8192, "7ish"), (4096, "13ish")):
+    for pipe in (False, True):
+        run("E2_%s_%s" % (chunks, "pipe" if pipe else "nopipe"),
+            chunk_cap=0, vram_mb=mb, pipeline=pipe, phase_sync=False)
+"""); 
+code(r"""
+rows = [(k, RESULTS[k]) for k in sorted(RESULTS) if k.startswith("E2_")]
+if rows:
+    print("  %-16s %7s %9s %11s %9s" % ("arm","chunks","wall","peak RSS","sha"))
+    for k, v in rows:
+        print("  %-16s %7d %9.1f %8.2f GB  %s"
+              % (k[3:], v["chunks"], v["wall"], v["rss"], v["sha"]))
+    print()
+    for base in sorted(set(k.rsplit("_",1)[0] for k, _ in rows)):
+        a, b = RESULTS.get(base+"_nopipe"), RESULTS.get(base+"_pipe")
+        if a and b:
+            print("  %-14s pipeline %+6.1f%% wall, %+.2f GB RSS, "
+                  "%d%% of builder hidden (ceiling %d%% at %d chunks)"
+                  % (base[3:], 100.0*(b["wall"]-a["wall"])/a["wall"],
+                     b["rss"]-a["rss"], b.get("pipe_hidden_pct") or 0,
+                     100*(b["chunks"]-1)//max(b["chunks"],1), b["chunks"]))
+    print()
+    best = min(rows, key=lambda kv: kv[1]["wall"])
+    print("  fastest configuration:", best[0], "%.1f s" % best[1]["wall"])
+    print("  shas:", set(v["sha"] for _, v in rows))
+"""); 
+md("## F. Summary and export")
 
 code(r"""
 print("commit", COMMIT, "| cores", NPROC)

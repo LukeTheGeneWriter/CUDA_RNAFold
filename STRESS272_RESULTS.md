@@ -2627,6 +2627,13 @@ here is about instruction count or bytes moved.
 *A100-SXM4-40GB, 12 vCPUs, commit `731200c6`, 37 arms. 1410/1410 MHz and
 `clocks_throttle_reasons` `0x0` in every sample of every run.*
 
+> **EVERY WALL BELOW IS A PHASE-SYNCED WALL — see §31.1.** All 37 arms carry
+> `RNA_PHASE_SYNC=1`, which serialises every phase boundary; `device.cu`'s own
+> banner says such a wall *"is not comparable to a normal run"*. Every
+> *relative* result here is sound (one instrument, every arm), but absolute
+> wall figures — including "the A100 wall is 91.0 s" and the 2.15 s per chunk
+> — are phase-synced quantities, and the second is therefore an upper bound.
+
 ## 30.1 §A — uniform 400 × 5601: both generalise
 
 | arm | `int_loop` | raw | vs control | `modular_decomp` | grid | spread |
@@ -2850,3 +2857,145 @@ measurement, and it is cheap.
 **And the chunking result outranks both of them.** 2.15 s per chunk is 2.4 % of
 the A100 wall *per chunk*, against −5.65 % for the best lookup fix. Anything that
 widens a chunk is worth more than anything that speeds up a cell.
+
+---
+
+# 31. Stage 0 of the overlap scope: a correction to §30, a probe that measured the wrong thing, and a default that is still off
+
+*Local, 2026-09-15. No new A100 data. Two of the three items here are
+corrections; the third is a lever nobody has pulled.*
+
+## 31.1 CORRECTION: every wall in §30 is a PHASE-SYNCED wall
+
+The Lookup notebook's runner defaults `phase_sync=True`, and **no arm overrides
+it** — all 37 carry `RNA_PHASE_SYNC=1`. `device.cu`'s own banner says what that
+means:
+
+> *"RNA_PHASE_SYNC=1: syncing at every phase boundary. Phase timers are now true
+> GPU times and **the WALL IS NOT COMPARABLE to a normal run**."*
+
+The arithmetic confirms it — under forced syncs nothing overlaps, so the parts
+should sum to the whole, and they do:
+
+| arm | wall | GPU phases | host stages | sum | residual |
+|---|---|---|---|---|---|
+| `A_base_0` | 116.2 | 86.45 | 27.85 | 114.30 | **1.9 (1.6 %)** |
+| `D1_rep0` | 116.2 | 86.33 | 27.99 | 114.33 | **1.9 (1.6 %)** |
+| `D3_vramfull` | 91.0 | 64.89 | 25.19 | 90.09 | **0.9 (1.0 %)** |
+
+**What survives, which is most of it.** Every *relative* result in §30 used the
+same instrument in every arm, so the comparisons are sound: H6's −5.65 % and
+H7's −3.61 %, §B's finding that the guard declines ragged input, §D1's
+sustain (clocks and power do not care about host syncs), §D2's ns/cell, §D3's
+chunk sweep at −27.7 %, and §D4's correct answers under contention.
+
+**What does not.** Absolute wall claims. §30.7's *"the A100 wall at 400 × 5601
+is 91.0 s, not 116"* should read **"the phase-synced wall is 91.0 s"**. The
+production wall has never been measured on this card, and it is lower.
+
+**And it puts a ceiling on §30.7's chunking number.** 2.15 s per chunk is the
+*fully exposed* per-chunk cost, measured with every phase boundary serialised.
+Production may hide some of it. The figure is an upper bound, not an estimate.
+
+## 31.2 The probe I built measured the wrong component, and I said otherwise
+
+`PORT_STREAM_OVERLAP_SCOPE.md` stage 0 asks whether removing the per-row
+barriers can pay. I added `RNA_SYNC_PROBE=k` — *k* extra
+`cudaDeviceSynchronize()` per sweep row — as a negative control, on the argument
+that **if adding a barrier costs nothing, removing one cannot pay**.
+
+**That argument is wrong, and the asymmetry is the reason.** The host is already
+blocked once per row, so a *second* sync costs only the API call. It cannot cost
+the lost run-ahead, which is the component that would actually pay. The probe
+bounds the API overhead from below; it does not bound the prize from above. I
+claimed it did.
+
+The right instrument already existed and needed no new code: **`RNA_PHASE_SYNC`
+adds ~5 syncs per row**, so wall with it on versus off prices per-row barriers
+*including* the run-ahead they cost.
+
+## 31.3 And the local box cannot answer it today
+
+| | |
+|---|---|
+| same arm, first run | **8.15 s** |
+| same arm, second run | **19.31 s** |
+| within one run, `sync` arm twice | 22.72 → **27.60 s** |
+| idle state now | **1057 MHz of 2100**, **73 °C**, 13 W |
+
+Same binary, same fixture, monotone degradation of +43 % across four
+consecutive folds, and the card sits at 73 °C *at idle*. The standing note says
+local drift is −3.9 % **on a cool surface** and local A/B is usable above ~5 %;
+this is not a cool surface, and the effect being chased is a few percent.
+
+**Measurement abandoned rather than reported.** Both probe runs are in the
+session record and neither is a result.
+
+### The A100 arm that answers it, in one line
+
+The notebook already takes `phase_sync` as a parameter:
+
+```python
+run("E_sync",   chunk_cap=0)                     # today's instrument
+run("E_nosync", chunk_cap=0, phase_sync=False)   # production
+```
+
+That single pair answers **both** open questions at once: the production wall at
+the full budget, and what per-row barriers cost — which is stage 0's verdict.
+Note the `nosync` arm's phase timers must be discarded, not reported; that is
+the whole point of the comparison.
+
+## 31.4 The build pipeline is OFF by default, and its own comment says why it should not be
+
+`RNAfold.c:1609`:
+
+> *"**OFF BY DEFAULT.** `RNA_BUILD_PIPELINE=1` enables it. A pipelined run holds
+> two chunks of compounds at once (~47 MB per record of ptype + `hc->mx`), so it
+> trades host RAM for wall clock and **the trade is the user's to make until it
+> is measured at scale**."*
+
+**It has since been measured at scale**: 16.8–21.4 % faster at 400 × 5601,
+overlap 82–95 % tracking `(chunks−1)/chunks` exactly, sha unchanged across nine
+arms, at ~2× host RSS. The condition in the comment has been met and the default
+never moved. This is the same shape as `RNA_BUILD_THREADS`, which sat at 1 for
+three days while `MERGING.md` said `auto` (§25).
+
+**But the prize shrank while nobody was looking.** That validation predates
+build threading. `build` was ~121 s then; at the full budget it is **18.35 s**,
+and the pipeline can hide at most `(chunks−1)/chunks` of it:
+
+| chunks | ceiling on what the pipeline hides | of a 91 s wall |
+|---|---|---|
+| 2 (full budget) | 9.2 s | **10.1 %** |
+| 7 | 15.7 s | 17.3 % |
+| 13 | 16.9 s | 18.6 % |
+
+**And it pulls against §30.7.** More chunks means better pipeline overlap *and*
+worse per-chunk overhead — 2.15 s each. The two levers move in opposite
+directions, and §30.7 swept chunk count with the pipeline **off**, so the
+optimum is unmeasured in both directions at once.
+
+**Every A100 arm in §30 ran with the pipeline off** (the notebook pops
+`RNA_BUILD_PIPELINE` from the environment), so `build`'s 18.35 s was fully
+exposed in every number quoted there.
+
+### The experiment
+
+A 2-D sweep — `{2, 7, 13}` chunks × `{pipeline off, on}`, reporting wall, peak
+host RSS and sha. Six arms, and it decides three things: whether the pipeline
+default should move, where the chunk-count optimum actually sits, and whether
+the RSS cost is tolerable at the widest chunk (two chunks of 200 × 5601 nt
+compounds is the worst case for memory *and* the best case for chunking).
+
+## 31.5 Where this leaves the overlap scope
+
+Stage 0 is **unanswered, not failed** — deferred to hardware that can resolve
+it. Nothing in `PORT_STREAM_OVERLAP_SCOPE.md` is refuted; the dependency proof
+and the WAR hazard stand on reading, not on timing.
+
+But the ordering has changed. **The build pipeline is a default flip against a
+measured 10–19 %, and stream overlap is a race-bearing rewrite against a
+scope-estimated 20 % whose baseline is now known to be inflated.** The cheap one
+should go first, and it answers part of the expensive one's premise for free: if
+the production wall turns out to be much lower than 91 s, every share in §30
+rises and the overlap prize shrinks with it.

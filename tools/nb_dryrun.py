@@ -98,3 +98,12 @@ print('\n--- not checkable locally (Colab-only) ---')
 for s in ('google.colab files.download', 'ncu availability and -k matching',
           'nvcc -Xptxas on the Colab toolkit', 'A100 clocks/power/throttle'):
     print('  -', s)
+
+# PIPE_RE, against a real pipelined run -- the pipeline reports what it
+# ACHIEVED, and asserting that beats asserting the knob (the H6 lesson).
+e_p = stderr({'RNA_BUILD_PIPELINE': '1'}, UNI)
+m = ns['PIPE_RE'].search(e_p) if 'PIPE_RE' in ns else None
+print('\n--- the build-pipeline report ---')
+print('  PIPE_RE   %s' % ('matches: %s chunks, %s%% of builder hidden'
+                          % (m.group(1), m.group(4)) if m else '*** NO MATCH'))
+print('  absent when off: %s' % ('OK' if not ns['PIPE_RE'].search(e_def) else '*** present'))

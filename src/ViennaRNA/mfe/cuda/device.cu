@@ -168,6 +168,62 @@ rnafold_phase_sync_enabled(void)
 }
 
 
+/* RNA_SYNC_PROBE=k -- add k EXTRA cudaDeviceSynchronize() calls per sweep row.
+ *
+ * A NEGATIVE CONTROL, and the cheapest way to price a change before building
+ * it. PORT_STREAM_OVERLAP_SCOPE.md wants the per-row barriers gone, which needs
+ * double-buffered pinned staging and an event per slot. Before writing any of
+ * that: if ADDING a barrier per row costs nothing, REMOVING one cannot pay, and
+ * the whole of stage 1 is dead for the price of a five-line probe.
+ *
+ * The slope (seconds of wall per extra sync per row) times the number of
+ * barriers a row already carries is the prize, estimated without touching a
+ * single correctness-bearing line. It cannot change an answer -- a sync is a
+ * wait, not a write -- so this is measurable on any arm, including one whose
+ * sha we care about.
+ */
+extern "C" int
+rnafold_sync_probe(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_SYNC_PROBE");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v < 0)
+      v = 0;
+
+    if (v)
+      fprintf(stderr,
+              "device.cu                RNA_SYNC_PROBE=%d: %d EXTRA device syncs "
+              "per sweep row (a negative control -- this can only make the run "
+              "SLOWER)\n", v, v);
+  }
+
+  return v;
+}
+
+
+extern "C" void
+rnafold_sync_probe_tick(void)
+{
+  const int k = rnafold_sync_probe();
+  int       s;
+
+  for (s = 0; s < k; s++) {
+    const cudaError_t rc = cudaDeviceSynchronize();
+
+    if (rc != cudaSuccess) {
+      fprintf(stderr, "device.cu                RNA_SYNC_PROBE sync failed: %s\n",
+              cudaGetErrorString(rc));
+      cudaGetLastError();
+      return;
+    }
+  }
+}
+
+
 extern "C" void
 rnafold_phase_sync(void)
 {

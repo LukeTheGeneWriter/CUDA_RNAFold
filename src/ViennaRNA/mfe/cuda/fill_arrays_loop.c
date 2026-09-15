@@ -436,6 +436,11 @@
     // costs one 3.3 MB device-to-device copy per row (~0.18 s over a whole run).
     md_snapshot_dml();
 
+    /* RNA_SYNC_PROBE: k extra device syncs per row, to price the per-row
+     * barriers this row already carries before building the machinery to
+     * remove them. See PORT_STREAM_OVERLAP_SCOPE.md stage 0. */
+    rnafold_sync_probe_tick();
+
     {
       int *FF; /* rotate the auxilliary arrays */
       FF = DMLi2; DMLi2 = DMLi1; DMLi1 = DMLi; DMLi = FF;
