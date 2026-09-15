@@ -1075,15 +1075,27 @@ for fa in sorted(by_fa):
     print("  %-16s %d distinct sha %s  %s" % (fa, len(s), sorted(s),
                                               "OK" if len(s) == 1 else "*** MOVED ***"))
 print()
+# A PHASE TIMER THAT DOES NOT END IN A SYNC IS AN ATTRIBUTION, NOT A
+# MEASUREMENT (SS19: it once charged hp_mb 6.2x its own GPU time). The section E
+# arms run WITHOUT phase sync on purpose, so their phase columns are artefacts
+# and printing them next to the synced arms' -- in the same column, to two
+# decimal places -- is how a reader ends up quoting one. Blank them.
 print("%-18s %9s %9s %9s %7s %6s %5s"
       % ("arm","int_loop","mod_dec","wall","MHz","W","sha"))
 for k in sorted(RESULTS):
     v = RESULTS[k]
     if not isinstance(v, dict) or "phases" not in v: continue
-    print("%-18s %9.2f %9.2f %9.1f %7.0f %6.0f %s"
-          % (k, v["phases"].get("int_loop",0), v["phases"].get("modular_decomp",0),
-             v["wall"], v["clock"].get("sm_mean",0), v["clock"].get("power_mean",0),
-             v["sha"]))
+    if v.get("phase_sync", True):
+        il = "%9.2f" % v["phases"].get("int_loop", 0)
+        md = "%9.2f" % v["phases"].get("modular_decomp", 0)
+    else:
+        il = md = "%9s" % "--"
+    print("%-18s %s %s %9.1f %7.0f %6.0f %s"
+          % (k, il, md, v["wall"], v["clock"].get("sm_mean",0),
+             v["clock"].get("power_mean",0), v["sha"]))
+print()
+print("  '--' = run WITHOUT RNA_PHASE_SYNC. Its phases overlap, so there is no")
+print("  honest per-phase split; wall is the only aggregate those arms support.")
 """)
 
 code(r"""
