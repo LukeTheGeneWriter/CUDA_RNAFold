@@ -570,6 +570,8 @@ PUBLIC void rnafold_stream_cell_done(void);
 PUBLIC void rnafold_stream_md_wait_cell(void);
 PUBLIC void rnafold_stream_md_done(void);
 PUBLIC void rnafold_stream_wait_md(void);
+PUBLIC void rnafold_stream_scan_done(int i);
+PUBLIC void rnafold_stream_wait_scan(int i);
 
 PUBLIC void rnafold_phase_sync(void);
 PUBLIC int  rnafold_sync_probe(void);       /* RNA_SYNC_PROBE, negative control */

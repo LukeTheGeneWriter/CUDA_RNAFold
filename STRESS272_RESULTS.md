@@ -3477,3 +3477,106 @@ build ahead. **This is the eleventh time in this project a check has reported
 success or silence because it could not reach its target**, and the first one I
 wrote after building a probe that asserts three separate reachability conditions
 for exactly this reason.
+
+# 35. The occupancy hypothesis is refuted, the overlap bar caught a race, and the estimator finally has a model
+
+Run `4f3220b7`, A100-SXM4-40GB. `scaling_a100_run2.json`, `scaling_a100_run2_ncu.json`.
+
+## 35.1 §F — raising *c* raises the ceiling and LOWERS the occupancy
+
+400 × 5601, phase-synced, `RNA_INT_LOOP_BLOCK_SIZE` = 32·*c*:
+
+| c | wall | `int_loop` | vs c=1 | **achieved occupancy** | waves | regs | limits (blk/reg/smem/warp) | binds |
+|---|---|---|---|---|---|---|---|---|
+| **1** | 91.86 | **17.45** | — | **42.5 %** | 151.8 | 53 | 32/36/32/64 | **blocks** |
+| 2 | 91.78 | 17.43 | −0.1 % | 42.0 % | 134.9 | 53 | 32/**18**/32/32 | registers |
+| 4 | 91.80 | 17.73 | +1.6 % | 40.4 % | 134.9 | 53 | 32/**9**/32/16 | registers |
+| 8 | 93.05 | 18.75 | +7.4 % | 36.0 % | 151.8 | 53 | 32/**4**/32/8 | registers |
+
+One sha across all four. **The prediction fails at the first step.** Raising *c*
+does lift the ceiling — 50 % at c=1, 56.25 % at c=2 (18 blocks × 2 warps of 64)
+— and **achieved occupancy goes the other way**, 42.5 → 42.0 → 40.4 → 36.0 %.
+The 2026-09-11 sweep's shape reappears exactly (+1.6 % at 4, +7.4 % at 8), so
+its conclusion holds for a reason `PORT_OCCUPANCY_SCOPE.md` §3 did not consider:
+
+**the ceiling was never the binding constraint.** At c=1 the kernel achieves
+42.5 % of a 50 % ceiling — 85 % of it, with 151.8 waves/SM, so blocks are not
+scarce. What keeps it off the ceiling is retirement: cells differ wildly in
+candidate count, and a wider block only couples more of them together.
+
+**And the register count moved under us again: 53, not 48.** The `up_int`
+parameter and its two comparisons, added the same day for `-C`, cost 5
+registers. At 53 the ladder is 50 % at c=1 and 56.25 % at c=2 — the 65.6 % the
+scope was written against never existed in this build. **Every ceiling in that
+document has to be quoted with a register count and a toolkit, and the register
+count now also moves when the kernel changes.**
+
+**Verdict: the 50 % ceiling is real and it is not what limits this kernel.**
+`PORT_OCCUPANCY_SCOPE.md`'s E2 (push registers down with `__launch_bounds__`)
+is pointless while occupancy sits 7.5 points below a ceiling nothing is pressing
+against, and E3 (bin cells by width) is the only item on that list still
+standing — it attacks retirement, which is what the data says binds.
+
+## 35.2 §G — the overlap works, and the sha bar caught a race the local run could not
+
+| level | wall (a, b) | mean | vs level 0 | **sha** |
+|---|---|---|---|---|
+| 0 | 91.61, 91.28 | 91.45 | — | `49ad5c81b5fa` |
+| **1** | 90.66, 90.66 | **90.66** | **−0.9 %** | `49ad5c81b5fa` ✔ |
+| **2** | 89.67, 89.71 | 89.69 | −1.9 % | **`a2ab90e0d996` and `913f93539f67`** ✘ |
+
+**Level 1 is correct and worth −0.9 %.** Four arms, one sha, ABBA ordered.
+
+**Level 2 returned two different wrong answers from two runs of the same arm.**
+That is a race, and it is the outcome the section was built to catch: the local
+bar — four option arms, five repeats, a multi-chunk run, all byte-identical —
+could not reach it at 60 × 1500 nt.
+
+**The cause, found by reading rather than by bisection.** The hp stream has no
+waits of its own. A device-side wait on the *cell* stream does not stop the
+**host** from issuing more work elsewhere, and level 2 removed the per-row sync
+that used to bound it — so the host queues `hp_mb(i−1)`, `hp_mb(i−2)`, … as fast
+as it can. Two-deep parity buffers are then not enough: **`hp_mb(i−2)` writes
+the same parity `fml_scan(i)` is still reading.**
+
+Fixed with one event per parity: `fml_scan(i)` records "parity *i&1* is free"
+on the md stream, and `hp_mb(i)` waits for it — which is the record made two
+rows earlier. Correct by construction rather than by timing. **Not yet
+re-verified at 400 × 5601**, which is the only scale where it fired, so level 2
+now announces itself as experimental on every run.
+
+**What the −1.9 % says about the ceiling.** Even racing, level 2 bought 1.9 %
+against a scoped ~21 %. The md chain and the cell chain are not overlapping
+anywhere near fully, and §34.1 says why: `modular_decomp` is at **82.8 % of DRAM
+peak**, so the two kernels are competing for the memory system the moment they
+run together. The co-tenancy argument in `PORT_STREAM_OVERLAP_SCOPE.md` §12 was
+half right — `int_loop` is bandwidth-light, but `md` is so close to the roof
+that there is little left to share.
+
+## 35.3 §A — the estimator has a model at last
+
+Six shapes, pipeline off vs on, two chunks each (the fix from §34.5), the
+difference in peak RSS divided by records per chunk:
+
+| n × L | RSS off → on | extra per record | bytes / L² |
+|---|---|---|---|
+| 40 × 1200 | 0.28 → 0.32 GB | 1.2 MB | 0.814 |
+| 40 × 2400 | 0.61 → 0.78 | 4.4 MB | 0.758 |
+| 40 × 4800 | 1.93 → 2.61 | 17.1 MB | 0.741 |
+| 20 × 5601 | 1.85 → 2.31 | 23.2 MB | 0.740 |
+| 20 × 8000 | 3.60 → 4.55 | 47.2 MB | 0.737 |
+| 10 × 12000 | 4.03 → 5.09 | 105.6 MB | 0.733 |
+
+**`bytes/record = 0.727·L² + 72.5·L`**, within **±0.2 %** at every length from
+2400 up (−3.4 % at 1200). The coefficient drifts because there is a linear term,
+not because the quadratic one is unstable — which is why a single constant fitted
+at one length was wrong by a factor.
+
+**The gate was charging 2.0·(L+1)² — 2.7× the truth** at production lengths, so
+with the bar at half of `MemAvailable` it declined the pipeline on hosts where
+it would have fitted three times over. `rnafold_compound_bytes()` now charges
+**`L² + 128·L`**: the measured fit with ~37 % of headroom on the quadratic term,
+still an over-estimate at every length measured, which is the direction it has
+to err.
+
+All twelve arms sha-identical between pipeline off and on.

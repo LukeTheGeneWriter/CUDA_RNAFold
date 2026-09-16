@@ -151,3 +151,48 @@ being declined on real chunks, some of E1's gain is being paid back out of H6.
 **Not on this list:** anything aimed at `modular_decomposition_kernel`'s
 occupancy. It is at 68.9 % of a 75 % ceiling and **82.8 % of DRAM peak** — more
 warps there would queue for bandwidth that is already spoken for.
+
+---
+
+## 6. MEASURED, AND REFUTED (2026-09-16, §35.1)
+
+§5's E1 ran. The ceiling moved and the occupancy did not follow:
+
+| c | `int_loop` | vs c=1 | achieved occupancy | ceiling | binds |
+|---|---|---|---|---|---|
+| **1** | **17.45 s** | — | **42.5 %** | 50 % | blocks |
+| 2 | 17.43 | −0.1 % | 42.0 % | 56.25 % | registers |
+| 4 | 17.73 | +1.6 % | 40.4 % | 56.25 % | registers |
+| 8 | 18.75 | +7.4 % | 36.0 % | 50 % | registers |
+
+**The ceiling was never the binding constraint.** At c=1 the kernel achieves
+42.5 % of a 50 % ceiling — 85 % of it — with **151.8 waves/SM**, so blocks are
+not scarce either. Widening the block lifts the ceiling to 56.25 % and *lowers*
+what is achieved, because the extra warps arrive coupled: a block holds its
+registers until its last warp exits, and cells differ wildly in candidate count.
+The 2026-09-11 sweep's numbers reappear almost exactly (+1.6 %, +7.4 %).
+
+**And §2's ladder was written for a register count this build does not have.**
+`ncu` reports **53 regs/thread**, not 48: the `up_int` parameter and its two
+comparisons, added the same day for `-C`, cost 5. At 53 the ladder is 50 % at
+c=1 and 56.25 % at c=2 — the 65.6 % the scope argued from never existed here.
+**A ceiling must be quoted with its register count, its toolkit, AND the state
+of the kernel's source.**
+
+### What survives
+
+- **E1 is done and the answer is no.** Wider blocks do not pay at any c.
+- **E2 (`__launch_bounds__` to 40 registers) is pointless** while occupancy sits
+  7.5 points below a ceiling nothing presses against. Spending registers to
+  raise a ceiling that is not binding cannot help.
+- **E3 (bin cells by candidate width) is the only item still standing**, and it
+  is now the *first* one rather than the last: it attacks retirement coupling,
+  which is what the data says binds. It is also the same machinery
+  `PORT_SCOUT_COMPACTION_SCOPE.md` describes — whose own metric said the lane
+  prize is small, but which would be doing a different job here.
+- **E4 (the waste guard at higher c) is moot** — there is no higher c worth
+  running.
+
+**The honest summary: `int_loop` is not occupancy-limited. It is
+retirement-limited, and the fix is to make a block's cells resemble each other,
+not to fit more of them on an SM.**

@@ -1741,18 +1741,30 @@ rnafold_host_avail_bytes(void)
 
 /* Host bytes one built fold compound holds.
  *
- * By construction that is the dense (n+1)^2 hard-constraint matrix plus the
- * triangular ptype -- ~1.5 L^2, the "~47 MB per record at 5601 nt" above.
- * MEASURED from 32.3's RSS deltas it is nearer 1.9 L^2, because a compound
- * carries more than those two tables. Two is used, so the estimate errs towards
- * declining the pipeline rather than towards an OOM.
+ * MEASURED, not derived (STRESS272 35.3). Six shapes from 40 x 1200 to
+ * 10 x 12000, each folded with the build pipeline off and on and the DIFFERENCE
+ * in peak RSS divided by the records in a chunk -- which is exactly what the
+ * pipeline's second chunk costs:
+ *
+ *     bytes/record = 0.727 * L^2 + 72.5 * L      (+/- 0.2% at L >= 2400)
+ *
+ * The structural upper bound -- dense (n+1)^2 hard constraints plus triangular
+ * ptype -- is 1.5 L^2, and the first version of this function charged 2.0 L^2
+ * on the strength of two RSS points at one length. That is 2.7x the truth at
+ * production lengths, and with the bar at half of MemAvailable it declined the
+ * pipeline on hosts where it would have fitted three times over.
+ *
+ * 1.0 L^2 + 128 L is used: the measured fit with ~37% of headroom on the
+ * quadratic term, which keeps the estimate conservative without being wrong by
+ * a factor. Still an over-estimate at every length measured, which is the
+ * direction this has to err.
  */
 static size_t
 rnafold_compound_bytes(size_t len)
 {
   const size_t L = len + 1;
 
-  return 2 * L * L;
+  return (L * L) + (128 * L);
 }
 
 

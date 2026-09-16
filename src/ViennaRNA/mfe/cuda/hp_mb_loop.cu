@@ -1514,6 +1514,8 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   }
 #undef FML_SCAN_LAUNCH
   gpuErrchk( cudaPeekAtLastError() );
+  // The hp/mb parity this row just read is free again for row i-2.
+  rnafold_stream_scan_done(i);
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
   if(!rnafold_gpu_sweep())
@@ -2079,6 +2081,10 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   const int nblocks = (total + block_size - 1)/block_size;
+  // ... and this row may not write that parity until the fml_scan two rows
+  // earlier has finished reading it. The hp stream has no other waits, so
+  // without this the host queues it arbitrarily far ahead.
+  rnafold_stream_wait_scan(i);
   hp_mb_3p_kernel<<<nblocks,block_size,0,rnafold_stream_hp()>>>(nfiles, RNA_I_ROW(i), turn, length,
                                           d_S2, d_sequence, d_pair2,
                                           d_hccc_mb, d_hccc_mbenc,

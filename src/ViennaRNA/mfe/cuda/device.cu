@@ -267,6 +267,15 @@ rnafold_stream_overlap(void)
               "device.cu                RNA_STREAM_OVERLAP=%d: %s\n", v,
               (v == 1) ? "hp_mb_3p runs beside int_loop within a row"
                        : "hp_mb_3p beside int_loop, and md(i) beside row i-1's cell work");
+
+    if (v >= 2)
+      fprintf(stderr,
+              "device.cu                RNA_STREAM_OVERLAP=2 IS EXPERIMENTAL. A race at "
+              "400 x 5601 returned two different\n"
+              "device.cu                wrong answers on 2026-09-16 (STRESS272 35.2); the "
+              "missing parity gate is fixed and\n"
+              "device.cu                NOT yet re-verified at that scale. Compare shas "
+              "before trusting any run.\n");
   }
 
   return v;
@@ -280,6 +289,20 @@ static cudaStream_t g_stream_cell = 0;   /* int_loop, new_c, load_my_c, fml_* */
 static cudaStream_t g_stream_hp   = 0;   /* hp_mb_3p only */
 static cudaStream_t g_stream_md   = 0;   /* fml_scan, the md graph, fml_prev, snapshot */
 static cudaEvent_t  g_ev_md       = NULL;   /* snapshot(i) finished: DMLi1 is row i's */
+/* THE THIRD EDGE, and it is the one the first level-2 build was missing.
+ *
+ * The hp stream has no waits of its own, so the HOST can queue hp_mb(i-1),
+ * hp_mb(i-2), ... arbitrarily far ahead: a device-side wait on the cell stream
+ * does not stop the host from issuing more work elsewhere, and level 2 removed
+ * the per-row sync that used to bound it. Two-deep parity buffers then stop
+ * being enough -- hp_mb(i-2) writes the SAME parity that fml_scan(i) is still
+ * reading.
+ *
+ * Measured, at 400 x 5601 and not at 60 x 1500: two runs of the same level-2
+ * arm returned two DIFFERENT wrong answers. One event per parity fixes it by
+ * construction -- hp_mb(i) waits for the fml_scan that last read its buffer,
+ * which is the one two rows earlier. */
+static cudaEvent_t  g_ev_scan[2]  = { NULL, NULL };
 static cudaEvent_t  g_ev_hp       = NULL;   /* hp_mb_3p(i) finished */
 static cudaEvent_t  g_ev_cell     = NULL;   /* the cell chain reached a join */
 
@@ -319,6 +342,8 @@ rnafold_streams_init(void)
         g_stream_md = 0;
       } else {
         cudaEventCreateWithFlags(&g_ev_md, cudaEventDisableTiming);
+        cudaEventCreateWithFlags(&g_ev_scan[0], cudaEventDisableTiming);
+        cudaEventCreateWithFlags(&g_ev_scan[1], cudaEventDisableTiming);
       }
     }
   }
@@ -332,6 +357,8 @@ rnafold_streams_teardown(void)
   if (g_stream_hp)   { cudaStreamDestroy(g_stream_hp);   g_stream_hp   = 0; }
   if (g_stream_md)   { cudaStreamDestroy(g_stream_md);   g_stream_md   = 0; }
   if (g_ev_md)       { cudaEventDestroy(g_ev_md);        g_ev_md       = NULL; }
+  if (g_ev_scan[0])  { cudaEventDestroy(g_ev_scan[0]);   g_ev_scan[0]  = NULL; }
+  if (g_ev_scan[1])  { cudaEventDestroy(g_ev_scan[1]);   g_ev_scan[1]  = NULL; }
   if (g_ev_hp)       { cudaEventDestroy(g_ev_hp);        g_ev_hp       = NULL; }
   if (g_ev_cell)     { cudaEventDestroy(g_ev_cell);      g_ev_cell     = NULL; }
 }
@@ -369,6 +396,26 @@ rnafold_stream_md_done(void)
 {
   if (g_ev_md && g_stream_md)
     (void)cudaEventRecord(g_ev_md, g_stream_md);
+}
+
+/* fml_scan(i) has finished reading row i's hp/mb parity: the buffer is free for
+ * the row two later to overwrite. */
+extern "C" void
+rnafold_stream_scan_done(int i)
+{
+  if (g_ev_scan[0] && g_stream_md)
+    (void)cudaEventRecord(g_ev_scan[i & 1], g_stream_md);
+}
+
+/* hp_mb_3p(i) may not write its parity until the fml_scan that last read it is
+ * done -- which is row i+2's, recorded two rows ago. Unrecorded on the first
+ * two rows, where the wait is a no-op, which is correct: nothing has read them
+ * yet. */
+extern "C" void
+rnafold_stream_wait_scan(int i)
+{
+  if (g_ev_scan[0] && g_stream_md && g_stream_hp)
+    (void)cudaStreamWaitEvent(g_stream_hp, g_ev_scan[i & 1], 0);
 }
 
 extern "C" void
