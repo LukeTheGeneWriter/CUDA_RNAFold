@@ -138,7 +138,9 @@ tar -xjf src/dlib-*.tar.bz2   -C src/
 tar -xzf src/libsvm-*.tar.gz  -C src/
 
 ./autogen.sh
-./configure --enable-cuda --without-python --without-perl --without-swig             --without-doc --without-rnaxplorer --without-forester             --without-kinfold --without-rnalocmin
+./configure --enable-cuda \
+    --without-python --without-perl --without-swig --without-doc \
+    --without-rnaxplorer --without-forester --without-kinfold --without-rnalocmin
 make -j$(nproc)
 ```
 
