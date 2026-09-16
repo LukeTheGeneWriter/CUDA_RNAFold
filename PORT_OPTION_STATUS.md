@@ -127,12 +127,33 @@ the CPU was compared against itself.
 
 ## Summary
 
+*Counted by `tools/option_status_census.py`, which reads the option list from
+`src/bin/RNAfold.ggo` and each verdict from the table above. **It exits non-zero
+if any option is classified nowhere**, so a new upstream option appears here as a
+hole rather than as a silent absence. The numbers below are its output, not a
+hand count -- the hand-maintained version drifted (it counted `-T` / `--temp` as
+two options, and three features moved category in one day).*
+
 | | count |
 |---|---|
-| **ACCELERATED, byte-identical** | **31** *(`--commands` conditionally)* |
-| DECLINED, CPU route asserted | 9 |
-| NEUTRAL | 19 |
+| **ACCELERATED, byte-identical** | **25** |
+| DECLINED, route **and effect** measured | **10** |
+| NEUTRAL | 23 |
 | UNREACHABLE from this CLI | 1 |
+| **SPLIT** (`--dangles`: d0/d2 accelerated, d1/d3 declined) | 1 |
+| **total** | **60** |
+
+**The ten declined options are four families, not ten decisions:**
+
+| family | options | status |
+|---|---|---|
+| SHAPE / probing | `--shape`, `--shapeMethod`, `--shapeConversion`, `--sp-data`, `--sp-strategy`, `--sp-preprocess` | **DEFERRED** — scope with Lorenz, test bench coming |
+| modified bases | `-m` / `--modifications`, `--mod-file` | blocked behind the SHAPE decision (they are soft constraints too) |
+| ligand motif | `--motif` | declined by gate 2 on `fc->sc`, measured |
+| synthetic alphabet | `--energyModel` | **REJECTED** |
+
+plus `-d1`/`-d3` inside the split `--dangles`, which need DP state the sweep
+does not carry.
 
 **No silent wrong answer is known anywhere on the option surface** — and unlike
 earlier versions of that claim, it now rests mostly on measurements rather than
@@ -621,3 +642,36 @@ SHAPE does not make that better or worse — this backend fills exactly upstream
 nested recursion — but **it belongs next to any claim that SHAPE is supported**,
 because a user with pseudoknotted RNA needs to know before they trust the
 output, not after.
+
+---
+
+## `--shape` is DEFERRED (2026-09-16), and what it is waiting on
+
+Not declined for a reason of the port's — **deferred on a test bench**. Luke is
+assembling sequences with accompanying SHAPE data, which is the one thing this
+project cannot manufacture: every bar here derives its input from the program's
+own output, and probing reactivities cannot be derived from a fold. They are a
+measurement of a real molecule.
+
+**What is already settled**, so the deferral does not lose ground:
+
+* **Deigan is the scope to build.** It modifies only nucleotides *"that take
+  part in a stacked helix conformation"* and leaves every other conformation
+  alone — one carrier (`sc->energy_stack`), one term — and it is both RNAfold's
+  default method and the **best average performer** in Lorenz et al.'s own
+  benchmark.
+* **Zarringhalam and Washietl touch every loop type** and are a different, much
+  larger change.
+* **The pseudoknot limitation must ship with the feature**, in the authors'
+  words: pseudoknots are in about half their benchmark *and are reflected in
+  the SHAPE data itself*.
+
+**What the test bench has to contain**, for the bar to mean anything — the same
+three conditions every probe in this project now asserts:
+
+1. real reactivities for a real sequence, so the input is not synthetic;
+2. a case where the data **changes the CPU answer** (otherwise agreement proves
+   nothing — the trap that caught the motif, the constraint shapes and the
+   `--energyModel` alphabet);
+3. at least one sequence with a **known pseudoknot**, so the documented failure
+   mode is exercised rather than described.
