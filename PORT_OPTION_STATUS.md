@@ -531,3 +531,32 @@ Modified bases install soft constraints (`vrna_sc_mod_*`,
 sweep does not carry — and `-d3` adds coaxial stacking on top. The only entry
 left on gate 3, and the only one where the missing thing is state rather than
 arithmetic.
+
+---
+
+## `--shape`: ON HOLD pending Dr. Lorenz (2026-09-16)
+
+Not blocked on the port. The scoping decision — Deigan only, Deigan plus
+Zarringhalam, or the general soft-constraint surface — is being taken with the
+author of the method rather than inferred from the source.
+
+**Two things to carry into that conversation:**
+
+1. **SHAPE is a soft constraint by design**: it does not forbid anything, it
+   re-weights, nudging the prediction toward what the probing data supports.
+   That is why it reaches the recursion through the wrapper layer
+   (`internal_sc.inc`, `multibranch_sc.inc`, `hairpin_sc.inc`,
+   `exterior_sc.inc`) rather than through `hc->mx` — and why the device work is
+   "add a term at N sites", not "mask a cell".
+2. **It is known to handle pseudoknotted data poorly** (Luke, from Lorenz).
+   That is a property of the *model*, not of this port: the recursion this
+   backend accelerates is strictly nested, so a pseudoknot cannot be
+   represented at all, with or without SHAPE. **Flagged for the day
+   pseudoknots come up**, which is a much larger question than an option —
+   ViennaRNA has separate machinery for them (`RNAPKplex` and friends) and none
+   of it shares the recursion this backend fills.
+
+**When SHAPE does land, the pseudoknot limitation should be stated in the same
+place as the feature**, so a user reading "SHAPE is supported" also reads what
+SHAPE cannot do — the honest version of the claim, and the one a probing
+experiment actually needs.
