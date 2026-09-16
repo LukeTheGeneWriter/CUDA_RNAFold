@@ -129,6 +129,18 @@ probe () {  # probe <label> <allow-id> <input.fa> [args...]
 
   if cmp -s "$WORK/cpu.out" "$WORK/gpu.out"; then
     if [ "$swept" = "no" ]; then
+      # TWO DIFFERENT THINGS LOOK THE SAME HERE, and only one is a broken probe.
+      # If the engine announced the lift, gate 1 and the NAMED gate-2 check both
+      # opened -- so a fold that still did not sweep was declined by a DIFFERENT
+      # gate-2 check, which is a result: the option is refused for a reason of
+      # its own rather than because nobody looked. A ligand motif is that case --
+      # vrna_sc_add_hi_motif() installs a SOFT constraint, so `fc->sc != NULL`
+      # declines it whatever the "motif" id does.
+      if grep -q 'RNA_ENGINE_ALLOW: lifting' "$WORK/gpu.err"; then
+        printf '  %-22s DECLINED gate 2 refused it on another check, and the answer\n' "$label"
+        printf '  %-22s          matches the CPU route -- the guard is doing its job\n' ""
+        NEED=$((NEED+1)); return
+      fi
       printf '  %-22s SKIPPED  identical, but NO SWEEP -- it never reached the device\n' "$label"
       return
     fi
@@ -228,7 +240,10 @@ probe "--energyModel 2" energy_set "$WORK/abcd.fa" --noconv --energyModel 2
 
 # (3) SOFT CONSTRAINTS via SHAPE reactivities. One record only: --shape applies
 # one data file to the fold.
-head -2 "$WORK/seq.fa" > "$WORK/one.fa"
+# The LONGEST record, not the first: an 80 nt fold often has no interior loop
+# with unpaired bases on both sides, and the motif case needs one to copy.
+tail -2 "$WORK/seq.fa" > "$WORK/one.fa"
+cpu -i "$WORK/one.fa" > "$WORK/one.free" 2>/dev/null
 python3 - "$WORK/one.fa" "$WORK/shape.dat" <<'PY'
 import sys, random
 random.seed(7)
@@ -240,13 +255,69 @@ PY
 N_SAVE=$N; N=1
 probe "--shape (soft)" soft "$WORK/one.fa" --shape="$WORK/shape.dat"
 
-# (4) LIGAND MOTIF -- the theophylline aptamer from upstream's own docs.
-probe "--motif (ligand)" motif "$WORK/one.fa" \
-      --motif="GAUACCAG&CCCUUGGCAGC,(...((((&)))....)))...,-9.22"
+# (4) LIGAND MOTIF, DERIVED FROM THE FOLD'S OWN INTERIOR LOOP.
+#
+# A ligand motif binds a SEQUENCE *and* a STRUCTURE -- that is the whole point
+# of the option: a protein that binds a known site and stabilises it. So a motif
+# taken from the documentation cannot bite on a random sequence, and three
+# attempts to make one bind that way failed, including a synthetic four-pair
+# motif at -30 kcal/mol.
+#
+# The construction that works is to read BOTH halves off a real fold: find an
+# interior loop in the free MFE structure -- a closing pair (i,j) with an
+# enclosed pair (p,q) and unpaired bases on both sides -- and emit exactly that
+# sequence and that dot-bracket as the motif. It is then guaranteed to be
+# present and formable, and the bonus shows up as an energy shift: measured
+# -21.80 -> -29.80 for a -8.0 motif, same structure, ligand bound.
+python3 - "$WORK/one.fa" "$WORK/one.free" "$WORK/motif.arg" <<'PY' || echo "  (motif derivation failed)"
+import sys
+seq = [l.strip() for l in open(sys.argv[1]) if not l.startswith(">")][0]
+db  = [l.split()[0] for l in open(sys.argv[2]) if l and l[0] in ".()"][0]
+
+st, pairs = [], {}
+for k, c in enumerate(db):
+    if c == "(":
+        st.append(k)
+    elif c == ")":
+        a = st.pop(); pairs[a] = k; pairs[k] = a
+
+best = None
+for i in sorted(x for x in pairs if pairs[x] > x):
+    j = pairs[i]
+    p = next((k for k in range(i + 1, j) if db[k] == "(" and pairs[k] < j), None)
+    if p is None:
+        continue
+    q = pairs[p]
+    u1, u2 = p - i - 1, j - q - 1
+    if 1 <= u1 <= 6 and 1 <= u2 <= 6:
+        best = (i, j, p, q, u1, u2)
+        break
+
+if best:
+    i, j, p, q, u1, u2 = best
+    open(sys.argv[3], "w").write("%s&%s,%s&%s,-8.0" % (
+        seq[i:p+1], seq[q:j+1], "(" + "."*u1 + "(", ")" + "."*u2 + ")"))
+PY
+cpu -i "$WORK/one.fa" > "$WORK/one.free" 2>/dev/null
+if [ -s "$WORK/motif.arg" ]; then
+  probe "--motif (ligand)" motif "$WORK/one.fa" --motif="$(cat "$WORK/motif.arg")"
+else
+  printf '  %-22s SKIPPED  no interior loop in the free fold to build a motif from\n' "--motif (ligand)"
+fi
 
 # (5) A COMMAND FILE. Commands can add either hard or soft constraints, so this
 # is checked as its own route rather than assumed to be one of the two above.
-printf 'P 5 0 3\n' > "$WORK/cmd.txt"
+# DERIVED, like every other shape in this script: prohibit pairing for bases the
+# free MFE actually pairs. A fixed "P 5 0 3" changes nothing on most inputs, and
+# an option that does not bite proves nothing about the device.
+python3 - "$WORK/one.free" "$WORK/cmd.txt" <<'PY'
+import sys
+db = [l.split()[0] for l in open(sys.argv[1]) if l and l[0] in ".()"][0]
+paired = [k + 1 for k, c in enumerate(db) if c != "."][:6]
+with open(sys.argv[2], "w") as f:
+    for k in paired:
+        f.write("P %d 0 1\n" % k)
+PY
 probe "--commands" cmds "$WORK/one.fa" --commands="$WORK/cmd.txt"
 N=$N_SAVE
 

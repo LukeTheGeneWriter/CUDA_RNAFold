@@ -94,7 +94,7 @@ left to watch.
 | `--sp-data` | DECLINED | 1, 2 | asserted |
 | `--sp-strategy` | DECLINED | 1, 2 | asserted |
 | `--sp-preprocess` | DECLINED | 1, 2 | asserted |
-| `--motif` | DECLINED | 1, 2 | route measured; **effect NOT measured** (no fixture binds it) |
+| `--motif` | DECLINED | **2** *(gate 1 keeps it as an optimisation)* | **measured 2026-09-16, both halves**: a motif derived from the fold's own interior loop bites (−21.80 → −29.80), and gate 2 declines it on `fc->sc` with the answer matching |
 | **`--commands`** | **ACCEL when it queues only hard constraints**, DECLINED otherwise *(new, 2026-09-16)* | 2 | measured both ways: an HC-only file sweeps and matches; an `E` (soft) file takes the CPU route and matches |
 | `-m` / `--modifications` | DECLINED | 1 | measured |
 | `--mod-file` | DECLINED | 1 | asserted *(requires `--modifications`)* |
@@ -496,14 +496,28 @@ is how much of the surface to support:
 unlike the other four — and the narrow version is tractable. It is flagged for a
 session with a decision made up front rather than discovered mid-implementation.
 
-### `--motif` — not a port problem
+### `--motif` — MEASURED (2026-09-16), and the fixture was the whole difficulty
 
-Three attempts have failed to build a fixture where a ligand motif changes the
-CPU answer, including a synthetic four-pair motif at −30 kcal/mol. **Until a
-motif bites on the CPU, no GPU comparison means anything** — that is the same
-rule that caught the non-biting constraint shapes and the ACGU `--energyModel`
-fixture. The port question cannot be asked until the ViennaRNA-usage question is
-answered.
+A ligand motif binds a **sequence _and_ a structure**: that is the point of the
+option — a protein binds a known site and stabilises it. So a motif taken from
+the documentation cannot bind a random sequence, and three attempts to force one
+failed, including a synthetic four-pair motif at −30 kcal/mol.
+
+**The construction that works is to read both halves off a real fold.** Find an
+interior loop in the free MFE — a closing pair `(i,j)` with an enclosed pair
+`(p,q)` and unpaired bases on both sides — and emit exactly that sequence and
+that dot-bracket. It is then present and formable by construction, and the bonus
+shows up as an energy shift: **−21.80 → −29.80** for a −8.0 motif, same
+structure, ligand bound. `tools/probe_declined_options.sh` now derives it that
+way, so the row stays measured.
+
+**And the port side is now structural rather than incidental.** `build_one()`
+applies the motif to the chunk's own compound, so `vrna_sc_add_hi_motif()`'s
+soft constraint is on the object the guard inspects: with gate 1 forced open,
+gate 2 declines on `fc->sc` and the answer is byte-identical to the CPU route —
+**0 sweeps, and for the right reason.** Gate 1 still refuses `--motif` first,
+deliberately: a motif always lands in `sc` and is always declined, so building a
+batch for it would be pure waste.
 
 ### `-m` / `--mod-file` — inherits the SHAPE decision
 

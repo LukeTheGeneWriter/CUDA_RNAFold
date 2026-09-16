@@ -1548,6 +1548,19 @@ build_one(struct gpu_batch *b,
   if (opt->cmds)
     vrna_commands_apply(b->VC[i], opt->cmds, VRNA_CMD_PARSE_DEFAULTS);
 
+  /* LIGAND MOTIFS, same argument again. vrna_sc_add_hi_motif() installs a SOFT
+   * constraint (RNAfold.c:3153), so gate 2 declines it -- but only if the
+   * compound it inspects actually carries one. Applied here so the decision is
+   * made on what the fold compound IS rather than on which flag was typed,
+   * which is what makes gate 2 the authority and gate 1 merely the
+   * optimisation it is supposed to be.
+   *
+   * Gate 1 still refuses --motif, deliberately: a motif ALWAYS lands in sc and
+   * is ALWAYS declined, so building a batch for it would be pure waste. This
+   * exists for the library caller and for the probe. */
+  if (opt->ligandMotif)
+    add_ligand_motif(b->VC[i], opt->ligandMotif, 0 /* quiet */, VRNA_OPTION_MFE);
+
   b->Str[i] = (char *)vrna_alloc(sizeof(char) * (strlen(chunk[i]->sequence) + 1));
 }
 
