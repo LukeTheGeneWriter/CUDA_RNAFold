@@ -122,6 +122,45 @@ behaviour recorded (`tools/probe_declined_options.sh`).
 
 ---
 
+## 3a. Building it, verified from a clean clone
+
+**Checked the only way that means anything**: cloned from GitHub into an empty
+directory and built it, rather than trusting a tree that was already working.
+That is how the `doc/man2rst.py` mode defect was found — every notebook in this
+project had been papering over it with a `chmod +x` for months.
+
+```sh
+git clone https://github.com/LukeTheGeneWriter/CUDA_RNAFold.git
+cd CUDA_RNAFold && git checkout Lukes_Flow_Batching
+
+# the vendored third-party sources ship as tarballs and autogen expects them open
+tar -xjf src/dlib-*.tar.bz2   -C src/
+tar -xzf src/libsvm-*.tar.gz  -C src/
+
+./autogen.sh
+./configure --enable-cuda --without-python --without-perl --without-swig             --without-doc --without-rnaxplorer --without-forester             --without-kinfold --without-rnalocmin
+make -j$(nproc)
+```
+
+**Build prerequisites**: `gengetopt`, `help2man`, `xxd`, `libtool`, `texinfo`,
+`doxygen` (install it **before** `configure` — it is probed there), and a CUDA
+toolkit with `nvcc` on `PATH`. Without `--enable-cuda` the tree builds as
+stock ViennaRNA and the GPU path is simply absent.
+
+**Using it.** The GPU path is off unless asked for: `RNA_GPU_CHUNK` is the
+**master switch, not a cap** — unset means fold on the CPU, and `0` means "no
+cap, the VRAM budget decides".
+
+```sh
+RNA_GPU_CHUNK=0 src/bin/RNAfold --noPS -i sequences.fa
+```
+
+Verified from the clean clone above, 24 × 600 nt: **byte-identical to the same
+binary with the GPU path off**, one sweep, the AUTO build pipeline engaging, and
+`-C` — the feature that shipped today — accelerated and byte-identical too.
+
+---
+
 ## 4. How correctness is defended
 
 Three gates, and they are not the same gate:
