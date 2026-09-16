@@ -166,15 +166,18 @@ check noDP              gpu -p --noDP
 check verbose           gpu -v
 check loglevel          gpu --log-level=3
 check noClosingGU       gpu --noClosingGU
+# -C moved DECLINED -> ACCELERATED on 2026-09-16. This input carries no
+# constraint LINES, so these three only prove the routing and the no-op case;
+# tools/verify_constraint_parity.sh is where constraints that BITE are checked.
+check constraint        gpu -C
+check canonicalonly     gpu -C --canonicalBPonly
+check enforce           gpu -C --enforceConstraint
 
 echo
 echo "--- DECLINED: must route to the CPU and give the same answer"
 check dangles1          cpu -d1
 check dangles3          cpu -d3
 check energymodel       cpu --energyModel=1
-check constraint        cpu -C
-check canonicalonly     cpu -C --canonicalBPonly
-check enforce           cpu -C --enforceConstraint
 [ $fail -eq 0 ] && echo "RESULT: the CUDA build matches the CPU build across the option surface" \
                 || echo "RESULT: $fail options differ"
 exit $fail

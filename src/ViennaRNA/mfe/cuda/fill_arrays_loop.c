@@ -210,7 +210,23 @@
         if(!no_close){
           /* check for hairpin loop */
           /*energy_hp[ij] = energy = vrna_E_hp_loop(vc, i, j); */
-          new_c = MIN2(new_c, energy_hp_row[row_off_H[H]+j]);
+          //
+          // THE OTHER HALF OF A HARD CONSTRAINT, and it belongs here rather
+          // than in the kernel. wrap_hairpin_hc.inc:42-52 admits a hairpin only
+          // when hc->mx[ij] carries HP_LOOP *and* hc->up_hp[i+1] >= j-i-1 --
+          // the mask says whether the PAIR is legal, up_hp whether the loop may
+          // be left unpaired. The mask half already arrives through gate_row;
+          // this is the half that was missing, and it only ever fires under -C:
+          // for an unconstrained compound up_hp[i+1] is the whole remaining
+          // sequence, so the test is true by construction.
+          //
+          // Host-side because the term is applied host-side: the kernel
+          // computes energy_hp_row unconditionally and this loop is what gates
+          // it (see the kernel's own comment). One array read per cell, in a
+          // loop whose phase timer reads 0.000 s.
+          const unsigned int u_hp = (unsigned int)(j - i - 1);
+          if(VC[H]->hc->up_hp[i+1] >= u_hp)
+            new_c = MIN2(new_c, energy_hp_row[row_off_H[H]+j]);
 
           /* check for multibranch loops */
           //energy  = vrna_E_mb_loop_fast(vc, i, j, DMLi1, DMLi2);

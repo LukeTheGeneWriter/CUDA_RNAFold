@@ -164,6 +164,24 @@ struct cuda_param_s {
 cuda_param_t* d_param;
 char*         d_pair; //[NBPAIRS+1][NBPAIRS+1];
 unsigned int* d_hccc; //read via Hc
+
+// HARD CONSTRAINTS, THE HALF THAT IS NOT IN hc->mx.
+//
+// hc->mx says whether a PAIR is legal. Whether a base may be left UNPAIRED
+// lives in hc->up_hp / up_int / up_ml / up_ext, and until 2026-09-16 this
+// device carried only up_ml. That is invisible until a constraint forces a
+// base to PAIR: no bit in the four masks moves, and the sweep goes on allowing
+// interior loops whose unpaired span covers it. Measured, with the guard
+// lifted: better-than-legal answers on the two --enforceConstraint shapes.
+//
+// NULL whenever no record in the batch carries a hard-constraint depot, which
+// is every production fold today -- the kernels then skip the test entirely
+// rather than reading an array that says "everything is allowed" at the cost of
+// two loads per candidate in the hottest loop in the project.
+//
+// One byte per position, clamped at 31: the only comparisons are against an
+// interior-loop unpaired run, which MAXLOOP bounds at 30.
+unsigned char* d_up_int = NULL;
 unsigned int* d_S;    //S[length+2] packed 10 bases (3 bits each) per word
 int*          d_my_c;
 int*          d_energy_min2; //share with modular_decomposition.cu ?
@@ -502,6 +520,36 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   stage_ig_pack_s += rnafold_now_seconds() - _t_pk1;
   gpuErrchk( cudaMemcpy(d_hccc,hccc,hc_off_H[nfiles]*sizeof(unsigned int),cudaMemcpyHostToDevice) );
   free(hccc);
+
+  // up_int, and only when some record actually constrains something.
+  {
+    int any_depot = 0;
+    for(int H=0;H<nfiles;H++)
+      if(VC[H] && VC[H]->hc && VC[H]->hc->depot) { any_depot = 1; break; }
+
+    if(any_depot) {
+      const size_t nrow = row_off_H[nfiles];
+      unsigned char* upi = (unsigned char*) calloc(nrow, sizeof(unsigned char));
+      for(int H=0;H<nfiles;H++){
+        if(!VC[H]) continue;
+        const int length_H = (int)VC[H]->length;
+        // hc->up_int is allocated (n+2) entries (constraints/hard.c:182) and is
+        // 1-based; index 0 is unused here, exactly as up_ml's packing does.
+        for(int k=1;k<=length_H;k++){
+          const unsigned int v = VC[H]->hc->up_int[k];
+          upi[row_off_H[H]+k] = (unsigned char)((v > 31u) ? 31u : v);
+        }
+      }
+      SLOT_ALLOC(&d_up_int, nrow*sizeof(unsigned char));
+      gpuErrchk( cudaMemcpy(d_up_int, upi, nrow*sizeof(unsigned char), cudaMemcpyHostToDevice) );
+      free(upi);
+      fprintf(stderr,"%-24s hard-constraint up_int uploaded (%zu bytes): "
+                     "interior loops are span-checked this run\n", __FILE__,
+              nrow*sizeof(unsigned char));
+    } else {
+      d_up_int = NULL;
+    }
+  }
   }
 
   // Ten bases per word, H fastest index (see put10()/unpack()).
@@ -628,6 +676,7 @@ PUBLIC void
 teardown_gpu2(void) {
   if(first2) return; // never initialized (or already torn down) -- nothing to free
   gpuErrchk( cudaFree(d_hccc) );
+  if(d_up_int) { gpuErrchk( cudaFree(d_up_int) ); d_up_int = NULL; }
   gpuErrchk( cudaFree(d_S) );
   gpuErrchk( cudaFree(d_my_c) );
   gpuErrchk( cudaFree(d_new_e) );
@@ -1046,6 +1095,9 @@ __device__ inline int
 Energy(const int H, const int nfiles, const int i, const int j, const int q, const int p,
        const cell_inv_t ci,   //H1: computed once per cell by the caller
 	  /*const char* hard_constraints,*/ const int* my_c,
+	  // up_int for THIS record, or NULL when the batch carries no hard
+	  // constraints. See the d_up_int comment at the top of this file.
+	  const unsigned char* __restrict__ up_int,
 	  /*const int* hc_up, const char* hc, const unsigned int* __restrict__ hccc,*/
 	  const unsigned int* __restrict__ S, const char* __restrict__ pair_,//[NBPAIRS+1][NBPAIRS+1],
 	  const cuda_param_t __restrict__ *P,
@@ -1079,6 +1131,20 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
   //this should not be needed as using Hc if(hc_up[q+1] < j_q) return INF;
 
   int energy = INF;
+
+  // THE OTHER HALF OF A HARD CONSTRAINT (wrap_internal_hc.inc:57-67): with
+  // closing pair (i,j) and inner pair (p,q), the two unpaired runs are
+  // u1 = p-i-1 and u2 = j-q-1, and each must fit in the allowed run that
+  // starts after the base it follows. The line this restores was commented out
+  // years ago as "not needed as using Hc" -- true only while nothing could
+  // force a base to pair, which is exactly what the routing guard was for.
+  if(up_int){
+    const int u1 = p - i - 1;
+    const int u2 = j - q - 1;
+    if((u1 > 0) && ((int)up_int[i+1] < u1)) return INF;
+    if((u2 > 0) && ((int)up_int[q+1] < u2)) return INF;
+  }
+
 	  const int pp = p -(i+1);
 
 
@@ -1341,6 +1407,7 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const char* __restrict__ pair_,
                 const unsigned int* __restrict__ S,
                 const unsigned int* __restrict__ hccc,
+                const unsigned char* __restrict__ up_int, //in, d_up_int -- NULL when unconstrained
                 const int* __restrict__ my_c,
                 const size_t* __restrict__ tri_off_H,
                 const size_t* __restrict__ row_off_H,
@@ -1448,6 +1515,7 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
         const int q = q0 + column;
         const int energy2 = Energy(H,nfiles,i,j,q,p, ci,
                       &my_c[tri_off_H[H]],
+                      up_int ? &up_int[row_off_H[H]] : NULL,
                       S,pair_,P,
                       TerminalAU,ninio2,
                       P->bulge,P->internal_loop,lxc,
@@ -1946,7 +2014,7 @@ int_loop_cuda(const int nfiles,
 
 #define IL_WARP_LAUNCH(C, G, W, GRID) int_loop_warp_kernel<C,G,W><<<GRID, 32*(C)>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
-        d_pair, d_S, d_hccc, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
+        d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
         d_size_off_H, d_i_H, d_energy_min2)
 #define IL_WARP_DISPATCH(G, W, GRID) \
     switch(cpb) { \
@@ -1980,6 +2048,7 @@ int_loop_cuda(const int nfiles,
 						  d_pair,
 						  d_S,
 						  d_hccc,
+						  d_up_int,
 						  d_my_c,
 						  d_tri_off_H,
 						  d_row_off_H,
@@ -1993,6 +2062,7 @@ int_loop_cuda(const int nfiles,
 						  d_pair,
 						  d_S,
 						  d_hccc,
+						  d_up_int,
 						  d_my_c,
 						  d_tri_off_H,
 						  d_row_off_H,
@@ -2006,6 +2076,7 @@ int_loop_cuda(const int nfiles,
 						  d_pair,
 						  d_S,
 						  d_hccc,
+						  d_up_int,
 						  d_my_c,
 						  d_tri_off_H,
 						  d_row_off_H,
@@ -2019,6 +2090,7 @@ int_loop_cuda(const int nfiles,
 						  d_pair,
 						  d_S,
 						  d_hccc,
+						  d_up_int,
 						  d_my_c,
 						  d_tri_off_H,
 						  d_row_off_H,

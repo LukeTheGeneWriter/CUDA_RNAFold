@@ -368,36 +368,41 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
     DECLINE_UNLESS("hc_cb", "hard constraint callback");
 
   /*
-   * HARD CONSTRAINTS, in their plain bitmask form, are declined too -- and this
-   * one closed a live hole rather than documenting a known gap.
+   * HARD CONSTRAINTS ACCEPTED 2026-09-16, and they needed both halves of what a
+   * hard constraint is.
    *
-   * Until this check existed, nothing here fired for a -C style constraint: it
-   * leaves hc->type at VRNA_HC_DEFAULT and hc->f at NULL, so a constrained fold
-   * compound passed the guard and vrna_mfe_batch() folded it on the device.
-   * Measured on a 12x80 nt batch with a forced-unpaired block, the device
-   * returned -14.30 for a structure worth -5.40 -- its matrix fill and its
-   * backtrack did not even agree with each other.
+   * hc->mx says whether a PAIR is legal, and the device has packed it all along.
+   * Whether a base may be left UNPAIRED lives in hc->up_hp / up_int / up_ml /
+   * up_ext, and the device carried only up_ml -- so a constraint that forces a
+   * base to PAIR moved no bit the sweep read, and the fill answered with
+   * hairpins and interior loops whose unpaired span covered it. Measured before
+   * the fix: better than legal on every record of the two --enforceConstraint
+   * shapes, by 1.3 to 17.4 kcal/mol.
    *
-   * The sweep is not simply ignoring the constraint matrix; it packs bitmasks
-   * from hc->mx and honours some of it. It does not reproduce upstream's full
-   * set of loop-context checks, and the fork's own host sweep is wrong in the
-   * SAME way, which is why RNA_ROW_VERIFY reports 58128 cells checked and zero
-   * mismatches on the very folds that come out wrong. Device-against-host
-   * cannot see a defect the two share; only upstream's fill_arrays can.
+   * Three things landed together:
+   *   1. the masks are packed AFTER vrna_fold_compound_prepare() materialises
+   *      the depot (mfe_cuda.c) -- they were packed five lines before it, which
+   *      made RNA_HC_VERIFY compare two UNCONSTRAINED matrices and agree;
+   *   2. up_hp reaches new_c_kernel, which gates the hairpin term on
+   *      up_hp[i+1] >= j-i-1 exactly as wrap_hairpin_hc.inc:42-52 does;
+   *   3. up_int reaches Energy(), which refuses a candidate whose two unpaired
+   *      runs do not fit, exactly as wrap_internal_hc.inc:57-67 does.
+   * Both arrays are NULL when no record carries a depot, so an unconstrained
+   * fold reads neither.
    *
-   * The depot is the right thing to test. vrna_constraints_add() only QUEUES a
-   * constraint -- hc->mx, ptype and up_* are all still byte-identical to an
-   * unconstrained compound until vrna_fold_compound_prepare() materialises them
-   * -- and this guard runs BEFORE par_mfe() prepares. So comparing hc->mx here
-   * would compare two identical matrices and accept everything, which is
-   * precisely the shape of the empty-vs-empty checks that have already fooled
-   * this project. hc->depot is non-NULL from the moment a constraint is queued.
+   * up_ext needs nothing: the exterior loop is vrna_mfe_exterior_f5(), which is
+   * upstream's own host code.
    *
-   * tools/verify_constraint_parity.sh is the bar this has to pass before the
-   * check can be lifted; PORT_ACCELERATION_SCOPE.md records the cost.
+   * BAR: tools/verify_constraint_parity.sh --expect-accelerated, five shapes
+   * over 30 records at 80-1240 nt -- the all-dots control, force-unpaired,
+   * a forced far pair, and two --enforceConstraint shapes that force bases to
+   * PAIR (a block, and one inside a hairpin loop). All five byte-identical to
+   * the CPU route with the sweep running, and every energy self-consistent
+   * against RNAeval.
+   *
+   * STILL DECLINED, one check above: a hard-constraint CALLBACK (hc->f), which
+   * cannot run in a kernel, and the sliding-window layout.
    */
-  if ((fc->hc != NULL) && (fc->hc->depot != NULL))
-    DECLINE_UNLESS("hc", "hard structure constraints (see tools/verify_constraint_parity.sh)");
 
   if (fc->domains_up != NULL)
     DECLINE_UNLESS("motif", "unstructured domains (ligand motifs)");

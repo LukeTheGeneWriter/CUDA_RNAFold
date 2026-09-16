@@ -185,6 +185,18 @@ static int*    d_span_H;   //per-record max_bp_span, see init_gpu3
 // g_hc_seq_derived split and works under constraints as-is.
 // READ BY NOTHING YET.
 static char*   d_up_ml_ok;
+
+// up_hp, the hairpin half of the same story. up_ml is a BOOLEAN because a
+// multibranch loop extends one base at a time, so "may this base be unpaired"
+// is the whole question. A hairpin is different: the loop is admitted or
+// refused as one span, and upstream's rule (wrap_hairpin_hc.inc:42-52) is
+// up_hp[i+1] >= j-i-1 -- a COUNT, compared against a length that can reach the
+// whole record, so this is int-wide and not a byte.
+//
+// NULL unless some record in the batch carries a hard-constraint depot. For an
+// unconstrained fold up_hp[i+1] is the entire remaining sequence and the test
+// is true by construction, so the array would cost a load per cell to say yes.
+static int*    d_up_hp = NULL;
 // Staggered_Row_Batching Phase 5: per-row block-count table for
 // hp_mb_3p_kernel -- own copy (per this file's established convention),
 // same "size" formula as int_loop.cu's/modular_decomposition.cu's
@@ -538,6 +550,32 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     free(upbuff);
   }
 
+  // up_hp, only when something is actually constrained.
+  {
+    int any_depot = 0;
+    for(int H=0;H<nfiles;H++)
+      if(VC[H] && VC[H]->hc && VC[H]->hc->depot) { any_depot = 1; break; }
+
+    if(any_depot) {
+      const size_t n_up = seq_off_H[nfiles];
+      int* hpbuff = (int*) calloc(n_up, sizeof(int));
+      for(int H=0;H<nfiles;H++){
+        if(!VC[H]) continue;
+        const int len_H = (int)VC[H]->length;
+        for(int k=0;k<=len_H+1;k++)
+          hpbuff[seq_off_H[H]+k] = (int)VC[H]->hc->up_hp[k];
+      }
+      SLOT_ALLOC(&d_up_hp, n_up*sizeof(int));
+      gpuErrchk( cudaMemcpy(d_up_hp, hpbuff, n_up*sizeof(int), cudaMemcpyHostToDevice) );
+      free(hpbuff);
+      fprintf(stderr,"%-24s hard-constraint up_hp uploaded (%zu bytes): "
+                     "hairpins are span-checked this run\n", __FILE__,
+              n_up*sizeof(int));
+    } else {
+      d_up_hp = NULL;
+    }
+  }
+
   // Staggered_Row_Batching Phase 6d: real total extent, not the uniform
   // nfiles*(length+1); also cached for hp_mb_3p_i()'s copy-back.
   g_row_total = row_off_H[nfiles];
@@ -696,6 +734,7 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_S2) );
   gpuErrchk( cudaFree(d_sequence) );
   gpuErrchk( cudaFree(d_up_ml_ok) );
+  if(d_up_hp) { gpuErrchk( cudaFree(d_up_hp) ); d_up_hp = NULL; }
   gpuErrchk( cudaFree(d_salt_loop) );   //length-dependent: freed with the batch
   gpuErrchk( cudaFree(d_energy_hp_row) );
   gpuErrchk( cudaFree(d_energy_mb_row) );
@@ -1510,6 +1549,8 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
              const int*  __restrict__ energy_mb_row,  //in
              const char* __restrict__ gate_row,       //in
              const int*  __restrict__ dml1,           //in  d_dml1
+             const int*  __restrict__ up_hp,          //in  d_up_hp -- NULL when unconstrained
+             const size_t* __restrict__ seq_off_H,    //in  up_hp's per-record base
                    int*  __restrict__ new_e,          //out d_new_e
              const int*  __restrict__ stack_row,      //in  noLP: NULL when off
              const int*  __restrict__ cc1,            //in  noLP: previous row
@@ -1538,7 +1579,15 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
 
   int new_c = energy_min2[o+j];
   if(!(((gate & 2) != 0) && noGUclosure)) {
-    const int hp = energy_hp_row[o+j];
+    // THE HAIRPIN HALF OF A HARD CONSTRAINT. gate bit 0 carries hc->mx, which
+    // says whether the PAIR (i,j) may close anything; whether its LOOP may be
+    // left unpaired is hc->up_hp, and upstream admits the hairpin only when
+    // up_hp[i+1] >= j-i-1 (wrap_hairpin_hc.inc:42-52). Without this a '|'
+    // constraint under --enforceConstraint was answered with a hairpin whose
+    // loop covered the base it forced to pair -- measured, and better than
+    // legal by 1.3 to 17.4 kcal/mol.
+    const int hp = (up_hp && (up_hp[seq_off_H[H] + i + 1] < (j - i - 1)))
+                   ? INF : energy_hp_row[o+j];
     if(hp < new_c) new_c = hp;
     const int d1 = dml1[o+(j-1)];
     if(d1 != INF) {
@@ -1682,7 +1731,8 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
   const size_t nblocks = (total + block_size - 1)/block_size;
   new_c_kernel<<<(int)nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn, noGUclosure,
                                             d_energy_min2_, d_energy_hp_row, d_energy_mb_row,
-                                            d_gate_row, d_dml1_, d_new_e_,
+                                            d_gate_row, d_dml1_,
+                                            d_up_hp, d_seq_off_H, d_new_e_,
                                             noLP ? d_energy_stack_row : NULL,
                                             noLP ? d_cc1 : NULL,
                                             noLP ? d_cc  : NULL,

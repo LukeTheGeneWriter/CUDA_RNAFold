@@ -1187,8 +1187,9 @@ gpu_path_usable(struct options *opt,
    * flush_gpu_chunk() still applies constraints to the compounds it builds. It
    * is not dead code: it is what makes the declined-batch fallback fold the
    * right thing, and it has to be in place before this bar can lift. */
-  if (fold_constrained)         NO_UNLESS("hc", "structure constraints");
-  if (opt->constraint_file)     NO_UNLESS("hc", "a constraint file");
+  /* -C ACCEPTED 2026-09-16 -- see the long note in mfe/cuda/engine.c. The
+   * device carries hc->up_hp and hc->up_int now, not just hc->up_ml, and the
+   * masks are packed after the depot is materialised. */
   if (opt->probing_data)        NO_UNLESS("soft", "probing/SHAPE data");
   if (opt->cmds)                NO_UNLESS("cmds", "a command file");
   if (opt->mod_params)          NO_UNLESS("mod", "modified bases");

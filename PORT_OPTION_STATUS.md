@@ -85,9 +85,9 @@ left to watch.
 | **`-c` / `--circ`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/`--noLP`/`--salt`; `tests/mfe_cuda_circ.ts` |
 | **`--noClosingGU`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/chunked/`-c`/`-g`; `tests/mfe_cuda_noclosinggu.ts` |
 | `--energyModel` | DECLINED | 1, 2 | **measured 2026-09-16**: silently ignored, see below |
-| `-C` / `--constraint` | DECLINED | 1, 2 | **measured 2026-09-16**: masks packed too early, see below |
-| `--canonicalBPonly` | DECLINED | 1, 2 | measured *(follows `-C`)* |
-| `--enforceConstraint` | DECLINED | 1, 2 | measured *(follows `-C`)* |
+| **`-C` / `--constraint`** | **ACCEL** *(new, 2026-09-16)* | — | measured; `verify_constraint_parity.sh --expect-accelerated`, **5 shapes / 30 records, byte-identical** |
+| **`--canonicalBPonly`** | **ACCEL** *(new, 2026-09-16)* | — | measured *(rides `-C`: it only changes what the depot contains)* |
+| **`--enforceConstraint`** | **ACCEL** *(new, 2026-09-16)* | — | measured; it is the option both `pipe` shapes are built on |
 | `--shape` | DECLINED | 1, 2 | **measured 2026-09-16**: silently ignored, see below |
 | `--shapeMethod` | DECLINED | 1, 2 | asserted *(same path as `--shape`)* |
 | `--shapeConversion` | DECLINED | 1, 2 | asserted |
@@ -129,8 +129,8 @@ the CPU was compared against itself.
 
 | | count |
 |---|---|
-| **ACCELERATED, byte-identical** | **27** |
-| DECLINED, CPU route asserted | 13 |
+| **ACCELERATED, byte-identical** | **30** |
+| DECLINED, CPU route asserted | 10 |
 | NEUTRAL | 19 |
 | UNREACHABLE from this CLI | 1 |
 
@@ -354,3 +354,52 @@ got wrong:** `|` ("paired with something") is **not enforced without
 does not bite reports agreement for the wrong reason, so both pipe shapes carry
 the flag — which also puts `--enforceConstraint` itself under test, since it is
 the option that makes `hc->up_*` restrictive in the first place.
+
+---
+
+## `-C` SHIPPED, 2026-09-16 — and it needed both halves of what a constraint is
+
+The "what it would need" row above said *small, then two O(n) uploads and one
+comparison in each of two kernels*. That is what it took, and the order in which
+the three pieces were found is the useful part:
+
+**1. An ordering defect (committed separately).** `init_gpu3()` packed the four
+hard-constraint masks five lines before `vrna_fold_compound_prepare()`
+materialised `hc->depot` into `hc->mx`. Invisible for every model the guard
+admitted, because their pre-prepare matrix already equals the final one.
+`RNA_HC_VERIFY` reported **0 mismatching words** on exactly the folds that came
+out wrong — it rebuilds from `hc->mx` at pack time, so it was comparing two
+unconstrained matrices.
+
+**2. `up_hp`, and it does not belong in a kernel that seemed obvious.** The
+first attempt put the hairpin span check in `fill_arrays_loop.c`'s row combine —
+which is **dead code under `RNA_GPU_SWEEP`**, the shipped default. The live site
+is `new_c_kernel`, and the gate there is upstream's own rule verbatim:
+`up_hp[i+1] >= j-i-1` (`wrap_hairpin_hc.inc:42-52`). `up_hp` is a **count**, not
+a boolean like `up_ml`: a multibranch loop extends one base at a time, a hairpin
+is admitted as a whole span.
+
+**3. `up_int`, restoring a line that was deleted years ago.** `Energy()` in
+`int_loop.cu` carried a commented-out `if(hc_up[q+1] < j_q) return INF;` marked
+*"this should not be needed as using Hc"* — true exactly while nothing could
+force a base to pair, which is what the routing guard was for. Both runs are
+checked now, `u1 = p-i-1` and `u2 = j-q-1`, per `wrap_internal_hc.inc:57-67`.
+
+**Both arrays are NULL when no record carries a depot**, so an unconstrained
+fold reads neither and the hottest loop in the project gains no loads. `up_ext`
+needed nothing: the exterior loop is `vrna_mfe_exterior_f5()`, upstream's own.
+
+**What it measured, before and after** (8 records, 80–240 nt, forced-paired
+blocks under `--enforceConstraint`):
+
+| | CPU | GPU before | GPU after |
+|---|---|---|---|
+| worst record | −85.20 | **−102.60** (better than legal) | **−85.20** |
+| records matching | — | 0 of 6 | **6 of 6** |
+
+And the bar, with no env hook and the guard genuinely lifted: **5 shapes, 30
+records, 80–1240 nt, all byte-identical to the CPU route with the sweep running,
+every energy self-consistent against RNAeval.**
+
+**Gate 3 is empty again** — `-d1`/`-d3` are the only backstopped options, and
+they remain so.

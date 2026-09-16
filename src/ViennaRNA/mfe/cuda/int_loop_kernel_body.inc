@@ -31,6 +31,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
 		const char* __restrict__ pair_, //[NBPAIRS+1][NBPAIRS+1],
 		const unsigned int* __restrict__ S,    //[length+2] packed
 		const unsigned int* __restrict__ hccc,//bit array hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP
+		const unsigned char* __restrict__ up_int, //in, d_up_int -- NULL when unconstrained
 		const int* __restrict__ my_c,
 		const size_t* __restrict__ tri_off_H, //in, d_my_c's per-H block start
 		const size_t* __restrict__ row_off_H, //in, energy_min's per-H row start
@@ -129,6 +130,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
       const int q = q0 + column;
       const int energy2 = Energy(H,nfiles,i,j,q,p, ci,
 	            &my_c[tri_off_H[H]],
+	            up_int ? &up_int[row_off_H[H]] : NULL,
 	            S,pair_,P,
 	            TerminalAU,ninio2,
 	            P->bulge,P->internal_loop,lxc,
