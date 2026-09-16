@@ -468,11 +468,31 @@ ABCD alphabet, A→3 and B→2, so the device asks `pair[3][2]` where upstream a
 `pair[1][2]`. `model.c:1042` fills `pair[i][i+1] = 2` on **raw** indices, so the
 device's lookup is 0 and **nothing pairs** — exactly the all-dots 0.00 measured.
 
-**Cost to fix:** upload the raw encoding beside the aliased one and switch every
-pair-type lookup to it — including `int_loop`'s bit-packed `d_S`, which is in
-the hottest path in the project. **Value:** an option whose intended use is a
-synthetic A/B/C/D alphabet. The CPU route is correct and always will be.
-**Recommendation: leave it declined, and keep this paragraph instead.**
+**Cost to fix, revised 2026-09-16 after reading the packing.** Smaller than it
+first looked, and bounded by one hard limit:
+
+* `Ptype()` reads `int_loop`'s **3-bit packed** sequence (`unpack()`, 10 codes
+  per 32-bit word, `assert(si < 8)`) and indexes an **8x8** pair table. Raw
+  codes for the intended A/B/C/D alphabet are **1-4**, so they fit — but the
+  alphabet runs to `MAXALPHA = 20`, and codes above 7 **cannot be represented
+  at all** without rewidening the packing.
+* So the feature is inherently **conditional**, the same shape as `--maxBPspan`
+  and `--commands`: accept `energy_set` when every code fits in three bits
+  (letters A-G), decline otherwise. That is a checkable predicate, not a
+  caveat.
+* The work is then: pack the RAW encoding into a second array beside the
+  aliased one, read it in `Ptype()` and `Ptype2()` behind a uniform flag, and
+  add the guard predicate. **The default path pays nothing** -- `cell_invariants`
+  derives the type ONCE PER CELL (H1 hoisted it there), so even when enabled the
+  cost is one extra packed load per cell, not per candidate.
+
+**Value:** an option whose intended use is a synthetic alphabet, for theory and
+design work rather than real RNA. The CPU route is correct and always will be.
+
+**Recommendation: build it only if there is a user.** Without one, the 3-bit
+packing gives a *principled* permanent decline -- "this backend encodes a
+four-letter alphabet in three bits, and `energy_set` is defined over twenty
+letters" -- which is a better answer than an implementation gap.
 
 ### `--shape` / `--shapeMethod` / `--shapeConversion` / `--sp-*` — the one worth doing, and it needs a decision first
 
