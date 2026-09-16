@@ -47,3 +47,11 @@ RNAlib2.pc
 pyproject.toml
 setup.py
 setup.cfg
+
+# transient artifacts of local configure/build debugging, removed at the
+# Finished_Port cleanup (2026-09-16). They are regenerable or meaningless:
+# configure.bak is autotools', the notebooks come from tools/make_nb_*.py.
+configure.bak
+configure.run.rc
+configure_status.txt
+nvcc_paths.txt
