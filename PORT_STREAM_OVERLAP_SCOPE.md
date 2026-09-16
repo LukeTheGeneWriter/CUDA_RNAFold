@@ -356,3 +356,62 @@ collectable only by making the transfers asynchronous, not by deleting syncs.
 (2 chunks, build pipeline on) the wall is **85.26 s** and `build` is already
 83 % hidden behind the fold. Re-derive §10's table from that arm, not from the
 91.0 s figure, before committing to a race-bearing rewrite.
+
+---
+
+## 12. The per-row dependency graph, written out (2026-09-16)
+
+Asked directly: *should we launch two kernels per row, one for paired and one
+for multiloop?* **We already launch six, split by exactly that logic** — the
+question is worth answering with the graph rather than a yes.
+
+What one row `i` actually does, in order, all of it on the NULL stream:
+
+```
+  int_loop_i      reads c (rows > i)          -> energy_min2[i]      16.54 s
+  gq_internal_i   reads c_gq                  -> energy_min2[i]       (in int_loop)
+  hp_mb_3p_i      reads SEQUENCE + params     -> hp/mb/3p/gate[i]      1.89 s
+  new_c_i         reads all of the above + DMLi1 (fML row i+1) -> c[i]
+  load_my_c       c[i] into the triangle                              1.39 s
+  load_fML + modular_decomposition + load_min_fML   -> fML[i]         37.84 s
+  fml_prev_i      rotation
+```
+
+**Three of those are mutually independent.** `hp_mb_3p` reads only the sequence,
+the parameter tables and the hard-constraint masks — **no DP value at all** — so
+it does not depend on `int_loop`, and neither depends on `gq_internal`.
+`new_c` is the join.
+
+**And the cells within each are already massively parallel.** At the production
+shape `int_loop` launches **400 400 blocks (115.9 waves/SM)** and
+`modular_decomposition` **16 683 (77.2 waves)**. A row is not short of work —
+§34.1. What is serial is the *phase chain*, not the cells in a phase.
+
+So the prize is not "split the row into more kernels", it is "let the
+independent ones run at the same time", and it comes in two very different
+sizes:
+
+| | overlap | ceiling |
+|---|---|---|
+| **within a row**: `hp_mb_3p(i)` ∥ `int_loop(i)` | 1.89 s of 1.89 | **~2 % of wall** — this is Stage 2 |
+| **across rows**: `md(i)` ∥ `int_loop(i−1)` + `hp_mb(i−1)` | 18.4 s of 37.8 | **~21 % of wall** — this is Stage 3 |
+
+The cross-row one is the whole prize, and it is legal for a reason worth stating
+plainly: **`int_loop(i−1)` reads `c`, which `new_c(i)`/`load_my_c(i)` finished
+writing before `md(i)` started. It never reads `fML`.** Only `new_c(i−1)` needs
+`md(i)`'s output, so the join is one step later than it looks.
+
+### What §34.1 adds that this scope predates
+
+`modular_decomposition` is at **82.8 % of DRAM peak** in production and
+`int_loop` at **4.7 %**. Concurrent kernels share bandwidth, so pairing two
+bandwidth-hungry kernels would buy far less than the arithmetic suggests —
+**and this pairing is the opposite case.** A kernel that needs bandwidth runs
+beside one that needs latency hiding and barely touches DRAM. That is the
+best possible co-tenancy, and it makes Stage 3's ceiling more believable than
+when it was written, not less.
+
+It also re-ranks Stage 2 downward: `hp_mb_3p` is 1.89 s, so the "easiest case"
+is worth 2 % and remains worth doing **only as the rehearsal for the mechanism**
+— double-buffering, events, and the capture-region hazard — which is exactly
+what §11's staging said it was for.
