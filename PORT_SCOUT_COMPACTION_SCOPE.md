@@ -110,3 +110,32 @@ rewrite. **This is the third item on that list, not the first.**
 **Do first:** add `smsp__thread_inst_executed_per_inst_executed.ratio` to the
 §G probe. It is one metric, it costs nothing, and it decides whether any of
 this is worth designing.
+
+---
+
+## 7. ANSWERED (2026-09-16, §34.4): the warps are 83–94 % full
+
+§3 said to decide this on one metric before designing anything further.
+Measured, `smsp__thread_inst_executed_per_inst_executed.ratio` (32 = a full
+warp):
+
+| | 600–8000 nt | production, 200 × 5601 |
+|---|---|---|
+| `modular_decomposition_kernel` | 28.3 – 29.3 | **30.09** |
+| `int_loop_warp_kernel` | 25.9 – 26.4 | **26.64** |
+
+**`modular_decomp` is closed** by §5's own criterion (>28 → no prize): 30.09 of
+32 leaves 6 % of its lanes, and §34.1 has since shown it is **bandwidth-bound in
+production** at 82.8 % of DRAM peak — filling its remaining lanes would ask for
+more bandwidth it does not have.
+
+**`int_loop` keeps a small one.** 26.64 of 32 is 17 % of its lanes idle, on a
+phase that is 19 % of wall, so a *perfect* compaction costing nothing is worth
+**~3 % of wall** — and it would have to be bought without breaking the
+lane-striding that §5.2 says is load-bearing.
+
+**Status: measured, not refuted, and ranked last.** The idea was right about the
+mechanism — legality is not serial, and ragged rows do idle lanes — and the
+measurement says the ragged part is mostly already handled, by the candidate
+compaction `int_loop` does inside each cell and by the waste guard declining
+ragged 2-D launches. Anyone returning to this should start from the 26.64.

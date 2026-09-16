@@ -184,3 +184,42 @@ Three things the tile sweep added that the prediction did not contain:
    a named suspect.
 4. **Leave int16 off on this class of card** and quote the mechanism, not just
    the null.
+
+---
+
+## 8. CORRECTION (2026-09-16, §34.1): the roofline position is a property of the GRID, not the kernel
+
+§7 retired the L4's "move fewer bytes" conclusion on the strength of a 7.9 %
+DRAM reading. **That reading came from a 142-block grid.** At the production
+shape the same kernel reports:
+
+| | §7's fixture | production, 200 × 5601 |
+|---|---|---|
+| grid | 142 | **16 683** |
+| waves/SM | 0.66 | **77.2** |
+| **DRAM** | **7.9 %** | **82.8 %** |
+| `imc_miss` | 3.25 | 0.02 |
+
+**`modular_decomposition_kernel` is bandwidth-bound in production**, and the
+progression is smooth in grid size (3.5 → 8.7 → 19.4 → 45.2 → 62.7 → 82.8 %), so
+this is not a threshold effect to be argued about. §7's three conclusions have
+to be re-read:
+
+1. **"Both kernels are latency-bound" is wrong for `modular_decomp` at scale.**
+   It is true for `int_loop`, which sits at 4.7 % of DRAM peak in production with
+   `long_scoreboard` 4.3.
+2. **`imc_miss` needs no investigation.** It falls to 0.02 as the grid grows: it
+   was the constant bank on a nearly-empty machine, not a `__constant__` problem.
+3. **The tile-sweep findings stand** — they were measured at fixed grid, and
+   coalescing quality (sectors/request 1.74 → 3.69) degrades with length on the
+   same axis, which only strengthens them.
+
+**What this does to §6's ceiling table.** The `modular_decomp` row assumed
+issue-efficiency headroom. At 82.8 % of DRAM peak there is no such headroom:
+that phase is within ~20 % of the machine's memory roof, and the only levers
+left on it are **fewer bytes** (int16 — measured +0.0 % end-to-end on this card
+and now worth re-testing with this understanding) or **better reuse** (L2 hit
+falls 42.6 → 15.2 % between 600 and 4800 nt, which names where the row stops
+fitting). The `int_loop`, transfer and host rows are unaffected.
+
+**The lesson for every roofline number in this file: quote the grid with it.**

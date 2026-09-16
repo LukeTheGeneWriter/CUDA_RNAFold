@@ -3351,3 +3351,129 @@ upper bound.
 chunks, 26.6 GB host RSS, pipeline hiding 58–59 % of the builder, and **the same
 sha both times**. The waste guard declined the 2-D grid on this input, as §B
 says it should for ragged widths.
+
+# 34. The Scaling run: §33.1's headline was a fixture artefact, and `modular_decomp` is bandwidth-bound in production
+
+Run `71874e33`, A100-SXM4-40GB. `scaling_a100.json`, `scaling_a100_ncu.json`.
+
+## 34.1 CORRECTION: at the production shape `modular_decomp` sits at 83 % of DRAM peak
+
+§33.1 measured it at **7.9 %** of DRAM peak on a 60 × 1800 fixture and concluded
+*latency-bound, the L4's "move fewer bytes" is retired*. §33.1 also flagged its
+own wave count as a fixture property and said to re-measure at scale. That was
+the right instinct and it did not go far enough — **every roofline number in
+that section is a fixture property**:
+
+| | §33.1 fixture | **production, 200 × 5601** |
+|---|---|---|
+| grid | 142 blocks | **16 683** |
+| waves/SM | 0.66 | **77.24** |
+| occupancy | 46.1 % | 68.9 % |
+| **DRAM** | **7.9 %** | **82.8 %** |
+| `long_scoreboard` | 11.67 | 25.66 |
+| `imc_miss` | 3.25 | **0.02** |
+
+**`modular_decomposition_kernel` is bandwidth-bound in production.** Not
+latency-bound. `PROFILE272_RESULTS.md`'s L4 conclusion — *"the way to go faster
+is to move fewer bytes, not to restructure the compute"* — **describes this card
+at this workload after all**, and §32.4/§33.1's retirement of it was drawn from a
+grid a hundredth of production size.
+
+**§B shows it is a continuum, and the variable is the grid, not the length:**
+
+| L (24 records) | grid | DRAM % | L1 % | **L2 %** | sectors/req |
+|---|---|---|---|---|---|
+| 600 | 77 | 3.5 | 72.2 | **42.6** | 1.74 |
+| 1200 | 152 | 8.7 | 69.7 | 32.4 | 2.10 |
+| 2400 | 302 | 19.4 | 67.8 | 20.8 | 2.57 |
+| 4800 | 602 | 45.2 | 66.2 | **15.2** | 3.08 |
+| 8000 | 1002 | 62.7 | 65.2 | 25.0 | 3.46 |
+| **production** | **16 683** | **82.8** | 64.4 | 31.6 | 3.69 |
+
+**`imc_miss` is explained by the same axis and needs no `__constant__`
+investigation.** It falls monotonically 3.62 → 0.47 → **0.02** as the grid
+grows. It was never a property of the kernel; it is what a nearly-empty machine
+reports while the constant bank warms.
+
+## 34.2 The cache answer, which is different for the two kernels
+
+**`modular_decomp` loses its cross-cell reuse with length. `int_loop` does not.**
+
+| | L1 across 600→8000 | L2 across 600→8000 | sectors/request |
+|---|---|---|---|
+| `modular_decomp` | 72.2 → 65.2 % | **42.6 → 15.2 %** (rebounds to 25.0) | 1.74 → **3.46** |
+| `int_loop` | 72.9 → **78.8 %** | 84.2 → 84.4 % (**flat**) | 2.73 → 2.95 (flat) |
+
+That is the shape of the two algorithms, seen in the cache. `int_loop`'s
+candidate window is **MAXLOOP-bounded**, so its working set does not grow with
+the record and its hit rates are flat — it even *improves*, because longer rows
+amortise the per-cell prologue. `modular_decomp` re-reads a whole `fml_i` row
+per cell, so its working set is the row: L2 collapses between 2400 and 4800 nt,
+and the coalescing quality degrades with it (1.74 → 3.46 sectors per request).
+
+**The practical reading: 2400–4800 nt is where `modular_decomp`'s row stops
+fitting in L2** on this card, and that is the length beyond which "move fewer
+bytes" starts paying for it. Every production workload here is past it.
+
+## 34.3 Block size: the timing is flat, the **limiter** is the answer
+
+The timing sweep resolved nothing — 1.70–1.77 s wall on a 24 × 2400 fixture, a
+1 % spread with `int_loop` at 0.27 s — so **no block size can be called best
+from this run**, and the fixture was too small to ask. What `ncu` gives is the
+question that was actually asked: *what stands in the way*.
+
+| arm | block | regs | occupancy | limits (blk/reg/smem/warp) | **binds** |
+|---|---|---|---|---|---|
+| `int_loop` 32 | 32 | 48 | 24.4 % | 32/40/32/64 | **blocks** — the 32-per-SM hardware cap |
+| `int_loop` 128 | 128 | 48 | 29.1 % | 32/**10**/32/16 | **registers** |
+| `md` 128 | 128 | 40 | 51.9 % | 32/**12**/32/16 | **registers** |
+| `md` 512 | 512 | 40 | 58.4 % | 32/**3**/16/4 | **registers** |
+| `md` 1024 | 1024 | 40 | 45.3 % | 32/**1**/8/2 | **registers** |
+
+**Registers are the obstacle everywhere above one warp per block**, and at one
+warp per block the obstacle is a hardware constant no code change can move. That
+is the honest answer to "what is standing in the way of c·32 scaling": at c = 1
+the 32-blocks-per-SM limit caps occupancy at 50 % before any code runs; from
+c = 4 upward, 48 (or 40) registers per thread cap it again.
+
+**And c does not go past 8.** `RNA_INT_LOOP_BLOCK_SIZE=512` was *refused* by the
+runner's own assertion: the warp dispatch instantiates `cpb ∈ {1,2,4,8}`
+(`int_loop.cu:1952-1957`) and anything larger silently falls back to **32
+threads**, which the ncu arm confirms — it reports `block 32` for an arm that
+asked for 512. A knob that quietly ignores you is worth knowing about; the
+notebook caught it because it asserts the *reported* block size, not the
+requested one.
+
+## 34.4 The scout-compaction question, answered with one metric
+
+`PORT_SCOUT_COMPACTION_SCOPE.md` said to decide it on **active lanes per
+instruction** — 32 is a full warp:
+
+| | `modular_decomp` | `int_loop` |
+|---|---|---|
+| 600–8000 nt | 28.3 – 29.3 | 25.9 – 26.4 |
+| **production** | **30.09** | **26.64** |
+
+**The warps are 83–94 % full.** By the scope's own criterion (>28 → close it),
+`modular_decomp` is closed: at 30.09 of 32 there is 6 % of its lanes to win, and
+it is bandwidth-bound anyway. `int_loop` sits at 26.64 — **17 % of its lanes**,
+on a phase that is 19 % of wall, so a *perfect* compaction that cost nothing
+would be worth **~3 % of wall**, and it would have to be bought with a
+restructuring that §33.1 says must not break lane-striding.
+
+**The idea is sound and the prize is small.** Filed as measured, not refuted.
+
+## 34.5 §A did not measure what it claimed, and the reason is the usual one
+
+Every arm reported the pipeline costing **0.00 GB**: `RSS off` and `RSS on`
+identical to two decimals at all six shapes. Not a null result — **a fixture
+that could not reach the thing being measured.** 40 records of 1200 nt is *one
+chunk*, and a one-deep pipeline holds a second chunk only when a second chunk
+exists. §33.5's +6.40 GB came from a two-chunk run.
+
+The estimator question is therefore still open and the notebook needs a fix:
+force multiple chunks with `RNA_GPU_VRAM_BUDGET_MB` so there is something to
+build ahead. **This is the eleventh time in this project a check has reported
+success or silence because it could not reach its target**, and the first one I
+wrote after building a probe that asserts three separate reachability conditions
+for exactly this reason.

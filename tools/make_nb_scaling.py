@@ -347,12 +347,20 @@ the second chunk actually costs — per record and divided by L².""")
 
 code(r"""
 print("A: host residency vs records x length (pipeline off vs on)")
+# TWO CHUNKS, FORCED. A one-deep pipeline holds a second chunk only when a
+# second chunk EXISTS: the first version of this section used the whole fixture
+# as one chunk and reported the pipeline costing 0.00 GB at all six shapes --
+# not a null, a fixture that could not reach what it measured (STRESS272 34.5).
+# RNA_GPU_CHUNK is a cap on RECORDS PER CHUNK, so n//2 gives exactly two.
 A_GRID = [(40, 1200), (40, 2400), (40, 4800), (20, 5601), (20, 8000), (10, 12000)]
 for n, L in A_GRID:
     fa = fasta("a_%dx%d" % (n, L), n, L)
     for pipe in (False, True):
-        run("A_%dx%d_%s" % (n, L, "on" if pipe else "off"), fa,
-            pipeline=pipe, phase_sync=False)
+        r = run("A_%dx%d_%s" % (n, L, "on" if pipe else "off"), fa,
+                chunk_cap=n//2, pipeline=pipe, phase_sync=False)
+        if r["chunks"] < 2:
+            raise SystemExit("A_%dx%d: %d chunk(s) -- nothing to overlap, the "
+                             "arm measures nothing" % (n, L, r["chunks"]))
 """)
 
 code(r"""
