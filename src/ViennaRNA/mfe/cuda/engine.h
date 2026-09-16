@@ -19,6 +19,21 @@
  */
 
 /**
+ *  @brief  TEST HOOK: is the named routing-guard check lifted?
+ *
+ *  Reads RNA_ENGINE_ALLOW, a comma-separated list of check ids (or "all"), and
+ *  announces every lift on stderr. It exists so that a declined option can be
+ *  MEASURED from a shipped binary instead of a scratch build -- five options
+ *  moved from DECLINED to ACCELERATED that way. A lifted check routes a fold to
+ *  a device path known not to support it: the answer may be silently wrong.
+ *
+ *  @param  id  The check id, e.g. "hc", "energy_set", "soft", "motif"
+ *  @return     Non-zero if that check should be skipped
+ */
+int
+vrna_cuda_engine_allow(const char *id);
+
+/**
  *  @brief  Is a usable CUDA device present?
  *
  *  @return The number of usable devices; 0 if the library was built without

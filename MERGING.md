@@ -232,7 +232,16 @@ discovered.
 `RNA_GPU_VRAM_BUDGET_MB`, `RNA_CONTINUOUS_FLOW`, `RNA_SLOT_FLOW`.
 
 **Diagnostic / self-check, not for production:** `RNA_ROW_VERIFY`, `RNA_HC_VERIFY`,
-`RNA_SLOT_TURNOVER`, `RNA_SLOT_CAPACITY=max`.
+`RNA_SLOT_TURNOVER`, `RNA_SLOT_CAPACITY=max`, `RNA_HOST_AVAIL_MB`.
+
+**Test hooks that deliberately break a safety property.** Both announce
+themselves on stderr and neither belongs in a measurement, let alone a
+deployment:
+
+| variable | what it disables |
+|---|---|
+| `RNA_ENGINE_ALLOW=<id>[,…]` or `all` | lifts a named routing-guard check in **both** gate 1 and gate 2, so a DECLINED option can be measured from a shipped binary. The fold then reaches a device path known not to support it and **the answer may be silently wrong** — that is the point of the measurement. `tools/probe_declined_options.sh` is the intended caller |
+| `RNA_HOST_AVAIL_MB=<mb>` | makes the host-memory read return this instead of `MemAvailable`, so the build pipeline's AUTO decline branch is reachable on a machine with room to spare |
 
 **Auto-tuned block sizes, each with an override:** `RNA_INT_LOOP_BLOCK_SIZE`,
 `RNA_MD_BLOCK_SIZE`, `RNA_HP_MB_BLOCK_SIZE`, `RNA_LOAD_MY_C_BLOCK_SIZE`,

@@ -222,3 +222,23 @@ change.
 Throughout: each feature keeps its CPU route as the fallback, so an
 acceleration that is wrong is caught by comparing against the route it replaces
 — the same self-comparison that has caught every error in this port.
+
+---
+
+## Tier 0 is CLOSED (2026-09-16)
+
+This section asked which declined options "may already work" and needed testing
+rather than building. It has now been answered for the whole declined list, in
+one sweep, with `tools/probe_declined_options.sh` and the `RNA_ENGINE_ALLOW`
+test hook:
+
+**None of them already works.** `-C`, `--energyModel 1/2`, `--shape`,
+`--commands` and `-d1`/`-d3` were each forced onto the device and each is
+genuinely unsupported — four of them *silently*, returning the plain fold
+byte-identical to no option at all, one (`-C`) with the fill and the backtrack
+disagreeing, and the dangle models loudly, via gate 3. The measurements and the
+two fixtures that lied first are in `PORT_OPTION_STATUS.md`.
+
+The tier's *method* is what survives: it moved five options to ACCELERATED, and
+it is now a script rather than a ritual, so the next time a guard is suspected
+of being over-cautious the answer costs one command.

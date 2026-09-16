@@ -58,6 +58,67 @@ vrna_cuda_devices(void)
 }
 
 
+/*
+ * TEST HOOK: RNA_ENGINE_ALLOW=<id>[,<id>...] or "all".
+ *
+ * WHY A GUARD HAS AN OVERRIDE AT ALL. Five options in this guard turned out to
+ * be declined out of CAUTION rather than NECESSITY -- noGU, uniq_ML, --nsp, -g
+ * and -d0 all moved to ACCELERATED once someone measured them, and the way each
+ * was measured was by taking the check out in a scratch build. That is a slow
+ * and error-prone ritual (PORT_ACCELERATION_SCOPE.md "Tier 0 -- may already
+ * work; needs TESTING, not building"), and a scratch build is exactly the shape
+ * of the stale-binary traps this project keeps writing down. One named,
+ * announced hook makes every declined row measurable from a SHIPPED binary.
+ *
+ * WHAT IT IS NOT. It is not a way to use an unsupported option. A lifted check
+ * puts the fold on a device path that is KNOWN NOT TO SUPPORT IT, and the
+ * answer may be silently wrong -- which is the entire reason the check exists.
+ * It announces itself on stderr, once per lifted id, in the same shape as every
+ * other gate here, because a run that lifted a guard must never be able to pass
+ * for one that did not.
+ */
+PUBLIC int
+vrna_cuda_engine_allow(const char *id)
+{
+  static const char *list  = NULL;
+  static int         inited = 0;
+  const char        *p;
+  size_t             n;
+
+  if (!inited) {
+    list   = getenv("RNA_ENGINE_ALLOW");
+    inited = 1;
+
+    if (list && list[0])
+      fprintf(stderr,
+              "%-24s RNA_ENGINE_ALLOW=%s: the routing guard is being overridden. "
+              "ANSWERS FROM THIS RUN ARE NOT TRUSTED.\n",
+              "mfe/cuda/engine.c", list);
+  }
+
+  if ((list == NULL) || (list[0] == '\0') || (id == NULL))
+    return 0;
+
+  n = strlen(id);
+
+  for (p = list; *p; ) {
+    const char *e = strchr(p, ',');
+    size_t      l = e ? (size_t)(e - p) : strlen(p);
+
+    if (((l == 3) && (strncmp(p, "all", 3) == 0)) ||
+        ((l == n) && (strncmp(p, id, n) == 0))) {
+      fprintf(stderr, "%-24s RNA_ENGINE_ALLOW: lifting the \"%s\" check\n",
+              "mfe/cuda/engine.c", id);
+      return 1;
+    }
+
+    p = e ? e + 1 : p + l;
+  }
+
+  return 0;
+}
+
+
 PUBLIC unsigned int
 vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
                           const char            **reason)
@@ -66,6 +127,9 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
   vrna_md_t   *md;
 
 #define DECLINE(msg) do { why = (msg); goto done; } while (0)
+/* ...and the same, unless RNA_ENGINE_ALLOW names this id. See the hook above. */
+#define DECLINE_UNLESS(id, msg) \
+  do { if (!vrna_cuda_engine_allow(id)) DECLINE(msg); } while (0)
 
   if (fc == NULL)
     DECLINE("no fold compound");
@@ -91,7 +155,7 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    * the sweep does not carry, and d3 adds coaxial stacking on top. See the
    * note in RNAfold.c's gpu_path_usable(). */
   if ((md->dangles != 0) && (md->dangles != 2))
-    DECLINE("dangle model 1 or 3 (0 and 2 are accelerated)");
+    DECLINE_UNLESS("dangles", "dangle model 1 or 3 (0 and 2 are accelerated)");
 
   /* G-QUADRUPLEXES ACCEPTED 2026-09-10 (G3).
 
@@ -173,7 +237,7 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    * cover it was comparing two empty outputs from a rejected option. Lifting a
    * guard needs evidence; this has a sample and a broken test. */
   if (md->logML)
-    DECLINE("logarithmic multibranch loop scaling");
+    DECLINE_UNLESS("logml", "logarithmic multibranch loop scaling");
 
   /*
    * uniq_ML is ACCEPTED as of the fM1 post-pass in mfe_cuda.c.
@@ -191,7 +255,7 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    */
 
   if (md->energy_set != 0)
-    DECLINE("non-default energy set");
+    DECLINE_UNLESS("energy_set", "non-default energy set");
 
   /*
    * NON-STANDARD BASE PAIRS (--nsp) were DECLINED here from 2026-09-09 to
@@ -254,7 +318,7 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    * actually distinguishes a sliding-window fold is the hard constraint layout.
    */
   if ((fc->hc != NULL) && (fc->hc->type != VRNA_HC_DEFAULT))
-    DECLINE("sliding window hard constraints");
+    DECLINE_UNLESS("hc_window", "sliding window hard constraints");
 
   /* --maxBPspan ACCEPTED 2026-09-11.
    *
@@ -298,10 +362,10 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    * are the same problem.
    */
   if (fc->sc != NULL)
-    DECLINE("soft constraints");
+    DECLINE_UNLESS("soft", "soft constraints");
 
   if ((fc->hc != NULL) && (fc->hc->f != NULL))
-    DECLINE("hard constraint callback");
+    DECLINE_UNLESS("hc_cb", "hard constraint callback");
 
   /*
    * HARD CONSTRAINTS, in their plain bitmask form, are declined too -- and this
@@ -333,13 +397,13 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    * check can be lifted; PORT_ACCELERATION_SCOPE.md records the cost.
    */
   if ((fc->hc != NULL) && (fc->hc->depot != NULL))
-    DECLINE("hard structure constraints (see tools/verify_constraint_parity.sh)");
+    DECLINE_UNLESS("hc", "hard structure constraints (see tools/verify_constraint_parity.sh)");
 
   if (fc->domains_up != NULL)
-    DECLINE("unstructured domains (ligand motifs)");
+    DECLINE_UNLESS("motif", "unstructured domains (ligand motifs)");
 
   if (fc->domains_struc != NULL)
-    DECLINE("structured domains");
+    DECLINE_UNLESS("struc_domains", "structured domains");
 
   /*
    * Auxiliary grammar rules are combined into the recursion cell by cell on the

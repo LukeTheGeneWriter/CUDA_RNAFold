@@ -62,7 +62,7 @@ left to watch.
 | `-T` / `--temp` | **ACCEL** | — | measured, 37 and 25 °C |
 | `-d2` / `--dangles=2` | **ACCEL** | — | measured |
 | **`-d0` / `--dangles=0`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/chunked/`-g`/`-c`/`-p`; `tests/mfe_cuda_dangles.ts` |
-| `-d1`, `-d3` | DECLINED | **1, 2, 3** *(the only backstopped option)* | measured |
+| `-d1`, `-d3` | DECLINED | **1, 2, 3** *(the only backstopped option)* | **measured 2026-09-16**: gate 3 fires, see below |
 | `-p` / `--partfunc` | **ACCEL** *(MFE fill)* | — | measured, `-p` and `-p0` |
 | `--MEA` | **ACCEL** *(MFE fill)* | — | measured |
 | `--bppmThreshold` | **ACCEL** *(MFE fill)* | — | measured |
@@ -84,18 +84,18 @@ left to watch.
 | `--ImFeelingLucky` | **ACCEL** | — | route measured; **no byte bar possible** — see note |
 | **`-c` / `--circ`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/`--noLP`/`--salt`; `tests/mfe_cuda_circ.ts` |
 | **`--noClosingGU`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/chunked/`-c`/`-g`; `tests/mfe_cuda_noclosinggu.ts` |
-| `--energyModel` | DECLINED | 1, 2 | measured |
-| `-C` / `--constraint` | DECLINED | 1, 2 | measured |
-| `--canonicalBPonly` | DECLINED | 1, 2 | measured |
-| `--enforceConstraint` | DECLINED | 1, 2 | measured |
-| `--shape` | DECLINED | 1, 2 | measured |
+| `--energyModel` | DECLINED | 1, 2 | **measured 2026-09-16**: silently ignored, see below |
+| `-C` / `--constraint` | DECLINED | 1, 2 | **measured 2026-09-16**: masks packed too early, see below |
+| `--canonicalBPonly` | DECLINED | 1, 2 | measured *(follows `-C`)* |
+| `--enforceConstraint` | DECLINED | 1, 2 | measured *(follows `-C`)* |
+| `--shape` | DECLINED | 1, 2 | **measured 2026-09-16**: silently ignored, see below |
 | `--shapeMethod` | DECLINED | 1, 2 | asserted *(same path as `--shape`)* |
 | `--shapeConversion` | DECLINED | 1, 2 | asserted |
 | `--sp-data` | DECLINED | 1, 2 | asserted |
 | `--sp-strategy` | DECLINED | 1, 2 | asserted |
 | `--sp-preprocess` | DECLINED | 1, 2 | asserted |
-| `--motif` | DECLINED | 1, 2 | measured |
-| `--commands` | DECLINED | 1, 2 | measured |
+| `--motif` | DECLINED | 1, 2 | route measured; **effect NOT measured** (no fixture binds it) |
+| `--commands` | DECLINED | 1, 2 | **measured 2026-09-16**: silently ignored, see below |
 | `-m` / `--modifications` | DECLINED | 1 | measured |
 | `--mod-file` | DECLINED | 1 | asserted *(requires `--modifications`)* |
 | `--batch` | **UNREACHABLE** | — | measured: exits 1 on FASTA input |
@@ -217,3 +217,103 @@ tools/verify_option_parity.sh <build-tree> <mixed-length.fa>
 
 Mixed lengths matter: the `--noLP` + `RNA_SLOT_FLOW` defect was invisible to
 uniform-length fixtures.
+
+---
+
+## Every DECLINED row is now measured, and none of them already works
+
+*2026-09-16, `tools/probe_declined_options.sh` against the local CUDA build.*
+
+Five options moved DECLINED → ACCELERATED in this project because somebody
+lifted the check and compared — `noGU`, `uniq_ML`, `--nsp`, `-g`, `-d0`. Each
+time the measurement was made in a scratch build, which is slow and is exactly
+the shape of the stale-binary traps recorded in `PORT_INVESTIGATIONS.md`. The
+`RNA_ENGINE_ALLOW` test hook (`mfe/cuda/engine.c`, announced on stderr, lifts a
+named check in **both** gate 1 and gate 2) makes the same measurement from a
+shipped binary, and this is the first sweep with it.
+
+| option | verdict | what the device actually does |
+|---|---|---|
+| **`-C`** hard constraints | **DIFFERS**, 7 of 8, −59.70 kcal | not ignored — **fill and backtrack disagree**: all 8 structures re-evaluate to a different energy than the run reports. Reproduces the 2026-09-06 signature exactly |
+| **`--energyModel 1`** | **DIFFERS**, 8 of 8, +547.50 kcal | **silently ignores it** — byte-identical to the fold with no option |
+| **`--energyModel 2`** | **DIFFERS**, 3 of 8 | silently ignores it |
+| **`--shape`** (soft) | **DIFFERS**, −8.75 kcal | silently ignores it |
+| **`--commands`** | **DIFFERS**, −2.30 kcal | silently ignores it |
+| **`-d1`, `-d3`** | **TRAPPED** | gate 3 fires: *"this CUDA build implements dangle models 0 and 2 (got 1); … `vrna_cuda_engine_supports()` should have declined this"* |
+| `--motif` (ligand) | **not measured** | the probe cannot make a motif bind on a synthetic sequence, so nothing is claimed — see below |
+
+**Candidates for acceleration: zero.** Every guard tested is earning its keep,
+and four of them are standing between the user and a *silently* wrong answer
+rather than a loud one.
+
+### Two traps this sweep walked into first, both worth keeping
+
+**1. The fixture was in the wrong alphabet, and it inverted the verdict.**
+`--energyModel 1/2` means *A pairs B, C pairs D*. On the ACGU fixture every
+other case uses, **no pair is legal at all**: both routes return all-dots at
+0.00, and the first run of this probe reported `AGREES 8/8 records identical,
+swept` — a perfect agreement between two empty answers. On the ABCD alphabet the
+same binary has the CPU finding −45.10 and the device returning 0.00. Same
+option, same build, opposite verdicts, decided entirely by the fixture's
+alphabet. The probe now carries its own ABCD fixture and refuses any case whose
+CPU reference folds nothing.
+
+**2. The ligand motif did not bite.** The theophylline aptamer from upstream's
+own documentation was reported `AGREES` on a sequence that does not contain it;
+after embedding both segments it is *well-formed* but still does not bind, even
+at −30 kcal, so the CPU answer never moves. The probe reports **SKIPPED**, and
+the row above says *not measured* rather than claiming anything. **A motif
+fixture that actually binds is the one piece of this sweep still owed.**
+
+Both traps are the same shape as the eleven in `project_port27_checks_that_lied`:
+the check could not reach what it claimed to test, and reported success for that
+reason. The probe now makes three assertions before it will report a comparison
+at all — the CPU reference must fold *something*, the option must *change* the
+CPU answer, and the forced run must *actually sweep*.
+
+---
+
+## What each DECLINED option would need
+
+The table above says *whether* an option is accelerated. This says **what it
+would take**, which is the question that decides what to build next. Sizes are
+judgements; the mechanisms are read from the code or measured on 2026-09-16 with
+`tools/probe_declined_options.sh`.
+
+| option(s) | what is actually missing | kind of work | size |
+|---|---|---|---|
+| **`-C`**, `--canonicalBPonly`, `--enforceConstraint` | **An ORDERING bug, not missing arithmetic.** `init_gpu3()` packs the hard-constraint masks at `mfe_cuda.c:1238`; `vrna_fold_compound_prepare()` — which is what materialises `hc->depot` into `hc->mx` — runs at line 1243, *after* it. And `g_hc_seq_derived` (`:1226`) lets the device derive the masks from the sequence on a predicate that reads `noLP` and never asks whether a depot exists | move the pack after the prepare; make the derive predicate consider `hc->depot`. **No new DP state, no new kernel** | **small** |
+| **`--shape`**, `--shapeMethod`, `--shapeConversion`, `--sp-*` | soft-constraint terms the kernels never add. Deigan is a per-nucleotide stacking bonus (`sc->energy_stack`, O(n)); Zarringhalam a per-position unpaired term (`sc->energy_up`). A generic `sc->f` callback cannot run in a kernel at all | upload two O(n) arrays and add a term at the hairpin, interior and multibranch sites — for the **table-based** methods only | medium; callbacks stay declined permanently |
+| **`--commands`** | nothing of its own: a command file queues hard and/or soft constraints | inherits `-C` and soft constraints | follows the two above |
+| **`--motif`** (`domains_up`) | unstructured-domain energies come from a callback evaluated per (i, j, loop context) | either evaluate the domain on the host into a table the kernels read, or port the callback | medium–large, and **the effect is still unmeasured** — no fixture yet makes a motif bind |
+| **`-m` / `--modifications`**, `--mod-file` | modified bases change both the pair rules and the loop energies, per modification | new tables plus `Energy()` changes | large |
+| **`--energyModel` 1/2** | the device **re-derives `ptype` from the sequence using the standard alphabet**, while `energy_set > 0` changes the encoding (`A`=1, `B`=2, …) *and* the pair table. Measured: the device returns the plain fold, byte-identical to no option | upload the host's `ptype`/pair table instead of deriving, and range-check every table index against codes > 4 | medium |
+| **`-d1`, `-d3`** | `ml_pair_d1()` reads `dmli2` as well as `dmli1` — a **second `DMLi` generation** the sweep does not carry; `-d3` adds coaxial stacking on top | new DP state carried through the sweep and its chunking | large |
+| `logML` | a log-scaled multibranch term in the recursion — and **no CLI flag exists**, so it cannot be barred from RNAfold at all | kernel work plus a way to test it | not reachable from this CLI |
+| sliding-window hard constraints | RNAplfold's layout, not a global fold | out of scope for this binary | — |
+| multistrand, comparative (`VRNA_FC_TYPE_*`) | a different recursion entirely | — | — |
+
+### The `-C` diagnosis, because it moved a whole tier
+
+`-C` was filed with "needs real work". It needs an ordering fix, and the
+measurement that shows it is worth stating in full:
+
+1. With the guard lifted, the device's answers are **better than legal** on all
+   8 records (−14.10 → −17.90 and so on). Better-than-legal means the fill did
+   not see the constraint.
+2. The returned structures **violate no constraint** and re-evaluate to a
+   different energy than reported. The backtrack is walking a matrix that was
+   filled for a different problem.
+3. **`RNA_HC_VERIFY=1` reports `436 words x 4 masks, 0 mismatching`** on exactly
+   those folds.
+
+(3) is the important one, and it is this project's oldest failure mode wearing a
+new hat. The verifier rebuilds the masks from `VC[H]->hc->mx` and compares — but
+it runs inside `init_gpu3()`, *before* prepare, when `hc->mx` is still the
+unconstrained default. **It compares two unconstrained matrices and agrees.**
+`RNA_ROW_VERIFY` was blind to the same defect in 2026-09-06 for a different
+reason (it compared the fork against itself). A verifier only means something
+after the thing it verifies exists.
+
+Nothing here is a hot-path change, which is why `-C` is now the cheapest
+capability left on the declined list rather than the most expensive.

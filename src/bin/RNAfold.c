@@ -1015,6 +1015,11 @@ gpu_path_usable(struct options *opt,
   vrna_md_t *md = &(opt->md);
 
 #define NO(msg) do { if (why) *why = (msg); return 0; } while (0)
+/* Gate 1's half of the RNA_ENGINE_ALLOW test hook (mfe/cuda/engine.c).
+   Gate 1 is an OPTIMISATION and gate 2 is the authority, so a probe has to
+   lift both or the fold never reaches the one being measured. */
+#define NO_UNLESS(id, msg) \
+  do { if (!vrna_cuda_engine_allow(id)) NO(msg); } while (0)
 
   /* Model details the sweep does not implement. Mirrors
    * vrna_cuda_engine_supports() in mfe/cuda/engine.c; kept in step with it. */
@@ -1045,7 +1050,7 @@ gpu_path_usable(struct options *opt,
    * uniq_ML, so both are dangle-correct for every model by construction.
    */
   if ((md->dangles != 0) && (md->dangles != 2))
-    NO("dangle model 1 or 3 (0 and 2 are accelerated)");
+    NO_UNLESS("dangles", "dangle model 1 or 3 (0 and 2 are accelerated)");
   /* G-QUADRUPLEXES ACCEPTED 2026-09-10 (G3).
 
    * The sweep now scores quadruplexes into c and fML: c_gq is carried to the
@@ -1163,7 +1168,7 @@ gpu_path_usable(struct options *opt,
    * identical across 2/3/4/7 chunks. --noLP + RNA_FML_INT16 is REFUSED at init
    * (fill_arrays.c): noLP puts near-INF FINITE values into fML that the 16-bit
    * per-block offsets cannot represent. */
-  if (md->energy_set != 0)      NO("non-default energy set");
+  if (md->energy_set != 0)      NO_UNLESS("energy_set", "non-default energy set");
   /* salt is no longer barred: the multibranch kernel inherits it through the
    * parameter tables, and the hairpin/internal kernels each add one term from
    * a host-built table. tools/verify_salt_parity.sh is the bar. */
@@ -1182,12 +1187,12 @@ gpu_path_usable(struct options *opt,
    * flush_gpu_chunk() still applies constraints to the compounds it builds. It
    * is not dead code: it is what makes the declined-batch fallback fold the
    * right thing, and it has to be in place before this bar can lift. */
-  if (fold_constrained)         NO("structure constraints");
-  if (opt->constraint_file)     NO("a constraint file");
-  if (opt->probing_data)        NO("probing/SHAPE data");
-  if (opt->cmds)                NO("a command file");
-  if (opt->mod_params)          NO("modified bases");
-  if (opt->ligandMotif)         NO("a ligand motif");
+  if (fold_constrained)         NO_UNLESS("hc", "structure constraints");
+  if (opt->constraint_file)     NO_UNLESS("hc", "a constraint file");
+  if (opt->probing_data)        NO_UNLESS("soft", "probing/SHAPE data");
+  if (opt->cmds)                NO_UNLESS("cmds", "a command file");
+  if (opt->mod_params)          NO_UNLESS("mod", "modified bases");
+  if (opt->ligandMotif)         NO_UNLESS("motif", "a ligand motif");
 
 #undef NO
 
