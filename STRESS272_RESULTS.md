@@ -3226,3 +3226,128 @@ Verified locally end to end: `RNA_HOST_AVAIL_MB=4` against a 3.86 MB chunk
 prints `AUTO: off`, emits no overlap report, and produces **the same sha** as the
 pipelined run — which is the property that matters, since declining the pipeline
 is a speed decision and must never be an answer decision.
+
+# 33. `modular_decomposition_kernel` profiled at last, and the card held down four ways
+
+Run `3e58c64d`, A100-SXM4-40GB, 12 vCPU. §A–§E reproduce §32 within noise
+(E1: 91.2 phase-synced vs 91.0 production; E2 fastest arm 85.9 s; H6 −5.48 %
+and H7 −3.09 % of `int_loop`). What is new is §G and §H. The Colab runtime
+restarted after §H3, so `lookup_a100_run3_H45.json` holds only H4/H5; every
+other number here is from the executed notebook's own output.
+
+## 33.1 It is LATENCY-bound, and the L4 conclusion is now formally retired
+
+`modular_decomposition_kernel`, the phase that is 44 % of wall, measured on this
+card for the first time:
+
+| arm | occupancy | duration | waves/SM | grid | DRAM % | SM % | `long_scoreboard` |
+|---|---|---|---|---|---|---|---|
+| **`md_t32`** (shipped) | 46.1 % | **9.86 µs** | 0.66 | 142 | **7.9 %** | 17.3 % | **11.67** |
+| `md_t8` | 28.4 % | 11.94 µs (+21 %) | 0.17 | 36 | 6.5 % | 4.5 % | 13.85 |
+| `md_t1` | 28.0 % | 34.17 µs (+247 %) | 0.02 | 5 | 2.3 % | 0.6 % | 19.38 |
+| `md_i16` | 45.4 % | 10.53 µs (**+6.8 %**) | 0.66 | 142 | 5.8 % | 19.5 % | 13.51 |
+
+**`long_scoreboard` is 11.67 cycles per issue-active — 48 % of all stall
+cycles, and twice `int_loop`'s 5.89** — against 7.9 % of DRAM peak. That is
+memory *latency*, not memory *bandwidth*. `PROFILE272_RESULTS.md` measured the
+same kernel at **89.3 % of DRAM peak on an L4** and concluded *"the way to go
+faster is to move fewer bytes, not to restructure the compute."* **That
+conclusion does not transfer to this card and should not be quoted for it
+again.**
+
+**The tile sweep is the discriminator, and it moved everything.** If the kernel
+were bandwidth-bound, narrowing the cooperation width would not matter; it
+costs 21 % at 8 lanes and **247 % at one**, while `lg_throttle` goes 0.06 →
+6.05 and sectors per request goes **2.04 → 10.99**. So what the 32-lane tile
+buys is not merely parallelism, it is **coalescing**: one warp striding a row
+together reads whole sectors, and one thread walking `y` alone reads eleven
+sectors per request. That also settles the shape of any future work here — a
+change that breaks the lane-striding pattern will lose more than it gains.
+
+**And int16 now has its mechanism on this card.** It moves **0.79×** the DRAM
+bytes and takes **6.8 % longer**, with `sm__throughput` rising 17.3 → 19.5 %.
+It trades ALU for bandwidth on a card that has bandwidth to spare. §23.2's
+"+0.0 % end to end, no throttling" was the end-to-end shadow of this.
+
+**One number nobody has an explanation for: `imc_miss` 3.25 per issue**, 13 % of
+stall cycles and **10× what `int_loop` shows** (0.30). Immediate-constant misses
+are a `__constant__`-bank story, and `__constant__` memory is the one item in
+`project_fine_tuning_findings` that has never been touched.
+
+**A caveat that has to travel with the wave count.** 0.66 waves/SM is measured
+at the *profiling* fixture — 60 × 1800 nt at `RNA_GPU_CHUNK=24`, sampled with
+`--launch-skip 140`. Production at 400 × 5601 launches a far larger grid, so
+**"less than one wave" is not yet a production claim** and must be re-measured
+at the production shape before it drives anything.
+
+## 33.2 §H1 — the card sustains at production defaults
+
+Eight consecutive folds, AUTO pipeline, full VRAM budget, no phase sync:
+
+| | |
+|---|---|
+| wall | **85.41 – 86.03 s**, spread **0.7 %** |
+| last vs first | **−0.1 %** |
+| clocks / temperature / power | 1410 MHz throughout, 52–53 °C, 251–255 W of 400 |
+| throttle reasons while busy | `0x0` in every sample |
+| sha | one value across all eight |
+
+**So the production default wall on an A100 is 85.9 s**, and §30's D1 figure of
+116 s was the `RNA_GPU_CHUNK=29` phase-synced configuration, 35 % off the pace a
+user now gets out of the box.
+
+## 33.3 §H2 — longer than anything measured here, and *more* efficient
+
+| arm | records | chunks | wall | ns/cell | ps per lane-iteration | peak RSS | peak VRAM |
+|---|---|---|---|---|---|---|---|
+| 5601 nt | 200 | 1 | 45.6 s | 14.55 | **7.79** | 10.92 GB | 26 394 MB |
+| 8000 nt | 120 | 1 | 66.3 s | 17.29 | **6.47** | 14.49 GB | 32 134 MB |
+| 12000 nt | 60 | 2 | 99.7 s | 23.09 | **5.77** | 19.62 GB | 34 304 MB |
+
+**The notebook's own unit is the wrong one and the cell says so in the wrong
+direction.** `ns/cell` counts (i, j) pairs, but the work *inside* a cell is the
+O(span) scan — so cost per cell must rise with length even on a perfectly
+saturated device. Divided by actual work (`N·L³/6` lane-iterations), the device
+gets **26 % more efficient going from 5601 to 12000 nt**. Longer records fill
+the machine better, which is the same finding as §30.7's chunk width seen from
+the other end.
+
+12 000 nt is the longest this project has folded, and it worked: two chunks,
+34.3 GB of VRAM, 19.6 GB of host RSS, answers reproducible.
+
+## 33.4 §H3 — three at once
+
+| | wall | sha |
+|---|---|---|
+| solo (100 × 5601) | 24.3 s | `588e7e7eaed7` |
+| three concurrent | 73.2 / 82.1 / 82.2 s | **all three identical to solo** |
+
+Three folds take 82.4 s of wall against 24.3 s solo — **3.4×, against 3.0× for
+perfect sharing**, so contention costs ~13 % and nothing else. The VRAM-query
+race §D4 could only half reach does not show up at three processes either.
+
+## 33.5 §H4/§E3 — the shipped default is doing what it was built to do
+
+| arm | AUTO said | needs | available | wall | peak RSS | sha |
+|---|---|---|---|---|---|---|
+| `E3_auto_full` | **ON** | 15.31 GB | 81.48 | **85.8 s** | 20.20 GB | `7c0b…` |
+| `H4_above` | ON | 15.31 | 61.26 | 85.6 | 20.20 | `7c0b…` |
+| `H4_below` | **off** | 15.31 | **22.97** | 91.1 (**+5.7 %**) | **13.80 GB** | `7c0b…` |
+
+AUTO picks the arm §E2 calls fastest (85.8 against 85.9), declines when the bar
+says it must, costs exactly the 5.6 % the pipeline is worth, saves the 6.4 GB it
+is supposed to save, and **never changes an answer**.
+
+**But the estimator is 2.4× conservative.** It charges 15.31 GB for a chunk
+whose measured extra residency is **6.40 GB**, so with the bar at half of
+`MemAvailable` the pipeline is declined below ~30.6 GB available when it would
+in fact fit in ~13. On a 32 GB host that is the difference between 85.9 s and
+91.1 s, and the fix is to charge what §32.3 measured rather than the structural
+upper bound.
+
+## 33.6 §H5 — volume and raggedness
+
+1 500 records, 300–6 000 nt, twice: **119.46 s and 118.48 s (+0.8 %)**, three
+chunks, 26.6 GB host RSS, pipeline hiding 58–59 % of the builder, and **the same
+sha both times**. The waste guard declined the 2-D grid on this input, as §B
+says it should for ragged widths.

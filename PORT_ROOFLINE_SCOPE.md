@@ -137,3 +137,47 @@ only way to hide more of it at that width).
 **The thing not to do is another 3 % kernel tweak.** We know what those are
 worth now: §32.5 ranks every open lever, and the top of that list — chunk width
 at −26.4 % — was not a kernel change at all.
+
+---
+
+## 12. The missing profile is no longer missing (2026-09-16, §33.1)
+
+§5 called `modular_decomposition_kernel` the highest-value measurement left.
+It has been made, and the prediction written before the run holds:
+
+| | predicted | measured |
+|---|---|---|
+| dominant stall | `long_scoreboard` | **11.67 per issue, 48 % of all stall cycles** |
+| DRAM | low single digits | **7.9 % of peak** |
+| occupancy | well under 50 % | 46.1 % |
+| waves/SM | near 1 | 0.66 *(at the profiling fixture — see the caveat)* |
+
+**So both of the kernels that matter are latency-bound, and §4's diagnosis of
+why the returns are single-digit stands for 63 % of the wall rather than 19 %.**
+
+Three things the tile sweep added that the prediction did not contain:
+
+1. **The 32-lane tile is buying COALESCING, not just parallelism.** Narrowing it
+   costs 21 % at 8 lanes and 247 % at 1, and sectors per request go 2.04 → 10.99
+   with `lg_throttle` 0.06 → 6.05. Any restructuring that breaks lane-striding
+   along a row will lose more than it gains.
+2. **int16's mechanism on this card, measured directly**: 0.79× the DRAM bytes
+   and **6.8 % longer**, with SM throughput rising 17.3 → 19.5 %. Fewer bytes,
+   more ALU, on a machine with bandwidth to spare.
+3. **`imc_miss` is 3.25 per issue, 10× `int_loop`'s.** Nobody has an explanation.
+   It is a `__constant__`-bank quantity, and `__constant__` memory is the one
+   never-touched item in the fine-tuning list.
+
+### What this makes the ordered work
+
+1. **Re-measure the wave count at the production shape.** 0.66 waves/SM comes
+   from 60 × 1800 nt at chunk 24; at 400 × 5601 the grid is far larger. Optimising
+   for a fixture's launch geometry is how §27 misread registers.
+2. **More independent loads per lane** — unroll the `y` scan so several loads are
+   in flight per iteration. This attacks `long_scoreboard` directly, it is the
+   same lever H1 used on `int_loop` for −3.7 %, and it does not disturb the
+   lane-striding that (1) above says is load-bearing.
+3. **Explain `imc_miss`.** Cheap to look at, 13 % of the stall cycles, and it has
+   a named suspect.
+4. **Leave int16 off on this class of card** and quote the mechanism, not just
+   the null.
