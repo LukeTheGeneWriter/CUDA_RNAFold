@@ -95,7 +95,7 @@ left to watch.
 | `--sp-strategy` | DECLINED | 1, 2 | asserted |
 | `--sp-preprocess` | DECLINED | 1, 2 | asserted |
 | `--motif` | DECLINED | 1, 2 | route measured; **effect NOT measured** (no fixture binds it) |
-| `--commands` | DECLINED | 1, 2 | **measured 2026-09-16**: silently ignored, see below |
+| **`--commands`** | **ACCEL when it queues only hard constraints**, DECLINED otherwise *(new, 2026-09-16)* | 2 | measured both ways: an HC-only file sweeps and matches; an `E` (soft) file takes the CPU route and matches |
 | `-m` / `--modifications` | DECLINED | 1 | measured |
 | `--mod-file` | DECLINED | 1 | asserted *(requires `--modifications`)* |
 | `--batch` | **UNREACHABLE** | — | measured: exits 1 on FASTA input |
@@ -129,8 +129,8 @@ the CPU was compared against itself.
 
 | | count |
 |---|---|
-| **ACCELERATED, byte-identical** | **30** |
-| DECLINED, CPU route asserted | 10 |
+| **ACCELERATED, byte-identical** | **31** *(`--commands` conditionally)* |
+| DECLINED, CPU route asserted | 9 |
 | NEUTRAL | 19 |
 | UNREACHABLE from this CLI | 1 |
 
@@ -403,3 +403,117 @@ every energy self-consistent against RNAeval.**
 
 **Gate 3 is empty again** — `-d1`/`-d3` are the only backstopped options, and
 they remain so.
+
+---
+
+## `--commands`: the guard was refusing the option because the driver never applied it
+
+**2026-09-16.** A command file can queue **three different kinds** of thing
+(`io/commands.h`): hard constraints (`VRNA_CMD_PARSE_HC`), soft constraints
+(`_SC`) and unstructured domains (`_UD`). RNAfold parses with `_DEFAULTS`, which
+is all three. So `--commands` is not one option — it is whichever of the three
+the file happens to contain, and that cannot be known from the flag.
+
+**Why it was silently ignored rather than declined.** `build_one()` — the chunk
+path's own compound builder — applied `-C` constraints and *not* command files.
+So the routing guard inspected a compound that had no `sc`, no `domains_up` and
+no `hc->depot`, found nothing to refuse, and the batch folded unconstrained. The
+gate-1 check on `opt->cmds` was the only thing standing between the user and a
+wrong answer, which is why removing it alone would have been a defect rather
+than a feature.
+
+**The fix is to apply the file and let gate 2 decide**, which it already knows
+how to do:
+
+| the file queues | where it lands | gate 2 |
+|---|---|---|
+| hard constraints (`P`, `F`, `A`, `C`) | `fc->hc->depot` | **accepted** — supported since `-C` shipped |
+| soft constraints (`E`) | `fc->sc` | declined, `"soft constraints"` |
+| unstructured domains | `fc->domains_up` | declined, `"unstructured domains (ligand motifs)"` |
+
+**Measured, 40 ragged records, 200–900 nt:**
+
+| file | bites? | sweeps | vs CPU route |
+|---|---|---|---|
+| `P 10 0 8` + `P 30 0 6` (hard only) | yes | **1** | **byte-identical** |
+| `E 12 0 5 -2.0` (soft) | yes | **0** | byte-identical |
+
+The first is accelerated, the second routes to upstream, and neither needed a
+new check: gate 2's existing `fc->sc` and `fc->domains_up` tests do the work
+once the compound actually carries what the file asked for.
+
+**The transferable part:** a guard can only refuse what it can see. When the
+driver builds its own compound, *everything* `process_record()` would apply to
+its own has to be applied there too — or the guard is inspecting a different
+object than the one that gets folded.
+
+---
+
+## The five that are left, and why each is where it is
+
+*After `--commands` (2026-09-16), the declined list is five entries and none of
+them is a small job. Written down so the next session starts from a diagnosis
+rather than a re-derivation.*
+
+### `--energyModel` — diagnosed, and the recommendation is to leave it declined
+
+**The device derives pair types from the ALIASED encoding; upstream uses the
+RAW one.** `d_S2` is `VC[H]->sequence_encoding`, and `vrna_seq_encode()` applies
+`md->alias[]` (`alphabet.c:299`). Upstream's `ptype` comes from
+`sequence_encoding2`, the raw codes.
+
+At `energy_set = 0` the alias is the identity for ACGU, so the two agree — which
+is why this never mattered in four years. At `energy_set = 1` on the intended
+ABCD alphabet, A→3 and B→2, so the device asks `pair[3][2]` where upstream asks
+`pair[1][2]`. `model.c:1042` fills `pair[i][i+1] = 2` on **raw** indices, so the
+device's lookup is 0 and **nothing pairs** — exactly the all-dots 0.00 measured.
+
+**Cost to fix:** upload the raw encoding beside the aliased one and switch every
+pair-type lookup to it — including `int_loop`'s bit-packed `d_S`, which is in
+the hottest path in the project. **Value:** an option whose intended use is a
+synthetic A/B/C/D alphabet. The CPU route is correct and always will be.
+**Recommendation: leave it declined, and keep this paragraph instead.**
+
+### `--shape` / `--shapeMethod` / `--shapeConversion` / `--sp-*` — the one worth doing, and it needs a decision first
+
+SHAPE data does not arrive as one addend. It reaches the recursion through the
+**soft-constraint wrapper layer** — `internal_sc.inc`, `multibranch_sc.inc`,
+`hairpin_sc.inc`, `exterior_sc.inc` — a set of function pointers woven through
+every loop type, carrying `energy_up`, `energy_bp`, `energy_stack` and arbitrary
+callbacks.
+
+Deigan's own term is simple in isolation (a per-nucleotide stacking bonus,
+O(n)), and so is Zarringhalam's (a per-position unpaired term). The **decision**
+is how much of the surface to support:
+
+| | guard | device work |
+|---|---|---|
+| Deigan only | narrow: accept iff `sc->energy_stack` is the only thing set | one O(n) upload, a term at three sites |
+| Deigan + Zarringhalam | as above plus `energy_up` | two uploads, terms at four sites |
+| general soft constraints | impossible for `sc->f` callbacks | — |
+
+**This is the highest-value declined option** — SHAPE data is common in real use,
+unlike the other four — and the narrow version is tractable. It is flagged for a
+session with a decision made up front rather than discovered mid-implementation.
+
+### `--motif` — not a port problem
+
+Three attempts have failed to build a fixture where a ligand motif changes the
+CPU answer, including a synthetic four-pair motif at −30 kcal/mol. **Until a
+motif bites on the CPU, no GPU comparison means anything** — that is the same
+rule that caught the non-biting constraint shapes and the ACGU `--energyModel`
+fixture. The port question cannot be asked until the ViennaRNA-usage question is
+answered.
+
+### `-m` / `--mod-file` — inherits the SHAPE decision
+
+Modified bases install soft constraints (`vrna_sc_mod_*`,
+`constraints/sc_cb_mod*.c`), so they sit behind whatever is decided for
+`--shape`, plus per-modification energy tables of their own.
+
+### `-d1` / `-d3` — new DP state
+
+`ml_pair_d1()` reads `dmli2` as well as `dmli1` — a second `DMLi` generation the
+sweep does not carry — and `-d3` adds coaxial stacking on top. The only entry
+left on gate 3, and the only one where the missing thing is state rather than
+arithmetic.

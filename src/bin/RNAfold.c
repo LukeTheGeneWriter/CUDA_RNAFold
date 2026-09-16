@@ -1191,7 +1191,12 @@ gpu_path_usable(struct options *opt,
    * device carries hc->up_hp and hc->up_int now, not just hc->up_ml, and the
    * masks are packed after the depot is materialised. */
   if (opt->probing_data)        NO_UNLESS("soft", "probing/SHAPE data");
-  if (opt->cmds)                NO_UNLESS("cmds", "a command file");
+  /* --commands ACCEPTED 2026-09-16 -- conditionally, and the condition is not
+   * checked here. build_one() now applies the file to the batch's own compound,
+   * so gate 2 sees whatever it queued: hard constraints are supported, soft
+   * constraints and unstructured domains are declined there by the checks that
+   * already exist. A command file is not one thing, and this gate cannot tell
+   * which one it is without applying it. */
   if (opt->mod_params)          NO_UNLESS("mod", "modified bases");
   if (opt->ligandMotif)         NO_UNLESS("motif", "a ligand motif");
 
@@ -1526,6 +1531,22 @@ build_one(struct gpu_batch *b,
                       opt->constraint_enforce,
                       opt->constraint_canonical,
                       1 /* quiet: process_record() reports each record once */);
+
+  /* COMMAND FILES, 2026-09-16. Same argument as the constraints above, and the
+   * reason --commands was silently ignored rather than declined: a command file
+   * can queue HARD constraints, SOFT constraints or unstructured domains, and
+   * the routing guard decides on what it FINDS IN THE COMPOUND. Never applying
+   * them here meant the guard inspected a compound that had none of them, saw
+   * nothing to refuse, and folded the batch unconstrained -- the driver-side
+   * version of the failure the guard exists to prevent.
+   *
+   * With them applied, gate 2 does the right thing per record without knowing
+   * anything about command files: hard constraints land in hc->depot and are
+   * ACCEPTED (they have been supported since -C shipped); soft constraints land
+   * in fc->sc and unstructured domains in fc->domains_up, and both are declined
+   * to upstream's own path. */
+  if (opt->cmds)
+    vrna_commands_apply(b->VC[i], opt->cmds, VRNA_CMD_PARSE_DEFAULTS);
 
   b->Str[i] = (char *)vrna_alloc(sizeof(char) * (strlen(chunk[i]->sequence) + 1));
 }
