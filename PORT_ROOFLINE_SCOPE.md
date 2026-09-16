@@ -46,7 +46,7 @@ DRAM, 400 W (we draw 245).
 | measure | achieved | ceiling | fraction |
 |---|---|---|---|
 | `modular_decomp` instruction issue (4–8 instr per iteration) | 1.2–2.5 × 10¹² instr/s | 1.95 × 10¹³ | **6–13 %** |
-| `modular_decomp` DRAM (NCU, §23.2) | 53 GB/s | 1 555 GB/s | **3.4 %** |
+| `modular_decomp` DRAM (NCU, §23.2; **re-measured 7.9 % in §33.1**) | 53–123 GB/s | 1 555 GB/s | **3.4–7.9 %** |
 | `int_loop` DRAM (NCU, §32 run) | ~25 GB/s | 1 555 GB/s | **1.6 %** |
 | `int_loop` occupancy | 18.6 % of peak warps | 100 % (50 % at one warp/block) | **19 %** |
 | `fetch_mx` PCIe | 6.5 GB/s over 50.2 GB | ~20–25 GB/s pinned | **~30 %** |
@@ -99,6 +99,9 @@ A100**. We have its DRAM share (3.4 %) and nothing else: no stall mix, no
 occupancy, no launch geometry, no wave count. Every one of those is a number we
 *do* have for `int_loop`, which is less than half its size.
 
+**ANSWERED 2026-09-16 — see §7 below.** What follows is the scope as written
+before the run; the prediction in it is what the measurement was judged against.
+
 So the next measurement is not a speed A/B at all:
 
 ```
@@ -140,7 +143,7 @@ at −26.4 % — was not a kernel change at all.
 
 ---
 
-## 12. The missing profile is no longer missing (2026-09-16, §33.1)
+## 7. The missing profile is no longer missing (2026-09-16, §33.1)
 
 §5 called `modular_decomposition_kernel` the highest-value measurement left.
 It has been made, and the prediction written before the run holds:
