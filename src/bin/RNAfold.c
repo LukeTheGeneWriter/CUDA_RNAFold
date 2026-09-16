@@ -1606,11 +1606,34 @@ fold_gpu_batch(struct gpu_batch *b,
  * other door -- that is asserted below rather than assumed, because it is the
  * one property this whole design rests on.
  *
- * OFF BY DEFAULT. RNA_BUILD_PIPELINE=1 enables it. A pipelined run holds two
- * chunks of compounds at once (~47 MB per record of ptype + hc->mx), so it
- * trades host RAM for wall clock and the trade is the user's to make until it
- * is measured at scale.
+ * AUTO BY DEFAULT, and that default was earned rather than assumed.
+ * STRESS272_RESULTS.md 32.3 measured it at scale on an A100 at 400 x 5601:
+ *
+ *   chunks | off       | on        | wall   | peak host RSS
+ *   -------+-----------+-----------+--------+-------------------
+ *     13   | 112.29 s  |  96.02 s  | -14.5% |  3.07 -> 5.05 GB
+ *      7   | 100.87 s  |  86.62 s  | -14.1% |  4.56 -> 8.07 GB
+ *      2   |  90.36 s  |  85.26 s  |  -5.6% | 13.80 -> 20.20 GB
+ *
+ * So the wall is always better and the host RAM is always worse -- and at the
+ * FASTEST configuration, the fewest chunks, which is also what 30.7 says to
+ * run, it asks for 20.2 GB to fold 400 x 5601. A 16 GB host that works today
+ * would OOM on an unconditional flip. That is why the default is not one.
+ *
+ *   RNA_BUILD_PIPELINE unset -> AUTO: on when the chunk about to be built fits
+ *                                     in half of MemAvailable, off otherwise.
+ *   RNA_BUILD_PIPELINE=1     -> forced on, host memory NOT consulted.
+ *   RNA_BUILD_PIPELINE=0     -> forced off.
+ *
+ * The prize also shrank while nobody was looking: the validated 16.8-21.4%
+ * predates RNA_BUILD_THREADS being on, which cut `build` from ~121 s to 18.4 s.
+ * At two chunks a one-deep pipeline can hide at most half of that, and it hides
+ * 35% of it.
  */
+#define RNAFOLD_PIPELINE_OFF   0
+#define RNAFOLD_PIPELINE_ON    1
+#define RNAFOLD_PIPELINE_AUTO  2
+
 static int
 rnafold_build_pipeline(void)
 {
@@ -1618,10 +1641,130 @@ rnafold_build_pipeline(void)
 
   if (v < 0) {
     const char *e = getenv("RNA_BUILD_PIPELINE");
-    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+
+    if ((e == NULL) || (e[0] == '\0')) {
+      v = RNAFOLD_PIPELINE_AUTO;
+    } else if (e[0] == '0') {
+      v = RNAFOLD_PIPELINE_OFF;
+      fprintf(stderr, "%-24s RNA_BUILD_PIPELINE=0: builder thread disabled\n",
+              "bin/RNAfold.c");
+    } else {
+      v = RNAFOLD_PIPELINE_ON;
+      fprintf(stderr,
+              "%-24s RNA_BUILD_PIPELINE=1: builder thread forced on, host "
+              "memory NOT consulted\n", "bin/RNAfold.c");
+    }
   }
 
   return v;
+}
+
+
+/* Host memory available to us right now, in bytes; 0 when it cannot be known.
+ *
+ * MemAvailable rather than MemFree, deliberately: MemFree excludes reclaimable
+ * page cache, which on a box that has just read a 400-record FASTA is most of
+ * what we would actually get back, so reading it would decline the pipeline on
+ * precisely the runs that benefit. sysconf() is the fallback and IS the MemFree
+ * answer -- conservative in the same direction.
+ */
+static size_t
+rnafold_host_avail_bytes(void)
+{
+  FILE    *f;
+  char     line[256];
+  size_t   kb = 0;
+
+  f = fopen("/proc/meminfo", "r");
+
+  if (f) {
+    while (fgets(line, sizeof(line), f)) {
+      unsigned long v;
+
+      if (sscanf(line, "MemAvailable: %lu kB", &v) == 1) {
+        kb = (size_t)v;
+        break;
+      }
+    }
+
+    fclose(f);
+  }
+
+  if (kb)
+    return kb * (size_t)1024;
+
+#if defined(_SC_AVPHYS_PAGES) && defined(_SC_PAGESIZE)
+  {
+    const long pages = sysconf(_SC_AVPHYS_PAGES);
+    const long psize = sysconf(_SC_PAGESIZE);
+
+    if ((pages > 0) && (psize > 0))
+      return (size_t)pages * (size_t)psize;
+  }
+#endif
+
+  return 0;
+}
+
+
+/* Host bytes one built fold compound holds.
+ *
+ * By construction that is the dense (n+1)^2 hard-constraint matrix plus the
+ * triangular ptype -- ~1.5 L^2, the "~47 MB per record at 5601 nt" above.
+ * MEASURED from 32.3's RSS deltas it is nearer 1.9 L^2, because a compound
+ * carries more than those two tables. Two is used, so the estimate errs towards
+ * declining the pipeline rather than towards an OOM.
+ */
+static size_t
+rnafold_compound_bytes(size_t len)
+{
+  const size_t L = len + 1;
+
+  return 2 * L * L;
+}
+
+
+/* AUTO's decision for the chunk about to be handed to the builder.
+ *
+ * The pipeline's extra live set is exactly one chunk of compounds: the builder
+ * fills chunk N+1 while chunk N is still folding. Half of MemAvailable is the
+ * bar, because the other half has to cover the fold side, the ostream backlog
+ * and whatever else the host is doing -- and being wrong here costs an OOM
+ * kill, the one failure mode a SPEED default must not introduce.
+ *
+ * Announced on every CHANGE of verdict rather than once: a run whose chunks
+ * differ in length can legitimately pipeline some and decline others, and a
+ * silent switch is exactly what makes a timing unexplainable a week later.
+ */
+static int
+pipeline_fits_in_host_memory(struct record_data **chunk,
+                             int                  n)
+{
+  static int  last = -1;
+  size_t      need = 0;
+  size_t      avail;
+  int         fits;
+  int         i;
+
+  for (i = 0; i < n; i++)
+    need += rnafold_compound_bytes(chunk[i]->sequence ?
+                                   strlen(chunk[i]->sequence) : 0);
+
+  avail = rnafold_host_avail_bytes();
+
+  /* An unknown is not a yes. */
+  fits = (avail > 0) && (need <= avail / 2);
+
+  if (fits != last) {
+    fprintf(stderr,
+            "%-24s build pipeline AUTO: %s -- next chunk needs ~%.2f GB, "
+            "MemAvailable %.2f GB (bar is half)\n",
+            "bin/RNAfold.c", fits ? "ON" : "off",
+            need / 1073741824.0, avail / 1073741824.0);
+    last = fits;
+  }
+
+  return fits;
 }
 
 
@@ -1892,8 +2035,9 @@ pipeline_drain(struct options *opt)
 }
 
 
-/* Pipelined replacement for flush_gpu_chunk(). Identical behaviour when
- * RNA_BUILD_PIPELINE is unset. */
+/* Pipelined replacement for flush_gpu_chunk(). Identical behaviour whenever the
+ * pipeline is declined -- by RNA_BUILD_PIPELINE=0, by AUTO finding too little
+ * host memory, or by output_needs_compound(). */
 static void
 pipeline_flush(struct record_data **chunk,
                int                  n,
@@ -1918,9 +2062,16 @@ pipeline_flush(struct record_data **chunk,
   /* Declined when the output path builds compounds of its own: those run on the
    * -j pool from inside the fold and would race the builder thread through
    * vrna_params(). Serial is slower, not wrong. */
-  if ((!rnafold_build_pipeline()) || (output_needs_compound(opt))) {
-    flush_gpu_chunk(chunk, n, opt);
-    return;
+  {
+    const int mode = rnafold_build_pipeline();
+    const int want = (mode == RNAFOLD_PIPELINE_ON) ||
+                     ((mode == RNAFOLD_PIPELINE_AUTO) &&
+                      pipeline_fits_in_host_memory(chunk, n));
+
+    if ((!want) || (output_needs_compound(opt))) {
+      flush_gpu_chunk(chunk, n, opt);
+      return;
+    }
   }
 
   if (n < rnafold_min_gpu_batch()) {

@@ -106,4 +106,22 @@ m = ns['PIPE_RE'].search(e_p) if 'PIPE_RE' in ns else None
 print('\n--- the build-pipeline report ---')
 print('  PIPE_RE   %s' % ('matches: %s chunks, %s%% of builder hidden'
                           % (m.group(1), m.group(4)) if m else '*** NO MATCH'))
-print('  absent when off: %s' % ('OK' if not ns['PIPE_RE'].search(e_def) else '*** present'))
+# NOT e_def any more: the default is AUTO since STRESS272 32.4, and on a host
+# with memory to spare the default run IS pipelined. "Off" now has to be asked
+# for, and this check silently inverted its own meaning the moment it did not.
+e_noP = stderr({'RNA_BUILD_PIPELINE': '0'}, UNI)
+print('  absent when off: %s' % ('OK' if not ns['PIPE_RE'].search(e_noP) else '*** present'))
+
+# AUTO_RE, against the shipped default -- RNA_BUILD_PIPELINE unset means
+# "decide from MemAvailable" since STRESS272 32.4, and the verdict line is the
+# only evidence of which way it went. A regex that does not match the C format
+# string turns every AUTO arm into a SystemExit an hour into a run.
+e_a = stderr({}, UNI)
+a = ns['AUTO_RE'].search(e_a) if 'AUTO_RE' in ns else None
+print('  AUTO_RE   %s'
+      % ('matches: %s, needs %s GB of %s GB' % (a.group(1), a.group(2), a.group(3))
+         if a else '*** NO MATCH -- every AUTO arm would abort'))
+if a:
+    print('  verdict agrees with the report: %s'
+          % ('OK' if (a.group(1) == 'ON') == bool(ns['PIPE_RE'].search(e_a))
+             else '*** AUTO said %s but the overlap report disagrees' % a.group(1)))

@@ -225,6 +225,7 @@ discovered.
 | `RNA_MD_TILE` | 32 | Power of two in [1,32] |
 | `RNA_BACKTRACK_THREADS` | auto | `min(work, hw_concurrency − cpu_queue)` |
 | `RNA_BUILD_THREADS` | auto | Parallel fold-compound construction |
+| `RNA_BUILD_PIPELINE` | auto | Builds chunk N+1 while chunk N folds. **Memory-gated**: on when the next chunk's compounds fit in half of `MemAvailable`, off otherwise. `1` forces it on without consulting memory, `0` off. Worth −5.6 % wall at the fastest chunk setting and +6.4 GB peak host RSS at 400 × 5601 (STRESS272 §32.3) |
 | `RNA_FML_SCAN_THREADS` | 256 | Measured optimal; all six widths within 0.9% |
 
 **Default OFF, opt-in:** `RNA_CPU_THREADS`, `RNA_CPU_THRESHOLD` (200),

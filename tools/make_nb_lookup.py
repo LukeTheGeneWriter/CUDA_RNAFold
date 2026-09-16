@@ -361,6 +361,8 @@ BT_RE    = re.compile(r"build threads (\d+)")
 # The pipeline reports what it ACHIEVED, not merely that it was asked for --
 # and with one chunk there is nothing to overlap, so 0% is the correct answer
 # there rather than a failure. Assert the report exists; read the number.
+AUTO_RE  = re.compile(r"build pipeline AUTO: (ON|off) -- next chunk needs "
+                      r"~([\d.]+) GB, MemAvailable ([\d.]+) GB")
 PIPE_RE  = re.compile(r"build pipeline: (\d+) chunks, builder ([\d.]+) s, "
                       r"OVERLAPPED ([\d.]+) s \((\d+)% of builder time hidden")
 GRID_RE  = re.compile(r"int_loop grid: (2-D, blockIdx\.y = record|flat \(waste guard declined\)), "
@@ -447,7 +449,12 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
     if wsearch:        env["RNA_INT_LOOP_WSEARCH"] = "1"
     if build_threads is not None: env["RNA_BUILD_THREADS"] = str(build_threads)
     if vram_mb is not None: env["RNA_GPU_VRAM_BUDGET_MB"] = str(vram_mb)
-    if pipeline:       env["RNA_BUILD_PIPELINE"] = "1"
+    # THREE states since the default became AUTO (RNAfold.c, STRESS272 32.4):
+    # unset now means "decide from MemAvailable", not "off". An arm that wants
+    # the pipeline OFF must say so, or it silently gets whatever the host's
+    # free memory happens to imply on the day.
+    if pipeline is None: pass                          # auto: leave it unset
+    else:              env["RNA_BUILD_PIPELINE"] = "1" if pipeline else "0"
 
     clk = "/content/clk/%s.csv" % tag
     cmd = (TIME_BIN + BIN + " --noPS " + extra_args + " -i " + (fa or BIG)).split()
@@ -469,7 +476,17 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
         if bool(want) != (token in err):
             raise SystemExit("%s: %s knob did not engage as asked" % (tag, label))
     pm = PIPE_RE.search(err)
-    if bool(pipeline) != bool(pm):
+    auto = AUTO_RE.search(err)
+    if pipeline is None:
+        # AUTO must SAY which way it went. A run that never printed the verdict
+        # is a run whose configuration is unknown, which is the one thing a
+        # measurement may not be.
+        if not auto:
+            raise SystemExit("%s: pipeline left to AUTO but it announced no verdict" % tag)
+        if (auto.group(1) == "ON") != bool(pm):
+            raise SystemExit("%s: AUTO said %s but the overlap report %s"
+                             % (tag, auto.group(1), "is present" if pm else "is absent"))
+    elif bool(pipeline) != bool(pm):
         raise SystemExit("%s: build pipeline asked=%s but it %s report"
                          % (tag, pipeline, "did not" if pipeline else "did"))
     if block_size:
@@ -501,7 +518,10 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
              pipe_chunks=int(pm.group(1)) if pm else None,
              pipe_builder=float(pm.group(2)) if pm else None,
              pipe_hidden_s=float(pm.group(3)) if pm else None,
-             pipe_hidden_pct=int(pm.group(4)) if pm else None)
+             pipe_hidden_pct=int(pm.group(4)) if pm else None,
+             auto_verdict=auto.group(1) if auto else None,
+             auto_need_gb=float(auto.group(2)) if auto else None,
+             auto_avail_gb=float(auto.group(3)) if auto else None)
     RESULTS[tag] = r; save()
     if not quiet:
         g = "-" if not trace else ("2D" if all(t["grid"] == "2D" for t in trace)
@@ -1065,7 +1085,47 @@ if rows:
     best = min(rows, key=lambda kv: kv[1]["wall"])
     print("  fastest configuration:", best[0], "%.1f s" % best[1]["wall"])
     print("  shas:", set(v["sha"] for _, v in rows))
-"""); 
+""");
+md(r"""### E3 — AUTO: does the shipped default pick the arm E2 says is fastest?
+
+§32.4 turned the default from OFF into **memory-gated AUTO**: the pipeline runs
+when the chunk about to be built fits in half of `MemAvailable`, and declines
+otherwise. E2 says the right answer on this host is ON, so AUTO has a verdict to
+get right — and a wrong one is invisible without this section, because a
+declined pipeline is not an error, just a slower run.
+
+Two arms, both with `RNA_BUILD_PIPELINE` **unset**: the full budget (where the
+chunk is widest and the memory ask largest) and a squeezed one. The runner
+refuses any AUTO arm that does not announce its verdict, and cross-checks the
+verdict against whether the overlap report actually appeared.""")
+
+code(r"""
+print("E3: the shipped default, RNA_BUILD_PIPELINE unset")
+for tag, mb in (("E3_auto_full", None), ("E3_auto_4096", 4096)):
+    run(tag, chunk_cap=0, vram_mb=mb, pipeline=None, phase_sync=False)
+""");
+code(r"""
+rows = [(k, RESULTS[k]) for k in sorted(RESULTS) if k.startswith("E3_")]
+for k, v in rows:
+    print("  %-14s AUTO said %-3s  needs %5.2f GB of %6.2f GB avail  "
+          "wall %6.1f  rss %5.2f GB  sha %s"
+          % (k[3:], v["auto_verdict"], v["auto_need_gb"] or 0.0,
+             v["auto_avail_gb"] or 0.0, v["wall"], v["rss"], v["sha"]))
+ref = RESULTS.get("E2_full_pipe")
+got = RESULTS.get("E3_auto_full")
+if ref and got:
+    print()
+    print("  E2 says the fastest arm is the pipelined one at %.1f s." % ref["wall"])
+    print("  AUTO at the same budget: %s, %.1f s (%+.1f%%)."
+          % (got["auto_verdict"], got["wall"],
+             100.0*(got["wall"]-ref["wall"])/ref["wall"]))
+    if got["auto_verdict"] != "ON":
+        print("  *** AUTO DECLINED THE FASTEST CONFIGURATION on a host with "
+              "%.1f GB available. The bar (half of MemAvailable) or the "
+              "per-record estimate is wrong, not the run." % (got["auto_avail_gb"] or 0.0))
+    print("  shas:", set(v["sha"] for _, v in rows) |
+          set([ref["sha"]]))
+""");
 md("## F. Summary and export")
 
 code(r"""

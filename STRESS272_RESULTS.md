@@ -3106,3 +3106,58 @@ worth end-to-end. The ranking of everything still open, in wall terms at
 | build pipeline at 2 chunks | **−5.6 %** | built, gated off, default decision open |
 | H6 + H7 together | **−0.8 %** | built, gated off |
 
+
+## 32.6 The default moved: `RNA_BUILD_PIPELINE` is now memory-gated AUTO
+
+`RNAfold.c` no longer reads the variable as a boolean:
+
+| `RNA_BUILD_PIPELINE` | behaviour |
+|---|---|
+| **unset (the default)** | **AUTO** — on when the chunk about to be built fits in half of `MemAvailable`, off otherwise, and it says which on stderr |
+| `1` | forced on, host memory not consulted |
+| `0` | forced off |
+
+**Why not a straight flip.** §32.3's fastest arm asks for 20.2 GB of host RAM.
+A 16 GB workstation that folds 400 × 5601 today would be OOM-killed by a default
+that did not look. Half of `MemAvailable` is the bar because the other half has
+to cover the fold side, the ostream backlog, and the rest of the machine.
+
+**The estimate.** `rnafold_compound_bytes()` charges `2·(L+1)²` per record —
+1.5 L² by construction (the dense hard-constraint matrix plus triangular ptype),
+**59.86 MB at 5601 nt** as implemented. §32.3's RSS deltas give ~60 MB/record at
+7 and 13 chunks and ~32 MB at two, so the estimate is right at the many-chunk
+end and ~1.8× conservative at the wide end — wrong in the direction that
+declines a pipeline rather than the direction that kills a run.
+
+`MemAvailable` and not `MemFree`: on a box that has just read a 400-record
+FASTA, the reclaimable page cache is most of what we would actually get, and
+`MemFree` would decline on precisely the runs that benefit. `sysconf()` is the
+fallback, and an unknown is treated as a no.
+
+### What was verified, and what was not
+
+Built locally (`~/port27fml`, `-Wall -Wextra`, clean) and run on 12 × 400 nt:
+
+| arm | verdict line | overlap report | sha |
+|---|---|---|---|
+| unset | `AUTO: ON -- next chunk needs ~0.00 GB, MemAvailable 5.91 GB` | present | `201ba6cc…` |
+| `=1` | `forced on, host memory NOT consulted` | present | `201ba6cc…` |
+| `=0` | `builder thread disabled` | absent | `201ba6cc…` |
+
+**The decline branch cannot be reached on this laptop** — the VRAM budget splits
+a 60 × 5601 fixture into chunks needing 1.23 GB, well under the bar (and 1.23 GB
+÷ 20 records = 61.5 MB, which is the estimator agreeing with itself). So it was
+unit-tested instead, with the availability read stubbed: 200 × 5601 records
+(11.69 GB) is declined at 16 GB available, accepted at 26 and 80, and declined
+when availability is unknown.
+
+**Not verified here: that AUTO picks ON at the full budget on the measuring
+host, and that the wall follows §32.3.** Notebook §E3 does exactly that, and the
+runner now refuses any AUTO arm that does not announce a verdict, cross-checking
+the verdict against whether the overlap report appeared. `nb_dryrun.py` checks
+`AUTO_RE` against real stderr, because a regex that does not match the C format
+string turns every AUTO arm into a `SystemExit` an hour into a run.
+
+**One consequence for every future measurement**: unset no longer means off. The
+notebook runner now writes `RNA_BUILD_PIPELINE=0` explicitly for arms that want
+it off, and `pipeline=None` is how an arm asks for the shipped default.
