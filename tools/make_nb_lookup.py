@@ -1009,10 +1009,15 @@ if syn and nos:
     print("  production wall    %8.1f s   %+.1f%%" % (b, 100.0*(b-a)/a))
     print()
     print("  ~5 syncs per row x %d rows x %d chunks" % (5601, syn[0]["chunks"]))
-    print("  -> per-row barriers cost %.1f s, %.1f%% of the production wall."
+    print("  -> ADDING ~5 syncs per row costs %.1f s, %.1f%% of the production wall."
           % (a-b, 100.0*(a-b)/b))
-    print("  That is the PORT_STREAM_OVERLAP_SCOPE stage 0 number: it bounds what\n"
-          "  removing the two synchronous uploads and the graph sync could pay.")
+    print("  This is NOT the stage 0 prize and must not be read as one: the host\n"
+          "  already blocks ~6x per row on pageable cudaMemcpy, so an extra sync\n"
+          "  lands on an already-blocked host and cannot cost the run-ahead that\n"
+          "  removing one would buy (STRESS272 31.2, 32.2).")
+    print("  What it DOES establish: parts sum to wall under sync, and production\n"
+          "  has the same wall -- so production overlaps ~nothing today, and the\n"
+          "  whole host stage time is the ceiling for overlap work.")
     print("  shas:", set(v["sha"] for v in syn+nos))
     print()
     print("  NOTE: the nosync arms' phase timers are NOT reported and must not be.")

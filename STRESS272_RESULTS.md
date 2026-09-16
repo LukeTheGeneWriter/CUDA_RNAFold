@@ -2999,3 +2999,110 @@ scope-estimated 20 % whose baseline is now known to be inflated.** The cheap one
 should go first, and it answers part of the expensive one's premise for free: if
 the production wall turns out to be much lower than 91 s, every share in §30
 rises and the overlap prize shrinks with it.
+
+# 32. The A100 answers both: the wall was never inflated, and the pipeline is worth 5.6 %
+
+Run `dd406bf1`, A100-SXM4-40GB, 12 vCPU, 55 arms, **one sha across every arm in
+the notebook** (`7c0b3d633281`). Sections A–D reproduce §30; §E is new and is
+what this section is about.
+
+## 32.1 §31.1 was right about the instrument and wrong about the size
+
+| arm | wall |
+|---|---|
+| `E1_sync_1` / `E1_sync_2` (`RNA_PHASE_SYNC=1`) | 90.72 / 90.55 s |
+| `E1_nosync_1` / `E1_nosync_2` (production) | 90.52 / 90.39 s |
+| **phase-synced mean vs production mean** | **90.64 vs 90.46 — −0.2 %** |
+
+ABBA ordering, full VRAM budget, two chunks. **Five extra device syncs per row
+× 5601 rows × 2 chunks cost 0.18 s.** So every absolute figure in §30 stands:
+the A100 wall at 400 × 5601 really is ~90.5 s, and the §31.1 warning that "the
+production wall has never been measured on this card, and it is lower" is
+answered — it is lower by two tenths of one percent.
+
+**The mechanism is the interesting part.** Under `RNA_PHASE_SYNC` the parts sum
+to the whole (65.3 GPU + 24.6 host = 89.9 of 90.7, residual 0.9 %). Production
+has the same wall. Therefore **production is already achieving essentially no
+host/GPU overlap** — the syncs cost nothing because there was nothing to lose.
+That is not an instrument artefact; it is a property of the code as shipped.
+
+## 32.2 What this does NOT settle, restated so nobody re-reads it as settled
+
+The E1 cell's own printout calls the 0.2 s "the stage 0 number … it bounds what
+removing the two synchronous uploads and the graph sync could pay." **That
+sentence repeats the §31.2 error and is wrong.** The host already blocks about
+six times per row on pageable `cudaMemcpy`, so `RNA_PHASE_SYNC`'s extra syncs
+land on an already-blocked host, exactly as `RNA_SYNC_PROBE`'s did. Adding a
+barrier to a blocked host is cheap in both cases; neither bounds the cost of the
+barriers that block it.
+
+What E1 gives stage 0 instead is a **premise check, and it passes**: overlap in
+production is ~1 %, so the full 24.6 s of host stages (27 % of wall) is
+unoverlapped and the scope's ~20 % estimate is not inflated by a bad baseline.
+The prize is real. It is simply not collectable by deleting syncs — only by
+making the transfers themselves asynchronous (pinned memory, §"the busy core").
+
+## 32.3 E2 — the 2-D sweep: the two levers never cross
+
+Production settings, `phase_sync=False`, `RNA_GPU_CHUNK=0` with the chunk count
+set by the VRAM budget.
+
+| chunks | wall, pipeline off | wall, pipeline on | Δ | peak RSS off → on | builder hidden (ceiling) |
+|---|---|---|---|---|---|
+| 13 | 112.29 s | 96.02 s | **−14.5 %** | 3.07 → 5.05 GB | 92 % (92 %) |
+| 7 | 100.87 s | 86.62 s | **−14.1 %** | 4.56 → 8.07 GB | 84 % (85 %) |
+| **2 (full budget)** | 90.36 s | **85.26 s** | **−5.6 %** | 13.80 → **20.20 GB** | 35 % (50 %) |
+
+**The fastest of the six is two chunks with the pipeline on, 85.26 s.** The
+pipeline pays *relatively* most where chunking has already done the most damage,
+and that is not a reason to chunk more: every many-chunk arm is slower in
+absolute terms than the two-chunk arm in the same column. §30.7's verdict —
+widen the chunk before anything else — survives the pipeline being switched on.
+
+**The marginal chunk halves but never inverts.** Off: (112.29 − 90.36)/11 =
+**1.99 s per chunk**. On: (96.02 − 85.26)/11 = **0.98 s per chunk**. §30.7's
+phase-synced 2.15 s was an upper bound, and it was over by 7 %.
+
+**RSS is the cost, and it is worst exactly where the wall is best.** +6.40 GB at
+two chunks (1.46×), +3.51 GB at seven, +1.97 GB at thirteen. The fastest
+configuration asks for 20.2 GB of host RAM to fold 400 × 5601 nt.
+
+## 32.4 The pipeline default: the prize is 5.6 %, not 16.8–21.4 %
+
+§31.4 flagged that the validated 16.8–21.4 % predates build threading. Measured
+at the best operating point it is **5.6 %**, because at two chunks the ceiling
+on what a one-deep pipeline can hide is 50 % of an 18.4 s `build`, and it
+achieved 35 % of it (6.5 s hidden, 5.1 s of wall).
+
+So `RNAfold.c:1609`'s condition is met — it has been measured at scale — and the
+answer it returns is *not* an unconditional yes:
+
+- **wall**: −5.6 % at the fastest setting, −14 % at settings nobody should use.
+- **host RAM**: +46 % peak RSS, and the absolute figure (20.2 GB) exceeds what a
+  16 GB workstation has.
+
+A blind flip converts a working 16 GB run into an OOM. The defensible default is
+**auto**: enable the pipeline when the projected second-chunk footprint fits in
+available host memory, fall back to serial build when it does not — the same
+shape as the VRAM budget that already picks the chunk count.
+
+## 32.5 Correction: §30's lookup numbers are `int_loop` shares, not wall
+
+Reproduced this run, and the distinction matters because §30.7 compared them
+against a *wall* figure:
+
+| | `int_loop` | wall |
+|---|---|---|
+| H6 2-D grid | −5.21 % (§30: −5.65 %) | **−0.82 %** |
+| H7 32-ary warp | −2.93 % (§30: −3.61 %) | **−0.35 %** |
+
+`int_loop` is 16.5 s of a 90.5 s wall, so a fifth of a fifth is what these are
+worth end-to-end. The ranking of everything still open, in wall terms at
+400 × 5601:
+
+| lever | wall | status |
+|---|---|---|
+| chunk width (14 chunks → 2) | **−26.4 %** | shipped behaviour, needs the default examined |
+| build pipeline at 2 chunks | **−5.6 %** | built, gated off, default decision open |
+| H6 + H7 together | **−0.8 %** | built, gated off |
+

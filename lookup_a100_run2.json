@@ -1,0 +1,3308 @@
+{
+ "commit": "dd406bf1",
+ "clocks": "NVIDIA A100-SXM4-40GB, 1410 MHz, 1410 MHz, 40, 0x0000000000000000, 40960 MiB",
+ "nproc": 12,
+ "registers": {
+  "_Z20int_loop_warp_kernelILi1ELb0ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi2ELb0ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi4ELb0ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi8ELb0ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi1ELb0ELb1EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi2ELb0ELb1EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi4ELb0ELb1EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi8ELb0ELb1EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi1ELb1ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi2ELb1ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi4ELb1ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z20int_loop_warp_kernelILi8ELb1ELb0EEviiiiiPK12cuda_param_sfPKcPKjS6_PKiPKmSA_SA_SA_S8_Pi": 48,
+  "_Z18gq_internal_kerneliiPK12cuda_param_sPKjPKcPKmS7_PKiPiS9_S3_S3_S7_S7_": 31,
+  "_Z19int_loop_kernel_256iiiiiPK12cuda_param_sfPKcPKjS5_PKiPKmS9_S9_S9_S7_Pi": 40,
+  "_Z19int_loop_kernel_128iiiiiPK12cuda_param_sfPKcPKjS5_PKiPKmS9_S9_S9_S7_Pi": 40,
+  "_Z18int_loop_kernel_64iiiiiPK12cuda_param_sfPKcPKjS5_PKiPKmS9_S9_S9_S7_Pi": 40,
+  "_Z18int_loop_kernel_32iiiiiPK12cuda_param_sfPKcPKjS5_PKiPKmS9_S9_S9_S7_Pi": 40,
+  "_Z16load_my_c_kerneliiiPKiPiPKmS3_S3_mS0_": 18,
+  "_Z16init_my_c_kernelmPi": 8
+ },
+ "runs": {
+  "WARM_0": {
+   "wall": 4.023108243942261,
+   "phases": {
+    "int_loop": 0.745,
+    "hp_mb": 0.325,
+    "load_my_c": 0.166,
+    "modular_decomp": 0.921,
+    "fetch_mx": 0.5,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.46,
+    "prepare": 0.005,
+    "prefill": 0.0,
+    "backtrack": 0.194,
+    "output": 0.009,
+    "gpuinit": 0.016,
+    "teardown": 0.004,
+    "free": 0.016
+   },
+   "chunks": 3,
+   "cells": 172296360,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "warm.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.685572,
+   "clock": {
+    "n": 16,
+    "n_busy": 7,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 38.0,
+    "power_mean": 142.56714285714287,
+    "power_max": 186.26,
+    "vram_max": 1174.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      7
+     ]
+    ]
+   },
+   "sha": "0ae8c9ecf18b",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "WARM_1": {
+   "wall": 3.8892159461975098,
+   "phases": {
+    "int_loop": 0.737,
+    "hp_mb": 0.32,
+    "load_my_c": 0.164,
+    "modular_decomp": 0.912,
+    "fetch_mx": 0.493,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.461,
+    "prepare": 0.005,
+    "prefill": 0.0,
+    "backtrack": 0.186,
+    "output": 0.005,
+    "gpuinit": 0.015,
+    "teardown": 0.004,
+    "free": 0.019
+   },
+   "chunks": 3,
+   "cells": 172296360,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "warm.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.685748,
+   "clock": {
+    "n": 16,
+    "n_busy": 7,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 38.0,
+    "power_mean": 167.8942857142857,
+    "power_max": 190.63,
+    "vram_max": 1174.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      7
+     ]
+    ]
+   },
+   "sha": "0ae8c9ecf18b",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "WARM_2": {
+   "wall": 3.86691951751709,
+   "phases": {
+    "int_loop": 0.732,
+    "hp_mb": 0.32,
+    "load_my_c": 0.162,
+    "modular_decomp": 0.909,
+    "fetch_mx": 0.487,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.461,
+    "prepare": 0.005,
+    "prefill": 0.0,
+    "backtrack": 0.192,
+    "output": 0.008,
+    "gpuinit": 0.015,
+    "teardown": 0.004,
+    "free": 0.016
+   },
+   "chunks": 3,
+   "cells": 172296360,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "warm.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.685968,
+   "clock": {
+    "n": 16,
+    "n_busy": 8,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 39.0,
+    "power_mean": 145.2025,
+    "power_max": 192.1,
+    "vram_max": 1174.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      8
+     ]
+    ]
+   },
+   "sha": "0ae8c9ecf18b",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "WARM_3": {
+   "wall": 3.929119110107422,
+   "phases": {
+    "int_loop": 0.736,
+    "hp_mb": 0.32,
+    "load_my_c": 0.164,
+    "modular_decomp": 0.913,
+    "fetch_mx": 0.482,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.501,
+    "prepare": 0.005,
+    "prefill": 0.0,
+    "backtrack": 0.204,
+    "output": 0.006,
+    "gpuinit": 0.015,
+    "teardown": 0.004,
+    "free": 0.017
+   },
+   "chunks": 3,
+   "cells": 172296360,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "warm.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.685764,
+   "clock": {
+    "n": 16,
+    "n_busy": 7,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 40.0,
+    "power_mean": 160.31857142857143,
+    "power_max": 191.23,
+    "vram_max": 1174.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      7
+     ]
+    ]
+   },
+   "sha": "0ae8c9ecf18b",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "PRE_A_base": {
+   "wall": 0.4902791976928711,
+   "phases": {
+    "int_loop": 0.016,
+    "hp_mb": 0.011,
+    "load_my_c": 0.006,
+    "modular_decomp": 0.015,
+    "fetch_mx": 0.003,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.002,
+    "prepare": 0.001,
+    "prefill": 0.0,
+    "backtrack": 0.001,
+    "output": 0.0,
+    "gpuinit": 0.005,
+    "teardown": 0.001,
+    "free": 0.0
+   },
+   "chunks": 1,
+   "cells": 351648,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "preflight.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.166088,
+   "clock": {
+    "n": 2,
+    "n_busy": 2,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 35.0,
+    "power_mean": 66.185,
+    "power_max": 69.27,
+    "vram_max": 428.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      2
+     ]
+    ]
+   },
+   "sha": "474792863c65",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "PRE_A_wsearch": {
+   "wall": 0.4910600185394287,
+   "phases": {
+    "int_loop": 0.016,
+    "hp_mb": 0.011,
+    "load_my_c": 0.006,
+    "modular_decomp": 0.015,
+    "fetch_mx": 0.003,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.002,
+    "prepare": 0.001,
+    "prefill": 0.0,
+    "backtrack": 0.001,
+    "output": 0.0,
+    "gpuinit": 0.005,
+    "teardown": 0.001,
+    "free": 0.0
+   },
+   "chunks": 1,
+   "cells": 351648,
+   "gridy": false,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "preflight.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.16658,
+   "clock": {
+    "n": 2,
+    "n_busy": 2,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 35.0,
+    "power_mean": 66.285,
+    "power_max": 69.47,
+    "vram_max": 428.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      2
+     ]
+    ]
+   },
+   "sha": "474792863c65",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "PRE_A_gridy": {
+   "wall": 0.4899783134460449,
+   "phases": {
+    "int_loop": 0.015,
+    "hp_mb": 0.011,
+    "load_my_c": 0.006,
+    "modular_decomp": 0.015,
+    "fetch_mx": 0.003,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.002,
+    "prepare": 0.001,
+    "prefill": 0.0,
+    "backtrack": 0.001,
+    "output": 0.0,
+    "gpuinit": 0.005,
+    "teardown": 0.001,
+    "free": 0.0
+   },
+   "chunks": 1,
+   "cells": 351648,
+   "gridy": true,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "preflight.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "2D",
+     "lookup": "none",
+     "nfiles": 8,
+     "maxw": 1,
+     "blocks": 8,
+     "flat": 8
+    }
+   ],
+   "rss": 0.166352,
+   "clock": {
+    "n": 2,
+    "n_busy": 2,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 35.0,
+    "power_mean": 66.755,
+    "power_max": 69.54,
+    "vram_max": 430.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      2
+     ]
+    ]
+   },
+   "sha": "474792863c65",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "PRE_A_both": {
+   "wall": 0.4888153076171875,
+   "phases": {
+    "int_loop": 0.016,
+    "hp_mb": 0.011,
+    "load_my_c": 0.006,
+    "modular_decomp": 0.015,
+    "fetch_mx": 0.003,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.002,
+    "prepare": 0.001,
+    "prefill": 0.0,
+    "backtrack": 0.001,
+    "output": 0.0,
+    "gpuinit": 0.005,
+    "teardown": 0.001,
+    "free": 0.0
+   },
+   "chunks": 1,
+   "cells": 351648,
+   "gridy": true,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "preflight.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "2D",
+     "lookup": "none",
+     "nfiles": 8,
+     "maxw": 1,
+     "blocks": 8,
+     "flat": 8
+    }
+   ],
+   "rss": 0.166584,
+   "clock": {
+    "n": 2,
+    "n_busy": 2,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 35.0,
+    "power_mean": 67.93,
+    "power_max": 69.54,
+    "vram_max": 428.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      2
+     ]
+    ]
+   },
+   "sha": "474792863c65",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "A_base_0": {
+   "wall": 115.61408686637878,
+   "phases": {
+    "int_loop": 18.797,
+    "hp_mb": 4.531,
+    "load_my_c": 2.266,
+    "modular_decomp": 42.696,
+    "fetch_mx": 18.152,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.661,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.395,
+    "output": 0.181,
+    "gpuinit": 0.169,
+    "teardown": 0.046,
+    "free": 0.885
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.981516,
+   "clock": {
+    "n": 462,
+    "n_busy": 285,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 46.0,
+    "power_mean": 200.79336842105263,
+    "power_max": 232.32,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      285
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "A_wsearch_1": {
+   "wall": 115.16757130622864,
+   "phases": {
+    "int_loop": 18.22,
+    "hp_mb": 4.537,
+    "load_my_c": 2.276,
+    "modular_decomp": 42.659,
+    "fetch_mx": 18.188,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.823,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.379,
+    "output": 0.181,
+    "gpuinit": 0.175,
+    "teardown": 0.046,
+    "free": 0.871
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.98098,
+   "clock": {
+    "n": 461,
+    "n_busy": 281,
+    "sm_mean": 1409.946619217082,
+    "sm_min": 1395.0,
+    "temp_max": 46.0,
+    "power_mean": 200.9344483985765,
+    "power_max": 233.47,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      281
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "A_gridy_2": {
+   "wall": 114.44897031784058,
+   "phases": {
+    "int_loop": 17.769,
+    "hp_mb": 4.533,
+    "load_my_c": 2.267,
+    "modular_decomp": 42.689,
+    "fetch_mx": 18.025,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.721,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.343,
+    "output": 0.179,
+    "gpuinit": 0.171,
+    "teardown": 0.045,
+    "free": 0.873
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": true,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "2D",
+     "lookup": "none",
+     "nfiles": 29,
+     "maxw": 1,
+     "blocks": 29,
+     "flat": 29
+    }
+   ],
+   "rss": 2.981108,
+   "clock": {
+    "n": 458,
+    "n_busy": 278,
+    "sm_mean": 1409.7841726618706,
+    "sm_min": 1350.0,
+    "temp_max": 46.0,
+    "power_mean": 202.92809352517986,
+    "power_max": 233.47,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      278
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "A_both_3": {
+   "wall": 114.76676344871521,
+   "phases": {
+    "int_loop": 17.822,
+    "hp_mb": 4.542,
+    "load_my_c": 2.279,
+    "modular_decomp": 42.692,
+    "fetch_mx": 18.171,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.735,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.34,
+    "output": 0.175,
+    "gpuinit": 0.173,
+    "teardown": 0.045,
+    "free": 0.881
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": true,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "2D",
+     "lookup": "none",
+     "nfiles": 29,
+     "maxw": 1,
+     "blocks": 29,
+     "flat": 29
+    }
+   ],
+   "rss": 2.981252,
+   "clock": {
+    "n": 459,
+    "n_busy": 274,
+    "sm_mean": 1408.7408759124087,
+    "sm_min": 1095.0,
+    "temp_max": 46.0,
+    "power_mean": 204.33941605839416,
+    "power_max": 233.23,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      274
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "A_both_4": {
+   "wall": 114.6085455417633,
+   "phases": {
+    "int_loop": 17.722,
+    "hp_mb": 4.518,
+    "load_my_c": 2.261,
+    "modular_decomp": 42.664,
+    "fetch_mx": 18.104,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.836,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.394,
+    "output": 0.185,
+    "gpuinit": 0.167,
+    "teardown": 0.044,
+    "free": 0.872
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": true,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "2D",
+     "lookup": "none",
+     "nfiles": 29,
+     "maxw": 1,
+     "blocks": 29,
+     "flat": 29
+    }
+   ],
+   "rss": 2.981328,
+   "clock": {
+    "n": 458,
+    "n_busy": 281,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 46.0,
+    "power_mean": 201.7179003558719,
+    "power_max": 235.54,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      281
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "A_gridy_5": {
+   "wall": 114.75070333480835,
+   "phases": {
+    "int_loop": 17.801,
+    "hp_mb": 4.536,
+    "load_my_c": 2.279,
+    "modular_decomp": 42.743,
+    "fetch_mx": 18.115,
+    "new_c_host": 0.003,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.721,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.394,
+    "output": 0.184,
+    "gpuinit": 0.177,
+    "teardown": 0.044,
+    "free": 0.873
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": true,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "2D",
+     "lookup": "none",
+     "nfiles": 29,
+     "maxw": 1,
+     "blocks": 29,
+     "flat": 29
+    }
+   ],
+   "rss": 2.981108,
+   "clock": {
+    "n": 459,
+    "n_busy": 276,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 46.0,
+    "power_mean": 204.51586956521737,
+    "power_max": 234.34,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      276
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "A_wsearch_6": {
+   "wall": 115.11447072029114,
+   "phases": {
+    "int_loop": 18.206,
+    "hp_mb": 4.53,
+    "load_my_c": 2.273,
+    "modular_decomp": 42.694,
+    "fetch_mx": 18.035,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.895,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.369,
+    "output": 0.169,
+    "gpuinit": 0.172,
+    "teardown": 0.045,
+    "free": 0.891
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.981088,
+   "clock": {
+    "n": 460,
+    "n_busy": 281,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 47.0,
+    "power_mean": 203.50448398576512,
+    "power_max": 234.67,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      281
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "A_base_7": {
+   "wall": 115.47480511665344,
+   "phases": {
+    "int_loop": 18.73,
+    "hp_mb": 4.524,
+    "load_my_c": 2.267,
+    "modular_decomp": 42.69,
+    "fetch_mx": 18.017,
+    "new_c_host": 0.003,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.726,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.381,
+    "output": 0.168,
+    "gpuinit": 0.167,
+    "teardown": 0.045,
+    "free": 0.897
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.981208,
+   "clock": {
+    "n": 462,
+    "n_busy": 288,
+    "sm_mean": 1409.9479166666667,
+    "sm_min": 1395.0,
+    "temp_max": 47.0,
+    "power_mean": 200.6445486111111,
+    "power_max": 234.7,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      288
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "B_base_0": {
+   "wall": 12.927583932876587,
+   "phases": {
+    "int_loop": 2.774,
+    "hp_mb": 1.368,
+    "load_my_c": 0.718,
+    "modular_decomp": 3.441,
+    "fetch_mx": 0.993,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 1.682,
+    "prepare": 0.054,
+    "prefill": 0.0,
+    "backtrack": 0.746,
+    "output": 0.015,
+    "gpuinit": 0.036,
+    "teardown": 0.015,
+    "free": 0.112
+   },
+   "chunks": 11,
+   "cells": 537463256,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "ragged.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.741052,
+   "clock": {
+    "n": 52,
+    "n_busy": 32,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 42.0,
+    "power_mean": 122.9471875,
+    "power_max": 179.03,
+    "vram_max": 1056.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      32
+     ]
+    ]
+   },
+   "sha": "0a919f5af40c",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "B_wsearch_1": {
+   "wall": 12.872193574905396,
+   "phases": {
+    "int_loop": 2.707,
+    "hp_mb": 1.376,
+    "load_my_c": 0.716,
+    "modular_decomp": 3.446,
+    "fetch_mx": 0.989,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 1.675,
+    "prepare": 0.056,
+    "prefill": 0.0,
+    "backtrack": 0.751,
+    "output": 0.016,
+    "gpuinit": 0.036,
+    "teardown": 0.015,
+    "free": 0.13
+   },
+   "chunks": 11,
+   "cells": 537463256,
+   "gridy": false,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "ragged.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.791792,
+   "clock": {
+    "n": 52,
+    "n_busy": 30,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 41.0,
+    "power_mean": 122.734,
+    "power_max": 181.05,
+    "vram_max": 1056.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      30
+     ]
+    ]
+   },
+   "sha": "0a919f5af40c",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "B_gridy_2": {
+   "wall": 12.914879560470581,
+   "phases": {
+    "int_loop": 2.764,
+    "hp_mb": 1.374,
+    "load_my_c": 0.72,
+    "modular_decomp": 3.445,
+    "fetch_mx": 1.002,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 1.688,
+    "prepare": 0.053,
+    "prefill": 0.0,
+    "backtrack": 0.732,
+    "output": 0.009,
+    "gpuinit": 0.035,
+    "teardown": 0.015,
+    "free": 0.117
+   },
+   "chunks": 11,
+   "cells": 537463256,
+   "gridy": true,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "ragged.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "flat",
+     "lookup": "binary",
+     "nfiles": 29,
+     "maxw": 1,
+     "blocks": 29,
+     "flat": 1
+    }
+   ],
+   "rss": 0.756628,
+   "clock": {
+    "n": 52,
+    "n_busy": 31,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 41.0,
+    "power_mean": 124.13709677419355,
+    "power_max": 182.53,
+    "vram_max": 1056.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      31
+     ]
+    ]
+   },
+   "sha": "0a919f5af40c",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "B_both_3": {
+   "wall": 12.935262680053711,
+   "phases": {
+    "int_loop": 2.725,
+    "hp_mb": 1.37,
+    "load_my_c": 0.723,
+    "modular_decomp": 3.44,
+    "fetch_mx": 0.983,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 1.72,
+    "prepare": 0.051,
+    "prefill": 0.0,
+    "backtrack": 0.763,
+    "output": 0.014,
+    "gpuinit": 0.036,
+    "teardown": 0.016,
+    "free": 0.131
+   },
+   "chunks": 11,
+   "cells": 537463256,
+   "gridy": true,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "ragged.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "flat",
+     "lookup": "32-ary warp",
+     "nfiles": 29,
+     "maxw": 1,
+     "blocks": 29,
+     "flat": 1
+    }
+   ],
+   "rss": 0.726344,
+   "clock": {
+    "n": 52,
+    "n_busy": 30,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 41.0,
+    "power_mean": 125.25066666666666,
+    "power_max": 176.88,
+    "vram_max": 1056.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      30
+     ]
+    ]
+   },
+   "sha": "0a919f5af40c",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "B_both_4": {
+   "wall": 12.899127960205078,
+   "phases": {
+    "int_loop": 2.716,
+    "hp_mb": 1.37,
+    "load_my_c": 0.719,
+    "modular_decomp": 3.44,
+    "fetch_mx": 1.01,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 1.695,
+    "prepare": 0.054,
+    "prefill": 0.0,
+    "backtrack": 0.749,
+    "output": 0.013,
+    "gpuinit": 0.036,
+    "teardown": 0.015,
+    "free": 0.114
+   },
+   "chunks": 11,
+   "cells": 537463256,
+   "gridy": true,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "ragged.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "flat",
+     "lookup": "32-ary warp",
+     "nfiles": 29,
+     "maxw": 1,
+     "blocks": 29,
+     "flat": 1
+    }
+   ],
+   "rss": 0.769328,
+   "clock": {
+    "n": 52,
+    "n_busy": 31,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 40.0,
+    "power_mean": 123.35064516129032,
+    "power_max": 176.7,
+    "vram_max": 1056.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      31
+     ]
+    ]
+   },
+   "sha": "0a919f5af40c",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "B_gridy_5": {
+   "wall": 12.95980429649353,
+   "phases": {
+    "int_loop": 2.783,
+    "hp_mb": 1.373,
+    "load_my_c": 0.72,
+    "modular_decomp": 3.447,
+    "fetch_mx": 0.979,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 1.715,
+    "prepare": 0.059,
+    "prefill": 0.0,
+    "backtrack": 0.72,
+    "output": 0.013,
+    "gpuinit": 0.036,
+    "teardown": 0.015,
+    "free": 0.133
+   },
+   "chunks": 11,
+   "cells": 537463256,
+   "gridy": true,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "ragged.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [
+    {
+     "grid": "flat",
+     "lookup": "binary",
+     "nfiles": 29,
+     "maxw": 1,
+     "blocks": 29,
+     "flat": 1
+    }
+   ],
+   "rss": 0.773724,
+   "clock": {
+    "n": 52,
+    "n_busy": 31,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 41.0,
+    "power_mean": 127.38935483870968,
+    "power_max": 182.53,
+    "vram_max": 1056.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      31
+     ]
+    ]
+   },
+   "sha": "0a919f5af40c",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "B_wsearch_6": {
+   "wall": 12.9209303855896,
+   "phases": {
+    "int_loop": 2.719,
+    "hp_mb": 1.37,
+    "load_my_c": 0.72,
+    "modular_decomp": 3.435,
+    "fetch_mx": 0.97,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 1.742,
+    "prepare": 0.054,
+    "prefill": 0.0,
+    "backtrack": 0.745,
+    "output": 0.015,
+    "gpuinit": 0.036,
+    "teardown": 0.015,
+    "free": 0.138
+   },
+   "chunks": 11,
+   "cells": 537463256,
+   "gridy": false,
+   "wsearch": true,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "ragged.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.745392,
+   "clock": {
+    "n": 52,
+    "n_busy": 28,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 40.0,
+    "power_mean": 122.55178571428571,
+    "power_max": 183.92,
+    "vram_max": 1056.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      28
+     ]
+    ]
+   },
+   "sha": "0a919f5af40c",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "B_base_7": {
+   "wall": 12.915527582168579,
+   "phases": {
+    "int_loop": 2.755,
+    "hp_mb": 1.38,
+    "load_my_c": 0.718,
+    "modular_decomp": 3.451,
+    "fetch_mx": 0.986,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 1.674,
+    "prepare": 0.054,
+    "prefill": 0.0,
+    "backtrack": 0.739,
+    "output": 0.01,
+    "gpuinit": 0.037,
+    "teardown": 0.015,
+    "free": 0.123
+   },
+   "chunks": 11,
+   "cells": 537463256,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "ragged.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.760592,
+   "clock": {
+    "n": 52,
+    "n_busy": 33,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 40.0,
+    "power_mean": 115.23060606060606,
+    "power_max": 181.05,
+    "vram_max": 1056.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      33
+     ]
+    ]
+   },
+   "sha": "0a919f5af40c",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D1_rep0": {
+   "wall": 115.84936809539795,
+   "phases": {
+    "int_loop": 18.774,
+    "hp_mb": 4.531,
+    "load_my_c": 2.273,
+    "modular_decomp": 42.69,
+    "fetch_mx": 17.994,
+    "new_c_host": 0.003,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 21.127,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.352,
+    "output": 0.164,
+    "gpuinit": 0.167,
+    "teardown": 0.045,
+    "free": 0.869
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.980904,
+   "clock": {
+    "n": 463,
+    "n_busy": 284,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 47.0,
+    "power_mean": 206.76084507042253,
+    "power_max": 240.26,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      284
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D1_rep1": {
+   "wall": 115.55415558815002,
+   "phases": {
+    "int_loop": 18.743,
+    "hp_mb": 4.524,
+    "load_my_c": 2.263,
+    "modular_decomp": 42.695,
+    "fetch_mx": 18.12,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.705,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.38,
+    "output": 0.166,
+    "gpuinit": 0.172,
+    "teardown": 0.045,
+    "free": 0.878
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.981424,
+   "clock": {
+    "n": 462,
+    "n_busy": 283,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 47.0,
+    "power_mean": 207.87169611307422,
+    "power_max": 237.65,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      283
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D1_rep2": {
+   "wall": 115.6370701789856,
+   "phases": {
+    "int_loop": 18.807,
+    "hp_mb": 4.539,
+    "load_my_c": 2.273,
+    "modular_decomp": 42.698,
+    "fetch_mx": 18.116,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.634,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.414,
+    "output": 0.166,
+    "gpuinit": 0.171,
+    "teardown": 0.045,
+    "free": 0.887
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.980984,
+   "clock": {
+    "n": 462,
+    "n_busy": 285,
+    "sm_mean": 1409.6842105263158,
+    "sm_min": 1320.0,
+    "temp_max": 46.0,
+    "power_mean": 205.0697894736842,
+    "power_max": 237.65,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      285
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D1_rep3": {
+   "wall": 115.43451118469238,
+   "phases": {
+    "int_loop": 18.724,
+    "hp_mb": 4.516,
+    "load_my_c": 2.258,
+    "modular_decomp": 42.661,
+    "fetch_mx": 18.144,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.669,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.362,
+    "output": 0.166,
+    "gpuinit": 0.166,
+    "teardown": 0.045,
+    "free": 0.88
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.980956,
+   "clock": {
+    "n": 462,
+    "n_busy": 285,
+    "sm_mean": 1409.5263157894738,
+    "sm_min": 1335.0,
+    "temp_max": 47.0,
+    "power_mean": 205.51399999999998,
+    "power_max": 238.79,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      285
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D1_rep4": {
+   "wall": 115.4924852848053,
+   "phases": {
+    "int_loop": 18.748,
+    "hp_mb": 4.525,
+    "load_my_c": 2.268,
+    "modular_decomp": 42.68,
+    "fetch_mx": 18.104,
+    "new_c_host": 0.003,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.004
+   },
+   "stages": {
+    "build": 20.606,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.417,
+    "output": 0.168,
+    "gpuinit": 0.168,
+    "teardown": 0.045,
+    "free": 0.87
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.981108,
+   "clock": {
+    "n": 462,
+    "n_busy": 285,
+    "sm_mean": 1409.7368421052631,
+    "sm_min": 1335.0,
+    "temp_max": 47.0,
+    "power_mean": 205.8200350877193,
+    "power_max": 238.49,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      285
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D1_rep5": {
+   "wall": 115.5147910118103,
+   "phases": {
+    "int_loop": 18.778,
+    "hp_mb": 4.541,
+    "load_my_c": 2.273,
+    "modular_decomp": 42.72,
+    "fetch_mx": 18.058,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.628,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.38,
+    "output": 0.172,
+    "gpuinit": 0.173,
+    "teardown": 0.045,
+    "free": 0.865
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.981172,
+   "clock": {
+    "n": 462,
+    "n_busy": 283,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 47.0,
+    "power_mean": 205.56689045936395,
+    "power_max": 238.24,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      283
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D2_n100_L5601": {
+   "wall": 30.44606375694275,
+   "phases": {
+    "int_loop": 4.782,
+    "hp_mb": 1.25,
+    "load_my_c": 0.62,
+    "modular_decomp": 10.88,
+    "fetch_mx": 4.88,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 5.452,
+    "prepare": 0.001,
+    "prefill": 0.0,
+    "backtrack": 1.412,
+    "output": 0.024,
+    "gpuinit": 0.047,
+    "teardown": 0.012,
+    "free": 0.211
+   },
+   "chunks": 4,
+   "cells": 1566600300,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "n100_L5601.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.980732,
+   "clock": {
+    "n": 122,
+    "n_busy": 72,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 46.0,
+    "power_mean": 205.64027777777778,
+    "power_max": 237.04,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      72
+     ]
+    ]
+   },
+   "sha": "e6fd2d3cf44b",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D2_n200_L5601": {
+   "wall": 58.354018688201904,
+   "phases": {
+    "int_loop": 9.43,
+    "hp_mb": 2.279,
+    "load_my_c": 1.138,
+    "modular_decomp": 21.354,
+    "fetch_mx": 9.126,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 10.573,
+    "prepare": 0.003,
+    "prefill": 0.001,
+    "backtrack": 2.683,
+    "output": 0.068,
+    "gpuinit": 0.093,
+    "teardown": 0.022,
+    "free": 0.459
+   },
+   "chunks": 7,
+   "cells": 3133200600,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "n200_L5601.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.981172,
+   "clock": {
+    "n": 234,
+    "n_busy": 142,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 46.0,
+    "power_mean": 207.8474647887324,
+    "power_max": 238.24,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      142
+     ]
+    ]
+   },
+   "sha": "f515c3ba30b7",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D2_n400_L5601": {
+   "wall": 115.42295575141907,
+   "phases": {
+    "int_loop": 18.802,
+    "hp_mb": 4.54,
+    "load_my_c": 2.269,
+    "modular_decomp": 42.717,
+    "fetch_mx": 18.073,
+    "new_c_host": 0.003,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.544,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.364,
+    "output": 0.162,
+    "gpuinit": 0.173,
+    "teardown": 0.045,
+    "free": 0.877
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "n400_L5601.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.981324,
+   "clock": {
+    "n": 462,
+    "n_busy": 283,
+    "sm_mean": 1408.886925795053,
+    "sm_min": 1095.0,
+    "temp_max": 47.0,
+    "power_mean": 207.36611307420495,
+    "power_max": 238.54,
+    "vram_max": 4244.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      283
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D2_n400_L2000": {
+   "wall": 14.163763284683228,
+   "phases": {
+    "int_loop": 3.215,
+    "hp_mb": 1.3,
+    "load_my_c": 0.656,
+    "modular_decomp": 3.684,
+    "fetch_mx": 1.2,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 1.946,
+    "prepare": 0.053,
+    "prefill": 0.0,
+    "backtrack": 1.003,
+    "output": 0.065,
+    "gpuinit": 0.045,
+    "teardown": 0.019,
+    "free": 0.02
+   },
+   "chunks": 14,
+   "cells": 797202400,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "n400_L2000.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.528556,
+   "clock": {
+    "n": 57,
+    "n_busy": 30,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 43.0,
+    "power_mean": 132.06033333333332,
+    "power_max": 185.06,
+    "vram_max": 966.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      30
+     ]
+    ]
+   },
+   "sha": "c64be429fcab",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D2_n400_L3500": {
+   "wall": 39.91401267051697,
+   "phases": {
+    "int_loop": 8.161,
+    "hp_mb": 2.501,
+    "load_my_c": 1.215,
+    "modular_decomp": 12.767,
+    "fetch_mx": 3.761,
+    "new_c_host": 0.001,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.002
+   },
+   "stages": {
+    "build": 6.709,
+    "prepare": 0.053,
+    "prefill": 0.001,
+    "backtrack": 2.812,
+    "output": 0.189,
+    "gpuinit": 0.084,
+    "teardown": 0.027,
+    "free": 0.365
+   },
+   "chunks": 14,
+   "cells": 2445102400,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "n400_L3500.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 1.27574,
+   "clock": {
+    "n": 160,
+    "n_busy": 100,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 45.0,
+    "power_mean": 176.7329,
+    "power_max": 218.29,
+    "vram_max": 1954.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      100
+     ]
+    ]
+   },
+   "sha": "b2bc4406d83c",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "PRE_D3_full": {
+   "wall": 0.4979422092437744,
+   "phases": {
+    "int_loop": 0.016,
+    "hp_mb": 0.011,
+    "load_my_c": 0.006,
+    "modular_decomp": 0.015,
+    "fetch_mx": 0.003,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.002,
+    "prepare": 0.001,
+    "prefill": 0.0,
+    "backtrack": 0.001,
+    "output": 0.0,
+    "gpuinit": 0.005,
+    "teardown": 0.001,
+    "free": 0.0
+   },
+   "chunks": 1,
+   "cells": 351648,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "preflight.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.166344,
+   "clock": {
+    "n": 2,
+    "n_busy": 2,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 39.0,
+    "power_mean": 69.33500000000001,
+    "power_max": 73.89,
+    "vram_max": 38.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      2
+     ]
+    ]
+   },
+   "sha": "474792863c65",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "PRE_D3_8192": {
+   "wall": 0.4950714111328125,
+   "phases": {
+    "int_loop": 0.016,
+    "hp_mb": 0.011,
+    "load_my_c": 0.006,
+    "modular_decomp": 0.015,
+    "fetch_mx": 0.003,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.002,
+    "prepare": 0.001,
+    "prefill": 0.0,
+    "backtrack": 0.001,
+    "output": 0.0,
+    "gpuinit": 0.005,
+    "teardown": 0.001,
+    "free": 0.0
+   },
+   "chunks": 1,
+   "cells": 351648,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 8192,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "preflight.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.166436,
+   "clock": {
+    "n": 2,
+    "n_busy": 2,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 39.0,
+    "power_mean": 69.06,
+    "power_max": 73.62,
+    "vram_max": 90.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      2
+     ]
+    ]
+   },
+   "sha": "474792863c65",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "PRE_D3_4096": {
+   "wall": 0.53271484375,
+   "phases": {
+    "int_loop": 0.016,
+    "hp_mb": 0.011,
+    "load_my_c": 0.006,
+    "modular_decomp": 0.015,
+    "fetch_mx": 0.003,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.002,
+    "prepare": 0.001,
+    "prefill": 0.0,
+    "backtrack": 0.001,
+    "output": 0.0,
+    "gpuinit": 0.005,
+    "teardown": 0.001,
+    "free": 0.0
+   },
+   "chunks": 1,
+   "cells": 351648,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 4096,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "preflight.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.166328,
+   "clock": {
+    "n": 3,
+    "n_busy": 3,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 39.0,
+    "power_mean": 72.01666666666667,
+    "power_max": 74.16,
+    "vram_max": 24.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      3
+     ]
+    ]
+   },
+   "sha": "474792863c65",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "PRE_D3_2048": {
+   "wall": 0.4972820281982422,
+   "phases": {
+    "int_loop": 0.016,
+    "hp_mb": 0.011,
+    "load_my_c": 0.006,
+    "modular_decomp": 0.015,
+    "fetch_mx": 0.003,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 0.002,
+    "prepare": 0.001,
+    "prefill": 0.0,
+    "backtrack": 0.001,
+    "output": 0.0,
+    "gpuinit": 0.005,
+    "teardown": 0.001,
+    "free": 0.0
+   },
+   "chunks": 1,
+   "cells": 351648,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 2048,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "preflight.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 0.166692,
+   "clock": {
+    "n": 2,
+    "n_busy": 2,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 38.0,
+    "power_mean": 68.89500000000001,
+    "power_max": 73.29,
+    "vram_max": 38.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      2
+     ]
+    ]
+   },
+   "sha": "474792863c65",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D3_vramfull": {
+   "wall": 90.6919116973877,
+   "phases": {
+    "int_loop": 16.539,
+    "hp_mb": 1.89,
+    "load_my_c": 1.391,
+    "modular_decomp": 37.833,
+    "fetch_mx": 7.581,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 18.246,
+    "prepare": 0.006,
+    "prefill": 0.001,
+    "backtrack": 5.29,
+    "output": 0.279,
+    "gpuinit": 0.187,
+    "teardown": 0.029,
+    "free": 0.641
+   },
+   "chunks": 2,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 13.80018,
+   "clock": {
+    "n": 363,
+    "n_busy": 237,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 51.0,
+    "power_mean": 243.94810126582277,
+    "power_max": 260.82,
+    "vram_max": 34392.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      237
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D3_vram8192": {
+   "wall": 101.77992105484009,
+   "phases": {
+    "int_loop": 17.433,
+    "hp_mb": 2.991,
+    "load_my_c": 1.746,
+    "modular_decomp": 39.819,
+    "fetch_mx": 11.905,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.002
+   },
+   "stages": {
+    "build": 19.957,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.432,
+    "output": 0.526,
+    "gpuinit": 0.195,
+    "teardown": 0.038,
+    "free": 0.427
+   },
+   "chunks": 7,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 8192,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 4.560568,
+   "clock": {
+    "n": 407,
+    "n_busy": 255,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 49.0,
+    "power_mean": 228.69972549019607,
+    "power_max": 251.72,
+    "vram_max": 8640.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      255
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D3_vram4096": {
+   "wall": 113.84756350517273,
+   "phases": {
+    "int_loop": 18.548,
+    "hp_mb": 4.31,
+    "load_my_c": 2.194,
+    "modular_decomp": 42.246,
+    "fetch_mx": 17.22,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 20.947,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.363,
+    "output": 0.224,
+    "gpuinit": 0.168,
+    "teardown": 0.045,
+    "free": 0.823
+   },
+   "chunks": 13,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 4096,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 3.073904,
+   "clock": {
+    "n": 455,
+    "n_busy": 275,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 47.0,
+    "power_mean": 211.9247272727273,
+    "power_max": 239.99,
+    "vram_max": 4490.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      275
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D3_vram2048": {
+   "wall": 144.7320487499237,
+   "phases": {
+    "int_loop": 22.209,
+    "hp_mb": 7.702,
+    "load_my_c": 3.667,
+    "modular_decomp": 48.359,
+    "fetch_mx": 28.429,
+    "new_c_host": 0.005,
+    "fml_host": 0.005,
+    "fml_prev_host": 0.006
+   },
+   "stages": {
+    "build": 24.081,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 6.526,
+    "output": 0.045,
+    "gpuinit": 0.209,
+    "teardown": 0.059,
+    "free": 0.411
+   },
+   "chunks": 27,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 2048,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.33122,
+   "clock": {
+    "n": 579,
+    "n_busy": 329,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 45.0,
+    "power_mean": 184.10173252279637,
+    "power_max": 220.04,
+    "vram_max": 2434.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      329
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D4_par1": {
+   "wall": 233.15426468849182,
+   "phases": {
+    "int_loop": 47.983,
+    "hp_mb": 44.85,
+    "load_my_c": 22.119,
+    "modular_decomp": 67.338,
+    "fetch_mx": 18.023,
+    "new_c_host": 0.003,
+    "fml_host": 0.003,
+    "fml_prev_host": 0.004
+   },
+   "stages": {
+    "build": 23.335,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.699,
+    "output": 0.167,
+    "gpuinit": 0.268,
+    "teardown": 0.045,
+    "free": 0.792
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.98136,
+   "clock": {
+    "n": 932,
+    "n_busy": 896,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 46.0,
+    "power_mean": 160.10589285714286,
+    "power_max": 232.08,
+    "vram_max": 8483.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      896
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "D4_par0": {
+   "wall": 237.25562715530396,
+   "phases": {
+    "int_loop": 48.188,
+    "hp_mb": 45.242,
+    "load_my_c": 21.116,
+    "modular_decomp": 70.646,
+    "fetch_mx": 18.598,
+    "new_c_host": 0.003,
+    "fml_host": 0.003,
+    "fml_prev_host": 0.003
+   },
+   "stages": {
+    "build": 23.902,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.813,
+    "output": 0.186,
+    "gpuinit": 0.266,
+    "teardown": 0.045,
+    "free": 0.836
+   },
+   "chunks": 14,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 29,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 2.981408,
+   "clock": {
+    "n": 948,
+    "n_busy": 906,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 46.0,
+    "power_mean": 160.64312362030907,
+    "power_max": 232.08,
+    "vram_max": 8483.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      906
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "E1_sync_1": {
+   "wall": 90.71664309501648,
+   "phases": {
+    "int_loop": 16.538,
+    "hp_mb": 1.892,
+    "load_my_c": 1.392,
+    "modular_decomp": 37.837,
+    "fetch_mx": 7.685,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 18.264,
+    "prepare": 0.006,
+    "prefill": 0.001,
+    "backtrack": 5.171,
+    "output": 0.278,
+    "gpuinit": 0.187,
+    "teardown": 0.029,
+    "free": 0.639
+   },
+   "chunks": 2,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 13.800132,
+   "clock": {
+    "n": 363,
+    "n_busy": 236,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 51.0,
+    "power_mean": 244.63313559322035,
+    "power_max": 261.96,
+    "vram_max": 34392.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      236
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "E1_nosync_1": {
+   "wall": 90.51681327819824,
+   "phases": {
+    "int_loop": 0.537,
+    "hp_mb": 16.263,
+    "load_my_c": 1.819,
+    "modular_decomp": 38.798,
+    "fetch_mx": 7.512,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 18.225,
+    "prepare": 0.006,
+    "prefill": 0.001,
+    "backtrack": 5.424,
+    "output": 0.292,
+    "gpuinit": 0.188,
+    "teardown": 0.029,
+    "free": 0.639
+   },
+   "chunks": 2,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": false,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 13.800044,
+   "clock": {
+    "n": 362,
+    "n_busy": 238,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 52.0,
+    "power_mean": 243.36142857142858,
+    "power_max": 261.36,
+    "vram_max": 34392.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      238
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "E1_nosync_2": {
+   "wall": 90.39454531669617,
+   "phases": {
+    "int_loop": 0.527,
+    "hp_mb": 16.27,
+    "load_my_c": 1.822,
+    "modular_decomp": 38.801,
+    "fetch_mx": 7.61,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.0
+   },
+   "stages": {
+    "build": 18.171,
+    "prepare": 0.006,
+    "prefill": 0.001,
+    "backtrack": 5.229,
+    "output": 0.287,
+    "gpuinit": 0.188,
+    "teardown": 0.029,
+    "free": 0.646
+   },
+   "chunks": 2,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": false,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 13.800512,
+   "clock": {
+    "n": 362,
+    "n_busy": 238,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 52.0,
+    "power_mean": 243.53609243697477,
+    "power_max": 261.36,
+    "vram_max": 34392.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      238
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "E1_sync_2": {
+   "wall": 90.55172920227051,
+   "phases": {
+    "int_loop": 16.534,
+    "hp_mb": 1.887,
+    "load_my_c": 1.39,
+    "modular_decomp": 37.825,
+    "fetch_mx": 7.499,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 18.127,
+    "prepare": 0.006,
+    "prefill": 0.001,
+    "backtrack": 5.365,
+    "output": 0.279,
+    "gpuinit": 0.188,
+    "teardown": 0.029,
+    "free": 0.643
+   },
+   "chunks": 2,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": true,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 13.799684,
+   "clock": {
+    "n": 362,
+    "n_busy": 238,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 51.0,
+    "power_mean": 242.95046218487394,
+    "power_max": 261.96,
+    "vram_max": 34392.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      238
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "E2_full_nopipe": {
+   "wall": 90.35703039169312,
+   "phases": {
+    "int_loop": 0.523,
+    "hp_mb": 16.27,
+    "load_my_c": 1.821,
+    "modular_decomp": 38.804,
+    "fetch_mx": 7.653,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 18.098,
+    "prepare": 0.006,
+    "prefill": 0.001,
+    "backtrack": 5.265,
+    "output": 0.276,
+    "gpuinit": 0.195,
+    "teardown": 0.029,
+    "free": 0.63
+   },
+   "chunks": 2,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": null,
+   "pipeline": false,
+   "phase_sync": false,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 13.79998,
+   "clock": {
+    "n": 361,
+    "n_busy": 237,
+    "sm_mean": 1409.873417721519,
+    "sm_min": 1380.0,
+    "temp_max": 51.0,
+    "power_mean": 242.95822784810127,
+    "power_max": 261.36,
+    "vram_max": 34392.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      237
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "E2_full_pipe": {
+   "wall": 85.25563740730286,
+   "phases": {
+    "int_loop": 0.522,
+    "hp_mb": 16.383,
+    "load_my_c": 1.822,
+    "modular_decomp": 38.866,
+    "fetch_mx": 7.503,
+    "new_c_host": 0.0,
+    "fml_host": 0.0,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 18.386,
+    "prepare": 0.008,
+    "prefill": 0.002,
+    "backtrack": 5.363,
+    "output": 0.01,
+    "gpuinit": 1.068,
+    "teardown": 0.029,
+    "free": 0.898
+   },
+   "chunks": 2,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": null,
+   "pipeline": true,
+   "phase_sync": false,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 20.204288,
+   "clock": {
+    "n": 339,
+    "n_busy": 235,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 51.0,
+    "power_mean": 246.56536170212766,
+    "power_max": 261.96,
+    "vram_max": 34392.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      235
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": 2,
+   "pipe_builder": 18.386,
+   "pipe_hidden_s": 6.523,
+   "pipe_hidden_pct": 35
+  },
+  "E2_7ish_nopipe": {
+   "wall": 100.86743235588074,
+   "phases": {
+    "int_loop": 1.419,
+    "hp_mb": 16.91,
+    "load_my_c": 2.369,
+    "modular_decomp": 40.5,
+    "fetch_mx": 11.785,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.001
+   },
+   "stages": {
+    "build": 19.89,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.453,
+    "output": 0.541,
+    "gpuinit": 0.2,
+    "teardown": 0.038,
+    "free": 0.431
+   },
+   "chunks": 7,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 8192,
+   "pipeline": false,
+   "phase_sync": false,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 4.560732,
+   "clock": {
+    "n": 403,
+    "n_busy": 255,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 49.0,
+    "power_mean": 227.38074509803923,
+    "power_max": 251.98,
+    "vram_max": 8640.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      255
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "E2_7ish_pipe": {
+   "wall": 86.62409520149231,
+   "phases": {
+    "int_loop": 1.838,
+    "hp_mb": 17.973,
+    "load_my_c": 2.419,
+    "modular_decomp": 41.181,
+    "fetch_mx": 11.825,
+    "new_c_host": 0.001,
+    "fml_host": 0.001,
+    "fml_prev_host": 0.002
+   },
+   "stages": {
+    "build": 20.678,
+    "prepare": 0.007,
+    "prefill": 0.002,
+    "backtrack": 5.429,
+    "output": 0.053,
+    "gpuinit": 0.201,
+    "teardown": 0.05,
+    "free": 0.571
+   },
+   "chunks": 7,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 8192,
+   "pipeline": true,
+   "phase_sync": false,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 8.068456,
+   "clock": {
+    "n": 346,
+    "n_busy": 255,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 50.0,
+    "power_mean": 226.9689019607843,
+    "power_max": 253.18,
+    "vram_max": 8640.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      255
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": 7,
+   "pipe_builder": 20.678,
+   "pipe_hidden_s": 17.396,
+   "pipe_hidden_pct": 84
+  },
+  "E2_13ish_nopipe": {
+   "wall": 112.28806471824646,
+   "phases": {
+    "int_loop": 2.269,
+    "hp_mb": 17.785,
+    "load_my_c": 3.016,
+    "modular_decomp": 42.659,
+    "fetch_mx": 17.216,
+    "new_c_host": 0.002,
+    "fml_host": 0.002,
+    "fml_prev_host": 0.002
+   },
+   "stages": {
+    "build": 20.911,
+    "prepare": 0.005,
+    "prefill": 0.001,
+    "backtrack": 5.369,
+    "output": 0.226,
+    "gpuinit": 0.163,
+    "teardown": 0.045,
+    "free": 0.828
+   },
+   "chunks": 13,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 4096,
+   "pipeline": false,
+   "phase_sync": false,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 3.074188,
+   "clock": {
+    "n": 449,
+    "n_busy": 273,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 48.0,
+    "power_mean": 211.93527472527472,
+    "power_max": 242.58,
+    "vram_max": 4490.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      273
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": null,
+   "pipe_builder": null,
+   "pipe_hidden_s": null,
+   "pipe_hidden_pct": null
+  },
+  "E2_13ish_pipe": {
+   "wall": 96.02148795127869,
+   "phases": {
+    "int_loop": 3.064,
+    "hp_mb": 18.992,
+    "load_my_c": 3.188,
+    "modular_decomp": 43.65,
+    "fetch_mx": 17.067,
+    "new_c_host": 0.003,
+    "fml_host": 0.003,
+    "fml_prev_host": 0.004
+   },
+   "stages": {
+    "build": 21.491,
+    "prepare": 0.007,
+    "prefill": 0.002,
+    "backtrack": 5.405,
+    "output": 0.054,
+    "gpuinit": 0.204,
+    "teardown": 0.055,
+    "free": 0.362
+   },
+   "chunks": 13,
+   "cells": 6266401200,
+   "gridy": false,
+   "wsearch": false,
+   "int16": false,
+   "chunk_cap": 0,
+   "vram_mb": 4096,
+   "pipeline": true,
+   "phase_sync": false,
+   "fa": "big.fa",
+   "block_size": 32,
+   "build_threads": 12,
+   "grid_trace": [],
+   "rss": 5.048732,
+   "clock": {
+    "n": 384,
+    "n_busy": 274,
+    "sm_mean": 1410.0,
+    "sm_min": 1410.0,
+    "temp_max": 48.0,
+    "power_mean": 213.0582116788321,
+    "power_max": 241.74,
+    "vram_max": 4490.0,
+    "throttle": [
+     [
+      "0x0000000000000000",
+      274
+     ]
+    ]
+   },
+   "sha": "7c0b3d633281",
+   "pipe_chunks": 13,
+   "pipe_builder": 21.491,
+   "pipe_hidden_s": 19.86,
+   "pipe_hidden_pct": 92
+  }
+ }
+}

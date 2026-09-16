@@ -330,3 +330,29 @@ worth knowing in advance: this change does not end the optimisation, it hands
 the problem back to the host — which is exactly what §25 did, and §27.2 recorded
 the reversal. The difference is that `build` is already threaded, so the next
 move there is harder than a default flip.
+
+---
+
+## 11. Update after §32 (A100, run `dd406bf1`)
+
+**The baseline is confirmed, not inflated.** §31.1 warned every wall here came
+from a phase-synced run and the production wall was unknown and lower. Measured:
+90.46 s production vs 90.64 s phase-synced — **−0.2 %**. Every share in §10
+stands as written.
+
+**Stage 0 is still unanswered, and `RNA_PHASE_SYNC` cannot answer it either.**
+Adding ~5 syncs per row costs 0.18 s, but the host already blocks ~6× per row on
+pageable `cudaMemcpy`, so the extra syncs land on an already-blocked host — the
+same asymmetry that invalidated `RNA_SYNC_PROBE` in §31.2. Barrier *addition* is
+cheap in both experiments; neither prices barrier *removal*.
+
+**What did get established is the premise, and it passes.** Under forced syncs
+the parts sum to the wall (89.9 of 90.7), and production has the same wall, so
+**production overlaps essentially nothing today**. The 24.6 s of host stages
+(27 % of wall) is fully exposed. The prize this scope estimates is real; it is
+collectable only by making the transfers asynchronous, not by deleting syncs.
+
+**But the ordering changed again.** At the fastest measured configuration
+(2 chunks, build pipeline on) the wall is **85.26 s** and `build` is already
+83 % hidden behind the fold. Re-derive §10's table from that arm, not from the
+91.0 s figure, before committing to a race-bearing rewrite.
