@@ -84,7 +84,7 @@ left to watch.
 | `--ImFeelingLucky` | **ACCEL** | — | route measured; **no byte bar possible** — see note |
 | **`-c` / `--circ`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/`--noLP`/`--salt`; `tests/mfe_cuda_circ.ts` |
 | **`--noClosingGU`** | **ACCEL** *(new, 2026-09-11)* | — | measured, incl. int16/chunked/`-c`/`-g`; `tests/mfe_cuda_noclosinggu.ts` |
-| `--energyModel` | DECLINED | 1, 2 | **measured 2026-09-16**: silently ignored, see below |
+| `--energyModel` | **DECLINED — REJECTED as a target** *(decision, 2026-09-16)* | 1, 2 | measured; the decline is principled, see below |
 | **`-C` / `--constraint`** | **ACCEL** *(new, 2026-09-16)* | — | measured; `verify_constraint_parity.sh --expect-accelerated`, **5 shapes / 30 records, byte-identical** |
 | **`--canonicalBPonly`** | **ACCEL** *(new, 2026-09-16)* | — | measured *(rides `-C`: it only changes what the depot contains)* |
 | **`--enforceConstraint`** | **ACCEL** *(new, 2026-09-16)* | — | measured; it is the option both `pipe` shapes are built on |
@@ -455,7 +455,7 @@ object than the one that gets folded.
 them is a small job. Written down so the next session starts from a diagnosis
 rather than a re-derivation.*
 
-### `--energyModel` — diagnosed, and the recommendation is to leave it declined
+### `--energyModel` — REJECTED (Luke, 2026-09-16). Not a gap; a boundary.
 
 **The device derives pair types from the ALIASED encoding; upstream uses the
 RAW one.** `d_S2` is `VC[H]->sequence_encoding`, and `vrna_seq_encode()` applies
@@ -489,10 +489,17 @@ first looked, and bounded by one hard limit:
 **Value:** an option whose intended use is a synthetic alphabet, for theory and
 design work rather than real RNA. The CPU route is correct and always will be.
 
-**Recommendation: build it only if there is a user.** Without one, the 3-bit
-packing gives a *principled* permanent decline -- "this backend encodes a
-four-letter alphabet in three bits, and `energy_set` is defined over twenty
-letters" -- which is a better answer than an implementation gap.
+**DECIDED: rejected.** No user folds synthetic alphabets at batch scale, and the
+3-bit packing makes the decline a statement about what this backend IS rather
+than a list of what it has not got round to: *it encodes a four-letter alphabet
+in three bits, and `energy_set` is defined over twenty letters.* The CPU route
+answers `--energyModel` correctly and always will; `verify_option_parity.sh`
+checks that every run.
+
+**If that ever changes**, everything needed is two paragraphs above: pack the
+raw encoding beside the aliased one, read it in `Ptype()`/`Ptype2()` behind a
+uniform flag, accept only alphabets whose codes fit in three bits. Half a day,
+and the default path pays nothing.
 
 ### `--shape` / `--shapeMethod` / `--shapeConversion` / `--sp-*` — the one worth doing, and it needs a decision first
 
@@ -580,3 +587,37 @@ author of the method rather than inferred from the source.
 place as the feature**, so a user reading "SHAPE is supported" also reads what
 SHAPE cannot do — the honest version of the claim, and the one a probing
 experiment actually needs.
+
+### What the SHAPE paper says, and what it means for the port
+
+*Lorenz, Luntzer, Hofacker, Stadler & Wolfinger, "SHAPE directed RNA folding",
+Bioinformatics 32(1):145–147, 2016, doi:10.1093/bioinformatics/btv523.*
+
+Three conversion methods reach RNAfold, and **they are not equally expensive to
+accelerate** — the paper's own descriptions map straight onto the device work:
+
+| method | what the paper says it modifies | soft-constraint carrier | device cost |
+|---|---|---|---|
+| **Deigan** (2009) | *"pseudo-energies for individual nucleotides that take part in a **stacked helix** conformation. **All remaining structural conformations are not modified in this model.**"* | `sc->energy_stack` | **narrow** — one O(n) upload, a term where pairs stack |
+| **Zarringhalam** (2012) | *"pseudo-energy guided free energy modifications in **all loop types**"*, two per-nucleotide weights (unpaired context, paired context) | `energy_up` + a paired term | **broad** — every loop type |
+| **Washietl** (2012) | a perturbation vector from the separate `RNApvmin` tool, fed back as bonus energies | `energy_up` | medium |
+
+**The cheapest one to accelerate is also the one that performed best.**
+*"While Deigan's method has the best average performance on our data, neither
+approach consistently outperforms the others."* That alignment is unusual and it
+makes the narrow scope defensible on more than cost: `--shapeMethod=D` is the
+default in RNAfold, it is the best average performer in the authors' own
+benchmark, and it is the only one of the three that touches a single term.
+
+**On pseudoknots, in the authors' words**: *"the underlying energy model excludes
+pseudoknotted structures, which are present in **approximately half** of the
+benchmarked RNAs. Additionally, **pseudoknot interactions are reflected in the
+SHAPE data itself**."*
+
+That second sentence is the sharp one, and it is not a port limitation: the
+probing data carries signal for pairs the nested model cannot express, so on
+those RNAs the data actively pulls the prediction the wrong way. Accelerating
+SHAPE does not make that better or worse — this backend fills exactly upstream's
+nested recursion — but **it belongs next to any claim that SHAPE is supported**,
+because a user with pseudoknotted RNA needs to know before they trust the
+output, not after.
