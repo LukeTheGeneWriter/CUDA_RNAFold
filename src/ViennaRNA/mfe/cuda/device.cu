@@ -224,6 +224,196 @@ rnafold_sync_probe_tick(void)
 }
 
 
+/* ===================== RNA_STREAM_OVERLAP: the row's streams =====================
+ *
+ * The row loop issues six kernels and every one of them has always gone to the
+ * NULL stream, so they run back to back whether or not they depend on each
+ * other. Three of them do not:
+ *
+ *   int_loop(i)   reads c (rows > i)        -> energy_min2
+ *   hp_mb_3p(i)   reads ONLY the sequence, the parameter tables and the
+ *                 hard-constraint masks -- no DP value at all
+ *   new_c(i)      joins both, plus DMLi1 from row i+1
+ *
+ * PORT_STREAM_OVERLAP_SCOPE.md 12 works the graph out and prices the two
+ * overlaps it allows. They are very different sizes:
+ *
+ *   1  hp_mb_3p(i) beside int_loop(i)            1.89 s of 65.3   ~2 % of wall
+ *   2  md(i) beside int_loop(i-1)+hp_mb(i-1)    18.4  s          ~21 % of wall
+ *
+ * RNA_STREAM_OVERLAP selects between them: 0 (default) is today's schedule
+ * exactly -- every stream below is stream 0 and every event call returns
+ * immediately -- 1 is the first, 2 is both.
+ *
+ * DEFAULT OFF because concurrency is the one class of change whose failure mode
+ * is an intermittent wrong answer. The control is in-process: the same binary
+ * folds the same batch both ways and the shas are compared.
+ */
+extern "C" int
+rnafold_stream_overlap(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_STREAM_OVERLAP");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+
+    if (v < 0) v = 0;
+    if (v > 2) v = 2;
+
+    if (v)
+      fprintf(stderr,
+              "device.cu                RNA_STREAM_OVERLAP=%d: %s\n", v,
+              (v == 1) ? "hp_mb_3p runs beside int_loop within a row"
+                       : "hp_mb_3p beside int_loop, and md(i) beside row i-1's cell work");
+  }
+
+  return v;
+}
+
+
+/* The two streams. Both are 0 -- the NULL stream -- until the knob turns them
+ * on, which is what makes the default path bit-for-bit the old one rather than
+ * a new schedule that happens to serialise. */
+static cudaStream_t g_stream_cell = 0;   /* int_loop, new_c, load_my_c, fml_* */
+static cudaStream_t g_stream_hp   = 0;   /* hp_mb_3p only */
+static cudaStream_t g_stream_md   = 0;   /* fml_scan, the md graph, fml_prev, snapshot */
+static cudaEvent_t  g_ev_md       = NULL;   /* snapshot(i) finished: DMLi1 is row i's */
+static cudaEvent_t  g_ev_hp       = NULL;   /* hp_mb_3p(i) finished */
+static cudaEvent_t  g_ev_cell     = NULL;   /* the cell chain reached a join */
+
+extern "C" void
+rnafold_streams_init(void)
+{
+  if (!rnafold_stream_overlap())
+    return;
+
+  if (g_stream_cell == 0) {
+    /* NON-BLOCKING, deliberately: a blocking stream synchronises with the
+     * legacy default stream, which would re-serialise the two the moment
+     * anything at all still ran there. */
+    if (cudaStreamCreateWithFlags(&g_stream_cell, cudaStreamNonBlocking) != cudaSuccess) {
+      fprintf(stderr, "device.cu                stream create failed -- overlap disabled\n");
+      g_stream_cell = 0;
+      return;
+    }
+    if (cudaStreamCreateWithFlags(&g_stream_hp, cudaStreamNonBlocking) != cudaSuccess) {
+      fprintf(stderr, "device.cu                stream create failed -- overlap disabled\n");
+      cudaStreamDestroy(g_stream_cell);
+      g_stream_cell = 0; g_stream_hp = 0;
+      return;
+    }
+    /* Timing disabled: these exist for ordering, and a timing event costs a
+     * synchronisation the schedule is trying to avoid. */
+    cudaEventCreateWithFlags(&g_ev_hp,   cudaEventDisableTiming);
+    cudaEventCreateWithFlags(&g_ev_cell, cudaEventDisableTiming);
+
+    /* Level 2 only: the md chain gets a stream of its own so that row i's
+     * fml_scan -> md -> fml_prev -> snapshot runs beside row i-1's int_loop and
+     * hp_mb_3p. At level 1 it stays on the cell stream, where it is ordered
+     * behind them exactly as it always was. */
+    if (rnafold_stream_overlap() >= 2) {
+      if (cudaStreamCreateWithFlags(&g_stream_md, cudaStreamNonBlocking) != cudaSuccess) {
+        fprintf(stderr, "device.cu                md stream create failed -- level 2 disabled\n");
+        g_stream_md = 0;
+      } else {
+        cudaEventCreateWithFlags(&g_ev_md, cudaEventDisableTiming);
+      }
+    }
+  }
+}
+
+
+extern "C" void
+rnafold_streams_teardown(void)
+{
+  if (g_stream_cell) { cudaStreamDestroy(g_stream_cell); g_stream_cell = 0; }
+  if (g_stream_hp)   { cudaStreamDestroy(g_stream_hp);   g_stream_hp   = 0; }
+  if (g_stream_md)   { cudaStreamDestroy(g_stream_md);   g_stream_md   = 0; }
+  if (g_ev_md)       { cudaEventDestroy(g_ev_md);        g_ev_md       = NULL; }
+  if (g_ev_hp)       { cudaEventDestroy(g_ev_hp);        g_ev_hp       = NULL; }
+  if (g_ev_cell)     { cudaEventDestroy(g_ev_cell);      g_ev_cell     = NULL; }
+}
+
+
+extern "C" cudaStream_t rnafold_stream_cell(void) { return g_stream_cell; }
+extern "C" cudaStream_t rnafold_stream_hp(void)   { return g_stream_hp ? g_stream_hp : g_stream_cell; }
+extern "C" cudaStream_t rnafold_stream_md(void)   { return g_stream_md ? g_stream_md : g_stream_cell; }
+
+/* Level 2's two extra edges, from PORT_STREAM_OVERLAP_SCOPE.md 5:
+ *
+ *   load_my_c(i) -> fml_scan(i)     the md chain may not read row i's c until
+ *                                   the cell stream has written it
+ *   snapshot(i)  -> new_c(i-1)      the cell stream may not consume DMLi1 until
+ *                                   the md chain has published row i's
+ *
+ * All four are no-ops below level 2, where the two chains share one stream and
+ * program order already says this. */
+extern "C" void
+rnafold_stream_cell_done(void)
+{
+  if (g_ev_cell && g_stream_md)
+    (void)cudaEventRecord(g_ev_cell, g_stream_cell);
+}
+
+extern "C" void
+rnafold_stream_md_wait_cell(void)
+{
+  if (g_ev_cell && g_stream_md)
+    (void)cudaStreamWaitEvent(g_stream_md, g_ev_cell, 0);
+}
+
+extern "C" void
+rnafold_stream_md_done(void)
+{
+  if (g_ev_md && g_stream_md)
+    (void)cudaEventRecord(g_ev_md, g_stream_md);
+}
+
+extern "C" void
+rnafold_stream_wait_md(void)
+{
+  if (g_ev_md && g_stream_md)
+    (void)cudaStreamWaitEvent(g_stream_cell, g_ev_md, 0);
+}
+
+/* hp_mb_3p(i) has finished: record it, so whoever joins can wait. No-ops when
+ * the knob is off, so the call sites need no conditional of their own. */
+extern "C" void
+rnafold_stream_hp_done(void)
+{
+  if (g_ev_hp && g_stream_hp)
+    (void)cudaEventRecord(g_ev_hp, g_stream_hp);
+}
+
+/* The cell chain must not run past this point until hp_mb_3p(i) is done. */
+extern "C" void
+rnafold_stream_wait_hp(void)
+{
+  if (g_ev_hp && g_stream_hp)
+    (void)cudaStreamWaitEvent(g_stream_cell, g_ev_hp, 0);
+}
+
+/* Everything issued so far has to have finished -- the end of a row in the
+ * schedules that still need one, and the teardown path. */
+extern "C" void
+rnafold_streams_sync(void)
+{
+  cudaError_t rc = cudaSuccess;
+
+  if (g_stream_cell) rc = cudaStreamSynchronize(g_stream_cell);
+  if ((rc == cudaSuccess) && g_stream_hp) rc = cudaStreamSynchronize(g_stream_hp);
+  if ((rc == cudaSuccess) && g_stream_md) rc = cudaStreamSynchronize(g_stream_md);
+
+  if (rc != cudaSuccess) {
+    fprintf(stderr, "device.cu                stream sync failed: %s\n",
+            cudaGetErrorString(rc));
+    cudaGetLastError();
+  }
+}
+
+
 extern "C" void
 rnafold_phase_sync(void)
 {

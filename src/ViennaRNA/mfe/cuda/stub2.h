@@ -551,6 +551,26 @@ PUBLIC int rnafold_gpu_sweep(void);
 // whichever phase happens to block first. Diagnostic only: it destroys the
 // overlap between phases, so the wall of such a run is not comparable to a
 // normal one. See the definition in device.cu for why it exists.
+// RNA_STREAM_OVERLAP (default 0) -- run the row's INDEPENDENT kernels
+// concurrently instead of back to back. 0 = today's schedule, and every stream
+// below is the NULL stream so the default path is unchanged; 1 = hp_mb_3p(i)
+// beside int_loop(i) (~2 % of wall); 2 = also md(i) beside row i-1's cell work
+// (~21 %). See PORT_STREAM_OVERLAP_SCOPE.md 12 for the dependency graph and the
+// WAR hazard that decides what may move.
+//
+// The stream handles themselves stay inside the .cu files: this header is
+// included from C, which has no cudaStream_t.
+PUBLIC int  rnafold_stream_overlap(void);
+PUBLIC void rnafold_streams_init(void);
+PUBLIC void rnafold_streams_teardown(void);
+PUBLIC void rnafold_streams_sync(void);
+PUBLIC void rnafold_stream_hp_done(void);
+PUBLIC void rnafold_stream_wait_hp(void);
+PUBLIC void rnafold_stream_cell_done(void);
+PUBLIC void rnafold_stream_md_wait_cell(void);
+PUBLIC void rnafold_stream_md_done(void);
+PUBLIC void rnafold_stream_wait_md(void);
+
 PUBLIC void rnafold_phase_sync(void);
 PUBLIC int  rnafold_sync_probe(void);       /* RNA_SYNC_PROBE, negative control */
 PUBLIC void rnafold_sync_probe_tick(void);

@@ -457,6 +457,15 @@ static void    i_H_shadow_reset(void);   // defined below; called from init/tear
 // load_my_c()'s still-fully-synchronous NULL-stream work before the captured
 // chain runs each iteration, with no extra synchronization code needed.
 cudaStream_t    graph_stream     = 0;
+
+/* RNA_STREAM_OVERLAP (device.cu): the stream the row's cell chain runs on. The
+ * graph is CAPTURED on graph_stream either way -- capture needs a stream of its
+ * own -- but the executable graph is LAUNCHED wherever the schedule wants it,
+ * which is what keeps it ordered behind fml_scan(i). */
+extern "C" cudaStream_t rnafold_stream_cell(void);
+extern "C" cudaStream_t rnafold_stream_md(void);
+extern "C" int          rnafold_stream_overlap(void);
+extern "C" void         rnafold_stream_md_done(void);
 cudaGraphExec_t graph_exec       = NULL;
 int             graph_exec_valid = 0;
 
@@ -1989,8 +1998,17 @@ md_row_buffers(int** dml_out, int** dml1_out, int** fml_prev_out,
 // with here.
 extern "C" /*PUBLIC*/ void
 md_snapshot_dml(void) {
-  gpuErrchk( cudaMemcpy(d_dml1, d_dml, g_row_total*sizeof(int),
-                        cudaMemcpyDeviceToDevice) );
+  // The tail of the md chain. A BLOCKING cudaMemcpy here would serialise the
+  // two streams every row whatever the events say, so at level 2 it is async on
+  // the md stream and publishes the event new_c(i-1) waits on.
+  if(rnafold_stream_overlap() >= 2) {
+    gpuErrchk( cudaMemcpyAsync(d_dml1, d_dml, g_row_total*sizeof(int),
+                               cudaMemcpyDeviceToDevice, rnafold_stream_md()) );
+    rnafold_stream_md_done();
+  } else {
+    gpuErrchk( cudaMemcpy(d_dml1, d_dml, g_row_total*sizeof(int),
+                          cudaMemcpyDeviceToDevice) );
+  }
 }
 
 // Widens on the way out when the gate is on. The host's fML is int32 and every
@@ -2195,7 +2213,9 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 
   graph_mgmt_seconds += graph_now_seconds() - mgmt_start; //diagnostic-only
 
-  gpuErrchk( cudaGraphLaunch(graph_exec, graph_stream) );
+  {
+  cudaStream_t launch_stream = rnafold_stream_overlap() ? rnafold_stream_md() : graph_stream;
+  gpuErrchk( cudaGraphLaunch(graph_exec, launch_stream) );
   //the one sync that remains: also the only point where a real runtime/data
   //error from the replayed graph (bad address, illegal access, device-side
   //assert()) becomes observable, since a graph gives no per-node attribution
@@ -2210,5 +2230,12 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   //Making those async -- which needs persistent PINNED host tables, per this
   //file's standing capture-region hazard -- is what would unlock true
   //back-to-back queueing, and it is not part of 5b.
-  gpuErrchk( cudaStreamSynchronize(graph_stream) );
+  // AT LEVEL 2, NOT SYNCING HERE IS THE WHOLE POINT. The md chain is meant to
+  // run beside row i-1's cell work, and a stream sync would end that before it
+  // began. The graph's error checkpoint moves to the next synchronisation --
+  // the end of the sweep, or the next row's own blocking upload -- which costs
+  // attribution, not correctness.
+  if(rnafold_stream_overlap() < 2)
+    gpuErrchk( cudaStreamSynchronize(launch_stream) );
+  }
 }

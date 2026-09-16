@@ -49,6 +49,8 @@
  */
 
 #include <stdio.h>
+
+extern "C" cudaStream_t rnafold_stream_cell(void);  /* RNA_STREAM_OVERLAP, device.cu */
 #include <stdlib.h>
 #include <string.h>
 
@@ -421,7 +423,7 @@ rnafold_gq_fill_row(const int     nfiles,
     const dim3 grid((unsigned int)((max_width + block - 1) / block),
                     (unsigned int)nfiles, 1u);
 
-    gq_row_kernel<<<grid, block>>>(nfiles, turn, d_i_H, d_row_off_H, d_size_off_H,
+    gq_row_kernel<<<grid, block, 0, rnafold_stream_cell()>>>(nfiles, turn, d_i_H, d_row_off_H, d_size_off_H,
                                    d_gq_row,
                                    d_gq_v, d_gq_col, d_gq_rowoff,
                                    d_gq_ent_off, d_gq_row_off);

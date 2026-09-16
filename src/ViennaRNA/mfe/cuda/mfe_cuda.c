@@ -1281,6 +1281,10 @@ par_mfe(const int nfiles,
   init_gpu(nslots,length,tri_off_H,row_off_H);
   init_gpu2(nslots,VCsl, turn, length, 512, tri_off_H, row_off_H, cap_H);
   init_gpu3(nslots,VCsl, turn, length, 512, row_off_H, cap_H);
+  /* RNA_STREAM_OVERLAP: create the row's streams and events once per chunk,
+   * after the device exists and before any row is issued. A no-op at the
+   * default, where every launch stays on the NULL stream. */
+  rnafold_streams_init();
   stage_gpuinit_s += rnafold_now_seconds() - t_gpuinit;
 
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {

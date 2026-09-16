@@ -163,6 +163,11 @@ struct cuda_param_s {
 
 cuda_param_t* d_param;
 char*         d_pair; //[NBPAIRS+1][NBPAIRS+1];
+/* RNA_STREAM_OVERLAP (device.cu). Both return the NULL stream until the knob is
+ * on, so every launch below is exactly where it has always been by default. */
+extern "C" cudaStream_t rnafold_stream_cell(void);
+extern "C" cudaStream_t rnafold_stream_hp(void);
+
 unsigned int* d_hccc; //read via Hc
 
 // HARD CONSTRAINTS, THE HALF THAT IS NOT IN hc->mx.
@@ -901,13 +906,15 @@ load_my_c(const int nfiles,
   }
   const int nblocks = (total + block_size - 1)/block_size;
 
-  load_my_c_kernel<<<nblocks,block_size>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
+  load_my_c_kernel<<<nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 					   d_new_e,  //in
 					   d_my_c,   //out
 					   d_tri_off_H,  //in
 					   d_row_off_H,  //in
 					   d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
+  // Level 2: publish "row i's c is written" for the md chain to wait on.
+  rnafold_stream_cell_done();
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
   if(!rnafold_gpu_sweep())
@@ -2012,7 +2019,7 @@ int_loop_cuda(const int nfiles,
       }
     }
 
-#define IL_WARP_LAUNCH(C, G, W, GRID) int_loop_warp_kernel<C,G,W><<<GRID, 32*(C)>>>( \
+#define IL_WARP_LAUNCH(C, G, W, GRID) int_loop_warp_kernel<C,G,W><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
         d_size_off_H, d_i_H, d_energy_min2)
@@ -2042,7 +2049,7 @@ int_loop_cuda(const int nfiles,
   // the D2H of energy_min. Returning here would have skipped that copy and left
   // the host reading a stale row, which is a wrong answer rather than a crash.
   switch(block_size) {
-    case 256: int_loop_kernel_256<<<blocks,256>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
+    case 256: int_loop_kernel_256<<<blocks,256,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
 						  d_param,P->lxc,
 						  d_pair,
@@ -2056,7 +2063,7 @@ int_loop_cuda(const int nfiles,
 						  d_size_off_H,
 						  d_i_H,
 						  d_energy_min2); break; //Out
-    case 128: int_loop_kernel_128<<<blocks,128>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
+    case 128: int_loop_kernel_128<<<blocks,128,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
 						  d_param,P->lxc,
 						  d_pair,
@@ -2070,7 +2077,7 @@ int_loop_cuda(const int nfiles,
 						  d_size_off_H,
 						  d_i_H,
 						  d_energy_min2); break; //Out
-    case  64: int_loop_kernel_64<<<blocks, 64>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
+    case  64: int_loop_kernel_64<<<blocks, 64,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
 						  d_param,P->lxc,
 						  d_pair,
@@ -2084,7 +2091,7 @@ int_loop_cuda(const int nfiles,
 						  d_size_off_H,
 						  d_i_H,
 						  d_energy_min2); break; //Out
-    default:  int_loop_kernel_32<<<blocks, 32>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
+    default:  int_loop_kernel_32<<<blocks, 32,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
 						  P->TerminalAU,P->ninio[2],
 						  d_param,P->lxc,
 						  d_pair,

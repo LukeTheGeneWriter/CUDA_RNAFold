@@ -239,13 +239,13 @@ def vram_peak(path):
     return hi
 
 def run(tag, fa, chunk_cap=0, vram_mb=None, pipeline=None, phase_sync=True,
-        block_size=None, md_block=None, host_avail_mb=None,
+        block_size=None, md_block=None, host_avail_mb=None, stream_overlap=None,
         int16=False, extra_args="", quiet=False):
     env = dict(os.environ)
     for k in ("RNA_FML_INT16","RNA_GPU_CHUNK","RNA_MIN_GPU_BATCH","RNA_PHASE_SYNC",
               "RNA_GPU_VRAM_BUDGET_MB","RNA_INT_LOOP_BLOCK_SIZE","RNA_BUILD_PIPELINE",
               "RNA_MD_BLOCK_SIZE","RNA_INT_LOOP_WARP","RNA_BUILD_THREADS",
-              "RNA_HOST_AVAIL_MB","RNA_MD_TILE"):
+              "RNA_HOST_AVAIL_MB","RNA_MD_TILE","RNA_STREAM_OVERLAP"):
         env.pop(k, None)
     env["RNA_MIN_GPU_BATCH"] = "1"
     env["RNA_GPU_CHUNK"] = "0" if chunk_cap is None else str(chunk_cap)
@@ -255,6 +255,7 @@ def run(tag, fa, chunk_cap=0, vram_mb=None, pipeline=None, phase_sync=True,
     if md_block:          env["RNA_MD_BLOCK_SIZE"] = str(md_block)
     if vram_mb is not None:       env["RNA_GPU_VRAM_BUDGET_MB"] = str(vram_mb)
     if host_avail_mb is not None: env["RNA_HOST_AVAIL_MB"] = str(host_avail_mb)
+    if stream_overlap is not None: env["RNA_STREAM_OVERLAP"] = str(stream_overlap)
     # unset means AUTO since 32.4, so an arm that wants it OFF must say so
     if pipeline is not None: env["RNA_BUILD_PIPELINE"] = "1" if pipeline else "0"
 
@@ -281,6 +282,10 @@ def run(tag, fa, chunk_cap=0, vram_mb=None, pipeline=None, phase_sync=True,
         if (not g) or int(g.group(1)) != block_size:
             raise SystemExit("%s: int_loop block size %s asked, %s reported"
                              % (tag, block_size, g and g.group(1)))
+    if stream_overlap:
+        if ("RNA_STREAM_OVERLAP=%d" % stream_overlap) not in err:
+            raise SystemExit("%s: RNA_STREAM_OVERLAP=%d did not announce itself"
+                             % (tag, stream_overlap))
     if md_block:
         g = MDBS_RE.search(err)
         if (not g) or int(g.group(1)) != md_block:
@@ -299,7 +304,7 @@ def run(tag, fa, chunk_cap=0, vram_mb=None, pipeline=None, phase_sync=True,
              sha=__import__("hashlib").sha256(p.stdout.encode()).hexdigest()[:12],
              fa=os.path.basename(fa), chunk_cap=chunk_cap, budget_mb=vram_mb,
              pipeline=pipeline, phase_sync=phase_sync, block_size=block_size,
-             md_block=md_block, int16=int16,
+             md_block=md_block, int16=int16, stream_overlap=stream_overlap,
              auto_verdict=a.group(1) if a else None,
              auto_need_gb=float(a.group(2)) if a else None,
              auto_avail_gb=float(a.group(3)) if a else None)
@@ -733,6 +738,71 @@ if n1 and n2:
     else:
         print("    -> more warps, still slower: retirement coupling dominates even with the")
         print("       ceiling raised, and only binning cells by width (E3) can change that.")
+""")
+
+md(r"""## G. Stream overlap: the row's independent kernels, run at the same time
+
+`PORT_STREAM_OVERLAP_SCOPE.md` 12. Six kernels per row, all of them on the NULL
+stream, and three of them mutually independent -- `hp_mb_3p` reads only the
+sequence, the parameters and the masks, no DP value at all.
+
+| `RNA_STREAM_OVERLAP` | what runs together | ceiling |
+|---|---|---|
+| **0** (default) | nothing -- today's schedule, every stream is the NULL stream | control |
+| **1** | `hp_mb_3p(i)` beside `int_loop(i)` | 1.89 s, **~2 % of wall** |
+| **2** | also `md(i)` beside `int_loop(i-1)` + `hp_mb(i-1)` | 18.4 s, **~21 %** |
+
+Level 2 is legal because **`int_loop(i-1)` reads `c`, which `load_my_c(i)`
+finished writing before `md(i)` started, and never reads `fML`** -- the join is
+one step later than it looks.
+
+**Two hazards had to be closed to get there, and the second was not in the
+scope.** The row buffers `hp_mb_3p` writes are double-buffered on row parity
+(the scope's WAR on `d_energy_3p00_row`); and `d_i_H` / `d_size_off_H`, uploaded
+every row and read by kernels in **both** chains, now have md-private copies
+staged async on the md stream. Before that second fix level 2 answered
+differently on 3 of 4 option arms -- which is what a race looks like when it is
+deterministic enough to reproduce.
+
+**Verified locally before this run**: byte-identical to the control on default,
+`--noLP`, `-g` and `-C`, five repeats of a 60-record mixed fixture, and a
+multi-chunk run. **The sha check below is the one that matters** -- a schedule
+that changes an answer is a bug, and a faster wrong answer is worse than a slow
+right one.""")
+
+code(r"""
+print("G: stream overlap, production shape -- ~8 min")
+G_FA = fasta("g_prod", 400, 5601)
+# ABBA: a monotone drift cannot masquerade as a level difference.
+for tag, lvl in (("G_lvl0_a", 0), ("G_lvl1_a", 1), ("G_lvl2_a", 2),
+                 ("G_lvl2_b", 2), ("G_lvl1_b", 1), ("G_lvl0_b", 0)):
+    run(tag, G_FA, pipeline=False, phase_sync=False, stream_overlap=lvl)
+"""); 
+code(r"""
+import statistics
+rows = {}
+for lvl in (0, 1, 2):
+    w = [RESULTS[t]["wall"] for t in ("G_lvl%d_a" % lvl, "G_lvl%d_b" % lvl) if t in RESULTS]
+    if w: rows[lvl] = w
+base = statistics.mean(rows[0]) if 0 in rows else None
+print("  %5s %10s %10s %9s %s" % ("level","wall a","wall b","vs lvl0","sha"))
+for lvl in sorted(rows):
+    w = rows[lvl]
+    sha = {RESULTS[t]["sha"] for t in ("G_lvl%d_a" % lvl, "G_lvl%d_b" % lvl) if t in RESULTS}
+    d = 100.0*(statistics.mean(w) - base)/base if base else 0.0
+    print("  %5d %10.2f %10.2f %+8.1f%% %s" % (lvl, w[0], w[-1], d, sha))
+allsha = {RESULTS[t]["sha"] for t in RESULTS if t.startswith("G_")}
+print()
+if len(allsha) != 1:
+    print("  *** A SCHEDULE CHANGED THE ANSWER. Nothing else in this section matters,")
+    print("      and RNA_STREAM_OVERLAP must go back to 0 by default.", allsha)
+else:
+    print("  one sha across all six arms:", allsha)
+    if 2 in rows and base:
+        d2 = 100.0*(statistics.mean(rows[2]) - base)/base
+        print("  level 2 is %+.1f%% against a ~-21%% ceiling -- the gap is what the md"
+              % d2)
+        print("  chain and the cell chain could not actually overlap.")
 """)
 
 md("## E. Summary and export")

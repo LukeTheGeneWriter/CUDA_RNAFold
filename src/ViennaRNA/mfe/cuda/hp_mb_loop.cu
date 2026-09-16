@@ -184,6 +184,66 @@ static int*    d_span_H;   //per-record max_bp_span, see init_gpu3
 // Cheap enough to pack unconditionally, so unlike the hc masks it needs no
 // g_hc_seq_derived split and works under constraints as-is.
 // READ BY NOTHING YET.
+/* RNA_STREAM_OVERLAP (device.cu). Both return the NULL stream until the knob is
+ * on, so every launch below is exactly where it has always been by default. */
+extern "C" cudaStream_t rnafold_stream_cell(void);
+extern "C" cudaStream_t rnafold_stream_hp(void);
+extern "C" cudaStream_t rnafold_stream_md(void);
+
+/* LEVEL 2 DOUBLE-BUFFERING, and the reason it is not optional there.
+ *
+ * d_energy_3p00_row is written by hp_mb_3p(i) and read by fml_scan(i). At level
+ * 2 those two live on different streams and hp_mb(i-1) is issued while row i's
+ * fml_scan may still be reading -- a write-after-read across rows, on a buffer
+ * reused every row (PORT_STREAM_OVERLAP_SCOPE.md 4). It would not crash; it
+ * would produce a wrong multibranch 3' term, intermittently, depending on
+ * scheduling.
+ *
+ * The other three are consumed by new_c(i), which is ordered before fml_scan(i)
+ * on the same stream, so they are safe -- and they are double-buffered anyway,
+ * because the same kernel writes all four and splitting them invites exactly
+ * the mistake this comment exists to prevent.
+ *
+ * The second copy is allocated ONLY at level 2. Below it every selector returns
+ * the primary buffer and the memory is not spent. */
+/* THE SECOND HAZARD, and it is not a row buffer.
+ *
+ * d_i_H and d_size_off_H are uploaded EVERY ROW and read by every kernel in
+ * this file -- by new_c and hp_mb_3p on the cell stream, and by fml_scan and
+ * fml_prev on the md stream. At level 2 those two chains are a row apart, so
+ * row i-1's upload overwrites the tables while row i's md chain is still
+ * reading them. Measured: level 2 answered differently on 3 of 4 option arms
+ * with the row buffers already double-buffered, which is what sent the search
+ * here.
+ *
+ * The md chain gets its own copies, uploaded ASYNC ON ITS OWN STREAM -- which
+ * is what makes them correct by stream ordering rather than by timing -- from
+ * a pinned shadow double-buffered on row parity, because the source of an async
+ * copy may not be rewritten until it has completed. The device pointers
+ * themselves never change, which matters: the md graph captures its arguments,
+ * and a pointer that moved every row would force a re-instantiate every row.
+ *
+ * int_loop.cu's tables are read only by the cell chain and
+ * modular_decomposition.cu's only by the md chain, so neither needs this. */
+static int*    d_i_H_md          = NULL;
+static size_t* d_size_off_H_md   = NULL;
+static int*    i_H_pin_md[2]     = { NULL, NULL };
+static size_t* size_off_pin_md[2]= { NULL, NULL };
+static int     i_H_pin_md_flag[2]      = { 0, 0 };
+static int     size_off_pin_md_flag[2] = { 0, 0 };
+static int     md_tables_n       = 0;
+
+static int*  d_energy_hp_row_b   = NULL;
+static int*  d_energy_mb_row_b   = NULL;
+static int*  d_energy_3p00_row_b = NULL;
+static char* d_gate_row_b        = NULL;
+
+#define ROW_PARITY(i) (((i) & 1) != 0)
+static inline int*  HP_ROW(int i)   { return (d_energy_hp_row_b   && ROW_PARITY(i)) ? d_energy_hp_row_b   : d_energy_hp_row; }
+static inline int*  MB_ROW(int i)   { return (d_energy_mb_row_b   && ROW_PARITY(i)) ? d_energy_mb_row_b   : d_energy_mb_row; }
+static inline int*  P3P_ROW(int i)  { return (d_energy_3p00_row_b && ROW_PARITY(i)) ? d_energy_3p00_row_b : d_energy_3p00_row; }
+static inline char* GATE_ROW(int i) { return (d_gate_row_b        && ROW_PARITY(i)) ? d_gate_row_b        : d_gate_row; }
+
 static char*   d_up_ml_ok;
 
 // up_hp, the hairpin half of the same story. up_ml is a BOOLEAN because a
@@ -585,6 +645,24 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   SLOT_ALLOC(&d_energy_3p00_row, size);
   //char, not int: it carries two bits per cell and is copied back every row.
   SLOT_ALLOC(&d_gate_row, g_row_total*sizeof(char));
+  if(rnafold_stream_overlap() >= 2) {
+    SLOT_ALLOC(&d_energy_hp_row_b, size);
+    SLOT_ALLOC(&d_energy_mb_row_b, size);
+    SLOT_ALLOC(&d_energy_3p00_row_b, size);
+    SLOT_ALLOC(&d_gate_row_b, g_row_total*sizeof(char));
+    SLOT_ALLOC(&d_i_H_md, (size_t)nfiles*sizeof(int));
+    SLOT_ALLOC(&d_size_off_H_md, (size_t)(nfiles+1)*sizeof(size_t));
+    for(int b=0;b<2;b++) {
+      i_H_pin_md[b]      = (int*)rnafold_pinned_alloc((size_t)nfiles*sizeof(int),
+                                                      &i_H_pin_md_flag[b]);
+      size_off_pin_md[b] = (size_t*)rnafold_pinned_alloc((size_t)(nfiles+1)*sizeof(size_t),
+                                                         &size_off_pin_md_flag[b]);
+    }
+    md_tables_n = nfiles;
+    fprintf(stderr,"%-24s RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered "
+                   "on row parity (+%.1f MB)\n", __FILE__,
+            (3.0*size + g_row_total*sizeof(char))/1048576.0);
+  }
   // noLP row buffers -- see the declarations. cc1 must read INF on the very
   // first row of a record, exactly as upstream's calloc'd-then-INF-filled
   // aux->cc1 does, so both are prefilled here rather than only rotated.
@@ -725,10 +803,22 @@ refill_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
 // and never need resizing between batches.
 PUBLIC void
 teardown_gpu3(void) {
+  /* RNA_STREAM_OVERLAP: everything issued on the row streams must be complete
+   * before the buffers they touch are freed below. */
+  rnafold_streams_sync();
+  rnafold_streams_teardown();
   if(first3) return; // never initialized (or already torn down) -- nothing to free
   gpuErrchk( cudaFree(d_hccc_any) );
   gpuErrchk( cudaFree(d_hccc_gu) );
   gpuErrchk( cudaFree(d_gate_row) );
+  if(d_gate_row_b) { gpuErrchk( cudaFree(d_gate_row_b) ); d_gate_row_b = NULL; }
+  if(d_i_H_md)        { gpuErrchk( cudaFree(d_i_H_md) );        d_i_H_md = NULL; }
+  if(d_size_off_H_md) { gpuErrchk( cudaFree(d_size_off_H_md) ); d_size_off_H_md = NULL; }
+  for(int b=0;b<2;b++) {
+    rnafold_pinned_free(i_H_pin_md[b], i_H_pin_md_flag[b]);      i_H_pin_md[b] = NULL;
+    rnafold_pinned_free(size_off_pin_md[b], size_off_pin_md_flag[b]); size_off_pin_md[b] = NULL;
+  }
+  md_tables_n = 0;
   gpuErrchk( cudaFree(d_hccc_mb) );
   gpuErrchk( cudaFree(d_hccc_mbenc) );
   gpuErrchk( cudaFree(d_S2) );
@@ -739,6 +829,9 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_energy_hp_row) );
   gpuErrchk( cudaFree(d_energy_mb_row) );
   gpuErrchk( cudaFree(d_energy_3p00_row) );
+  if(d_energy_hp_row_b)   { gpuErrchk( cudaFree(d_energy_hp_row_b) );   d_energy_hp_row_b = NULL; }
+  if(d_energy_mb_row_b)   { gpuErrchk( cudaFree(d_energy_mb_row_b) );   d_energy_mb_row_b = NULL; }
+  if(d_energy_3p00_row_b) { gpuErrchk( cudaFree(d_energy_3p00_row_b) ); d_energy_3p00_row_b = NULL; }
   gpuErrchk( cudaFree(d_energy_stack_row) );   //noLP
   gpuErrchk( cudaFree(d_cc) );                //noLP
   gpuErrchk( cudaFree(d_cc1) );               //noLP
@@ -1282,6 +1375,28 @@ upload_i_H(const int nfiles, const int* i_H) {
   }
 }
 
+/* Row i's tables, staged in the parity shadow and copied on the md stream so
+ * the copy is ordered behind row i+1's md kernels rather than racing them. */
+static void
+upload_md_tables(const int nfiles, const int i, const size_t* size_off_H, const int* i_H)
+{
+  const int b = (i & 1) ? 1 : 0;
+
+  if((!d_i_H_md) || (md_tables_n != nfiles) || (!i_H_pin_md[b]) || (!size_off_pin_md[b]))
+    return;                       /* not level 2, or allocation failed: nothing to do */
+
+  memcpy(i_H_pin_md[b], i_H, (size_t)nfiles*sizeof(int));
+  memcpy(size_off_pin_md[b], size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
+  gpuErrchk( cudaMemcpyAsync(d_i_H_md, i_H_pin_md[b], (size_t)nfiles*sizeof(int),
+                             cudaMemcpyHostToDevice, rnafold_stream_md()) );
+  gpuErrchk( cudaMemcpyAsync(d_size_off_H_md, size_off_pin_md[b],
+                             (size_t)(nfiles+1)*sizeof(size_t),
+                             cudaMemcpyHostToDevice, rnafold_stream_md()) );
+}
+
+static inline const int*    MD_I_H(void)    { return d_i_H_md        ? d_i_H_md        : d_i_H; }
+static inline const size_t* MD_SIZE_OFF(void) { return d_size_off_H_md ? d_size_off_H_md : d_size_off_H; }
+
 static void
 size_off_shadow_reset(void) {
   rnafold_pinned_free(size_off_shadow, size_off_shadow_pinned);
@@ -1378,11 +1493,17 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   // The instantiate-a-few-and-switch shape follows int_loop_kernel's 32/64/
   // 128/256 precedent, and the env override follows RNA_MD_TILE's.
 #define FML_SCAN_LAUNCH(TW) \
-  fml_scan_kernel<TW><<<nfiles,TW>>>(nfiles, RNA_I_ROW(i), turn, \
-                                     d_new_e_, d_energy_3p00_row, \
+  fml_scan_kernel<TW><<<nfiles,TW,0,rnafold_stream_md()>>>(nfiles, RNA_I_ROW(i), turn, \
+                                     d_new_e_, P3P_ROW(i), \
                                      rnafold_gq_row_device(), d_fml_prev_, \
                                      d_up_ml_ok, d_param2, d_energy_min_, \
-                                     d_row_off_H, d_seq_off_H, d_size_off_H, d_i_H)
+                                     d_row_off_H, d_seq_off_H, MD_SIZE_OFF(), MD_I_H())
+  // THE HEAD OF THE MD CHAIN. At level 2 it runs on its own stream, so it has
+  // to be TOLD that row i's c is written -- program order no longer says it --
+  // and it reads its OWN copy of the per-row tables, staged here so the copy is
+  // ordered behind the previous row's md kernels instead of racing them.
+  rnafold_stream_md_wait_cell();
+  upload_md_tables(nfiles, i, size_off_H, i_H);
   switch(fml_scan_tile()) {
     case   32: FML_SCAN_LAUNCH(  32); break;
     case   64: FML_SCAN_LAUNCH(  64); break;
@@ -1637,7 +1758,7 @@ stack_row_i(const int nfiles, const int i, const int turn,
   }
 
   const size_t nblocks = (total + block_size - 1)/block_size;
-  stack_row_kernel<<<(int)nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn,
+  stack_row_kernel<<<(int)nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), turn,
                                                 d_S2, d_pair2, d_param2,
                                                 d_intenc, d_hcoff,
                                                 d_energy_stack_row,
@@ -1729,9 +1850,15 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
     stack_row_i(nfiles, i, turn, size_off_H, i_H);
 
   const size_t nblocks = (total + block_size - 1)/block_size;
-  new_c_kernel<<<(int)nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn, noGUclosure,
-                                            d_energy_min2_, d_energy_hp_row, d_energy_mb_row,
-                                            d_gate_row, d_dml1_,
+  // THE JOIN. new_c(i) is the first thing that reads hp_mb_3p(i)'s output, so
+  // this is where the two streams meet. A no-op when the knob is off.
+  rnafold_stream_wait_hp();
+  // Level 2: DMLi1 is published by snapshot(i+1) on the md stream, which is
+  // running concurrently with this row's int_loop and hp_mb.
+  rnafold_stream_wait_md();
+  new_c_kernel<<<(int)nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), turn, noGUclosure,
+                                            d_energy_min2_, HP_ROW(i), MB_ROW(i),
+                                            GATE_ROW(i), d_dml1_,
                                             d_up_hp, d_seq_off_H, d_new_e_,
                                             noLP ? d_energy_stack_row : NULL,
                                             noLP ? d_cc1 : NULL,
@@ -1875,9 +2002,9 @@ fml_prev_i(const int nfiles, const int i, const int turn,
   upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   const size_t nblocks = (total + block_size - 1)/block_size;
-  fml_prev_kernel<<<(int)nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn,
+  fml_prev_kernel<<<(int)nblocks,block_size,0,rnafold_stream_md()>>>(nfiles, RNA_I_ROW(i), turn,
                                                d_energy_min_, d_dml_, d_fml_prev_,
-                                               d_row_off_H, d_size_off_H, total, d_i_H);
+                                               d_row_off_H, MD_SIZE_OFF(), total, MD_I_H());
   gpuErrchk( cudaPeekAtLastError() );
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
@@ -1952,15 +2079,18 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   upload_i_H(nfiles, i_H);                 // continuous flow phase A
 
   const int nblocks = (total + block_size - 1)/block_size;
-  hp_mb_3p_kernel<<<nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn, length,
+  hp_mb_3p_kernel<<<nblocks,block_size,0,rnafold_stream_hp()>>>(nfiles, RNA_I_ROW(i), turn, length,
                                           d_S2, d_sequence, d_pair2,
                                           d_hccc_mb, d_hccc_mbenc,
                                           d_hccc_any, d_hccc_gu, d_param2, d_salt_loop,
-                                          d_energy_hp_row, d_energy_mb_row, d_energy_3p00_row,
-                                          d_gate_row,
+                                          HP_ROW(i), MB_ROW(i), P3P_ROW(i),
+                                          GATE_ROW(i),
                                           d_row_off_H, d_hc2_off_H, d_seq_off_H, d_len_H,
                                           d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
+  // RNA_STREAM_OVERLAP: publish "hp_mb_3p(i) is done" for new_c(i) to wait on.
+  // A no-op when the knob is off.
+  rnafold_stream_hp_done();
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
   if(!rnafold_gpu_sweep())
@@ -1971,10 +2101,10 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   // largest group of them.
   if(!rnafold_gpu_sweep()) {
     const size_t rowsize = g_row_total*sizeof(int);
-    gpuErrchk( cudaMemcpy(energy_hp_row,  d_energy_hp_row,  rowsize,cudaMemcpyDeviceToHost) );
-    gpuErrchk( cudaMemcpy(energy_mb_row,  d_energy_mb_row,  rowsize,cudaMemcpyDeviceToHost) );
-    gpuErrchk( cudaMemcpy(energy_3p00_row,d_energy_3p00_row,rowsize,cudaMemcpyDeviceToHost) );
-    gpuErrchk( cudaMemcpy(gate_row,       d_gate_row,       g_row_total*sizeof(char),cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(energy_hp_row,  HP_ROW(i),  rowsize,cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(energy_mb_row,  MB_ROW(i),  rowsize,cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(energy_3p00_row,P3P_ROW(i), rowsize,cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(gate_row,       GATE_ROW(i), g_row_total*sizeof(char),cudaMemcpyDeviceToHost) );
     gpuErrchk( cudaDeviceSynchronize() );
   }
 }
