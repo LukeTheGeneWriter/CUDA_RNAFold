@@ -1223,21 +1223,44 @@ par_mfe(const int nfiles,
   {
     const vrna_md_t *md0 = &(VCsl[0]->params->model_details);
     int h;
-    g_hc_seq_derived = !md0->noLP;
+    int derivable = !md0->noLP;
+
+    /* A DEPOT IS THE OTHER WAY hc->mx STOPS BEING A FUNCTION OF THE SEQUENCE,
+     * and this predicate did not ask. It read noLP alone and leaned on the
+     * routing guard to have refused everything else -- which was true, and is
+     * exactly the kind of precondition that is held from a distance until
+     * somebody relaxes the guard. Asked directly now, per record: anything
+     * carrying a hard-constraint depot or a soft constraint packs the host way.
+     * Slower, never wrong, and it makes the derive path safe to leave on. */
     for(h = 0; h < nslots; h++) {
       if(VCsl[h] == NULL) continue;
-      assert(VCsl[h]->sc == NULL);
-      assert(VCsl[h]->hc == NULL || VCsl[h]->hc->depot == NULL);
+      if(VCsl[h]->sc != NULL) derivable = 0;
+      if((VCsl[h]->hc != NULL) && (VCsl[h]->hc->depot != NULL)) derivable = 0;
       assert(VCsl[h]->params->model_details.noLP == md0->noLP);
     }
+
+    g_hc_seq_derived = derivable;
   }
 
-  const double t_gpuinit = rnafold_now_seconds();
-  init_gpu(nslots,length,tri_off_H,row_off_H);
-  init_gpu2(nslots,VCsl, turn, length, 512, tri_off_H, row_off_H, cap_H);
-  init_gpu3(nslots,VCsl, turn, length, 512, row_off_H, cap_H);
-  stage_gpuinit_s += rnafold_now_seconds() - t_gpuinit;
-
+  /* PREPARE BEFORE ANYTHING READS hc->mx OR ptype -- and this ordering is the
+   * whole of what -C needed.
+   *
+   * vrna_constraints_add() only QUEUES: hc->depot holds the constraint and
+   * hc->mx, ptype and the up_* arrays stay byte-identical to an unconstrained
+   * compound until vrna_fold_compound_prepare() materialises them. This loop
+   * used to run AFTER init_gpu3(), which packs the device's hard-constraint
+   * masks -- so the masks were built from the UNCONSTRAINED matrix.
+   *
+   * For every model the guard admits today that is invisible, because the
+   * pre-prepare hc->mx already equals the final one. Under -C it is a wrong
+   * answer: measured 2026-09-16 with RNA_ENGINE_ALLOW=hc, the device came back
+   * BETTER THAN LEGAL on 8 of 8 records and its structures re-evaluated to a
+   * different energy than it reported.
+   *
+   * And RNA_HC_VERIFY reported "0 mismatching words" on exactly those folds,
+   * because it too rebuilds from hc->mx at pack time: it was comparing two
+   * unconstrained matrices. The verifier only means something from here on.
+   */
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {
     int i;
     const double t_prepare = rnafold_now_seconds();
@@ -1251,13 +1274,24 @@ par_mfe(const int nfiles,
       if(VC[i]->stat_cb){ VC[i]->stat_cb(VC[i], VRNA_STATUS_MFE_PRE, VC[i]->auxdata);}  /* PORT: 2.7.2 signature */
     }
     stage_prepare_s += rnafold_now_seconds() - t_prepare;
+  }
 
+
+  const double t_gpuinit = rnafold_now_seconds();
+  init_gpu(nslots,length,tri_off_H,row_off_H);
+  init_gpu2(nslots,VCsl, turn, length, 512, tri_off_H, row_off_H, cap_H);
+  init_gpu3(nslots,VCsl, turn, length, 512, row_off_H, cap_H);
+  stage_gpuinit_s += rnafold_now_seconds() - t_gpuinit;
+
+  if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {
+    int i;
     /*
      * G-quadruplex stage G0: carry c_gq to the device.
      *
      * Here and not earlier, because c_gq is created by
-     * vrna_fold_compound_prepare() just above -- dp_matrices.c:547, gated on
-     * md.gquad. Here and not later, because the c/fML free below does not
+     * vrna_fold_compound_prepare() -- dp_matrices.c:547, gated on md.gquad --
+     * which now runs above init_gpu3() rather than below it, so that the
+     * hard-constraint masks are packed from a materialised hc->mx. Here and not later, because the c/fML free below does not
      * touch c_gq but everything after this is the sweep.
      *
      * A no-op today: nothing reads the table until G1/G2, and -g is still

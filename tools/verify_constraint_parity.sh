@@ -109,6 +109,37 @@ def far_pair(s, st):
     return "".join(c)
 emit("farpair.fa", far_pair)
 
+# force PAIRED a block of bases the free fold leaves unpaired. This is the shape
+# that reaches hc->up_hp and hc->up_int: upstream forbids any hairpin or interior
+# loop whose unpaired stretch covers a base that must pair, and those two arrays
+# are how it does it. The device carries up_ml and reads the rest out of hc->mx,
+# so this is the shape that would expose a gap between the two.
+def pipe_block(s, st):
+    c = ["."] * len(s)
+    free = [k for k, ch in enumerate(st) if ch == "."]
+    for k in free[: max(6, len(s) // 12)]:
+        c[k] = "|"
+    return "".join(c)
+emit("pipeblock.fa", pipe_block)
+
+# force PAIRED a base sitting INSIDE an existing hairpin loop -- the narrowest
+# possible test of up_hp, aimed at the one loop type whose unpaired run is
+# checked as a single span rather than cell by cell.
+def pipe_in_hairpin(s, st):
+    c = ["."] * len(s)
+    depth, opens = 0, []
+    for k, ch in enumerate(st):
+        if ch == "(":
+            opens.append(k)
+        elif ch == ")":
+            i = opens.pop()
+            inner = st[i + 1:k]
+            if inner and set(inner) == {"."} and len(inner) >= 4:
+                c[i + 1 + len(inner) // 2] = "|"
+                return "".join(c)
+    return "".join(c)
+emit("pipehairpin.fa", pipe_in_hairpin)
+
 print(f"  {len(seqs)} records, {min(len(s) for _,s in seqs)}-{max(len(s) for _,s in seqs)} nt;"
       f" constraints derived from the free fold so each one bites")
 PY
@@ -147,11 +178,19 @@ PY
 
 pass=0; fail=0
 
-for shape in dots xpaired farpair; do
+for shape in dots xpaired farpair pipeblock pipehairpin; do
   fa=$WORK/$shape.fa
 
-  run "$WORK/$shape.cpu" "$WORK/$shape.cpu.err" 0 -C -i "$fa"
-  run "$WORK/$shape.gpu" "$WORK/$shape.gpu.err" 1 -C -i "$fa"
+  # '|' MEANS "paired with something", AND IT IS NOT ENFORCED WITHOUT THE FLAG.
+  # Measured: the same '|' constraint leaves the MFE untouched under plain -C
+  # (-21.60, the free answer) and moves it to -14.00 under --enforceConstraint.
+  # So the two pipe shapes carry the flag -- which also puts --enforceConstraint
+  # itself under test, since it is the option that makes hc->up_* restrictive.
+  extra=""
+  case "$shape" in pipeblock|pipehairpin) extra="--enforceConstraint" ;; esac
+
+  run "$WORK/$shape.cpu" "$WORK/$shape.cpu.err" 0 -C $extra -i "$fa"
+  run "$WORK/$shape.gpu" "$WORK/$shape.gpu.err" 1 -C $extra -i "$fa"
 
   # `grep -c` already prints 0 when it matches nothing, and exits 1 while doing
   # so. An `|| echo 0` fallback therefore appends a SECOND zero, and the "$ns"

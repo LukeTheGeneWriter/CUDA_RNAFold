@@ -282,7 +282,7 @@ judgements; the mechanisms are read from the code or measured on 2026-09-16 with
 
 | option(s) | what is actually missing | kind of work | size |
 |---|---|---|---|
-| **`-C`**, `--canonicalBPonly`, `--enforceConstraint` | **An ORDERING bug, not missing arithmetic.** `init_gpu3()` packs the hard-constraint masks at `mfe_cuda.c:1238`; `vrna_fold_compound_prepare()` — which is what materialises `hc->depot` into `hc->mx` — runs at line 1243, *after* it. And `g_hc_seq_derived` (`:1226`) lets the device derive the masks from the sequence on a predicate that reads `noLP` and never asks whether a depot exists | move the pack after the prepare; make the derive predicate consider `hc->depot`. **No new DP state, no new kernel** | **small** |
+| **`-C`**, `--canonicalBPonly`, `--enforceConstraint` | **An ORDERING bug, not missing arithmetic.** `init_gpu3()` packs the hard-constraint masks at `mfe_cuda.c:1238`; `vrna_fold_compound_prepare()` — which is what materialises `hc->depot` into `hc->mx` — runs at line 1243, *after* it. And `g_hc_seq_derived` (`:1226`) lets the device derive the masks from the sequence on a predicate that reads `noLP` and never asks whether a depot exists | move the pack after the prepare; make the derive predicate consider `hc->depot` — **both done, and they land 3 of 5 constraint shapes**. What remains is `hc->up_hp` / `up_int`: the device carries only `up_ml`, so a base forced to PAIR does not stop the sweep leaving it unpaired inside a hairpin or interior loop | **small, then two O(n) uploads and one comparison in each of two kernels** |
 | **`--shape`**, `--shapeMethod`, `--shapeConversion`, `--sp-*` | soft-constraint terms the kernels never add. Deigan is a per-nucleotide stacking bonus (`sc->energy_stack`, O(n)); Zarringhalam a per-position unpaired term (`sc->energy_up`). A generic `sc->f` callback cannot run in a kernel at all | upload two O(n) arrays and add a term at the hairpin, interior and multibranch sites — for the **table-based** methods only | medium; callbacks stay declined permanently |
 | **`--commands`** | nothing of its own: a command file queues hard and/or soft constraints | inherits `-C` and soft constraints | follows the two above |
 | **`--motif`** (`domains_up`) | unstructured-domain energies come from a callback evaluated per (i, j, loop context) | either evaluate the domain on the host into a table the kernels read, or port the callback | medium–large, and **the effect is still unmeasured** — no fixture yet makes a motif bind |
@@ -317,3 +317,40 @@ after the thing it verifies exists.
 
 Nothing here is a hot-path change, which is why `-C` is now the cheapest
 capability left on the declined list rather than the most expensive.
+
+### `-C`, continued: the ordering fix lands three of five shapes
+
+The fix was made (`mfe_cuda.c`: the prepare loop hoisted above `init_gpu*`, and
+`g_hc_seq_derived` now asks per record whether a depot or a soft constraint
+exists instead of reading `noLP` alone). With it, and the guard lifted for the
+measurement only:
+
+| shape | constraint | result |
+|---|---|---|
+| `dots` | control, no constraint | identical, 1 sweep |
+| `xpaired` | force UNPAIRED every base the free MFE pairs | **identical**, 1 sweep, self-consistent |
+| `farpair` | force a pair the free fold does not contain | **identical**, 1 sweep, self-consistent |
+| `pipeblock` | `--enforceConstraint`, force a block PAIRED | **DIFFERS** — device better than legal (−18.40 vs −16.00) |
+| `pipehairpin` | `--enforceConstraint`, force a base inside a hairpin loop PAIRED | **DIFFERS** |
+
+**So the guard stays**, and what remains is now named precisely. `hc->mx` holds
+the legality of a **pair**; the legality of leaving a base **unpaired** lives
+entirely in `hc->up_hp`, `up_int`, `up_ml` and `up_ext` — and the device carries
+**only `up_ml`** (`hp_mb_loop.cu:187`, one byte per position). Forcing a base to
+pair does not change any pair's legality, so nothing in the four masks moves,
+and the sweep goes on allowing hairpins and interior loops whose unpaired span
+covers a base that upstream requires to be paired.
+
+**What is left for `-C`:** upload `up_hp` and `up_int` beside `up_ml`, and test
+them where upstream does — `up_hp[i+1] >= j-i-1` in the hairpin kernel,
+`up_int[i+1] >= u1` and `up_int[q+1] >= u2` in the interior-loop kernel. Two
+O(n) arrays and one comparison in each of two kernels. `up_ext` needs nothing:
+the exterior loop is upstream's own host code.
+
+**And one upstream semantic, measured, that the first version of these shapes
+got wrong:** `|` ("paired with something") is **not enforced without
+`--enforceConstraint`**. The same constraint leaves the MFE at the free answer
+(−21.60) under plain `-C` and moves it to −14.00 with the flag. A shape that
+does not bite reports agreement for the wrong reason, so both pipe shapes carry
+the flag — which also puts `--enforceConstraint` itself under test, since it is
+the option that makes `hc->up_*` restrictive in the first place.
