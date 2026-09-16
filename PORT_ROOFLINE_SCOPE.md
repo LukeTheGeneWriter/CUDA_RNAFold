@@ -106,7 +106,9 @@ ncu --section WarpStateStats --section SchedulerStats --section Occupancy \
     --section LaunchStats -k modular_decomposition_kernel ...
 ```
 
-sampled the way §C already samples `int_loop`. If it comes back looking like
+**This is now notebook §G** (`CUDA_RNAFold_Lookup.ipynb`, four arms: shipped,
+`RNA_MD_TILE=8`, `=1`, and int16), with `launch__waves_per_multiprocessor` added
+so the one-wave claim is measured rather than derived. If it comes back looking like
 `int_loop` — `long_scoreboard` dominant, occupancy under 25 %, one wave — then
 the kernel is latency-bound too, the L4 conclusion is formally retired, and the
 work is *more parallelism*, not *fewer bytes*: cells per block, blocks per wave,

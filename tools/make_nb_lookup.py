@@ -426,12 +426,13 @@ class ClockSampler(object):
 
 def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
         block_size=None, warp=None, build_threads=None, phase_sync=True,
-        vram_mb=None, pipeline=False, extra_args="", quiet=False):
+        vram_mb=None, pipeline=False, host_avail_mb=None, extra_args="",
+        quiet=False):
     env = dict(os.environ)
     for k in ("RNA_FML_INT16","RNA_GPU_CHUNK","RNA_MIN_GPU_BATCH","RNA_PHASE_SYNC",
               "RNA_GPU_VRAM_BUDGET_MB","RNA_INT_LOOP_BLOCK_SIZE","RNA_BUILD_PIPELINE",
               "RNA_LAUNCH_STATS","RNA_INT_LOOP_WARP","RNA_BUILD_THREADS","RNA_MD_SMEM",
-              "RNA_INT_LOOP_GRIDY","RNA_INT_LOOP_WSEARCH"):
+              "RNA_INT_LOOP_GRIDY","RNA_INT_LOOP_WSEARCH","RNA_HOST_AVAIL_MB"):
         env.pop(k, None)
     env["RNA_MIN_GPU_BATCH"] = "1"
     # RNA_GPU_CHUNK IS THE MASTER SWITCH, NOT A CAP. RNAfold.c:2038 gates
@@ -455,6 +456,9 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
     # free memory happens to imply on the day.
     if pipeline is None: pass                          # auto: leave it unset
     else:              env["RNA_BUILD_PIPELINE"] = "1" if pipeline else "0"
+    # Test hook: pretend this much host memory is free, so AUTO's decline branch
+    # is reachable on a machine that has plenty. See RNAfold.c.
+    if host_avail_mb is not None: env["RNA_HOST_AVAIL_MB"] = str(host_avail_mb)
 
     clk = "/content/clk/%s.csv" % tag
     cmd = (TIME_BIN + BIN + " --noPS " + extra_args + " -i " + (fa or BIG)).split()
@@ -511,7 +515,8 @@ def run(tag, fa=None, gridy=False, wsearch=False, int16=False, chunk_cap=29,
     r = dict(wall=wall, phases=ph, stages=st, chunks=len(shapes),
              cells=sum(int(s[2]) for s in shapes), gridy=gridy, wsearch=wsearch,
              int16=int16, chunk_cap=chunk_cap, vram_mb=vram_mb, pipeline=pipeline,
-             phase_sync=phase_sync, fa=os.path.basename(fa or BIG),
+             phase_sync=phase_sync, host_avail_mb=host_avail_mb,
+             fa=os.path.basename(fa or BIG),
              block_size=int(BS_RE.search(err).group(1)) if BS_RE.search(err) else None,
              build_threads=int(bt.group(1)) if bt else None,
              grid_trace=trace, rss=rss, clock=clkinfo, sha=sha,
@@ -728,6 +733,7 @@ FALLBACK = ",".join("smsp__average_warps_issue_stalled_%s_per_issue_active.ratio
                     for r in REASONS) + "," + EXTRA
 
 PROF_N, PROF_LEN, PROF_CAP, SKIP, COUNT = 60, 1800, 24, 140, 3
+PROF_SKIP, PROF_COUNT = SKIP, COUNT
 PFA = "%s/fa/prof.fa" % ROOT
 if not os.path.exists(PFA):
     random.seed(90211)
@@ -736,20 +742,38 @@ if not os.path.exists(PFA):
             f.write(">s%d\n%s\n" % (i, "".join(random.choice("ACGU") for _ in range(PROF_LEN))))
 
 STALLS = {}
-def profile(tag, gridy=False, wsearch=False):
+def profile(tag, gridy=False, wsearch=False, kernel="^int_loop_warp_kernel",
+            env_extra=None, skip=None, count=None, store=None, metrics_extra=""):
     env = dict(os.environ)
-    for k in ("RNA_FML_INT16","RNA_PHASE_SYNC","RNA_MD_SMEM",
+    for k in ("RNA_FML_INT16","RNA_PHASE_SYNC","RNA_MD_SMEM","RNA_MD_TILE",
               "RNA_INT_LOOP_GRIDY","RNA_INT_LOOP_WSEARCH"):
         env.pop(k, None)
     env.update(RNA_GPU_CHUNK=str(PROF_CAP), RNA_MIN_GPU_BATCH="1")
     if gridy:   env["RNA_INT_LOOP_GRIDY"]   = "1"
     if wsearch: env["RNA_INT_LOOP_WSEARCH"] = "1"
+    env.update(env_extra or {})
+    # The kernel NAME is part of what is asserted, not a formatting detail: the
+    # probe that "profiled int_loop" and reported modular_decomposition's
+    # numbers would look exactly like a result.
+    want = kernel.lstrip("^")
+    skip = PROF_SKIP if skip is None else skip
+    count = PROF_COUNT if count is None else count
+    sink = STALLS if store is None else store
     out = "/content/ncu_%s.csv" % tag
-    for flavour, extra in (("sections", SECT + " --metrics " + EXTRA),
+    # A metric name this toolkit does not know fails the WHOLE ncu call, so the
+    # extras ride on their own flavour first and both original flavours stay
+    # reachable underneath. A richer probe must not be able to cost us the one
+    # that already works.
+    E2 = EXTRA + ("," + metrics_extra if metrics_extra else "")
+    F2 = FALLBACK + ("," + metrics_extra if metrics_extra else "")
+    for flavour, extra in ((("sections+extra", SECT + " --metrics " + E2),
+                            ("explicit+extra", "--metrics " + F2))
+                           if metrics_extra else ()) + \
+                          (("sections", SECT + " --metrics " + EXTRA),
                            ("explicit", "--metrics " + FALLBACK)):
-        cmd = ("ncu --target-processes all --csv %s -k regex:'^int_loop_warp_kernel' "
+        cmd = ("ncu --target-processes all --csv %s -k regex:'%s' "
                "--launch-skip %d --launch-count %d --log-file %s %s --noPS -i %s "
-               "> /dev/null 2>&1" % (extra, SKIP, COUNT, out, BIN, PFA))
+               "> /dev/null 2>&1" % (extra, kernel, skip, count, out, BIN, PFA))
         subprocess.run(cmd, shell=True, env=env)
         body = open(out).read() if os.path.exists(out) else ""
         if ("No kernels were profiled" in body) or ("Metric Name" not in body):
@@ -757,7 +781,7 @@ def profile(tag, gridy=False, wsearch=False):
         rows = list(_csvmod.DictReader(io.StringIO(
             "\n".join(l for l in body.splitlines() if not l.startswith("==")))))
         names = set(r.get("Kernel Name","") for r in rows)
-        if names and not any("int_loop_warp_kernel" in nm for nm in names):
+        if names and not any(want in nm for nm in names):
             print("  %-10s *** WRONG KERNEL: %r ***" % (tag, sorted(names)[:1])); return {}
         agg = collections.defaultdict(list)
         for r in rows:
@@ -765,7 +789,7 @@ def profile(tag, gridy=False, wsearch=False):
             except Exception: pass
         res = {k: sum(v)/len(v) for k, v in agg.items() if v}
         if any("issue_stalled" in k for k in res):
-            print("  %-10s ok via %s" % (tag, flavour)); STALLS[tag] = res; return res
+            print("  %-10s ok via %s" % (tag, flavour)); sink[tag] = res; return res
     print("  %-10s *** NO STALL METRICS -- broken probe, not a result ***" % tag)
     return {}
 
@@ -1126,6 +1150,312 @@ if ref and got:
     print("  shas:", set(v["sha"] for _, v in rows) |
           set([ref["sha"]]))
 """);
+md(r"""## G. `modular_decomposition_kernel` — 44 % of wall, never profiled on this card
+
+`PORT_ROOFLINE_SCOPE.md` §5: we have `int_loop`'s full stall mix, occupancy and
+launch geometry on an A100, and for the kernel that is **more than twice its
+size** we have exactly one number — 3.4 % of DRAM peak. Everything we believe
+about `modular_decomposition_kernel` otherwise comes from `PROFILE272_RESULTS.md`,
+which measured it at **89.3 % of DRAM peak on an L4** and concluded, correctly
+for that box, *"the way to go faster is to move fewer bytes, not to restructure
+the compute."*
+
+**That conclusion cannot survive a 3.4 % reading, and int16 on this card
+measured +0.0 %.** This section replaces the belief with a measurement.
+
+**The prediction, written before the run**: `long_scoreboard` dominant,
+occupancy well under 50 %, `waves_per_multiprocessor` near 1, DRAM in the low
+single digits — i.e. the same latency-bound shape as `int_loop`, not a
+bandwidth-bound one. Four arms, because the tile width is the cheapest existing
+control on *parallelism*: `RNA_MD_TILE` sets how many lanes cooperate on one
+output cell, so tile 32 → 1 has 32× fewer lanes per cell and 32× more cells in
+flight per warp. If the kernel is latency-bound, that knob should move the stall
+mix; if it is bandwidth-bound, it should not.
+
+**`RNA_MD_TILE < 16` silently defeats int16**, so the two are never combined.""")
+
+code(r"""
+# waves_per_multiprocessor is the whole "is it one wave?" question in one metric,
+# and dram bytes let the roofline share be recomputed rather than quoted from 23.2.
+MD_EXTRA = ",".join([
+    "launch__waves_per_multiprocessor",
+    "dram__bytes_read.sum", "dram__bytes_write.sum",
+    "sm__throughput.avg.pct_of_peak_sustained_elapsed",
+])
+MD_STALLS = {}
+print("G: NCU on modular_decomposition_kernel (the 44%% phase)")
+for tag, env_extra in (("md_t32",  {}),
+                       ("md_t8",   {"RNA_MD_TILE": "8"}),
+                       ("md_t1",   {"RNA_MD_TILE": "1"}),
+                       ("md_i16",  {"RNA_FML_INT16": "1"})):
+    profile(tag, kernel="modular_decomposition_kernel", env_extra=env_extra,
+            store=MD_STALLS, metrics_extra=MD_EXTRA)
+with open("/content/lookup_md_stalls.json","w") as f: json.dump(MD_STALLS, f, indent=1)
+""");
+code(r"""
+if not MD_STALLS:
+    print("No md stall data -- nothing below is a result.")
+else:
+    tags = [t for t in ("md_t32","md_t8","md_t1","md_i16") if t in MD_STALLS]
+    print("--- geometry and roofline ---")
+    print("%-8s %10s %11s %8s %9s %8s %9s %9s"
+          % ("arm","occupancy","duration us","waves","grid","blk","DRAM %","SM %"))
+    for t in tags:
+        r = MD_STALLS[t]
+        print("%-8s %9.1f%% %11.1f %8.2f %9d %8d %8.2f%% %8.2f%%"
+              % (t, r.get("sm__warps_active.avg.pct_of_peak_sustained_active",0),
+                 r.get("gpu__time_duration.sum",0)/1e3,
+                 r.get("launch__waves_per_multiprocessor",0),
+                 int(r.get("launch__grid_size",0)), int(r.get("launch__block_size",0)),
+                 r.get("gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed",0),
+                 r.get("sm__throughput.avg.pct_of_peak_sustained_elapsed",0)))
+    print()
+    print("  L1/L2 hit, registers, occupancy limiters")
+    for t in tags:
+        r = MD_STALLS[t]
+        lims = "/".join(str(int(r.get("launch__occupancy_limit_"+k,0)))
+                        for k in ("blocks","registers","shared_mem","warps"))
+        print("  %-8s L1 %5.1f%%  L2 %5.1f%%  regs %3d  limits(blk/reg/smem/warp) %s"
+              % (t, r.get("l1tex__t_sector_hit_rate.pct",0),
+                 r.get("lts__t_sector_hit_rate.pct",0),
+                 int(r.get("launch__registers_per_thread",0)), lims))
+    print()
+    keys = sorted({k for r in MD_STALLS.values() for k in r if "issue_stalled" in k})
+    def short(k):
+        m = re.search(r"issue_stalled_(.+?)_per_issue_active", k); return m.group(1) if m else k
+    order2 = sorted(keys, key=lambda k: -max(MD_STALLS[t].get(k,0.0) for t in tags))
+    print("--- warp issue stalls: ABSOLUTE cycles per issue ---")
+    print("%-20s" % "stall reason" + "".join("%10s" % t for t in tags))
+    for k in order2:
+        vals = [MD_STALLS[t].get(k,0.0) for t in tags]
+        if max(vals) < 0.005: continue
+        print("%-20s" % short(k) + "".join("%10.3f" % v for v in vals))
+    print("%-20s" % "(total)"
+          + "".join("%10.3f" % sum(MD_STALLS[t].get(k,0.0) for k in keys) for t in tags))
+    print()
+    r = MD_STALLS.get("md_t32", {})
+    ls = r.get("smsp__average_warps_issue_stalled_long_scoreboard_per_issue_active.ratio",0)
+    dm = r.get("gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed",0)
+    wv = r.get("launch__waves_per_multiprocessor",0)
+    print("  THE VERDICT, against the prediction written above:")
+    print("    long_scoreboard %.2f, DRAM %.1f%% of peak, %.2f waves/SM" % (ls, dm, wv))
+    if dm > 50:
+        print("    -> BANDWIDTH-BOUND after all. PROFILE272's L4 conclusion transfers,")
+        print("       the roofline scope is wrong, and fewer bytes IS the lever.")
+    elif ls > 2.0 and dm < 15:
+        print("    -> LATENCY-BOUND, same shape as int_loop. The L4 conclusion is")
+        print("       retired: the lever is parallelism (cells in flight, waves per")
+        print("       launch, independent loads), not fewer bytes.")
+    else:
+        print("    -> NEITHER cleanly. Do not force it into one of the two stories;")
+        print("       report the numbers and pick the next probe from them.")
+""")
+
+md(r"""## H. Heavier stress — longer, wider, more of it at once
+
+§D held the card down for six folds at one shape. This section pushes on the
+four things §D did not: **duration**, **length**, **concurrency**, and the
+**memory gate** that now decides the shipped default.
+
+Budget it before starting: **H1 ~12 min, H2 ~6 min, H3 ~4 min, H4 ~3 min,
+H5 ~5 min — about half an hour**, on top of everything above.
+
+Every arm carries the same bar as the rest of the notebook: **the sha must not
+move.** A stress test that only reports timings cannot tell a card that is
+slowing down from one that is answering differently, and only one of those is a
+reason to stop.""")
+
+md(r"""### H1 — soak: eight folds, shipped defaults, nothing reset in between
+
+§D1 ran six at `RNA_GPU_CHUNK=29` with phase sync on — a 116 s configuration
+that is now known to be 27 % slower than the budget picks on its own. This runs
+the configuration people would actually get: AUTO pipeline, full VRAM budget, no
+phase sync. Drift is reported against the FIRST fold, not the mean, because a
+mean hides a monotone ramp.""")
+
+code(r"""
+print("H1: eight consecutive folds, production defaults (~12 min)")
+for i in range(8):
+    run("H1_soak%d" % i, chunk_cap=0, pipeline=None, phase_sync=False)
+""");
+code(r"""
+reps = [(k, RESULTS[k]) for k in sorted(RESULTS) if k.startswith("H1_soak")]
+if reps:
+    w0 = reps[0][1]["wall"]
+    print("  %-10s %8s %9s %8s %7s %8s %s"
+          % ("rep","wall","vs first","MHz","degC","W","sha"))
+    for k, v in reps:
+        c = v["clock"]
+        print("  %-10s %8.2f %8.1f%% %8.0f %7.0f %8.0f %s"
+              % (k[3:], v["wall"], 100.0*(v["wall"]-w0)/w0, c.get("sm_mean",0),
+                 c.get("temp_max",0), c.get("power_mean",0), v["sha"]))
+    walls = [v["wall"] for _, v in reps]
+    print()
+    print("  spread %.1f%%, last vs first %+.1f%%"
+          % (100.0*(max(walls)-min(walls))/min(walls), 100.0*(walls[-1]-w0)/w0))
+    thr = set(t for _, v in reps for t, _ in (v["clock"].get("throttle") or []))
+    print("  throttle reasons seen while busy:", thr or "none recorded")
+    shas = set(v["sha"] for _, v in reps)
+    print("  shas:", shas, "<-- ONE VALUE OR THE SECTION IS THE ONLY THING THAT MATTERS"
+          if len(shas) > 1 else "")
+""")
+
+md(r"""### H2 — length: 8 000 and 12 000 nt, longer than anything measured here
+
+Every number in this results file is at most 5 601 nt. The VRAM model, the chunk
+sizing, `MIN_GPU_BATCH`, and the new host-memory gate all take length as input,
+and none of them has been exercised past that. ns/cell is the comparable unit:
+if the card is saturated at 5 601 it should stay flat, and if the fixed
+per-chunk cost still dominates it should fall with length.""")
+
+code(r"""
+print("H2: longer records than anything measured before (~6 min)")
+LONG = [("L5601", 200, 5601), ("L8000", 120, 8000), ("L12000", 60, 12000)]
+for tag, n, L in LONG:
+    fa = "%s/fa/long_%s.fa" % (ROOT, tag)
+    if not os.path.exists(fa):
+        random.seed(hash(tag) & 0xffff)
+        with open(fa, "w") as f:
+            for i in range(n):
+                f.write(">%s_%d\n%s\n" % (tag, i, "".join(random.choice("ACGU") for _ in range(L))))
+    run("H2_" + tag, fa=fa, chunk_cap=0, pipeline=None, phase_sync=False)
+""");
+code(r"""
+rows = [(k, RESULTS[k]) for k in ("H2_L5601","H2_L8000","H2_L12000") if k in RESULTS]
+if rows:
+    print("  %-10s %7s %12s %9s %9s %9s %9s"
+          % ("arm","chunks","cells","wall","ns/cell","RSS GB","VRAM MB"))
+    for k, v in rows:
+        print("  %-10s %7d %12d %9.1f %9.2f %9.2f %9.0f"
+              % (k[3:], v["chunks"], v["cells"], v["wall"],
+                 1e9*v["wall"]/max(v["cells"],1), v["rss"], v["clock"].get("vram_max",0)))
+    print()
+    print("  ns/cell flat  -> the device is saturated across this range.")
+    print("  ns/cell falls -> the fixed per-chunk cost still dominates at 5601,")
+    print("                   which is the same finding as 30.7 seen from the other end.")
+    print("  shas:", set(v["sha"] for _, v in rows), "(different fixtures -> different shas;")
+    print("         what matters is that each is REPRODUCIBLE, checked in H5)")
+""")
+
+md(r"""### H3 — three at once, not two
+
+§D4 ran two concurrent folds and both answered correctly. Three is the first
+configuration where the VRAM budget of one process can be invalidated by the
+other two between the query and the allocation — the race §D4 could only half
+reach.""")
+
+code(r"""
+print("H3: three concurrent folds of 100 x 5601 (~4 min)")
+SMALL = ROOT + "/fa/par100.fa"
+if not os.path.exists(SMALL):
+    random.seed(5150)
+    with open(SMALL, "w") as f:
+        for i in range(100):
+            f.write(">p%d\n%s\n" % (i, "".join(random.choice("ACGU") for _ in range(5601))))
+solo3 = run("H3_solo", fa=SMALL, chunk_cap=0, pipeline=None, phase_sync=False)
+ths = [threading.Thread(target=run, kwargs=dict(tag="H3_par%d" % i, fa=SMALL,
+                                                chunk_cap=0, pipeline=None,
+                                                phase_sync=False, quiet=True))
+       for i in range(3)]
+t0 = time.time()
+for t in ths: t.start()
+for t in ths: t.join()
+print("  three together: %.1f s wall for all three" % (time.time()-t0))
+""");
+code(r"""
+par = [(k, RESULTS[k]) for k in sorted(RESULTS) if k.startswith("H3_par")]
+if par and "H3_solo" in RESULTS:
+    s = RESULTS["H3_solo"]
+    print("  solo   %7.1f s  sha %s" % (s["wall"], s["sha"]))
+    for k, v in par:
+        print("  %-6s %7.1f s  sha %s  %+.0f%% vs solo"
+              % (k[3:], v["wall"], v["sha"], 100.0*(v["wall"]-s["wall"])/s["wall"]))
+    ok = all(v["sha"] == s["sha"] for _, v in par)
+    print()
+    print("  %s" % ("answers identical under 3x contention."
+                    if ok else "*** A SHA MOVED UNDER CONTENTION. Stop; nothing else matters."))
+""")
+
+md(r"""### H4 — the memory gate, both ways
+
+`RNA_BUILD_PIPELINE` now defaults to AUTO and declines when the next chunk will
+not fit in half of `MemAvailable` (§32.6). On a host with 80 GB free that branch
+never runs, so it would ship untested on every machine big enough to use it.
+`RNA_HOST_AVAIL_MB` makes the availability read say whatever we want and changes
+nothing else, so both sides of the bar are reachable here.
+
+The point is not that the arithmetic works — that is unit-tested — but that a
+**declined** pipeline still folds, still answers identically, and costs the wall
+it is supposed to cost.""")
+
+code(r"""
+print("H4: AUTO on both sides of its own bar (~3 min)")
+need_gb = None
+probe = run("H4_auto_ref", chunk_cap=0, pipeline=None, phase_sync=False)
+need_gb = probe.get("auto_need_gb")
+print("  this chunk needs %.2f GB, so the bar sits at %.2f GB available"
+      % (need_gb or 0.0, 2.0*(need_gb or 0.0)))
+if need_gb:
+    run("H4_above", chunk_cap=0, pipeline=None, phase_sync=False,
+        host_avail_mb=int(need_gb*1024*4))     # 4x need -> comfortably ON
+    run("H4_below", chunk_cap=0, pipeline=None, phase_sync=False,
+        host_avail_mb=int(need_gb*1024*1.5))   # 1.5x need -> under the half bar
+""");
+code(r"""
+rows = [(k, RESULTS[k]) for k in ("H4_auto_ref","H4_above","H4_below") if k in RESULTS]
+if rows:
+    print("  %-14s %8s %10s %10s %9s %8s %s"
+          % ("arm","verdict","need GB","avail GB","wall","RSS GB","sha"))
+    for k, v in rows:
+        print("  %-14s %8s %10.2f %10.2f %9.1f %8.2f %s"
+              % (k[3:], v["auto_verdict"], v["auto_need_gb"] or 0.0,
+                 v["auto_avail_gb"] or 0.0, v["wall"], v["rss"], v["sha"]))
+    below = RESULTS.get("H4_below"); above = RESULTS.get("H4_above")
+    if below and above:
+        print()
+        ok = (below["auto_verdict"] == "off") and (above["auto_verdict"] == "ON")
+        print("  gate: %s" % ("correct on both sides." if ok else
+              "*** WRONG SIDE -- below=%s above=%s" % (below["auto_verdict"], above["auto_verdict"])))
+        print("  declined costs %+.1f%% of wall, and saves %.2f GB of RSS."
+              % (100.0*(below["wall"]-above["wall"])/above["wall"],
+                 above["rss"]-below["rss"]))
+        print("  shas:", set(v["sha"] for _, v in rows),
+              "<-- declining the pipeline must not change an answer")
+""")
+
+md(r"""### H5 — volume and raggedness together, twice
+
+1 500 records from 300 to 6 000 nt in one input: many chunks, a wide length
+spread inside each, the CPU slice and `MIN_GPU_BATCH` paths both live, and the
+H6 waste guard deciding per launch. Run twice, because the only thing that makes
+a stress result meaningful is that it repeats.""")
+
+code(r"""
+print("H5: 1500 ragged records, 300..6000 nt, twice (~5 min)")
+VOL = ROOT + "/fa/volume.fa"
+if not os.path.exists(VOL):
+    random.seed(8675309)
+    lens = [random.randint(300, 6000) for _ in range(1500)]
+    with open(VOL, "w") as f:
+        for i, L in enumerate(lens):
+            f.write(">v%d\n%s\n" % (i, "".join(random.choice("ACGU") for _ in range(L))))
+    print("  fixture: %d records, %.1f Mnt total" % (len(lens), sum(lens)/1e6))
+for i in range(2):
+    run("H5_vol%d" % i, fa=VOL, chunk_cap=0, pipeline=None, phase_sync=False)
+""");
+code(r"""
+rows = [(k, RESULTS[k]) for k in sorted(RESULTS) if k.startswith("H5_vol")]
+if len(rows) == 2:
+    a, b = rows[0][1], rows[1][1]
+    print("  rep0 %.1f s, rep1 %.1f s (%+.1f%%), chunks %d/%d, RSS %.2f/%.2f GB"
+          % (a["wall"], b["wall"], 100.0*(b["wall"]-a["wall"])/a["wall"],
+             a["chunks"], b["chunks"], a["rss"], b["rss"]))
+    grids = collections.Counter(t["grid"] for t in a["grid_trace"])
+    print("  grid decisions across the run:", dict(grids) or "none reported")
+    print("  AUTO verdict:", a["auto_verdict"], "| sha:", a["sha"],
+          "==" if a["sha"] == b["sha"] else "!= *** NOT REPRODUCIBLE ***", b["sha"])
+""")
+
 md("## F. Summary and export")
 
 code(r"""

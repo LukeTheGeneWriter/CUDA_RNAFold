@@ -1675,6 +1675,32 @@ rnafold_host_avail_bytes(void)
   char     line[256];
   size_t   kb = 0;
 
+  /* TEST HOOK. The decline branch is otherwise unreachable on any machine with
+   * room to spare -- the VRAM budget splits the chunk long before the host runs
+   * short -- so it would ship untested on every box that can run the workload
+   * at all. RNA_HOST_AVAIL_MB pretends there is that much available and nothing
+   * else changes. Announced, because a run that lied to itself about memory
+   * must not be able to pass for one that did not. */
+  {
+    static int   announced = 0;
+    const char  *e         = getenv("RNA_HOST_AVAIL_MB");
+
+    if (e && e[0]) {
+      const long mb = atol(e);
+
+      if (mb >= 0) {
+        if (!announced) {
+          fprintf(stderr,
+                  "%-24s RNA_HOST_AVAIL_MB=%ld: pretending this much host "
+                  "memory is available (test hook)\n", "bin/RNAfold.c", mb);
+          announced = 1;
+        }
+
+        return (size_t)mb * (size_t)1048576;
+      }
+    }
+  }
+
   f = fopen("/proc/meminfo", "r");
 
   if (f) {
@@ -1757,8 +1783,8 @@ pipeline_fits_in_host_memory(struct record_data **chunk,
 
   if (fits != last) {
     fprintf(stderr,
-            "%-24s build pipeline AUTO: %s -- next chunk needs ~%.2f GB, "
-            "MemAvailable %.2f GB (bar is half)\n",
+            "%-24s build pipeline AUTO: %s -- next chunk needs ~%.3f GB, "
+            "MemAvailable %.3f GB (bar is half)\n",
             "bin/RNAfold.c", fits ? "ON" : "off",
             need / 1073741824.0, avail / 1073741824.0);
     last = fits;

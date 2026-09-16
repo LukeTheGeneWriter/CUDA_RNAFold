@@ -3161,3 +3161,68 @@ string turns every AUTO arm into a `SystemExit` an hour into a run.
 **One consequence for every future measurement**: unset no longer means off. The
 notebook runner now writes `RNA_BUILD_PIPELINE=0` explicitly for arms that want
 it off, and `pipeline=None` is how an arm asks for the shipped default.
+
+## 32.7 Two new notebook sections: the missing profile, and real stress
+
+### §G — `modular_decomposition_kernel` on an A100
+
+`PORT_ROOFLINE_SCOPE.md` §5 names this as the highest-value measurement left:
+the kernel is **44 % of wall** and the only number we have for it on this card is
+3.4 % of DRAM peak. Everything else we believe about it — *"the way to go faster
+is to move fewer bytes, not to restructure the compute"* — is a conclusion drawn
+from an **L4**, where it ran at 89.3 % of DRAM peak.
+
+Four arms, sharing §C's probe (now parameterised by kernel and environment
+rather than hard-wired to `int_loop_warp_kernel`):
+
+| arm | what it varies | why |
+|---|---|---|
+| `md_t32` | shipped | the baseline that has never been profiled here |
+| `md_t8`, `md_t1` | `RNA_MD_TILE` | lanes per output cell — the cheapest existing control on *parallelism*. Tile 1 has 32× more cells in flight per warp |
+| `md_i16` | `RNA_FML_INT16` | the "fewer bytes" lever, against its own hypothesis |
+
+Three metrics are new to the probe, all verified present on a local
+CUDA 12.4 `ncu`: **`launch__waves_per_multiprocessor`** (the "is it one wave?"
+question in a single number), `sm__throughput`, and `dram__bytes_read/write` so
+the roofline share can be recomputed rather than quoted.
+
+**The prediction is written in the notebook, before the run**: `long_scoreboard`
+dominant, occupancy well under 50 %, waves near 1, DRAM in low single digits —
+the same latency-bound shape as `int_loop`. The cell then prints one of three
+verdicts, including *"bandwidth-bound after all, the roofline scope is wrong"*,
+because a prediction that cannot be contradicted in print is not one.
+
+A tile sweep is also the cleanest test of the story: if the kernel is
+latency-bound, tile width should move the stall mix; if it is bandwidth-bound,
+it should not. `RNA_MD_TILE < 16` silently defeats int16, so the two never
+combine in one arm.
+
+### §H — heavier stress, four axes §D did not touch
+
+About **half an hour** on top of the existing notebook.
+
+| | what it adds |
+|---|---|
+| **H1** soak | 8 consecutive folds at *production* defaults (AUTO, full budget, no phase sync). §D1's six were at `RNA_GPU_CHUNK=29` with phase sync — a configuration now known to be 27 % slower than the budget picks unaided. Drift against the **first** fold, not the mean |
+| **H2** length | 8 000 and 12 000 nt. Every number in this file is ≤ 5 601, and the VRAM model, chunk sizing, `MIN_GPU_BATCH` and the new memory gate all take length as input. ns/cell is the comparable unit |
+| **H3** concurrency | **three** at once, not two. Three is the first shape where one process's VRAM query can be invalidated by the other two between query and allocation |
+| **H4** the memory gate | AUTO on both sides of its own bar, via `RNA_HOST_AVAIL_MB` |
+| **H5** volume | 1 500 ragged records, 300–6 000 nt, twice — many chunks, wide spread inside each, CPU slice and waste guard both live, and the result has to **repeat** |
+
+Every arm carries the same bar as the rest of the notebook: **the sha must not
+move.** A stress section that reports only timings cannot distinguish a card
+that is slowing down from one that is answering differently.
+
+### The test hook, and why a knob was worth adding
+
+`RNA_HOST_AVAIL_MB` makes `rnafold_host_avail_bytes()` return whatever it is
+told. AUTO's **decline** branch is otherwise unreachable on any machine large
+enough to run the workload — the VRAM budget splits the chunk long before the
+host runs short — so it would ship untested on every box that matters. It
+announces itself, for the same reason every other gate here does: a run that
+lied to itself about memory must not be able to pass for one that did not.
+
+Verified locally end to end: `RNA_HOST_AVAIL_MB=4` against a 3.86 MB chunk
+prints `AUTO: off`, emits no overlap report, and produces **the same sha** as the
+pipelined run — which is the property that matters, since declining the pipeline
+is a speed decision and must never be an answer decision.
