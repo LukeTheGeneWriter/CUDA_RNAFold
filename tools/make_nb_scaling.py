@@ -630,6 +630,111 @@ if lanes:
 """)
 
 # --------------------------------------------------------------------------
+md(r"""## F. The 50 % occupancy ceiling — the one experiment that decides it
+
+`PORT_OCCUPANCY_SCOPE.md`. `int_loop_warp_kernel` runs **one warp per block**, so
+**32 blocks/SM × 1 warp = 32 of 64 warps = 50 %, before a single register is
+allocated** — and it achieves 45.6 % of that, 91 % of a ceiling it cannot cross.
+
+**Cutting registers cannot help at one warp per block.** The ladder on sm_80
+(65 536 registers, 64 warps, 32 blocks per SM):
+
+| regs | c = 1 | c = 2 | c = 4 | c = 8 |
+|---|---|---|---|---|
+| 58 | 50.0 % | 50.0 % | 50.0 % | 50.0 % |
+| **48 (today)** | **50.0 %** | **65.6 %** | 62.5 % | 62.5 % |
+| 40 | 50.0 % | 78.1 % | 75.0 % | 75.0 % |
+
+**The sweep that made one cell per block the default was run at 58 registers**
+(`int_loop.cu:1650`), where every value of *c* gives 32 warps — so it measured
+the *cost* of wider blocks (+1.0 % at c = 2, +10.8 % at c = 8, from retirement
+coupling) and never their *benefit*, because there was none to measure. Today's
+toolkit reports **48** for every instantiation, where c = 2 is 42 warps against
+32: **+31 % resident warps against a measured +1.0 % coupling cost.**
+
+This section re-runs that sweep at production scale on whatever toolkit is
+actually here, and **asserts the register count in the same run**, because the
+entire question turns on it.""")
+
+code(r"""
+print("F: the c sweep at production scale (400 x 5601) -- ~10 min")
+F_FA = fasta("f_prod", 400, 5601)
+
+# THE REGISTER COUNT IS THE PREMISE, so read it before the sweep rather than
+# assuming the 48 the scope was written against.
+cub = "/content/f_regs.cubin"
+src = ROOT + "/port27/src/ViennaRNA/mfe/cuda/int_loop.cu"
+inc = "-I%s/port27/src -I%s/port27/src/ViennaRNA" % (ROOT, ROOT)
+p_ = sh("nvcc -arch=sm_80 -cubin -o %s %s %s 2>/dev/null" % (cub, inc, src),
+        check=False, quiet=True)
+F_REGS = {}
+if p_.returncode == 0:
+    for line in sh("cuobjdump -res-usage %s" % cub, check=False, quiet=True).stdout.splitlines():
+        m = re.search(r"Function (\S*int_loop_warp_kernel\S*)", line)
+        if m: last = m.group(1)
+        m = re.search(r"REG:(\d+)", line)
+        if m and last: F_REGS[last] = int(m.group(1))
+    print("  register census:", sorted(set(F_REGS.values())) or "unavailable")
+else:
+    print("  register census unavailable (standalone nvcc failed) -- ncu reports it per arm below")
+
+for bs in (32, 64, 128, 256):
+    try:
+        run("F_c%d" % (bs // 32), F_FA, block_size=bs, pipeline=False, phase_sync=True)
+    except SystemExit as e:
+        print("  c=%-2d refused: %s" % (bs // 32, e))
+""");
+code(r"""
+print("F: the same four arms under ncu -- ACHIEVED occupancy, not the ceiling")
+for bs in (32, 64, 128, 256):
+    profile("F_c%d" % (bs // 32), "int_loop", F_FA, skip=2000, count=3,
+            env_extra={"RNA_INT_LOOP_BLOCK_SIZE": str(bs)})
+""");
+code(r"""
+rows = [(c, RESULTS.get("F_c%d" % c), NCU.get("F_c%d" % c)) for c in (1, 2, 4, 8)]
+base = RESULTS.get("F_c1")
+print("  %3s %9s %10s %9s %10s %8s %8s %-18s %s"
+      % ("c","wall","int_loop","vs c=1","occupancy","waves","regs","limits blk/reg/smem/warp","binds"))
+for c, t, n in rows:
+    if not t: continue
+    il = t["phases"].get("int_loop", 0)
+    d  = 100.0*(il - base["phases"].get("int_loop",0))/max(base["phases"].get("int_loop",1e-9),1e-9) if base else 0.0
+    if n:
+        lim = [int(n.get("launch__occupancy_limit_"+k,0))
+               for k in ("blocks","registers","shared_mem","warps")]
+        names = ("blocks","registers","shared_mem","warps")
+        binds = names[lim.index(min(lim))] if min(lim) > 0 else "?"
+        print("  %3d %9.2f %10.2f %+8.1f%% %9.1f%% %8.2f %8d %-18s %s"
+              % (c, t["wall"], il, d,
+                 n.get("sm__warps_active.avg.pct_of_peak_sustained_active",0),
+                 n.get("launch__waves_per_multiprocessor",0),
+                 int(n.get("launch__registers_per_thread",0)),
+                 "/".join(str(x) for x in lim), binds))
+    else:
+        print("  %3d %9.2f %10.2f %+8.1f%%   (no ncu data)" % (c, t["wall"], il, d))
+print()
+print("  shas:", set(t["sha"] for _, t, _ in rows if t))
+print()
+n1, n2 = NCU.get("F_c1"), NCU.get("F_c2")
+if n1 and n2:
+    o1 = n1.get("sm__warps_active.avg.pct_of_peak_sustained_active", 0)
+    o2 = n2.get("sm__warps_active.avg.pct_of_peak_sustained_active", 0)
+    r1 = int(n1.get("launch__registers_per_thread", 0))
+    print("  THE VERDICT:")
+    print("    registers %d/thread -- the scope's arithmetic was written for 48" % r1)
+    print("    occupancy c=1 %.1f%% -> c=2 %.1f%% (%+.1f points)" % (o1, o2, o2-o1))
+    if o2 <= o1 + 2:
+        print("    -> the ceiling did NOT move. Either the toolkit is back at 58 registers,")
+        print("       or something else binds. Read the limits column before doing anything.")
+    elif RESULTS.get("F_c2") and base and \
+         RESULTS["F_c2"]["phases"].get("int_loop",0) < base["phases"].get("int_loop",0):
+        print("    -> MORE WARPS AND FASTER: the 2026-09-11 sweep was taken in the 58-register")
+        print("       regime where c bought nothing, and its conclusion does not hold here.")
+    else:
+        print("    -> more warps, still slower: retirement coupling dominates even with the")
+        print("       ceiling raised, and only binning cells by width (E3) can change that.")
+""")
+
 md("## E. Summary and export")
 
 code(r"""
