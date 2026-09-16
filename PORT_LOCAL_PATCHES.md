@@ -154,3 +154,32 @@ they compile: **`make check` 152/152** with every marker in place. Two of them
 were initially inserted *inside* an existing doc comment, which terminated it and
 turned the rest of the block into code — caught by the build, fixed by moving the
 marker above the comment it documents.
+
+---
+
+## A thirteenth change, and it is a file MODE
+
+`doc/man2rst.py` is shipped **non-executable** (mode `100644`) in upstream
+2.7.2 — identical blob, identical mode, so this is upstream's and not ours. A
+`make` from a fresh **git clone** then dies:
+
+```
+  MAN2RST  RNA2Dfold.rst
+/bin/bash: line 1: ../../man2rst.py: Permission denied
+make[3]: *** [Makefile:755: RNA2Dfold.rst] Error 126
+```
+
+and it dies **even under `--without-doc`**, because the man-to-rst rule is
+reached anyway. The release tarball preserves the bit, so it only bites people
+building from the repository — which is everyone working on this port.
+
+**Found the honest way**: by cloning `Lukes_Flow_Batching` from GitHub into a
+clean directory and building it, rather than by trusting the tree that was
+already built. Every Colab notebook in this project has a
+`chmod +x doc/man2rst.py` line in it, which is how long the workaround has been
+quietly papering over a defect.
+
+Fixed here as a mode change (`git update-index --chmod=+x`). It carries no
+content diff, so `tools/list_local_patches.sh` does not see it and no in-source
+marker is possible — hence this note. **Submittable upstream on its own**, with
+the reproducer above.
