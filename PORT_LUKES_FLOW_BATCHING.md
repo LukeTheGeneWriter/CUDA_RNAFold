@@ -380,3 +380,17 @@ of an iteration waits for them, and the fetch runs on its own stream.
 
 **Target, from section 4:** `fetch_mx` exposed ≤ 1 s at 400 × 5601 (from 7.68 s).
 Falsified if the wall does not move when `fetch_mx` falls.
+
+### 8.7 T2b is scoped: `PORT_T2B_SCOPE.md`
+
+Written 2026-09-17, nothing built. The number it turns on: `int_loop` is the only
+device reader of `c`, and it never looks further back than MAXLOOP, so **the live
+working set is 31 × L per record — 0.7 MB at 5601 nt against a 62.8 MB
+triangle, 1.1 %.** Three separable pieces: the 32-row ring (device bytes per
+record 172 → ~110 MB, and the live set becomes small *and contiguous*), streaming
+`c` out as each row is written (host destination confirmed: backtracking indexes
+`fc->matrices->c` randomly, so 25 GB host-side behind a memory gate until
+device-side backtracking lands), and one launch per sequence — which needs a
+graph, because it takes 33.6 k launches to 13.4 M. Two probes decide it before a
+line is written: does the layout flip keep lane-striding, and what does a launch
+actually cost at production and at tail widths.
