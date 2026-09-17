@@ -358,6 +358,12 @@ rnafold_choose_md_tile(void) {
 //int* d_indx; //indx no longer used
 int* d_energy_min;
 int* d_fml_i;  //my_fML
+
+// RNA_MD_INF_STATS (see md_inf_probe() far below): four counters, and the
+// reporter teardown_gpu() calls. Declared here because teardown_gpu() is
+// defined above the probe itself.
+static unsigned long long *d_md_inf = NULL;
+extern "C" void rnafold_md_inf_report(void);
 int* d_fml_j;  //my_fML
 // int16 fml_j (RNA_FML_INT16). Allocated INSTEAD of d_fml_j when the gate is on,
 // so the VRAM saving is real and measurable rather than shadowed by keeping both.
@@ -673,6 +679,8 @@ PUBLIC void
 teardown_gpu(void) {
   if(first) return; // never initialized (or already torn down) -- nothing to free
   gpuErrchk( cudaFree(d_energy_min) );
+  rnafold_md_inf_report();
+  if(d_md_inf) { gpuErrchk( cudaFree(d_md_inf) ); d_md_inf = NULL; }
   gpuErrchk( cudaFree(d_fml_i) );
   if(!rnafold_fml_int16()) {
     gpuErrchk( cudaFree(d_fml_j) );
@@ -2110,6 +2118,151 @@ fetch_fML(const int nfiles, int** fML_H, const size_t* tri_off_H) {
 // node topology (fewer GPU nodes) than later iterations -- recapturing
 // means cudaGraphExecUpdate() naturally fails exactly once at that
 // transition and falls back to a fresh cudaGraphInstantiate(), rather than
+
+/* ===================== RNA_MD_INF_STATS: how sparse is the column stream? =====
+ *
+ * modular_decomposition spends 4 B of DRAM per lane-iteration on one fML
+ * element from column j, with no reuse inside a row: 46.8 TB at 400 x 5601,
+ * which at 82.8 %% of peak IS the phase's 37.6 s. Every lever on it is a volume
+ * lever, and one of them is only available if the stream is SPARSE: an INF
+ * operand can never win a min, so a column whose entries are mostly INF could be
+ * stored compressed (a bitmap plus the finite values) and the loads skipped.
+ *
+ * "Mostly INF" is not enough on its own, though. A load is 32 lanes x 4 B of one
+ * 128-byte line, so a skip is only possible when an ALIGNED BLOCK OF 32 is
+ * entirely INF. This probe measures both: the plain INF fraction, and the
+ * fraction of 32-wide tiles that are all-INF and could therefore be skipped
+ * outright.
+ *
+ * It reads exactly what md reads at row i -- same cells, same column range,
+ * same indices -- and touches nothing the sweep uses. Rows above i are final
+ * (md never reads row i itself: its lowest index is i+turn+2), so it is legal
+ * to run before load_fML(i), which is where it sits: OUTSIDE the graph capture.
+ *
+ *   RNA_MD_INF_STATS=k   probe every k-th sweep row (k=1 for every row)
+ *   unset                off, and nothing below is launched
+ */
+static unsigned long long  g_md_inf_host[4] = { 0, 0, 0, 0 };
+static int                 g_md_inf_rows = 0;
+
+extern "C" int
+rnafold_md_inf_stats(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_INF_STATS");
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v < 0) v = 0;
+    if (v) fprintf(stderr, "modular_decomposition.cu  RNA_MD_INF_STATS=%d: sampling the "
+                           "column stream's INF fraction every %d rows\n", v, v);
+  }
+
+  return v;
+}
+
+/* One warp per cell, exactly as the TILE=32 kernel runs it. */
+__global__ void
+md_inf_probe_kernel(const int nfiles, const int turn,
+                    const int* __restrict__ fml_j,
+                    const size_t* __restrict__ tri_off_H,
+                    const size_t* __restrict__ side_off_H, const size_t total,
+                    const int* __restrict__ i_H,
+                    unsigned long long* __restrict__ out)
+{
+  const long long gtid = (long long)blockIdx.x*blockDim.x + threadIdx.x;
+  const long long m    = gtid >> 5;
+  const int       lane = (int)(gtid & 31);
+
+  if((size_t)m >= total) return;
+
+  const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
+  const long long mj = (long long)m - (long long)side_off_H[H];
+  const int i  = i_H[H];
+  const int x  = (int)mj;
+  const int j  = x + (i + 2*(turn+1)) + 1;
+  const long long ij0 = Indx(i,j) + (turn+1) + 1;
+
+  unsigned long long n_read = 0, n_inf = 0, n_tile = 0, n_tile_inf = 0;
+
+  for(int ybase = 0; ybase <= x; ybase += 32) {
+    const int  y    = ybase + lane;
+    const bool live = (y <= x);
+    /* An out-of-range lane reads nothing and counts as INF for the tile test:
+     * a partial tile that is all-INF among its real entries is still skippable. */
+    const int  v    = live ? fml_j[tri_off_H[H] + ybase + lane + ij0] : INF;
+    const unsigned inf_mask  = __ballot_sync(0xffffffff, v >= INF/2);
+    const unsigned live_mask = __ballot_sync(0xffffffff, live);
+
+    if(lane == 0) {
+      n_read     += (unsigned long long)__popc(live_mask);
+      n_inf      += (unsigned long long)__popc(inf_mask & live_mask);
+      n_tile     += 1ull;
+      n_tile_inf += (inf_mask == 0xffffffffu) ? 1ull : 0ull;
+    }
+  }
+
+  if(lane == 0) {
+    atomicAdd(&out[0], n_read);
+    atomicAdd(&out[1], n_inf);
+    atomicAdd(&out[2], n_tile);
+    atomicAdd(&out[3], n_tile_inf);
+  }
+}
+
+/* Called once per sampled row, before the capture region. */
+static void
+md_inf_probe(const int nfiles, const int i, const int turn, const size_t* side_off_H)
+{
+  const int k = rnafold_md_inf_stats();
+  if(!k) return;
+  if(i % k) return;
+
+  const size_t total = side_off_H[nfiles];
+  if(total == 0) return;
+
+  if(!d_md_inf) {
+    if(cudaMalloc((void **)&d_md_inf, 4*sizeof(unsigned long long)) != cudaSuccess) {
+      fprintf(stderr, "modular_decomposition.cu  RNA_MD_INF_STATS: cudaMalloc failed\n");
+      return;
+    }
+  }
+  gpuErrchk( cudaMemset(d_md_inf, 0, 4*sizeof(unsigned long long)) );
+
+  const int block = 128;                          /* 4 cells per block */
+  const size_t nthreads = total * 32ull;
+  const int nblocks = (int)((nthreads + block - 1)/block);
+  md_inf_probe_kernel<<<nblocks,block>>>(nfiles, turn, d_fml_j, d_tri_off_H,
+                                         d_side_off_H, total, d_i_H, d_md_inf);
+  gpuErrchk( cudaPeekAtLastError() );
+
+  unsigned long long h[4];
+  gpuErrchk( cudaMemcpy(h, d_md_inf, sizeof(h), cudaMemcpyDeviceToHost) );
+  for(int t=0;t<4;t++) g_md_inf_host[t] += h[t];
+  g_md_inf_rows++;
+
+  fprintf(stderr, "modular_decomposition.cu  INF row %5d: %llu read, %5.1f%% INF, "
+                  "%5.1f%% of 32-wide tiles ALL INF\n",
+          i, h[0],
+          h[0] ? 100.0*(double)h[1]/(double)h[0] : 0.0,
+          h[2] ? 100.0*(double)h[3]/(double)h[2] : 0.0);
+}
+
+extern "C" void
+rnafold_md_inf_report(void)
+{
+  if((!rnafold_md_inf_stats()) || (g_md_inf_rows == 0)) return;
+
+  fprintf(stderr, "modular_decomposition.cu  RNA_MD_INF_STATS over %d sampled rows: "
+                  "%llu elements read, %.1f%% INF, %.1f%% of 32-wide tiles all-INF "
+                  "(= the DRAM traffic a bitmap could skip)\n",
+          g_md_inf_rows, g_md_inf_host[0],
+          g_md_inf_host[0] ? 100.0*(double)g_md_inf_host[1]/(double)g_md_inf_host[0] : 0.0,
+          g_md_inf_host[2] ? 100.0*(double)g_md_inf_host[3]/(double)g_md_inf_host[2] : 0.0);
+  g_md_inf_host[0] = g_md_inf_host[1] = g_md_inf_host[2] = g_md_inf_host[3] = 0;
+  g_md_inf_rows = 0;
+}
+
 // needing to special-case that boundary by hand.
 extern "C" /*PUBLIC*/ void
 load_fML_modular_decomposition_load_min_fML(const int nfiles,
@@ -2123,6 +2276,10 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   // Row i's tables were uploaded with the chunk (device.cu), so nothing is
   // copied here and nothing host-side is captured into the graph.
   bind_row_tables(i);
+
+  // RNA_MD_INF_STATS (off by default): sample how sparse the column stream is,
+  // before the capture region and before load_fML(i) touches row i.
+  md_inf_probe(nfiles, i, turn, side_off_H);
 
   // RNA_CUDA_GRAPH=0 disables capture/replay and just issues the same
   // (now-async, graph_stream-targeted) calls directly, with one sync at the

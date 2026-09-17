@@ -258,25 +258,31 @@ rnafold_stream_overlap(void)
   if (v < 0) {
     const char *e = getenv("RNA_STREAM_OVERLAP");
 
-    v = (e && e[0]) ? atoi(e) : 0;
+    /* DEFAULT CHANGED 2026-09-17 to 1 (Luke's call, on the measurement below).
+     * Scaling G at 1d5eb219, 400 x 5601 on an A100: ONE sha across all six arms
+     * -- levels 0, 1 and 2 byte-identical -- with level 1 at -0.4 % and level 2
+     * at -0.8 %. Level 1 has been clean in every run it has ever had, including
+     * the one where level 2 returned two different wrong answers; the per-chunk
+     * row tables removed that race. Level 2 stays opt-in until it has been
+     * through the H stress soak. "0" still forces the old single-stream
+     * schedule, and is the control every sha comparison is made against. */
+    v = (e && e[0]) ? atoi(e) : 1;
 
     if (v < 0) v = 0;
     if (v > 2) v = 2;
 
-    if (v)
+    if (v != 1)
       fprintf(stderr,
               "device.cu                RNA_STREAM_OVERLAP=%d: %s\n", v,
-              (v == 1) ? "hp_mb_3p runs beside int_loop within a row"
+              (v == 0) ? "one stream, the pre-2026-09-17 schedule"
                        : "hp_mb_3p beside int_loop, and md(i) beside row i-1's cell work");
 
     if (v >= 2)
       fprintf(stderr,
-              "device.cu                RNA_STREAM_OVERLAP=2 IS EXPERIMENTAL. It returned "
-              "wrong answers at 400 x 5601 (Scaling G,\n"
-              "device.cu                2026-09-17) even with the parity gate; the per-row "
-              "tables it raced on are now per-chunk\n"
-              "device.cu                (row tables, device.cu) and NOT yet re-verified at "
-              "that scale. Compare shas before trusting any run.\n");
+              "device.cu                RNA_STREAM_OVERLAP=2 is opt-in: correct at "
+              "400 x 5601 (Scaling G, 2026-09-17, one sha\n"
+              "device.cu                across six arms) and worth -0.8%%, but it has not "
+              "been through the stress soak. Compare shas.\n");
   }
 
   return v;
@@ -942,20 +948,94 @@ static void        *g_xfer_stage[RT_XFER_MAX];
 static int          g_xfer_stage_pin[RT_XFER_MAX];
 static int          g_xfer_n = 0;
 
-static size_t
-rt_stage_bytes(void)
+/* RNA_XFER_STAGE_MB: 0 = "no stage, pin the worker scratch itself", N = an N-MB
+ * pinned stage per worker that the worker memcpys out of, UNSET = AUTO, decided
+ * by measuring what page-locking costs on THIS host.
+ *
+ * WHICH ONE WINS IS A PROPERTY OF THE HOST, and both arms have now been
+ * measured. On the A100 (Scaling I, 2026-09-17) the staged form took fetch_mx
+ * 7.24 -> 1.85 s but pushed +1.93 s into backtrack -- that is the memcpy out of
+ * the stage -- so pinning the scratch should be the better half. Under WSL the
+ * opposite, and not marginally: pinning ~1.7 GB of scratch cost 27-35 worker-
+ * seconds, and the exit path measured 3.09 s pinned against 0.91 s staged.
+ *
+ * So AUTO probes instead of guessing: page-lock 16 MB once, time it, and pin the
+ * scratch only if the host does it faster than RT_PIN_GBPS_MIN. The probe costs
+ * ~5 ms where pinning is cheap and ~0.3 s where it is dear -- which is exactly
+ * the case that is about to save seconds. Same shape as RNA_BUILD_PIPELINE's
+ * memory gate: measure the host, do not assume it. */
+#define RT_PIN_PROBE_BYTES (16u << 20)
+/* The probe is SINGLE-THREADED and the pool it decides for is not, so the
+ * threshold carries margin. Measured 2026-09-17: WSL probes at 0.83 s/GB and
+ * then charges 29 worker-seconds to page-lock 1.7 GB from twelve threads --
+ * page-locking serialises in the kernel's memory-map lock, so concurrency makes
+ * it worse, not better. A datacentre host probes an order of magnitude below
+ * this. (The pool is now allocated serially up front, which removes the
+ * contention; the margin stays because the probe still cannot see it.) */
+#define RT_PIN_SECONDS_PER_GB_MAX 0.25
+
+static int
+rt_pin_is_cheap(void)
 {
-  static size_t v = 0;
+  static int v = -1;
 
-  if (!v) {
-    const char *e  = getenv("RNA_XFER_STAGE_MB");
-    long        mb = (e && e[0]) ? atol(e) : 8;
+  if (v < 0) {
+    void        *p     = NULL;
+    const double t0    = rnafold_now_seconds();
+    const int    ok    = (cudaHostAlloc(&p, RT_PIN_PROBE_BYTES, cudaHostAllocDefault) == cudaSuccess);
+    const double spent = rnafold_now_seconds() - t0;
+    const double per_gb = spent * (1073741824.0 / (double)RT_PIN_PROBE_BYTES);
 
-    if (mb < 1) mb = 1;
-    v = (size_t)mb << 20;
+    if (ok)
+      cudaFreeHost(p);
+    else
+      cudaGetLastError();
+
+    v = (ok && (per_gb < RT_PIN_SECONDS_PER_GB_MAX)) ? 1 : 0;
+    fprintf(stderr,
+            "device.cu                pinning costs %.2f s/GB here -> backtrack "
+            "scratch %s (RNA_XFER_STAGE_MB to override)\n",
+            per_gb, v ? "PINNED, no stage" : "unpinned, copied through an 8 MB stage");
   }
 
   return v;
+}
+
+static long
+rt_stage_mb(void)
+{
+  static long v = -2;
+
+  if (v == -2) {
+    const char *e = getenv("RNA_XFER_STAGE_MB");
+
+    if (e && e[0]) {
+      v = atol(e);
+      if (v < 0)
+        v = 0;
+    } else {
+      v = -1;                       /* AUTO: decided on first use, below */
+    }
+  }
+
+  if (v == -1)
+    return rt_pin_is_cheap() ? 0 : 8;
+
+  return v;
+}
+
+extern "C" int
+rnafold_xfer_pin_scratch(void)
+{
+  return rt_stage_mb() == 0;
+}
+
+static size_t
+rt_stage_bytes(void)
+{
+  const long mb = rt_stage_mb();
+
+  return (size_t)(mb > 0 ? mb : 8) << 20;
 }
 
 /* Called once per backtrack phase, from the thread that spawns the workers,
@@ -967,8 +1047,10 @@ rnafold_xfer_begin(const int n)
 
   while (g_xfer_n < want) {
     rt_check(cudaStreamCreate(&g_xfer[g_xfer_n]), "copy stream create");
-    g_xfer_stage[g_xfer_n] = rt_pinned_alloc(rt_stage_bytes(), &g_xfer_stage_pin[g_xfer_n]);
-    if (!g_xfer_stage[g_xfer_n]) {
+    g_xfer_stage[g_xfer_n] = rnafold_xfer_pin_scratch()
+                             ? NULL    /* the scratch is pinned; no stage needed */
+                             : rt_pinned_alloc(rt_stage_bytes(), &g_xfer_stage_pin[g_xfer_n]);
+    if ((!rnafold_xfer_pin_scratch()) && (!g_xfer_stage[g_xfer_n])) {
       fprintf(stderr, "device.cu                copy stage allocation failed\n");
       exit(EXIT_FAILURE);
     }
@@ -994,6 +1076,13 @@ rnafold_d2h_w(void *dst, const void *src, const size_t bytes, const int w)
     const cudaStream_t s     = g_xfer[k];
     const size_t       slice = rt_stage_bytes();
     size_t             off;
+
+    /* Pinned scratch: straight into the destination, no stage and no memcpy. */
+    if (rnafold_xfer_pin_scratch()) {
+      rt_check(cudaMemcpyAsync(dst, src, bytes, cudaMemcpyDeviceToHost, s), "fetch");
+      rt_check(cudaStreamSynchronize(s), "fetch sync");
+      return;
+    }
 
     for (off = 0; off < bytes; off += slice) {
       const size_t n = (bytes - off < slice) ? (bytes - off) : slice;

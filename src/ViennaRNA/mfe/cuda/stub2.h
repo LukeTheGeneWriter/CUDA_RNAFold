@@ -398,6 +398,11 @@ void  fetch_my_c_one_w(int* dst, const size_t tri_lo, const size_t cells, const 
 void  fetch_fML_one_Hw(int* dst, const size_t tri_lo, const size_t cells, const int H, const int w);
 void  fetch_fm2_one_w(int *dst, const size_t tri_lo, const size_t cells, const int w);
 void  rnafold_xfer_begin(const int n);
+// RNA_XFER_STAGE_MB: 0 = pin the worker scratch and copy straight into it; N =
+// an N-MB pinned stage per worker to memcpy out of; UNSET = AUTO, which times
+// page-locking on this host and picks (pinning is cheap on a datacentre card and
+// dear under WSL, where it measured 3x worse end to end).
+int   rnafold_xfer_pin_scratch(void);
 int  *rnafold_pinned_ints(const size_t n, int *pinned);
 void  rnafold_pinned_ints_free(int *p, const int pinned);
 #ifdef __cplusplus

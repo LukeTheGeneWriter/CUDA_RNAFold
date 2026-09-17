@@ -72,6 +72,23 @@ says int16 should stop paying once bandwidth is no longer the bound. Under
 residency the opposite holds: **int16 is what makes the triangle fit**, so its
 value *rises*. Whichever way the measurement goes, it is informative.
 
+**(d) Compressing the column, on the grounds that an INF operand can never win a
+min — MEASURED AND DEAD (2026-09-17).** `RNA_MD_INF_STATS=k` samples every k-th
+row and counts exactly what md reads, including how many *aligned 32-wide tiles*
+(the granularity a load could actually be skipped at) are entirely INF:
+
+| L | elements sampled | INF | tiles all-INF |
+|---|---|---|---|
+| 600 | 1.5 M | 0.6 % | 0.6 % |
+| 1 200 | 6.2 M | 0.3 % | 0.3 % |
+| 2 400 | 24.9 M | 0.1 % | 0.1 % |
+| 4 800 | 100.3 M | **0.1 %** | **0.1 %** |
+
+**A bitmap would skip 0.1 % of the traffic, and the fraction FALLS with length.**
+The INF entries are the near-diagonal band where a span is too short to hold a
+loop; that band has a fixed width, so its share shrinks as `L` grows. The column
+stream is dense, and compression is not a lever. Do not re-propose it.
+
 ---
 
 ## 3. What the megakernel is, concretely

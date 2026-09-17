@@ -824,12 +824,19 @@ with length x workers. A fixed stage makes pinning `workers x stage`, once per
 process. **Pinning is much cheaper on this host than on WSL, so the local sweep
 (4 MB best, 256 MB worst) is exactly the number that should not be carried over.**
 
-**Written before the run.** `fetch_mx` should fall from ~7.7 s to **at most
-~2 s**, because 12 concurrent pinned streams beat one pageable stream by more
-than 4x. Between 4 and 32 MB the difference should be **small** (under ~15 %):
-the slices are all far larger than a PCIe burst, and what changed is the
-concurrency, not the slice size. `backtrack` should rise slightly — it now
-carries the memcpy out of the stage and the scratch allocation.
+**Measured 2026-09-17** (`1d5eb219`): `fetch_mx` **7.24 -> 1.85 s** phase-synced,
+`backtrack` 5.70 -> 7.63, wall 91.82 -> 87.36. The prediction held, including
+"stage size barely matters" (4/8/32 MB -> 1.73/1.96/1.62, not monotone). The
+serial control settled the mechanism: one worker gives `fetch_mx` 13.10 s and a
+144.87 s wall, so the win is **concurrency**, not pinning.
+
+**What this run decides.** The +1.93 s that moved into `backtrack` is the memcpy
+each worker does out of its stage. Pinning the scratch itself deletes that
+memcpy — and it is now the DEFAULT (`RNA_XFER_STAGE_MB=0`), because the reason it
+was refused was a **WSL** measurement (35 worker-seconds to pin 1.7 GB), not this
+host. **Prediction: pinned beats staged on fetch+backtrack by ~1.5 s**, with the
+alloc worker-seconds line showing what the pinning cost. If pinning costs more
+than ~1 s here, the default goes back to a stage and the knob stays.
 
 **If `fetch_mx` does not fall, the exit path was never the staging copy** — and
 8.6's whole premise is wrong, which is worth more than the seconds.""")
@@ -837,7 +844,11 @@ carries the memcpy out of the stage and the scratch allocation.
 code(r"""
 print("I: the exit path at the production shape -- ~7 min")
 I_FA = G_FA if "G_FA" in dir() else fasta("g_prod", 400, 5601)
-for tag, mb in (("I_stage4", 4), ("I_stage8", 8), ("I_stage32", 32)):
+# stage_mb=0 is the DEFAULT since 2026-09-17: no stage, the worker scratch is
+# pinned and the copy lands in it directly. The staged arms are the control it
+# has to beat -- on WSL they win, because pinning 1.7 GB there costs 35
+# worker-seconds; this run decides it for this host.
+for tag, mb in (("I_pin", 0), ("I_stage8", 8), ("I_stage32", 32)):
     run(tag, I_FA, pipeline=False, phase_sync=False, stage_mb=mb)
 # One serial-backtrack arm: with a single worker there is no concurrency to win,
 # so this is the control that says how much of the gain was the CONCURRENCY
@@ -847,7 +858,7 @@ run("I_serial", I_FA, pipeline=False, phase_sync=False, stage_mb=8, bt_threads=0
 
 code(r"""
 print("  %-10s %8s %10s %11s %s" % ("arm", "wall", "fetch_mx", "backtrack", "sha"))
-for tag in ("I_stage4", "I_stage8", "I_stage32", "I_serial"):
+for tag in ("I_pin", "I_stage8", "I_stage32", "I_serial"):
     r = RESULTS.get(tag)
     if not r: continue
     print("  %-10s %8.2f %10.3f %11.3f %s"
@@ -857,12 +868,21 @@ shas = {RESULTS[t]["sha"] for t in RESULTS if t.startswith("I_")}
 print()
 print("  shas:", shas, "" if len(shas) == 1 else "  *** THE EXIT PATH CHANGED AN ANSWER ***")
 best = None
-for tag in ("I_stage4", "I_stage8", "I_stage32"):
+for tag in ("I_pin", "I_stage8", "I_stage32"):
     r = RESULTS.get(tag)
     if r and (best is None or r["phases"].get("fetch_mx", 9e9) < best[1]):
         best = (tag, r["phases"].get("fetch_mx", 9e9))
 if best:
-    print("  best stage size here: %s at fetch_mx %.3f s (was 7.68 s pageable-serial)" % best)
+    print("  best here: %s at fetch_mx %.3f s (7.68 s pageable-serial, 1.85 s staged)" % best)
+    # The question this run exists to answer: the staged form pushed +1.93 s into
+    # backtrack (the memcpy each worker does out of its stage). Pinning should
+    # delete that and pay for itself unless pinning ~1.5 GB costs more than it.
+    pin, st = RESULTS.get("I_pin"), RESULTS.get("I_stage8")
+    if pin and st:
+        dp = (pin["phases"].get("fetch_mx",0) + pin["stages"].get("backtrack",0))
+        ds = (st["phases"].get("fetch_mx",0)  + st["stages"].get("backtrack",0))
+        print("  exit path (fetch+backtrack): pinned %.2f s vs staged %.2f s -> %+.1f%%"
+              % (dp, ds, 100.0*(dp-ds)/ds if ds else 0.0))
     print("  target (8.6): fetch_mx <= 1 s. Falsified if the WALL does not move with it --")
     print("  that would say the exit path was not on the critical path at all.")
 """)

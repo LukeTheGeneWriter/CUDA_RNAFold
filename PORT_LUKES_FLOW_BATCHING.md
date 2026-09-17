@@ -493,3 +493,33 @@ and was refused for that reason — **but this host is not WSL**. Pinning 1.5 GB
 here should cost ~0.2–0.5 s once, against the 1.9 s of memcpy it would delete.
 That is a one-knob experiment (`RNA_XFER_STAGE_MB=0` meaning "pin the scratch")
 and it is worth ~2 % of wall.
+
+
+### 8.10 Defaults changed, and one design question answered with a null
+
+**`RNA_STREAM_OVERLAP` now defaults to 1** (Luke, on §8.9's measurement: one sha
+across six arms, level 1 −0.4 %). Level 0 is still the control every sha
+comparison is made against; level 2 stays opt-in until the §H stress soak.
+
+**The backtrack scratch is pinned when pinning is cheap — decided by
+measurement, not by a constant.** `RNA_XFER_STAGE_MB` unset is now AUTO: page-lock
+16 MB, time it, and pin the scratch outright if the host does it faster than
+0.25 s/GB; otherwise keep the 8 MB stage. `=0` forces pinning, `=N` forces a
+stage. The reason is that the two hosts disagree violently — the A100 wants
+pinning (it would delete the +1.93 s of stage memcpy), while WSL measured the
+exit path at **3.09 s pinned against 0.91 s staged**.
+
+Two things the probe taught us on the way:
+
+- **Page-locking does not scale across threads.** The single-threaded probe says
+  0.83 s/GB; twelve workers pinning their own scratch cost **29 worker-seconds**
+  for 1.7 GB. It serialises in the kernel's memory-map lock, so concurrency makes
+  it worse. The AUTO threshold carries margin for exactly this.
+- **So the pool is now allocated serially, up front**, on one thread, sized to
+  the chunk's longest record: **29.2 → 2.1 worker-seconds**, a 14× cut, and the
+  allocation leaves the backtrack phase's timing where it never belonged.
+
+**The INF-sparsity idea is dead, measured** — `RNA_MD_INF_STATS`, see
+`PORT_MEGAKERNEL_SCOPE.md` §2(d). 0.1 % of md's column stream is INF at 4 800 nt
+and the fraction falls with length, so there is no compression lever. The probe
+cost one build and four folds, which is what a cheap "no" should cost.

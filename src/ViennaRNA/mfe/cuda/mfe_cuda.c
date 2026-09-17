@@ -698,15 +698,24 @@ bt_scratch_ensure(bt_scratch_t *sc, const size_t cells, const int want_fm2) {
 
   /* T2a: NOT zeroed -- every cell is overwritten by the fetch that follows (the
    * copy is the record's whole triangle), so vrna_alloc()'s calloc was pure
-   * cost. Deliberately NOT pinned: pinning 1.7 GB of scratch cost more than the
-   * copy it saved (see rnafold_d2h_w() in device.cu). The copy goes through a
-   * small pinned stage per worker instead. */
+   * cost. PINNED by default since 2026-09-17 (RNA_XFER_STAGE_MB=0): the copy
+   * lands here directly, with no stage and no memcpy out of one. Under
+   * RNA_XFER_STAGE_MB=N it is ordinary memory and the worker copies through an
+   * N-MB pinned stage -- which is what WSL wants, where pinning 1.7 GB cost 35
+   * worker-seconds. See rnafold_d2h_w() in device.cu. */
   const double t_pin = rnafold_now_seconds();
+  const int    pin    = rnafold_xfer_pin_scratch();
   bt_scratch_free(sc);
-  sc->c     = (int *) malloc(sizeof(int) * cells);
-  sc->fML   = (int *) malloc(sizeof(int) * cells);
-  sc->fM2   = want_fm2 ? (int *) malloc(sizeof(int) * cells) : NULL;
-  sc->pin_c = sc->pin_fML = sc->pin_fM2 = 0;
+  if(pin) {
+    sc->c   = rnafold_pinned_ints(cells, &sc->pin_c);
+    sc->fML = rnafold_pinned_ints(cells, &sc->pin_fML);
+    sc->fM2 = want_fm2 ? rnafold_pinned_ints(cells, &sc->pin_fM2) : NULL;
+  } else {
+    sc->c   = (int *) malloc(sizeof(int) * cells);
+    sc->fML = (int *) malloc(sizeof(int) * cells);
+    sc->fM2 = want_fm2 ? (int *) malloc(sizeof(int) * cells) : NULL;
+    sc->pin_c = sc->pin_fML = sc->pin_fM2 = 0;
+  }
   if((!sc->c) || (!sc->fML) || (want_fm2 && (!sc->fM2))) {
     fprintf(stderr, "%-24s backtrack scratch: allocation of %zu ints failed\n",
             __FILE__, cells);
@@ -737,6 +746,33 @@ bt_pool_get(const int n) {
   }
   rnafold_xfer_begin(n);
   return g_bt_pool;
+}
+
+/* Size every worker's scratch for the largest record it could be handed, HERE,
+ * on one thread, before any worker starts.
+ *
+ * Page-locking serialises in the kernel: twelve workers pinning their own
+ * scratch on first touch cost 29 worker-seconds for 1.7 GB, where doing it
+ * serially costs the page-locking alone. It also takes the allocation out of
+ * the backtrack phase's own timing, where it was being charged as if it were
+ * per-record work. Grow-only and kept for the process, so a second chunk pays
+ * nothing. */
+PRIVATE void
+bt_pool_prepare(bt_scratch_t *pool, const int n, const int nfiles,
+                const vrna_fold_compound_t **VC) {
+  size_t cells_max = 0;
+  int    want_fm2  = 0;
+
+  for(int i=0; i<nfiles; i++) {
+    const size_t len   = (size_t)VC[i]->length;
+    const size_t cells = (len + 1)*(len + 2)/2;
+    if(cells > cells_max) cells_max = cells;
+    if(VC[i]->params->model_details.circ) want_fm2 = 1;
+  }
+  if(cells_max == 0) return;
+
+  for(int t=0; t<n; t++)
+    bt_scratch_ensure(&pool[t], cells_max, want_fm2);
 }
 
 typedef struct {
@@ -1092,7 +1128,8 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
   const int n_bt_threads = backtrack_thread_count(nfiles, cpu_queue_threads);
   int next_i = 0;
   backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H };
-  bt_scratch_t *pool = bt_pool_get(n_bt_threads);   /* T2a: pinned, persistent */
+  bt_scratch_t *pool = bt_pool_get(n_bt_threads);   /* T2a: persistent, maybe pinned */
+  bt_pool_prepare(pool, n_bt_threads, nfiles, VC);  /* serially, before any worker */
   if(n_bt_threads <= 1) {
     const double t_serial = rnafold_now_seconds();
     for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
@@ -1383,7 +1420,8 @@ par_mfe(const int nfiles,
       // slot's final occupant when the sweep ends. One scratch pair serves them
       // all, which is what keeps host matrix memory at ONE record's worth.
       const double t_bt = rnafold_now_seconds();
-      bt_scratch_t *scp = bt_pool_get(1);   /* T2a: pinned, persistent; worker 0 */
+      bt_scratch_t *scp = bt_pool_get(1);   /* T2a: persistent, maybe pinned; worker 0 */
+      bt_pool_prepare(scp, 1, nfiles, VC);
       backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, NULL, tri_off_H };
       retire_ctx_t rctx = { &targ, scp, 0 };
       rnafold_schedule_t sched;
