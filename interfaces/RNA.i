@@ -298,6 +298,10 @@ namespace std {
 %include basic_algorithms.i
 %include math.i
 %include mfe.i
+/* the CUDA batch backend, reachable as RNA.cuda_fold(). Wraps nothing when
+ * the library was built without CUDA -- cuda_devices() returns 0 and
+ * cuda_fold() folds on the host. */
+%include cuda.i
 %include mfe_window.i
 %include backtrack.i
 %include part_func.i

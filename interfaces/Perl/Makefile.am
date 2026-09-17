@@ -53,6 +53,22 @@ if VRNA_AM_SWITCH_MPFR
 RNA_la_LIBADD += $(MPFR_LIBS)
 endif
 
+# THE CUDA RUNTIME, and the language interfaces need it spelled out.
+#
+# $(CUDA_LIBS) is added to libRNA_la (src/ViennaRNA/Makefile.am:168) and to the
+# command-line tools (src/bin/Makefile.am:53), but this module links
+# libRNA_conv.la -- the CONVENIENCE library, which is where the .cu objects
+# actually live -- and a convenience library carries no link dependencies of its
+# own. Without this the extension builds cleanly and then fails at import with
+#
+#     ImportError: ... undefined symbol: cudaMemcpyAsync
+#
+# which is a broken `import RNA` for anyone who configured --enable-cuda. Empty
+# when CUDA is off, so this costs a plain build nothing.
+if VRNA_AM_SWITCH_CUDA
+RNA_la_LIBADD += $(CUDA_LIBS)
+endif
+
 RNA_la_LDFLAGS =
 
 RNA_la_LDFLAGS += -Xcompiler $(PTHREAD_CFLAGS) \

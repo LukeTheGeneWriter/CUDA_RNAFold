@@ -468,6 +468,12 @@ par_mfe(const int                     nfiles,
         const char                  **Structure,
         float                        *EN,
         const int                     cpu_queue_threads);
+
+/* The device state a batch sizes for itself, released below. Declared in
+ * stub2.h; repeated here for the same reason par_mfe() is. */
+extern void teardown_gpu(void);
+extern void teardown_gpu2(void);
+extern void teardown_gpu3(void);
 #endif
 
 
@@ -498,6 +504,36 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
 
   par_mfe((int)n, (const vrna_fold_compound_t **)fcs,
           (const char **)structures, energies, 0);
+
+  /*
+   * Release the device state this batch sized, before the next batch sizes its
+   * own -- the last step of folding a batch, not the caller's housekeeping.
+   *
+   * It used to be only the caller's. RNAfold.c does exactly this after every
+   * chunk ("without this the second chunk inherits dirty buffers"), and it was
+   * the ONLY caller, so the port never noticed that the rule lived in the
+   * driver rather than in the backend that needs it. init_gpu/2/3 each open
+   * with `if(!first) return;`, so for anyone else a second vrna_mfe_batch()
+   * call in one process silently reused the FIRST batch's device buffers:
+   *
+   *   same batch again                 correct
+   *   second batch, different model    wrong answers, no error
+   *                                    (the per-batch parameter upload sits
+   *                                     below that early return)
+   *   second batch, longer records     CUDA error 719, or an invalid-argument
+   *                                    copy out of an under-sized buffer
+   *
+   * Invisible from RNAfold -- one model per run, records sorted descending, so
+   * no chunk ever outgrows the first -- and reached immediately by the Python
+   * binding, which is what a script does: fold a batch, fold another.
+   *
+   * The driver's own calls stay where they are and simply become no-ops; all
+   * three teardowns are idempotent (`if(first) return`). Cost is one round of
+   * free/re-allocate per batch, which the driver was already paying per chunk.
+   */
+  teardown_gpu();
+  teardown_gpu2();
+  teardown_gpu3();
 
   return 1;
 #else
