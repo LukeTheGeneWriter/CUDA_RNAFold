@@ -394,3 +394,15 @@ device-side backtracking lands), and one launch per sequence — which needs a
 graph, because it takes 33.6 k launches to 13.4 M. Two probes decide it before a
 line is written: does the layout flip keep lane-striding, and what does a launch
 actually cost at production and at tail widths.
+
+**Revised the same day (Luke): make the window ~100 rows, not 32** — 32 behind
+plus ~68 ahead, filled row after row without leaving the window. It buys more
+than the extra 1.5 MB per record costs: a 32-row ring must retire a row about
+every row (2.24 M copies of 22 KB per chunk, ~11 s of issue overhead to save a
+7 s exit path), while a 100-row window flushes 68 rows at a time (~33 k copies
+of 1.5 MB, ~0.2 s). It also makes residency a parameter — 100 rows is 160 KB at
+400 nt (one SM's shared memory) and 2.24 MB at 5601 (L2 holds ~17 records'
+worth), which is why the records in flight have to be a **subset**, tying the
+window to per-sequence launches. What it does not do is cut launches: the row
+chain is serial, so that needs a persistent megakernel, flagged and not
+scheduled. And none of it helps `fML`, whose column walk is T1's problem.
