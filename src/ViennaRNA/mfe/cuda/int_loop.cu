@@ -703,10 +703,20 @@ int_loop_bytes_per_file(const int length) {
 // (jindx[j]+i == Indx(i,j), allocation (n+1)*(n+2)/2 == the tri_off_H stride),
 // and nothing on the host reads the triangle until E_ext_loop_5()/backtrack().
 // One record's slice -- the my_c twin of fetch_fML_one(); see there.
+
+// T2a (device.cu): device-to-host for backtrack worker w, through w's own
+// copy stream and pinned stage. w < 0 is the old blocking default-stream copy.
+void rnafold_d2h_w(void* dst, const void* src, const size_t bytes, const int w);
+#define d2h_w rnafold_d2h_w
+
+extern "C" /*PUBLIC*/ void
+fetch_my_c_one_w(int* dst, const size_t tri_lo, const size_t cells, const int w) {
+  d2h_w(dst, &d_my_c[tri_lo], cells*sizeof(int), w);
+}
+
 extern "C" /*PUBLIC*/ void
 fetch_my_c_one(int* dst, const size_t tri_lo, const size_t cells) {
-  gpuErrchk( cudaMemcpy(dst, &d_my_c[tri_lo], cells*sizeof(int),
-                        cudaMemcpyDeviceToHost) );
+  fetch_my_c_one_w(dst, tri_lo, cells, -1);
 }
 
 extern "C" /*PUBLIC*/ void

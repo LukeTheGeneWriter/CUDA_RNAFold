@@ -910,3 +910,124 @@ rnafold_rowtab_upload_row(const int i)
   rowtab_copy((size_t)i * (g_rt_nfiles + 1), (size_t)(g_rt_nfiles + 1),
               (size_t)i * g_rt_nfiles, (size_t)g_rt_nfiles);
 }
+
+
+/* ===================== T2a: THE EXIT PATH, one copy stream per worker =====================
+ *
+ * Luke's Flow Batching, T2a. After the sweep every backtrack worker pulls its
+ * record's c and fML triangles off the device. They used to do it with BLOCKING
+ * PAGEABLE copies on the default stream, so twelve workers queued behind each
+ * other on one stream and one driver staging buffer: ~6.5 GB/s at 400 x 5601,
+ * 7.2 s of wall. The scratch they copy into is now pinned (kept for the life of
+ * the process, so it is pinned once, not once per chunk) and each worker copies
+ * on a stream of its own, so the copies run concurrently at the pinned rate, as
+ * far as the card's copy engines allow.
+ *
+ * Streams are grow-only and never destroyed: a worker index always maps to the
+ * same stream, and there is no per-chunk create/destroy cost.
+ *
+ * WHAT IS PINNED, AND WHY NOT THE SCRATCH. The first version pinned each
+ * worker's whole scratch pair. The fetch fell ~10x, and pinning 1.7 GB cost
+ * 35 worker-seconds (~3 s of wall) under WSL, more than the copy it saved on a
+ * one-chunk fold, and it grows with record length x workers. So each worker
+ * gets a FIXED pinned staging buffer instead (RNA_XFER_STAGE_MB, default 8):
+ * the triangle comes across in slices on the worker's stream and is memcpy'd
+ * into ordinary scratch, each worker doing its own memcpy. Pin cost is
+ * workers x 8 MB, once per process. Local sweep (RTX 3050, WSL): 4 MB best, 256 MB
+ * worst -- pinning dominates there; re-sweep on a native host.
+ */
+#define RT_XFER_MAX 256
+static cudaStream_t g_xfer[RT_XFER_MAX];
+static void        *g_xfer_stage[RT_XFER_MAX];
+static int          g_xfer_stage_pin[RT_XFER_MAX];
+static int          g_xfer_n = 0;
+
+static size_t
+rt_stage_bytes(void)
+{
+  static size_t v = 0;
+
+  if (!v) {
+    const char *e  = getenv("RNA_XFER_STAGE_MB");
+    long        mb = (e && e[0]) ? atol(e) : 8;
+
+    if (mb < 1) mb = 1;
+    v = (size_t)mb << 20;
+  }
+
+  return v;
+}
+
+/* Called once per backtrack phase, from the thread that spawns the workers,
+ * BEFORE they start: creation is not thread-safe here and does not need to be. */
+extern "C" void
+rnafold_xfer_begin(const int n)
+{
+  const int want = (n < 1) ? 1 : ((n > RT_XFER_MAX) ? RT_XFER_MAX : n);
+
+  while (g_xfer_n < want) {
+    rt_check(cudaStreamCreate(&g_xfer[g_xfer_n]), "copy stream create");
+    g_xfer_stage[g_xfer_n] = rt_pinned_alloc(rt_stage_bytes(), &g_xfer_stage_pin[g_xfer_n]);
+    if (!g_xfer_stage[g_xfer_n]) {
+      fprintf(stderr, "device.cu                copy stage allocation failed\n");
+      exit(EXIT_FAILURE);
+    }
+    g_xfer_n++;
+  }
+}
+
+/* Device-to-host for backtrack worker w. w < 0 is the old blocking copy on the
+ * default stream. Otherwise: slices through w's pinned stage, on w's stream. */
+extern "C++" void
+rnafold_d2h_w(void *dst, const void *src, const size_t bytes, const int w)
+{
+  if (w < 0) {
+    rt_check(cudaMemcpy(dst, src, bytes, cudaMemcpyDeviceToHost), "fetch");
+    return;
+  }
+
+  if (g_xfer_n == 0)
+    rnafold_xfer_begin(1);
+
+  {
+    const int          k     = w % g_xfer_n;
+    const cudaStream_t s     = g_xfer[k];
+    const size_t       slice = rt_stage_bytes();
+    size_t             off;
+
+    for (off = 0; off < bytes; off += slice) {
+      const size_t n = (bytes - off < slice) ? (bytes - off) : slice;
+
+      rt_check(cudaMemcpyAsync(g_xfer_stage[k], (const char *)src + off, n,
+                               cudaMemcpyDeviceToHost, s), "fetch slice");
+      rt_check(cudaStreamSynchronize(s), "fetch slice sync");
+      memcpy((char *)dst + off, g_xfer_stage[k], n);
+    }
+  }
+}
+
+/* Worker w's stream. A worker beyond the pool shares one by index, which is
+ * still correct: each copy is followed by a sync of its own stream. */
+extern "C++" cudaStream_t
+rnafold_xfer_stream(const int w)
+{
+  if (g_xfer_n == 0)
+    rnafold_xfer_begin(1);
+
+  return g_xfer[((w < 0) ? 0 : w) % g_xfer_n];
+}
+
+/* Pinned host ints for the scratch pool, with the malloc fallback: a host that
+ * will not pin should be slow, not broken. Non-fatal, unlike
+ * cuda_host_alloc_ints(). */
+extern "C" int *
+rnafold_pinned_ints(const size_t n, int *pinned)
+{
+  return (int *)rt_pinned_alloc(n * sizeof(int), pinned);
+}
+
+extern "C" void
+rnafold_pinned_ints_free(int *p, const int pinned)
+{
+  rt_pinned_free(p, pinned);
+}

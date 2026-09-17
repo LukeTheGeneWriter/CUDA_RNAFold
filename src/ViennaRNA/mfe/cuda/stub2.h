@@ -388,6 +388,22 @@ PUBLIC void
 #endif
 fetch_my_c_one(int* dst, const size_t tri_lo, const size_t cells);
 
+// T2a: the backtrack workers' fetches, each on worker w's own copy stream
+// (device.cu). The pooled scratch they copy into is pinned; see
+// rnafold_pinned_ints(). w < 0 is the old blocking default-stream copy.
+#ifdef __cplusplus
+extern "C" {
+#endif
+void  fetch_my_c_one_w(int* dst, const size_t tri_lo, const size_t cells, const int w);
+void  fetch_fML_one_Hw(int* dst, const size_t tri_lo, const size_t cells, const int H, const int w);
+void  fetch_fm2_one_w(int *dst, const size_t tri_lo, const size_t cells, const int w);
+void  rnafold_xfer_begin(const int n);
+int  *rnafold_pinned_ints(const size_t n, int *pinned);
+void  rnafold_pinned_ints_free(int *p, const int pinned);
+#ifdef __cplusplus
+}
+#endif
+
 // Stage-attribution timers (mfe_cuda.c). The row-loop "phase" timers cover
 // only the sweep; these account for the 20-31% of wall that sits outside it.
 // extern "C": these live in mfe_cuda.c (compiled as C) but the .cu files use

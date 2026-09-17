@@ -1,7 +1,7 @@
 # Luke's Flow Batching
 
-*A plan, written 2026-09-16 against `3bf72c46`. Not started. Shelved
-deliberately: the feature-integration list closes first.*
+*A plan, written 2026-09-16 against `3bf72c46`. STARTED 2026-09-17 -- see section 8
+for what has landed and the order Luke set.*
 
 Three changes, in one plan because they share a thesis — **the device should be
 folding, not waiting for or shipping bytes** — and because the order they land
@@ -328,3 +328,51 @@ It fired only at 400 × 5601. So locally the fix rests on the construction (no
 slot is ever rewritten) and on the graph-off race, which did fire and is gone.
 **The claim is settled only by Scaling §G on an A100**, which now builds this
 branch (`tools/make_nb_scaling.py`, `BRANCH`).
+
+### 8.6 T2a — the exit path, one copy stream per worker
+
+**Before:** after the sweep, each backtrack worker copied its record's `c` and
+`fML` triangles with a **blocking pageable `cudaMemcpy` on the default stream**.
+Twelve workers, one stream, one driver staging buffer: they queued behind each
+other, ~6.5 GB/s at 400 × 5601, 7.2 s of wall.
+
+**After:**
+
+| system | before | after |
+|---|---|---|
+| host threads | 12 workers, serialised on one stream | 12 workers, **concurrent** |
+| device streams | default stream only | **one copy stream per worker** (`rnafold_xfer_*`, device.cu) |
+| pinned host memory | none (driver-staged) | **one 8 MB stage per worker** (`RNA_XFER_STAGE_MB`), pinned once per process |
+| PCIe | one pageable copy at a time | concurrent pinned slices, up to the card's copy engines |
+| host DRAM | one calloc'd scratch pair per worker, **per chunk** | same pair, malloc'd, **kept across chunks**; each worker memcpys its own slices |
+
+**What did not work first, and why the stage exists.** The first version
+pinned each worker's whole scratch pair. The fetch fell ~10×, but pinning 1.7 GB
+cost **35 worker-seconds (~3 s of wall)** under WSL, more than the copy it saved
+on a one-chunk fold, and it scales with length × workers. A fixed stage makes
+the pin cost `workers × 8 MB`, once.
+
+**Measured locally** (RTX 3050 / WSL, `D_long` 30 × 3000–5900, ABBA ×2; the GPU
+clock wandered 210–712 MHz, so walls are **not** usable, but this phase is host
+and PCIe work):
+
+| | fetch_mx + backtrack, s (four runs) | mean |
+|---|---|---|
+| fix 3 (A) | 2.42, 3.33, 3.77, 2.64 | **3.04** |
+| T2a (B) | 1.21, 1.14, 1.42, 1.06 | **1.21 (−60 %)** |
+
+One sha across all eight runs. Peak RSS **+0.3 GB** (the stages plus a pool that
+is no longer freed between chunks). Stage size, one run each: 4 MB 1.10 s,
+16 MB 1.66 s, 64 MB 2.62 s, 256 MB 9.49 s — pinning dominates on this host, so
+**re-sweep 4/8/32 on the A100** before trusting the default.
+
+**Also fixed:** under continuous flow, a retiring record's fetch now drains the
+row streams first (`on_retire_cb`). At `RNA_STREAM_OVERLAP` ≥ 1 nothing at the end
+of an iteration waits for them, and the fetch runs on its own stream.
+
+**Bars:** 13-arm A/B against the control (`aa9fce39`) — default, backtrack threads
+0 and 3, `-c`, int16, continuous flow, slot flow with and without level 2, level
+2, `--noLP -p`, 3 chunks, 3 chunks + int16, `F_extreme` — **13/13 identical**.
+
+**Target, from section 4:** `fetch_mx` exposed ≤ 1 s at 400 × 5601 (from 7.68 s).
+Falsified if the wall does not move when `fetch_mx` falls.

@@ -475,6 +475,11 @@ extern "C" void         rnafold_stream_md_done(void);
 static cudaStream_t g_issue_stream = 0;
 #define ISSUE_STREAM (g_issue_stream ? g_issue_stream : graph_stream)
 cudaGraphExec_t graph_exec       = NULL;
+
+// T2a (device.cu): device-to-host for backtrack worker w, through w's own
+// copy stream and pinned stage. w < 0 is the old blocking default-stream copy.
+void rnafold_d2h_w(void* dst, const void* src, const size_t bytes, const int w);
+#define d2h_w rnafold_d2h_w
 int             graph_exec_valid = 0;
 
 // Diagnostic-only counters/timer for the graph exec update-vs-reinstantiate
@@ -1640,7 +1645,7 @@ rnafold_circ_alloc(const int circ, const size_t tri_cells)
 
 /* One record's fM2_real triangle, the twin of fetch_my_c_one(). */
 extern "C" void
-fetch_fm2_one(int *dst, const size_t tri_lo, const size_t cells)
+fetch_fm2_one_w(int *dst, const size_t tri_lo, const size_t cells, const int w)
 {
   if(!d_fm2) {
     fprintf(stderr, "modular_decomposition.cu  fetch_fm2_one with no fM2 "
@@ -1648,8 +1653,13 @@ fetch_fm2_one(int *dst, const size_t tri_lo, const size_t cells)
     return;
   }
 
-  gpuErrchk( cudaMemcpy(dst, &d_fm2[tri_lo], cells*sizeof(int),
-                        cudaMemcpyDeviceToHost) );
+  d2h_w(dst, &d_fm2[tri_lo], cells*sizeof(int), w);
+}
+
+extern "C" void
+fetch_fm2_one(int *dst, const size_t tri_lo, const size_t cells)
+{
+  fetch_fm2_one_w(dst, tri_lo, cells, -1);
 }
 
 
@@ -1997,11 +2007,11 @@ md_snapshot_dml(void) {
 extern "C" /*PUBLIC*/ void
 fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H);
 
+
 extern "C" /*PUBLIC*/ void
 fetch_fML_one(int* dst, const size_t tri_lo, const size_t cells) {
   assert(!rnafold_fml_int16());   // callers must use fetch_fML_one_H()
-  gpuErrchk( cudaMemcpy(dst, &d_fml_j[tri_lo], cells*sizeof(int),
-                        cudaMemcpyDeviceToHost) );
+  d2h_w(dst, &d_fml_j[tri_lo], cells*sizeof(int), -1);
 }
 
 // Host-side decode. Deliberately NOT a kernel: it runs once per record on the
@@ -2009,23 +2019,22 @@ fetch_fML_one(int* dst, const size_t tri_lo, const size_t cells) {
 // int32 triangle on the device -- which is exactly the allocation this whole
 // change exists to remove.
 extern "C" /*PUBLIC*/ void
-fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H) {
-  if(!rnafold_fml_int16()) { fetch_fML_one(dst, tri_lo, cells); return; }
+fetch_fML_one_Hw(int* dst, const size_t tri_lo, const size_t cells, const int H, const int w) {
+  if(!rnafold_fml_int16()) { d2h_w(dst, &d_fml_j[tri_lo], cells*sizeof(int), w); return; }
 
   static __thread short*  h16  = NULL;
   static __thread size_t  h16n = 0;
   if(h16n < cells) { free(h16); h16 = (short*)malloc(cells*sizeof(short)); h16n = cells; }
 
-  gpuErrchk( cudaMemcpy(h16, &d_fml_j16[tri_lo], cells*sizeof(short),
-                        cudaMemcpyDeviceToHost) );
+  d2h_w(h16, &d_fml_j16[tri_lo], cells*sizeof(short), w);
 
   // The baselines for this record, and the column offsets, both small.
   size_t base_lo = 0, base_n = 0;
-  gpuErrchk( cudaMemcpy(&base_lo, &d_base_off_H[H],   sizeof(size_t), cudaMemcpyDeviceToHost) );
-  { size_t hi; gpuErrchk( cudaMemcpy(&hi, &d_base_off_H[H+1], sizeof(size_t), cudaMemcpyDeviceToHost) );
+  d2h_w(&base_lo, &d_base_off_H[H], sizeof(size_t), w);
+  { size_t hi; d2h_w(&hi, &d_base_off_H[H+1], sizeof(size_t), w);
     base_n = hi - base_lo; }
   int* hb = (int*)malloc((base_n?base_n:1)*sizeof(int));
-  if(base_n) gpuErrchk( cudaMemcpy(hb, &d_fml_b[base_lo], base_n*sizeof(int), cudaMemcpyDeviceToHost) );
+  if(base_n) d2h_w(hb, &d_fml_b[base_lo], base_n*sizeof(int), w);
 
   // n from the triangle size: cells == (n+1)(n+2)/2
   int n = 0; while(((size_t)(n+1)*(n+2))/2 < cells) n++;
@@ -2070,6 +2079,11 @@ fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H) 
     }
   }
   free(hb); free(colb);
+}
+
+extern "C" /*PUBLIC*/ void
+fetch_fML_one_H(int* dst, const size_t tri_lo, const size_t cells, const int H) {
+  fetch_fML_one_Hw(dst, tri_lo, cells, H, -1);
 }
 
 extern "C" /*PUBLIC*/ void

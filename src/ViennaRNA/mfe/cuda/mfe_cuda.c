@@ -349,6 +349,8 @@ double stage_backtrack_s  = 0.0; //backtrack(), single- or multi-threaded
 double stage_output_s     = 0.0; //printing folds
 double stage_gpuinit_s    = 0.0; //init_gpu/2/3
 double stage_teardown_s   = 0.0; //teardown_gpu/2/3
+double stage_btpin_worker_s = 0.0; //T2a: worker-seconds spent pinning backtrack scratch (inside backtrack)
+double stage_btfetch_worker_s = 0.0; //T2a: worker-seconds in the fetch itself
 double stage_free_s       = 0.0; //vrna_fold_compound_free()
 
 // gpuinit came out at 199 s -- 25.6% of the 776 s Colab benchmark and the
@@ -429,6 +431,9 @@ double rnafold_now_seconds(void) {
 
 PRIVATE void
 print_stage_timing_stats(void) {
+  fprintf(stderr,
+    "%-24s backtrack scratch (worker-s): alloc=%.3f fetch=%.3f\n",
+    __FILE__, stage_btpin_worker_s, stage_btfetch_worker_s);
   fprintf(stderr,
     "%-24s stage timing (s): build=%.3f prepare=%.3f prefill=%.3f backtrack=%.3f "
     "output=%.3f gpuinit=%.3f teardown=%.3f free=%.3f || non-sweep total=%.3f\n",
@@ -659,16 +664,28 @@ rnafold_circ_verify(void) {
 // (workers) x 125.6 MB at 5601nt instead of (records in chunk) x 125.6 MB,
 // which at a VRAM-filling chunk width was about as much host RAM as VRAM.
 typedef struct {
-  int    *c;
+  int    *c;           /* T2a: persistent across chunks -- see bt_pool_get() */
   int    *fML;
   /* CIRCULAR: fM2_real, pooled for the same reason as the other two -- it is a
    * third full triangle per record, and holding one per RECORD instead of one
    * per WORKER would cost as much host RAM again as c and fML together. */
   int    *fM2;
   size_t  cells;   /* capacity, in ints, of each of the above */
+  int     pin_c, pin_fML, pin_fM2;  /* which of the three are pinned (else malloc) */
+  int     w;       /* T2a: this worker's copy stream */
   double  fetch_s; /* per-worker, so the timer needs no lock */
   double  busy_s;  /* likewise: this worker's active span, for attribution */
+  double  pin_s;   /* T2a: time spent (re)allocating the pinned scratch */
 } bt_scratch_t;
+
+PRIVATE void
+bt_scratch_free(bt_scratch_t *sc) {
+  rnafold_pinned_ints_free(sc->c,   sc->pin_c);
+  rnafold_pinned_ints_free(sc->fML, sc->pin_fML);
+  rnafold_pinned_ints_free(sc->fM2, sc->pin_fM2);
+  sc->c = sc->fML = sc->fM2 = NULL;
+  sc->cells = 0;
+}
 
 PRIVATE void
 bt_scratch_ensure(bt_scratch_t *sc, const size_t cells, const int want_fm2) {
@@ -679,13 +696,47 @@ bt_scratch_ensure(bt_scratch_t *sc, const size_t cells, const int want_fm2) {
   if((sc->cells >= cells) && ((!want_fm2) || (sc->fM2)))
     return;
 
-  free(sc->c);
-  free(sc->fML);
-  free(sc->fM2);
-  sc->c     = (int *) vrna_alloc(sizeof(int) * cells);
-  sc->fML   = (int *) vrna_alloc(sizeof(int) * cells);
-  sc->fM2   = want_fm2 ? (int *) vrna_alloc(sizeof(int) * cells) : NULL;
+  /* T2a: NOT zeroed -- every cell is overwritten by the fetch that follows (the
+   * copy is the record's whole triangle), so vrna_alloc()'s calloc was pure
+   * cost. Deliberately NOT pinned: pinning 1.7 GB of scratch cost more than the
+   * copy it saved (see rnafold_d2h_w() in device.cu). The copy goes through a
+   * small pinned stage per worker instead. */
+  const double t_pin = rnafold_now_seconds();
+  bt_scratch_free(sc);
+  sc->c     = (int *) malloc(sizeof(int) * cells);
+  sc->fML   = (int *) malloc(sizeof(int) * cells);
+  sc->fM2   = want_fm2 ? (int *) malloc(sizeof(int) * cells) : NULL;
+  sc->pin_c = sc->pin_fML = sc->pin_fM2 = 0;
+  if((!sc->c) || (!sc->fML) || (want_fm2 && (!sc->fM2))) {
+    fprintf(stderr, "%-24s backtrack scratch: allocation of %zu ints failed\n",
+            __FILE__, cells);
+    exit(EXIT_FAILURE);
+  }
   sc->cells = cells;
+  sc->pin_s += rnafold_now_seconds() - t_pin;
+}
+
+/* The pool outlives the chunk: a 12-worker pool at 5601 nt is 1.5 GB, and
+ * allocating and first-touching it per chunk is paid again for nothing.
+ * Grow-only, and kept for the life of the process. */
+static bt_scratch_t *g_bt_pool   = NULL;
+static int           g_bt_pool_n = 0;
+
+PRIVATE bt_scratch_t *
+bt_pool_get(const int n) {
+  if(n > g_bt_pool_n) {
+    g_bt_pool = (bt_scratch_t *) vrna_realloc(g_bt_pool, sizeof(bt_scratch_t) * n);
+    memset(g_bt_pool + g_bt_pool_n, 0, sizeof(bt_scratch_t) * (n - g_bt_pool_n));
+    g_bt_pool_n = n;
+  }
+  for(int t=0; t<n; t++) {
+    g_bt_pool[t].w       = t;
+    g_bt_pool[t].fetch_s = 0.0;
+    g_bt_pool[t].busy_s  = 0.0;
+    g_bt_pool[t].pin_s   = 0.0;
+  }
+  rnafold_xfer_begin(n);
+  return g_bt_pool;
 }
 
 typedef struct {
@@ -737,16 +788,16 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
     vc->matrices->fM2_real = sc->fM2;
 
   const double t0 = rnafold_now_seconds();
-  fetch_my_c_one(sc->c,   lo, cells);
+  fetch_my_c_one_w(sc->c,   lo, cells, sc->w);
   // _H, not the bare form: the int16 path needs the record index to find its
   // baselines. Widening happens here, at the device boundary -- the host's fML
   // is int32 and every consumer of it expects that.
-  fetch_fML_one_H(sc->fML, lo, cells, slot);
+  fetch_fML_one_Hw(sc->fML, lo, cells, slot, sc->w);
   /* CIRCULAR: the third triangle. Same slice, same offsets -- fM2_real shares
    * c/fML's layout exactly, which is why the device store needed no new
    * indexing. */
   if(vc->params->model_details.circ)
-    fetch_fm2_one(sc->fM2, lo, cells);
+    fetch_fm2_one_w(sc->fM2, lo, cells, sc->w);
   sc->fetch_s += rnafold_now_seconds() - t0;
 
   /*
@@ -1015,6 +1066,10 @@ typedef struct {
 PRIVATE void
 on_retire_cb(void *ctx, int slot, int record) {
   retire_ctx_t *r = (retire_ctx_t *) ctx;
+  /* The retiring record's last row may still be queued on the row streams: under
+   * RNA_STREAM_OVERLAP nothing at the end of an iteration waits for them, and the
+   * fetch below runs on a copy stream of its own. Drain them first. */
+  rnafold_streams_sync();
   backtrack_one_slot(r->args, record, slot, r->sc);
   r->retired++;
 }
@@ -1037,7 +1092,7 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
   const int n_bt_threads = backtrack_thread_count(nfiles, cpu_queue_threads);
   int next_i = 0;
   backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H };
-  bt_scratch_t *pool = (bt_scratch_t *) vrna_alloc(sizeof(bt_scratch_t) * n_bt_threads);
+  bt_scratch_t *pool = bt_pool_get(n_bt_threads);   /* T2a: pinned, persistent */
   if(n_bt_threads <= 1) {
     const double t_serial = rnafold_now_seconds();
     for(i=0;i<nfiles;i++) backtrack_one(&targ, i, &pool[0]);
@@ -1086,10 +1141,10 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
   for(int t=0; t<n_bt_threads; t++) {
     fetch_worker_s += pool[t].fetch_s;
     busy_worker_s  += pool[t].busy_s;
-    free(pool[t].c);
-    free(pool[t].fML);
+    stage_btpin_worker_s   += pool[t].pin_s;
+    stage_btfetch_worker_s += pool[t].fetch_s;
   }
-  free(pool);
+  /* the pool is kept: see bt_pool_get() */
   const double bt_phase_s = rnafold_now_seconds() - t_bt;
   double fetch_this_chunk = (busy_worker_s > 0.0)
                           ? bt_phase_s * (fetch_worker_s / busy_worker_s)
@@ -1328,9 +1383,9 @@ par_mfe(const int nfiles,
       // slot's final occupant when the sweep ends. One scratch pair serves them
       // all, which is what keeps host matrix memory at ONE record's worth.
       const double t_bt = rnafold_now_seconds();
-      bt_scratch_t sc; memset(&sc, 0, sizeof(sc));
+      bt_scratch_t *scp = bt_pool_get(1);   /* T2a: pinned, persistent; worker 0 */
       backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, NULL, tri_off_H };
-      retire_ctx_t rctx = { &targ, &sc, 0 };
+      retire_ctx_t rctx = { &targ, scp, 0 };
       rnafold_schedule_t sched;
       sched.slots     = nslots;
       sched.length    = length;
@@ -1350,10 +1405,10 @@ par_mfe(const int nfiles,
       fprintf(stderr,"%-24s slot flow: %d records through %d slots, %d retired, "
                      "%zu triangle cells\n",
               __FILE__, nfiles, nslots, rctx.retired, tri_off_H[nslots]);
-      free(sc.c); free(sc.fML);
       const double bt_phase_s = rnafold_now_seconds() - t_bt;
-      phase_fetch_mx_s  += sc.fetch_s > bt_phase_s ? bt_phase_s : sc.fetch_s;
-      stage_backtrack_s += bt_phase_s - (sc.fetch_s > bt_phase_s ? bt_phase_s : sc.fetch_s);
+      const double fs = scp->fetch_s;
+      phase_fetch_mx_s  += fs > bt_phase_s ? bt_phase_s : fs;
+      stage_backtrack_s += bt_phase_s - (fs > bt_phase_s ? bt_phase_s : fs);
     } else {
     par_fill_arrays(nfiles,VC,energy,NULL);
 
