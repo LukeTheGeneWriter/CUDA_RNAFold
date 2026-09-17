@@ -240,12 +240,13 @@ def vram_peak(path):
 
 def run(tag, fa, chunk_cap=0, vram_mb=None, pipeline=None, phase_sync=True,
         block_size=None, md_block=None, host_avail_mb=None, stream_overlap=None,
-        int16=False, extra_args="", quiet=False):
+        int16=False, extra_args="", quiet=False, stage_mb=None, bt_threads=None):
     env = dict(os.environ)
     for k in ("RNA_FML_INT16","RNA_GPU_CHUNK","RNA_MIN_GPU_BATCH","RNA_PHASE_SYNC",
               "RNA_GPU_VRAM_BUDGET_MB","RNA_INT_LOOP_BLOCK_SIZE","RNA_BUILD_PIPELINE",
               "RNA_MD_BLOCK_SIZE","RNA_INT_LOOP_WARP","RNA_BUILD_THREADS",
-              "RNA_HOST_AVAIL_MB","RNA_MD_TILE","RNA_STREAM_OVERLAP"):
+              "RNA_HOST_AVAIL_MB","RNA_MD_TILE","RNA_STREAM_OVERLAP",
+              "RNA_XFER_STAGE_MB","RNA_BACKTRACK_THREADS"):
         env.pop(k, None)
     env["RNA_MIN_GPU_BATCH"] = "1"
     env["RNA_GPU_CHUNK"] = "0" if chunk_cap is None else str(chunk_cap)
@@ -256,6 +257,8 @@ def run(tag, fa, chunk_cap=0, vram_mb=None, pipeline=None, phase_sync=True,
     if vram_mb is not None:       env["RNA_GPU_VRAM_BUDGET_MB"] = str(vram_mb)
     if host_avail_mb is not None: env["RNA_HOST_AVAIL_MB"] = str(host_avail_mb)
     if stream_overlap is not None: env["RNA_STREAM_OVERLAP"] = str(stream_overlap)
+    if stage_mb is not None:   env["RNA_XFER_STAGE_MB"] = str(stage_mb)
+    if bt_threads is not None: env["RNA_BACKTRACK_THREADS"] = str(bt_threads)
     # unset means AUTO since 32.4, so an arm that wants it OFF must say so
     if pipeline is not None: env["RNA_BUILD_PIPELINE"] = "1" if pipeline else "0"
 
@@ -803,6 +806,65 @@ else:
         print("  level 2 is %+.1f%% against a ~-21%% ceiling -- the gap is what the md"
               % d2)
         print("  chain and the cell chain could not actually overlap.")
+""")
+
+md(r"""## I. The exit path — T2a, and the stage size it should ship with
+
+`PORT_LUKES_FLOW_BATCHING.md` 8.6. Every backtrack worker used to pull its
+record's `c` and `fML` triangles with a **blocking pageable copy on the default
+stream**, so twelve workers queued behind one stream and one driver staging
+buffer: **6.5 GB/s, 7.68 s** of `fetch_mx` at this shape. Each worker now copies
+on a stream of its own, in slices through a **pinned stage of its own**
+(`RNA_XFER_STAGE_MB`), and memcpys each slice out itself.
+
+**The stage exists because the obvious version was worse.** Pinning each
+worker's whole scratch pair made the copies ~10x faster and cost **35
+worker-seconds to pin 1.7 GB** on the dev box — more than it saved, and it grows
+with length x workers. A fixed stage makes pinning `workers x stage`, once per
+process. **Pinning is much cheaper on this host than on WSL, so the local sweep
+(4 MB best, 256 MB worst) is exactly the number that should not be carried over.**
+
+**Written before the run.** `fetch_mx` should fall from ~7.7 s to **at most
+~2 s**, because 12 concurrent pinned streams beat one pageable stream by more
+than 4x. Between 4 and 32 MB the difference should be **small** (under ~15 %):
+the slices are all far larger than a PCIe burst, and what changed is the
+concurrency, not the slice size. `backtrack` should rise slightly — it now
+carries the memcpy out of the stage and the scratch allocation.
+
+**If `fetch_mx` does not fall, the exit path was never the staging copy** — and
+8.6's whole premise is wrong, which is worth more than the seconds.""")
+
+code(r"""
+print("I: the exit path at the production shape -- ~7 min")
+I_FA = G_FA if "G_FA" in dir() else fasta("g_prod", 400, 5601)
+for tag, mb in (("I_stage4", 4), ("I_stage8", 8), ("I_stage32", 32)):
+    run(tag, I_FA, pipeline=False, phase_sync=False, stage_mb=mb)
+# One serial-backtrack arm: with a single worker there is no concurrency to win,
+# so this is the control that says how much of the gain was the CONCURRENCY
+# rather than the pinning.
+run("I_serial", I_FA, pipeline=False, phase_sync=False, stage_mb=8, bt_threads=0)
+""")
+
+code(r"""
+print("  %-10s %8s %10s %11s %s" % ("arm", "wall", "fetch_mx", "backtrack", "sha"))
+for tag in ("I_stage4", "I_stage8", "I_stage32", "I_serial"):
+    r = RESULTS.get(tag)
+    if not r: continue
+    print("  %-10s %8.2f %10.3f %11.3f %s"
+          % (tag, r["wall"], r["phases"].get("fetch_mx", 0.0),
+             r["stages"].get("backtrack", 0.0), r["sha"]))
+shas = {RESULTS[t]["sha"] for t in RESULTS if t.startswith("I_")}
+print()
+print("  shas:", shas, "" if len(shas) == 1 else "  *** THE EXIT PATH CHANGED AN ANSWER ***")
+best = None
+for tag in ("I_stage4", "I_stage8", "I_stage32"):
+    r = RESULTS.get(tag)
+    if r and (best is None or r["phases"].get("fetch_mx", 9e9) < best[1]):
+        best = (tag, r["phases"].get("fetch_mx", 9e9))
+if best:
+    print("  best stage size here: %s at fetch_mx %.3f s (was 7.68 s pageable-serial)" % best)
+    print("  target (8.6): fetch_mx <= 1 s. Falsified if the WALL does not move with it --")
+    print("  that would say the exit path was not on the critical path at all.")
 """)
 
 md("## E. Summary and export")
