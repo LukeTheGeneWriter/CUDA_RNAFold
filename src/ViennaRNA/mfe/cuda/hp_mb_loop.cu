@@ -208,30 +208,15 @@ extern "C" cudaStream_t rnafold_stream_md(void);
  * the primary buffer and the memory is not spent. */
 /* THE SECOND HAZARD, and it is not a row buffer.
  *
- * d_i_H and d_size_off_H are uploaded EVERY ROW and read by every kernel in
- * this file -- by new_c and hp_mb_3p on the cell stream, and by fml_scan and
- * fml_prev on the md stream. At level 2 those two chains are a row apart, so
- * row i-1's upload overwrites the tables while row i's md chain is still
- * reading them. Measured: level 2 answered differently on 3 of 4 option arms
- * with the row buffers already double-buffered, which is what sent the search
- * here.
+ * d_i_H and d_size_off_H were uploaded EVERY ROW over one buffer and read by
+ * kernels on both chains. A private md-stream copy staged from a pinned parity
+ * shadow was the first fix, and the Scaling notebook (G, 2026-09-17) showed it
+ * was not enough: two level-2 runs, two different wrong shas.
  *
- * The md chain gets its own copies, uploaded ASYNC ON ITS OWN STREAM -- which
- * is what makes them correct by stream ordering rather than by timing -- from
- * a pinned shadow double-buffered on row parity, because the source of an async
- * copy may not be rewritten until it has completed. The device pointers
- * themselves never change, which matters: the md graph captures its arguments,
- * and a pointer that moved every row would force a re-instantiate every row.
- *
- * int_loop.cu's tables are read only by the cell chain and
- * modular_decomposition.cu's only by the md chain, so neither needs this. */
-static int*    d_i_H_md          = NULL;
-static size_t* d_size_off_H_md   = NULL;
-static int*    i_H_pin_md[2]     = { NULL, NULL };
-static size_t* size_off_pin_md[2]= { NULL, NULL };
-static int     i_H_pin_md_flag[2]      = { 0, 0 };
-static int     size_off_pin_md_flag[2] = { 0, 0 };
-static int     md_tables_n       = 0;
+ * Luke's Flow Batching, fix 3, removes the shared buffer instead of guarding
+ * it: every row has its own slot in the chunk's row tables (device.cu), written
+ * once. Both chains bind row i's slot, and nothing they read is ever
+ * overwritten. */
 
 static int*  d_energy_hp_row_b   = NULL;
 static int*  d_energy_mb_row_b   = NULL;
@@ -257,26 +242,10 @@ static char*   d_up_ml_ok;
 // unconstrained fold up_hp[i+1] is the entire remaining sequence and the test
 // is true by construction, so the array would cost a load per cell to say yes.
 static int*    d_up_hp = NULL;
-// Staggered_Row_Batching Phase 5: per-row block-count table for
-// hp_mb_3p_kernel -- own copy (per this file's established convention),
-// same "size" formula as int_loop.cu's/modular_decomposition.cu's
-// (length_H[H]-i-turn, reused verbatim from Phase 4's load_fML). Allocated
-// once per chunk, uploaded fresh each row by hp_mb_3p_i().
-static size_t* d_size_off_H;
-// Continuous flow, PHASE A: this row's PER-RECORD row index. Every entry
-// equals the old shared scalar i today, which is what makes phase A
-// behaviour-neutral; the assert in each kernel checks that at runtime.
-static int*    d_i_H;
-static int*    i_H_shadow   = NULL;
-static int     i_H_shadow_n = 0;
-static void    i_H_shadow_reset(void);   // defined below; called from init/teardown above it
-// Host shadow of what d_size_off_H currently holds, so a row's redundant
-// re-uploads can be skipped. See upload_size_off_H() below.
-static size_t* size_off_shadow   = NULL;
-static int     size_off_shadow_n = 0;
-static int  size_off_shadow_pinned = 0;  /* pinned staging, stub2.h */
-static int  i_H_shadow_pinned      = 0;
-static void    size_off_shadow_reset(void);  // defined below; called from init/teardown above it
+// This row's slot in the chunk's row tables (device.cu), bound by
+// bind_row_tables(i). Borrowed, never written or freed here.
+static const size_t* d_size_off_H = NULL;
+static const int*    d_i_H        = NULL;
 //NB: energy_hp needs no hard-constraint bitmask at all -- E_Hairpin() has no
 //hc dependency, and fill_arrays_loop.c's read site already gates on
 //hc_decompose/no_close identically to how fill_arrays.c used to gate the
@@ -555,16 +524,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     free(saltbuff);
   }
 
-  // Staggered_Row_Batching Phase 5: allocated here, not populated here --
-  // changes every sweep row i, uploaded fresh per-row by hp_mb_3p_i().
-  SLOT_ALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
-  // This buffer is brand new and holds nothing. Drop the shadow so
-  // upload_size_off_H() cannot mistake it for already-current -- see the
-  // HAZARD note on that function.
-  size_off_shadow_reset();
-
-  SLOT_ALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
-  i_H_shadow_reset();          // fresh buffer: same hazard as size_off, same fix
+  // (d_size_off_H / d_i_H: the chunk's row tables now, bound per row.)
 
   size = seq_off_H[nfiles]*sizeof(short);
   SLOT_ALLOC(&d_S2, size);
@@ -650,15 +610,6 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     SLOT_ALLOC(&d_energy_mb_row_b, size);
     SLOT_ALLOC(&d_energy_3p00_row_b, size);
     SLOT_ALLOC(&d_gate_row_b, g_row_total*sizeof(char));
-    SLOT_ALLOC(&d_i_H_md, (size_t)nfiles*sizeof(int));
-    SLOT_ALLOC(&d_size_off_H_md, (size_t)(nfiles+1)*sizeof(size_t));
-    for(int b=0;b<2;b++) {
-      i_H_pin_md[b]      = (int*)rnafold_pinned_alloc((size_t)nfiles*sizeof(int),
-                                                      &i_H_pin_md_flag[b]);
-      size_off_pin_md[b] = (size_t*)rnafold_pinned_alloc((size_t)(nfiles+1)*sizeof(size_t),
-                                                         &size_off_pin_md_flag[b]);
-    }
-    md_tables_n = nfiles;
     fprintf(stderr,"%-24s RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered "
                    "on row parity (+%.1f MB)\n", __FILE__,
             (3.0*size + g_row_total*sizeof(char))/1048576.0);
@@ -812,13 +763,6 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_hccc_gu) );
   gpuErrchk( cudaFree(d_gate_row) );
   if(d_gate_row_b) { gpuErrchk( cudaFree(d_gate_row_b) ); d_gate_row_b = NULL; }
-  if(d_i_H_md)        { gpuErrchk( cudaFree(d_i_H_md) );        d_i_H_md = NULL; }
-  if(d_size_off_H_md) { gpuErrchk( cudaFree(d_size_off_H_md) ); d_size_off_H_md = NULL; }
-  for(int b=0;b<2;b++) {
-    rnafold_pinned_free(i_H_pin_md[b], i_H_pin_md_flag[b]);      i_H_pin_md[b] = NULL;
-    rnafold_pinned_free(size_off_pin_md[b], size_off_pin_md_flag[b]); size_off_pin_md[b] = NULL;
-  }
-  md_tables_n = 0;
   gpuErrchk( cudaFree(d_hccc_mb) );
   gpuErrchk( cudaFree(d_hccc_mbenc) );
   gpuErrchk( cudaFree(d_S2) );
@@ -840,10 +784,8 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_seq_off_H) );
   gpuErrchk( cudaFree(d_len_H) );
   gpuErrchk( cudaFree(d_span_H) );
-  gpuErrchk( cudaFree(d_size_off_H) );
-  size_off_shadow_reset();   // the device buffer is gone; the shadow must not outlive it
-  gpuErrchk( cudaFree(d_i_H) );
-  i_H_shadow_reset();
+  d_size_off_H = NULL;   // borrowed from the row tables, not ours to free
+  d_i_H        = NULL;
   first3 = 1;
 }
 
@@ -885,7 +827,14 @@ hp_mb_loop_bytes_per_file(const int length) {
   // than the memory: this is 67 KB against ~125 MB of triangles at 5601 nt,
   // 0.05%, the same argument the salt table above already makes.
   const size_t nolp_bytes       = 3*(size_t)(length+1)*sizeof(int);
-  return nolp_bytes + hccc_mb_bytes + hccc_mbenc_bytes + hccc_any_bytes + hccc_gu_bytes
+  // The chunk's row tables (device.cu, Luke's Flow Batching fix 3): one slot
+  // per sweep row, and a record adds one size_off and one side_off entry (and
+  // one i_H) to each of at most length+1 slots. The tables' extra trailing
+  // column is charged here too, per record, by a third size_t -- over-counts
+  // by (nfiles-1) x that term, ~45 KB at 5601 nt against ~170 MB, which is the
+  // same side of the trade the salt table above takes.
+  const size_t rowtab_bytes     = (size_t)(length+1)*(3*sizeof(size_t) + sizeof(int));
+  return nolp_bytes + rowtab_bytes + hccc_mb_bytes + hccc_mbenc_bytes + hccc_any_bytes + hccc_gu_bytes
        + s2_bytes + sequence_bytes + up_ml_bytes + salt_bytes
        + hp_row_bytes + mb_row_bytes + p3p00_row_bytes + gate_row_bytes;
 }
@@ -1324,105 +1273,12 @@ fml_scan_kernel(const int nfiles, const int i_row, const int turn,
   }
 }
 
-// Upload size_off_H, but only when it differs from what the device already
-// holds.
-//
-// GPU-resident sweep, step 5b. Four functions in this file upload this table
-// before their launch -- hp_mb_3p_i, new_c_i, fml_scan_i, fml_prev_i -- and all
-// four run in the SAME sweep row with the SAME table into the SAME buffer, so
-// three of the four are pure duplication. That matters because cudaMemcpy H2D
-// is BLOCKING and stream-ordered: each one is a sync point in its own right, so
-// leaving them in place would make dropping the cudaDeviceSynchronize() calls
-// worth almost nothing.
-//
-// Compared by CONTENT rather than by call order or a row counter. Call-order
-// coupling ("only the first caller uploads") would break silently into wrong
-// indices if the row body were ever reordered; content comparison cannot. The
-// table genuinely changes every row (widths are length_H[H]-i-turn), so this
-// skips only the within-row duplicates, never a required upload.
-//
-// HAZARD, and the reason for size_off_shadow_reset(): d_size_off_H is freed and
-// re-cudaMalloc'd per chunk. Without an explicit reset, a fresh chunk whose
-// first table happened to equal the previous chunk's last one would skip the
-// upload and leave the new buffer UNINITIALISED -- garbage offsets, wrong
-// answers, no crash. init_gpu3() calls the reset for exactly that reason.
-// Twin of upload_size_off_H() for the per-record row index: same content
-// comparison, same per-chunk reallocation hazard, same fix.
+// Point this file's tables at row i's slot. Issues nothing: the slot was
+// uploaded before the row's first kernel (device.cu).
 static void
-i_H_shadow_reset(void) {
-  rnafold_pinned_free(i_H_shadow, i_H_shadow_pinned);
-  i_H_shadow   = NULL;
-  i_H_shadow_n = 0;
-}
-
-static void
-upload_i_H(const int nfiles, const int* i_H) {
-  const size_t bytes = (size_t)nfiles * sizeof(int);
-  if(i_H_shadow_n != nfiles) {
-    rnafold_pinned_free(i_H_shadow, i_H_shadow_pinned);
-    i_H_shadow   = (int*)rnafold_pinned_alloc(bytes, &i_H_shadow_pinned);
-    i_H_shadow_n = i_H_shadow ? nfiles : 0;
-  } else if(i_H_shadow && memcmp(i_H_shadow, i_H, bytes) == 0) {
-    return;
-  }
-  /* Stage into the PINNED shadow and copy from there -- rnafold_pinned_alloc()
-   * in stub2.h explains why. The shadow had to be written anyway. */
-  if(i_H_shadow) {
-    memcpy(i_H_shadow, i_H, bytes);
-    gpuErrchk( cudaMemcpy(d_i_H, i_H_shadow, bytes, cudaMemcpyHostToDevice) );
-  } else {
-    gpuErrchk( cudaMemcpy(d_i_H, i_H, bytes, cudaMemcpyHostToDevice) );
-  }
-}
-
-/* Row i's tables, staged in the parity shadow and copied on the md stream so
- * the copy is ordered behind row i+1's md kernels rather than racing them. */
-static void
-upload_md_tables(const int nfiles, const int i, const size_t* size_off_H, const int* i_H)
-{
-  const int b = (i & 1) ? 1 : 0;
-
-  if((!d_i_H_md) || (md_tables_n != nfiles) || (!i_H_pin_md[b]) || (!size_off_pin_md[b]))
-    return;                       /* not level 2, or allocation failed: nothing to do */
-
-  memcpy(i_H_pin_md[b], i_H, (size_t)nfiles*sizeof(int));
-  memcpy(size_off_pin_md[b], size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
-  gpuErrchk( cudaMemcpyAsync(d_i_H_md, i_H_pin_md[b], (size_t)nfiles*sizeof(int),
-                             cudaMemcpyHostToDevice, rnafold_stream_md()) );
-  gpuErrchk( cudaMemcpyAsync(d_size_off_H_md, size_off_pin_md[b],
-                             (size_t)(nfiles+1)*sizeof(size_t),
-                             cudaMemcpyHostToDevice, rnafold_stream_md()) );
-}
-
-static inline const int*    MD_I_H(void)    { return d_i_H_md        ? d_i_H_md        : d_i_H; }
-static inline const size_t* MD_SIZE_OFF(void) { return d_size_off_H_md ? d_size_off_H_md : d_size_off_H; }
-
-static void
-size_off_shadow_reset(void) {
-  rnafold_pinned_free(size_off_shadow, size_off_shadow_pinned);
-  size_off_shadow   = NULL;
-  size_off_shadow_n = 0;
-}
-
-static void
-upload_size_off_H(const int nfiles, const size_t* size_off_H) {
-  const int    n     = nfiles + 1;
-  const size_t bytes = (size_t)n * sizeof(size_t);
-
-  if(size_off_shadow_n != n) {              // first row of a chunk, or width changed
-    rnafold_pinned_free(size_off_shadow, size_off_shadow_pinned);
-    size_off_shadow   = (size_t*)rnafold_pinned_alloc(bytes, &size_off_shadow_pinned);
-    size_off_shadow_n = size_off_shadow ? n : 0;
-  } else if(size_off_shadow && memcmp(size_off_shadow, size_off_H, bytes) == 0) {
-    return;                                 // device already holds exactly this
-  }
-
-  if(size_off_shadow) {
-    memcpy(size_off_shadow, size_off_H, bytes);
-    gpuErrchk( cudaMemcpy(d_size_off_H, size_off_shadow, bytes, cudaMemcpyHostToDevice) );
-  } else {
-    gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, bytes, cudaMemcpyHostToDevice) );
-  }
+bind_row_tables(const int i) {
+  d_size_off_H = rnafold_rowtab_size(i);
+  d_i_H        = rnafold_rowtab_ih(i);
 }
 
 // Tile width for fml_scan_kernel, chosen once. Cached because fml_scan_i runs
@@ -1466,9 +1322,9 @@ fml_scan_tile(void) {
 // keeps this step behaviour-neutral while both paths run.
 // The device offset tables gquad.cu's row expansion needs. Accessors rather
 // than externs so the pointers stay owned here, where they are allocated.
-extern "C" const int*    rnafold_i_H_device(void)       { return d_i_H; }
+extern "C" const int*    rnafold_i_H_device(const int i) { return rnafold_rowtab_ih(i); }
 extern "C" const size_t* rnafold_row_off_device(void)   { return d_row_off_H; }
-extern "C" const size_t* rnafold_size_off_device(void)  { return d_size_off_H; }
+extern "C" const size_t* rnafold_size_off_device(const int i) { return rnafold_rowtab_size(i); }
 
 PUBLIC void
 fml_scan_i(const int nfiles, const int i, const int turn,
@@ -1483,8 +1339,7 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   int* d_fml_prev_ = NULL; int* d_energy_min_ = NULL;
   md_row_buffers(NULL, NULL, &d_fml_prev_, &d_energy_min_);
 
-  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
-  upload_i_H(nfiles, i_H);                 // continuous flow phase A
+  bind_row_tables(i);
 
   // One block per record, not a flat grid: the scan carries state along j, so a
   // record's row has to stay inside one block.
@@ -1497,13 +1352,11 @@ fml_scan_i(const int nfiles, const int i, const int turn,
                                      d_new_e_, P3P_ROW(i), \
                                      rnafold_gq_row_device(), d_fml_prev_, \
                                      d_up_ml_ok, d_param2, d_energy_min_, \
-                                     d_row_off_H, d_seq_off_H, MD_SIZE_OFF(), MD_I_H())
+                                     d_row_off_H, d_seq_off_H, d_size_off_H, d_i_H)
   // THE HEAD OF THE MD CHAIN. At level 2 it runs on its own stream, so it has
-  // to be TOLD that row i's c is written -- program order no longer says it --
-  // and it reads its OWN copy of the per-row tables, staged here so the copy is
-  // ordered behind the previous row's md kernels instead of racing them.
+  // to be TOLD that row i's c is written -- program order no longer says it.
+  // The tables it reads are row i's own slot, which nothing overwrites.
   rnafold_stream_md_wait_cell();
-  upload_md_tables(nfiles, i, size_off_H, i_H);
   switch(fml_scan_tile()) {
     case   32: FML_SCAN_LAUNCH(  32); break;
     case   64: FML_SCAN_LAUNCH(  64); break;
@@ -1842,8 +1695,7 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
     fprintf(stderr,"%-24s new_c_kernel block size %d\n", __FILE__, block_size);
   }
 
-  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
-  upload_i_H(nfiles, i_H);                 // continuous flow phase A
+  bind_row_tables(i);
 
   // noLP: this row's stack energies have to exist before new_c_kernel reads
   // them, and they depend only on the sequence and the hard constraints, so
@@ -2000,13 +1852,12 @@ fml_prev_i(const int nfiles, const int i, const int turn,
     fprintf(stderr,"%-24s fml_prev_kernel block size %d\n", __FILE__, block_size);
   }
 
-  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
-  upload_i_H(nfiles, i_H);                 // continuous flow phase A
+  bind_row_tables(i);
 
   const size_t nblocks = (total + block_size - 1)/block_size;
   fml_prev_kernel<<<(int)nblocks,block_size,0,rnafold_stream_md()>>>(nfiles, RNA_I_ROW(i), turn,
                                                d_energy_min_, d_dml_, d_fml_prev_,
-                                               d_row_off_H, MD_SIZE_OFF(), total, MD_I_H());
+                                               d_row_off_H, d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
@@ -2077,8 +1928,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
 	    __FILE__, block_size, BLOCK_SIZE);
   }
 
-  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
-  upload_i_H(nfiles, i_H);                 // continuous flow phase A
+  bind_row_tables(i);
 
   const int nblocks = (total + block_size - 1)/block_size;
   // ... and this row may not write that parity until the fml_scan two rows

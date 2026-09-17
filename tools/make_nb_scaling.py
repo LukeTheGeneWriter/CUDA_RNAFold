@@ -135,7 +135,7 @@ goes stale the moment the branch is rebased.""")
 
 code(r"""
 REPO   = "https://github.com/LukeTheGeneWriter/CUDA_RNAFold.git"
-BRANCH = "port27"
+BRANCH = "Lukes_Flow_Batching"   # was port27; the flow-batching work lives here
 ROOT   = "/content/scaling"
 
 sh("rm -rf %s && mkdir -p %s" % (ROOT, ROOT))

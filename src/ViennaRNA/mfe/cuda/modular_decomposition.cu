@@ -428,23 +428,21 @@ static size_t  g_row_total = 0;
 // verified algebraically identical across all three from their pre-Phase-4
 // bound-check arithmetic). Both buffers are allocated once per chunk here
 // (init_gpu()) and just overwritten each row, same as d_energy_min already is.
-static size_t* d_size_off_H;
-static size_t* d_side_off_H;
-// Continuous flow phase A2: this file's own copy of the per-record row index,
-// read by all four kernels below. int_loop.cu and hp_mb_loop.cu each carry an
-// identical one -- per-translation-unit device tables are this codebase's
-// existing convention (d_size_off_H above is duplicated the same way).
 //
-// Uploaded OUTSIDE the CUDA-graph capture region (see
-// load_fML_modular_decomposition_load_min_fML() below), with a blocking
-// cudaMemcpy on the NULL stream, which is what lets fill_arrays_loop.c pass a
-// plain stack table: this file's standing hazard -- an async H2D captured into
-// the graph must have a persistent host source -- does not apply to a copy that
-// has completed before capture even begins.
-static int*    d_i_H;
-static int*    i_H_shadow   = NULL;
-static int     i_H_shadow_n = 0;
-static void    i_H_shadow_reset(void);   // defined below; called from init/teardown above it
+// Luke's Flow Batching, fix 3: all three are row i's slots in the chunk's row
+// tables (device.cu), bound by bind_row_tables(i) and never written here. The
+// per-row H2Ds that used to fill them -- two of them CAPTURED INTO THE GRAPH
+// from host stack tables -- are gone, so the graph now holds kernels only.
+static const size_t* d_size_off_H = NULL;
+static const size_t* d_side_off_H = NULL;
+static const int*    d_i_H        = NULL;
+
+static void
+bind_row_tables(const int i) {
+  d_size_off_H = rnafold_rowtab_size(i);
+  d_side_off_H = rnafold_rowtab_side(i);
+  d_i_H        = rnafold_rowtab_ih(i);
+}
 //int* h_dml;  //DMLi
 //unsigned int mem_size_buf; //bytes in h_dml and d_dml
 //int* fml_j;  //my_fML
@@ -466,6 +464,16 @@ extern "C" cudaStream_t rnafold_stream_cell(void);
 extern "C" cudaStream_t rnafold_stream_md(void);
 extern "C" int          rnafold_stream_overlap(void);
 extern "C" void         rnafold_stream_md_done(void);
+
+/* Where the md chain's kernels are ISSUED. graph_stream while capturing (the
+ * capture needs it), and -- the fix -- the md stream on the RNA_CUDA_GRAPH=0
+ * path when RNA_STREAM_OVERLAP is on. That path used to issue straight onto
+ * graph_stream, which is ordered against the default stream only, not against
+ * the cell/md streams the rest of the row runs on: every graph-off overlap arm,
+ * level 1 included, returned a wrong answer, on the control binary as well
+ * (found 2026-09-17 by the overlap bar's graph-off arm). */
+static cudaStream_t g_issue_stream = 0;
+#define ISSUE_STREAM (g_issue_stream ? g_issue_stream : graph_stream)
 cudaGraphExec_t graph_exec       = NULL;
 int             graph_exec_valid = 0;
 
@@ -520,10 +528,7 @@ init_gpu(const int nfiles, const int length,
   // chunk), but not populated here -- unlike tri_off_H/row_off_H these change
   // every sweep row i, so the real upload happens per-row in load_fML()/
   // modular_decomposition_cuda() instead.
-  TIMED_CUDAMALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
-  TIMED_CUDAMALLOC(&d_side_off_H, (size_t)(nfiles+1)*sizeof(size_t));
-  TIMED_CUDAMALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
-  i_H_shadow_reset();          // fresh buffer: the shadow must not claim it is current
+  // (d_size_off_H / d_side_off_H / d_i_H: the chunk's row tables, bound per row.)
 
   // Staggered_Row_Batching Phase 2d: allocation sizes now the real per-H sum
   // (row_off_H[nfiles]/tri_off_H[nfiles]) instead of a uniform nfiles*(...)
@@ -678,10 +683,8 @@ teardown_gpu(void) {
   gpuErrchk( cudaFree(d_fml_prev) );
   gpuErrchk( cudaFree(d_tri_off_H) );
   gpuErrchk( cudaFree(d_row_off_H) );
-  gpuErrchk( cudaFree(d_size_off_H) );
-  gpuErrchk( cudaFree(d_i_H) );
-  i_H_shadow_reset();          // the device buffer is gone; the shadow must not outlive it
-  gpuErrchk( cudaFree(d_side_off_H) );
+  d_size_off_H = d_side_off_H = NULL;   // borrowed from the row tables
+  d_i_H        = NULL;
   if(graph_exec_valid) {
     gpuErrchk( cudaGraphExecDestroy(graph_exec) );
     graph_exec_valid = 0;
@@ -982,32 +985,6 @@ init_fML(const int nfiles, const int length,
 // Continuous flow phase A2: content-compared upload of the per-record row
 // index, the twin of int_loop.cu/hp_mb_loop.cu's.
 //
-// HAZARD, and the reason for i_H_shadow_reset(): d_i_H is freed and
-// re-cudaMalloc'd per chunk. Without the reset, a fresh chunk whose first table
-// happened to equal the previous chunk's last one would skip the upload and
-// leave the new buffer UNINITIALISED -- garbage row indices, wrong answers, no
-// crash. init_gpu()/teardown_gpu() both call the reset for exactly that reason.
-static void
-i_H_shadow_reset(void) {
-  free(i_H_shadow);
-  i_H_shadow   = NULL;
-  i_H_shadow_n = 0;
-}
-
-static void
-upload_i_H(const int nfiles, const int* i_H) {
-  const size_t bytes = (size_t)nfiles * sizeof(int);
-  if(i_H_shadow_n != nfiles) {
-    free(i_H_shadow);
-    i_H_shadow   = (int*)malloc(bytes);
-    i_H_shadow_n = i_H_shadow ? nfiles : 0;
-  } else if(i_H_shadow && memcmp(i_H_shadow, i_H, bytes) == 0) {
-    return;
-  }
-  gpuErrchk( cudaMemcpy(d_i_H, i_H, bytes, cudaMemcpyHostToDevice) );
-  if(i_H_shadow) memcpy(i_H_shadow, i_H, bytes);
-}
-
 // Continuous flow phase C3: put ONE slot's sweep state back to the state a
 // chunk starts in, so the slot can take a new record mid-sweep. Exactly the
 // buffers init_fML() fills for the whole chunk, restricted to this slot's own
@@ -1106,12 +1083,12 @@ load_fML(const int nfiles,
   // is unaffected. Check the graph-stats line: the reinstantiate count must not
   // climb.
   if(!rnafold_gpu_sweep())
-    int_MemcpyAsync(d_energy_min,energy_min, g_row_total, cudaMemcpyHostToDevice, graph_stream, __LINE__);
-  gpuErrchk( cudaMemcpyAsync(d_size_off_H, size_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice, graph_stream) );
+    int_MemcpyAsync(d_energy_min,energy_min, g_row_total, cudaMemcpyHostToDevice, ISSUE_STREAM, __LINE__);
+  bind_row_tables(i);
 
   /* Setup execution parameters for helper kernel */
   const int nblocks = (total + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  load_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
+  load_fML_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn, length,
 					  d_energy_min,  //in
 					  d_fml_j,  //out
 					  d_fml_row, //out, int16 path (NULL when off)
@@ -1130,8 +1107,9 @@ pack_fml(const int nfiles, const int i, const int turn, const int length,
   if(!rnafold_fml_int16()) return;
   const size_t total = size_off_H[nfiles];
   if(total==0) return;
+  bind_row_tables(i);
   const size_t nblocks = (total + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  pack_fml_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
+  pack_fml_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn, length,
                         d_fml_row, d_fml_j16, d_fml_b,
                         d_tri_off_H, d_row_off_H,
                         d_base_off_H, d_colb_off,
@@ -1176,10 +1154,11 @@ load_min_fML(const int nfiles,
 // DMLi       already in d_dml
 // d_fml_j    out
   if(total==0) return;
+  bind_row_tables(i);
 
 /* Setup execution parameters for helper kernel */
   const int nblocks = (total + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  load_min_fML_kernel<<<nblocks,BLOCK_SIZE,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
+  load_min_fML_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn, length,
 					  d_energy_min,  //in
 					  d_dml,    //in
 					  d_fml_j,  //out
@@ -1715,7 +1694,7 @@ void modular_decomposition_cuda(const int nfiles,
   // fmli_kernel below and load_min_fML_kernel (called later this row, from
   // load_min_fML()) read the same already-uploaded table, so it's not
   // re-uploaded there.
-  gpuErrchk( cudaMemcpyAsync(d_side_off_H, side_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice, graph_stream) );
+  bind_row_tables(i);
 
   //for simplicity transfer all to start with
   //perhaps should use cuMemsetD32
@@ -1781,7 +1760,7 @@ void modular_decomposition_cuda(const int nfiles,
     // declarations near the top of this file for why.
     const int block_size = g_block_size_fmli;
     const int nblocks = (total + block_size - 1)/block_size;
-    fmli_kernel<<<nblocks,block_size,0,graph_stream>>>(nfiles, RNA_I_ROW(i), turn, length,
+    fmli_kernel<<<nblocks,block_size,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn, length,
 					d_fml_i,  //Out
 					d_fml_j,  //In
 					d_fml_row, //In, int16 path (NULL when off)
@@ -1827,9 +1806,9 @@ void modular_decomposition_cuda(const int nfiles,
 #define MD_LAUNCH(T) \
   do { \
     if(rnafold_md_smem()) \
-      modular_decomposition_smem_kernel<T><<<nblocks,block_size,0,graph_stream>>>(MD_ARGS); \
+      modular_decomposition_smem_kernel<T><<<nblocks,block_size,0,ISSUE_STREAM>>>(MD_ARGS); \
     else \
-      modular_decomposition_kernel<T><<<nblocks,block_size,0,graph_stream>>>(MD_ARGS); \
+      modular_decomposition_kernel<T><<<nblocks,block_size,0,ISSUE_STREAM>>>(MD_ARGS); \
   } while(0)
   switch(g_md_tile) {
     case  1: MD_LAUNCH(1);  break;
@@ -1849,7 +1828,7 @@ void modular_decomposition_cuda(const int nfiles,
   // fml_prev_host, both skipped in device mode; new_c_kernel reads d_dml1 and
   // fml_prev_kernel reads d_dml, both device-side.
   if(!rnafold_gpu_sweep())
-    int_MemcpyAsync(DMLi,d_dml, g_row_total, cudaMemcpyDeviceToHost, graph_stream, __LINE__);
+    int_MemcpyAsync(DMLi,d_dml, g_row_total, cudaMemcpyDeviceToHost, ISSUE_STREAM, __LINE__);
   // no sync here -- the one remaining sync happens once, after the whole
   // captured chain is launched, in the new orchestration function.
 
@@ -2127,17 +2106,9 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 					     const size_t* size_off_H,
 					     const size_t* side_off_H,
 					     const int* i_H) {      //in, nfiles entries -- continuous flow phase A2
-  // Continuous flow phase A2: uploaded HERE, before either branch, and
-  // deliberately outside the capture region below -- a blocking NULL-stream
-  // cudaMemcpy that has completed before cudaStreamBeginCapture() is reached.
-  // That is what keeps a plain stack i_H legal: this file's capture-region rule
-  // is that an ASYNC H2D recorded INTO the graph needs a persistent host
-  // source, and graph_stream being a blocking stream orders the replay after
-  // this copy exactly as it already does for int_loop_i()/load_my_c()'s
-  // NULL-stream work. It adds no sync point the row did not already have --
-  // upload_size_off_H() does the same blocking per-row H2D twice already -- and
-  // the content comparison skips it on the rows where nothing changed.
-  upload_i_H(nfiles, i_H);
+  // Row i's tables were uploaded with the chunk (device.cu), so nothing is
+  // copied here and nothing host-side is captured into the graph.
+  bind_row_tables(i);
 
   // RNA_CUDA_GRAPH=0 disables capture/replay and just issues the same
   // (now-async, graph_stream-targeted) calls directly, with one sync at the
@@ -2155,13 +2126,18 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   }
 
   if(!use_graph) {
+    g_issue_stream = rnafold_stream_overlap() ? rnafold_stream_md() : 0;
     load_fML(nfiles,i,turn,length,energy_min,size_off_H);
     modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
     load_min_fML(nfiles,i,turn,length,side_off_H[nfiles]);
     // int16: closes the row AFTER both writers, which is the whole ordering
     // constraint this design exists to respect. No-op when the gate is off.
     pack_fml(nfiles,i,turn,length,size_off_H);
-    gpuErrchk( cudaStreamSynchronize(graph_stream) );
+    // Level 2 must not sync here -- that would end the overlap before it began,
+    // exactly as on the graph path below.
+    if(rnafold_stream_overlap() < 2)
+      gpuErrchk( cudaStreamSynchronize(ISSUE_STREAM) );
+    g_issue_stream = 0;
     return;
   }
 

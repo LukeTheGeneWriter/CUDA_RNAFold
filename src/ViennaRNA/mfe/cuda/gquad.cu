@@ -51,6 +51,7 @@
 #include <stdio.h>
 
 extern "C" cudaStream_t rnafold_stream_cell(void);  /* RNA_STREAM_OVERLAP, device.cu */
+extern "C" cudaStream_t rnafold_stream_md(void);    /* ditto */
 #include <stdlib.h>
 #include <string.h>
 
@@ -423,7 +424,13 @@ rnafold_gq_fill_row(const int     nfiles,
     const dim3 grid((unsigned int)((max_width + block - 1) / block),
                     (unsigned int)nfiles, 1u);
 
-    gq_row_kernel<<<grid, block, 0, rnafold_stream_cell()>>>(nfiles, turn, d_i_H, d_row_off_H, d_size_off_H,
+    /* On the MD stream: d_gq_row's only reader is fml_scan(i), the head of the
+     * md chain. At RNA_STREAM_OVERLAP=2 the cell stream runs a row apart from
+     * it, so a fill issued there could land after fml_scan(i) read the row, or
+     * row i-1's fill could overwrite it first. On the md stream, program order
+     * is stream order and neither can happen. Below level 2 the md stream IS
+     * the cell stream, so nothing changes. */
+    gq_row_kernel<<<grid, block, 0, rnafold_stream_md()>>>(nfiles, turn, d_i_H, d_row_off_H, d_size_off_H,
                                    d_gq_row,
                                    d_gq_v, d_gq_col, d_gq_rowoff,
                                    d_gq_ent_off, d_gq_row_off);

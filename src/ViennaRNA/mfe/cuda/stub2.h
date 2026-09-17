@@ -470,12 +470,12 @@ int  rnafold_gq_csr_device(const int **v, const unsigned int **col,
 /* G2: the interior-loop gquad term, MIN2'd into int_loop_kernel's own output.
  * A separate kernel from int_loop_kernel on purpose -- see its definition in
  * int_loop.cu. No-op unless a c_gq was uploaded. */
-void gq_internal_i(const int nfiles, const int turn_, const size_t *size_off_H,
+void gq_internal_i(const int nfiles, const int i, const int turn_, const size_t *size_off_H,
                    const int *i_H);
 
-const int    *rnafold_i_H_device(void);
+const int    *rnafold_i_H_device(const int i);
 const size_t *rnafold_row_off_device(void);
-const size_t *rnafold_size_off_device(void);
+const size_t *rnafold_size_off_device(const int i);
 #ifdef __cplusplus
 }
 #endif
@@ -572,6 +572,23 @@ PUBLIC void rnafold_stream_md_done(void);
 PUBLIC void rnafold_stream_wait_md(void);
 PUBLIC void rnafold_stream_scan_done(int i);
 PUBLIC void rnafold_stream_wait_scan(int i);
+
+// The chunk's row tables (device.cu): size_off_H, side_off_H and i_H for every
+// sweep row, one slot per row indexed by the iteration i, written once each.
+// Lock-step uploads them all before row 1; flow uploads each slot as its row is
+// built. Replaces the per-row uploads over shared buffers, which is what raced
+// at RNA_STREAM_OVERLAP=2. Budgeted by rnafold_rowtab_bytes().
+PUBLIC size_t        rnafold_rowtab_bytes(const int nfiles, const int iters);
+PUBLIC void          rnafold_rowtab_begin(const int nfiles, const int iters);
+PUBLIC void          rnafold_rowtab_end(void);
+PUBLIC size_t       *rnafold_rowtab_size_host(const int i);
+PUBLIC size_t       *rnafold_rowtab_side_host(const int i);
+PUBLIC int          *rnafold_rowtab_ih_host(const int i);
+PUBLIC const size_t *rnafold_rowtab_size(const int i);
+PUBLIC const size_t *rnafold_rowtab_side(const int i);
+PUBLIC const int    *rnafold_rowtab_ih(const int i);
+PUBLIC void          rnafold_rowtab_upload_all(void);
+PUBLIC void          rnafold_rowtab_upload_row(const int i);
 
 PUBLIC void rnafold_phase_sync(void);
 PUBLIC int  rnafold_sync_probe(void);       /* RNA_SYNC_PROBE, negative control */

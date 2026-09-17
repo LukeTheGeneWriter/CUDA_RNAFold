@@ -211,3 +211,120 @@ above, not as a promise.
 Parked deliberately. The feature-integration list closes first, so that this
 starts from a tree with no open correctness questions — which is also the only
 state in which a byte-identity bar means anything.
+
+---
+
+## 8. Started 2026-09-17: what the first A100 run changed, and the new order
+
+### 8.1 Step 0 reproduced; level 2 did not survive its fix
+
+`CUDA_RNAFold_Scaling.ipynb` at `225fff11` (A100-SXM4-40GB, 1410 MHz):
+
+- **Step 0 holds.** `modular_decomp` at 200 × 5601: **82.79 % of DRAM peak**,
+  77.24 waves/SM, 30.1 of 32 lanes per instruction. T1's traffic case stands.
+- **Stream overlap §G:** level 1 is **−1.0 %, sha identical**. Level 2 is −1.7 %
+  and returned **two different wrong shas in two runs** (`f0740997`,
+  `221bce6f` against `49ad5c81`), with the parity-event fix (`3bf72c46`) built
+  in. The default is 0, so nothing shipped is affected.
+
+**The cause, read from the code:** level 2 removed the per-row md-stream sync,
+which was the only thing bounding the host. `upload_size_off_H`/`upload_i_H`
+then overwrote shared device tables with **blocking copies on the default
+stream**, and a blocking copy waits for the default stream only — not for the
+cell/hp/md kernels already queued to read those tables. `upload_md_tables`
+likewise rewrote a pinned parity shadow that an earlier async copy could still
+be reading. And `gq_row_kernel` filled `fml_scan`'s input on the cell stream,
+behind an event recorded before it was issued.
+
+### 8.2 T2 as written has nowhere to put the rows
+
+Backtracking cannot start before row 1 in lock-step, and it needs random access
+to the whole `c` and `fML` triangles. The host holds only one scratch pair per
+backtrack worker today (~1.5 GB). Streaming rows out during the sweep needs
+**every** record's triangles host-side at once — ~50 GB at 400 × 5601, 25 GB for
+`c` alone — to move ~7 s of copy under the sweep. So T2 splits:
+
+- **T2a, the exit path itself.** The workers each issue blocking pageable copies
+  on the default stream, so they serialise at 6.5 GB/s. Per-worker pinned
+  scratch plus a per-worker copy stream parallelises them at the pinned rate for
+  ~1.5 GB of pinned host memory and no RSS growth.
+- **T2b, `c` streaming with a 32-row ring.** On the device only `int_loop` reads
+  `c`, and never more than 31 rows back (MAXLOOP). **The point is cache
+  occupancy, not VRAM** (Luke): keep those 32 rows in the fastest memory the SMs
+  have, and let `c` leave the device as each row completes, which also removes
+  that traffic from the end of the task.
+
+### 8.3 The order, set by Luke on 2026-09-17
+
+1. **Fix 3 — the chunk's row tables** (below). Removes every per-row table
+   upload and, with it, the class of race that broke level 2.
+2. **T2a** — the exit path.
+3. **T2b** — `c` in a 32-row ring, streamed out.
+4. **Flagged for later:** device-side backtracking.
+
+**The architecture this is heading toward** (Luke): each *sequence* runs as its
+own kernel launch, with intra-row parallelism inside it and `c` streaming. It is
+scoped as part of T2b, where the per-record ring makes the per-record launch
+natural.
+
+### 8.4 Fix 3 — the chunk's row tables
+
+`size_off_H`, `side_off_H` and `i_H` get **one slot per sweep row**, indexed by
+the iteration `i`, in `device.cu` (`rnafold_rowtab_*`). A slot is written once
+per chunk.
+
+| path | how slots are filled | per-row table traffic |
+|---|---|---|
+| lock-step (default) | all rows on the host, **one pinned upload before row 1** | **none** |
+| continuous flow / schedule | each slot as its row is built (slots turn over mid-sweep) | one small blocking copy into a **fresh** slot |
+
+- **Kernels are unchanged.** Each file binds its table pointers to row `i`'s slot
+  where it used to upload (`bind_row_tables(i)`). The md graph now captures
+  kernels only — the two H2Ds it used to capture from host stack tables are gone.
+  The pointers move every row; `graph_forced_reinstantiate_count` stays at the one
+  expected boundary, so the update path absorbs it.
+- **The host reads the same bytes the device does**: `fill_arrays_loop.c` takes
+  `size_off_H`/`side_off_H` from the slot, so the two cannot drift.
+- `gq_row_kernel` moved to the md stream, where its only reader lives.
+- Budgeted in `hp_mb_loop_bytes_per_file()`: `(L+1)·(3·8+4)` bytes per record,
+  ~160 KB at 5601 nt. ~22 MB for the whole table at 200 × 5601.
+- Removed: three files' per-row upload functions and content shadows, level 2's
+  private md tables and their pinned parity shadows.
+
+**Memory tiers, which is the question this plan asks of every change:** the
+tables move from 16 803 small blocking H2Ds (host run-ahead stalled at each) to
+one pinned PCIe burst per chunk into GDDR. The kernels read them from GDDR as
+before; nothing about SM-side traffic changes.
+
+**Bars:** see 8.5.
+
+### 8.5 Fix 3's bars, and a second defect the new bar found
+
+Local (RTX 3050, 1057/2100 MHz), control = the same branch at `aa9fce39` built
+from a clean clone:
+
+| bar | result |
+|---|---|
+| `verify_option_parity.sh` on `asc.fa` | **45/45 identical** (GPU arms on the GPU, declined arms on the CPU) |
+| `verify_constraint_parity.sh --expect-accelerated` | **5/5 shapes** |
+| overlap bar (`ov_bar`, 9 cases × 9 arms) | **81/81** match the control's level-0 sha |
+| md graph | 1 forced re-instantiate per chunk, as before: moving table pointers cost nothing |
+
+The overlap bar's cases: `C_mixed` with default, `--noLP`, `-g`, `-c`, `-d0`;
+`desc`/`asc`/`C_mixed` capped to **2–4 chunks**. Its arms: levels 0, 1, 2 (×3),
+graph-off at levels 1 and 2, continuous flow at levels 0 and 2.
+
+**The second defect: `RNA_CUDA_GRAPH=0` under any overlap level was wrong — on
+the control binary too, with a different wrong sha each run.** The graph-off
+path issued the md chain onto `graph_stream`, which is ordered against the
+default stream only, while the row around it runs on the cell/md streams. The
+graph path never had this because it *launches* on the md stream. Fixed: the
+graph-off path now issues on the md stream when overlap is on (`ISSUE_STREAM`).
+A diagnostic path, but the only way to A/B the graph, so it has to be right.
+
+**What the local bars cannot show:** the control's *graph-on* level 2 never
+raced here — not on `C_mixed`, not in three runs of `D_long` (30 × 3000–5900).
+It fired only at 400 × 5601. So locally the fix rests on the construction (no
+slot is ever rewritten) and on the graph-off race, which did fire and is gone.
+**The claim is settled only by Scaling §G on an A100**, which now builds this
+branch (`tools/make_nb_scaling.py`, `BRANCH`).

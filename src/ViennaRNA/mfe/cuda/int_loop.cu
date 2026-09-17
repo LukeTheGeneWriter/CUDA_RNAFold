@@ -221,26 +221,13 @@ static size_t*       d_hc_off_H;
 // load_fML/modular_decomposition/load_min_fML sequence -- these two are
 // separate synchronous launches with no fixed relative ordering guarantee
 // worth depending on).
-static size_t*       d_size_off_H;
-// GPU-resident sweep, step 5b. The independence the comment above insists on is
-// preserved -- neither caller assumes the other ran -- but the second upload of
-// an identical table is now skipped, because cudaMemcpy H2D is BLOCKING and so
-// is a sync point in its own right. Compared by content, not by call order, so
-// no ordering guarantee is being depended on. See upload_size_off_H() below and
-// its HAZARD note about the per-chunk reallocation.
-static size_t*       size_off_shadow   = NULL;
-static int           size_off_shadow_n = 0;
-static int           size_off_shadow_pinned = 0;  /* pinned staging, stub2.h */
-static int           i_H_shadow_pinned      = 0;
-static void          size_off_shadow_reset(void);  // defined below; called from init/teardown above it
-// Continuous flow phase A2: this file's own copy of the per-record row index.
-// hp_mb_loop.cu carries an identical one for its four kernels -- each
-// translation unit keeps its own device tables here, exactly as d_size_off_H
-// already does. Same content comparison, same per-chunk reallocation hazard.
-static int*          d_i_H;
-static int*          i_H_shadow   = NULL;
-static int           i_H_shadow_n = 0;
-static void          i_H_shadow_reset(void);       // defined below; called from init/teardown above it
+// Luke's Flow Batching, fix 3: this row's slot in the chunk's row tables
+// (device.cu). NOT owned here and never written here -- bind_row_tables(i)
+// points them at row i's slot, which is written once per chunk, so no queued
+// kernel on any stream can see the table change under it. Replaces the per-row
+// blocking uploads over a shared buffer that raced at RNA_STREAM_OVERLAP=2.
+static const size_t* d_size_off_H = NULL;
+static const int*    d_i_H        = NULL;
 //no longer in use
 //int*        d_energy_min20; //alternative calculation of d_energy_min2
 //int*        d_buf;  //intermediate energy result GPU only
@@ -480,11 +467,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // Staggered_Row_Batching Phase 5: allocated here (fixed size for the whole
   // chunk), not populated here -- this changes every sweep row i, uploaded
   // fresh per-row by int_loop_cuda()/load_my_c() instead.
-  SLOT_ALLOC(&d_size_off_H, (size_t)(nfiles+1)*sizeof(size_t));
-  // Fresh buffer, holds nothing -- the shadow must not claim it is current.
-  size_off_shadow_reset();
-  SLOT_ALLOC(&d_i_H, (size_t)nfiles*sizeof(int));
-  i_H_shadow_reset();          // fresh buffer: same hazard as size_off, same fix
+  // (d_size_off_H / d_i_H: the chunk's row tables now, bound per row.)
 
   size_t size = hc_off_H[nfiles]*sizeof(unsigned int);
   SLOT_ALLOC(&d_hccc, size);
@@ -689,10 +672,8 @@ teardown_gpu2(void) {
   gpuErrchk( cudaFree(d_tri_off_H) );
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_hc_off_H) );
-  gpuErrchk( cudaFree(d_size_off_H) );
-  size_off_shadow_reset();   // the device buffer is gone; the shadow must not outlive it
-  gpuErrchk( cudaFree(d_i_H) );
-  i_H_shadow_reset();
+  d_size_off_H = NULL;   // borrowed from the row tables, not ours to free
+  d_i_H        = NULL;
   first2 = 1;
 }
 
@@ -765,74 +746,12 @@ int_loop_row_buffers(int** energy_min2_out, int** new_e_out) {
   if(new_e_out)       *new_e_out       = d_new_e;
 }
 
-// Upload size_off_H only when it differs from what the device already holds.
-// Twin of hp_mb_loop.cu's function of the same name (own copy, per this
-// codebase's file-ownership convention); see that one for the full rationale.
-// Short version: both int_loop_cuda() and load_my_c() upload this table in the
-// same sweep row, with the same contents, into the same buffer, and each upload
-// is a BLOCKING cudaMemcpy -- a sync point that would defeat step 5b's removal
-// of the explicit cudaDeviceSynchronize() calls.
-//
-// HAZARD: d_size_off_H is re-cudaMalloc'd per chunk, so the shadow MUST be
-// dropped there (init_gpu2 / teardown_gpu2 both call the reset). Otherwise a
-// new chunk whose first table matched the previous chunk's last would skip the
-// upload into an uninitialised buffer -- wrong offsets, no crash.
-// Twin of upload_size_off_H() for the per-record row index: same content
-// comparison, same per-chunk reallocation hazard, same fix.
+// Point this file's tables at row i's slot. Costs nothing and issues nothing:
+// the slot was uploaded before the row's first kernel (device.cu).
 static void
-i_H_shadow_reset(void) {
-  rnafold_pinned_free(i_H_shadow, i_H_shadow_pinned);
-  i_H_shadow   = NULL;
-  i_H_shadow_n = 0;
-}
-
-static void
-upload_i_H(const int nfiles, const int* i_H) {
-  const size_t bytes = (size_t)nfiles * sizeof(int);
-  if(i_H_shadow_n != nfiles) {
-    rnafold_pinned_free(i_H_shadow, i_H_shadow_pinned);
-    i_H_shadow   = (int*)rnafold_pinned_alloc(bytes, &i_H_shadow_pinned);
-    i_H_shadow_n = i_H_shadow ? nfiles : 0;
-  } else if(i_H_shadow && memcmp(i_H_shadow, i_H, bytes) == 0) {
-    return;
-  }
-  /* Stage into the PINNED shadow and copy from there -- see the note on
-   * rnafold_pinned_alloc() in stub2.h. The shadow had to be written anyway; all
-   * that changes is that it is now also the copy source. */
-  if(i_H_shadow) {
-    memcpy(i_H_shadow, i_H, bytes);
-    gpuErrchk( cudaMemcpy(d_i_H, i_H_shadow, bytes, cudaMemcpyHostToDevice) );
-  } else {
-    gpuErrchk( cudaMemcpy(d_i_H, i_H, bytes, cudaMemcpyHostToDevice) );
-  }
-}
-
-static void
-size_off_shadow_reset(void) {
-  rnafold_pinned_free(size_off_shadow, size_off_shadow_pinned);
-  size_off_shadow   = NULL;
-  size_off_shadow_n = 0;
-}
-
-static void
-upload_size_off_H(const int nfiles, const size_t* size_off_H) {
-  const int    n     = nfiles + 1;
-  const size_t bytes = (size_t)n * sizeof(size_t);
-
-  if(size_off_shadow_n != n) {
-    rnafold_pinned_free(size_off_shadow, size_off_shadow_pinned);
-    size_off_shadow   = (size_t*)rnafold_pinned_alloc(bytes, &size_off_shadow_pinned);
-    size_off_shadow_n = size_off_shadow ? n : 0;
-  } else if(size_off_shadow && memcmp(size_off_shadow, size_off_H, bytes) == 0) {
-    return;
-  }
-
-  if(size_off_shadow) {
-    memcpy(size_off_shadow, size_off_H, bytes);
-    gpuErrchk( cudaMemcpy(d_size_off_H, size_off_shadow, bytes, cudaMemcpyHostToDevice) );
-  } else {
-    gpuErrchk( cudaMemcpy(d_size_off_H, size_off_H, bytes, cudaMemcpyHostToDevice) );
-  }
+bind_row_tables(const int i) {
+  d_size_off_H = rnafold_rowtab_size(i);
+  d_i_H        = rnafold_rowtab_ih(i);
 }
 
 //perhaps this can be combined with other kernels?
@@ -888,8 +807,7 @@ load_my_c(const int nfiles,
   // being removed.
   if(!rnafold_gpu_sweep())
     gpuErrchk( cudaMemcpy(d_new_e,new_e,g_row_total*sizeof(int),cudaMemcpyHostToDevice) );
-  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-upload
-  upload_i_H(nfiles, i_H);                 // continuous flow phase A2
+  bind_row_tables(i);
 
 
   /* Setup execution parameters for helper kernel */
@@ -1897,7 +1815,7 @@ gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn
 // Launch it for this sweep row. A no-op unless rnafold_gq_upload() put a c_gq
 // on the device, so the default path never reaches the kernel.
 PUBLIC void
-gq_internal_i(const int nfiles, const int turn_, const size_t* size_off_H,
+gq_internal_i(const int nfiles, const int i, const int turn_, const size_t* size_off_H,
               const int* i_H) {
   const int* gv; const unsigned int *gc, *gr; const size_t *ge_, *gro;
 
@@ -1906,8 +1824,7 @@ gq_internal_i(const int nfiles, const int turn_, const size_t* size_off_H,
   const size_t total = size_off_H[nfiles];
   if(total == 0) return;
 
-  upload_size_off_H(nfiles, size_off_H);
-  upload_i_H(nfiles, i_H);
+  bind_row_tables(i);
 
   const int block = 128;
   const size_t grid = (total + block - 1)/block;
@@ -1936,8 +1853,7 @@ int_loop_cuda(const int nfiles,
   const size_t flat_nblocks = size_off_H[nfiles];
   if(flat_nblocks==0) return;
 
-  upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-upload
-  upload_i_H(nfiles, i_H);                 // continuous flow phase A3 (content-deduped, as above)
+  bind_row_tables(i);
 
   dim3 blocks((unsigned int)flat_nblocks);
 

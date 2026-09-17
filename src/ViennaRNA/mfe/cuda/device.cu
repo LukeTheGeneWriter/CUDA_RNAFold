@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <cuda_runtime.h>
 
 /* rnafold_now_seconds() -- the same clock every other timer in the sweep uses,
@@ -270,12 +271,12 @@ rnafold_stream_overlap(void)
 
     if (v >= 2)
       fprintf(stderr,
-              "device.cu                RNA_STREAM_OVERLAP=2 IS EXPERIMENTAL. A race at "
-              "400 x 5601 returned two different\n"
-              "device.cu                wrong answers on 2026-09-16 (STRESS272 35.2); the "
-              "missing parity gate is fixed and\n"
-              "device.cu                NOT yet re-verified at that scale. Compare shas "
-              "before trusting any run.\n");
+              "device.cu                RNA_STREAM_OVERLAP=2 IS EXPERIMENTAL. It returned "
+              "wrong answers at 400 x 5601 (Scaling G,\n"
+              "device.cu                2026-09-17) even with the parity gate; the per-row "
+              "tables it raced on are now per-chunk\n"
+              "device.cu                (row tables, device.cu) and NOT yet re-verified at "
+              "that scale. Compare shas before trusting any run.\n");
   }
 
   return v;
@@ -713,4 +714,199 @@ rnafold_launch_stats_report(void)
           (double)g_ls_rec[(size_t)(g_ls_n * 0.99)].device_ms,
           (double)g_ls_rec[g_ls_n - 1].device_ms,
           g_ls_drop ? " (TRUNCATED -- raise RNA_LS_MAX)" : "");
+}
+
+
+/* ===================== THE CHUNK'S ROW TABLES, uploaded once =====================
+ *
+ * Luke's Flow Batching, fix 3. Every sweep row used to upload three small
+ * tables -- size_off_H, side_off_H, i_H -- over the SAME device buffers, with a
+ * BLOCKING copy on the default stream. Two things were wrong with that:
+ *
+ *   1. It is traffic the device should not need. In lock-step every row's
+ *      tables are a function of the record lengths and nothing else, so they
+ *      are all known before the first row runs. ~22 MB at 200 x 5601.
+ *
+ *   2. It is the stream-overlap level 2 race (Scaling notebook G, 2026-09-17:
+ *      two runs, two DIFFERENT wrong shas, with the parity-event fix in). A
+ *      blocking copy on the default stream waits for the default stream only.
+ *      Once level 2 removed the per-row md sync the host ran ahead of the cell,
+ *      hp and md streams and overwrote tables their queued kernels had not read
+ *      yet.
+ *
+ * So each row gets a SLOT of its own, indexed by the sweep's iteration i, and
+ * a slot is written exactly once per chunk. Nothing is ever overwritten under a
+ * queued reader, whatever stream it is on and however far the host runs ahead.
+ *
+ *   lock-step (default)  every slot filled on the host, ONE upload before row 1
+ *   continuous flow /    the row is only known when its iteration arrives
+ *   a schedule           (slots turn over mid-sweep), so each slot is uploaded
+ *                        as its row is built -- still a fresh slot, so still
+ *                        race-free by construction.
+ *
+ * The host half is pinned, so the one big upload goes at the pinned rate, and
+ * it is the host's own source of truth for the row: fill_arrays_loop.c reads its
+ * size_off_H / side_off_H out of these slots rather than keeping a second copy
+ * that could drift.
+ *
+ * Kernels are unchanged: each file binds its table pointers to row i's slot
+ * right where it used to upload, and every launch passes those pointers as
+ * before. The pointers MOVE every row now, which the md graph sees as a
+ * parameter update -- graph_forced_reinstantiate_count is the check that this
+ * costs no re-instantiation.
+ */
+/* Local twins of stub2.h's pinned helpers and gpuErrchk: this file does not
+ * include stub2.h, and the row tables are the only thing here that needs them. */
+static void *
+rt_pinned_alloc(const size_t bytes, int *pinned)
+{
+  void *p = NULL;
+
+  if (cudaHostAlloc(&p, bytes, cudaHostAllocDefault) == cudaSuccess) {
+    *pinned = 1;
+    return p;
+  }
+
+  cudaGetLastError();
+  *pinned = 0;
+  return malloc(bytes);
+}
+
+static void
+rt_pinned_free(void *p, const int pinned)
+{
+  if (!p) return;
+  if (pinned) cudaFreeHost(p);
+  else        free(p);
+}
+
+static void
+rt_check(const cudaError_t rc, const char *what)
+{
+  if (rc != cudaSuccess) {
+    fprintf(stderr, "device.cu                row tables: %s failed: %s\n",
+            what, cudaGetErrorString(rc));
+    exit(EXIT_FAILURE);
+  }
+}
+
+static size_t *g_rt_size_h = NULL, *g_rt_side_h = NULL;   /* host, pinned */
+static int    *g_rt_ih_h   = NULL;
+static int     g_rt_size_pin = 0, g_rt_side_pin = 0, g_rt_ih_pin = 0;
+static size_t *g_rt_size_d = NULL, *g_rt_side_d = NULL;   /* device */
+static int    *g_rt_ih_d   = NULL;
+static int     g_rt_nfiles = 0, g_rt_iters = -1;
+
+extern "C" size_t
+rnafold_rowtab_bytes(const int nfiles, const int iters)
+{
+  const size_t rows = (size_t)(iters + 1);
+
+  return rows * (size_t)(nfiles + 1) * sizeof(size_t) * 2
+       + rows * (size_t)nfiles * sizeof(int);
+}
+
+extern "C" void
+rnafold_rowtab_end(void)
+{
+  /* Queued kernels on any stream may still hold slot pointers -- at level 2
+   * nothing syncs before the end of the sweep -- so drain the device before
+   * the tables go. */
+  if (g_rt_size_d)
+    rt_check(cudaDeviceSynchronize(), "drain before free");
+  rt_pinned_free(g_rt_size_h, g_rt_size_pin);
+  rt_pinned_free(g_rt_side_h, g_rt_side_pin);
+  rt_pinned_free(g_rt_ih_h,   g_rt_ih_pin);
+  if (g_rt_size_d) cudaFree(g_rt_size_d);
+  if (g_rt_side_d) cudaFree(g_rt_side_d);
+  if (g_rt_ih_d)   cudaFree(g_rt_ih_d);
+  g_rt_size_h = g_rt_side_h = NULL; g_rt_ih_h = NULL;
+  g_rt_size_d = g_rt_side_d = NULL; g_rt_ih_d = NULL;
+  g_rt_nfiles = 0;
+  g_rt_iters  = -1;
+}
+
+/* Rows 0..iters. Row 0 is never swept; it exists so that i indexes directly. */
+extern "C" void
+rnafold_rowtab_begin(const int nfiles, const int iters)
+{
+  const size_t rows = (size_t)((iters > 0 ? iters : 0) + 1);
+  const size_t ob   = rows * (size_t)(nfiles + 1) * sizeof(size_t);
+  const size_t ib   = rows * (size_t)nfiles * sizeof(int);
+
+  rnafold_rowtab_end();
+
+  g_rt_size_h = (size_t *)rt_pinned_alloc(ob, &g_rt_size_pin);
+  g_rt_side_h = (size_t *)rt_pinned_alloc(ob, &g_rt_side_pin);
+  g_rt_ih_h   = (int *)rt_pinned_alloc(ib ? ib : 1, &g_rt_ih_pin);
+  if ((!g_rt_size_h) || (!g_rt_side_h) || (!g_rt_ih_h)) {
+    fprintf(stderr, "device.cu                row tables: host allocation of %zu bytes failed\n",
+            2 * ob + ib);
+    exit(EXIT_FAILURE);
+  }
+  /* Zero, so an unswept slot (row 0, or a row a short sweep never reaches)
+   * reads as "no record has any width" rather than as garbage. */
+  memset(g_rt_size_h, 0, ob);
+  memset(g_rt_side_h, 0, ob);
+  memset(g_rt_ih_h,   0, ib ? ib : 1);
+
+  if ((cudaMalloc((void **)&g_rt_size_d, ob) != cudaSuccess) ||
+      (cudaMalloc((void **)&g_rt_side_d, ob) != cudaSuccess) ||
+      (cudaMalloc((void **)&g_rt_ih_d, ib ? ib : 1) != cudaSuccess)) {
+    fprintf(stderr, "device.cu                row tables: cudaMalloc of %zu bytes failed\n",
+            2 * ob + ib);
+    exit(EXIT_FAILURE);
+  }
+
+  g_rt_nfiles = nfiles;
+  g_rt_iters  = (int)rows - 1;
+}
+
+static void
+rowtab_check(const int i)
+{
+  if ((i < 0) || (i > g_rt_iters) || (!g_rt_size_h)) {
+    fprintf(stderr, "device.cu                row tables: row %d outside 0..%d\n",
+            i, g_rt_iters);
+    exit(EXIT_FAILURE);
+  }
+}
+
+extern "C" size_t *rnafold_rowtab_size_host(const int i) { rowtab_check(i); return g_rt_size_h + (size_t)i * (g_rt_nfiles + 1); }
+extern "C" size_t *rnafold_rowtab_side_host(const int i) { rowtab_check(i); return g_rt_side_h + (size_t)i * (g_rt_nfiles + 1); }
+extern "C" int    *rnafold_rowtab_ih_host(const int i)   { rowtab_check(i); return g_rt_ih_h   + (size_t)i * g_rt_nfiles; }
+
+extern "C" const size_t *rnafold_rowtab_size(const int i) { rowtab_check(i); return g_rt_size_d + (size_t)i * (g_rt_nfiles + 1); }
+extern "C" const size_t *rnafold_rowtab_side(const int i) { rowtab_check(i); return g_rt_side_d + (size_t)i * (g_rt_nfiles + 1); }
+extern "C" const int    *rnafold_rowtab_ih(const int i)   { rowtab_check(i); return g_rt_ih_d   + (size_t)i * g_rt_nfiles; }
+
+static void
+rowtab_copy(const size_t lo_o, const size_t n_o, const size_t lo_i, const size_t n_i)
+{
+  rt_check(cudaMemcpy(g_rt_size_d + lo_o, g_rt_size_h + lo_o, n_o * sizeof(size_t), cudaMemcpyHostToDevice), "upload");
+  rt_check(cudaMemcpy(g_rt_side_d + lo_o, g_rt_side_h + lo_o, n_o * sizeof(size_t), cudaMemcpyHostToDevice), "upload");
+  if (n_i)
+    rt_check(cudaMemcpy(g_rt_ih_d + lo_i, g_rt_ih_h + lo_i, n_i * sizeof(int), cudaMemcpyHostToDevice), "upload");
+}
+
+/* Lock-step: every slot, once, before the sweep. Blocking, so every kernel the
+ * sweep issues afterwards reads finished tables. */
+extern "C" void
+rnafold_rowtab_upload_all(void)
+{
+  const size_t rows = (size_t)(g_rt_iters + 1);
+
+  rowtab_check(0);
+  rowtab_copy(0, rows * (g_rt_nfiles + 1), 0, rows * g_rt_nfiles);
+}
+
+/* Flow: one slot, as its row is built. Blocking, and before any kernel of the
+ * row is issued; the slot has never been read, so no queued work can see it
+ * change. */
+extern "C" void
+rnafold_rowtab_upload_row(const int i)
+{
+  rowtab_check(i);
+  rowtab_copy((size_t)i * (g_rt_nfiles + 1), (size_t)(g_rt_nfiles + 1),
+              (size_t)i * g_rt_nfiles, (size_t)g_rt_nfiles);
 }

@@ -30,6 +30,14 @@
 // this is exactly the old HAS_JOINED() test, character for character in effect.
 #define IS_ACTIVE(H) (i_H[(H)] >= 1 && i_H[(H)] + (turn) + 1 <= (int)VC[(H)]->length)
 
+// One row's two width tables, from that row's per-record row index IH:
+//   SO  "size", length_H[H]-i-turn        (int_loop, hp_mb_3p, load_my_c, load_fML)
+//   SD  "side", length_H[H]-i-2*turn-2    (fmli, modular_decomposition, load_min_fML)
+// both clamped >= 0, and 0 for a RETIRED record (IH[H] < 1) -- without that
+// guard the width would be computed from the sentinel and come out positive.
+// A macro because this file is included into the middle of a function body.
+#define ROW_WIDTH_TABLES(IH, SO, SD) do {                                              size_t w_so_[nfiles], w_sd_[nfiles];                                              for(int h_=0; h_<nfiles; h_++) {                                                    const int so_ = ((IH)[h_] >= 1) ? ((int)VC[h_]->length - (IH)[h_] - turn) : 0;             const int sd_ = ((IH)[h_] >= 1) ? ((int)VC[h_]->length - (IH)[h_] - 2*turn - 2) : 0;       w_so_[h_] = (so_ > 0) ? (size_t)so_ : 0;                                          w_sd_[h_] = (sd_ > 0) ? (size_t)sd_ : 0;                                        }                                                                                 compute_flatten_offsets(nfiles, w_so_, (SO));                                     compute_flatten_offsets(nfiles, w_sd_, (SD));                                   } while(0)
+
  // Continuous flow PHASE B: the per-record row index, now hoisted out of the
  // loop because under flow it CARRIES from one iteration to the next.
  //
@@ -89,6 +97,23 @@
    }
  }
 
+ // Luke's Flow Batching, fix 3: THE CHUNK'S ROW TABLES (device.cu). One slot
+ // per iteration, written once. In lock-step every row's tables depend only on
+ // the record lengths, so they are all built here and go to the device in ONE
+ // pinned upload -- the sweep then issues no per-row table traffic at all, and
+ // no queued kernel on any stream can see a table change under it. Under
+ // continuous flow a row is only known when its iteration arrives (slots turn
+ // over mid-sweep), so each slot is built and uploaded as its row comes up.
+ rnafold_rowtab_begin(nfiles, sweep_iters);
+ if(!continuous_flow) {
+   for(int r = sweep_iters; r >= 1; r--) {
+     int* ih = rnafold_rowtab_ih_host(r);
+     for(int H=0;H<nfiles;H++) ih[H] = r;
+     ROW_WIDTH_TABLES(ih, rnafold_rowtab_size_host(r), rnafold_rowtab_side_host(r));
+   }
+   rnafold_rowtab_upload_all();
+ }
+
  for (i = sweep_iters; i >= 1; i--) { /* i,j in [1..length] */
 
     if(!continuous_flow) for(int H=0;H<nfiles;H++) i_H[H] = i;
@@ -111,22 +136,18 @@
     for (j = i_H[H]+turn+1; j <= (int)VC[H]->length; j++) energy_min[row_off_H[H]+j] = INF;
     }
 
-    // Staggered_Row_Batching Phase 5: this row's "size" active-width table
-    // (length_H[H]-i-turn, clamped >=0) -- built once here, up front, since
-    // it's now shared by int_loop_i()/hp_mb_3p_i()/load_my_c() (the 3
-    // "rectangular" kernels, Phase 5) as well as load_fML() (Phase 4, still
-    // computed separately below for side_off_H, which nothing here needs).
-    size_t size_off_H[nfiles+1];
-    {
-      size_t size_H[nfiles];
-      for(int H=0;H<nfiles;H++) {
-        // Continuous flow phase B: a RETIRED record (i_H[H] < 1) has width 0.
-        // Without the guard its width would be computed from the sentinel and
-        // come out positive, handing threads to a record that is finished.
-        const int size_raw = (i_H[H] >= 1) ? ((int)VC[H]->length - i_H[H] - turn) : 0;
-        size_H[H] = (size_raw>0) ? (size_t)size_raw : 0;
-      }
-      compute_flatten_offsets(nfiles, size_H, size_off_H);
+    // This row's width tables: its slot in the chunk's row tables, which is
+    // also the host's source of truth -- the device reads the same bytes.
+    // Staggered_Row_Batching Phase 5 introduced "size" (int_loop_i/hp_mb_3p_i/
+    // load_my_c/load_fML), Phase 4 "side" (fmli/modular_decomposition/
+    // load_min_fML); see ROW_WIDTH_TABLES above.
+    const size_t* size_off_H = rnafold_rowtab_size_host(i);
+    const size_t* side_off_H = rnafold_rowtab_side_host(i);
+    if(continuous_flow) {
+      int* ih = rnafold_rowtab_ih_host(i);
+      for(int H=0;H<nfiles;H++) ih[H] = i_H[H];
+      ROW_WIDTH_TABLES(ih, rnafold_rowtab_size_host(i), rnafold_rowtab_side_host(i));
+      rnafold_rowtab_upload_row(i);
     }
 
     cf_iters++;
@@ -150,7 +171,7 @@
        * timer because it IS interior-loop work, and before the sync so it
        * is charged honestly rather than draining into the next phase --
        * which is the mistake this file spent a session unpicking. */
-      gq_internal_i(nfiles, turn, size_off_H, i_H);
+      gq_internal_i(nfiles, i, turn, size_off_H, i_H);
       rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
       phase_int_loop_s += now_seconds() - t0;
     }
@@ -374,8 +395,8 @@
      * it uses the device offset tables hp_mb_loop.cu already owns rather than
      * re-uploading them. Returns immediately unless a c_gq was uploaded. */
     rnafold_gq_fill_row(nfiles, turn,
-                        rnafold_i_H_device(), rnafold_row_off_device(),
-                        rnafold_size_off_device(),
+                        rnafold_i_H_device(i), rnafold_row_off_device(),
+                        rnafold_size_off_device(i),
                         size_off_H[nfiles]);
 
     fml_scan_i(nfiles, i, turn,
@@ -388,21 +409,7 @@
     //my_fML GPU = MIN2(energy_min[j], DMLi[j])
     {
       const double t0 = now_seconds();
-      // Staggered_Row_Batching Phase 4: side_off_H (shared by fmli/
-      // modular_decomposition/load_min_fML) is the only table still built
-      // here -- size_off_H was already built at the top of this row's loop
-      // body (Phase 5), where int_loop_i()/hp_mb_3p_i()/load_my_c() now need
-      // it too.
-      size_t side_off_H[nfiles+1];
-      {
-        size_t side_H[nfiles];
-        for(int H=0;H<nfiles;H++) {
-          const int side_raw = (i_H[H] >= 1) ? ((int)VC[H]->length - i_H[H] - 2*turn - 2) : 0;
-          side_H[H] = (side_raw>0) ? (size_t)side_raw : 0;
-        }
-        compute_flatten_offsets(nfiles, side_H, side_off_H);
-      }
-
+      // side_off_H: built with this row's slot at the top of the iteration.
       load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H,i_H);
       rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
       phase_modular_decomp_s += now_seconds() - t0;
@@ -530,6 +537,9 @@
        sched->on_retire(sched->ctx, s, sched->queue[sched->qoff[s] + q_pos[s]]);
        q_pos[s]++;
      }
+
+ // The sweep is over; drain and release the row tables.
+ rnafold_rowtab_end();
 
  fprintf(stderr,"%-24s sweep shape: %lld iterations, %lld active record-rows, "
                 "%lld cells; peak/iteration %lld records %lld cells; "
