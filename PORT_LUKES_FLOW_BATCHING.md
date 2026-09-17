@@ -216,6 +216,10 @@ state in which a byte-identity bar means anything.
 
 ## 8. Started 2026-09-17: what the first A100 run changed, and the new order
 
+**Luke's summary of what landed:** *pinned memory buffers and multi-worker fetch
+to create a faster exit path D2H. Fetch and backtrack 60 % faster. Row tables
+built once before sweep.*
+
 ### 8.1 Step 0 reproduced; level 2 did not survive its fix
 
 `CUDA_RNAFold_Scaling.ipynb` at `225fff11` (A100-SXM4-40GB, 1410 MHz):
