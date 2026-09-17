@@ -64,6 +64,15 @@ exactly one element**, so B rows cost `column + B` loads instead of
 - **A skewed dependency inside the tile.** Cell `(i−1,j)` needs `(i,j)`, so the
   rows of a tile cannot run in parallel; they need a wavefront order within the
   block.
+  **CORRECTED 2026-09-17 — this understates it, and the understatement is fatal
+  to T1 as written.** `md(i−1)` reads `fml_i` = row `i−1` of fML, which exists
+  only after `md(i) → new_c(i−1) → load_my_c(i−1) → fml_scan(i−1) →
+  load_fML(i−1)`, with `int_loop(i−1)` and `hp_mb_3p(i−1)` feeding `new_c`. **The
+  whole six-kernel row chain sits between two md rows**, so no md-only tile can
+  span two of them. Column reuse across rows requires fusing the row chain —
+  see `PORT_MEGAKERNEL_SCOPE.md`. The cheap half of the same win, per-record L2
+  residency at int16 (a 31.4 MB triangle against 40 MB of L2), needs no fusion
+  and should be measured first.
 - **Lane-striding must survive.** §33.1: `RNA_MD_TILE=1` cost **247 %** and took
   sectors/request 2.04 → 10.99. Any tiling that breaks 32 lanes striding one row
   together will lose more than it gains.
@@ -406,3 +415,28 @@ worth), which is why the records in flight have to be a **subset**, tying the
 window to per-sequence launches. What it does not do is cut launches: the row
 chain is serial, so that needs a persistent megakernel, flagged and not
 scheduled. And none of it helps `fML`, whose column walk is T1's problem.
+
+### 8.8 The megakernel is scoped: `PORT_MEGAKERNEL_SCOPE.md`
+
+Asked for by Luke while scoping the per-record launches: with one kernel per
+sequence, can the fML **columns** be cached too? Scoping it turned up the
+correction in §1.3 — **T1's row tiling is not legal inside `modular_decomposition`
+alone**, because the whole row chain sits between two md rows. So the megakernel
+is not a launch-overhead play (that is worth ~2 s); it is the only structure in
+which T1's column reuse can happen at all.
+
+Three tiers answer "cache the columns", and they are not equally expensive:
+**(a)** per-record **L2 residency** — an int16 triangle is 31.4 MB against 40 MB
+of L2, with ≤ 30 MB pinnable as persisting, so md's re-reads come from L2 at
+~4–5 TB/s instead of DRAM at 1.55. **This needs no megakernel**, only the record
+subsets T2b-3 already implies, and should be measured first. **(b)** on-chip
+column state inside a fused row chain: 17.7 MB of shared memory across 108 SMs is
+~56 % of that triangle, so md's DRAM demand roughly halves. **(c)** both, plus
+int16 — which **inverts** the plan's Step 3 prediction: under residency int16 is
+what makes the triangle *fit*, so its value rises rather than falling.
+
+Costs that are not negotiable: one block size for every phase, registers set by
+the worst phase, ~39 k grid barriers per chunk (**probe that first**), and the
+loss of per-phase timers, ncu attribution, `RNA_ROW_VERIFY` and mid-sweep
+retirement — each of which has to be re-provided or deliberately given up. A
+multi-second kernel also cannot run under WDDM, so this one is Colab-only.
