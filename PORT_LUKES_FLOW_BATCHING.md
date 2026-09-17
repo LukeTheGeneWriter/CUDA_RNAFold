@@ -440,3 +440,56 @@ the worst phase, ~39 k grid barriers per chunk (**probe that first**), and the
 loss of per-phase timers, ncu attribution, `RNA_ROW_VERIFY` and mid-sweep
 retirement — each of which has to be re-provided or deliberately given up. A
 multi-second kernel also cannot run under WDDM, so this one is Colab-only.
+
+### 8.9 The A100 run that settles fix 3 and T2a (2026-09-17, `1d5eb219`)
+
+**§G: the level-2 race is gone.** One sha across all six arms
+(`49ad5c81b5fa`), where the same section at `225fff11` returned **three**
+(`49ad5c81`, `f0740997`, `221bce6f`). The per-chunk row tables removed the class.
+
+| level | wall a | wall b | vs level 0 | sha |
+|---|---|---|---|---|
+| 0 | 87.41 | 87.15 | — | one |
+| 1 | 86.96 | 86.90 | **−0.4 %** | same |
+| 2 | 86.68 | 86.52 | **−0.8 %** | same |
+
+Level 2 is correct and worth −0.8 % against a scoped ~21 %: `modular_decomp` is
+at 82.8 % of DRAM peak, so the two chains compete for the memory system the
+moment they overlap. The co-tenancy argument was half right, and now it is
+measured rather than argued.
+
+**The exit path, phase-synced (`F_c1`, the arm where a phase timer means what it
+says):**
+
+| | before (`225fff11`) | after (`1d5eb219`) | delta |
+|---|---|---|---|
+| `fetch_mx` | 7.24 | **1.85** | **−5.39** |
+| `backtrack` | 5.70 | 7.63 | +1.93 |
+| `int_loop` | 17.43 | 17.11 | −0.33 |
+| `hp_mb` | 1.89 | 1.66 | −0.24 |
+| `modular_decomp` | 37.83 | 37.55 | −0.28 |
+| **wall** | **91.82** | **87.36** | **−4.46 (−4.9 %)** |
+
+So **T2a is −3.46 s net** (the exit path went 12.94 → 9.48 s) and **fix 3 is
+−0.85 s** across the three kernels whose rows no longer wait on a blocking
+upload. They sum to −4.31 against a measured −4.46.
+
+**The wall moved with `fetch_mx`, which was the falsification test in §4** — had
+it not, the exit path would have been off the critical path and T2a worthless.
+
+**The serial control says the win is CONCURRENCY, not pinning.**
+`RNA_BACKTRACK_THREADS=0`: `fetch_mx` **13.10 s**, `backtrack` 54.43, wall
+144.87. One worker through one stage is worse than twelve workers through one
+pageable stream; twelve through twelve stages is 1.85.
+
+**Stage size barely matters, as predicted** (< 15 % was the written prediction,
+18 % was measured, and not monotone — so it is mostly noise): 4 MB → 1.730,
+8 MB → 1.964, 32 MB → 1.624. **Default 8 stands**; 32 MB also costs +0.3 GB RSS.
+
+**What is left in the exit path, and it is now the obvious next cut.**
+`backtrack` rose 1.93 s: that is the memcpy out of the stage, which the workers
+now do themselves. On WSL, pinning the scratch outright cost 35 worker-seconds
+and was refused for that reason — **but this host is not WSL**. Pinning 1.5 GB
+here should cost ~0.2–0.5 s once, against the 1.9 s of memcpy it would delete.
+That is a one-knob experiment (`RNA_XFER_STAGE_MB=0` meaning "pin the scratch")
+and it is worth ~2 % of wall.
