@@ -1127,3 +1127,12 @@ rnafold_pinned_ints_free(int *p, const int pinned)
 {
   rt_pinned_free(p, pinned);
 }
+
+
+/* ---- row-table bases, for the fused megakernel ---------------------------
+ * The per-row accessors above hand out one row's slot; the megakernel holds the
+ * base and strides by (nfiles+1) itself, because it walks every row inside one
+ * launch and never returns to the host to be told where the next one is. */
+extern "C" const size_t *rnafold_rowtab_size_base(void) { return g_rt_size_d; }
+extern "C" const size_t *rnafold_rowtab_side_base(void) { return g_rt_side_d; }
+extern "C" const int    *rnafold_rowtab_ih_base(void)   { return g_rt_ih_d; }

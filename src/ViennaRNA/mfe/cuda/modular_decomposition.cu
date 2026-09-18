@@ -58,6 +58,7 @@
 //#include <assert.h>
 //#ifdef STUB
 #include "stub2.h"
+#include "megakernel.h"
 //#include "stub.h"
 //#endif /*STUB*/
 
@@ -2139,4 +2140,18 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   if(rnafold_stream_overlap() < 2)
     gpuErrchk( cudaStreamSynchronize(launch_stream) );
   }
+}
+
+
+/* ---- the fused megakernel's view of this file's buffers ------------------ */
+extern "C" void
+md_mk_ptrs(rnafold_mk_ptrs_t *p)
+{
+  p->fml_i      = d_fml_i;
+  p->fml_j      = d_fml_j;
+  p->dml        = d_dml;
+  p->dml1       = d_dml1;
+  p->fml_prev   = d_fml_prev;
+  p->energy_min = d_energy_min;
+  p->fm2        = rnafold_circ_fm2_device();   /* NULL unless circular */
 }

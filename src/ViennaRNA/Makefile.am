@@ -158,7 +158,8 @@ libRNA_mfe_cuda_la_LIBADD = \
     mfe/cuda/modular_decomposition.lo \
     mfe/cuda/int_loop.lo \
     mfe/cuda/hp_mb_loop.lo \
-    mfe/cuda/gquad.lo
+    mfe/cuda/gquad.lo \
+    mfe/cuda/megakernel.lo
 
 ## -DSTUB is what the 2.3.0 build used for this file and it is still required:
 ## without it the .c side sees ~26 bogus implicit declarations at the .c/.cu
@@ -936,6 +937,23 @@ mfe/cuda/hp_mb_loop.lo: $(srcdir)/mfe/cuda/hp_mb_loop.cu \
 ## G-quadruplex stage G0: carries c_gq to the device. Compiled whether or
 ## not -g is accepted by the routing guard -- it is inert until the two
 ## call sites in G1/G2 read it.
+mfe/cuda/megakernel.lo: $(srcdir)/mfe/cuda/megakernel.cu \
+                        $(srcdir)/mfe/cuda/megakernel.h \
+                        $(srcdir)/mfe/cuda/stub2.h \
+                        $(srcdir)/mfe/cuda/int_loop_dev.h \
+                        $(srcdir)/mfe/cuda/hp_mb_dev.h \
+                        $(srcdir)/mfe/cuda/md_dev.h \
+                        $(srcdir)/mfe/cuda/md_cell.inc \
+                        $(srcdir)/mfe/cuda/md_chain_cells.inc \
+                        $(srcdir)/mfe/cuda/int_loop_cell.inc \
+                        $(srcdir)/mfe/cuda/int_loop_cells.inc \
+                        $(srcdir)/mfe/cuda/hp_mb_cells.inc \
+                        $(srcdir)/mfe/cuda/fml_scan_block.inc
+	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
+	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
+	  -c $(srcdir)/mfe/cuda/megakernel.cu -o mfe/cuda/megakernel.lo
+
 mfe/cuda/gquad.lo: $(srcdir)/mfe/cuda/gquad.cu \
                    $(srcdir)/mfe/cuda/gquad_dev.h \
                    $(srcdir)/mfe/cuda/stub2.h
@@ -948,7 +966,8 @@ CLEANFILES = mfe/cuda/device.lo mfe/cuda/device.$(OBJEXT) \
              mfe/cuda/modular_decomposition.lo mfe/cuda/modular_decomposition.$(OBJEXT) \
              mfe/cuda/int_loop.lo mfe/cuda/int_loop.$(OBJEXT) \
              mfe/cuda/hp_mb_loop.lo mfe/cuda/hp_mb_loop.$(OBJEXT) \
-             mfe/cuda/gquad.lo mfe/cuda/gquad.$(OBJEXT)
+             mfe/cuda/gquad.lo mfe/cuda/gquad.$(OBJEXT) \
+             mfe/cuda/megakernel.lo mfe/cuda/megakernel.$(OBJEXT)
 endif
 
 ## distributed whether or not CUDA is enabled, so `make dist` from a
@@ -968,6 +987,11 @@ EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/int_loop_cells.inc \
               mfe/cuda/hp_mb_cells.inc \
               mfe/cuda/fml_scan_block.inc \
+              mfe/cuda/megakernel.cu \
+              mfe/cuda/megakernel.h \
+              mfe/cuda/int_loop_dev.h \
+              mfe/cuda/hp_mb_dev.h \
+              mfe/cuda/md_dev.h \
               mfe/cuda/interior_loopx.h \
               mfe/cuda/nth.h \
               mfe/cuda/stub2.h \

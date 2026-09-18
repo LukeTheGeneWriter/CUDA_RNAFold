@@ -41,6 +41,7 @@
 #define MIN2(x,y) min(x,y)
 
 #include "stub2.h"
+#include "megakernel.h"
 
 #define BLOCK_SIZE 512
 
@@ -1563,4 +1564,35 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
     gpuErrchk( cudaMemcpy(gate_row,       GATE_ROW(i), g_row_total*sizeof(char),cudaMemcpyDeviceToHost) );
     gpuErrchk( cudaDeviceSynchronize() );
   }
+}
+
+
+/* ---- the fused megakernel's view of this file's buffers ------------------ */
+extern "C" void
+hp_mb_mk_ptrs(rnafold_mk_ptrs_t *p)
+{
+  p->param2           = (const void *)d_param2;
+  p->pair2            = d_pair2;
+  p->S2               = d_S2;
+  p->sequence         = d_sequence;
+  p->hccc_mb          = d_hccc_mb;
+  p->hccc_mbenc       = d_hccc_mbenc;
+  p->hccc_any         = d_hccc_any;
+  p->hccc_gu          = d_hccc_gu;
+  p->hc2_off_H        = d_hc2_off_H;
+  p->seq_off_H        = d_seq_off_H;
+  p->len_H            = d_len_H;
+  p->salt_loop        = d_salt_loop;
+  p->up_ml_ok         = d_up_ml_ok;
+  p->up_hp            = d_up_hp;   /* NULL unless a record carries a depot */
+  /* The UNPARITIED row buffers: the parity doubles exist only for
+   * RNA_STREAM_OVERLAP=2, which the megakernel refuses -- it owns the schedule
+   * itself, so there is no second chain to keep out of the way of. */
+  p->energy_hp_row    = d_energy_hp_row;
+  p->energy_mb_row    = d_energy_mb_row;
+  p->energy_3p00_row  = d_energy_3p00_row;
+  p->gate_row         = d_gate_row;
+  p->energy_stack_row = d_energy_stack_row;   /* noLP only; refused in v1 */
+  p->cc               = d_cc;
+  p->cc1              = d_cc1;
 }

@@ -61,6 +61,7 @@
 #include           "interior_loopx.h"
 
 #include "stub2.h"
+#include "megakernel.h"
 #include "gquad_dev.h"
 #include <assert.h>
 
@@ -1875,4 +1876,25 @@ E_int_loop( const vrna_fold_compound_t *vc,
   }
 
   return e;
+}
+
+
+/* ---- the fused megakernel's view of this file's buffers -------------------
+ * Ownership does not change: the pointers are handed over for the duration of
+ * a sweep and this file still allocates and frees them. Valid only between
+ * init_gpu2() and teardown_gpu2(). */
+extern "C" void
+int_loop_mk_ptrs(rnafold_mk_ptrs_t *p)
+{
+  p->param       = (const void *)d_param;
+  p->pair        = d_pair;
+  p->S           = d_S;
+  p->hccc        = d_hccc;
+  p->up_int      = d_up_int;      /* NULL unless a record carries a depot */
+  p->my_c        = d_my_c;
+  p->tri_off_H   = d_tri_off_H;
+  p->row_off_H   = d_row_off_H;
+  p->hc_off_H    = d_hc_off_H;
+  p->new_e       = d_new_e;
+  p->energy_min2 = d_energy_min2;
 }

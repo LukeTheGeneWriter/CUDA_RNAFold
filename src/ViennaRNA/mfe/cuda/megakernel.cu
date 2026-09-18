@@ -51,15 +51,29 @@
 /* The device-side math, shared with the standalone kernels. One copy only:
  * these recurrences produce a plausible structure when they drift, not a
  * crash, so the fused path must not own a second version of any of them. */
+#include "nth.h"
+
+/* int_loop.cu carries "#define turn 3" and its cells use that macro, while the
+ * hp_mb and md cells take a PARAMETER called turn -- which the macro would
+ * rewrite into a literal. So the int_loop side is bracketed and everything else
+ * is included with the macro out of scope. */
+#define turn 3
 #include "int_loop_dev.h"
+#include "int_loop_cell.inc"
+#include "int_loop_cells.inc"
+#undef turn
+
 #include "hp_mb_dev.h"
+#include "hp_mb_cells.inc"
+#include "fml_scan_block.inc"
 #include "md_dev.h"
 #include "md_cell.inc"
 #include "md_chain_cells.inc"
-#include "int_loop_cell.inc"
-#include "int_loop_cells.inc"
-#include "hp_mb_cells.inc"
-#include "fml_scan_block.inc"
+
+/* Gate knobs owned by other files. rnafold_gpu_sweep() is declared in stub2.h;
+ * this one is not, and asking it beats re-reading its environment variable --
+ * two readers of one knob drift. */
+int rnafold_md_smem(void);
 
 namespace cg = cooperative_groups;
 
@@ -360,10 +374,15 @@ rnafold_megakernel_records_in_flight(void)
   return v;
 }
 
+extern "C" const size_t *rnafold_rowtab_size_base(void);
+extern "C" const size_t *rnafold_rowtab_side_base(void);
+extern "C" const int    *rnafold_rowtab_ih_base(void);
+
 extern "C" int
 rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
                          const int turn, const int length, const int *len_H_host,
-                         const int noGUclosure)
+                         const int noGUclosure,
+                         const int TerminalAU, const int ninio2, const float lxc)
 {
   const int G      = rnafold_megakernel_records_in_flight();
   const int blocks = mk_grid_blocks(G);
@@ -381,6 +400,19 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
   int_loop_mk_ptrs(&p);
   hp_mb_mk_ptrs(&p);
   md_mk_ptrs(&p);
+  /* The three scalars the kernels take from the host parameter table, and the
+   * chunk's row tables, which the kernel strides through itself. */
+  p.TerminalAU = TerminalAU;
+  p.ninio2     = ninio2;
+  p.lxc        = lxc;
+  p.rt_size    = rnafold_rowtab_size_base();
+  p.rt_side    = rnafold_rowtab_side_base();
+  p.rt_ih      = rnafold_rowtab_ih_base();
+
+  if ((!p.rt_size) || (!p.rt_side) || (!p.rt_ih)) {
+    fprintf(stderr, "megakernel.cu            row tables absent -- falling back\n");
+    return -1;
+  }
 
   if (cudaMalloc((void **)&d_clocks, MK_PH_N * sizeof(unsigned long long)) == cudaSuccess)
     cudaMemset(d_clocks, 0, MK_PH_N * sizeof(unsigned long long));

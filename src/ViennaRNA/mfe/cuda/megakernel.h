@@ -124,7 +124,8 @@ const char *rnafold_megakernel_refuse(int nfiles, int circ, int gquad, int nolp,
  */
 int rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
                              const int turn, const int length, const int *len_H_host,
-                             const int noGUclosure);
+                             const int noGUclosure,
+                             const int TerminalAU, const int ninio2, const float lxc);
 
 #ifdef __cplusplus
 }
