@@ -132,7 +132,7 @@
    why = rnafold_megakernel_refuse(nfiles,
                                    P->model_details.circ, P->model_details.gquad,
                                    noLP, uniq_ML, depot, P->model_details.dangles,
-                                   continuous_flow, rnafold_fml_int16());
+                                   continuous_flow);
    if(why) {
      fprintf(stderr,"%-24s RNA_MEGAKERNEL declined: %s -- running the per-phase sweep\n",
              __FILE__, why);

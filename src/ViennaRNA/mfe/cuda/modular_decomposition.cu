@@ -2158,4 +2158,15 @@ md_mk_ptrs(rnafold_mk_ptrs_t *p)
   p->fml_prev   = d_fml_prev;
   p->energy_min = d_energy_min;
   p->fm2        = rnafold_circ_fm2_device();   /* NULL unless circular */
+
+  /* int16: allocated only when the gate is on, so these stay NULL otherwise
+   * and every cell takes its int32 branch. d_fml_j is itself NULL under int16
+   * -- the packed triangle replaces it -- which is why both are handed over. */
+  if(rnafold_fml_int16()) {
+    p->fml_row    = d_fml_row;
+    p->fml_j16    = d_fml_j16;
+    p->fml_b      = d_fml_b;
+    p->base_off_H = d_base_off_H;
+    p->colb_off   = d_colb_off;
+  }
 }

@@ -85,6 +85,18 @@ typedef struct {
   int                *energy_min;
   int                *fm2;          /* circular only; refused in v1 */
 
+  /* int16 fML (RNA_FML_INT16), stage 1. All five are NULL when the gate is
+   * off, which is exactly how the standalone kernels signal it -- the cells
+   * switch on `fml_row` being non-NULL, so passing them unconditionally is
+   * correct on both paths. The packed triangle REPLACES fml_j rather than
+   * accompanying it; fml_row is the current row in full int32, which is what
+   * fmli reads before the row is final. */
+  int                *fml_row;
+  short              *fml_j16;
+  int                *fml_b;
+  const size_t       *base_off_H;
+  const size_t       *colb_off;
+
   /* device.cu -- the chunk's row tables, indexed by sweep row */
   const size_t       *rt_size;
   const size_t       *rt_side;
@@ -115,7 +127,7 @@ int rnafold_megakernel(void);
  */
 const char *rnafold_megakernel_refuse(int nfiles, int circ, int gquad, int nolp,
                                       int uniq_ML, int depot, int dangles,
-                                      int continuous_flow, int int16);
+                                      int continuous_flow);
 
 /*
  *  Fold `count` records, `G` of them resident at once, one cooperative launch

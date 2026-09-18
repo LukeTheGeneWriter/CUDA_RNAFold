@@ -100,21 +100,22 @@ namespace cg = cooperative_groups;
 #define MK_PH_MD       6
 #define MK_PH_TAIL     7
 #define MK_PH_SYNC     8
-#define MK_PH_N        9
+#define MK_PH_PACK     9
+#define MK_PH_N       10
 /* Debug slots (RNA_MK_DEBUG), appended after the phase clocks: what the
  * kernel actually saw. A fused kernel that runs but computes nothing looks
  * exactly like one that never ran. */
-#define MK_DBG_WIDTH   9
-#define MK_DBG_DWIDTH  10
-#define MK_DBG_CELLS   11
-#define MK_DBG_ROWS    12
-#define MK_DBG_IH      13
-#define MK_DBG_ROWOFF  14
-#define MK_DBG_EMIN2   15
-#define MK_DBG_HP      16
-#define MK_DBG_GATE    17
-#define MK_DBG_NEWE    18
-#define MK_SLOTS       19
+#define MK_DBG_WIDTH   10
+#define MK_DBG_DWIDTH  11
+#define MK_DBG_CELLS   12
+#define MK_DBG_ROWS    13
+#define MK_DBG_IH      14
+#define MK_DBG_ROWOFF  15
+#define MK_DBG_EMIN2   16
+#define MK_DBG_HP      17
+#define MK_DBG_GATE    18
+#define MK_DBG_NEWE    19
+#define MK_SLOTS       20
 
 #define MK_TICK(slot)                                                     \
   do {                                                                    \
@@ -176,6 +177,7 @@ namespace cg = cooperative_groups;
 #define MK_SKIP_MD      128
 #define MK_SKIP_TAIL    256
 #define MK_SKIP_CLOSE   512
+#define MK_SKIP_PACK   1024
 
 __global__ void
 megakernel_record(const rnafold_mk_ptrs_t p,
@@ -312,7 +314,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
     if (!(skip & MK_SKIP_LOAD_FML))
       for (long long c = gthr; c < width; c += nthr)
           load_fML_cell(nfiles, i, turn_, length, p.energy_min, p.fml_j,
-                    /* fml_row, int16 only */ NULL,
+                    p.fml_row,
                     p.tri_off_H, p.row_off_H, size_off, stotal, i_H,
                     (long long)sbase + c);
     MK_TICK(MK_PH_LOAD_FML);
@@ -322,7 +324,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
 
     if (!(skip & MK_SKIP_FMLI))
       for (long long c = gthr; c < dwidth; c += nthr)
-          fmli_cell(nfiles, i, turn_, length, p.fml_i, p.fml_j, NULL,
+          fmli_cell(nfiles, i, turn_, length, p.fml_i, p.fml_j, p.fml_row,
                 p.tri_off_H, p.row_off_H, side_off, dtotal, i_H,
                 (long long)dbase + c);
 
@@ -333,7 +335,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
     if (!(skip & MK_SKIP_MD))
       for (long long c = gwarp; c < dwidth; c += nwarps)
           md_cell<MK_TILE>(nfiles, i, turn_, length, p.fml_i, p.fml_j,
-                       /* int16 */ NULL, NULL, NULL, NULL,
+                       p.fml_j16, p.fml_b, p.base_off_H, p.colb_off,
                        p.dml, p.fm2, p.tri_off_H, p.row_off_H,
                        side_off, dtotal, i_H,
                        (long long)dbase + c, lane);
@@ -346,7 +348,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
     if (!(skip & MK_SKIP_CLOSE))
     for (long long c = gthr; c < dwidth; c += nthr)
       load_min_fML_cell(nfiles, i, turn_, length, p.energy_min, p.dml,
-                        p.fml_j, NULL, p.tri_off_H, p.row_off_H,
+                        p.fml_j, p.fml_row, p.tri_off_H, p.row_off_H,
                         side_off, dtotal, i_H,
                         (long long)dbase + c);
 
@@ -358,6 +360,28 @@ megakernel_record(const rnafold_mk_ptrs_t p,
 
     MK_SYNC();
     MK_TICK(MK_PH_SYNC);
+
+    /* ---- int16: pack row i into the triangle -----------------------------
+     * Runs AFTER both of the row's writers (load_fML and load_min_fML), which
+     * is the whole ordering constraint of the encoding: fml_row holds the
+     * final row only once both have run. A no-op when the gate is off.
+     *
+     * The baseline claim `fml_b[bidx] = v` is race-free because each thread
+     * owns a distinct (column, block) WITHIN a row, and rows are separated --
+     * by a kernel launch on the per-phase path, and by the grid barrier above
+     * on this one. Bracketing pack between barriers is what preserves that.
+     *
+     * It SHARES the tail barrier rather than adding one: the snapshot below
+     * reads dml and writes dml1, which pack neither reads nor writes, so the
+     * two are independent. Its own barrier cost 19 points of grid.sync share
+     * (50.5 % -> 69.7 % at 40 records), which is the whole reason to care. */
+    if (p.fml_row && !(skip & MK_SKIP_PACK))
+      for (long long c = gthr; c < width; c += nthr)
+        pack_fml_cell(nfiles, i, turn_, length, p.fml_row, p.fml_j16, p.fml_b,
+                      p.tri_off_H, p.row_off_H, p.base_off_H, p.colb_off,
+                      size_off, stotal, i_H,
+                      (long long)sbase + c);
+    MK_TICK(MK_PH_PACK);
 
     /* md_snapshot_dml()'s device-to-device copy, restricted to this record's
      * row. The standalone path copies the whole batch's row buffer on the md
@@ -405,7 +429,7 @@ rnafold_megakernel(void)
 extern "C" const char *
 rnafold_megakernel_refuse(int nfiles, int circ, int gquad, int nolp,
                           int uniq_ML, int depot, int dangles,
-                          int continuous_flow, int int16)
+                          int continuous_flow)
 {
   if (nfiles <= 0)             return "no records";
   if (circ)                    return "circular (fM2_real is a second output of md)";
@@ -415,7 +439,6 @@ rnafold_megakernel_refuse(int nfiles, int circ, int gquad, int nolp,
   if (depot)                   return "hard-constraint depot (up_int/up_hp)";
   if ((dangles != 0) && (dangles != 2)) return "dangles other than 0 or 2";
   if (continuous_flow)         return "continuous flow / slot flow (records on their own rows)";
-  if (int16)                   return "int16 fML (stage 1)";
   if (rnafold_md_smem())       return "RNA_MD_SMEM";
   if (!rnafold_gpu_sweep())    return "RNA_GPU_SWEEP=0 (the host row loops)";
   return NULL;
@@ -658,7 +681,7 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
           static const char *names[MK_PH_N] = { "int_loop", "hp_mb", "new_c",
                                                 "load_my_c", "fml_scan",
                                                 "load_fML", "md", "tail",
-                                                "grid.sync" };
+                                                "grid.sync", "pack_fml" };
           const unsigned int row = h_prog[0], ph = h_prog[1];
 
           fprintf(stderr, "megakernel.cu            STUCK after %.0fs: row i=%u, "
@@ -700,7 +723,8 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
   if (d_clocks) {
     unsigned long long h[MK_SLOTS];
     static const char *names[MK_PH_N] = { "int_loop", "hp_mb", "new_c", "load_my_c",
-                                          "fml_scan", "load_fML", "md", "tail", "grid.sync" };
+                                          "fml_scan", "load_fML", "md", "tail", "grid.sync",
+                                          "pack_fml" };
     unsigned long long tot = 0;
     int t;
 
