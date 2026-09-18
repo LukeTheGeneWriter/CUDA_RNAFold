@@ -904,7 +904,8 @@ mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu
 
 mfe/cuda/modular_decomposition.lo: $(srcdir)/mfe/cuda/modular_decomposition.cu \
                                    $(srcdir)/mfe/cuda/stub2.h \
-                                   $(srcdir)/mfe/cuda/md_cell.inc
+                                   $(srcdir)/mfe/cuda/md_cell.inc \
+                                   $(srcdir)/mfe/cuda/md_chain_cells.inc
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
@@ -958,6 +959,7 @@ EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/gquad.cu \
               mfe/cuda/int_loop_kernel_body.inc \
               mfe/cuda/md_cell.inc \
+              mfe/cuda/md_chain_cells.inc \
               mfe/cuda/interior_loopx.h \
               mfe/cuda/nth.h \
               mfe/cuda/stub2.h \
