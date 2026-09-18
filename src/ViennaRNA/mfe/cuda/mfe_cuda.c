@@ -58,6 +58,7 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 #include <assert.h>
 #ifdef STUB
 #include "stub2.h"
+#include "megakernel.h"   /* RNA_MEGAKERNEL: the fused per-record sweep */
 //#include "stub.h"
 #endif /*STUB*/
 

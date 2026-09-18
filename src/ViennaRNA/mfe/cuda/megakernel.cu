@@ -34,6 +34,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 #include <cuda_runtime.h>
 #include <cooperative_groups.h>
 #include <assert.h>
@@ -99,6 +101,20 @@ namespace cg = cooperative_groups;
 #define MK_PH_TAIL     7
 #define MK_PH_SYNC     8
 #define MK_PH_N        9
+/* Debug slots (RNA_MK_DEBUG), appended after the phase clocks: what the
+ * kernel actually saw. A fused kernel that runs but computes nothing looks
+ * exactly like one that never ran. */
+#define MK_DBG_WIDTH   9
+#define MK_DBG_DWIDTH  10
+#define MK_DBG_CELLS   11
+#define MK_DBG_ROWS    12
+#define MK_DBG_IH      13
+#define MK_DBG_ROWOFF  14
+#define MK_DBG_EMIN2   15
+#define MK_DBG_HP      16
+#define MK_DBG_GATE    17
+#define MK_DBG_NEWE    18
+#define MK_SLOTS       19
 
 #define MK_TICK(slot)                                                     \
   do {                                                                    \
@@ -107,6 +123,37 @@ namespace cg = cooperative_groups;
       clocks[slot] += (unsigned long long)(_now - _mark);                 \
       _mark = _now;                                                       \
     }                                                                     \
+    MK_MARK(slot);                                                        \
+  } while (0)
+
+/* Progress, in MAPPED HOST memory, which is the only channel that survives a
+ * deadlock: a hung kernel never returns its buffers, so `clocks` and device
+ * printf both say nothing about where it stopped. Block 0 publishes (row,
+ * phase); every block counts itself in just before each barrier, so a count
+ * short of gridDim says some block never arrived -- the one fact that separates
+ * "a phase is spinning" from "the grid is not co-resident". */
+#define MK_MARK(slot)                                                     \
+  do {                                                                    \
+    if (prog && (blockIdx.x == 0) && (threadIdx.x == 0)) {                \
+      prog[0] = (unsigned int)i;                                          \
+      prog[1] = (unsigned int)(slot);                                     \
+      __threadfence_system();                                             \
+    }                                                                     \
+  } while (0)
+
+/* Counted arrival, then the barrier itself. */
+#define MK_PROG_HDR 4
+/* Every thread counts itself into its own block's slot. grid.sync() needs all
+ * of them, not just thread 0, so a per-block deficit names the block that is
+ * short and, by the size of the deficit, the warp that never arrived. */
+#define MK_SYNC()                                                         \
+  do {                                                                    \
+    if (prog) {                                                           \
+      if (threadIdx.x == 0)                                               \
+        prog[MK_PROG_HDR + blockIdx.x] += 1u;  /* one writer per slot */  \
+    }                                                                     \
+    __threadfence_system();                                               \
+    grid.sync();                                                          \
   } while (0)
 
 /*
@@ -119,11 +166,23 @@ namespace cg = cooperative_groups;
  *  per-phase kernels do it. Stage 0 changes WHERE the work is issued from, and
  *  nothing about what it computes.
  */
+#define MK_SKIP_INT_LOOP 1
+#define MK_SKIP_HP_MB     2
+#define MK_SKIP_NEW_C     4
+#define MK_SKIP_LOAD_C    8
+#define MK_SKIP_SCAN     16
+#define MK_SKIP_LOAD_FML 32
+#define MK_SKIP_FMLI     64
+#define MK_SKIP_MD      128
+#define MK_SKIP_TAIL    256
+#define MK_SKIP_CLOSE   512
+
 __global__ void
 megakernel_record(const rnafold_mk_ptrs_t p,
                   const int nfiles, const int H, const int turn_, const int length,
                   const int i_top, const int noGUclosure,
-                  unsigned long long *clocks)
+                  unsigned long long *clocks, const int skip,
+                  volatile unsigned int *prog)
 {
   cg::grid_group grid = cg::this_grid();
 
@@ -157,21 +216,32 @@ megakernel_record(const rnafold_mk_ptrs_t p,
     const long long dwidth = (long long)side_off[H + 1] - (long long)dbase;
     const size_t    dtotal = side_off[nfiles];
 
+    if (clocks && (blockIdx.x == 0) && (threadIdx.x == 0)) {
+      if (i == i_top) {
+        clocks[MK_DBG_WIDTH]  = (unsigned long long)width;
+        clocks[MK_DBG_DWIDTH] = (unsigned long long)dwidth;
+      }
+      clocks[MK_DBG_ROWS]  += 1ull;
+      clocks[MK_DBG_CELLS] += (unsigned long long)(width > 0 ? width : 0);
+    }
+
     /* ---- interior loops and the hairpin/multibranch terms -----------------
      * Independent of each other: int_loop reads `c` rows below i, hp_mb_3p
      * reads only the sequence, the parameters and the masks. They share this
      * phase for that reason -- it is the same independence RNA_STREAM_OVERLAP
      * level 1 exploits with two streams. */
-    for (long long c = gwarp; c < width; c += nwarps)
-      int_loop_warp_cell(nfiles, i, length, p.TerminalAU, p.ninio2,
-                         (const cuda_param_t *)p.param, p.lxc, p.pair, p.S, p.hccc,
-                         p.up_int, p.my_c, p.tri_off_H, p.row_off_H, p.hc_off_H,
-                         size_off, i_H, p.energy_min2,
-                         H, (size_t)c, lane);
+    if (!(skip & MK_SKIP_INT_LOOP))
+      for (long long c = gwarp; c < width; c += nwarps)
+        int_loop_warp_cell(nfiles, i, length, p.TerminalAU, p.ninio2,
+                           (const cuda_param_t *)p.param, p.lxc, p.pair, p.S, p.hccc,
+                           p.up_int, p.my_c, p.tri_off_H, p.row_off_H, p.hc_off_H,
+                           size_off, i_H, p.energy_min2,
+                           H, (size_t)c, lane);
     MK_TICK(MK_PH_INT_LOOP);
 
-    for (long long c = gthr; c < width; c += nthr)
-      hp_mb_3p_cell(nfiles, i, turn_, length, p.S2, p.sequence, p.pair2,
+    if (!(skip & MK_SKIP_HP_MB))
+      for (long long c = gthr; c < width; c += nthr)
+          hp_mb_3p_cell(nfiles, i, turn_, length, p.S2, p.sequence, p.pair2,
                     p.hccc_mb, p.hccc_mbenc, p.hccc_any, p.hccc_gu,
                     (const cuda_param2_t *)p.param2, p.salt_loop,
                     p.energy_hp_row, p.energy_mb_row, p.energy_3p00_row, p.gate_row,
@@ -180,33 +250,54 @@ megakernel_record(const rnafold_mk_ptrs_t p,
                     (long long)sbase + c);
     MK_TICK(MK_PH_HP_MB);
 
-    grid.sync();
+    if (clocks && (blockIdx.x == 0) && (threadIdx.x == 0) && (i == i_top) && (width > 0)) {
+      const int j = (int)(i + turn_ + 1);
+      clocks[MK_DBG_IH]     = (unsigned long long)(unsigned int)i_H[H];
+      clocks[MK_DBG_ROWOFF] = (unsigned long long)p.row_off_H[H];
+      clocks[MK_DBG_EMIN2]  = (unsigned long long)(unsigned int)p.energy_min2[p.row_off_H[H] + j];
+      clocks[MK_DBG_HP]     = (unsigned long long)(unsigned int)p.energy_hp_row[p.row_off_H[H] + j];
+      clocks[MK_DBG_GATE]   = (unsigned long long)(unsigned char)p.gate_row[p.row_off_H[H] + j];
+    }
+
+    MK_SYNC();
     MK_TICK(MK_PH_SYNC);
 
     /* ---- new_c: the join. Needs md(i+1)'s DMLi at column j-1, which the
      * previous iteration published, and both phases above. ---------------- */
-    for (long long c = gthr; c < width; c += nthr)
-      new_c_cell(nfiles, i, turn_, noGUclosure, p.energy_min2,
+    if (!(skip & MK_SKIP_NEW_C))
+      for (long long c = gthr; c < width; c += nthr)
+          new_c_cell(nfiles, i, turn_, noGUclosure, p.energy_min2,
                  p.energy_hp_row, p.energy_mb_row, p.gate_row, p.dml1,
                  p.up_hp, p.seq_off_H, p.new_e,
-                 p.energy_stack_row, p.cc1, p.cc,
+                 /* noLP's three, and they MUST be NULL here: the cell switches
+                  * on stack_row being non-NULL, and in that mode c[ij] receives
+                  * the STACKED value rather than the hairpin -- INF on the first
+                  * row, which is exactly how this first ran: gate=1, hairpin=590
+                  * computed, and new_e=INF anyway. noLP is refused by the gate,
+                  * so the fused path must not hand the cell its buffers just
+                  * because they are allocated. */
+                 NULL, NULL, NULL,
                  p.row_off_H, size_off, stotal, i_H,
                  (long long)sbase + c);
     MK_TICK(MK_PH_NEW_C);
 
-    grid.sync();
+    if (clocks && (blockIdx.x == 0) && (threadIdx.x == 0) && (i == i_top) && (width > 0))
+      clocks[MK_DBG_NEWE] = (unsigned long long)(unsigned int)p.new_e[p.row_off_H[H] + i + turn_ + 1];
+
+    MK_SYNC();
     MK_TICK(MK_PH_SYNC);
 
     /* ---- row i of `c` into the triangle, and the fML row scan ------------
      * Both read new_e and neither reads the other, so they share a phase.
      * The scan is block-cooperative and runs on block 0 alone. */
-    for (long long c = gthr; c < width; c += nthr)
-      load_my_c_cell(nfiles, i, length, p.new_e, p.my_c,
+    if (!(skip & MK_SKIP_LOAD_C))
+      for (long long c = gthr; c < width; c += nthr)
+          load_my_c_cell(nfiles, i, length, p.new_e, p.my_c,
                      p.tri_off_H, p.row_off_H, size_off, stotal, i_H,
                      (long long)sbase + c);
     MK_TICK(MK_PH_LOAD_C);
 
-    if (blockIdx.x == 0)
+    if ((blockIdx.x == 0) && (!(skip & MK_SKIP_SCAN)))
       fml_scan_block<MK_BLOCK>(nfiles, i, turn_, p.new_e, p.energy_3p00_row,
                                /* gq_row */ NULL, p.fml_prev, p.up_ml_ok,
                                (const cuda_param2_t *)p.param2, p.energy_min,
@@ -214,59 +305,64 @@ megakernel_record(const rnafold_mk_ptrs_t p,
                                H, sa, sc);
     MK_TICK(MK_PH_SCAN);
 
-    grid.sync();
+    MK_SYNC();
     MK_TICK(MK_PH_SYNC);
 
     /* ---- the fML triangle gets row i, then row i is gathered -------------- */
-    for (long long c = gthr; c < width; c += nthr)
-      load_fML_cell(nfiles, i, turn_, length, p.energy_min, p.fml_j,
+    if (!(skip & MK_SKIP_LOAD_FML))
+      for (long long c = gthr; c < width; c += nthr)
+          load_fML_cell(nfiles, i, turn_, length, p.energy_min, p.fml_j,
                     /* fml_row, int16 only */ NULL,
                     p.tri_off_H, p.row_off_H, size_off, stotal, i_H,
                     (long long)sbase + c);
     MK_TICK(MK_PH_LOAD_FML);
 
-    grid.sync();
+    MK_SYNC();
     MK_TICK(MK_PH_SYNC);
 
-    for (long long c = gthr; c < dwidth; c += nthr)
-      fmli_cell(nfiles, i, turn_, length, p.fml_i, p.fml_j, NULL,
+    if (!(skip & MK_SKIP_FMLI))
+      for (long long c = gthr; c < dwidth; c += nthr)
+          fmli_cell(nfiles, i, turn_, length, p.fml_i, p.fml_j, NULL,
                 p.tri_off_H, p.row_off_H, side_off, dtotal, i_H,
                 (long long)dbase + c);
 
-    grid.sync();
+    MK_SYNC();
     MK_TICK(MK_PH_SYNC);
 
     /* ---- the decomposition itself: the phase everything else exists for --- */
-    for (long long c = gwarp; c < dwidth; c += nwarps)
-      md_cell<MK_TILE>(nfiles, i, turn_, length, p.fml_i, p.fml_j,
+    if (!(skip & MK_SKIP_MD))
+      for (long long c = gwarp; c < dwidth; c += nwarps)
+          md_cell<MK_TILE>(nfiles, i, turn_, length, p.fml_i, p.fml_j,
                        /* int16 */ NULL, NULL, NULL, NULL,
                        p.dml, p.fm2, p.tri_off_H, p.row_off_H,
                        side_off, dtotal, i_H,
                        (long long)dbase + c, lane);
     MK_TICK(MK_PH_MD);
 
-    grid.sync();
+    MK_SYNC();
     MK_TICK(MK_PH_SYNC);
 
     /* ---- close the row: fold DMLi into fML, cache row i, publish DMLi1 ---- */
+    if (!(skip & MK_SKIP_CLOSE))
     for (long long c = gthr; c < dwidth; c += nthr)
       load_min_fML_cell(nfiles, i, turn_, length, p.energy_min, p.dml,
                         p.fml_j, NULL, p.tri_off_H, p.row_off_H,
                         side_off, dtotal, i_H,
                         (long long)dbase + c);
 
+    if (!(skip & MK_SKIP_CLOSE))
     for (long long c = gthr; c < width; c += nthr)
       fml_prev_cell(nfiles, i, turn_, p.energy_min, p.dml, p.fml_prev,
                     p.row_off_H, size_off, stotal, i_H,
                     (long long)sbase + c);
 
-    grid.sync();
+    MK_SYNC();
     MK_TICK(MK_PH_SYNC);
 
     /* md_snapshot_dml()'s device-to-device copy, restricted to this record's
      * row. The standalone path copies the whole batch's row buffer on the md
      * stream; here the grid that just wrote it copies its own slice. */
-    {
+    if (!(skip & MK_SKIP_TAIL)) {
       const size_t lo = p.row_off_H[H];
       const size_t hi = p.row_off_H[H + 1];
       for (size_t k = lo + (size_t)gthr; k < hi; k += (size_t)nthr)
@@ -274,7 +370,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
     }
     MK_TICK(MK_PH_TAIL);
 
-    grid.sync();
+    MK_SYNC();
     MK_TICK(MK_PH_SYNC);
   }
 }
@@ -359,6 +455,58 @@ mk_grid_blocks(const int G)
   }
 }
 
+/* RNA_MK_MAXROWS=k -- stop each record after k rows. A bisection handle: a fused
+ * kernel that deadlocks looks identical to one that is merely slow, and the row
+ * at which it stops says which phase is at fault. Answers are WRONG under it by
+ * construction (the sweep is incomplete); it is a debugging knob, not an arm. */
+static int
+mk_timeout_s(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MK_TIMEOUT");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+  }
+
+  return v;
+}
+
+extern "C" int
+rnafold_megakernel_skip(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MK_SKIP");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v)
+      fprintf(stderr, "megakernel.cu            RNA_MK_SKIP=%d: phases disabled, "
+                      "answers are wrong by construction\n", v);
+  }
+
+  return v;
+}
+
+extern "C" int
+rnafold_megakernel_maxrows(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MK_MAXROWS");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v > 0)
+      fprintf(stderr, "megakernel.cu            RNA_MK_MAXROWS=%d: STOPPING EARLY, "
+                      "answers are wrong by construction\n", v);
+  }
+
+  return v;
+}
+
 extern "C" int
 rnafold_megakernel_records_in_flight(void)
 {
@@ -388,6 +536,8 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
   const int blocks = mk_grid_blocks(G);
   rnafold_mk_ptrs_t p;
   unsigned long long *d_clocks = NULL;
+  volatile unsigned int *h_prog = NULL;
+  unsigned int *d_prog = NULL;
   cudaStream_t *streams;
   int k;
 
@@ -414,8 +564,22 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
     return -1;
   }
 
-  if (cudaMalloc((void **)&d_clocks, MK_PH_N * sizeof(unsigned long long)) == cudaSuccess)
-    cudaMemset(d_clocks, 0, MK_PH_N * sizeof(unsigned long long));
+  if (cudaMalloc((void **)&d_clocks, MK_SLOTS * sizeof(unsigned long long)) == cudaSuccess)
+    cudaMemset(d_clocks, 0, MK_SLOTS * sizeof(unsigned long long));
+
+  /* RNA_MK_TIMEOUT=s arms the deadlock probe: a mapped page the kernel writes
+   * its (row, phase) into and the host reads WHILE the kernel runs. Without it
+   * a hang is indistinguishable from slow, and nothing the kernel knows ever
+   * reaches the host. Off by default -- it costs a host write per phase. */
+  if (mk_timeout_s() > 0) {
+    const size_t pn = (size_t)(MK_PROG_HDR + blocks) * sizeof(unsigned int);
+
+    if (cudaHostAlloc((void **)&h_prog, pn, cudaHostAllocMapped) == cudaSuccess) {
+      memset((void *)h_prog, 0, pn);
+      if (cudaHostGetDevicePointer((void **)&d_prog, (void *)h_prog, 0) != cudaSuccess)
+        d_prog = NULL;
+    }
+  }
 
   streams = (cudaStream_t *)calloc((size_t)G, sizeof(cudaStream_t));
   for (k = 0; k < G; k++)
@@ -424,8 +588,12 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
   for (k = 0; k < count; k++) {
     const int H     = slots[k];
     const int len   = len_H_host[H];
-    const int i_top = len - turn - 1;
-    void *args[8];
+    const int cap   = rnafold_megakernel_maxrows();
+    int       i_top = len - turn - 1;
+
+    if ((cap > 0) && (i_top > cap))
+      i_top = cap;
+    void *args[10];
 
     if (i_top < 1)
       continue;
@@ -436,12 +604,17 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
       static __thread rnafold_mk_ptrs_t a_p;
       static __thread int a_nfiles, a_H, a_turn, a_len, a_itop, a_nogu;
       static __thread unsigned long long *a_clocks;
+      static __thread int a_skip;
+      static __thread unsigned int *a_prog;
       cudaError_t rc;
 
       a_p = p; a_nfiles = nfiles; a_H = H; a_turn = turn; a_len = length;
       a_itop = i_top; a_nogu = noGUclosure; a_clocks = d_clocks;
+      a_skip = rnafold_megakernel_skip();
+      a_prog = d_prog;
       args[0] = &a_p;    args[1] = &a_nfiles; args[2] = &a_H;     args[3] = &a_turn;
       args[4] = &a_len;  args[5] = &a_itop;   args[6] = &a_nogu;  args[7] = &a_clocks;
+      args[8] = &a_skip;   args[9] = &a_prog;
 
       rc = cudaLaunchCooperativeKernel((const void *)megakernel_record,
                                        dim3(blocks), dim3(MK_BLOCK), args, 0,
@@ -459,13 +632,73 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
   }
 
   for (k = 0; k < G; k++) {
-    cudaStreamSynchronize(streams[k]);
+    if (h_prog) {
+      /* Poll, so that a deadlock reports where it stopped instead of hanging
+       * the process. cudaStreamSynchronize on a hung cooperative grid never
+       * returns and takes the diagnosis with it. */
+      const double  limit = (double)mk_timeout_s();
+      const clock_t t0    = clock();
+
+      double        next = 1.0;
+      cudaError_t   q;
+
+      while ((q = cudaStreamQuery(streams[k])) == cudaErrorNotReady) {
+        const double el = (double)(clock() - t0) / (double)CLOCKS_PER_SEC;
+
+        /* Sampled, not just reported at the deadline: a grid that is CRAWLING
+         * and one that is FROZEN look identical from a single sample, and they
+         * have nothing in common as bugs. */
+        if (el > next) {
+          fprintf(stderr, "megakernel.cu            t=%.0fs row=%u phase=%u\n",
+                  el, h_prog[0], h_prog[1]);
+          fflush(stderr);
+          next += 1.0;
+        }
+        if (el > limit) {
+          static const char *names[MK_PH_N] = { "int_loop", "hp_mb", "new_c",
+                                                "load_my_c", "fml_scan",
+                                                "load_fML", "md", "tail",
+                                                "grid.sync" };
+          const unsigned int row = h_prog[0], ph = h_prog[1];
+
+          fprintf(stderr, "megakernel.cu            STUCK after %.0fs: row i=%u, "
+                          "last phase completed = %s\n",
+                  limit, row, (ph < MK_PH_N) ? names[ph] : "?");
+          /* Per block, because the two failures look identical from the host
+           * and have nothing in common: a block BEHIND the others is a phase
+           * that will not finish, while every block on the same barrier is the
+           * barrier itself not releasing -- which in practice means a warp
+           * stranded in a full-mask shuffle, not a co-residency problem. */
+          {
+            unsigned int mx = 0, mn = 0xffffffffu;
+            int b;
+
+            for (b = 0; b < blocks; b++) {
+              const unsigned int v = h_prog[MK_PROG_HDR + b];
+
+              if (v > mx) mx = v;
+              if (v < mn) mn = v;
+            }
+            fprintf(stderr, "megakernel.cu            barriers reached per block: "
+                            "max=%u min=%u%s", mx, mn, "\n");
+          }
+          fflush(stderr);
+          _exit(9);
+        }
+      }
+      if (q != cudaSuccess)
+        fprintf(stderr, "megakernel.cu            stream query: %s\n",
+                cudaGetErrorString(q));
+    } else {
+      cudaStreamSynchronize(streams[k]);
+    }
     cudaStreamDestroy(streams[k]);
   }
   free(streams);
+  if (h_prog) cudaFreeHost((void *)h_prog);
 
   if (d_clocks) {
-    unsigned long long h[MK_PH_N];
+    unsigned long long h[MK_SLOTS];
     static const char *names[MK_PH_N] = { "int_loop", "hp_mb", "new_c", "load_my_c",
                                           "fml_scan", "load_fML", "md", "tail", "grid.sync" };
     unsigned long long tot = 0;
@@ -479,6 +712,14 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
           fprintf(stderr, " %s=%.1f%%", names[t], 100.0 * (double)h[t] / (double)tot);
         fprintf(stderr, "\n");
       }
+      fprintf(stderr, "megakernel.cu            saw: first row width=%llu dwidth=%llu, "
+                      "rows=%llu, cells=%llu\n",
+              h[MK_DBG_WIDTH], h[MK_DBG_DWIDTH], h[MK_DBG_ROWS], h[MK_DBG_CELLS]);
+      fprintf(stderr, "megakernel.cu            first cell: i_H=%d row_off=%llu "
+                      "energy_min2=%d hp=%d gate=%llu new_e=%d  (INF is %d)\n",
+              (int)(unsigned int)h[MK_DBG_IH], h[MK_DBG_ROWOFF],
+              (int)(unsigned int)h[MK_DBG_EMIN2], (int)(unsigned int)h[MK_DBG_HP],
+              h[MK_DBG_GATE], (int)(unsigned int)h[MK_DBG_NEWE], INF);
     }
     cudaFree(d_clocks);
   }
