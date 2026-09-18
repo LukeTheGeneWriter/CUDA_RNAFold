@@ -137,6 +137,9 @@ WALL_RE  = re.compile(r"megakernel wall=([0-9.]+) s for (\d+) records")
 SHARE_RE = re.compile(r"phase share of block 0's cycles: (.+)")
 GEOM_RE  = re.compile(r"(\d+) SMs x (\d+) resident blocks of (\d+) threads")
 DECL_RE  = re.compile(r"RNA_MEGAKERNEL declined: ([^\n]+)")
+ONCHIP_RE = re.compile(r"on-chip: (\d+) columns per block, c-ring (\w+), "
+                       r"fML corner K=(\d+), (\d+) KB shared")
+GAUTO_RE  = re.compile(r"G=AUTO: (\d+) records in flight, (\d+) blocks each")
 PHASE_RE = re.compile(r"phase timing \(s\): int_loop=([0-9.]+) hp_mb=([0-9.]+) "
                       r"load_my_c=([0-9.]+) modular_decomp=([0-9.]+) fetch_mx=([0-9.]+)")
 
@@ -170,7 +173,16 @@ def run(tag, fa, mega=False, extra_env=None, args="", timeout=1800, quiet=False)
     d  = DECL_RE.search(err)
     ph = PHASE_RE.search(err)
 
+    oc = ONCHIP_RE.search(err)
+    ga = GAUTO_RE.search(err)
+
     r = dict(wall=wall, rc=p.returncode, mk_wall=mk_wall, shares=shares,
+             cols_per_block=int(oc.group(1)) if oc else None,
+             ring=(oc.group(2) == "ON") if oc else None,
+             corner_k=int(oc.group(3)) if oc else None,
+             smem_kb=int(oc.group(4)) if oc else None,
+             auto_g=int(ga.group(1)) if ga else None,
+             auto_blocks=int(ga.group(2)) if ga else None,
              declined=d.group(1) if d else None,
              fused=(mk_wall is not None),
              sms=int(g.group(1)) if g else None,
@@ -601,6 +613,117 @@ print("  IF md >= int_loop HERE, do stage 2 (fML corner cache) BEFORE stage 1b")
 print("  (the c window) -- int_loop is latency-bound, so a shared-memory c window")
 print("  buys it latency, not the traffic the plan credited it with.")
 """)
+
+
+
+# --------------------------------------------------------------------------
+md(r"""## I. Stages 1b and 2 — the two on-chip caches
+
+Both stages need the same thing from the schedule: **a block must own a fixed
+range of absolute columns for the whole sweep**, or nothing it caches survives
+to the next row. Stage 0 strided cells instead, which balances every row
+perfectly, so this is a genuine trade and I.3 measures what it costs.
+
+**Stage 1b, the `c` ring.** MAXLOOP bounds an interior loop to 30 unpaired
+bases, so cell (i,j) reads c(p,q) only for p in [i+1,i+31] and q in [j-31,j-1]:
+31 rows of the block's column span hold every `c` value it can ask for. Rows
+advance by one per sweep row, so steady state fetches **one** row per row and
+the other thirty are already on chip — the part only a resident kernel can do.
+
+**Stage 2, the fML corner.** md walks column j from the diagonal downwards and
+the range only grows at the bottom as i falls, so entries nearest the diagonal
+are re-read every row while deep ones are read once. Element (r,j) is read about
+r times, so the cache holds the top K entries of each owned column and md's
+y-loop hits it on its last K iterations. A corner of side K covers (K/L)² of
+the triangle and captures 3b − 2b^1.5 of the traffic: 9 % of the bytes for
+21.6 %, 25 % for 50 %.
+
+Knobs: `RNA_MK_CWIN`, `RNA_MK_CORNER`, `RNA_MK_CORNER_K`, `RNA_MK_SMEM_KB`.
+
+**The geometry can decline itself.** W = span/blocks grows when a record gets
+*fewer* blocks, which is exactly what AUTO G does to maximise records in flight
+— so the two dials pull against each other, and the host degrades (corner K
+halves, then the corner, then the ring, then column ownership) rather than
+refusing the fold. Every cell below prints what actually ran, because a
+silently-declined cache and a cache that does not pay look identical.""")
+
+code(r"""
+print("I.1 correctness -- six arms, one sha")
+fa = fasta("i_24x2400", 24, 2400)
+ARMS = {
+  "I_ref"        : dict(mega=False, extra_env={"RNA_FML_INT16":"1"}),
+  "I_none"       : dict(mega=True,  extra_env={"RNA_FML_INT16":"1","RNA_MK_CWIN":"0","RNA_MK_CORNER":"0"}),
+  "I_ring"       : dict(mega=True,  extra_env={"RNA_FML_INT16":"1","RNA_MK_CWIN":"1","RNA_MK_CORNER":"0","RNA_MK_SMEM_KB":"96"}),
+  "I_corner"     : dict(mega=True,  extra_env={"RNA_FML_INT16":"1","RNA_MK_CWIN":"0","RNA_MK_CORNER":"1","RNA_MK_SMEM_KB":"96"}),
+  "I_both"       : dict(mega=True,  extra_env={"RNA_FML_INT16":"1","RNA_MK_SMEM_KB":"96"}),
+  "I_both_i32"   : dict(mega=True,  extra_env={"RNA_MK_SMEM_KB":"96"}),
+}
+for t, kw in ARMS.items():
+    r = run(t, fa, quiet=True, **kw)
+    print("  %-12s sha %s  cols/block %-5s ring %-5s K %-4s %s KB"
+          % (t, r["sha"], r["cols_per_block"], r["ring"], r["corner_k"], r["smem_kb"]))
+shas = {RESULTS[t]["sha"] for t in ARMS}
+print()
+print("  ONE SHA ACROSS SIX ARMS:", len(shas) == 1)
+if len(shas) != 1:
+    print("  *** A CACHE CHANGED AN ANSWER -- stop, nothing below means anything ***")
+""")
+
+code(r"""
+print()
+print("I.2 did the caches ENGAGE? (byte-identity cannot tell you)")
+for t in ("I_ring", "I_corner", "I_both"):
+    r = RESULTS.get(t, {})
+    want_ring   = t in ("I_ring", "I_both")
+    want_corner = t in ("I_corner", "I_both")
+    ok = ((r.get("ring") is True) == want_ring) and ((r.get("corner_k") or 0) > 0) == want_corner
+    print("  %-10s ring=%-5s K=%-4s  %s"
+          % (t, r.get("ring"), r.get("corner_k"),
+             "as asked" if ok else "*** DEGRADED -- the host could not fit it ***"))
+print()
+print("  A cache that is present but never HIT also passes every check above.")
+print("  The build bar for that is in the repo: poisoning each reader to return")
+print("  INF must change the answer, and change it differently for corner-only")
+print("  than for both. Re-run that locally if these numbers look like nulls.")
+""")
+
+code(r"""
+print()
+print("I.3 what the caches cost and buy")
+for name, n, L in (("i_24x2400", 24, 2400), ("i_16x4800", 16, 4800)):
+    fa = fasta(name, n, L)
+    print("  %s:" % name)
+    base = None
+    for tag, env in (
+        ("stage0 (cells strided)", {"RNA_MK_CWIN":"0","RNA_MK_CORNER":"0"}),
+        ("columns, no cache",      {"RNA_MK_CWIN":"0","RNA_MK_CORNER":"1","RNA_MK_CORNER_K":"8","RNA_MK_SMEM_KB":"96"}),
+        ("ring only",              {"RNA_MK_CWIN":"1","RNA_MK_CORNER":"0","RNA_MK_SMEM_KB":"96"}),
+        ("corner K=32",            {"RNA_MK_CWIN":"0","RNA_MK_CORNER":"1","RNA_MK_CORNER_K":"32","RNA_MK_SMEM_KB":"96"}),
+        ("corner K=64",            {"RNA_MK_CWIN":"0","RNA_MK_CORNER":"1","RNA_MK_CORNER_K":"64","RNA_MK_SMEM_KB":"160"}),
+        ("both",                   {"RNA_MK_SMEM_KB":"160"}),
+    ):
+        e = dict(env); e["RNA_FML_INT16"] = "1"
+        key = "I3_%s_%s" % (name, tag.replace(" ", "_"))
+        r = runm(key, fa, reps=3, mega=True, extra_env=e)
+        if base is None: base = r["wall"]
+        print("    %-22s %7.2f s  %+6.1f%%  K=%-4s %s KB  md %5.1f%%  int_loop %5.1f%%"
+              % (tag, r["wall"], 100.0*(r["wall"]-base)/base, r["corner_k"], r["smem_kb"],
+                 share_of(key, "md") or -1, share_of(key, "int_loop") or -1))
+    ref = runm("I3_%s_ref" % name, fa, reps=3, mega=False, extra_env={"RNA_FML_INT16":"1"})
+    print("    %-22s %7.2f s  (per-phase control)" % ("per-phase", ref["wall"]))
+""")
+
+md(r"""**Reading I.3.** The second row isolates the cost of the schedule change
+on its own — column ownership with a cache too small to matter — against
+stage 0's cell striding. That difference is the load imbalance: a block owning
+low columns is idle until the sweep reaches them, and an equal-width split is
+not work-balanced (column j carries j−turn−1 cells over the sweep, so balanced
+boundaries are at j = L·√(b/B)). If that row is badly negative, the caches are
+paying a toll before they buy anything and the split is the first thing to fix.
+
+If `md`'s share falls as K rises, stage 2 is working. If `int_loop`'s share
+falls with the ring, stage 1b is — though note int_loop is latency-bound, so
+the honest expectation there is small.""")
 
 
 code(r"""
