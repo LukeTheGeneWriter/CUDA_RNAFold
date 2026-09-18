@@ -409,6 +409,200 @@ shas = {RESULTS["D_G%d" % g]["sha"] for g in (1,2,4,8) if "D_G%d" % g in RESULTS
 print("  shas:", shas, "" if len(shas) == 1 else "  *** G CHANGED AN ANSWER ***")
 """)
 
+
+# --------------------------------------------------------------------------
+md(r"""## E. Repeats, because one shot lies
+
+Every number below is a median of repeats, and the arms are interleaved rather
+than run in blocks. This is not ceremony. Developing stage 1 locally, a single
+cold-first comparison read **1.63 s per-phase vs 1.21 s fused** and was reported
+as "fused wins by 26 %". Warm, interleaved, three repeats, the same box and the
+same binaries gave **0.756 s vs 0.925 s** -- fused LOSES by 22 %. The first
+per-phase run was paying start-up the fused runs did not, and the absolute times
+were roughly double what the machine actually does.
+
+A cold baseline has flattered this project before (`build` threading, 2.58x that
+was really 5.12x). The fix is cheap, so it is not optional.""")
+
+code(r"""
+import statistics
+
+def runm(tag, fa, reps=3, **kw):
+    # Median of `reps` warm runs. Returns the run dict of the median.
+    rs = []
+    for k in range(reps):
+        rs.append(run("%s_r%d" % (tag, k), fa, quiet=True, **kw))
+    rs.sort(key=lambda r: r["wall"])
+    m = rs[len(rs)//2]
+    m = dict(m, wall_all=[round(r["wall"], 3) for r in rs],
+                wall_spread=round((rs[-1]["wall"] - rs[0]["wall"]) / rs[0]["wall"], 3))
+    RESULTS[tag] = m
+    with open(OUT, "w") as f: json.dump({"commit": COMMIT, "runs": RESULTS}, f, indent=1)
+    return m
+
+def interleave(tags, fa, reps=3):
+    # ABBA over the arms: arm order is reversed on alternate passes, so a
+    # one-directional drift cannot land on one arm.
+    acc = {t: [] for t, _ in tags}
+    for k in range(reps):
+        order = tags if (k % 2 == 0) else list(reversed(tags))
+        for t, kw in order:
+            acc[t].append(run("%s_p%d" % (t, k), fa, quiet=True, **kw)["wall"])
+    return {t: statistics.median(v) for t, v in acc.items()}, acc
+
+print("E: warming up")
+_fa = fasta("e_warm", 8, 1200)
+run("E_warm", _fa, quiet=True)
+print("  ready")
+""")
+
+# --------------------------------------------------------------------------
+md(r"""## F. int16 is the fused baseline (stage 1a)
+
+int16 halves the fML bytes and is the better default at production (md −20.7 %,
+wall −7.9 % at 400×5601). Stage 1 makes it the baseline for the fused kernel
+rather than an arm, which also doubles what will fit on chip for stages 2–3.
+
+Two questions here. **Does it still agree?** -- four arms, one sha. And **what
+does it do to the barrier's share?** Locally it went the wrong way: 50 % → 68 %
+of block 0's cycles, because int16 makes the work phases cheaper without
+touching the barrier. If that holds on an A100 it is an argument for stage 3
+(the skew), not against int16.""")
+
+code(r"""
+print("F: int16 on both paths")
+fa = fasta("f_24x2400", 24, 2400)
+arms = {
+    "F_ref_i32": dict(mega=False, extra_env={}),
+    "F_ref_i16": dict(mega=False, extra_env={"RNA_FML_INT16": "1"}),
+    "F_mk_i32" : dict(mega=True,  extra_env={}),
+    "F_mk_i16" : dict(mega=True,  extra_env={"RNA_FML_INT16": "1"}),
+}
+for t, kw in arms.items():
+    r = runm(t, fa, **kw)
+    print("  %-10s wall %7.2f s  sha %s  %s"
+          % (t, r["wall"], r["sha"], r["shares"] or ""))
+shas = {RESULTS[t]["sha"] for t in arms}
+print()
+print("  ONE SHA ACROSS FOUR ARMS:", len(shas) == 1, shas)
+if len(shas) != 1:
+    print("  *** int16 OR THE FUSED PATH CHANGED AN ANSWER -- stop here ***")
+""")
+
+code(r"""
+def share_of(tag, phase="grid.sync"):
+    sh = RESULTS.get(tag, {}).get("shares")
+    if not sh: return None
+    return float(dict(kv.split("=") for kv in sh.split())[phase].rstrip("%"))
+
+print("  barrier share, int32 vs int16 (fused):")
+for t in ("F_mk_i32", "F_mk_i16"):
+    print("    %-10s grid.sync %5.1f%%  int_loop %5.1f%%  md %5.1f%%"
+          % (t, share_of(t) or -1, share_of(t, "int_loop") or -1, share_of(t, "md") or -1))
+""")
+
+# --------------------------------------------------------------------------
+md(r"""## G. G — the dial that decides whether any of this is worth it
+
+**This is the most important section in the notebook.** One record's row is at
+most `length` cells; the grid is thousands of threads. At G=1 each record gets
+the whole device and the row's eight grid barriers are paid by a grid that is
+mostly idle. Locally, G was worth **2.2×**:
+
+| G | wall | grid.sync share |
+|---|---|---|
+| 1 | 2.068 s | 66.6 % |
+| 4 | 1.197 s | |
+| 8 | **0.925 s** | 27.4 % |
+| 24 | 1.376 s | |
+
+At the good G the top phases become `int_loop` (32 %) and `md` (32 %) -- the
+actual work -- which is the precondition for stages 2–3 buying anything.
+
+AUTO gives each record just enough blocks to cover one row of the longest record
+and spends the rest of the device on more records. On an A100 (108 SMs, so many
+more blocks) AUTO should pick a much larger G than it does locally. **The
+question this section answers: does AUTO land on the sweep's optimum there
+too?** If it does not, the rule is wrong and the number it should use is here.""")
+
+code(r"""
+print("G: records in flight, at two shapes")
+for name, n, L in (("g_40x1200", 40, 1200), ("g_24x4800", 24, 4800)):
+    fa = fasta(name, n, L)
+    print("  %s:" % name)
+    best, best_g = None, None
+    for g in (1, 2, 4, 8, 16, 32, 64):
+        r = runm("G_%s_%d" % (name, g), fa, reps=3, mega=True,
+                 extra_env={"RNA_MK_RECORDS": str(g), "RNA_FML_INT16": "1"})
+        gs = share_of("G_%s_%d" % (name, g))
+        print("    G=%-3d wall %7.2f s  spread %4.1f%%  grid.sync %s"
+              % (g, r["wall"], 100*r["wall_spread"], ("%.1f%%" % gs) if gs else "-"))
+        if best is None or r["wall"] < best:
+            best, best_g = r["wall"], g
+    a = runm("G_%s_auto" % name, fa, reps=3, mega=True, extra_env={"RNA_FML_INT16": "1"})
+    ref = runm("G_%s_ref" % name, fa, reps=3, mega=False, extra_env={"RNA_FML_INT16": "1"})
+    print("    AUTO     wall %7.2f s   (sweep best was G=%d at %.2f s)" % (a["wall"], best_g, best))
+    print("    per-phase wall %7.2f s" % ref["wall"])
+    print("    AUTO vs sweep best : %+.1f%%" % (100.0*(a["wall"]-best)/best))
+    print("    fused vs per-phase : %+.1f%%" % (100.0*(a["wall"]-ref["wall"])/ref["wall"]))
+""")
+
+# --------------------------------------------------------------------------
+md(r"""## H. Where stage 1 actually stands
+
+The honest bar. Fused-at-AUTO against the per-phase path, at the shapes that
+matter, interleaved and repeated.
+
+Stage 0 was a structure and was expected to lose. Stage 1a (int16) does not
+change that by itself. What this section decides is **which phase to attack
+next**, and the plan and the measurement currently disagree:
+
+- the plan's stage 1b is the `c` window in shared memory, justified as
+  "int_loop stops reading DRAM";
+- but int_loop is **latency**-bound, not DRAM-bound (4–5 % of DRAM peak, L2 hit
+  ~82 %, stalls are `wait` 23 % with memory only 12–16 %). Shared memory buys
+  latency there, not traffic.
+- `md` is the bandwidth-bound one (82.8 % of DRAM peak at production), and it is
+  the phase the whole fusion exists to serve.
+
+So if this section shows `md` at or above `int_loop` in the fused mix, stage 2
+(the fML corner cache) should come before stage 1b, and the plan's order should
+change. The corner arithmetic says a corner of 9 % of the triangle captures
+21.6 % of md's traffic, and at the measured elasticity (41 % of md's time is
+bytes) that is worth about −3.9 s of wall at production.""")
+
+code(r"""
+print("H: fused (AUTO) vs per-phase, interleaved")
+for name, n, L in (("h_40x1200", 40, 1200), ("h_24x4800", 24, 4800), ("h_8x9600", 8, 9600)):
+    fa = fasta(name, n, L)
+    med, raw = interleave([("H_%s_ref" % name, dict(mega=False, extra_env={"RNA_FML_INT16":"1"})),
+                           ("H_%s_mk"  % name, dict(mega=True,  extra_env={"RNA_FML_INT16":"1"}))],
+                          fa, reps=3)
+    a, b = med["H_%s_ref" % name], med["H_%s_mk" % name]
+    print("  %-12s per-phase %7.2f s   fused %7.2f s   %+.1f%%"
+          % (name, a, b, 100.0*(b-a)/a))
+    sh = RESULTS.get("H_%s_mk_p2" % name, {}).get("shares")
+    if sh: print("               %s" % sh)
+""")
+
+code(r"""
+print()
+print("PHASE MIX AT THE BEST G -- what to attack next")
+for t in [k for k in RESULTS if k.startswith("H_") and "_mk" in k]:
+    sh = RESULTS[t].get("shares")
+    if not sh: continue
+    d = {kv.split("=")[0]: float(kv.split("=")[1].rstrip("%")) for kv in sh.split()}
+    top = sorted(((v, k) for k, v in d.items() if k != "grid.sync"), reverse=True)[:3]
+    print("  %-22s barrier %5.1f%%   top work: %s"
+          % (t, d.get("grid.sync", -1), ", ".join("%s %.1f%%" % (k, v) for v, k in top)))
+    break
+print()
+print("  IF md >= int_loop HERE, do stage 2 (fML corner cache) BEFORE stage 1b")
+print("  (the c window) -- int_loop is latency-bound, so a shared-memory c window")
+print("  buys it latency, not the traffic the plan credited it with.")
+""")
+
+
 code(r"""
 print("=" * 72)
 print("SUMMARY")
@@ -429,6 +623,19 @@ try:
     print("  D  fused vs per-phase   : %+.1f%% at 24x4800" % (100.0*(rb-ra)/ra))
 except Exception:
     print("  D  fused vs per-phase   : -")
+print()
+try:
+    print("  F  int16 four-arm sha    :",
+          "clean" if len({RESULTS[t]["sha"] for t in
+                          ("F_ref_i32","F_ref_i16","F_mk_i32","F_mk_i16")}) == 1
+          else "*** DISAGREES ***")
+except Exception:
+    print("  F  int16 four-arm sha    : -")
+try:
+    a = RESULTS["G_g_24x4800_auto"]["wall"]; r = RESULTS["G_g_24x4800_ref"]["wall"]
+    print("  G  fused AUTO vs per-ph  : %+.1f%% at 24x4800" % (100.0*(a-r)/r))
+except Exception:
+    print("  G  fused AUTO vs per-ph  : -")
 print()
 print("  READ IT AS: stage 0 is a structure, not a speedup. It is worth continuing")
 print("  if A is clean, B falls with length, and D is inside ~2.5x -- because stages")
