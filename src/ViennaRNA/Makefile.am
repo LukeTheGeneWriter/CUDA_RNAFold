@@ -916,7 +916,9 @@ mfe/cuda/int_loop.lo: $(srcdir)/mfe/cuda/int_loop.cu \
                       $(srcdir)/mfe/cuda/stub2.h \
                       $(srcdir)/mfe/cuda/interior_loopx.h \
                       $(srcdir)/mfe/cuda/nth.h \
-                      $(srcdir)/mfe/cuda/int_loop_kernel_body.inc
+                      $(srcdir)/mfe/cuda/int_loop_kernel_body.inc \
+                      $(srcdir)/mfe/cuda/int_loop_cell.inc \
+                      $(srcdir)/mfe/cuda/int_loop_cells.inc
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
@@ -960,6 +962,8 @@ EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/int_loop_kernel_body.inc \
               mfe/cuda/md_cell.inc \
               mfe/cuda/md_chain_cells.inc \
+              mfe/cuda/int_loop_cell.inc \
+              mfe/cuda/int_loop_cells.inc \
               mfe/cuda/interior_loopx.h \
               mfe/cuda/nth.h \
               mfe/cuda/stub2.h \

@@ -765,6 +765,9 @@ bind_row_tables(const int i) {
 }
 
 //perhaps this can be combined with other kernels?
+// load_my_c's cell, shared with the fused per-record megakernel.
+#include "int_loop_cells.inc"
+
 __global__ void
 load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const int length,
 		 const int* __restrict__ new_e,
@@ -772,29 +775,10 @@ load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const in
 		 const size_t* __restrict__ tri_off_H, //in
 		 const size_t* __restrict__ row_off_H, //in
 		 const size_t* __restrict__ size_off_H, const size_t total, //in
-		 const int* __restrict__ i_H) { //in
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
-  if((size_t)m >= total) return;
-  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
-  const long long mj = (long long)m - (long long)size_off_H[H];
-  // Continuous flow phase A2: the row index is now this record's own. Every
-  // entry equals the old shared scalar i_row today, and the assert proves that
-  // at RUNTIME rather than by argument -- it is exactly the property that stops
-  // holding in phase B, so a divergent table traps instead of folding silently
-  // wrong.
-  const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-  const long long j  = mj + i+turn+1;
-
-  const long long ij = Indx(i,j);
-  // Staggered_Row_Batching Phase 6d: bound the check by THIS H's own triangle
-  // extent. `length` is now max(VC[H]->length) across the batch, so
-  // Hoff(1,length) would let a short H's ij run past its own block undetected
-  // -- the check would still pass while the write below silently landed in the
-  // next H's triangle. Identical to Hoff(1,length) while lengths are uniform.
-  assert(ij>=0 && (size_t)ij < tri_off_H[H+1]-tri_off_H[H]);
-  assert(my_c[tri_off_H[H]+ij] == INF);
-         my_c[tri_off_H[H]+ij] = new_e[row_off_H[H]+j];
+		 const int* __restrict__ i_H) {
+  // The arithmetic lives in int_loop_cells.inc so the megakernel runs exactly this code.
+  load_my_c_cell(nfiles, i_row, length, new_e, my_c, tri_off_H, row_off_H, size_off_H, total, i_H,
+                 blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 PUBLIC void
@@ -1334,6 +1318,10 @@ flatten_index_to_H_warp(const size_t idx, const size_t* __restrict__ flat_off_H,
 #define INT_LOOP_WARP_KERNEL_NAME2(cpb) int_loop_warp_kernel_##cpb
 #define INT_LOOP_WARP_KERNEL_NAME(cpb) INT_LOOP_WARP_KERNEL_NAME2(cpb)
 
+// The interior-loop cell, shared with the fused per-record megakernel: the
+// kernel below is a wrapper around exactly this code.
+#include "int_loop_cell.inc"
+
 template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH>
 __global__ void
 int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
@@ -1376,103 +1364,10 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
     local = cell - size_off_H[H];
   }
 
-  const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);
-  const int j = (int)local + i + turn + 1;
-
-  const long long ij = Indx(i,j);
-  int energy = INF;
-
-  if(Hc(ij,&hccc[hc_off_H[H]])) {
-    const int p0 = i+1;
-    const int q0 = Min_q(i,j,turn);
-    const int maxcol = MIN2(MAXLOOP,(j - 1) - q0);
-    const unsigned int* __restrict__ hccc_H = &hccc[hc_off_H[H]];
-
-    // H1: once per cell, not once per candidate.
-    const cell_inv_t ci = cell_invariants(S,pair_,H,nfiles,i,j);
-
-    // LANE c OWNS COLUMN c, in registers. maxcol <= MAXLOOP = 30 always, so one
-    // warp covers every column there can be -- which is what makes the whole
-    // design possible.
-    unsigned int my_mask = 0u;
-    int          popc    = 0;
-    if(lane <= maxcol) {
-      my_mask = decode_column(p0,q0,lane,hccc_H);
-      popc    = __popc(my_mask);
-    }
-
-    // Inclusive Hillis-Steele scan of popc, unchanged from the twin except that
-    // the result stays in registers. Lanes past maxcol contribute 0 and cannot
-    // affect lower lanes, since __shfl_up_sync only pulls from lower lanes.
-    int incl = popc;
-#pragma unroll
-    for(int off = 1; off < 32; off <<= 1) {
-      const int nv = __shfl_up_sync(0xffffffff, incl, off);
-      if(lane >= off) incl += nv;
-    }
-    const int excl  = incl - popc;                              // prefix[c]
-    const int total = __shfl_sync(0xffffffff, incl, 31);        // prefix[maxcol+1]
-
-    const int iters = (total + 31) >> 5;                        // warp-uniform
-    for(int k = 0; k < iters; k++) {
-      const int  w   = (k << 5) + lane;
-      const bool has = (w < total);
-
-      // Smallest column c with prefix[c+1] > w. FIVE FIXED STEPS, not
-      // `while(lo < hi)`: 2^5 = 32 covers every column, and a fixed trip count
-      // keeps all 32 lanes in every shuffle. Lanes that have already converged
-      // (lo == hi) still execute the shuffle and discard it.
-      int lo = 0;
-      int hi = (maxcol > 0) ? maxcol : 0;
-#pragma unroll
-      for(int s = 0; s < 5; s++) {
-        const int  mid = (lo + hi) >> 1;
-        const int  v   = __shfl_sync(0xffffffff, incl, mid);
-        const bool act = (lo < hi);
-        const bool go  = act && (v > w);
-        hi = go ? mid : hi;
-        lo = (act && !go) ? (mid + 1) : lo;
-      }
-      const int column = lo;
-
-      // Column `column`'s mask and prefix, gathered from the lane that owns
-      // them. A per-lane source index is a legal gather, and both are register
-      // reads -- this is the shared-memory traffic the twin pays.
-      const unsigned int cmask = __shfl_sync(0xffffffff, my_mask, column);
-      const int          cbase = __shfl_sync(0xffffffff, excl,    column);
-
-      if(has) {
-        int popc_unused;
-        const int row = find_nth_set_bit(cmask, w - cbase, popc_unused);
-        assert(row >= 0);
-        const int p = p0 + row;
-        const int q = q0 + column;
-        const int energy2 = Energy(H,nfiles,i,j,q,p, ci,
-                      &my_c[tri_off_H[H]],
-                      up_int ? &up_int[row_off_H[H]] : NULL,
-                      S,pair_,P,
-                      TerminalAU,ninio2,
-                      P->bulge,P->internal_loop,lxc,
-                      P->mismatchI,
-                      P->mismatch1nI,
-                      P->mismatch23I,
-                      P->stack,
-                      P->int11,
-                      P->int21,
-                      P->int22);
-        energy = MIN2(energy,energy2);
-      }
-    }
-  }
-
-  // Warp-wide min. No shared memory and no __syncthreads() at any block size --
-  // which is the whole point.
-#pragma unroll
-  for(int off = 16; off > 0; off >>= 1)
-    energy = MIN2(energy, __shfl_down_sync(0xffffffff, energy, off));
-
-  if(lane == 0) energy_min[row_off_H[H]+j] = energy;
+  // The arithmetic lives in int_loop_cell.inc so the megakernel runs
+  // exactly this code; only the cell derivation above is kernel-specific.
+  int_loop_warp_cell(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
+                     H, local, lane);
 }
 
 // H6: WHICH RECORD IS THIS CELL IN? -- asked once per cell, answered with a
