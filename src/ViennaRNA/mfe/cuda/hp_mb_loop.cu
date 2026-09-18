@@ -954,6 +954,10 @@ E_MLstem_device(const int type, const int si1, const int sj1, const cuda_param2_
   return energy;
 }
 
+// The hairpin/multibranch, new_c and fml_prev cells, shared with the fused
+// per-record megakernel: the kernels below are wrappers around this code.
+#include "hp_mb_cells.inc"
+
 __global__ void
 hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int length,
                  const short* __restrict__ S,
@@ -975,109 +979,9 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
                  const int* __restrict__ len_H,   //continuous flow phase C1
                  const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) {
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
-  if((size_t)m >= total) return;
-  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
-  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
-  // i_row today, and the assert proves that at RUNTIME rather than by
-  // argument -- .cu files never see -DNDEBUG, so a table that ever
-  // disagrees traps instead of folding silently wrong.
-  const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-  const long long mj = (long long)m - (long long)size_off_H[H];
-  const int j = mj + i+turn+1;
-
-  const short* S_H   = &S[seq_off_H[H]];
-  const char*  seq_H = &seq[seq_off_H[H]];
-  const int ij = Indx2(i,j);
-  const unsigned int* Hccc_mb    = &hccc_mb[hc2_off_H[H]];
-  const unsigned int* Hccc_mbenc = &hccc_mbenc[hc2_off_H[H]];
-
-  // The gate new_c_host used to build from Ptype(H,ij)/Hard_constraints(H,ij).
-  // Same two values, same ij (Indx2 here == jindx[j]+i on the host), just read
-  // out of bitmasks by a GPU thread instead of out of two triangles by a host
-  // loop walking them at stride ~j.
-  gate_row[row_off_H[H]+j] = (char)(Hc2(ij,&hccc_any[hc2_off_H[H]])
-                                 | (Hc2(ij,&hccc_gu [hc2_off_H[H]]) << 1));
-
-  //raw_type: the 0->7 fixup must NOT be applied before the rtype[] lookup in
-  //energy_mb below -- mb_loop_fast.c:74,105 uses the raw (possibly-0) type as
-  //the rtype[] index and only fixes up the *result*. energy_hp/energy_3p_00
-  //DO use the fixed-up type directly (hairpin_loops.c:252-255,
-  //fill_arrays.c's old type_ local) -- see `type` below.
-  const int raw_type = (int)Ptype2(S_H,pair,i,j);
-  int type = raw_type;
-  if(type == 0) type = 7;
-
-  //energy_hp: vrna_E_hp_loop()/vrna_eval_hp_loop() do no hc check of their
-  //own (hairpin_loops.c:226-293) -- fill_arrays_loop.c's read site already
-  //gates on hc_decompose/no_close identically to how fill_arrays.c used to
-  //gate the write, so compute unconditionally here (see file header comment).
-  {
-    const int u = j-i-1;
-    energy_hp_row[row_off_H[H]+j] =
-      E_Hairpin_device(u, type, S_H[i+1], S_H[j-1], &seq_H[i-1], P, salt_loop);
-  }
-
-  //energy_mb: mb_loop_fast.c:92-148 (dangle_model==2, cp==-1, sc==NULL path)
-  //-- decomp starts at 0 (NOT INF), only overwritten if the MB_LOOP bit is set.
-  {
-    int decomp = 0;
-    if(Hc2(ij,Hccc_mb)){
-      int tt = P->rtype[raw_type]; //raw_type, NOT type -- see comment above
-      if(tt == 0) tt = 7;
-      // mfe_multibranch.c:686 dispatches ml_pair_d0 / ml_pair_d2 here: d0 closes
-      // the multiloop with a bare stem, d2 with the two flanking bases. Both
-      // read only dmli1, which is why d0 needs no new DP state -- d1/d3 would,
-      // and are declined.
-      //
-      // Belt and braces: mismatchM is already all-zero at d0 (see
-      // E_MLstem_device above), so this selection is redundant TODAY.
-      const int md2 = (P->dangles == 2);
-      decomp = E_MLstem_device(tt, md2 ? S_H[j-1] : -1, md2 ? S_H[i+1] : -1, P)
-               + P->MLclosing;
-    }
-    energy_mb_row[row_off_H[H]+j] = decomp;
-  }
-
-  //energy_3p_00: inlined extend_fm_3p() fragment, fill_arrays.c:551-565
-  //(cp==-1 forced, so ON_SAME_STRAND(...) is always true) -- default INF,
-  //overwritten only if the MB_LOOP_ENC bit is set.
-  {
-    int e00 = INF;
-    if(Hc2(ij,Hccc_mbenc)){
-      // Staggered_Row_Batching: the i==1 wrap must land on THIS record's last
-      // base, not the batch's. `length` is max(VC[H]->length) over the chunk,
-      // so S_H[length] indexed a per-H block of only VC[H]->length+2 shorts:
-      // for any H that isn't the longest it silently read the *next* record's
-      // bases, and for the last H in a chunk it ran off the end of d_S2
-      // entirely (illegal access, reproduced with descending-length input at
-      // RNA_GPU_VRAM_BUDGET_MB=8/16 -- the tail chunk there is 13 records with
-      // batch max 560 whose last record is only 80nt). Recovered from the
-      // offset table rather than a new parameter -- SUPERSEDED by continuous
-      // flow phase C1, which took it from d_len_H instead: seq_off_H's stride is
-      // the SLOT's capacity+2 now, and this read needs the RECORD's length.
-      // Getting that wrong here is exactly the 00d1e07 bug.
-      const int length_H = len_H[H];
-      // This kernel carried no asserts at all, which is the reason the bug
-      // above survived: every S_H read stayed inside the *whole* d_S2
-      // allocation for all but the last H of a chunk, so nothing trapped. The
-      // two reads below are the only ones in this kernel indexed by anything
-      // other than i or j, so bound them against H's own block. j <= length_H
-      // because size_off_H is built from VC[H]->length - i - turn per H (see
-      // fill_arrays_loop.c), making j < length_H + 1.
-      assert(length_H >= 0 && j <= length_H);
-      const short s_i1 = (i==1) ? S_H[length_H] : S_H[i-1];
-      // extend_fm_3p(), mfe_multibranch.c:956 -- `if (dangle_model == 2)` takes
-      // the flanking bases, every other model takes a bare stem. The i==1 wrap
-      // above is still evaluated under d0 so its bounds logic stays exercised;
-      // only the value is discarded. Redundant today for the same reason as the
-      // closing site above.
-      const int md2 = (P->dangles == 2);
-      e00 = E_MLstem_device(type, md2 ? s_i1 : -1, md2 ? S_H[j+1] : -1, P);
-    }
-    energy_3p00_row[row_off_H[H]+j] = e00;
-  }
+  // The arithmetic lives in hp_mb_cells.inc so the megakernel runs exactly this code.
+  hp_mb_3p_cell(nfiles, i_row, turn, length, S, seq, pair, hccc_mb, hccc_mbenc, hccc_any, hccc_gu, P, salt_loop, energy_hp_row, energy_mb_row, energy_3p00_row, gate_row, row_off_H, hc2_off_H, seq_off_H, len_H, size_off_H, total, i_H,
+                blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 
@@ -1147,6 +1051,9 @@ __device__ __forceinline__ int fml_tadd(const int x, const int y) {
 }
 __device__ __forceinline__ int fml_tmin(const int x, const int y) { return (x < y) ? x : y; }
 
+// The fML row scan, shared with the fused per-record megakernel.
+#include "fml_scan_block.inc"
+
 template<int TW>
 __global__ void
 fml_scan_kernel(const int nfiles, const int i_row, const int turn,
@@ -1161,116 +1068,14 @@ fml_scan_kernel(const int nfiles, const int i_row, const int turn,
                 const size_t* __restrict__ seq_off_H,
                 const size_t* __restrict__ size_off_H,
                 const int* __restrict__ i_H) {
+  // The scan lives in fml_scan_block.inc so the megakernel runs exactly this
+  // code; the block-per-record mapping and its shared tiles stay here.
   const int H = blockIdx.x;
   if(H >= nfiles) return;
-  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
-  // i_row today, and the assert proves that at RUNTIME rather than by
-  // argument -- .cu files never see -DNDEBUG, so a table that ever
-  // disagrees traps instead of folding silently wrong.
-  const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-  const long long width = (long long)size_off_H[H+1] - (long long)size_off_H[H];
-  if(width <= 0) return;                  // has not joined the sweep -- whole block returns
-  const size_t o  = row_off_H[H];
-  const size_t so = seq_off_H[H];
-  const int j0     = i + turn + 1;
-  const int MLbase = P->MLbase;
-  const int en_i   = up_ml_ok[so + (size_t)i] ? MLbase : INF;
-
   __shared__ int sa[TW];
   __shared__ int sc[TW];
-
-  int carry = INF;                        // E[j0-1], the host's `j == i+turn+1` special case
-  const int t = threadIdx.x;
-
-  for(long long base = 0; base < width; base += TW) {
-    const long long k = base + t;
-    int a = INF, c = 0;                   // identity, for lanes past the end
-    if(k < width) {
-      const int j = j0 + (int)k;
-      // BOTH OPERANDS, BOTH TERMS. These two lines each guarded exactly one
-      // side of a sum whose other side can be INF, and INF is a SENTINEL, not a
-      // number: INF plus a real negative energy lands just BELOW INF, so it is
-      // no longer recognisable as "no such decomposition" while still being far
-      // too large to win any min against a real energy. The value therefore
-      // survives, invisibly, in fML.
-      //
-      // Upstream guards the operand this code did not: extend_fm_3p()
-      // (mfe/mfe_multibranch.c:949-950) reads `en = c[ij]` and tests
-      // `if (en != INF)` BEFORE adding the stem energy. The e3p00 test here
-      // stands in for its enclosing evaluate(..., VRNA_DECOMP_ML_STEM) instead,
-      // so the c[ij] side was never tested at all. The second line's own
-      // comment already said "hazard 1: en_i NOT guarded" -- it was a known
-      // hazard that had not bitten.
-      //
-      // HOW IT SURFACED: --noClosingGU + RNA_FML_INT16, 2026-09-11. GU/UG pairs
-      // keep MB_LOOP_ENC but lose HP_LOOP and MB_LOOP, so c[i][j] is INF for
-      // many more (i,j) that still reach this sum -- and fML then carried
-      // 9999890 (INF minus an E_MLstem of 110). pack_fml_kernel tests `v == INF`
-      // to choose the FML_INF16 sentinel, 9999890 is not INF, so it became a
-      // block BASELINE and the next real value in that block was 9999710 away
-      // from it. __trap(), correctly.
-      //
-      // On the int32 path this was invisible and harmless -- a ~1e7 value never
-      // wins a min against a real energy -- which is why it survived every
-      // byte-identical run this project has. It is fixed rather than clamped
-      // because the same fML feeds DMLi, and DMLi carrying near-INF sentinels is
-      // PORT_INVESTIGATIONS.md item 3.
-      //
-      // fml_tadd() is the INF-safe add already defined above for exactly this.
-      const int c_term = fml_tadd(new_e[o+j], e3p00[o+j]);
-      const int e3     = fml_tadd(fml_prev[o+j], en_i);
-      a = fml_tmin(c_term, e3);
-      // G-quadruplex (G1). extend_fm_3p()'s gquad case is a SIBLING of its
-      // c[ij] stem case at the same MIN2, not a modifier of it: fM[i][j] can be
-      // one quadruplex spanning i..j instead of one base pair spanning i..j.
-      //
-      //     en = c_gq(i,j) + vrna_E_multibranch_stem(0,-1,-1,P) * n_seq
-      //
-      // and that stem energy is exactly P->MLintern[0]: E_MLstem() takes NONE
-      // of its dangle branches when si1==sj1==-1 (eval/multibranch.h:171-176),
-      // and 0 > 2 is false so no TerminalAU. n_seq == 1 for a single sequence.
-      // Do NOT reach for E_MLstem_device() here -- it indexes
-      // mismatchM[type][si1][sj1] unconditionally, so (0,-1,-1) reads out of
-      // bounds. The host-side identity is what makes the constant safe.
-      //
-      // gq_row is NULL unless a c_gq was uploaded, so with -g off this is one
-      // predicted null test per cell against a kernel-uniform pointer.
-      if (gq_row) {
-        const int g = gq_row[o+j];
-        if (g != INF)
-          a = fml_tmin(a, g + P->MLintern[0]);
-      }
-      c = up_ml_ok[so + (size_t)j] ? MLbase : INF;
-    }
-    sa[t] = a; sc[t] = c;
-    __syncthreads();
-
-    // Hillis-Steele inclusive scan over the composition above. Left operand is
-    // the earlier segment (applied first), right the later one.
-    for(int d = 1; d < TW; d <<= 1) {
-      int na = sa[t], nc = sc[t];
-      if(t >= d) {
-        na = fml_tmin(sa[t], fml_tadd(sa[t-d], sc[t]));
-        nc = fml_tadd(sc[t-d], sc[t]);
-      }
-      __syncthreads();
-      sa[t] = na; sc[t] = nc;
-      __syncthreads();
-    }
-
-    if(k < width) {
-      const int j = j0 + (int)k;
-      energy_min[o+j] = fml_tmin(sa[t], fml_tadd(carry, sc[t]));
-    }
-    // Carry E across the tile boundary. Every thread reads the same lane, so
-    // the new carry is block-uniform without a broadcast.
-    const long long rem  = width - base;
-    const int       last = (int)((rem < TW) ? (rem - 1) : (TW - 1));
-    const int nextcarry  = fml_tmin(sa[last], fml_tadd(carry, sc[last]));
-    __syncthreads();          // everyone has read sa/sc before the next tile overwrites them
-    carry = nextcarry;
-  }
+  fml_scan_block<TW>(nfiles, i_row, turn, new_e, e3p00, gq_row, fml_prev, up_ml_ok, P, energy_min, row_off_H, seq_off_H, size_off_H, i_H,
+                     H, sa, sc);
 }
 
 // Point this file's tables at row i's slot. Issues nothing: the slot was
@@ -1533,64 +1338,10 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
                    int*  __restrict__ cc,             //out noLP: this row
              const size_t* __restrict__ row_off_H,    //in
              const size_t* __restrict__ size_off_H, const size_t total,
-                const int* __restrict__ i_H) { //in
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
-  if((size_t)m >= total) return;
-  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
-  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
-  // i_row today, and the assert proves that at RUNTIME rather than by
-  // argument -- .cu files never see -DNDEBUG, so a table that ever
-  // disagrees traps instead of folding silently wrong.
-  const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-  const long long mj = (long long)m - (long long)size_off_H[H];
-  const int j = mj + i+turn+1;
-  const size_t o = row_off_H[H];
-
-  const unsigned char gate = (unsigned char)gate_row[o+j];
-  // Pair not evaluated. cc[j] is left at the INF the rotation put there, which
-  // is exactly what upstream does -- its noLP block sits inside
-  // `if (hc_decompose)` and rotate_aux_arrays() refills cc with INF.
-  if(!(gate & 1)) { new_e[o+j] = INF; return; }   // pair not evaluated
-
-  int new_c = energy_min2[o+j];
-  if(!(((gate & 2) != 0) && noGUclosure)) {
-    // THE HAIRPIN HALF OF A HARD CONSTRAINT. gate bit 0 carries hc->mx, which
-    // says whether the PAIR (i,j) may close anything; whether its LOOP may be
-    // left unpaired is hc->up_hp, and upstream admits the hairpin only when
-    // up_hp[i+1] >= j-i-1 (wrap_hairpin_hc.inc:42-52). Without this a '|'
-    // constraint under --enforceConstraint was answered with a hairpin whose
-    // loop covered the base it forced to pair -- measured, and better than
-    // legal by 1.3 to 17.4 kcal/mol.
-    const int hp = (up_hp && (up_hp[seq_off_H[H] + i + 1] < (j - i - 1)))
-                   ? INF : energy_hp_row[o+j];
-    if(hp < new_c) new_c = hp;
-    const int d1 = dml1[o+(j-1)];
-    if(d1 != INF) {
-      const int e_mb = d1 + energy_mb_row[o+j];
-      if(e_mb < new_c) new_c = e_mb;
-    }
-  }
-
-  // noLP (mfe/mfe.c:4413). The asymmetry is the whole feature: c[ij] receives
-  // the STACKED value, while the unconstrained new_c survives only in cc[j]
-  // for the next row to stack onto. Writing new_c into c[ij] -- which is what
-  // this sweep did before -- lets a lonely pair through, and worse, leaves
-  // upstream's backtrack (mfe.c:4289, vrna_bt_stacked_pairs) walking a matrix
-  // built under a different convention than the one it assumes.
-  if(stack_row) {
-    const int se = stack_row[o+j];
-    const int p  = cc1[o+(j-1)];
-    // INF is a sentinel, not a number: adding to it would wrap into a
-    // plausible finite energy. Both operands have to be finite.
-    const int stacked = ((p != INF) && (se != INF)) ? (p + se) : INF;
-    if(stacked < new_c) new_c = stacked;   // new_c = MIN2(new_c, cc1[j-1]+se)
-    cc[o+j]   = new_c;                     // carried sideways to row i-1
-    new_e[o+j] = stacked;                  // ... and c[ij] gets the stack only
-    return;
-  }
-
-  new_e[o+j] = new_c;
+                const int* __restrict__ i_H) {
+  // The arithmetic lives in hp_mb_cells.inc so the megakernel runs exactly this code.
+  new_c_cell(nfiles, i_row, turn, noGUclosure, energy_min2, energy_hp_row, energy_mb_row, gate_row, dml1, up_hp, seq_off_H, new_e, stack_row, cc1, cc, row_off_H, size_off_H, total, i_H,
+             blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 // noLP: build this row's vrna_eval_stack() values. Called from new_c_i() only
@@ -1798,25 +1549,10 @@ fml_prev_kernel(const int nfiles, const int i_row, const int turn,
                       int* __restrict__ fml_prev,     //out d_fml_prev
                 const size_t* __restrict__ row_off_H, //in
                 const size_t* __restrict__ size_off_H, const size_t total,
-                const int* __restrict__ i_H) { //in
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
-  if((size_t)m >= total) return;
-  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
-  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
-  // i_row today, and the assert proves that at RUNTIME rather than by
-  // argument -- .cu files never see -DNDEBUG, so a table that ever
-  // disagrees traps instead of folding silently wrong.
-  const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-  const long long mj = (long long)m - (long long)size_off_H[H];
-  const int j = mj + i+turn+1;
-  const size_t o = row_off_H[H];
-
-  if(mj == 0) fml_prev[o + (i+turn)] = INF;   // the diagonal-band cell, per H
-
-  const int a = energy_min[o+j];
-  const int b = dml[o+j];
-  fml_prev[o+j] = (a < b) ? a : b;            // MIN2, without the host macro
+                const int* __restrict__ i_H) {
+  // The arithmetic lives in hp_mb_cells.inc so the megakernel runs exactly this code.
+  fml_prev_cell(nfiles, i_row, turn, energy_min, dml, fml_prev, row_off_H, size_off_H, total, i_H,
+                blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 // Launches fml_prev_kernel, and -- while RNA_ROW_VERIFY is set -- checks it
