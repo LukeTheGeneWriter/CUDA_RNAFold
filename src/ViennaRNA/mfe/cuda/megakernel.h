@@ -116,6 +116,12 @@ void md_mk_ptrs(rnafold_mk_ptrs_t *p);
 int rnafold_megakernel(void);
 
 /*
+ *  Records in flight (RNA_MK_RECORDS, or AUTO). Exposed because it is the
+ *  dial that decides whether the fused kernel beats the per-phase path at all.
+ */
+int rnafold_megakernel_records_in_flight(int total_blocks, int length);
+
+/*
  *  Why this batch cannot use the fused kernel, or NULL if it can.
  *
  *  The refusal list is not a formality. Each item below is a real conditional

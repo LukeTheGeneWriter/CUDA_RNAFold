@@ -216,11 +216,36 @@ cell_invariants(const unsigned int* __restrict__ S, const char* __restrict__ pai
   return c;
 }
 
+/*
+ *  How a cell reads the `c` triangle.
+ *
+ *  Energy() reads it in exactly ONE place, so which memory that read lands in
+ *  is a property of this one type rather than of the recurrence. The default
+ *  below is the triangle in VRAM, which is what every standalone kernel uses
+ *  and which inlines to the same LDG the code had before. The megakernel
+ *  substitutes a reader backed by a shared-memory window over the same cells
+ *  (MAXLOOP bounds the lookback to 31 rows, so a window can hold all of them).
+ *
+ *  A TYPE rather than a flag on purpose: a runtime branch would sit in the
+ *  innermost loop of the hottest kernel, and two copies of the recurrence
+ *  would drift -- and a drifted copy here returns a plausible structure, not a
+ *  crash.
+ */
+struct c_tri_reader {
+  const int *base;                /* already offset to this record's triangle */
+
+  __device__ __forceinline__ int
+  operator()(const int p, const int q) const {
+    return base[Indx(p, q)];
+  }
+};
+
 //interface to interior_loopx.h via IntLoop_X()
+template<class CREAD>
 __device__ inline int
 Energy(const int H, const int nfiles, const int i, const int j, const int q, const int p,
        const cell_inv_t ci,   //H1: computed once per cell by the caller
-	  /*const char* hard_constraints,*/ const int* my_c,
+	  /*const char* hard_constraints,*/ CREAD my_c,
 	  // up_int for THIS record, or NULL when the batch carries no hard
 	  // constraints. See the d_up_int comment at the top of this file.
 	  const unsigned char* __restrict__ up_int,
@@ -287,7 +312,7 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 	  }
 	  assert(eval_loop);
 	  if(eval_loop)*/{
-	    energy = my_c[pq];
+	    energy = my_c(p,q);   // the ONE c read -- see c_tri_reader
 	    if(energy != INF){
 	      //assert(ptype[pq]>=0 && ptype[pq]<8);
 	      //const unsigned char type_2 = rtype[(unsigned char)ptype[pq]];

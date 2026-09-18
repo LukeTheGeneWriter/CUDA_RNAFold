@@ -13,16 +13,16 @@
  * is that lane. The reduction at the end names all 32.
  */
 
+template<class CREAD>
 __device__ inline void
-int_loop_warp_cell(const int nfiles, const int i_row, const int length,
+int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
                 const cuda_param_t* __restrict__ P, const float lxc,
                 const char* __restrict__ pair_,
                 const unsigned int* __restrict__ S,
                 const unsigned int* __restrict__ hccc,
                 const unsigned char* __restrict__ up_int, //in, d_up_int -- NULL when unconstrained
-                const int* __restrict__ my_c,
-                const size_t* __restrict__ tri_off_H,
+                CREAD cread,                  /* where `c` is read FROM */
                 const size_t* __restrict__ row_off_H,
                 const size_t* __restrict__ hc_off_H,
                 const size_t* __restrict__ size_off_H,
@@ -102,7 +102,7 @@ int_loop_warp_cell(const int nfiles, const int i_row, const int length,
         const int p = p0 + row;
         const int q = q0 + column;
         const int energy2 = Energy(H,nfiles,i,j,q,p, ci,
-                      &my_c[tri_off_H[H]],
+                      cread,
                       up_int ? &up_int[row_off_H[H]] : NULL,
                       S,pair_,P,
                       TerminalAU,ninio2,
@@ -148,4 +148,33 @@ int_loop_warp_cell(const int nfiles, const int i_row, const int length,
   }
 
   if(lane == 0) energy_min[row_off_H[H]+j] = energy;
+}
+
+
+/*
+ *  The triangle-backed form, which is what every standalone kernel calls: same
+ *  signature it has always had, so those call sites are untouched.
+ */
+__device__ inline void
+int_loop_warp_cell(const int nfiles, const int i_row, const int length,
+                const int TerminalAU, const int ninio2,
+                const cuda_param_t* __restrict__ P, const float lxc,
+                const char* __restrict__ pair_,
+                const unsigned int* __restrict__ S,
+                const unsigned int* __restrict__ hccc,
+                const unsigned char* __restrict__ up_int,
+                const int* __restrict__ my_c,
+                const size_t* __restrict__ tri_off_H,
+                const size_t* __restrict__ row_off_H,
+                const size_t* __restrict__ hc_off_H,
+                const size_t* __restrict__ size_off_H,
+                const int* __restrict__ i_H,
+                      int* __restrict__ energy_min,
+                   const int H, const size_t local, const int lane) {
+  c_tri_reader cread;
+
+  cread.base = &my_c[tri_off_H[H]];
+  int_loop_warp_cell_r(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
+                       pair_, S, hccc, up_int, cread, row_off_H, hc_off_H,
+                       size_off_H, i_H, energy_min, H, local, lane);
 }

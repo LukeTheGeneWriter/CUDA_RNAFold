@@ -129,7 +129,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
       const int p = p0 + row;
       const int q = q0 + column;
       const int energy2 = Energy(H,nfiles,i,j,q,p, ci,
-	            &my_c[tri_off_H[H]],
+	            c_tri_reader{&my_c[tri_off_H[H]]},
 	            up_int ? &up_int[row_off_H[H]] : NULL,
 	            S,pair_,P,
 	            TerminalAU,ninio2,

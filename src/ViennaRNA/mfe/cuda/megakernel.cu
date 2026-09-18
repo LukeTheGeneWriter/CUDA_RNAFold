@@ -530,15 +530,46 @@ rnafold_megakernel_maxrows(void)
   return v;
 }
 
+/*
+ *  How many records are in flight, and so how much of the device each one
+ *  gets. AUTO by default, because 1 -- the old default -- is the worst
+ *  setting there is: one record's row is at most `length` cells, the grid is
+ *  12 288 threads, and the row's eight grid barriers are paid by a grid that
+ *  is mostly idle. Measured on C_mixed (40 records, sm_86, int16):
+ *
+ *      G=1   2.22 s   grid.sync 66.6 % of block 0's cycles
+ *      G=4   1.31 s
+ *      G=8   1.21 s
+ *      G=16  1.21 s   grid.sync 27.7 %, int_loop 32 %, md 31 %
+ *
+ *  against 1.63 s for the per-phase path -- so the fused kernel is 26 % faster
+ *  once records are co-resident, and 36 % SLOWER when they are not. The whole
+ *  difference is barrier amortisation.
+ *
+ *  AUTO gives each record just enough blocks to cover one row of the longest
+ *  record and spends the rest of the device on more records. `length` is the
+ *  batch maximum, so this is the widest row any record in flight will have.
+ */
 extern "C" int
-rnafold_megakernel_records_in_flight(void)
+rnafold_megakernel_records_in_flight(const int total_blocks, const int length)
 {
   static int v = -1;
 
   if (v < 0) {
     const char *e = getenv("RNA_MK_RECORDS");
 
-    v = (e && e[0]) ? atoi(e) : 1;
+    if (e && e[0]) {
+      v = atoi(e);
+    } else {
+      const int per_rec = (length + MK_BLOCK - 1) / MK_BLOCK;
+      const int b       = (per_rec < 1) ? 1
+                        : ((per_rec > total_blocks) ? total_blocks : per_rec);
+
+      v = total_blocks / b;
+      fprintf(stderr, "megakernel.cu            G=AUTO: %d records in flight, "
+                      "%d blocks each (a %d-cell row needs %d)\n",
+              (v < 1) ? 1 : v, b, length, per_rec);
+    }
     if (v < 1) v = 1;
   }
 
@@ -555,7 +586,8 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
                          const int noGUclosure,
                          const int TerminalAU, const int ninio2, const float lxc)
 {
-  const int G      = rnafold_megakernel_records_in_flight();
+  const int total  = mk_grid_blocks(1);
+  const int G      = (total > 0) ? rnafold_megakernel_records_in_flight(total, length) : 1;
   const int blocks = mk_grid_blocks(G);
   rnafold_mk_ptrs_t p;
   unsigned long long *d_clocks = NULL;
