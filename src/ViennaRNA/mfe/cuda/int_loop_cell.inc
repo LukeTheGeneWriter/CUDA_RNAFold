@@ -121,9 +121,31 @@ int_loop_warp_cell(const int nfiles, const int i_row, const int length,
 
   // Warp-wide min. No shared memory and no __syncthreads() at any block size --
   // which is the whole point.
+  // The warp must be CONVERGED here. Every shuffle below names all 32 lanes,
+  // and the lanes reach this point from divergent branches above (Hc, and the
+  // per-lane  inside the candidate loop). The standalone kernel gets away
+  // without this because the cell IS the kernel body -- one warp, one cell, and
+  // the compiler reconverges at the return. Inlined into the megakernel's
+  //  loop that guarantee is gone, and
+  // under independent thread scheduling the lanes STRANDED at different
+  // unrolled shuffles: measured lane 0 at off=1, lane 1 finished, lanes 2-31 at
+  // off=4, each waiting for a mask that can never assemble.
+  __syncwarp();
 #pragma unroll
-  for(int off = 16; off > 0; off >>= 1)
-    energy = MIN2(energy, __shfl_down_sync(0xffffffff, energy, off));
+  for(int off = 16; off > 0; off >>= 1) {
+    /* The shuffle is hoisted OUT of MIN2 deliberately. MIN2 is a macro that
+     * evaluates its second argument TWICE -- once in the comparison and once in
+     * the false branch -- so `MIN2(x, __shfl_down_sync(...))` makes each lane
+     * execute the second shuffle only if its own comparison came out false.
+     * Lanes then run DIFFERENT numbers of full-mask shuffles and the warp
+     * deadlocks. It survived for a year because the compiler CSEs the two
+     * identical calls in the standalone kernels; inlined into the fused
+     * megakernel it does not, and the warp stranded mid-reduction (measured:
+     * lane 0 at off=1, lane 1 finished, lanes 2-31 at off=4). */
+    const int other = __shfl_down_sync(0xffffffff, energy, off);
+
+    energy = MIN2(energy, other);
+  }
 
   if(lane == 0) energy_min[row_off_H[H]+j] = energy;
 }

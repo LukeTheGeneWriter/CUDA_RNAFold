@@ -150,7 +150,11 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
     // Scan" design doc for why this rewrite bundles both changes).
 #pragma unroll
     for(int offset = 16; offset > 0; offset >>= 1)
-      energy = MIN2(energy, __shfl_down_sync(0xffffffff, energy, offset));
+      {
+        const int other = __shfl_down_sync(0xffffffff, energy, offset);
+
+        energy = MIN2(energy, other);
+      }
     //lane 0 of every warp now holds that warp's minimum.
 #if BLOCK_SIZE > 32
     __shared__ int warp_min[BLOCK_SIZE/32];

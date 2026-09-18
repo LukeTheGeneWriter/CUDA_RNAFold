@@ -114,7 +114,11 @@ md_cell(
   // each exchange to one cell's lane group. Compiles to nothing when TILE==1.
 #pragma unroll
   for(int off = TILE/2; off > 0; off >>= 1)
-    value = MIN2(value, __shfl_down_sync(0xffffffff, value, off, TILE));
+    {
+      const int other = __shfl_down_sync(0xffffffff, value, off, TILE);
+
+      value = MIN2(value, other);
+    }
 
   if(active && lane == 0) {
     dml[out] = value;
