@@ -88,6 +88,11 @@ namespace cg = cooperative_groups;
 #define MK_WARPS   (MK_BLOCK / 32)
 #define MK_TILE    32          /* lanes per cell in int_loop and md */
 
+/* How far back an interior loop can reach: MAXLOOP=30 unpaired bases, so cell
+ * (i,j) reads c(p,q) only for p in [i+1,i+31] and q in [j-31,j-1]. Both the
+ * ring's depth and the window's left margin are this number. */
+#define MK_CW_BACK 31
+
 /* Phase clocks. clock64() is a per-SM cycle counter, so these are summed over
  * blocks and only ever compared with each other -- a share of the row, not a
  * wall time. Block 0 alone writes, to keep the atomics off the critical path. */
@@ -200,6 +205,36 @@ megakernel_record(const rnafold_mk_ptrs_t p,
   __shared__ int sa[MK_BLOCK];
   __shared__ int sc[MK_BLOCK];
 
+  /*
+   *  Stages 1b and 2 live here, and both need the SAME thing from the
+   *  schedule: a block must own a FIXED range of absolute columns for the
+   *  whole sweep, or nothing it caches survives to the next row.
+   *
+   *  That is a real trade. Striding cells (stage 0) balances every row
+   *  perfectly; owning columns leaves a block idle until the sweep reaches its
+   *  range, because row i only has columns [i+turn+1, len]. Blocks owning high
+   *  columns work on every row and blocks owning low columns work only late.
+   *  An equal-width split is therefore NOT work-balanced -- column j carries
+   *  (j-turn-1) cells over the sweep, so a balanced split would put the
+   *  boundaries at j = len*sqrt(b/B). That is left for the tuning pass: a
+   *  balanced split makes the widest block ~len/sqrt(B) columns wide, and the
+   *  window is sized by the WIDEST block, so it costs shared memory exactly
+   *  where there is none.
+   */
+  extern __shared__ int mk_dyn[];
+
+  const int cwW  = p.cw_cols;                       /* columns owned          */
+  const int cwC  = cwW + MK_CW_BACK;                /* window columns         */
+  const int Jown = turn_ + 2 + (int)blockIdx.x * cwW;   /* first owned column */
+  const int Jend = Jown + cwW;
+  const int Qlo  = Jown - MK_CW_BACK;               /* window's first column  */
+
+  int *const cring  = (cwW && p.cw_on)    ? mk_dyn : NULL;
+  int *const corner = (cwW && p.corner_k) ? (mk_dyn + (p.cw_on ? 32 * cwC : 0)) : NULL;
+
+  /* Column ownership drives the work split whenever EITHER cache is on. */
+  const int owns = (cwW != 0);
+
   long long _mark = clock64();
 
   for (int i = i_top; i >= 1; i--) {
@@ -227,18 +262,73 @@ megakernel_record(const rnafold_mk_ptrs_t p,
       clocks[MK_DBG_CELLS] += (unsigned long long)(width > 0 ? width : 0);
     }
 
+    /* ---- stage 1b: bring the `c` ring up to date --------------------------
+     * Row i needs rows i+1..i+31. Every one but row i+1 is already on chip
+     * from the previous iteration, so steady state is ONE row of the block's
+     * column span per sweep row. The first row of the sweep fills all 31.
+     *
+     * Reading row i+1 here is safe because load_my_c wrote it last iteration
+     * and two grid barriers have passed since. */
+    if (cring) {
+      const int    lenH  = p.len_H[H];
+      const size_t triH  = p.tri_off_H[H];
+      const int    pfirst = i + 1;
+      const int    plast  = (i == i_top) ? (i + MK_CW_BACK) : (i + 1);
+
+      for (int pp = pfirst; pp <= plast; pp++) {
+        int *const dst = cring + ((pp & 31) * cwC);
+
+        for (int t = (int)threadIdx.x; t < cwC; t += (int)blockDim.x) {
+          const int q = Qlo + t;
+          /* Outside the record's triangle the cell does not exist; INF is what
+           * the recurrence expects there and what my_c holds anyway. */
+          dst[t] = ((pp >= 1) && (q > pp) && (q <= lenH))
+                 ? p.my_c[triH + Indx(pp, q)]
+                 : INF;
+        }
+      }
+      __syncthreads();
+    }
+
     /* ---- interior loops and the hairpin/multibranch terms -----------------
      * Independent of each other: int_loop reads `c` rows below i, hp_mb_3p
      * reads only the sequence, the parameters and the masks. They share this
      * phase for that reason -- it is the same independence RNA_STREAM_OVERLAP
      * level 1 exploits with two streams. */
-    if (!(skip & MK_SKIP_INT_LOOP))
-      for (long long c = gwarp; c < width; c += nwarps)
-        int_loop_warp_cell(nfiles, i, length, p.TerminalAU, p.ninio2,
-                           (const cuda_param_t *)p.param, p.lxc, p.pair, p.S, p.hccc,
-                           p.up_int, p.my_c, p.tri_off_H, p.row_off_H, p.hc_off_H,
-                           size_off, i_H, p.energy_min2,
-                           H, (size_t)c, lane);
+    if (!(skip & MK_SKIP_INT_LOOP)) {
+      if (owns) {
+        /* One warp per cell, cells taken from the block's own columns. */
+        const int j0  = i + turn_ + 1;
+        const int jlo = (Jown > j0) ? Jown : j0;
+        const int jhi = (Jend < j0 + (int)width) ? Jend : (j0 + (int)width);
+
+        if (cring) {
+          c_win_reader cw;
+
+          cw.sm = cring; cw.q0 = Qlo; cw.stride = cwC;
+          for (int j = jlo + wib; j < jhi; j += MK_WARPS)
+            int_loop_warp_cell_r(nfiles, i, length, p.TerminalAU, p.ninio2,
+                                 (const cuda_param_t *)p.param, p.lxc, p.pair,
+                                 p.S, p.hccc, p.up_int, cw, p.row_off_H,
+                                 p.hc_off_H, size_off, i_H, p.energy_min2,
+                                 H, (size_t)(j - j0), lane);
+        } else {
+          for (int j = jlo + wib; j < jhi; j += MK_WARPS)
+            int_loop_warp_cell(nfiles, i, length, p.TerminalAU, p.ninio2,
+                               (const cuda_param_t *)p.param, p.lxc, p.pair,
+                               p.S, p.hccc, p.up_int, p.my_c, p.tri_off_H,
+                               p.row_off_H, p.hc_off_H, size_off, i_H,
+                               p.energy_min2, H, (size_t)(j - j0), lane);
+        }
+      } else {
+        for (long long c = gwarp; c < width; c += nwarps)
+          int_loop_warp_cell(nfiles, i, length, p.TerminalAU, p.ninio2,
+                             (const cuda_param_t *)p.param, p.lxc, p.pair, p.S, p.hccc,
+                             p.up_int, p.my_c, p.tri_off_H, p.row_off_H, p.hc_off_H,
+                             size_off, i_H, p.energy_min2,
+                             H, (size_t)c, lane);
+      }
+    }
     MK_TICK(MK_PH_INT_LOOP);
 
     if (!(skip & MK_SKIP_HP_MB))
@@ -332,13 +422,30 @@ megakernel_record(const rnafold_mk_ptrs_t p,
     MK_TICK(MK_PH_SYNC);
 
     /* ---- the decomposition itself: the phase everything else exists for --- */
-    if (!(skip & MK_SKIP_MD))
-      for (long long c = gwarp; c < dwidth; c += nwarps)
+    if (!(skip & MK_SKIP_MD)) {
+      fml_corner_t cc;
+
+      cc.sm = corner; cc.J0 = Jown; cc.K = p.corner_k;
+      if (owns) {
+        const int d0  = i + 2 * (turn_ + 1) + 1;   /* first md column of row i */
+        const int dlo = (Jown > d0) ? Jown : d0;
+        const int dhi = (Jend < d0 + (int)dwidth) ? Jend : (d0 + (int)dwidth);
+
+        for (int j = dlo + wib; j < dhi; j += MK_WARPS)
+          md_cell<MK_TILE>(nfiles, i, turn_, length, p.fml_i, p.fml_j,
+                           p.fml_j16, p.fml_b, p.base_off_H, p.colb_off,
+                           p.dml, p.fm2, p.tri_off_H, p.row_off_H,
+                           side_off, dtotal, i_H,
+                           (long long)dbase + (j - d0), lane, cc);
+      } else {
+        for (long long c = gwarp; c < dwidth; c += nwarps)
           md_cell<MK_TILE>(nfiles, i, turn_, length, p.fml_i, p.fml_j,
                        p.fml_j16, p.fml_b, p.base_off_H, p.colb_off,
                        p.dml, p.fm2, p.tri_off_H, p.row_off_H,
                        side_off, dtotal, i_H,
-                       (long long)dbase + c, lane);
+                       (long long)dbase + c, lane, cc);
+      }
+    }
     MK_TICK(MK_PH_MD);
 
     MK_SYNC();
@@ -382,6 +489,26 @@ megakernel_record(const rnafold_mk_ptrs_t p,
                       size_off, stotal, i_H,
                       (long long)sbase + c);
     MK_TICK(MK_PH_PACK);
+
+    /* ---- stage 2: row i joins the corner cache ---------------------------
+     * Row i of fML is final now (both writers, and pack, have run). Entry
+     * (i,j) sits at offset (j-turn-1)-i of column j and is first READ by md at
+     * sweep row i-turn-2, so it is on chip well before anyone wants it.
+     *
+     * Read back from fml_row under int16 -- it is this row in full int32, so
+     * the cache never holds a packed delta -- and from the triangle otherwise. */
+    if (corner) {
+      const int lenH = p.len_H[H];
+
+      for (int j = Jown + (int)threadIdx.x; j < Jend; j += (int)blockDim.x) {
+        const int off = (j - turn_ - 1) - i;
+
+        if ((off >= 0) && (off < p.corner_k) && (j <= lenH) && (j >= i + turn_ + 1))
+          ((int *)corner)[(size_t)(j - Jown) * (size_t)p.corner_k + (size_t)off] =
+            p.fml_row ? p.fml_row[p.row_off_H[H] + j]
+                      : p.fml_j[p.tri_off_H[H] + Indx(i, j)];
+      }
+    }
 
     /* md_snapshot_dml()'s device-to-device copy, restricted to this record's
      * row. The standalone path copies the whole batch's row buffer on the md
@@ -464,6 +591,10 @@ mk_grid_blocks(const int G)
         (cudaGetDeviceProperties(&prop, dev) != cudaSuccess))
       return 0;
     sms = prop.multiProcessorCount;
+    /* Shared memory is planned from the block count, which is what this
+     * returns, so the geometry cannot be fed back in here without a fixed
+     * point. Measured at 0 and then honoured by the planner's budget instead:
+     * RNA_MK_SMEM_KB is the cap that keeps the launch resident. */
     if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&per_sm, megakernel_record,
                                                       MK_BLOCK, 0) != cudaSuccess)
       return 0;
@@ -550,6 +681,59 @@ rnafold_megakernel_maxrows(void)
  *  record and spends the rest of the device on more records. `length` is the
  *  batch maximum, so this is the widest row any record in flight will have.
  */
+static int
+mk_env(const char *name, const int dflt)
+{
+  const char *e = getenv(name);
+
+  return (e && e[0]) ? atoi(e) : dflt;
+}
+
+/*
+ *  Stages 1b and 2 both need blocks to own fixed columns, and both are paid
+ *  for in shared memory, so one function decides the whole on-chip geometry.
+ *
+ *  It can decline. A block owns W = ceil(span / blocks) columns, and W grows
+ *  when a record gets FEWER blocks -- which is exactly what AUTO G does to
+ *  maximise records in flight. So the two dials pull against each other, and
+ *  at a long record with few blocks the ring alone can want more shared memory
+ *  than an SM has. Degrading (corner first, then the ring, then column
+ *  ownership itself) keeps the fused kernel correct at every size instead of
+ *  refusing the fold.
+ */
+static void
+mk_plan_smem(const int blocks, const int length, const int turn,
+             int *cw_cols, int *cw_on, int *corner_k, size_t *bytes)
+{
+  const int  want_ring   = mk_env("RNA_MK_CWIN", 1);
+  const int  want_corner = mk_env("RNA_MK_CORNER", 1);
+  const int  budget_kb   = mk_env("RNA_MK_SMEM_KB", 32);
+  const size_t budget    = (size_t)budget_kb * 1024u;
+  const int  span        = (length > turn + 1) ? (length - turn - 1) : 1;
+  int        W           = (span + blocks - 1) / blocks;
+  int        K           = want_corner ? mk_env("RNA_MK_CORNER_K", 32) : 0;
+  int        ring        = want_ring ? 1 : 0;
+
+  *cw_cols = 0; *cw_on = 0; *corner_k = 0; *bytes = 0;
+  if (W < 1) W = 1;
+  if (!ring && !K)
+    return;                      /* both off: stage 0's cell striding */
+
+  for (;;) {
+    const size_t nring = ring ? (size_t)32 * (size_t)(W + MK_CW_BACK) * sizeof(int) : 0;
+    const size_t ncorn = (size_t)K * (size_t)W * sizeof(int);
+
+    if (nring + ncorn <= budget) {
+      *cw_cols = W; *cw_on = ring; *corner_k = K; *bytes = nring + ncorn;
+      return;
+    }
+    if (K > 8)        K /= 2;        /* the corner degrades gracefully */
+    else if (K)       K = 0;
+    else if (ring)    ring = 0;      /* then the ring */
+    else              return;        /* then column ownership itself */
+  }
+}
+
 extern "C" int
 rnafold_megakernel_records_in_flight(const int total_blocks, const int length)
 {
@@ -590,6 +774,8 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
   const int G      = (total > 0) ? rnafold_megakernel_records_in_flight(total, length) : 1;
   const int blocks = mk_grid_blocks(G);
   rnafold_mk_ptrs_t p;
+  size_t mk_smem_bytes = 0;
+  int    mk_cw_cols = 0, mk_cw_on = 0, mk_corner_k = 0;
   unsigned long long *d_clocks = NULL;
   volatile unsigned int *h_prog = NULL;
   unsigned int *d_prog = NULL;
@@ -601,6 +787,37 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
     return -1;
   }
 
+  {
+    size_t smem = 0;
+    int    cw = 0, on = 0, kk = 0;
+
+    mk_plan_smem(blocks, length, turn, &cw, &on, &kk, &smem);
+    /* Above 48 KB a kernel must ASK for the larger dynamic allocation, and the
+     * ask can fail -- an older card, or a limit already raised elsewhere. On
+     * failure the geometry is replanned inside 48 KB rather than launched with
+     * a size the driver will reject. */
+    if (smem > 48u * 1024u) {
+      if (cudaFuncSetAttribute((const void *)megakernel_record,
+                               cudaFuncAttributeMaxDynamicSharedMemorySize,
+                               (int)smem) != cudaSuccess) {
+        cudaGetLastError();
+        fprintf(stderr, "megakernel.cu            %zu KB of shared refused -- "
+                        "replanning inside 48 KB\n", smem / 1024);
+        setenv("RNA_MK_SMEM_KB", "48", 1);
+        mk_plan_smem(blocks, length, turn, &cw, &on, &kk, &smem);
+      }
+    }
+    mk_smem_bytes = smem;
+    mk_cw_cols = cw; mk_cw_on = on; mk_corner_k = kk;
+    fprintf(stderr, "megakernel.cu            on-chip: %d columns per block, "
+                    "c-ring %s, fML corner K=%d, %zu KB shared\n",
+            cw, on ? "ON" : "off", kk, smem / 1024);
+    if (cw && (blocks > 1))
+      fprintf(stderr, "megakernel.cu            NOTE: column ownership is not "
+                      "work-balanced -- a block is idle until the sweep reaches "
+                      "its columns\n");
+  }
+
   memset(&p, 0, sizeof(p));
   int_loop_mk_ptrs(&p);
   hp_mb_mk_ptrs(&p);
@@ -610,6 +827,9 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
   p.TerminalAU = TerminalAU;
   p.ninio2     = ninio2;
   p.lxc        = lxc;
+  p.cw_cols    = mk_cw_cols;
+  p.cw_on      = mk_cw_on;
+  p.corner_k   = mk_corner_k;
   p.rt_size    = rnafold_rowtab_size_base();
   p.rt_side    = rnafold_rowtab_side_base();
   p.rt_ih      = rnafold_rowtab_ih_base();
@@ -672,8 +892,8 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
       args[8] = &a_skip;   args[9] = &a_prog;
 
       rc = cudaLaunchCooperativeKernel((const void *)megakernel_record,
-                                       dim3(blocks), dim3(MK_BLOCK), args, 0,
-                                       streams[k % G]);
+                                       dim3(blocks), dim3(MK_BLOCK), args,
+                                       mk_smem_bytes, streams[k % G]);
       if (rc != cudaSuccess) {
         fprintf(stderr, "megakernel.cu            cooperative launch failed: %s\n",
                 cudaGetErrorString(rc));

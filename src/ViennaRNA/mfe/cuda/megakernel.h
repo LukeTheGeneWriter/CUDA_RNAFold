@@ -97,6 +97,13 @@ typedef struct {
   const size_t       *base_off_H;
   const size_t       *colb_off;
 
+  /* Stages 1b and 2: the on-chip geometry, decided by the host because it is
+   * what the shared-memory budget allows. cw_cols == 0 means both are off and
+   * the fused kernel strides cells exactly as stage 0 did. */
+  int                 cw_cols;      /* columns each block OWNS for the sweep */
+  int                 cw_on;        /* stage 1b: the 32-row `c` ring         */
+  int                 corner_k;     /* stage 2: fML entries cached per column */
+
   /* device.cu -- the chunk's row tables, indexed by sweep row */
   const size_t       *rt_size;
   const size_t       *rt_side;

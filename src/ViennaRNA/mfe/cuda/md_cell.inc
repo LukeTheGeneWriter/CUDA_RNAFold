@@ -24,7 +24,8 @@ md_cell(
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H,
-        const long long m, const int lane) {
+        const long long m, const int lane,
+  const fml_corner_t corner) {   /* stage 2; .sm==NULL disables */
   // Power of two <= 32 so a tile is a contiguous, warp-aligned lane group and
   // __shfl_down_sync()'s `width` can partition the warp for us. The launcher
   // additionally requires blockDim.x % 32 == 0, which is what makes "same
@@ -94,7 +95,12 @@ md_cell(
         const long long yij = y + ij0;
         assert(yij < Hoff(nfiles,length));
         assert(idx0 + y - 1 >= 0);   // the precondition the unsigned cast relies on
-        const int  d = fml_decode(fml_j16, fml_b, tri_off_H[H]+yij,
+        // Stage 2: the last K iterations of this loop are the entries nearest
+        // the diagonal, which are the ones re-read every row -- serve those
+        // from shared and decode only the rest.
+        const int  d = fml_corner_hit(corner, j, x - y)
+                     ? fml_corner_get(corner, j, x - y)
+                     : fml_decode(fml_j16, fml_b, tri_off_H[H]+yij,
                                   bcell + (size_t)((unsigned)(idx0 + y - 1)/FML_BLK));
         value = MIN2(fml_i[row_off_H[H]+y] + d, value);
       }
@@ -105,7 +111,11 @@ md_cell(
       assert(y<=x);
       const long long yij = y + ij0;
       assert(yij < Hoff(nfiles,length));
-      value = MIN2(fml_i[row_off_H[H]+y] + fml_j[tri_off_H[H]+yij], value);
+      const int fj = fml_corner_hit(corner, j, x - y)
+                   ? fml_corner_get(corner, j, x - y)
+                   : fml_j[tri_off_H[H]+yij];
+
+      value = MIN2(fml_i[row_off_H[H]+y] + fj, value);
     }
   }
 

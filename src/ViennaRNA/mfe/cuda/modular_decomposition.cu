@@ -1158,7 +1158,10 @@ modular_decomposition_kernel(
   md_cell<TILE>(nfiles, i_row, turn, length, fml_i, fml_j, fml_j16, fml_b,
                 base_off_H, colb_off, dml, fm2, tri_off_H, row_off_H,
                 side_off_H, total, i_H,
-                gtid / TILE, (int)(gtid & (TILE-1)));
+                gtid / TILE, (int)(gtid & (TILE-1)),
+                /* stage 2: the standalone kernel owns no shared window, so the
+                 * corner is disabled and every read goes to the triangle. */
+                fml_corner_t{NULL, 0, 0});
 }
 
 // RNA_MD_SMEM=1 -- route to modular_decomposition_smem_kernel, which stages the
