@@ -302,7 +302,16 @@ def run(tag, fa, chunk_cap=0, vram_mb=None, pipeline=None, phase_sync=True,
     m = re.search(r"Maximum resident set size \(kbytes\): (\d+)", err)
     if m: rss = int(m.group(1))/1e6
     a = AUTO_RE.search(err)
+    # ENGAGEMENT, taken from what the binary says about itself rather than from
+    # a downstream proxy. Scaling J (2026-09-18) reported "int16 DID NOT ENGAGE"
+    # off a VRAM reading while int16 was plainly working (md -20.7%): the
+    # chunker absorbs the VRAM saving, so VRAM was never evidence. The banners
+    # are.
+    pin = re.search(r"pinning costs ([0-9.]+) s/GB here -> backtrack scratch (\w+)", err)
     r = dict(wall=wall, phases=ph, stages=st, chunks=len(shapes),
+             int16_on=("RNA_FML_INT16=1" in err),
+             pin_s_per_gb=float(pin.group(1)) if pin else None,
+             pin_mode=pin.group(2) if pin else None,
              cells=sum(int(s[2]) for s in shapes), rss=rss, vram_mb=vram_peak(clk),
              sha=__import__("hashlib").sha256(p.stdout.encode()).hexdigest()[:12],
              fa=os.path.basename(fa), chunk_cap=chunk_cap, budget_mb=vram_mb,
@@ -948,14 +957,18 @@ print("  shas:", shas, "" if len(shas)==1 else "  *** int16 CHANGED AN ANSWER --
 
 # DID IT ENGAGE? The gate declines to int32 on its own if the loaded parameter
 # table breaks the offset bound, and a declined arm looks exactly like a null
-# result. VRAM is the observable: the fML triangle halves, so peak VRAM must
-# fall by roughly a quarter. Without this check a silent decline would be
-# reported as "int16 does not help", which is the failure this project keeps
-# finding in its own probes.
+# result. Ask the BINARY -- it prints "RNA_FML_INT16=1" when the encoding is
+# live. (The first version of this check used VRAM and cried wolf: the chunker
+# sizes chunks from an int32-only model, so the saving never reaches the VRAM
+# high-water mark at this shape. That is itself worth chasing -- see K.)
+if not all(RESULTS[t].get("int16_on") for t in i16 if t in RESULTS):
+    print("  *** int16 DID NOT ENGAGE (no banner). Nothing below is about int16.")
+if any(RESULTS[t].get("int16_on") for t in i32 if t in RESULTS):
+    print("  *** the int32 arms ran WITH int16. The comparison is meaningless.")
 v32, v16 = _mean(i32, lambda r: r["vram_mb"] or 0), _mean(i16, lambda r: r["vram_mb"] or 0)
-if v32 and v16 and (v16 > 0.95*v32):
-    print("  *** int16 DID NOT ENGAGE: VRAM %.0f -> %.0f MB. Nothing below is about int16."
-          % (v32, v16))
+print("  VRAM %.0f -> %.0f MB (%.1f%%): a saving smaller than the K arms' -22%% means"
+      % (v32, v16, 100.0*(v16-v32)/v32 if v32 else 0.0))
+print("  the chunker never converted it into wider chunks -- gpu_bytes_per_file() is int16-blind.")
 md32, md16 = _mean(i32, lambda r: r["phases"]["modular_decomp"]), _mean(i16, lambda r: r["phases"]["modular_decomp"])
 if md32 == md32 and md32:
     cut = 100.0*(md32-md16)/md32
@@ -966,43 +979,48 @@ if md32 == md32 and md32:
 """)
 
 # --------------------------------------------------------------------------
-md(r"""## K. Does residency exist? The records-in-flight sweep — and it needs no new code
+md(r"""## K. int16: where does it start paying, and is the cost host-side or device-side?
 
-The megakernel scope (`PORT_MEGAKERNEL_SCOPE.md` §2a) claims the cheap half of
-T1's prize is **L2 residency per record**: one int16 triangle is 31.4 MB against
-40 MB of L2, so if only a few records are in flight, md's re-reads could come
-from L2 (~4–5 TB/s) instead of DRAM (1.55 TB/s). Pinning it with
-`cudaAccessPolicyWindow` needs code — **but the hypothesis does not.** Fewer
-records in a chunk *is* a smaller live set, so the sweep below tests it with a
-knob that already exists.
+**What the last run (2026-09-18) established.** int16 at 400 x 5601 is
+**md 37.56 -> 29.79 s (-20.7 %), wall 88.22 -> 81.29 (-7.9 %)**, byte-identical,
+with `hp_mb` unmoved — which finally retires the "int16 makes hp_mb 30 s worse"
+story as the attribution artefact it was. But the *same* encoding measured
+**+3.3 % on md with two records in flight**, and its advantage grew monotonically
+with the record count: +3.3, -3.1, -9.7, -15.1, -19.7, -20.9 % at 2/4/8/16/64/200.
 
-**The metric must be work-normalised**, because changing the record count changes
-the grid, and §34.1 showed DRAM % is a property of the grid. So this reports
-**nanoseconds per lane-iteration**: the md phase divided by the exact iteration
-count `sum_i n_i(n_i+1)/2`, `n_i = max(0, L−i−2·turn−2)` per record — the same
-count the kernel performs. DRAM % is printed too, but as *mechanism*, not
-evidence: it falls with small grids whatever happens.
+**Luke's reading, which this section is built to test:** int16 carries a fixed
+conversion overhead, and only once enough work flows through the device does the
+cheaper device-side stream overcome it. There are two candidate overheads and
+they live on opposite sides of the PCIe bus:
 
-**Written before the run.** If residency is real: ns/iteration is **lowest at the
-smallest record counts** and rises as the live set outgrows L2, and **int16 moves
-the knee to larger counts** because its triangle is half the size. If ns/iteration
-is **flat across the sweep**, there is no residency to win, §2(a) is dead, and the
-megakernel's on-chip half (§2b) is the only path left to T1 — which would be a
-much more expensive answer arrived at cheaply.""")
+| | where | cost model | how it would show |
+|---|---|---|---|
+| **host** | `fetch_fML_one_Hw()` decodes 16-bit offsets back to int32, per cell, per record, after the sweep | proportional to records | `fetch_mx` rises with int16, scaling with n |
+| **device** | `fml_decode()` adds a baseline and a shift per element, inside the hot loop | proportional to work, but only *wins* when DRAM is the bound | `modular_decomp` rises with int16 at small n, falls at large n |
+
+**Written before the run.** The 200-record numbers already say `md` itself is
++3.3 % at n=2, and md is pure device time — so the small-n loss should be
+**device-side**, and the host decode should be a roughly constant *per record*
+tax that never explains a crossover on its own. If instead `fetch_mx` per record
+falls with n while `md` per iteration is flat, the hypothesis is the other way
+round and the decode is what to attack.
+
+The arms are phase-synced so `modular_decomp` (device) and `fetch_mx` (host
+decode) are separately honest, and the table reports both **per record** so a
+fixed cost and a proportional one cannot be confused.""")
 
 code(r"""
-print("K: records in flight vs md cost per lane-iteration -- ~10 min")
+print("K: the int16 crossover, device side vs host side -- ~9 min")
 K_L, K_TURN = 5601, 3
+K_N = [2, 8, 32, 128, 400]
 def md_iters(L, n_records, turn=K_TURN):
     # exactly what the kernel walks: per row i, cells j, each iterating y=0..x
     tot = 0
     for i in range(1, L+1):
         n = L - i - 2*turn - 2
-        if n <= 0: continue
-        tot += n*(n+1)//2
+        if n > 0: tot += n*(n+1)//2
     return tot * n_records
 
-K_N = [2, 4, 8, 16, 64, 200]
 for n in K_N:
     fa = fasta("k_%d" % n, n, K_L)
     for tag, i16 in (("K_%d_i32" % n, False), ("K_%d_i16" % n, True)):
@@ -1010,8 +1028,8 @@ for n in K_N:
 """)
 
 code(r"""
-print("K: the same sweep under ncu -- L2 hit rate is the mechanism")
-for n in (2, 16, 200):
+print("K: waves per SM at three points -- the confound the first version missed")
+for n in (2, 32, 400):
     fa = fasta("k_%d" % n, n, K_L)
     profile("K_md_%d_i32" % n, "modular_decomposition_kernel", fa, skip=K_L//8,
             env_extra={"RNA_FML_INT16": "0"})
@@ -1021,36 +1039,63 @@ with open("/content/scaling_ncu.json","w") as f: json.dump(NCU, f, indent=1)
 """)
 
 code(r"""
-print("  %5s %9s %11s %11s %9s %9s" % ("recs", "live MB", "ns/iter i32", "ns/iter i16", "L2 i32", "L2 i16"))
-base = None
-for n in K_N:
-    it = md_iters(K_L, n)
-    # int16 triangle bytes in flight: n records x (L+1)(L+2)/2 cells x 2 B
-    live_mb = n * (K_L+1)*(K_L+2) / 1e6
-    out = []
-    for enc in ("i32", "i16"):
-        r = RESULTS.get("K_%d_%s" % (n, enc))
-        out.append(1e9*r["phases"]["modular_decomp"]/it if r else float("nan"))
-    l2 = []
-    for enc in ("i32", "i16"):
-        k = NCU.get("K_md_%d_%s" % (n, enc), {})
-        l2.append(k.get("lts__t_sector_hit_rate.pct", float("nan")))
-    print("  %5d %9.1f %11.3f %11.3f %8.1f%% %8.1f%%" % (n, live_mb, out[0], out[1], l2[0], l2[1]))
+def g(tag, path, dflt=0.0):
+    r = RESULTS.get(tag)
+    if not r: return dflt
+    for k in path.split("."):
+        r = r.get(k, {}) if isinstance(r, dict) else dflt
+    return r if isinstance(r, float) else dflt
 
-vals32 = [1e9*RESULTS["K_%d_i32" % n]["phases"]["modular_decomp"]/md_iters(K_L, n)
-          for n in K_N if "K_%d_i32" % n in RESULTS]
-if len(vals32) >= 2:
-    spread = 100.0*(max(vals32)-min(vals32))/min(vals32)
-    print()
-    print("  ns/iteration spread across the sweep (int32): %.1f%%" % spread)
-    if spread < 10:
-        print("  -> FLAT: the live set's size does not change md's cost per unit work.")
-        print("     Residency (megakernel scope 2a) is dead and so is the cheap half of T1.")
-    else:
-        print("  -> NOT flat: fewer records in flight cost less per unit work, which is")
-        print("     what residency predicts. The cudaAccessPolicyWindow work is justified.")
-shas = {RESULTS[t]["sha"] for t in RESULTS if t.startswith("K_") and "sha" in RESULTS[t]}
-print("  (shas differ by fixture here, one per record count -- not a parity check)")
+print("  DEVICE side: modular_decomp, and its cost per lane-iteration")
+print("  %5s %8s %9s %9s %8s %9s" % ("recs", "waves", "md i32", "md i16", "d md", "ps/iter i32"))
+for n in K_N:
+    a, b = g("K_%d_i32" % n, "phases.modular_decomp"), g("K_%d_i16" % n, "phases.modular_decomp")
+    w = NCU.get("K_md_%d_i32" % n, {}).get("launch__waves_per_multiprocessor")
+    if not a: continue
+    print("  %5d %8s %9.2f %9.2f %+7.1f%% %9.3f"
+          % (n, ("%.2f" % w) if w else "-", a, b, 100.0*(b-a)/a,
+             1e12*a/md_iters(K_L, n)))
+
+print()
+print("  HOST side: the decode, which lives in fetch_mx -- and per record")
+print("  %5s %9s %9s %8s %12s %12s" % ("recs", "fetch i32", "fetch i16", "d fetch", "ms/rec i32", "ms/rec i16"))
+for n in K_N:
+    a, b = g("K_%d_i32" % n, "phases.fetch_mx"), g("K_%d_i16" % n, "phases.fetch_mx")
+    if not a: continue
+    print("  %5d %9.3f %9.3f %+7.1f%% %12.2f %12.2f"
+          % (n, a, b, 100.0*(b-a)/a, 1000.0*a/n, 1000.0*b/n))
+
+print()
+print("  NET, and where it crosses")
+print("  %5s %9s %9s %9s %10s %10s" % ("recs", "wall i32", "wall i16", "d wall", "md saved", "host paid"))
+cross = None
+for n in K_N:
+    wa, wb = g("K_%d_i32" % n, "wall"), g("K_%d_i16" % n, "wall")
+    if not wa: continue
+    dmd  = g("K_%d_i16" % n, "phases.modular_decomp") - g("K_%d_i32" % n, "phases.modular_decomp")
+    dh   = ((g("K_%d_i16" % n, "phases.fetch_mx") + g("K_%d_i16" % n, "stages.backtrack"))
+          - (g("K_%d_i32" % n, "phases.fetch_mx") + g("K_%d_i32" % n, "stages.backtrack")))
+    print("  %5d %9.2f %9.2f %+8.1f%% %+9.2fs %+9.2fs" % (n, wa, wb, 100.0*(wb-wa)/wa, dmd, dh))
+    if (cross is None) and (wb < wa): cross = n
+
+print()
+print("  int16 engaged in the i16 arms:", all(RESULTS.get("K_%d_i16" % n, {}).get("int16_on")
+                                              for n in K_N if "K_%d_i16" % n in RESULTS))
+print("  int16 crossover: %s" % ("never in this sweep" if cross is None else
+      "somewhere at or below %d records" % cross))
+print()
+print("  READ IT THIS WAY. If 'md saved' is POSITIVE at small n and turns negative")
+print("  as n grows, the small-n loss is DEVICE side -- fml_decode()'s arithmetic")
+print("  against bandwidth that was free -- and the host decode is a per-record tax")
+print("  that never moves the crossover on its own. If instead 'ms/rec' for fetch")
+print("  FALLS with n while md per iteration stays flat, it is the HOST conversion,")
+print("  and the decode is what to attack (it is already 5.3x off its first version).")
+print()
+print("  NOT TESTED HERE: L2 residency. Record count changes the GRID as well as the")
+print("  live set -- waves/SM was 0.27 at n=2 against 27 at n=200 in the last run --")
+print("  so this sweep cannot separate cache residency from an empty machine, and the")
+print("  smallest live set (2 records, 63 MB at int16) already exceeds L2's 40 MB.")
+print("  That question needs cudaAccessPolicyWindow in the code, not another proxy.")
 """)
 
 md("## E. Summary and export")

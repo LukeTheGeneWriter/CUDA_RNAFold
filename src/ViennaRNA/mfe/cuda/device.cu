@@ -965,14 +965,21 @@ static int          g_xfer_n = 0;
  * the case that is about to save seconds. Same shape as RNA_BUILD_PIPELINE's
  * memory gate: measure the host, do not assume it. */
 #define RT_PIN_PROBE_BYTES (16u << 20)
-/* The probe is SINGLE-THREADED and the pool it decides for is not, so the
- * threshold carries margin. Measured 2026-09-17: WSL probes at 0.83 s/GB and
- * then charges 29 worker-seconds to page-lock 1.7 GB from twelve threads --
- * page-locking serialises in the kernel's memory-map lock, so concurrency makes
- * it worse, not better. A datacentre host probes an order of magnitude below
- * this. (The pool is now allocated serially up front, which removes the
- * contention; the margin stays because the probe still cannot see it.) */
-#define RT_PIN_SECONDS_PER_GB_MAX 0.25
+/* THE THRESHOLD, and it was wrong once already.
+ *
+ * 0.25 s/GB was a guess with margin. Scaling I (2026-09-18, A100) then showed
+ * it choosing the WRONG arm on the host that matters: every AUTO arm came back
+ * with the staged signature, while the forced-pin arm was better --
+ * fetch_mx 1.94 -> 0.60 s for +0.37 s of allocation, the exit path 9.61 -> 8.64
+ * (-10.1%). Pinning there costs about 0.25 s/GB, exactly on the boundary.
+ *
+ * So: 0.8 s/GB. It picks PINNED on the A100 (~0.25 measured) and STAGED under
+ * WSL (1.13 measured, where pinning lost 3.09 s against 0.91 s staged). The gap
+ * between the two hosts is 4.5x, so a threshold in the middle is not a knife
+ * edge -- but it IS a two-point calibration, and a third host is allowed to
+ * move it. The probe is single-threaded while the pool it decides for is
+ * allocated serially, which is why a rate comparison is meaningful at all. */
+#define RT_PIN_SECONDS_PER_GB_MAX 0.8
 
 static int
 rt_pin_is_cheap(void)
