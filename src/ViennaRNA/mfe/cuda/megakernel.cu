@@ -84,9 +84,18 @@ namespace cg = cooperative_groups;
  * fml_scan is a block-wide scan whose tile width is the block. 256 = eight
  * warps satisfies all three (eight cells per block for the two warp-shaped
  * phases, a 256-wide scan tile for the third). */
-#define MK_BLOCK   256
+#define MK_BLOCK   256         /* the DEFAULT; RNA_MK_THREADS picks a variant */
 #define MK_WARPS   (MK_BLOCK / 32)
-#define MK_TILE    32          /* lanes per cell in int_loop and md */
+#define MK_TILE    32          /* the DEFAULT md tile; RNA_MK_TILE picks one */
+
+/* Threads per block and md's tile are template parameters, not constants, so
+ * they can be swept without a rebuild. int_loop is NOT among them: it is a
+ * warp-wide algorithm whose shuffles name all 32 lanes, so its tile is 32 by
+ * construction. Only md's reduction width is free.
+ *
+ * Instantiating costs compile time, so the grid is deliberately small -- three
+ * block sizes x two tiles. Extend MK_VARIANTS if a sweep wants more. */
+#define MK_MIN_BPSM(BLK) (((768) + (BLK) - 1) / (BLK))
 
 /* How far back an interior loop can reach: MAXLOOP=30 unpaired bases, so cell
  * (i,j) reads c(p,q) only for p in [i+1,i+31] and q in [j-31,j-1]. Both the
@@ -198,10 +207,17 @@ struct mk_ctx_t {
   int          *corner;
 };
 
-/* Who this thread is. */
+/* Who this thread is.
+ *
+ * Two groupings, because the phases disagree about what a unit of work is:
+ * int_loop takes one WARP per cell (its shuffles name all 32 lanes), md takes
+ * one TILE per cell and a tile may be a fraction of a warp. */
 struct mk_thr_t {
-  int       lane, wib;
-  long long gwarp, nwarps, gthr, nthr;
+  int       lane, wib;                  /* lane in warp, warp in block   */
+  long long gwarp, nwarps, gthr, nthr;  /* warp- and thread-strided      */
+  int       wpb;                        /* warps per block               */
+  int       tlane, tib, ntb;            /* lane in tile, tile in block   */
+  long long gtile, ntiles;              /* tile-strided over the half    */
 };
 
 __device__ inline void
@@ -272,14 +288,14 @@ mk_ph_int_loop(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
       c_win_reader cw;
 
       cw.sm = c.cring; cw.q0 = c.Qlo; cw.stride = c.cwC;
-      for (int j = jlo + t.wib; j < jhi; j += MK_WARPS)
+      for (int j = jlo + t.wib; j < jhi; j += t.wpb)
         int_loop_warp_cell_r(c.nfiles, c.i, c.length, p.TerminalAU, p.ninio2,
                              (const cuda_param_t *)p.param, p.lxc, p.pair,
                              p.S, p.hccc, p.up_int, cw, p.row_off_H,
                              p.hc_off_H, c.size_off, c.i_H, p.energy_min2,
                              c.H, (size_t)(j - j0), t.lane);
     } else {
-      for (int j = jlo + t.wib; j < jhi; j += MK_WARPS)
+      for (int j = jlo + t.wib; j < jhi; j += t.wpb)
         int_loop_warp_cell(c.nfiles, c.i, c.length, p.TerminalAU, p.ninio2,
                            (const cuda_param_t *)p.param, p.lxc, p.pair,
                            p.S, p.hccc, p.up_int, p.my_c, p.tri_off_H,
@@ -349,6 +365,7 @@ mk_ph_load_my_c(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t
 
 /* Block-cooperative, so ONE block of the half runs it -- the same
  * one-block-per-record shape the standalone kernel has. */
+template<int BLK>
 __device__ inline void
 mk_ph_scan(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c,
            const int is_lead, int *sa, int *sc)
@@ -356,7 +373,7 @@ mk_ph_scan(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c,
   if (!c.live || !is_lead || (c.skip & MK_SKIP_SCAN))
     return;
 
-  fml_scan_block<MK_BLOCK>(c.nfiles, c.i, c.turn_, p.new_e, p.energy_3p00_row,
+  fml_scan_block<BLK>(c.nfiles, c.i, c.turn_, p.new_e, p.energy_3p00_row,
                            /* gq_row */ NULL, p.fml_prev, p.up_ml_ok,
                            (const cuda_param2_t *)p.param2, p.energy_min,
                            p.row_off_H, p.seq_off_H, c.size_off, c.i_H,
@@ -388,6 +405,7 @@ mk_ph_fmli(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 }
 
 /* The decomposition itself: the phase everything else exists for. */
+template<int TILE>
 __device__ inline void
 mk_ph_md(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
@@ -397,24 +415,44 @@ mk_ph_md(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
     return;
 
   cc.sm = c.corner; cc.J0 = c.Jown; cc.K = c.corner_k;
+
+  /* The trip count is BLOCK-uniform, not per-tile, and dead tiles are handed an
+   * out-of-range cell rather than being allowed to skip the call. md_cell's
+   * reduction names all 32 lanes of the warp, so when a tile is a FRACTION of a
+   * warp its neighbours in that warp must reach the same shuffle -- a tile that
+   * exited early would leave the others waiting on a mask that cannot assemble.
+   * That is the same shape as the deadlock the MIN2 macro caused, and
+   * md_cell already carries the `active` flag for exactly this. */
   if (c.owns && (c.own_mask & 2)) {
     const int d0  = c.i + 2 * (c.turn_ + 1) + 1;   /* first md column of row i */
     const int dlo = (c.Jown > d0) ? c.Jown : d0;
     const int dhi = (c.Jend < d0 + (int)c.dwidth) ? c.Jend : (d0 + (int)c.dwidth);
+    const int n   = (dhi > dlo) ? (dhi - dlo) : 0;
+    const int nit = (n + t.ntb - 1) / t.ntb;
 
-    for (int j = dlo + t.wib; j < dhi; j += MK_WARPS)
-      md_cell<MK_TILE>(c.nfiles, c.i, c.turn_, c.length, p.fml_i, p.fml_j,
-                       p.fml_j16, p.fml_b, p.base_off_H, p.colb_off,
-                       p.dml, p.fm2, p.tri_off_H, p.row_off_H,
-                       c.side_off, c.dtotal, c.i_H,
-                       (long long)c.dbase + (j - d0), t.lane, cc);
+    for (int k = 0; k < nit; k++) {
+      const int       j = dlo + t.tib + k * t.ntb;
+      const long long m = (j < dhi) ? ((long long)c.dbase + (j - d0))
+                                    : (long long)c.dtotal;   /* dead: inactive */
+
+      md_cell<TILE>(c.nfiles, c.i, c.turn_, c.length, p.fml_i, p.fml_j,
+                    p.fml_j16, p.fml_b, p.base_off_H, p.colb_off,
+                    p.dml, p.fm2, p.tri_off_H, p.row_off_H,
+                    c.side_off, c.dtotal, c.i_H, m, t.tlane, cc);
+    }
   } else {
-    for (long long k = t.gwarp; k < c.dwidth; k += t.nwarps)
-      md_cell<MK_TILE>(c.nfiles, c.i, c.turn_, c.length, p.fml_i, p.fml_j,
-                       p.fml_j16, p.fml_b, p.base_off_H, p.colb_off,
-                       p.dml, p.fm2, p.tri_off_H, p.row_off_H,
-                       c.side_off, c.dtotal, c.i_H,
-                       (long long)c.dbase + k, t.lane, cc);
+    const long long nit = (c.dwidth + t.ntiles - 1) / t.ntiles;
+
+    for (long long k = 0; k < nit; k++) {
+      const long long x = t.gtile + k * t.ntiles;
+      const long long m = (x < c.dwidth) ? ((long long)c.dbase + x)
+                                         : (long long)c.dtotal;
+
+      md_cell<TILE>(c.nfiles, c.i, c.turn_, c.length, p.fml_i, p.fml_j,
+                    p.fml_j16, p.fml_b, p.base_off_H, p.colb_off,
+                    p.dml, p.fm2, p.tri_off_H, p.row_off_H,
+                    c.side_off, c.dtotal, c.i_H, m, t.tlane, cc);
+    }
   }
 }
 
@@ -562,7 +600,8 @@ mk_half_sync(unsigned int *bar, const unsigned int nblocks, const unsigned int g
 /* Residency IS the design, so the register budget is stated rather than left
  * to the compiler: without this the refactor that gave stage 3 its second row
  * context dropped the grid from 3 resident blocks per SM to 1. */
-__global__ void __launch_bounds__(MK_BLOCK, 3)
+template<int BLK, int TILE>
+__global__ void __launch_bounds__(BLK, MK_MIN_BPSM(BLK))
 megakernel_record(const rnafold_mk_ptrs_t p,
                   const int nfiles, const int H, const int turn_, const int length,
                   const int i_top, const int noGUclosure,
@@ -588,8 +627,8 @@ megakernel_record(const rnafold_mk_ptrs_t p,
   /* fml_scan's tiles. Every block allocates them; one block per half runs the
    * scan, which is the same one-block-per-record shape the standalone kernel
    * has. */
-  __shared__ int sa[MK_BLOCK];
-  __shared__ int sc[MK_BLOCK];
+  __shared__ int sa[BLK];
+  __shared__ int sc[BLK];
 
   /*
    *  Stages 1b and 2 live here, and both need the SAME thing from the
@@ -622,10 +661,16 @@ megakernel_record(const rnafold_mk_ptrs_t p,
 
   t.lane   = (int)(threadIdx.x & 31u);
   t.wib    = (int)(threadIdx.x >> 5);
-  t.gwarp  = (long long)half_b * MK_WARPS + t.wib;
-  t.nwarps = (long long)half_n * MK_WARPS;
-  t.gthr   = (long long)half_b * blockDim.x + threadIdx.x;
-  t.nthr   = (long long)half_n * blockDim.x;
+  t.wpb    = BLK / 32;
+  t.gwarp  = (long long)half_b * t.wpb + t.wib;
+  t.nwarps = (long long)half_n * t.wpb;
+  t.gthr   = (long long)half_b * BLK + threadIdx.x;
+  t.nthr   = (long long)half_n * BLK;
+  t.tlane  = (int)(threadIdx.x % (unsigned)TILE);
+  t.tib    = (int)(threadIdx.x / (unsigned)TILE);
+  t.ntb    = BLK / TILE;
+  t.gtile  = (long long)half_b * t.ntb + t.tib;
+  t.ntiles = (long long)half_n * t.ntb;
 
   if (threadIdx.x == 0) {
   cc.nfiles = nfiles; cc.H = H; cc.turn_ = turn_; cc.length = length;
@@ -727,7 +772,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
         MK_SYNC(); MK_TICK(MK_PH_SYNC);
         mk_ph_load_my_c(p, cc, t);
         MK_TICK(MK_PH_LOAD_C);
-        mk_ph_scan(p, cc, blockIdx.x == 0, sa, sc);
+        mk_ph_scan<BLK>(p, cc, blockIdx.x == 0, sa, sc);
         MK_TICK(MK_PH_SCAN);
 
         MK_SYNC(); MK_TICK(MK_PH_SYNC);
@@ -738,7 +783,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
         mk_ph_fmli(p, cc, t);
 
         MK_SYNC(); MK_TICK(MK_PH_SYNC);
-        mk_ph_md(p, cc, t);
+        mk_ph_md<TILE>(p, cc, t);
         MK_TICK(MK_PH_MD);
 
         MK_SYNC(); MK_TICK(MK_PH_SYNC);
@@ -787,7 +832,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
         MK_SYNC(); MK_TICK(MK_PH_SYNC);
       } else {
         /* ---------------- stage 3: the fML half --------------------------- */
-        mk_ph_scan(p, cm, half_b == 0, sa, sc);
+        mk_ph_scan<BLK>(p, cm, half_b == 0, sa, sc);
         MK_TICK(MK_PH_SCAN);
         mk_half_sync(bar, (unsigned)nM, ++gen);
 
@@ -798,7 +843,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
         mk_ph_fmli(p, cm, t);
         mk_half_sync(bar, (unsigned)nM, ++gen);
 
-        mk_ph_md(p, cm, t);
+        mk_ph_md<TILE>(p, cm, t);
         MK_TICK(MK_PH_MD);
         mk_half_sync(bar, (unsigned)nM, ++gen);
 
@@ -821,6 +866,65 @@ megakernel_record(const rnafold_mk_ptrs_t p,
       }
     }
   }
+}
+
+/*
+ *  The instantiated variants, and the one this run uses.
+ *
+ *  Threads per block and md's tile are the two geometry dials that cannot be
+ *  read from an environment variable at run time -- the scan's tile width and
+ *  md's reduction width are template parameters -- so each combination is
+ *  compiled and the host picks one. RNA_MK_THREADS and RNA_MK_TILE select;
+ *  anything not in the table falls back to the default with a warning, because
+ *  a silently ignored knob is how a sweep comes back flat.
+ */
+typedef struct {
+  int         blk, tile;
+  const void *fn;
+} mk_variant_t;
+
+static const mk_variant_t mk_variants[] = {
+  { 128, 16, (const void *)megakernel_record<128, 16> },
+  { 128, 32, (const void *)megakernel_record<128, 32> },
+  { 256, 16, (const void *)megakernel_record<256, 16> },
+  { 256, 32, (const void *)megakernel_record<256, 32> },
+  { 512, 16, (const void *)megakernel_record<512, 16> },
+  { 512, 32, (const void *)megakernel_record<512, 32> },
+};
+#define MK_NVARIANTS ((int)(sizeof(mk_variants) / sizeof(mk_variants[0])))
+
+static const mk_variant_t *
+mk_pick_variant(void)
+{
+  static const mk_variant_t *v = NULL;
+
+  if (!v) {
+    const char *et = getenv("RNA_MK_THREADS");
+    const char *ee = getenv("RNA_MK_TILE");
+    const int   want_b = (et && et[0]) ? atoi(et) : MK_BLOCK;
+    const int   want_t = (ee && ee[0]) ? atoi(ee) : MK_TILE;
+    int         i;
+
+    for (i = 0; i < MK_NVARIANTS; i++)
+      if ((mk_variants[i].blk == want_b) && (mk_variants[i].tile == want_t)) {
+        v = &mk_variants[i];
+        break;
+      }
+    if (!v) {
+      for (i = 0; i < MK_NVARIANTS; i++)
+        if ((mk_variants[i].blk == MK_BLOCK) && (mk_variants[i].tile == MK_TILE))
+          v = &mk_variants[i];
+      fprintf(stderr, "megakernel.cu            no variant for threads=%d tile=%d "
+                      "-- using %d/%d. Compiled: ", want_b, want_t, MK_BLOCK, MK_TILE);
+      for (i = 0; i < MK_NVARIANTS; i++)
+        fprintf(stderr, "%d/%d ", mk_variants[i].blk, mk_variants[i].tile);
+      fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "megakernel.cu            geometry: %d threads per block, "
+                    "md tile %d lanes\n", v->blk, v->tile);
+  }
+
+  return v;
 }
 
 /* ===================== host side ===================== */
@@ -892,11 +996,11 @@ mk_grid_blocks(const int G)
      * returns, so the geometry cannot be fed back in here without a fixed
      * point. Measured at 0 and then honoured by the planner's budget instead:
      * RNA_MK_SMEM_KB is the cap that keeps the launch resident. */
-    if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&per_sm, megakernel_record,
-                                                      MK_BLOCK, 0) != cudaSuccess)
+    if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&per_sm, mk_pick_variant()->fn,
+                                                      mk_pick_variant()->blk, 0) != cudaSuccess)
       return 0;
     fprintf(stderr, "megakernel.cu            %d SMs x %d resident blocks of %d threads\n",
-            sms, per_sm, MK_BLOCK);
+            sms, per_sm, mk_pick_variant()->blk);
   }
 
   {
@@ -1096,7 +1200,8 @@ rnafold_megakernel_records_in_flight(const int total_blocks, const int length)
     if (e && e[0]) {
       v = atoi(e);
     } else {
-      const int per_rec = (length + MK_BLOCK - 1) / MK_BLOCK;
+      const int blk     = mk_pick_variant()->blk;
+      const int per_rec = (length + blk - 1) / blk;
       const int b       = (per_rec < 1) ? 1
                         : ((per_rec > total_blocks) ? total_blocks : per_rec);
 
@@ -1151,7 +1256,7 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
      * failure the geometry is replanned inside 48 KB rather than launched with
      * a size the driver will reject. */
     if (smem > 48u * 1024u) {
-      if (cudaFuncSetAttribute((const void *)megakernel_record,
+      if (cudaFuncSetAttribute(mk_pick_variant()->fn,
                                cudaFuncAttributeMaxDynamicSharedMemorySize,
                                (int)smem) != cudaSuccess) {
         cudaGetLastError();
@@ -1268,8 +1373,8 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
       args[4] = &a_len;  args[5] = &a_itop;   args[6] = &a_nogu;  args[7] = &a_clocks;
       args[8] = &a_skip;   args[9] = &a_prog;
 
-      rc = cudaLaunchCooperativeKernel((const void *)megakernel_record,
-                                       dim3(blocks), dim3(MK_BLOCK), args,
+      rc = cudaLaunchCooperativeKernel(mk_pick_variant()->fn,
+                                       dim3(blocks), dim3(mk_pick_variant()->blk), args,
                                        mk_smem_bytes, streams[k % G]);
       if (rc != cudaSuccess) {
         fprintf(stderr, "megakernel.cu            cooperative launch failed: %s\n",

@@ -140,6 +140,8 @@ DECL_RE  = re.compile(r"RNA_MEGAKERNEL declined: ([^\n]+)")
 ONCHIP_RE = re.compile(r"on-chip: (\d+) columns per block, c-ring (\w+), "
                        r"fML corner K=(\d+), (\d+) KB shared")
 GAUTO_RE  = re.compile(r"G=AUTO: (\d+) records in flight, (\d+) blocks each")
+GEOM2_RE  = re.compile(r"geometry: (\d+) threads per block, md tile (\d+) lanes")
+SKEWB_RE  = re.compile(r"SKEW: (\d+) blocks on the c chain")
 PHASE_RE = re.compile(r"phase timing \(s\): int_loop=([0-9.]+) hp_mb=([0-9.]+) "
                       r"load_my_c=([0-9.]+) modular_decomp=([0-9.]+) fetch_mx=([0-9.]+)")
 
@@ -155,7 +157,10 @@ def fasta(name, n, L, seed=None):
 def run(tag, fa, mega=False, extra_env=None, args="", timeout=1800, quiet=False):
     env = dict(os.environ)
     for k in ("RNA_MEGAKERNEL","RNA_MK_RECORDS","RNA_FML_INT16","RNA_STREAM_OVERLAP",
-              "RNA_CONTINUOUS_FLOW","RNA_SLOT_FLOW","RNA_MD_SMEM","RNA_GPU_SWEEP"):
+              "RNA_CONTINUOUS_FLOW","RNA_SLOT_FLOW","RNA_MD_SMEM","RNA_GPU_SWEEP",
+              "RNA_MK_THREADS","RNA_MK_TILE","RNA_MK_SKEW","RNA_MK_CWIN","RNA_MK_CORNER",
+              "RNA_MK_CORNER_K","RNA_MK_SMEM_KB","RNA_MK_FORCE_OWNS","RNA_MK_OWN_MASK",
+              "RNA_MK_TIMEOUT"):
         env.pop(k, None)
     env.update(RNA_GPU_CHUNK="0", RNA_MIN_GPU_BATCH="1")
     if mega: env["RNA_MEGAKERNEL"] = "1"
@@ -183,6 +188,9 @@ def run(tag, fa, mega=False, extra_env=None, args="", timeout=1800, quiet=False)
              smem_kb=int(oc.group(4)) if oc else None,
              auto_g=int(ga.group(1)) if ga else None,
              auto_blocks=int(ga.group(2)) if ga else None,
+             threads=int(GEOM2_RE.search(err).group(1)) if GEOM2_RE.search(err) else None,
+             tile=int(GEOM2_RE.search(err).group(2)) if GEOM2_RE.search(err) else None,
+             skew_blocks=int(SKEWB_RE.search(err).group(1)) if SKEWB_RE.search(err) else None,
              declined=d.group(1) if d else None,
              fused=(mk_wall is not None),
              sms=int(g.group(1)) if g else None,
@@ -807,6 +815,163 @@ a verdict on stage 3.
 One caveat that applies to every row: an equal-width column split is not
 work-balanced, so a block owning low columns idles until the sweep reaches it.
 That cost is shared with stages 1b and 2 and is measured on its own in I.3.""")
+
+
+
+# --------------------------------------------------------------------------
+md(r"""## K. Tuning — blocks, threads, tiles
+
+Six dials, and they are not independent, so this is a **coordinate descent**
+rather than a cross product: threads and tile first, then blocks per record,
+then the on-chip tiling, then the split. A full grid would be several hundred
+folds of A100 time to answer a question the first two stages usually settle.
+
+| dial | knob | what it changes |
+|---|---|---|
+| threads per block | `RNA_MK_THREADS` | 128 / 256 / 512 — a compiled variant |
+| md tile | `RNA_MK_TILE` | 16 / 32 lanes per md cell — a compiled variant |
+| blocks per record | `RNA_MK_RECORDS` (G) | grid ÷ G, and therefore **columns per block** |
+| corner depth | `RNA_MK_CORNER_K` | fML entries cached per column |
+| shared budget | `RNA_MK_SMEM_KB` | caps the ring and the corner together |
+| skew split | `RNA_MK_SKEW` | % of blocks on the c chain |
+
+**Two couplings worth knowing before reading the numbers.** Threads per block
+sets residency through `__launch_bounds__` (the target is ~768 threads/SM, so
+128→6 blocks/SM, 256→3, 512→2) *and* sets how many blocks a record gets, which
+sets the column width W, which decides whether the caches fit the budget at all.
+And G trades records-in-flight against blocks-per-record: fewer blocks per
+record means a wider W and more shared memory per block, so pushing G up can
+silently switch the caches off.
+
+Every cell prints the geometry that actually ran and checks the sha, because a
+knob that did not engage and a knob that did nothing look identical.""")
+
+code(r"""
+TUNE_FA   = fasta("k_24x2400", 24, 2400)
+TUNE_BIG  = fasta("k_16x4800", 16, 4800)
+TUNE_REF  = runm("K_ref", TUNE_FA, reps=3, mega=False, extra_env={"RNA_FML_INT16": "1"})
+REFSHA    = TUNE_REF["sha"]
+BEST      = {"RNA_FML_INT16": "1", "RNA_MK_SMEM_KB": "96"}
+print("K: control %.2f s  sha %s" % (TUNE_REF["wall"], REFSHA))
+
+def share_of_r(r, phase="grid.sync"):
+    sh = r.get("shares")
+    if not sh: return -1.0
+    try:    return float(dict(kv.split("=") for kv in sh.split())[phase].rstrip("%"))
+    except Exception: return -1.0
+
+def tune(tag, fa, env, reps=3):
+    e = dict(BEST); e.update(env)
+    r = runm(tag, fa, reps=reps, mega=True, extra_env=e)
+    r["ok"] = (r["sha"] == REFSHA)
+    return r
+
+def show(label, r):
+    print("    %-26s %7.2f s  %s  thr %-4s tile %-3s cols %-5s K %-4s %-4s KB  barrier %5.1f%%"
+          % (label, r["wall"], "ok " if r["ok"] else "SHA!", r["threads"], r["tile"],
+             r["cols_per_block"], r["corner_k"], r["smem_kb"], share_of_r(r)))
+""")
+
+code(r"""
+print("K.1 threads per block x md tile")
+best, bestkey = None, None
+for thr in (128, 256, 512):
+    for tile in (16, 32):
+        r = tune("K1_%d_%d" % (thr, tile), TUNE_FA,
+                 {"RNA_MK_THREADS": str(thr), "RNA_MK_TILE": str(tile)})
+        show("thr=%d tile=%d" % (thr, tile), r)
+        if r["ok"] and (best is None or r["wall"] < best):
+            best, bestkey = r["wall"], (thr, tile)
+if bestkey:
+    BEST["RNA_MK_THREADS"], BEST["RNA_MK_TILE"] = str(bestkey[0]), str(bestkey[1])
+    print("  -> threads=%d tile=%d (%.2f s)" % (bestkey[0], bestkey[1], best))
+""")
+
+code(r"""
+print("K.2 blocks per record (G) at the chosen geometry")
+best, bestg = None, None
+for g in (1, 2, 4, 8, 16, 32, 64, 0):        # 0 = AUTO
+    env = {} if g == 0 else {"RNA_MK_RECORDS": str(g)}
+    r = tune("K2_%d" % g, TUNE_FA, env)
+    show("G=%s" % ("AUTO" if g == 0 else g), r)
+    if r["ok"] and (best is None or r["wall"] < best):
+        best, bestg = r["wall"], g
+if bestg:
+    BEST["RNA_MK_RECORDS"] = str(bestg)
+    print("  -> G=%d (%.2f s)" % (bestg, best))
+else:
+    print("  -> AUTO (it won, or nothing beat it)")
+""")
+
+code(r"""
+print("K.3 on-chip tiling: corner depth and the shared budget")
+best, bestkv = None, None
+for kb in (32, 64, 96, 160):
+    for ck in (0, 8, 16, 32, 64):
+        env = {"RNA_MK_SMEM_KB": str(kb)}
+        env["RNA_MK_CORNER"] = "0" if ck == 0 else "1"
+        if ck: env["RNA_MK_CORNER_K"] = str(ck)
+        r = tune("K3_%d_%d" % (kb, ck), TUNE_FA, env, reps=2)
+        show("smem=%dKB K=%d" % (kb, ck), r)
+        if r["ok"] and (best is None or r["wall"] < best):
+            best, bestkv = r["wall"], (kb, ck)
+if bestkv:
+    BEST["RNA_MK_SMEM_KB"] = str(bestkv[0])
+    BEST["RNA_MK_CORNER"]  = "0" if bestkv[1] == 0 else "1"
+    if bestkv[1]: BEST["RNA_MK_CORNER_K"] = str(bestkv[1])
+    print("  -> smem=%d KB, corner K=%d (%.2f s)" % (bestkv[0], bestkv[1], best))
+print()
+print("  NOTE: a row whose 'cols' or 'K' differs from what was asked was DEGRADED")
+print("  by the host -- the budget did not fit it. That is a real result (the")
+print("  geometry does not fit), not a failed run.")
+""")
+
+code(r"""
+print("K.4 the c ring, and the skew split")
+for cw in (0, 1):
+    r = tune("K4_ring%d" % cw, TUNE_FA, {"RNA_MK_CWIN": str(cw)})
+    show("c ring %s" % ("ON" if cw else "off"), r)
+best, bests = None, None
+for pct in (0, 25, 40, 50, 60, 75):
+    env = {} if pct == 0 else {"RNA_MK_SKEW": str(pct)}
+    r = tune("K4_skew%d" % pct, TUNE_FA, env)
+    show("skew %s" % ("off" if not pct else "%d%%" % pct), r)
+    if r["ok"] and (best is None or r["wall"] < best):
+        best, bests = r["wall"], pct
+if bests:
+    BEST["RNA_MK_SKEW"] = str(bests)
+    print("  -> skew %d%% (%.2f s)" % (bests, best))
+else:
+    print("  -> skew off")
+""")
+
+code(r"""
+print("K.5 the tuned configuration, confirmed at a second shape")
+print("  BEST =", " ".join("%s=%s" % kv for kv in sorted(BEST.items())))
+for name, fa in (("24x2400", TUNE_FA), ("16x4800", TUNE_BIG)):
+    ref = runm("K5_%s_ref" % name, fa, reps=3, mega=False, extra_env={"RNA_FML_INT16": "1"})
+    r   = runm("K5_%s_mk" % name, fa, reps=3, mega=True, extra_env=dict(BEST))
+    ok  = (r["sha"] == ref["sha"])
+    print("  %-9s per-phase %7.2f s   tuned %7.2f s   %+6.1f%%   %s"
+          % (name, ref["wall"], r["wall"], 100.0*(r["wall"]-ref["wall"])/ref["wall"],
+             "sha ok" if ok else "*** SHA DIFFERS -- the tuned config is WRONG ***"))
+    print("            %s" % (r["shares"] or ""))
+print()
+print("  Paste this to reproduce the tuned run:")
+print("   ", " ".join("%s=%s" % kv for kv in sorted(BEST.items())), "RNA_MEGAKERNEL=1")
+""")
+
+md(r"""**Reading K.** The coordinate descent takes each dial's winner forward, so
+a later stage can only be judged against the earlier choices — if K.2 picks a G
+that switches the caches off, K.3's budget sweep is exploring a different design
+point than K.1 was. The geometry columns are printed on every row for exactly
+that reason; when a winner's `cols`/`K` differ from the row above it, the two
+are not comparable and the sweep should be re-run with the dials pinned.
+
+If K.5 is still negative, the useful output is not the verdict but the phase
+shares beside it: barrier-dominated says the schedule is wrong (G, split),
+`md`-dominated says stage 2 wants a deeper corner, `int_loop`-dominated says the
+`c` ring is not paying and stage 1b should be reconsidered.""")
 
 
 code(r"""
