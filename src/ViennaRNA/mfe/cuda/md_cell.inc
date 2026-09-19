@@ -99,7 +99,7 @@ md_cell(
         // the diagonal, which are the ones re-read every row -- serve those
         // from shared and decode only the rest.
         const int  d = fml_corner_hit(corner, j, x - y)
-                     ? fml_corner_get(corner, j, x - y)
+                     ? fml_corner_get(corner, H, j, x - y)
                      : fml_decode(fml_j16, fml_b, tri_off_H[H]+yij,
                                   bcell + (size_t)((unsigned)(idx0 + y - 1)/FML_BLK));
         value = MIN2(fml_i[row_off_H[H]+y] + d, value);
@@ -112,7 +112,7 @@ md_cell(
       const long long yij = y + ij0;
       assert(yij < Hoff(nfiles,length));
       const int fj = fml_corner_hit(corner, j, x - y)
-                   ? fml_corner_get(corner, j, x - y)
+                   ? fml_corner_get(corner, H, j, x - y)
                    : fml_j[tri_off_H[H]+yij];
 
       value = MIN2(fml_i[row_off_H[H]+y] + fj, value);

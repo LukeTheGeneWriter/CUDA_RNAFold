@@ -906,7 +906,8 @@ mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu
 mfe/cuda/modular_decomposition.lo: $(srcdir)/mfe/cuda/modular_decomposition.cu \
                                    $(srcdir)/mfe/cuda/stub2.h \
                                    $(srcdir)/mfe/cuda/md_cell.inc \
-                                   $(srcdir)/mfe/cuda/md_chain_cells.inc
+                                   $(srcdir)/mfe/cuda/md_chain_cells.inc \
+                                   $(srcdir)/mfe/cuda/md_dev.h
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
@@ -919,7 +920,8 @@ mfe/cuda/int_loop.lo: $(srcdir)/mfe/cuda/int_loop.cu \
                       $(srcdir)/mfe/cuda/nth.h \
                       $(srcdir)/mfe/cuda/int_loop_kernel_body.inc \
                       $(srcdir)/mfe/cuda/int_loop_cell.inc \
-                      $(srcdir)/mfe/cuda/int_loop_cells.inc
+                      $(srcdir)/mfe/cuda/int_loop_cells.inc \
+                      $(srcdir)/mfe/cuda/int_loop_dev.h
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
@@ -928,7 +930,8 @@ mfe/cuda/int_loop.lo: $(srcdir)/mfe/cuda/int_loop.cu \
 mfe/cuda/hp_mb_loop.lo: $(srcdir)/mfe/cuda/hp_mb_loop.cu \
                         $(srcdir)/mfe/cuda/stub2.h \
                         $(srcdir)/mfe/cuda/hp_mb_cells.inc \
-                        $(srcdir)/mfe/cuda/fml_scan_block.inc
+                        $(srcdir)/mfe/cuda/fml_scan_block.inc \
+                        $(srcdir)/mfe/cuda/hp_mb_dev.h
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \

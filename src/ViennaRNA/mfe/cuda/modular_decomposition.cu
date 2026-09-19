@@ -58,6 +58,13 @@
 //#include <assert.h>
 //#ifdef STUB
 #include "stub2.h"
+
+/* Moved ABOVE the kernel forward declarations: fml_corner_t is now one of
+ * their parameters, so the type has to exist before they are declared. */
+/* The device helpers below moved to md_dev.h so the fused megakernel
+ * can call exactly this code; see the header. */
+#include "md_dev.h"
+
 #include "megakernel.h"
 //#include "stub.h"
 //#endif /*STUB*/
@@ -325,7 +332,8 @@ __global__ void modular_decomposition_kernel(
   int* __restrict__ fm2,          // CIRCULAR: triangular fM2_real, or NULL
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
-  const int* __restrict__ i_H);   // continuous flow phase A2
+  const int* __restrict__ i_H,    // continuous flow phase A2
+  const fml_corner_t band);       // RNA_MD_BAND; .sm==NULL disables
 
 // Block sizes for the above, chosen once in init_gpu() below instead of the
 // BLOCK_SIZE=64 constant these used to hardcode (tuned against one GPU, the
@@ -379,6 +387,47 @@ int* d_fml_j;  //my_fML
 //               at its pre-MIN2 value, so a cell is not final until its row
 //               completes and cannot be packed before then.
 short*  d_fml_j16;
+
+/*
+ *  RNA_MD_BAND=K -- the near-diagonal band, stored column-major within the
+ *  band: band[H*stride + j*K + off] with off = (j-k)-(turn+1).
+ *
+ *  It is the fML corner cache moved from per-block SHARED memory into GLOBAL
+ *  memory. That is the whole point: the shared version needed a block to own
+ *  column j for the entire sweep so the cache survived to the next row, and
+ *  fixed ownership costs 2x whatever the partition (see mk_plan_smem). A
+ *  global band is read by whichever block happens to hold the cell, so blocks
+ *  go back to striding and the 2x disappears; residency is L2's job, and the
+ *  band is small enough for that -- (length+2)*K ints per record.
+ *
+ *  Column-major WITHIN the band keeps md's lane walk coalesced: lanes take
+ *  consecutive k, hence consecutive off, hence consecutive addresses. A full
+ *  diagonal-major triangle would put consecutive k about `length` elements
+ *  apart and cost a warp 32 lines instead of two.
+ */
+int*    d_fml_band = NULL;
+static size_t g_band_stride = 0;   /* ints per record: (length+2)*K */
+static int    g_band_K      = 0;
+
+PUBLIC int
+rnafold_md_band(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_BAND");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v < 0) v = 0;
+    if (v > 0)
+      fprintf(stderr, "modular_decomposition.cu RNA_MD_BAND=%d: near-diagonal band "
+                      "in global memory, no column ownership\n", v);
+  }
+
+  return v;
+}
+
+
 int*    d_fml_b;
 int*    d_fml_row;
 // colb_off[j] = number of baseline slots used by columns 1..j-1, so a column's
@@ -614,6 +663,17 @@ init_gpu(const int nfiles, const int length,
     TIMED_CUDAMALLOC(&d_fml_row, mem_size_len);
   }
 
+  if (rnafold_md_band() > 0) {
+    g_band_K      = rnafold_md_band();
+    g_band_stride = (size_t)(length + 2) * (size_t)g_band_K;
+    TIMED_CUDAMALLOC(&d_fml_band, (size_t)nfiles * g_band_stride * sizeof(int));
+    fprintf(stderr, "modular_decomposition.cu band: K=%d, %.1f MB total, "
+                    "%.2f MB per record\n", g_band_K,
+            (double)nfiles*g_band_stride*sizeof(int)/1048576.0,
+            (double)g_band_stride*sizeof(int)/1048576.0);
+  }
+
+
   error = cudaMalloc((void **) &d_dml, mem_size_len);
   if (error != cudaSuccess)  {
       printf("cudaMalloc d_dml %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
@@ -688,6 +748,10 @@ teardown_gpu(void) {
   } else {
     gpuErrchk( cudaFree(d_fml_j16) );
     gpuErrchk( cudaFree(d_fml_b) );
+  }
+  if (d_fml_band) {
+    gpuErrchk( cudaFree(d_fml_band) );
+    d_fml_band = NULL;
     gpuErrchk( cudaFree(d_fml_row) );
     gpuErrchk( cudaFree(d_colb_off) );
     gpuErrchk( cudaFree(d_base_off_H) );
@@ -842,9 +906,6 @@ compute_gpu_usable_bytes(void) {
 // bounds the offset is the block's SPREAD, not the choice of origin.
 // ---------------------------------------------------------------------------
 
-/* The device helpers below moved to md_dev.h so the fused megakernel
- * can call exactly this code; see the header. */
-#include "md_dev.h"
 
 
 
@@ -1032,6 +1093,65 @@ load_fML(const int nfiles,
 // this row's final values and can be packed into the triangle. Shares
 // load_fML()'s launch shape because that is the superset of the two write
 // ranges. A no-op when the gate is off.
+/* Row i is final: publish its first K columns into the band. One thread per
+ * (record, offset); off = (j-turn-1)-i, so j runs [i+turn+1, i+turn+K]. */
+__global__ void
+band_fill_kernel(const int nfiles, const int i_row, const int turn, const int K,
+                 const size_t stride,
+                 const int* __restrict__ energy_min, const int* __restrict__ fml_row,
+                 const int* __restrict__ fml_j,
+                 const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                 const size_t* __restrict__ size_off_H, const int* __restrict__ i_H,
+                       int* __restrict__ band)
+{
+  const int gid = (int)(blockIdx.x*blockDim.x + threadIdx.x);
+  const int H   = gid / K;
+  const int off = gid - H*K;
+
+  if (H >= nfiles) return;
+  {
+    const long long width = (long long)size_off_H[H+1] - (long long)size_off_H[H];
+
+    if (off >= width) return;          /* past this record's row */
+    {
+      const int i = i_H[H];
+      const int j = i + turn + 1 + off;
+
+      band[(size_t)H*stride + (size_t)j*K + off] =
+        fml_row ? fml_row[row_off_H[H] + j]
+                : fml_j[tri_off_H[H] + Indx(i,j)];
+    }
+  }
+}
+
+/* The band as md sees it: J0=0 because it covers every column, and a
+ * per-record stride because one array serves the whole batch. */
+static fml_corner_t
+mk_band_desc(void)
+{
+  fml_corner_t b;
+
+  b.sm = d_fml_band; b.J0 = 0; b.K = g_band_K; b.stride = g_band_stride;
+  return b;
+}
+
+PUBLIC void
+band_fill(const int nfiles, const int i, const int turn, const size_t* size_off_H)
+{
+  if (!d_fml_band) return;
+  (void)size_off_H;
+  bind_row_tables(i);
+  {
+    const int n = nfiles * g_band_K;
+    const int nb = (n + BLOCK_SIZE - 1)/BLOCK_SIZE;
+
+    band_fill_kernel<<<nb,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn,
+        g_band_K, g_band_stride, d_energy_min, d_fml_row, d_fml_j,
+        d_tri_off_H, d_row_off_H, d_size_off_H, d_i_H, d_fml_band);
+    gpuErrchk( cudaPeekAtLastError() );
+  }
+}
+
 PUBLIC void
 pack_fml(const int nfiles, const int i, const int turn, const int length,
          const size_t* size_off_H) {
@@ -1151,7 +1271,8 @@ modular_decomposition_kernel(
   int* __restrict__ fm2,                            //Out d_fm2, or NULL
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
-  const int* __restrict__ i_H) {
+  const int* __restrict__ i_H,
+  const fml_corner_t band) {   /* RNA_MD_BAND; .sm==NULL disables */
   // The cell/lane split is the only thing that stays here; the arithmetic
   // lives in md_cell.inc so the megakernel runs exactly this code.
   const long long gtid = (long long)blockIdx.x*blockDim.x + threadIdx.x;
@@ -1159,9 +1280,9 @@ modular_decomposition_kernel(
                 base_off_H, colb_off, dml, fm2, tri_off_H, row_off_H,
                 side_off_H, total, i_H,
                 gtid / TILE, (int)(gtid & (TILE-1)),
-                /* stage 2: the standalone kernel owns no shared window, so the
-                 * corner is disabled and every read goes to the triangle. */
-                fml_corner_t{NULL, 0, 0});
+                /* The band is GLOBAL, so this kernel can use it with no block
+                 * owning anything -- which the shared corner could not. */
+                band);
 }
 
 // RNA_MD_SMEM=1 -- route to modular_decomposition_smem_kernel, which stages the
@@ -1235,9 +1356,14 @@ modular_decomposition_smem_kernel(
   int* __restrict__ fm2,
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
-  const int* __restrict__ i_H) {
+  const int* __restrict__ i_H,
+  const fml_corner_t band) {   /* RNA_MD_BAND; unused here -- see below */
   static_assert(TILE >= 1 && TILE <= 32 && (TILE & (TILE-1)) == 0,
                 "TILE must be a power of two in [1,32]");
+  /* RNA_MD_SMEM is a measured null (15 % slower) kept for the record, and it
+   * has its own staging path, so the band is accepted and ignored rather than
+   * given a second, drifting implementation. */
+  (void)band;
 
   __shared__ int sfi[MD_SMEM_TILE];
 
@@ -1582,7 +1708,7 @@ void modular_decomposition_cuda(const int nfiles,
                 d_dml,   /*Out*/ \
                 rnafold_circ_fm2_device(), /*Out, NULL unless circular*/ \
                 d_tri_off_H, d_row_off_H, \
-                d_side_off_H, total, d_i_H
+                d_side_off_H, total, d_i_H, mk_band_desc()
 #define MD_LAUNCH(T) \
   do { \
     if(rnafold_md_smem()) \
@@ -2066,6 +2192,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
     // int16: closes the row AFTER both writers, which is the whole ordering
     // constraint this design exists to respect. No-op when the gate is off.
     pack_fml(nfiles,i,turn,length,size_off_H);
+    band_fill(nfiles,i,turn,size_off_H);
     // Level 2 must not sync here -- that would end the overlap before it began,
     // exactly as on the graph path below.
     if(rnafold_stream_overlap() < 2)
@@ -2084,6 +2211,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   // replay reproduces the whole row. Ordering is what matters -- pack must
   // follow both writers -- and stream order inside the capture gives that.
   pack_fml(nfiles,i,turn,length,size_off_H);
+  band_fill(nfiles,i,turn,size_off_H);
 
   gpuErrchk( cudaStreamEndCapture(graph_stream, &graph) );
 
@@ -2161,6 +2289,9 @@ md_mk_ptrs(rnafold_mk_ptrs_t *p)
   p->fml_prev   = d_fml_prev;
   p->energy_min = d_energy_min;
   p->fm2        = rnafold_circ_fm2_device();   /* NULL unless circular */
+  p->fml_band   = d_fml_band;                 /* NULL unless RNA_MD_BAND */
+  p->band_k     = g_band_K;
+  p->band_stride = g_band_stride;
 
   /* int16: allocated only when the gate is on, so these stay NULL otherwise
    * and every cell takes its int32 branch. d_fml_j is itself NULL under int16

@@ -43,7 +43,7 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
     const unsigned int* __restrict__ hccc_H = &hccc[hc_off_H[H]];
 
     // H1: once per cell, not once per candidate.
-    const cell_inv_t ci = cell_invariants(S,pair_,H,nfiles,i,j);
+    const cell_inv_t ci = cell_invariants(S,pair_,H,S_STRIDE(length),i,j);
 
     // LANE c OWNS COLUMN c, in registers. maxcol <= MAXLOOP = 30 always, so one
     // warp covers every column there can be -- which is what makes the whole
@@ -101,7 +101,7 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
         assert(row >= 0);
         const int p = p0 + row;
         const int q = q0 + column;
-        const int energy2 = Energy(H,nfiles,i,j,q,p, ci,
+        const int energy2 = Energy(H,S_STRIDE(length),i,j,q,p, ci,
                       cread,
                       up_int ? &up_int[row_off_H[H]] : NULL,
                       S,pair_,P,

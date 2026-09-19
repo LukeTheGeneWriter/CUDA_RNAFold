@@ -457,7 +457,13 @@ mk_ph_md(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
   if (!c.live || (c.skip & MK_SKIP_MD))
     return;
 
-  cc.sm = c.corner; cc.J0 = c.Jown; cc.K = c.corner_k;
+  /* Shared corner if this block owns columns, otherwise the global band --
+   * which is the configuration that matters, since ownership costs 2x. */
+  if (c.corner) {
+    cc.sm = c.corner; cc.J0 = c.Jown; cc.K = c.corner_k; cc.stride = 0;
+  } else {
+    cc.sm = p.fml_band; cc.J0 = 0; cc.K = p.band_k; cc.stride = p.band_stride;
+  }
 
   /* The trip count is BLOCK-uniform, not per-tile, and dead tiles are handed an
    * out-of-range cell rather than being allowed to skip the call. md_cell's
@@ -561,6 +567,34 @@ mk_ph_corner_fill(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c)
         c.corner[(size_t)(j - c.Jown) * (size_t)c.corner_k + (size_t)off] =
           p.fml_row ? p.fml_row[p.row_off_H[c.H] + j]
                     : p.fml_j[p.tri_off_H[c.H] + Indx(c.i, j)];
+    }
+  }
+}
+
+/* ---- RNA_MD_BAND: row i joins the global band ----------------------------
+ * The per-phase sweep does this in band_fill(); the fused kernel has to do it
+ * itself, and forgetting to was a wrong answer rather than a slow one -- md
+ * read band entries no one had written.
+ *
+ * Same offset as the shared corner, off = (j-turn-1)-i, but the array is
+ * global and per-record, so no block owns anything. Row i is final here (both
+ * writers and pack have run) and is first READ by md at row i-turn-2.
+ */
+MK_PHASE void
+mk_ph_band_fill(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
+{
+  if (!c.live || !p.fml_band || (p.band_k <= 0))
+    return;
+  {
+    const long long n = (c.width < (long long)p.band_k) ? c.width : (long long)p.band_k;
+
+    for (long long o = t.gthr; o < n; o += t.nthr) {
+      const int j = c.i + c.turn_ + 1 + (int)o;
+
+      ((int *)p.fml_band)[(size_t)c.H * p.band_stride +
+                          (size_t)j * (size_t)p.band_k + (size_t)o] =
+        p.fml_row ? p.fml_row[p.row_off_H[c.H] + j]
+                  : p.fml_j[p.tri_off_H[c.H] + Indx(c.i, j)];
     }
   }
 }
@@ -836,6 +870,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
         mk_ph_pack(p, cc, t);
         MK_TICK(MK_PH_PACK);
         mk_ph_corner_fill(p, cc);
+        mk_ph_band_fill(p, cc, t);
         mk_ph_snapshot(p, cc, t);
         MK_TICK(MK_PH_TAIL);
 
@@ -900,6 +935,7 @@ megakernel_record(const rnafold_mk_ptrs_t p,
         mk_ph_pack(p, cm, t);
         MK_TICK(MK_PH_PACK);
         mk_ph_corner_fill(p, cm);
+        mk_ph_band_fill(p, cm, t);
 
         /* Meet 1. */
         MK_SYNC(); MK_TICK(MK_PH_SYNC);

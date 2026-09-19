@@ -71,7 +71,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
 
     // H1: once per cell, not once per candidate. Same helper as the warp
     // kernel, hoisted to the same point, so the two cannot drift.
-    const cell_inv_t ci = cell_invariants(S,pair_,H,nfiles,i,j);
+    const cell_inv_t ci = cell_invariants(S,pair_,H,S_STRIDE(length),i,j);
 
     // Cooperative decode + prefix-sum (see decode_column(), int_loop.cu,
     // and the "Cooperative Column Scan" design doc). maxcol+1 <= MAXLOOP+1
@@ -128,7 +128,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
       assert(row >= 0); //guaranteed by construction: work-prefix[column] < popcount(col_mask[column])
       const int p = p0 + row;
       const int q = q0 + column;
-      const int energy2 = Energy(H,nfiles,i,j,q,p, ci,
+      const int energy2 = Energy(H,S_STRIDE(length),i,j,q,p, ci,
 	            c_tri_reader{&my_c[tri_off_H[H]]},
 	            up_int ? &up_int[row_off_H[H]] : NULL,
 	            S,pair_,P,

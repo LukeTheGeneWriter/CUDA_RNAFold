@@ -92,16 +92,25 @@ struct cuda_param_s {
 //vrna_md_t model_details;   /**<  @brief  Model details to be used in the recursions */
 };
 
-// Unpack one base (0..4) from d_S's ten-per-word, H-fastest packing -- see
-// put10() in init_gpu2().
+// Words per record in d_S: ten 3-bit bases per word, and every slot is the
+// batch's `length+2` wide, so the stride is uniform and derivable.
+#define S_STRIDE(length) (((length) + 2 + 9) / 10)
+
+// Unpack one base (0..4) from d_S. PER-RECORD contiguous: record H owns
+// [H*stride, H*stride + stride) words and base i sits at i/10 within it.
+//
+// It used to be H-FASTEST -- word = (H + nfiles*i)/10, ten RECORDS per word --
+// which was right when adjacent-H threads shared a word. They no longer do:
+// one cell is one warp, so H is constant across a warp and that layout made
+// consecutive i land `nfiles` words apart. Per-record is both better for the
+// old path and the precondition for streaming a single record's sequence to
+// the device, which the interleaved layout made impossible.
 __device__ inline
-int unpack(const unsigned int* S, const int H, const int nfiles, const int i){
-  assert(H>=0 && H < nfiles);
-  const int k = H + nfiles*i;
-  const int I = k/10;
-  const int shift = (k - I*10)*3;
+int unpack(const unsigned int* S, const int H, const int s_stride, const int i){
+  const int I = i/10;
+  const int shift = (i - I*10)*3;
   assert(shift >= 0 && shift <= 32-3);
-  const int out = (S[I] >> shift) & 7;
+  const int out = (S[(size_t)H*s_stride + I] >> shift) & 7;
   assert(out>=0 && out <= 4);
   return out;
 }
@@ -110,10 +119,10 @@ int unpack(const unsigned int* S, const int H, const int nfiles, const int i){
 //replace ptypes array
 __device__ inline unsigned char
 Ptype(const unsigned int* __restrict__ S, const char* __restrict__ pair,//[8][8],
-      const int H, const int nfiles, const int i, const int j) {
+      const int H, const int s_stride, const int i, const int j) {
 
-  const int si = unpack(S,H,nfiles,i);
-  const int sj = unpack(S,H,nfiles,j);
+  const int si = unpack(S,H,s_stride,i);
+  const int sj = unpack(S,H,s_stride,j);
   //assert(i>=0 && i<=length);
   //assert(j>=0 && j<=length);
   assert(si>=0 && si<8);
@@ -204,15 +213,15 @@ struct cell_inv_t { int type; int si1; int sj1; };
 
 __device__ inline cell_inv_t
 cell_invariants(const unsigned int* __restrict__ S, const char* __restrict__ pair_,
-                const int H, const int nfiles, const int i, const int j) {
+                const int H, const int s_stride, const int i, const int j) {
   cell_inv_t c;
   // vrna_get_ptype_md() PROMOTES 0 -> 7 (alphabet.c:475-477); the raw pair value
   // is not the same thing, and omitting it here is the trap that made --nsp a
   // live wrong answer. See PORT_NSP_PARAMFILE_SCOPE.md 1.
-  const unsigned char t = Ptype(S,pair_,H,nfiles,i,j);
+  const unsigned char t = Ptype(S,pair_,H,s_stride,i,j);
   c.type = (t == 0) ? 7 : (int)t;
-  c.si1  = unpack(S,H,nfiles,i+1);
-  c.sj1  = unpack(S,H,nfiles,j-1);
+  c.si1  = unpack(S,H,s_stride,i+1);
+  c.sj1  = unpack(S,H,s_stride,j-1);
   return c;
 }
 
@@ -271,7 +280,7 @@ struct c_win_reader {
 
 template<class CREAD>
 __device__ inline int
-Energy(const int H, const int nfiles, const int i, const int j, const int q, const int p,
+Energy(const int H, const int s_stride, const int i, const int j, const int q, const int p,
        const cell_inv_t ci,   //H1: computed once per cell by the caller
 	  /*const char* hard_constraints,*/ CREAD my_c,
 	  // up_int for THIS record, or NULL when the batch carries no hard
@@ -367,7 +376,7 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 	      const int type = ci.type;
 	      assert(type<8);
 	      // p,q -- NOT q,p. The reversal is rtype[]'s job, not the index's.
-	      const unsigned char t2_raw   = Ptype(S,pair_,H,nfiles,p,q);
+	      const unsigned char t2_raw   = Ptype(S,pair_,H,s_stride,p,q);
 	      assert(t2_raw<8);
 	      const unsigned char type_2   = (unsigned char)P->rtype[(t2_raw == 0) ? 7 : t2_raw];
 	      assert(type_2<8);
@@ -406,8 +415,8 @@ Energy(const int H, const int nfiles, const int i, const int j, const int q, con
 
 	      const int si1 = ci.si1;    //H1: hoisted
 	      const int sj1 = ci.sj1;    //H1: hoisted
-	      const int sp1 = unpack(S,H,nfiles,i+pp);
-	      const int sq1 = unpack(S,H,nfiles,q+1);
+	      const int sp1 = unpack(S,H,s_stride,i+pp);
+	      const int sq1 = unpack(S,H,s_stride,q+1);
 
 	      energy += IntLoop_X(u1, ns, nl, type, type_2,
 				  si1, sj1, sp1, sq1,

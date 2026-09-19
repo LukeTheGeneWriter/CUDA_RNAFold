@@ -97,6 +97,13 @@ typedef struct {
   const size_t       *base_off_H;
   const size_t       *colb_off;
 
+  /* RNA_MD_BAND: the near-diagonal band in GLOBAL memory. Unlike the shared
+   * corner it needs no column ownership, so the fused kernel can use it while
+   * blocks stride cells. NULL when the gate is off. */
+  const int          *fml_band;
+  int                 band_k;
+  size_t              band_stride;
+
   /* Stages 1b and 2: the on-chip geometry, decided by the host because it is
    * what the shared-memory budget allows. cw_cols == 0 means both are off and
    * the fused kernel strides cells exactly as stage 0 did. */

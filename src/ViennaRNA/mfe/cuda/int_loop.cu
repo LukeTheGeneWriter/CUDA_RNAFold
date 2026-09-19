@@ -117,6 +117,10 @@ unsigned int* d_hccc; //read via Hc
 // interior-loop unpaired run, which MAXLOOP bounds at 30.
 unsigned char* d_up_int = NULL;
 unsigned int* d_S;    //S[length+2] packed 10 bases (3 bits each) per word
+// Words per record in d_S, fixed when the batch is packed. gq_internal_i() is
+// launched per row and never sees the batch , so the stride is kept
+// here rather than recomputed from a value that is not in scope.
+static int g_s_stride = 0;
 int*          d_my_c;
 int*          d_energy_min2; //share with modular_decomposition.cu ?
 int*          d_new_e;
@@ -469,9 +473,13 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   }
   }
 
-  // Ten bases per word, H fastest index (see put10()/unpack()).
+  // Ten bases per word, PER RECORD (see unpack()): record H owns
+  // [H*S_STRIDE, (H+1)*S_STRIDE) words. Slightly larger than the old
+  // H-fastest packing because each record rounds up to a whole word -- at
+  // most 9 bases of padding per record.
   assert(sizeof(unsigned int) == 4);
-  size = ((size_t)nfiles * (length+2) + 9)/10 * sizeof(unsigned int);
+  g_s_stride = S_STRIDE(length);
+  size = (size_t)nfiles * S_STRIDE(length) * sizeof(unsigned int);
   SLOT_ALLOC(&d_S, size);
   unsigned int* buff = (unsigned int*) malloc(size); //could use cudaMallocHost
   const double _t_pk2 = rnafold_now_seconds();
@@ -479,33 +487,28 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   memset(buff,0xff,size);
 #endif
   {
-    const int len = (length+2);
-    int H0 = 0;
-    int i0 = 0;
-    int j = 0; //0 to 9
-    unsigned int word = 0;
-    for(int i=0;i<len;i++){
+    const int len  = (length+2);
+    const int W10  = S_STRIDE(length);
+
     for(int H=0;H<nfiles;H++){
-      if(j==0) {word = 0; H0 = H; i0 = i;}
-      // Staggered_Row_Batching Phase 6a: guard against reading past a
-      // shorter H's own sequence_encoding (sized to VC[H]->length+2) once
-      // the shared `length`/`len` above can exceed an individual H's real
-      // length -- substitutes 0 (safe: this file's own d_S 10-per-word
-      // repacking for genuinely mixed lengths is deliberately deferred,
-      // Phase 2f, so this is a minimal safety guard only, not a fix for
-      // that packing scheme itself. Phase 6d's active/join mask ensures a
-      // position this far past H's own length is never actually consumed
-      // in a real energy calculation regardless.)
-      const unsigned int s = (i <= (int)VC[H]->length+1) ? VC[H]->sequence_encoding[i] : 0;
-      assert(s <= 4);
-      assert(j >= 0 && j < 10);
-      word = word | (s << (j*3));
-      j++;
-      if(j >= 10) {
-        j=0; put10(word,H, nfiles,i, size/4,buff);
+      for(int w=0;w<W10;w++){
+        unsigned int word = 0;
+
+        for(int t=0;t<10;t++){
+          const int i = w*10 + t;
+          // Past this record's own sequence_encoding (sized to its length+2)
+          // substitute 0: the batch `length` can exceed an individual H's, and
+          // Phase 6d's active/join mask means such a position is never consumed
+          // in a real energy calculation.
+          const unsigned int sc = ((i < len) && (i <= (int)VC[H]->length+1))
+                                ? VC[H]->sequence_encoding[i] : 0;
+
+          assert(sc <= 4);
+          word |= (sc << (t*3));
+        }
+        buff[(size_t)H*W10 + w] = word;
       }
-    }}
-    if(j>0) put10(word,H0,nfiles,i0,size/4,buff);
+    }
   }
 #ifndef NDEBUG
   for(size_t i=0;i<size/4;i++) assert(buff[i] <= 04444444444);
@@ -1249,6 +1252,7 @@ rnafold_int_loop_warp(void)
 // S1[p]==3 AND S1[q]==3, both must be G. Scanning is cheaper than cooperating.
 __global__ void
 gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn` is a #define (:70)
+                   const int s_stride,                  // d_S words per record
                    const cuda_param_t* __restrict__ P,
                    const unsigned int* __restrict__ S,     // packed sequence_encoding
                    const char* __restrict__ pair_,
@@ -1279,9 +1283,9 @@ gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn
   // value is not the same thing, and this is the identical trap that made
   // --nsp a live wrong answer in Energy(). dangles==2 on this fork, so the
   // mismatchI term is unconditional.
-  const int si = unpack(S,H,nfiles,i+1);
-  const int sj = unpack(S,H,nfiles,j-1);
-  unsigned char type = Ptype(S,pair_,H,nfiles,i,j);
+  const int si = unpack(S,H,s_stride,i+1);
+  const int sj = unpack(S,H,s_stride,j-1);
+  unsigned char type = Ptype(S,pair_,H,s_stride,i,j);
   if(type == 0) type = 7;
 
   // --noClosingGU. vrna_mfe_gquad_internal_loop() is called from INSIDE
@@ -1305,13 +1309,13 @@ gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn
   // ---- sweep 1: p == i+1, the quadruplex abuts the closing pair on the 5' side
   {
     const int p = i + 1;
-    if((unpack(S,H,nfiles,p) == 3) && (p + VRNA_GQUAD_MIN_BOX_SIZE < j)) {
+    if((unpack(S,H,s_stride,p) == 3) && (p + VRNA_GQUAD_MIN_BOX_SIZE < j)) {
       int minq = p + VRNA_GQUAD_MIN_BOX_SIZE - 1;
       if(minq + 1 + MAXLOOP < j) minq = j - MAXLOOP - 1;
       int maxq = p + VRNA_GQUAD_MAX_BOX_SIZE + 1;
       if(maxq + 3 > j) maxq = j - 3;
       for(int q = minq; q < maxq; q++) {
-        if(unpack(S,H,nfiles,q) != 3) continue;
+        if(unpack(S,H,s_stride,q) != 3) continue;
         const int e_gq = GQ_AT(p,q);
         if(e_gq != INF) {
           const int u = j - q - 1;
@@ -1327,13 +1331,13 @@ gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn
   for(int p = i + 2; p + VRNA_GQUAD_MIN_BOX_SIZE < j; p++) {
     const int l1 = p - i - 1;
     if(l1 > MAXLOOP) break;
-    if(unpack(S,H,nfiles,p) != 3) continue;
+    if(unpack(S,H,s_stride,p) != 3) continue;
     int minq = p + VRNA_GQUAD_MIN_BOX_SIZE - 1;
     if(minq + 1 + MAXLOOP - l1 < j) minq = j - MAXLOOP + l1 - 1;
     int maxq = p + VRNA_GQUAD_MAX_BOX_SIZE + 1;
     if(maxq >= j) maxq = j - 1;
     for(int q = minq; q < maxq; q++) {
-      if(unpack(S,H,nfiles,q) != 3) continue;
+      if(unpack(S,H,s_stride,q) != 3) continue;
       const int e_gq = GQ_AT(p,q);
       if(e_gq != INF) {
         const int u = l1 + j - q - 1;
@@ -1347,13 +1351,13 @@ gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn
   // ---- sweep 3: q == j-1, the quadruplex abuts the closing pair on the 3' side
   {
     const int q = j - 1;
-    if(unpack(S,H,nfiles,q) == 3) {
+    if(unpack(S,H,s_stride,q) == 3) {
       const int p0 = (i + 4 + VRNA_GQUAD_MAX_BOX_SIZE - 1 < q)
                      ? q - VRNA_GQUAD_MAX_BOX_SIZE + 1 : i + 4;
       for(int p = p0; p + VRNA_GQUAD_MIN_BOX_SIZE - 1 < j; p++) {
         const int l1 = p - i - 1;
         if(l1 > MAXLOOP) break;
-        if(unpack(S,H,nfiles,p) != 3) continue;
+        if(unpack(S,H,s_stride,p) != 3) continue;
         const int e_gq = GQ_AT(p,q);
         if(e_gq != INF) {
           assert(l1 >= 0 && l1 <= MAXLOOP);
@@ -1389,7 +1393,7 @@ gq_internal_i(const int nfiles, const int i, const int turn_, const size_t* size
   const int block = 128;
   const size_t grid = (total + block - 1)/block;
   gq_internal_kernel<<<(unsigned int)grid,block>>>(
-      nfiles, turn_, d_param, d_S, d_pair,
+      nfiles, turn_, g_s_stride, d_param, d_S, d_pair,
       d_row_off_H, d_size_off_H, d_i_H, d_energy_min2,
       gv, gc, gr, ge_, gro);
   gpuErrchk( cudaPeekAtLastError() );
