@@ -104,6 +104,16 @@ typedef struct {
   int                 cw_on;        /* stage 1b: the 32-row `c` ring         */
   int                 corner_k;     /* stage 2: fML entries cached per column */
 
+  /* Stage 3, the one-row skew. `split` is how many blocks run the c chain;
+   * 0 means one undivided grid on the stage 0-2 schedule. The halves own
+   * different numbers of columns because each partitions the span among its
+   * own blocks, and `bar` is four counters of device memory -- two per half --
+   * for the barrier that covers one half only. */
+  int                 split;
+  int                 cw_cols_m;    /* columns per block in the fML half */
+  unsigned int       *bar;
+  int                 own_mask;     /* debug: which phases use ownership */
+
   /* device.cu -- the chunk's row tables, indexed by sweep row */
   const size_t       *rt_size;
   const size_t       *rt_side;

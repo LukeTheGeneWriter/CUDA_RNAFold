@@ -726,6 +726,89 @@ falls with the ring, stage 1b is — though note int_loop is latency-bound, so
 the honest expectation there is small.""")
 
 
+
+# --------------------------------------------------------------------------
+md(r"""## J. Stage 3 — two co-resident halves, one row apart
+
+The c chain for row i needs only `c` rows >= i+1 and the sequence, so it can run
+**while** the fML chain finishes row i+1. The halves meet exactly twice a row:
+`new_c(i)` reads dml1, the snapshot of md(i+1), and `fml_scan(i+1)` reads new_e
+and e3p00, which the c chain wrote a row earlier. Everything else is internal
+to one half.
+
+That is what makes the barrier cheap. The undivided schedule pays **eight full
+grid barriers** a row; the skew pays **two**, plus a barrier over one half only
+(five for the fML chain, one for the c chain). `RNA_MK_SKEW` is the percentage
+of blocks given to the c chain; 0 restores the undivided schedule.
+
+Each half also holds only ONE cache — the c chain needs the ring, the fML chain
+the corner — so the shared budget covers the larger rather than the sum.
+
+**What this section is really asking.** Stage 3 does not reduce total work, it
+overlaps it. It wins if barrier time falls by more than the halves lose to
+running on a fraction of the grid, and that balance is a property of the device
+and the record length, not of the code. On a 3050 there are too few blocks for
+the split to mean much (AUTO G leaves 4 blocks a record, so a 50 % split is 2
+and 2). An A100 is the first machine where the question is real.""")
+
+code(r"""
+print("J.1 correctness -- the skew must not move a single answer")
+fa = fasta("j_24x2400", 24, 2400)
+J = {"J_noskew": {}}
+for pct in (25, 50, 75):
+    J["J_skew%d" % pct] = {"RNA_MK_SKEW": str(pct)}
+for tag, env in J.items():
+    e = dict(env); e["RNA_FML_INT16"] = "1"; e["RNA_MK_SMEM_KB"] = "96"
+    r = run(tag, fa, mega=True, extra_env=e, quiet=True)
+    print("  %-12s sha %s  cols/block %-5s K %-4s" % (tag, r["sha"], r["cols_per_block"], r["corner_k"]))
+ref = run("J_ref", fa, mega=False, extra_env={"RNA_FML_INT16": "1"}, quiet=True)
+shas = {RESULTS[t]["sha"] for t in J} | {ref["sha"]}
+print()
+print("  ONE SHA ACROSS THE SPLITS AND THE CONTROL:", len(shas) == 1)
+if len(shas) != 1:
+    print("  *** THE SKEW CHANGED AN ANSWER ***")
+    print("  The first time this fired it was the half-barrier missing its memory")
+    print("  fences: __syncthreads() orders memory WITHIN a block, so a block's")
+    print("  writes could still be in its L1 when the other half-blocks were let")
+    print("  go. It showed up as a fold that changed with the BLOCK COUNT, which")
+    print("  is a good tell -- check the release/acquire fences in mk_half_sync().")
+""")
+
+code(r"""
+print()
+print("J.2 what the skew does to the barrier, and to the wall")
+for name, n, L in (("j_24x2400", 24, 2400), ("j_16x4800", 16, 4800)):
+    fa = fasta(name, n, L)
+    print("  %s:" % name)
+    base = None
+    for pct in (0, 25, 50, 75):
+        e = {"RNA_FML_INT16": "1", "RNA_MK_SMEM_KB": "96"}
+        if pct: e["RNA_MK_SKEW"] = str(pct)
+        key = "J2_%s_%d" % (name, pct)
+        r = runm(key, fa, reps=3, mega=True, extra_env=e)
+        if base is None: base = r["wall"]
+        print("    skew %-3s wall %7.2f s  %+6.1f%%   barrier %5.1f%%  int_loop %5.1f%%  md %5.1f%%"
+              % (("off" if not pct else "%d%%" % pct), r["wall"], 100.0*(r["wall"]-base)/base,
+                 share_of(key) or -1, share_of(key, "int_loop") or -1, share_of(key, "md") or -1))
+    rf = runm("J2_%s_ref" % name, fa, reps=3, mega=False, extra_env={"RNA_FML_INT16": "1"})
+    print("    per-phase  wall %7.2f s" % rf["wall"])
+""")
+
+md(r"""**Reading J.2.** The barrier share is the number to watch: it should fall
+sharply from the skew-off row, because eight grid barriers become two. If it
+does *not* fall, the half-barrier's atomic spin is costing what the grid barrier
+did and the design has not bought anything.
+
+If the barrier share falls but the wall does not improve, the halves are losing
+more to running on a fraction of the grid than the barrier saved — which is a
+split-tuning problem, so the best `RNA_MK_SKEW` in this sweep is the answer, not
+a verdict on stage 3.
+
+One caveat that applies to every row: an equal-width column split is not
+work-balanced, so a block owning low columns idles until the sweep reaches it.
+That cost is shared with stages 1b and 2 and is measured on its own in I.3.""")
+
+
 code(r"""
 print("=" * 72)
 print("SUMMARY")
