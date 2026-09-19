@@ -121,6 +121,9 @@ unsigned int* d_S;    //S[length+2] packed 10 bases (3 bits each) per word
 // launched per row and never sees the batch , so the stride is kept
 // here rather than recomputed from a value that is not in scope.
 static int g_s_stride = 0;
+// Continuous flow phase C3: which slot refill_slot2() is admitting, or -1.
+// Only meaningful while g_slot_only is set.
+static int g_slot_index = -1;
 int*          d_my_c;
 int*          d_energy_min2; //share with modular_decomposition.cu ?
 int*          d_new_e;
@@ -489,8 +492,14 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   {
     const int len  = (length+2);
     const int W10  = S_STRIDE(length);
+    // Admitting ONE record now touches only its own words. The old layout
+    // interleaved ten slots per word, so a single slot could not be rewritten
+    // without a read-modify-write of shared words and the whole batch was
+    // repacked instead -- which is what the per-record layout was for.
+    const int H_lo = (g_slot_only && g_slot_index >= 0) ? g_slot_index : 0;
+    const int H_hi = (g_slot_only && g_slot_index >= 0) ? g_slot_index+1 : nfiles;
 
-    for(int H=0;H<nfiles;H++){
+    for(int H=H_lo;H<H_hi;H++){
       for(int w=0;w<W10;w++){
         unsigned int word = 0;
 
@@ -511,10 +520,17 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     }
   }
 #ifndef NDEBUG
-  for(size_t i=0;i<size/4;i++) assert(buff[i] <= 04444444444);
+  if(!(g_slot_only && g_slot_index >= 0))
+    for(size_t i=0;i<size/4;i++) assert(buff[i] <= 04444444444);
 #endif
   stage_ig_pack_s += rnafold_now_seconds() - _t_pk2;
-  gpuErrchk( cudaMemcpy(d_S,buff,size,cudaMemcpyHostToDevice) );
+  if(g_slot_only && g_slot_index >= 0) {
+    const size_t w = (size_t)S_STRIDE(length);
+    gpuErrchk( cudaMemcpy(d_S + (size_t)g_slot_index*w, buff + (size_t)g_slot_index*w,
+                          w*sizeof(unsigned int), cudaMemcpyHostToDevice) );
+  } else {
+    gpuErrchk( cudaMemcpy(d_S,buff,size,cudaMemcpyHostToDevice) );
+  }
   free(buff);
 
   { const size_t my_c_elems = tri_off_H[nfiles]; //sum of each H's own triangle size
@@ -561,12 +577,12 @@ refill_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
 }
 
 // Continuous flow phase C3: refill ONE slot, mid-sweep, without disturbing the
-// others. The sequence-derived content this file owns is either per-slot already
-// or recomputed identically for the unchanged slots (d_S is repacked whole: its
-// ten-bases-per-word layout interleaves the slots, so a single slot cannot be
-// rewritten in isolation without read-modify-write of shared words. The repack
-// reproduces every other slot's bytes exactly, so it is safe -- it is just work,
-// and Phase 2f's per-record d_S layout is what would remove it).
+// others. The sequence-derived content this file owns is per-slot, d_S included: since the
+// per-record repack it owns [slot*S_STRIDE, (slot+1)*S_STRIDE) outright, so
+// admitting a record costs ONE small contiguous upload rather than repacking
+// the whole batch. That whole-batch repack is what the interleaved layout
+// forced, and removing it is what makes a slot cheap enough to recycle
+// mid-sweep -- the admission primitive the streaming queue needs.
 //
 // The one thing that must NOT be done whole-buffer is d_my_c's INF prefill --
 // hence g_slot_only and the range fill below.
@@ -575,9 +591,11 @@ refill_slot2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
              const int length, const int block_size,
              const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H,
              const int slot) {
-  g_slot_only = 1;
+  g_slot_only  = 1;
+  g_slot_index = slot;
   refill_gpu2(nfiles, VC, turn_, length, block_size, tri_off_H, row_off_H, cap_H);
-  g_slot_only = 0;
+  g_slot_index = -1;
+  g_slot_only  = 0;
 
   const size_t lo = tri_off_H[slot];
   const size_t n  = tri_off_H[slot+1] - lo;

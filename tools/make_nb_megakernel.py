@@ -199,6 +199,7 @@ GAUTO_RE  = re.compile(r"G=AUTO: (\d+) records in flight, (\d+) blocks each")
 GEOM2_RE  = re.compile(r"geometry: (\d+) threads per block, md tile (\d+) lanes"
                        r"(?:, (\d+) blocks/SM register target)?")
 SKEWB_RE  = re.compile(r"SKEW: (\d+) blocks on the c chain")
+BAND_RE   = re.compile(r"band: K=(\d+), ([0-9.]+) MB total, ([0-9.]+) MB per record")
 PHASE_RE = re.compile(r"phase timing \(s\): int_loop=([0-9.]+) hp_mb=([0-9.]+) "
                       r"load_my_c=([0-9.]+) modular_decomp=([0-9.]+) fetch_mx=([0-9.]+)")
 
@@ -251,6 +252,8 @@ def run(tag, fa, mega=False, extra_env=None, args="", timeout=1800, quiet=False)
                    if GEOM2_RE.search(err) and GEOM2_RE.search(err).group(3) else None),
              resident=int(g.group(2)) if g else None,
              skew_blocks=int(SKEWB_RE.search(err).group(1)) if SKEWB_RE.search(err) else None,
+             band_k=int(BAND_RE.search(err).group(1)) if BAND_RE.search(err) else None,
+             band_mb=float(BAND_RE.search(err).group(3)) if BAND_RE.search(err) else None,
              declined=d.group(1) if d else None,
              fused=(mk_wall is not None),
              sms=int(g.group(1)) if g else None,
@@ -1162,6 +1165,84 @@ the batch grows, admission is leaving the device idle and the streaming queue
 fused path's deficit *shrinks* with batch size, the gap is per-launch overhead
 that scale amortises; if it holds, the gap is per-row and scale will not save
 it.""")
+
+
+
+# --------------------------------------------------------------------------
+md(r"""## N. The diagonal band — md's corner, without ownership
+
+The shared fML corner could not pay because it needed a block to OWN column j
+for the whole sweep, and fixed ownership costs 2× whatever the partition. The
+band is the same cache in **global** memory:
+
+```
+band[H*stride + j*K + off],    off = (j-k) - (turn+1)
+```
+
+`off` *is* the diagonal index, so "the top K entries of column j" and "the K
+diagonals nearest the diagonal" are the same set — the band and the shared
+corner are one descriptor. It is stored **column-major within the band**, so
+md's lanes (consecutive k) read consecutive addresses. A full diagonal-major
+*triangle* would put them ~`length` apart and cost a warp 32 lines instead of
+two, which is the wrong direction at 82.8 % of DRAM peak.
+
+Two consequences worth stating plainly:
+
+- **No block owns anything**, so blocks stride cells and the 2× disappears.
+- **It does not need the megakernel.** `RNA_MD_BAND=K` works on the per-phase
+  path, where md already runs at its own 40 registers and 75 % occupancy. If the
+  band pays, it pays without betting on fusion — which is why the per-phase arm
+  below is the one that matters.
+
+Sizing: K=64 is 0.20 MB per record, K=256 is 0.78 MB, so several records' bands
+fit in 40 MB of L2 at once. Capturing about half of md's traffic wants K ≈ n/8.""")
+
+code(r"""
+print("N.1 band depth, PER-PHASE path (no fusion)")
+for name, n, L in (("n_24x2400", 24, 2400), ("n_16x4800", 16, 4800), ("n_8x9600", 8, 9600)):
+    fa = fasta(name, n, L)
+    base = None
+    print("  %s:" % name)
+    for K in (0, 16, 64, 256, 1024):
+        env = {"RNA_FML_INT16": "1"}
+        if K: env["RNA_MD_BAND"] = str(K)
+        r = runm("N1_%s_%d" % (name, K), fa, reps=3, mega=False, extra_env=env)
+        if base is None: base = r["wall"]
+        print("    K=%-5s %7.2f s  %+6.1f%%  band %s MB/record  %s"
+              % (K or "off", r["wall"], 100.0*(r["wall"]-base)/base,
+                 r.get("band_mb"), "" if K == 0 else
+                 ("sha ok" if r["sha"] == RESULTS["N1_%s_0" % name]["sha"] else "*** SHA ***")))
+""")
+
+code(r"""
+print()
+print("N.2 the same band inside the fused kernel")
+for name in ("n_24x2400", "n_16x4800"):
+    fa = "%s/%s.fa" % (ROOT, name)
+    ref = RESULTS.get("N1_%s_0" % name, {})
+    for K in (0, 64, 256):
+        env = {"RNA_FML_INT16": "1", "RNA_MK_BPSM": "4"}
+        if K: env["RNA_MD_BAND"] = str(K)
+        r = runm("N2_%s_%d" % (name, K), fa, reps=3, mega=True, extra_env=env)
+        print("    %-12s K=%-5s %7.2f s  md %5.1f%%  barrier %5.1f%%  %s"
+              % (name, K or "off", r["wall"],
+                 share_of("N2_%s_%d" % (name, K), "md") or -1,
+                 share_of("N2_%s_%d" % (name, K), "grid.sync") or -1,
+                 "sha ok" if r["sha"] == ref.get("sha") else "*** SHA DIFFERS ***"))
+""")
+
+md(r"""**Reading N.** md's share of the fused kernel was 55–72 % and grew with
+length, and 41 % of md's time is bytes, so a band that captures half the traffic
+should be worth roughly a fifth of md. If N.1 shows nothing at any K, the reuse
+is not where the corner arithmetic says it is and stage 2 is finished as an
+idea — which is a real answer, and cheaper to get here than inside the
+megakernel.
+
+Watch the K column for diminishing returns: the band costs one write per row per
+column it covers, so beyond the point where it stops buying traffic it is pure
+overhead. And watch for the fused arm tracking the per-phase arm — if the band
+helps per-phase but not fused, the fused kernel is bound by something else
+(occupancy, §L) and the band is not what is holding it back.""")
 
 
 code(r"""
