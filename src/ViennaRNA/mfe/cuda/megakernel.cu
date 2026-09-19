@@ -87,6 +87,7 @@ namespace cg = cooperative_groups;
 #define MK_BLOCK   256         /* the DEFAULT; RNA_MK_THREADS picks a variant */
 #define MK_WARPS   (MK_BLOCK / 32)
 #define MK_TILE    32          /* the DEFAULT md tile; RNA_MK_TILE picks one */
+#define MK_BPSM    3           /* the DEFAULT register target; RNA_MK_BPSM */
 
 /* Threads per block and md's tile are template parameters, not constants, so
  * they can be swept without a rebuild. int_loop is NOT among them: it is a
@@ -95,12 +96,54 @@ namespace cg = cooperative_groups;
  *
  * Instantiating costs compile time, so the grid is deliberately small -- three
  * block sizes x two tiles. Extend MK_VARIANTS if a sweep wants more. */
-#define MK_MIN_BPSM(BLK) (((768) + (BLK) - 1) / (BLK))
+/* Blocks per SM the register allocator must fit. This is the register dial:
+ * ptxas spills until the kernel fits 65536/(BLK*B) registers, so raising B
+ * raises occupancy and the local-memory traffic together. RNA_MK_BPSM cannot
+ * do this at run time -- it is a compile-time attribute -- so it is a build
+ * knob, swept in the notebook by rebuilding. */
+/*
+ *  Blocks per SM the register allocator must fit, as a TEMPLATE parameter so
+ *  the occupancy/spill trade can be swept without a rebuild.
+ *
+ *  ptxas spills until the kernel fits 65536/(BLK*B) registers, so B buys warps
+ *  and costs local memory. Measured at 256 threads on sm_80:
+ *
+ *      B   regs  spill st/ld   warps/SM   occupancy
+ *      2    90      0/0          16         25 %
+ *      3    80      8/16         24         38 %     <- the old fixed default
+ *      4    64    276/404        32         50 %
+ *      5    48    504/912        40         62 %
+ *      6    40    880/1396       48         75 %     <- md standalone's 40 regs
+ *
+ *  Reaching md's register footprint costs ~880 B of spill stores per thread,
+ *  and md is bandwidth-bound, so the occupancy win and the spill traffic pull
+ *  against each other. Only a run on real silicon settles it.
+ */
 
 /* How far back an interior loop can reach: MAXLOOP=30 unpaired bases, so cell
  * (i,j) reads c(p,q) only for p in [i+1,i+31] and q in [j-31,j-1]. Both the
  * ring's depth and the window's left margin are this number. */
 #define MK_CW_BACK 31
+
+/* Whether each phase is INLINED into the kernel or reached through the ABI.
+ *
+ * Inlined, the register allocation is the union of every phase's live ranges --
+ * 80 on sm_80, which caps the grid at 3 blocks per SM, while the standalone md
+ * kernel runs 40 registers and twice the warps. md is bandwidth-bound and needs
+ * warps in flight to hide latency, so that ceiling is the fused path's single
+ * biggest cost (A100, 2026-09-19: fused 12.5 % achieved occupancy against md's
+ * 33.8 %).
+ *
+ * A phase contains its own cell loop, so a call is once per phase per ROW --
+ * noise against the work inside it. */
+#ifndef MK_NOINLINE
+#define MK_NOINLINE 0   /* measured: no register win, 12x the stack */
+#endif
+#if MK_NOINLINE
+#define MK_PHASE __device__ __noinline__
+#else
+#define MK_PHASE __device__ inline
+#endif
 
 /* Phase clocks. clock64() is a per-SM cycle counter, so these are summed over
  * blocks and only ever compared with each other -- a share of the row, not a
@@ -245,7 +288,7 @@ mk_ctx_row(mk_ctx_t *c, const rnafold_mk_ptrs_t &p, const int i)
  * previous iteration, so steady state is ONE row of the block's column span
  * per sweep row; `all` fills all thirty-one on the first row of the sweep.
  */
-__device__ inline void
+MK_PHASE void
 mk_ring_refresh(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const int all)
 {
   if (!c.cring || !c.live)
@@ -272,7 +315,7 @@ mk_ring_refresh(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const int all)
   __syncthreads();
 }
 
-__device__ inline void
+MK_PHASE void
 mk_ph_int_loop(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   if (!c.live || (c.skip & MK_SKIP_INT_LOOP))
@@ -312,7 +355,7 @@ mk_ph_int_loop(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
   }
 }
 
-__device__ inline void
+MK_PHASE void
 mk_ph_hp_mb(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   if (!c.live || (c.skip & MK_SKIP_HP_MB))
@@ -329,7 +372,7 @@ mk_ph_hp_mb(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 }
 
 /* The join: needs md(i+1)'s DMLi at column j-1, published by the snapshot. */
-__device__ inline void
+MK_PHASE void
 mk_ph_new_c(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   if (!c.live || (c.skip & MK_SKIP_NEW_C))
@@ -351,7 +394,7 @@ mk_ph_new_c(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
                (long long)c.sbase + k);
 }
 
-__device__ inline void
+MK_PHASE void
 mk_ph_load_my_c(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   if (!c.live || (c.skip & MK_SKIP_LOAD_C))
@@ -366,7 +409,7 @@ mk_ph_load_my_c(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t
 /* Block-cooperative, so ONE block of the half runs it -- the same
  * one-block-per-record shape the standalone kernel has. */
 template<int BLK>
-__device__ inline void
+MK_PHASE void
 mk_ph_scan(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c,
            const int is_lead, int *sa, int *sc)
 {
@@ -380,7 +423,7 @@ mk_ph_scan(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c,
                            c.H, sa, sc);
 }
 
-__device__ inline void
+MK_PHASE void
 mk_ph_load_fml(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   if (!c.live || (c.skip & MK_SKIP_LOAD_FML))
@@ -392,7 +435,7 @@ mk_ph_load_fml(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
                   c.i_H, (long long)c.sbase + k);
 }
 
-__device__ inline void
+MK_PHASE void
 mk_ph_fmli(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   if (!c.live || (c.skip & MK_SKIP_FMLI))
@@ -406,7 +449,7 @@ mk_ph_fmli(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 
 /* The decomposition itself: the phase everything else exists for. */
 template<int TILE>
-__device__ inline void
+MK_PHASE void
 mk_ph_md(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   fml_corner_t cc;
@@ -457,7 +500,7 @@ mk_ph_md(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 }
 
 /* Close the row: fold DMLi into fML, and cache row i for the next one. */
-__device__ inline void
+MK_PHASE void
 mk_ph_close(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   if (!c.live || (c.skip & MK_SKIP_CLOSE))
@@ -484,7 +527,7 @@ mk_ph_close(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
  * a distinct (column, block) WITHIN a row, and rows are separated -- by a
  * kernel launch on the per-phase path, by a barrier here.
  */
-__device__ inline void
+MK_PHASE void
 mk_ph_pack(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   if (!c.live || !p.fml_row || (c.skip & MK_SKIP_PACK))
@@ -503,7 +546,7 @@ mk_ph_pack(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
  * well before anyone wants it. Read back from fml_row under int16 -- it is
  * this row in full int32, so the cache never holds a packed delta.
  */
-__device__ inline void
+MK_PHASE void
 mk_ph_corner_fill(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c)
 {
   if (!c.corner || !c.live)
@@ -526,7 +569,7 @@ mk_ph_corner_fill(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c)
  * The standalone path copies the whole batch's row buffer on the md stream;
  * here the grid that just wrote it copies its own slice. It only READS dml,
  * so it can share a phase with anything else that reads dml. */
-__device__ inline void
+MK_PHASE void
 mk_ph_snapshot(const rnafold_mk_ptrs_t &p, const mk_ctx_t &c, const mk_thr_t &t)
 {
   if (!c.live || (c.skip & MK_SKIP_TAIL))
@@ -600,8 +643,8 @@ mk_half_sync(unsigned int *bar, const unsigned int nblocks, const unsigned int g
 /* Residency IS the design, so the register budget is stated rather than left
  * to the compiler: without this the refactor that gave stage 3 its second row
  * context dropped the grid from 3 resident blocks per SM to 1. */
-template<int BLK, int TILE>
-__global__ void __launch_bounds__(BLK, MK_MIN_BPSM(BLK))
+template<int BLK, int TILE, int BPSM>
+__global__ void __launch_bounds__(BLK, BPSM)
 megakernel_record(const rnafold_mk_ptrs_t p,
                   const int nfiles, const int H, const int turn_, const int length,
                   const int i_top, const int noGUclosure,
@@ -879,17 +922,24 @@ megakernel_record(const rnafold_mk_ptrs_t p,
  *  a silently ignored knob is how a sweep comes back flat.
  */
 typedef struct {
-  int         blk, tile;
+  int         blk, tile, bpsm;
   const void *fn;
 } mk_variant_t;
 
+/* Curated rather than a full cross product: every entry is a real
+ * instantiation and compile time is not free. TILE barely moved on the A100
+ * (4.51 s against 4.53 s at 512 threads), so the tile axis is sampled and the
+ * occupancy axis is swept. */
 static const mk_variant_t mk_variants[] = {
-  { 128, 16, (const void *)megakernel_record<128, 16> },
-  { 128, 32, (const void *)megakernel_record<128, 32> },
-  { 256, 16, (const void *)megakernel_record<256, 16> },
-  { 256, 32, (const void *)megakernel_record<256, 32> },
-  { 512, 16, (const void *)megakernel_record<512, 16> },
-  { 512, 32, (const void *)megakernel_record<512, 32> },
+  { 128, 32, 6, (const void *)megakernel_record<128, 32, 6> },
+  { 256, 32, 3, (const void *)megakernel_record<256, 32, 3> },
+  { 256, 32, 4, (const void *)megakernel_record<256, 32, 4> },
+  { 256, 32, 5, (const void *)megakernel_record<256, 32, 5> },
+  { 256, 32, 6, (const void *)megakernel_record<256, 32, 6> },
+  { 256, 16, 4, (const void *)megakernel_record<256, 16, 4> },
+  { 512, 32, 2, (const void *)megakernel_record<512, 32, 2> },
+  { 512, 32, 3, (const void *)megakernel_record<512, 32, 3> },
+  { 512, 16, 3, (const void *)megakernel_record<512, 16, 3> },
 };
 #define MK_NVARIANTS ((int)(sizeof(mk_variants) / sizeof(mk_variants[0])))
 
@@ -901,27 +951,34 @@ mk_pick_variant(void)
   if (!v) {
     const char *et = getenv("RNA_MK_THREADS");
     const char *ee = getenv("RNA_MK_TILE");
+    const char *eb = getenv("RNA_MK_BPSM");
     const int   want_b = (et && et[0]) ? atoi(et) : MK_BLOCK;
     const int   want_t = (ee && ee[0]) ? atoi(ee) : MK_TILE;
+    const int   want_o = (eb && eb[0]) ? atoi(eb) : MK_BPSM;
     int         i;
 
     for (i = 0; i < MK_NVARIANTS; i++)
-      if ((mk_variants[i].blk == want_b) && (mk_variants[i].tile == want_t)) {
+      if ((mk_variants[i].blk == want_b) && (mk_variants[i].tile == want_t) &&
+          (mk_variants[i].bpsm == want_o)) {
         v = &mk_variants[i];
         break;
       }
     if (!v) {
       for (i = 0; i < MK_NVARIANTS; i++)
-        if ((mk_variants[i].blk == MK_BLOCK) && (mk_variants[i].tile == MK_TILE))
+        if ((mk_variants[i].blk == MK_BLOCK) && (mk_variants[i].tile == MK_TILE) &&
+            (mk_variants[i].bpsm == MK_BPSM))
           v = &mk_variants[i];
       fprintf(stderr, "megakernel.cu            no variant for threads=%d tile=%d "
-                      "-- using %d/%d. Compiled: ", want_b, want_t, MK_BLOCK, MK_TILE);
+                      "bpsm=%d -- using %d/%d/%d. Compiled: ",
+              want_b, want_t, want_o, MK_BLOCK, MK_TILE, MK_BPSM);
       for (i = 0; i < MK_NVARIANTS; i++)
-        fprintf(stderr, "%d/%d ", mk_variants[i].blk, mk_variants[i].tile);
+        fprintf(stderr, "%d/%d/%d ", mk_variants[i].blk, mk_variants[i].tile,
+                mk_variants[i].bpsm);
       fprintf(stderr, "\n");
     }
     fprintf(stderr, "megakernel.cu            geometry: %d threads per block, "
-                    "md tile %d lanes\n", v->blk, v->tile);
+                    "md tile %d lanes, %d blocks/SM register target\n",
+            v->blk, v->tile, v->bpsm);
   }
 
   return v;
@@ -1107,8 +1164,30 @@ mk_plan_smem(const int blocks, const int length, const int turn,
              const int nC,
              int *cw_cols, int *cw_cols_m, int *cw_on, int *corner_k, size_t *bytes)
 {
-  const int  want_ring   = mk_env("RNA_MK_CWIN", 1);
-  const int  want_corner = mk_env("RNA_MK_CORNER", 1);
+/*
+ *  BOTH CACHES DEFAULT OFF, and the reason is arithmetic rather than tuning.
+ *
+ *  Either cache requires a block to OWN fixed columns for the whole sweep, or
+ *  nothing survives to the next row. Under a per-row barrier the row costs the
+ *  MAX over active blocks, so with widths w_b summing to `span` the sweep costs
+ *  sum_b w_b * max_{k>=b} w_k. If the widths fall toward high columns that is
+ *  sum w_b^2, minimised when they are equal; if they rise it is span*w_max,
+ *  again minimised when they are equal. So EQUAL WIDTH IS THE OPTIMAL FIXED
+ *  PARTITION at span^2/B -- balancing by total work cannot beat it -- while
+ *  cell striding costs span^2/2B.
+ *
+ *  Fixed column ownership is therefore exactly 2x worse than striding NO MATTER
+ *  HOW IT IS PARTITIONED. Measured on the A100 at 16x4800: 6.44 s striding
+ *  against 22.21 s owned (3.4x, the 2x plus barrier amplification), with md
+ *  down to 0.1 % of cycles because the time is blocks idling at a barrier.
+ *
+ *  The corner captures ~21.6 % of md's traffic at K/L=0.3, worth ~9 % of md's
+ *  time at the measured elasticity. It cannot return 2x. Both stay available
+ *  for experiment; neither is a default until a cache exists that does not need
+ *  ownership.
+ */
+  const int  want_ring   = mk_env("RNA_MK_CWIN", 0);
+  const int  want_corner = mk_env("RNA_MK_CORNER", 0);
   const int  budget_kb   = mk_env("RNA_MK_SMEM_KB", 32);
   const size_t budget    = (size_t)budget_kb * 1024u;
   const int  span        = (length > turn + 1) ? (length - turn - 1) : 1;

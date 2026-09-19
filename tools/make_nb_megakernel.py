@@ -196,7 +196,8 @@ DECL_RE  = re.compile(r"RNA_MEGAKERNEL declined: ([^\n]+)")
 ONCHIP_RE = re.compile(r"on-chip: (\d+) columns per block, c-ring (\w+), "
                        r"fML corner K=(\d+), (\d+) KB shared")
 GAUTO_RE  = re.compile(r"G=AUTO: (\d+) records in flight, (\d+) blocks each")
-GEOM2_RE  = re.compile(r"geometry: (\d+) threads per block, md tile (\d+) lanes")
+GEOM2_RE  = re.compile(r"geometry: (\d+) threads per block, md tile (\d+) lanes"
+                       r"(?:, (\d+) blocks/SM register target)?")
 SKEWB_RE  = re.compile(r"SKEW: (\d+) blocks on the c chain")
 PHASE_RE = re.compile(r"phase timing \(s\): int_loop=([0-9.]+) hp_mb=([0-9.]+) "
                       r"load_my_c=([0-9.]+) modular_decomp=([0-9.]+) fetch_mx=([0-9.]+)")
@@ -246,6 +247,9 @@ def run(tag, fa, mega=False, extra_env=None, args="", timeout=1800, quiet=False)
              auto_blocks=int(ga.group(2)) if ga else None,
              threads=int(GEOM2_RE.search(err).group(1)) if GEOM2_RE.search(err) else None,
              tile=int(GEOM2_RE.search(err).group(2)) if GEOM2_RE.search(err) else None,
+             bpsm=(GEOM2_RE.search(err).group(3)
+                   if GEOM2_RE.search(err) and GEOM2_RE.search(err).group(3) else None),
+             resident=int(g.group(2)) if g else None,
              skew_blocks=int(SKEWB_RE.search(err).group(1)) if SKEWB_RE.search(err) else None,
              declined=d.group(1) if d else None,
              fused=(mk_wall is not None),
@@ -1028,6 +1032,136 @@ If K.5 is still negative, the useful output is not the verdict but the phase
 shares beside it: barrier-dominated says the schedule is wrong (G, split),
 `md`-dominated says stage 2 wants a deeper corner, `int_loop`-dominated says the
 `c` ring is not paying and stage 1b should be reconsidered.""")
+
+
+
+# --------------------------------------------------------------------------
+md(r"""## L. Occupancy — the one dial that can still rescue fusion
+
+The first A100 run found the fused kernel 30–109 % slower, and §C found why:
+
+| kernel | regs | achieved occupancy |
+|---|---|---|
+| megakernel | 80 | 12.5 % |
+| md standalone | 40 | 33.8 % |
+
+The fused kernel's register allocation is the **max over seven phases**, and md
+— 55–72 % of its cycles, bandwidth-bound, needing warps in flight to hide
+latency — pays for all of them.
+
+`__noinline__` on the phases was tried and **failed**: same 80 registers, and
+the stack went 48 → 560 bytes. The allocation is set by `__launch_bounds__`,
+not by inlining. So the real dial is the bound, and it is now a runtime one
+(`RNA_MK_BPSM`), because every value is a compiled variant. Measured at 256
+threads on sm_80:
+
+| B/SM | regs | spill st/ld | warps/SM | occupancy |
+|---|---|---|---|---|
+| 3 | 80 | 8/16 | 24 | 38 % |
+| 4 | 64 | 276/404 | 32 | 50 % |
+| 5 | 48 | 504/912 | 40 | 62 % |
+| 6 | 40 | 880/1396 | 48 | 75 % |
+
+Reaching md's 40 registers costs ~880 B of spill stores per thread — local
+memory traffic on a kernel that is already bandwidth-bound. **The occupancy win
+and the spill traffic pull against each other and only silicon settles it.**
+
+**This section is the go/no-go.** If pushing occupancy closes most of the gap,
+fusion is viable and the on-chip work is worth restarting on a different
+footing. If it does not, the megakernel does not pay and we should say so.
+
+Note both on-chip caches now default OFF. Fixed column ownership is provably
+**2× worse than cell striding whatever the partition** (see the note in
+`mk_plan_smem`), so balancing it by work — the obvious fix — cannot help.""")
+
+code(r"""
+print("L.1 register target vs wall, at two shapes")
+for name, n, L in (("l_24x2400", 24, 2400), ("l_16x4800", 16, 4800)):
+    fa = fasta(name, n, L)
+    ref = runm("L_%s_ref" % name, fa, reps=3, mega=False, extra_env={"RNA_FML_INT16": "1"})
+    print("  %s  per-phase %.2f s" % (name, ref["wall"]))
+    for thr, tile, b in ((256,32,3), (256,32,4), (256,32,5), (256,32,6),
+                         (512,32,2), (512,32,3), (128,32,6)):
+        key = "L1_%s_%d_%d_%d" % (name, thr, tile, b)
+        r = runm(key, fa, reps=3, mega=True,
+                 extra_env={"RNA_FML_INT16": "1", "RNA_MK_THREADS": str(thr),
+                            "RNA_MK_TILE": str(tile), "RNA_MK_BPSM": str(b)})
+        ok = (r["sha"] == ref["sha"])
+        print("    thr=%-4d B/SM=%-2d  %7.2f s  %+6.1f%%  resident %-3s  %s  md %5.1f%% barrier %5.1f%%"
+              % (thr, b, r["wall"], 100.0*(r["wall"]-ref["wall"])/ref["wall"],
+                 r.get("resident"), "ok" if ok else "SHA!",
+                 share_of(key, "md") or -1, share_of(key, "grid.sync") or -1))
+""")
+
+md(r"""**Reading L.1.** Compare the same `thr` down the `B/SM` column: that is
+occupancy against spill with everything else fixed. If the wall falls as B rises,
+the fused path was occupancy-starved and 6 (md's own register footprint) is the
+setting. If it rises, the spill traffic dominates and fusion has a floor that no
+tuning removes — which is the answer to the go/no-go, and a real result.""")
+
+# --------------------------------------------------------------------------
+md(r"""## M. Scale — the card is barely used
+
+The A100 has 40 GB and the fold is using a fraction of it. That matters for the
+branch's actual goal: a circular flow with many records resident, H2D and D2H as
+continuous trickles rather than peaks. Before building the admission queue it is
+worth knowing **what the card will actually hold** and whether the per-phase
+path keeps its lead as the batch grows.
+
+Peak VRAM is sampled during each fold rather than estimated, because the
+projection this codebase uses (`gpu_bytes_per_file`) is what admission trusts
+and it has been wrong before.""")
+
+code(r"""
+import threading
+
+def run_vram(tag, fa, **kw):
+    # Poll nvidia-smi while the fold runs and keep the peak. The fold's own
+    # accounting is what admission trusts, so measuring it independently is
+    # the point.
+    peak = {"mb": 0}
+    stop = threading.Event()
+
+    def poll():
+        while not stop.is_set():
+            q = sh("nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits",
+                   check=False, quiet=True).stdout.strip().splitlines()
+            if q:
+                try: peak["mb"] = max(peak["mb"], int(q[0]))
+                except Exception: pass
+            stop.wait(0.25)
+
+    t = threading.Thread(target=poll, daemon=True); t.start()
+    try:    r = run(tag, fa, quiet=True, **kw)
+    finally: stop.set(); t.join(timeout=2)
+    r["vram_mb"] = peak["mb"]
+    RESULTS[tag] = r
+    return r
+
+TOTAL_MB = int(sh("nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits",
+                  quiet=True).stdout.strip().splitlines()[0])
+print("M: card has %d MB" % TOTAL_MB)
+""")
+
+code(r"""
+print("M.1 batch size vs VRAM and wall")
+for n, L in ((24, 2400), (96, 2400), (384, 2400), (24, 4800), (96, 4800)):
+    fa = fasta("m_%dx%d" % (n, L), n, L)
+    a = run_vram("M_%dx%d_ref" % (n, L), fa, mega=False, extra_env={"RNA_FML_INT16": "1"})
+    b = run_vram("M_%dx%d_mk"  % (n, L), fa, mega=True,
+                 extra_env={"RNA_FML_INT16": "1", "RNA_MK_BPSM": "4"})
+    print("  %-10s per-phase %7.2f s %6d MB (%4.1f%%) | fused %7.2f s %6d MB | %+6.1f%%  %s"
+          % ("%dx%d" % (n, L), a["wall"], a["vram_mb"], 100.0*a["vram_mb"]/TOTAL_MB,
+             b["wall"], b["vram_mb"], 100.0*(b["wall"]-a["wall"])/a["wall"],
+             "sha ok" if a["sha"] == b["sha"] else "*** SHA DIFFERS ***"))
+""")
+
+md(r"""**Reading M.1.** Two things. If VRAM stays a small fraction of the card as
+the batch grows, admission is leaving the device idle and the streaming queue
+(plan stage 4) has headroom to exploit — that is the next build. And if the
+fused path's deficit *shrinks* with batch size, the gap is per-launch overhead
+that scale amortises; if it holds, the gap is per-row and scale will not save
+it.""")
 
 
 code(r"""
