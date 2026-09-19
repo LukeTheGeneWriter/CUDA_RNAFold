@@ -87,6 +87,21 @@ NPROC = int(sh("nproc", quiet=True).stdout.strip())
 print("cores:", NPROC)
 """)
 
+code(r"""
+# The build tools. This notebook shipped WITHOUT them and autogen.sh died on a
+# clean Colab image -- gengetopt, libtoolize and help2man are not preinstalled.
+# The check is separate from the install because apt succeeding says nothing
+# about whether the binaries are on PATH.
+sh("apt-get -qq update > /dev/null 2>&1", check=False, quiet=True)
+sh("apt-get -qq install -y gengetopt help2man xxd libtool texinfo doxygen time "
+   "> /dev/null 2>&1", check=False, quiet=True)
+MISSING = [t for t in ("gengetopt", "help2man", "xxd", "libtoolize", "makeinfo", "doxygen")
+           if sh("command -v %s" % t, check=False, quiet=True).returncode != 0]
+print("missing build tools:", MISSING or "none")
+if MISSING:
+    raise SystemExit("install failed for %s -- autogen or make WILL fail" % MISSING)
+""")
+
 md(r"""## 2. Build
 
 The megakernel is the first thing in this tree to use a **cooperative launch**,
@@ -114,17 +129,58 @@ for probe, what in (("RNA_MEGAKERNEL", "the gate"),
 
 code(r"""
 t0 = time.time()
-sh("cd %s/tree && tar -xjf src/dlib-*.tar.bz2 -C src/ && tar -xzf src/libsvm-*.tar.gz -C src/" % ROOT)
-sh("cd %s/tree && ./autogen.sh > /tmp/autogen.log 2>&1" % ROOT)
-sh("cd %s/tree && ./configure --enable-cuda --without-python --without-perl --without-swig "
-   "--without-doc --without-rnaxplorer --without-forester --without-kinfold "
-   "--without-rnalocmin > /tmp/configure.log 2>&1" % ROOT)
+
+def step(name, cmd, log):
+    # A build step that hides its own log is a step you cannot debug from a
+    # notebook -- which is exactly how this cell failed the first time it ran.
+    p = sh("%s > %s 2>&1" % (cmd, log), check=False, quiet=True)
+    if p.returncode:
+        print("---- %s FAILED, tail of %s ----" % (name, log))
+        print(sh("tail -40 %s" % log, quiet=True).stdout)
+        raise SystemExit("%s failed" % name)
+    return p
+
+sh("cd %s/tree && tar -xjf src/dlib-*.tar.bz2 -C src/ && tar -xzf src/libsvm-*.tar.gz -C src/"
+   % ROOT, check=False, quiet=True)
+
+step("autogen", "cd %s/tree && ./autogen.sh" % ROOT, "/content/autogen.log")
+
+# Upstream 2.7.2 ships doc/man2rst.py mode 644 and the man-to-rst rule EXECS it,
+# so make dies even under --without-doc. One chmod, every time.
+sh("chmod +x %s/tree/doc/man2rst.py" % ROOT, check=False, quiet=True)
+
+step("configure",
+     "cd %s/tree && ./configure --enable-cuda --without-python --without-perl "
+     "--without-swig --without-doc --without-rnaxplorer --without-forester "
+     "--without-kinfold --without-rnalocmin CFLAGS='-g -O2' CXXFLAGS='-g -O2' "
+     "PYTHON3=\"$(command -v python3)\"" % ROOT, "/content/conf.log")
+
 # upstream races its own gengetopt headers under -j; a second make settles it
-sh("cd %s/tree && (make -j%d > /tmp/make.log 2>&1 || make -j%d > /tmp/make.log 2>&1)"
-   % (ROOT, NPROC, NPROC))
+p = sh("cd %s/tree && make -j%d > /content/make.log 2>&1" % (ROOT, NPROC),
+       check=False, quiet=True)
+if p.returncode:
+    p = sh("cd %s/tree && make -j%d > /content/make.log 2>&1" % (ROOT, NPROC),
+           check=False, quiet=True)
+if p.returncode:
+    print("---- make FAILED, tail of /content/make.log ----")
+    print(sh("tail -60 /content/make.log", quiet=True).stdout)
+    raise SystemExit("make failed")
+
 BIN = "%s/tree/src/bin/RNAfold" % ROOT
+if not os.path.exists(BIN):
+    print(sh("tail -40 /content/make.log", quiet=True).stdout)
+    raise SystemExit("make reported success but %s does not exist" % BIN)
 print("built in %.1f min -> %s" % ((time.time()-t0)/60.0, BIN))
 sh("%s --version" % BIN)
+
+# megakernel.cu must be IN the binary, not merely in the checkout. A tree that
+# builds without it looks identical until every megakernel arm reports
+# "declined" and the whole notebook quietly measures the per-phase path.
+for needle, what in (("RNA_MEGAKERNEL=1: the row chain runs", "the gate banner"),
+                     ("geometry: %d threads per block",       "the variant banner"),
+                     ("SKEW:",                                "stage 3")):
+    n = sh("strings %s | grep -cF '%s' || true" % (BIN, needle), quiet=True).stdout.strip()
+    print("  %-22s %s" % (what, "present" if n and n != "0" else "*** ABSENT ***"))
 """)
 
 md("## 3. The runner")
