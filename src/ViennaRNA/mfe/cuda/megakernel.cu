@@ -84,10 +84,20 @@ namespace cg = cooperative_groups;
  * fml_scan is a block-wide scan whose tile width is the block. 256 = eight
  * warps satisfies all three (eight cells per block for the two warp-shaped
  * phases, a 256-wide scan tile for the third). */
-#define MK_BLOCK   256         /* the DEFAULT; RNA_MK_THREADS picks a variant */
+/* Defaults are the A100 optimum measured in section L (2026-09-19), not a
+ * guess: 512 threads at a 2-blocks/SM register target won at every shape.
+ *
+ * AND THE OCCUPANCY THEORY IS DEAD. Raising the target from 3 to 6 blocks/SM
+ * takes the kernel from 80 registers to 40 and 24 warps/SM to 48 -- and made
+ * it SLOWER everywhere (24x2400: 2.20 s at B=2 against 2.43 s at B=6;
+ * 16x4800: 6.11 s against 6.84 s). ptxas pays for those registers in spill
+ * traffic, and md is bandwidth-bound, so the warps buy less than the spill
+ * costs. Do not re-propose more occupancy for this kernel without new
+ * evidence; the sweep is in megakernel.json. */
+#define MK_BLOCK   512         /* the DEFAULT; RNA_MK_THREADS picks a variant */
 #define MK_WARPS   (MK_BLOCK / 32)
 #define MK_TILE    32          /* the DEFAULT md tile; RNA_MK_TILE picks one */
-#define MK_BPSM    3           /* the DEFAULT register target; RNA_MK_BPSM */
+#define MK_BPSM    2           /* the DEFAULT register target; RNA_MK_BPSM */
 
 /* Threads per block and md's tile are template parameters, not constants, so
  * they can be swept without a rebuild. int_loop is NOT among them: it is a
