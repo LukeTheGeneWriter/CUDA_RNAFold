@@ -724,3 +724,107 @@ is unaffected -- checked, not assumed.
 **They remain in git HISTORY.** The tree a reviewer clones is clean from here on,
 but a genuinely clean history needs either a rewrite or a fresh branch built from
 the source files alone. That is still open.
+
+### 9.8 int_loop grid shape: a negative at production, and a confound in §B
+
+Computed from the launch geometry (`size_off_H[nfiles]` cells, one warp per cell,
+`cells_per_block = blockSize/32 = 2` at the measured default of 64 threads).
+Blocks resident per SM is the min of the warp-slot, register, shared-memory and
+hard-cap limits; at 64 threads and 53 registers that is **18 blocks/SM**,
+register-limited, so an A100 wave is **1944 blocks** and the occupancy ceiling is
+**56 %**.
+
+| shape | SM-fill across the sweep | launches until the device is full |
+|---|---|---|
+| **400 × 5601** | **99.8 %** | 9 of 5596 |
+| 256 × 2400 | 99.4 % | 15 of 2395 |
+| 24 × 2400 | 93.6 % | 161 of 2395 |
+| 8 × 1200 | 69.1 % | 485 of 1195 |
+| 1 × 5601 | **55.2 %** | 3886 of 5596 |
+| 1 × 2400 | **30.8 %** | never |
+
+**There is no wave-quantization win at production.** The widest row launches
+1.12 M blocks against a 1944-block wave — 576 waves — so the tail is 0.2 %. H6
+already flattened this grid and there is no second H6 behind it. Closed.
+
+**The recorded 5.3 % occupancy for `int_loop` is a profiling artefact.** The sweep
+runs `i` DESCENDING, so width grows and the early launches are tiny: the first
+ten at 400 × 5601 are 200, 400, 600 … 2000 blocks. Run the first through the
+model — 200 ÷ 108 SMs = 1.85 blocks/SM × 2 warps = 3.7 of 64 slots = **5.8 %** —
+against a 56 % ceiling. That is the same trap already on record for this kernel
+(auto block size sampled only the first launch). "Occupancy-starved" does not
+survive; "retirement-limited" does. Re-profile with `--launch-skip` past 9.
+
+A confidence check on the model: at `c=1` (32-thread blocks) it predicts exactly
+**50 %**, which is the independently recorded "50 % at c=1". It reproduces a
+number it was not fitted to.
+
+**THE CONFOUND THIS CREATES, and it is the important part.** §B's knee sweep
+varies records resident, and at low counts the grid cannot fill the SMs at all
+(30–55 %). So the left branch of the curve has **two causes at once** — L2
+underuse and grid underfill — and read naively, "throughput improves as records
+rise" looks like a residency result when most of it is the device filling up.
+`sm_fill()` is computed from geometry alone (no measurement), so §B now reports
+it beside s/record and restricts the cache claim to arms above 95 % fill.
+
+It also sharpens what the knee *means*: **filling the SMs wants more records,
+keeping L2 resident wants fewer**, and the knee is where those cross. That makes
+it a real optimum rather than a cache artefact, and it is now predictable from
+both sides.
+
+**Phase overlap is flagged, not pursued:** the overlap ceiling was measured at
+8.5 % and `RNA_PHASE_SYNC` costs 0.2 %, so production overlaps essentially
+nothing and perfect overlap would buy under 9 %. Against md at ~42 % of the wall
+and 82.8 % of DRAM peak, it is the smaller lever by roughly an order of
+magnitude. Revisit when 8 % looks worth having.
+
+Also note, on co-running `int_loop` with `md` specifically: the complementary-
+limiter argument does not apply. md is at 82.8 % of DRAM peak (no spare
+bandwidth) and int_loop's dominant stall is `long_scoreboard` at 44 %, which is
+also memory. Both want the same resource.
+
+### 9.9 The first A100 attempt stalled in §A, and what it cost us
+
+Terminated after ~50 minutes: the only output was §A's header, with host RAM and
+VRAM static.
+
+**4b is not implicated, by the notebook's own ordering.** §A ran `A_serial`
+FIRST, with `RNA_BACKTRACK_THREADS=0` -> `n_ret = 1` -> `retire_pool_start()`
+returns early with `started == 0` -> `on_retire_cb()` takes the serial branch,
+which is exactly the pre-4b path. `run()` prints its line on completion, so
+`A_serial` never finished and **the pool was never active.**
+
+**Cause still unknown, because the evidence was destroyed.** `run()` captured
+stderr in memory and printed it only on completion, so a stall printed nothing
+and killing the process threw away the log. That is the real defect here and it
+is fixed: every arm now streams stderr to `/content/logs/<tag>.err`, heartbeats
+once a minute with the last stderr line, has a per-arm timeout, and reports the
+last five lines when killed.
+
+**Reproduction attempts, all completed, none hung:**
+
+| local arm (RTX 3050) | result |
+|---|---|
+| 16 × 2400, SLOT_FLOW 1 / 2 / 4, phase-synced | 5.4 / 5.2 / 7.4 s |
+| 8 × 5601, SLOT_FLOW=4, serial retirement | 23.0 s, 22 388 iterations |
+
+So neither slot depth nor length 5601 nor serial retirement hangs. Scaling the
+8 × 5601 result to §A's shape on an A100 predicts well under a minute, so the
+50 minutes is ~50× off and something host- or shape-specific is involved.
+
+**Two design errors in §A that plausibly contributed, both now fixed:**
+
+1. **It was phase-synced.** §A's claim is about the WALL, and `RNA_PHASE_SYNC`
+   makes the wall non-comparable by construction — the harness says so in its own
+   banner. §A now runs unsynced; md is measured in §D where the sync belongs.
+2. **`RNA_SLOT_FLOW=4` on 64 records** is the worst of both worlds: 16 slots (low
+   parallelism) AND 4× the iterations, since each slot runs its queue back to
+   back — **22 388 iterations against production's 5 597**. `=2` is the smallest
+   depth that forces a mid-sweep handover, which is all §A needs. Measured
+   locally: slot depth 1/2/4 costs 5.4/5.2/7.4 s for identical total work.
+
+**New §0** runs every env combination this notebook uses on 8 × 600 nt under a
+300 s cap, then a **shape probe** at the §A shape under a 420 s cap that reports
+which startup banner it last reached — so a stall is located in five minutes and
+attributed to startup vs the row loop, instead of costing an hour and yielding
+nothing.
