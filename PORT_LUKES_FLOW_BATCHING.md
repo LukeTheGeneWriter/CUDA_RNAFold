@@ -523,3 +523,204 @@ Two things the probe taught us on the way:
 `PORT_MEGAKERNEL_SCOPE.md` §2(d). 0.1 % of md's column stream is INF at 4 800 nt
 and the fraction falls with length, so there is no compression lever. The probe
 cost one build and four folds, which is what a cheap "no" should cost.
+
+---
+
+## 9. Phase 4b — retiring a record off the sweep thread (built 2026-09-23)
+
+Until 4b, `on_retire_cb()` ran on the sweep's own thread: every slot handover
+stopped the sweep for one record's **fetch and backtrack**, with a pool of
+exactly one scratch. The post-sweep equivalents at 400 × 5601 are fetch 1.85 s
+and backtrack 7.63 s, so the inline half was the expensive one.
+
+**The split is set by one ordering constraint, not by taste.**
+`refill_slot2()` overwrites exactly the retiring record's device cells later in
+the same loop iteration, so the D2H must be ordered before it. Everything after
+the copy — `RNA_CIRC_VERIFY`, fM1, `vrna_mfe_exterior_f5()`, the MFE read, the
+backtrack — is **pure host work that makes no CUDA call at all**, which is why
+it can move and the fetch cannot:
+
+| half | where | why |
+|---|---|---|
+| `backtrack_fetch_slot()` | the sweep's thread | must precede `refill_slot2()`; already waits on one copy stream, not the device (`rnafold_d2h_w`) |
+| `backtrack_finish_slot()` | a worker | touches no device memory; the sweep has no reason to wait |
+
+**The bounded resource is the scratch pair, not the thread.** A worker holds one
+record's two (or three) triangles until it is done, so the pool is W scratches
+and W workers and the sweep BLOCKS when all W are out. That backpressure holds
+peak host matrix memory at W × one record's worth — the bound `backtrack_all()`
+has always had, under the same `RNA_BACKTRACK_THREADS`. `=0` gives W=1 and the
+old serial path exactly, which is the control every sha is compared against.
+
+**Two defects found by review rather than by a run:**
+
+- the cleanup keyed on `started`, so a pool whose **first** `pthread_create()`
+  failed leaked its whole queue and freelist. `r->q` is the allocation witness
+  now, not the thread count;
+- the bar's own worker-count parse, `s/.*\([0-9]\+\) retire workers.*/\1/`, has
+  a greedy `.*` that eats the leading digit — "12 retire workers" read as **2**,
+  and the `> 1` assertion passed for the wrong reason. A check quietly reading
+  the wrong number is worse than no check.
+
+### 9.1 The bar needs TWO fixtures, because neither reaches both properties
+
+`tools/verify_retire_pool.sh`:
+
+- **mixed** (30 records, 200–1360 nt) for **correctness**. Uniform lengths retire
+  every slot on the same iteration, so a handover defect lands while every
+  neighbour is itself starting fresh and is invisible — the --noLP slot-flow
+  defect hid behind exactly that.
+- **u2000** (24 records, one length) for **concurrency reachability**. The
+  opposite property: every slot retires together, so records really are in
+  flight at once. The mixed arm measures **peak 1 in flight** — it hands off and
+  the worker finishes before the next handover arrives — so a green mixed run
+  says *nothing* about whether two records were ever overlapped. u2000 measures
+  peak 3 and the bar asserts > 1 there and nowhere else.
+
+The counters (`peak N in flight, M stalls`) exist for that assertion, not for
+tuning.
+
+**Negative control, run by hand:** with the fetch moved into the worker — the
+exact ordering violation above — **both** arms went DIFF against upstream. The
+bar can reach its own subject.
+
+**Local result (RTX 3050, WSL):** option parity 45/45, constraint parity 5/5
+(`--expect-accelerated`), `verify_retire_pool` all green, byte-identical to
+upstream and to the serial control at `RNA_SLOT_FLOW` ∈ {2,4}. **Unmeasured for
+speed** — the laptop's handovers are microseconds and its clock wanders. §A of
+`CUDA_RNAFold_Flow.ipynb` is the measurement.
+
+### 9.2 `RNA_MD_BAND` is rounded up to a warp
+
+K is the band's **per-column stride** (`band[H*stride + j*K + off]`,
+`stride = (len+2)*K`), so it sets the alignment of every column's segment, not
+just the width. At K=32 ints = 128 B each column starts on a transaction
+boundary; at K=48 every second column straddles two 128 B sectors — an extra
+sector per warp on a kernel already at 82.8 % of DRAM peak. That is a
+**coalescing** cost, not a divergence one: the band is read uniformly across the
+warp. Both the requested and the effective K are printed, because a sweep that
+records the requested one silently samples the wrong points.
+
+### 9.3 The axis no A100 run has swept: records in flight
+
+Every A100 run so far has measured **intra-sequence** parallelism — rows in
+flight for one batch — and the card has been 81 % idle on memory throughout
+(940 MB at 24 × 2400, 7.6 GB at 384 × 2400). That is not what this branch is
+for.
+
+**L2 is device-wide, 40 MB, and cannot be partitioned per record.** Containment
+makes a record's working set contiguous enough to be resident; it does not give
+each record its own cache. So concurrency and residency pull against each other
+and there is a **knee**:
+
+| length | fML int32 | int16 | records in 40 MB (int16) |
+|---|---|---|---|
+| 1200 nt | 2.9 MB | 1.4 MB | ~27 |
+| 2400 nt | 11.5 MB | 5.8 MB | **~7** |
+| 5601 nt | 62.8 MB | 31.4 MB | **~1** |
+
+`CUDA_RNAFold_Flow.ipynb` (`tools/make_nb_flow.py`) sweeps it. The knee must
+**move with length** and **move with int16**, or whatever it is, it is not
+residency — §C measures the L2 sector hit rate directly so the shape in §B is
+attributed rather than assumed. **C gates B**: a knee without a mechanism is a
+number to be explained, not a result to build on.
+
+**And it is stated so it can fail:** monotone-down means the card is still
+underfilled at that length and containment is not yet binding; flat means the
+working set was never the constraint at this scale. Both are recorded here in
+advance so neither can be rediscovered as a success.
+
+### 9.4 What is NOT the mechanism (asked 2026-09-23)
+
+- **L2 cannot be staged into.** It is transparent and physically indexed; there
+  is no allocator and no DMA destination. The only control is
+  `cudaAccessPolicyWindow` marking a range `Persisting` within a ~30 MB carve-out
+  of the 40 — an **eviction-priority hint on a range you already touch**.
+- **Copy engines cannot feed it.** Their destination is always a VRAM address. A
+  D2D `cudaMemcpyAsync` would pull data through L2 but writes a second copy and
+  evicts what was there — more traffic, on a kernel already at 82.8 % of peak.
+- **What does exist:** `prefetch.global.L2 [ptr]` (inline PTX, issued by the SM,
+  costs issue slots not registers) and — the real version of "a feed that does
+  not take SM capacity" — **`cp.async`** (Ampere global→shared, bypasses the
+  register file, `.cg` bypasses L1). It lands in **shared memory**, not L2.
+  Hopper's TMA is the dedicated engine; sm_80 has no TMA.
+- **"L1" is shared memory** (same SRAM since Volta; 192 KB/SM on A100, 164 KB
+  addressable as shared). A record's triangle is 31.4 MB at int16 against
+  164 KB per SM — it never fits, which is why the lever is a *window* (the band,
+  T2b's row window) and not a staged copy of the matrix.
+- **And the standing warning:** shared-memory staging for md measured **15 %
+  slower**, because staging only pays where there is REUSE. Any new tier has to
+  be justified by reuse, not by being closer to the SM.
+
+### 9.5 `RNA_MK_CORNER_K` at 32·x — and the K-versus-W trade it exposed
+
+Rounded up to a warp at the read site, so the shared-memory budget below it is
+computed from the value the kernel will actually use. Rounding *after* the
+budget would under-reserve.
+
+**The degradation ladder now steps through warp multiples only.** It used to
+halve while `K > 8`, landing on 16 and 8 — widths that start every other column
+mid-line, which is precisely what rounding the request was meant to prevent. It
+now goes 128 → 64 → 32 → **0**.
+
+**And that exposed the real constraint, which is not K.** The corner needs
+`K × W × 4` bytes, where `W` is columns per block. At 5601 nt the megakernel
+takes W ≈ 452, so even K=32 wants 57 KB and the ladder runs to 0 — a
+warp-aligned corner **does not fit at production width at all**. The old ladder
+hid this by silently running K=16: a sweep of 32/64/96/128 would have reported
+four distinct arms that were all the same kernel.
+
+So **K and W trade off directly**, and a corner sweep is only meaningful with
+`RNA_MK_SMEM_KB` raised or more blocks. `§F` of `CUDA_RNAFold_Flow.ipynb` parses
+the *effective* K out of the on-chip line rather than the request, and says so
+loudly when every arm collapses to one point.
+
+Byte-identical after the change: per-phase, megakernel, and megakernel+corner
+all match upstream on the mixed fixture.
+
+### 9.6 Flagged, not tested — a fixed K is the wrong shape
+
+Luke, 2026-09-23. The live set changes shape across the sweep: **at low k many
+relevant columns each holding few elements; at high k few columns (the corner)
+each long.** A constant K therefore over-allocates at one end and
+under-allocates at the other for the same byte budget, and a K that varies with
+position — wide and shallow early, narrow and deep late — fits the same bytes to
+the live set as it actually is.
+
+Not cheap to just try: K is the **stride** in both layouts, so a varying K turns
+the addressing from a multiply into a prefix sum (an offset table per column,
+affordable — `d_colb_off` is already exactly that — but a layout change, not a
+knob).
+
+Note this is *not* pre-empted by the ownership proof. That proof is about
+partitioning COLUMNS among blocks and shows equal width is the optimal **fixed**
+partition; it says nothing about varying the cache **depth** along the sweep.
+
+**Order: establish that the window pays at all first** (§F: band against corner
+at matched K, so the caching idea is separated from the ownership tax). Only if
+the band improves with K is the variable-K refinement worth building.
+
+### 9.7 Notebooks and results are local only
+
+This tree is destined for upstream review and no notebook or result file exists
+in ViennaRNA, nor will it. `.gitignore` now excludes `/CUDA_RNAFold_*.ipynb` and
+root-level `/*.json` (root-anchored, so `doc/breathe/.../schema.json` is
+untouched). Generate with `tools/make_nb_*.py` and upload to Colab by hand — the
+notebook clones the branch for its **source**, so it never needs to be in it.
+
+**Done 2026-09-23 (Luke): 51 files untracked** with `git rm --cached` -- ten
+`CUDA_RNAFold_*.ipynb`, 27 root-level result `.json`, and the 14
+`tools/make_nb_*.py` generators, on the principle that none of it exists in
+ViennaRNA. Every one is still on disk; only the tracking is gone.
+
+**Deliberately NOT removed:** `misc/rna_mod_*.json` (upstream's own modified-base
+parameter files) and `doc/breathe/.../schema.json`. The `.gitignore` patterns are
+root-anchored for exactly this reason, and the untrack list was filtered to
+root-level paths before it ran.
+
+Nothing in `Makefile.am` or `configure.ac` referenced any of it, so `make dist`
+is unaffected -- checked, not assumed.
+
+**They remain in git HISTORY.** The tree a reviewer clones is clean from here on,
+but a genuinely clean history needs either a rewrite or a fresh branch built from
+the source files alone. That is still open.

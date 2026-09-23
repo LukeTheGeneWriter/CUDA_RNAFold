@@ -55,3 +55,13 @@ configure.bak
 configure.run.rc
 configure_status.txt
 nvcc_paths.txt
+
+# Notebooks and their results are LOCAL ONLY (Luke, 2026-09-23). This tree is
+# destined for upstream review and none of these files exist in ViennaRNA, nor
+# will they: the notebooks are how the port is measured, not part of what is
+# being proposed. Generate with tools/make_nb_*.py and upload to Colab by hand;
+# the notebook clones the branch for its SOURCE, so it does not need to be in it.
+# Root-anchored so doc/breathe/.../schema.json and any real config are untouched.
+/CUDA_RNAFold_*.ipynb
+/*.json
+/tools/make_nb_*.py

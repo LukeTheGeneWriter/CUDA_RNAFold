@@ -801,7 +801,7 @@ typedef struct {
 // record index: it is what indexes VC/Structure/energy/EN, and so what keeps the
 // output in input order however the records were scheduled.
 PRIVATE void
-backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_scratch_t *sc) {
+backtrack_fetch_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_scratch_t *sc) {
   vrna_fold_compound_t *vc = (vrna_fold_compound_t *) a->VC[idx];
   const size_t lo    = a->tri_off_H[slot];
   // Phase C1: the OCCUPANT's own triangle, not the slot's. Indx(i,j)=j*(j-1)/2+i
@@ -836,6 +836,22 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
   if(vc->params->model_details.circ)
     fetch_fm2_one_w(sc->fM2, lo, cells, sc->w);
   sc->fetch_s += rnafold_now_seconds() - t0;
+}
+
+// Phase 4b: the SECOND half of retiring a record -- everything after the two
+// triangles have landed in the scratch. It is pure host work: the circ check,
+// fM1, the exterior loop, the MFE read and the backtrack all read sc->c/sc->fML
+// and make no CUDA call at all. That is what makes it safe to run on a worker
+// thread while the sweep carries on with the next row, and it is the only half
+// that can be: the FETCH must stay ordered before the slot is refilled, because
+// refill_slot2() is about to overwrite exactly those cells.
+//
+// `slot` is deliberately not a parameter -- it addresses the device, and
+// nothing below this line does.
+PRIVATE void
+backtrack_finish_slot(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {
+  vrna_fold_compound_t *vc  = (vrna_fold_compound_t *) a->VC[idx];
+  const size_t          len = (size_t)vc->length;
 
   /*
    * RNA_CIRC_VERIFY (default off, O(n^3) -- small inputs only).
@@ -951,6 +967,15 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
   vc->matrices->c   = NULL;
   vc->matrices->fML = NULL;
   vc->matrices->fM2_real = NULL;   /* CIRCULAR: pooled, same reason */
+}
+
+// The two halves back to back, which is what every caller outside the flow path
+// wants: backtrack_all()'s workers each own one record start to finish, so
+// there is nothing to hand over and no reason to split it.
+PRIVATE void
+backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_scratch_t *sc) {
+  backtrack_fetch_slot(a, idx, slot, sc);
+  backtrack_finish_slot(a, idx, sc);
 }
 
 /* The linear entry: an EMPTY interval stack, which is what the old sect[]
@@ -1088,27 +1113,208 @@ compute_flatten_offsets(const int nfiles, const size_t* width_H, size_t* flat_of
 // Continuous flow phase C3: what happens the moment a record finishes its last
 // row. Its triangles are still in its slot on the device and are about to be
 // overwritten by the next occupant, so they are fetched HERE, and the record is
-// finished off immediately -- exterior loop, MFE, backtrack -- into its own
+// finished off -- exterior loop, MFE, backtrack -- into its own
 // output slot, which keeps the output in input order whatever the schedule did.
 //
-// Serial, on the sweep's own thread: the sweep waits for one record's fetch and
-// backtrack at each handover. Overlapping that with the sweep is the obvious
-// next step and is deliberately not part of this one -- correctness first.
+// PHASE 4b (2026-09-23): the two halves of that now run in different places.
+//
+//   fetch  (backtrack_fetch_slot)  -- on the SWEEP's own thread, and it has to
+//          be: refill_slot2() overwrites exactly these cells later in the same
+//          loop iteration, so the copy must be ordered before it. It already
+//          waits on one copy stream rather than on the device (rnafold_d2h_w).
+//   finish (backtrack_finish_slot) -- on a WORKER, because it is pure host work
+//          and the sweep has no reason to wait for it. This is the half that was
+//          costing the sweep a whole backtrack at every handover.
+//
+// The bounded resource is the SCRATCH PAIR, not the thread: a worker holds one
+// record's two (or three) triangles for as long as it is finishing that record.
+// So the pool is W scratches and W workers, and the sweep BLOCKS when all W are
+// out. That backpressure is the point -- it holds peak host matrix memory at
+// W x one record's worth, the same bound backtrack_all() lives under and the
+// same knob (RNA_BACKTRACK_THREADS) that sets it.
+//
+// W == 1, or any pthread failure, keeps the old fully-serial path as the
+// control, which is what the sha bar compares against.
+struct retire_worker_arg_s;
+
+typedef struct { int idx, slot, sc; } retire_job_t;
+
 typedef struct {
-  backtrack_pool_args_t *args;
-  bt_scratch_t          *sc;
-  int                    retired;
+  backtrack_pool_args_t      *args;
+  bt_scratch_t               *pool;
+  int                         n;         /* workers, scratches, queue capacity */
+  pthread_mutex_t             m;
+  pthread_cond_t              cv_job;    /* a worker waits for work or shutdown */
+  pthread_cond_t              cv_free;   /* the sweep waits for a scratch back  */
+  retire_job_t               *q;
+  int                         qh, qn;    /* ring head and occupancy */
+  int                        *freelist;
+  int                         nfree;
+  int                         shutdown;
+  pthread_t                  *threads;
+  struct retire_worker_arg_s *wargs;
+  int                         started;   /* 0 => serial fallback, no locking */
+  int                         retired;   /* sweep thread only */
+  /* Reachability evidence, not tuning. A pool that never held two records at
+   * once has not been tested by a green run, and this project has shipped a
+   * check that could not reach its own subject before -- so the numbers go in
+   * the summary line and the bar asserts on them.
+   *   inflight_max  records fetched but not yet finished, high-water
+   *   blocked       handovers where the sweep waited for a scratch to return */
+  int                         inflight, inflight_max, blocked;
 } retire_ctx_t;
+
+typedef struct retire_worker_arg_s { retire_ctx_t *r; int w; } retire_worker_arg_t;
+
+PRIVATE void *
+retire_worker(void *arg) {
+  retire_worker_arg_t *ta = (retire_worker_arg_t *) arg;
+  retire_ctx_t        *r  = ta->r;
+  const double         t0 = rnafold_now_seconds();
+
+  for(;;) {
+    retire_job_t job;
+
+    pthread_mutex_lock(&r->m);
+    while((r->qn == 0) && (!r->shutdown))
+      pthread_cond_wait(&r->cv_job, &r->m);
+    if((r->qn == 0) && r->shutdown) { pthread_mutex_unlock(&r->m); break; }
+    job   = r->q[r->qh];
+    r->qh = (r->qh + 1) % r->n;
+    r->qn--;
+    pthread_mutex_unlock(&r->m);
+
+    backtrack_finish_slot(r->args, job.idx, &r->pool[job.sc]);
+
+    /* Hand the scratch back, and wake the sweep if it is waiting for one. */
+    pthread_mutex_lock(&r->m);
+    r->inflight--;
+    r->freelist[r->nfree++] = job.sc;
+    pthread_cond_signal(&r->cv_free);
+    pthread_mutex_unlock(&r->m);
+  }
+
+  /* This worker's own span, for the same fetch/backtrack attribution split
+   * backtrack_all() does. pool[w].busy_s is written by worker w alone and the
+   * sweep only ever writes pool[*].fetch_s -- distinct members, so the two are
+   * separate memory locations and need no lock between them. */
+  r->pool[ta->w].busy_s += rnafold_now_seconds() - t0;
+  return NULL;
+}
 
 PRIVATE void
 on_retire_cb(void *ctx, int slot, int record) {
   retire_ctx_t *r = (retire_ctx_t *) ctx;
+  int           sc;
+
   /* The retiring record's last row may still be queued on the row streams: under
    * RNA_STREAM_OVERLAP nothing at the end of an iteration waits for them, and the
-   * fetch below runs on a copy stream of its own. Drain them first. */
+   * fetch below runs on a copy stream of its own. Drain them first.
+   * rnafold_streams_sync() touches the three ROW streams only, so a worker can
+   * never delay it -- and since 4b the workers make no CUDA call at all. */
   rnafold_streams_sync();
-  backtrack_one_slot(r->args, record, slot, r->sc);
+
+  if(r->started == 0) {                    /* serial control: the old path */
+    backtrack_one_slot(r->args, record, slot, &r->pool[0]);
+    r->retired++;
+    return;
+  }
+
+  pthread_mutex_lock(&r->m);
+  if(r->nfree == 0) r->blocked++;
+  while(r->nfree == 0)                     /* every scratch is out: backpressure */
+    pthread_cond_wait(&r->cv_free, &r->m);
+  sc = r->freelist[--r->nfree];
+  pthread_mutex_unlock(&r->m);
+
+  /* Ordered before the caller's refill_slot2(), which is the whole constraint. */
+  backtrack_fetch_slot(r->args, record, slot, &r->pool[sc]);
+
+  pthread_mutex_lock(&r->m);
+  r->q[(r->qh + r->qn) % r->n].idx  = record;
+  r->q[(r->qh + r->qn) % r->n].slot = slot;
+  r->q[(r->qh + r->qn) % r->n].sc   = sc;
+  r->qn++;
+  r->inflight++;
+  if(r->inflight > r->inflight_max) r->inflight_max = r->inflight;
+  pthread_cond_signal(&r->cv_job);
+  pthread_mutex_unlock(&r->m);
+
+  /* Counted at HAND-OFF, not at completion, so it stays a sweep-thread-only
+   * variable. retire_pool_drain() is what proves every one of them finished. */
   r->retired++;
+}
+
+/* Start the pool. Any pthread failure falls back to serial (started == 0),
+ * exactly as backtrack_all() does: a host that will not spawn threads should be
+ * slow, not broken. */
+PRIVATE void
+retire_pool_start(retire_ctx_t *r, backtrack_pool_args_t *args,
+                  bt_scratch_t *pool, const int n) {
+  memset(r, 0, sizeof(*r));
+  r->args = args;
+  r->pool = pool;
+  r->n    = n;
+  if(n <= 1) return;                       /* serial control */
+
+  pthread_mutex_init(&r->m, NULL);
+  pthread_cond_init(&r->cv_job,  NULL);
+  pthread_cond_init(&r->cv_free, NULL);
+  r->q        = (retire_job_t *) vrna_alloc(sizeof(retire_job_t) * n);
+  r->freelist = (int *)          vrna_alloc(sizeof(int) * n);
+  r->threads  = (pthread_t *)    vrna_alloc(sizeof(pthread_t) * n);
+  r->wargs    = (retire_worker_arg_t *) vrna_alloc(sizeof(retire_worker_arg_t) * n);
+  for(int i=0;i<n;i++) {
+    r->freelist[i] = i;
+    r->wargs[i].r  = r;
+    r->wargs[i].w  = i;
+  }
+  r->nfree = n;
+
+  for(; r->started < n; r->started++)
+    if(pthread_create(&r->threads[r->started], NULL, retire_worker,
+                      &r->wargs[r->started]) != 0) {
+      fprintf(stderr,"mfe_cuda.c: pthread_create failed for retire worker %d, "
+                     "continuing with fewer threads\n", r->started);
+      break;
+    }
+  if(r->started == 0)
+    fprintf(stderr,"%-24s retire pool: no worker started, retiring serially\n",
+            __FILE__);
+}
+
+/* Shut the pool down and join. Must run before anything reads the records'
+ * output and before the slots are reused: the workers are still writing
+ * Structure[]/EN[]/energy[] until they are joined. */
+PRIVATE void
+retire_pool_drain(retire_ctx_t *r) {
+  /* r->q is the allocation witness, NOT r->started: a pool whose first
+   * pthread_create() failed has started == 0 and a full set of buffers, and
+   * keying the cleanup on `started` leaked all of them down that path. The
+   * n <= 1 control never allocates, so it still returns here. */
+  if(r->q == NULL) return;
+
+  if(r->started > 0) {
+    pthread_mutex_lock(&r->m);
+    r->shutdown = 1;
+    pthread_cond_broadcast(&r->cv_job);
+    pthread_mutex_unlock(&r->m);
+    for(int t=0;t<r->started;t++)
+      pthread_join(r->threads[t], NULL);
+  }
+
+  /* Every job taken and every scratch back. Either failing means a record was
+   * fetched and then never finished -- an unwritten structure, silently. */
+  if((r->qn != 0) || (r->nfree != r->n))
+    fprintf(stderr,"%-24s RETIRE POOL ERROR: %d jobs unfinished, %d of %d "
+                   "scratches returned\n", __FILE__, r->qn, r->nfree, r->n);
+
+  free(r->q); free(r->freelist); free(r->threads); free(r->wargs);
+  r->q = NULL; r->freelist = NULL; r->threads = NULL; r->wargs = NULL;
+  pthread_cond_destroy(&r->cv_free);
+  pthread_cond_destroy(&r->cv_job);
+  pthread_mutex_destroy(&r->m);
+  r->started = 0;
 }
 
 // Continuous flow phase C2: the post-sweep phase, lifted out of par_mfe()
@@ -1417,14 +1623,22 @@ par_mfe(const int nfiles,
     if(use_flow) {
       // Continuous flow phase C3: the sweep itself retires each record as it
       // finishes, so there is no separate post-sweep phase -- on_retire_cb()
-      // fetches and backtracks one record at each handover, and again for every
-      // slot's final occupant when the sweep ends. One scratch pair serves them
-      // all, which is what keeps host matrix memory at ONE record's worth.
-      const double t_bt = rnafold_now_seconds();
-      bt_scratch_t *scp = bt_pool_get(1);   /* T2a: persistent, maybe pinned; worker 0 */
-      bt_pool_prepare(scp, 1, nfiles, VC);
+      // fetches one record at each handover, and again for every slot's final
+      // occupant when the sweep ends.
+      //
+      // PHASE 4b: W scratch pairs and W workers rather than one of each, so the
+      // sweep pays only the FETCH at a handover and a worker finishes the record
+      // alongside the next rows. Peak host matrix memory rises from one record's
+      // worth to W, which is the bound backtrack_all() has always had and the
+      // same RNA_BACKTRACK_THREADS that sets it; RNA_BACKTRACK_THREADS=0 gives
+      // W=1 and the old serial path exactly.
+      const double t_bt  = rnafold_now_seconds();
+      const int    n_ret = backtrack_thread_count(nfiles, cpu_queue_threads);
+      bt_scratch_t *scp  = bt_pool_get(n_ret);  /* T2a: persistent, maybe pinned */
+      bt_pool_prepare(scp, n_ret, nfiles, VC);  /* serially, before any worker */
       backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, NULL, tri_off_H };
-      retire_ctx_t rctx = { &targ, scp, 0 };
+      retire_ctx_t rctx;
+      retire_pool_start(&rctx, &targ, scp, n_ret);
       rnafold_schedule_t sched;
       sched.slots     = nslots;
       sched.length    = length;
@@ -1436,16 +1650,26 @@ par_mfe(const int nfiles,
 
       par_fill_arrays(nslots, VCsl, energy, &sched);
 
+      // Before ANY of the output is read: the workers are still writing
+      // Structure[]/EN[]/energy[] for the last few records until they are joined.
+      retire_pool_drain(&rctx);
+
       // Every record must have been retired exactly once -- a slot left holding
       // a record would silently produce an unwritten structure.
       if(rctx.retired != nfiles)
         fprintf(stderr,"%-24s SCHEDULE ERROR: %d of %d records retired\n",
                 __FILE__, rctx.retired, nfiles);
       fprintf(stderr,"%-24s slot flow: %d records through %d slots, %d retired, "
+                     "%d retire workers (peak %d in flight, %d stalls), "
                      "%zu triangle cells\n",
-              __FILE__, nfiles, nslots, rctx.retired, tri_off_H[nslots]);
+              __FILE__, nfiles, nslots, rctx.retired, n_ret,
+              rctx.inflight_max, rctx.blocked, tri_off_H[nslots]);
       const double bt_phase_s = rnafold_now_seconds() - t_bt;
-      const double fs = scp->fetch_s;
+      // Phase 4b: the fetch is on the sweep thread but the finish is not, so the
+      // split has to sum the whole pool, exactly as backtrack_all() does. Both
+      // parts are worker-seconds and can exceed the wall, hence the clamp.
+      double fs = 0.0;
+      for(int t=0; t<n_ret; t++) fs += scp[t].fetch_s;
       phase_fetch_mx_s  += fs > bt_phase_s ? bt_phase_s : fs;
       stage_backtrack_s += bt_phase_s - (fs > bt_phase_s ? bt_phase_s : fs);
     } else {

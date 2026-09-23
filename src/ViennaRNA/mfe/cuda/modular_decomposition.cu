@@ -419,9 +419,39 @@ rnafold_md_band(void)
 
     v = (e && e[0]) ? atoi(e) : 0;
     if (v < 0) v = 0;
-    if (v > 0)
+
+    /* K IS ROUNDED UP TO A WARP (2026-09-23, Luke).
+     *
+     * K is the per-column stride of the band: band[H*stride + j*K + off], with
+     * stride = (len+2)*K. So K is what sets the alignment of EVERY column's
+     * segment, not just the band's width. md's lanes walk consecutive k, which
+     * means consecutive `off` within one column -- the access is already
+     * contiguous, and the only question is where the run starts.
+     *
+     * At K = 32 ints = 128 bytes that start is a transaction boundary, and it
+     * stays one for every column and every record (cudaMalloc gives 256 B, and
+     * stride is then a multiple of 32 ints too). At, say, K = 48 every second
+     * column starts mid-line and a warp's contiguous 32-int read straddles two
+     * 128 B sectors instead of one -- an extra sector per warp, on the kernel
+     * that is already at 82.8 % of DRAM peak. That is a COALESCING cost; the
+     * band is read uniformly across a warp, so it is not a divergence one.
+     *
+     * The band is a cache, so this cannot move the answer -- only how much is
+     * cached. Both numbers are printed because the notebook must record the
+     * EFFECTIVE K, not the requested one, or a sweep silently samples the
+     * wrong points. */
+    if (v > 0) {
+      const int want = v;
+
+      v = (v + 31) & ~31;
+      if (v != want)
+        fprintf(stderr, "modular_decomposition.cu RNA_MD_BAND=%d rounded up to %d "
+                        "(a warp): K is the per-column stride, so a partial warp "
+                        "misaligns every column against the 128 B transaction\n",
+                want, v);
       fprintf(stderr, "modular_decomposition.cu RNA_MD_BAND=%d: near-diagonal band "
                       "in global memory, no column ownership\n", v);
+    }
   }
 
   return v;

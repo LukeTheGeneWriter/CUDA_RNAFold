@@ -1244,7 +1244,21 @@ mk_plan_smem(const int blocks, const int length, const int turn,
   const int  nM          = (nC > 0) ? (blocks - nC) : blocks;
   int        W           = (span + ((nC > 0) ? nC : blocks) - 1) / ((nC > 0) ? nC : blocks);
   int        Wm          = (span + nM - 1) / ((nM > 0) ? nM : 1);
+  /* K ROUNDED UP TO A WARP, for the same reason RNA_MD_BAND is (2026-09-23,
+   * Luke, who is sweeping 32*x): K is a column's slot count, so it is the
+   * stride between one column's cached run and the next. A K that is not a
+   * warp multiple starts every other column mid-line. Rounded HERE, at the
+   * read, so the shared-memory budget below is computed from the value the
+   * kernel actually uses -- rounding after the budget would under-reserve. */
   int        K           = want_corner ? mk_env("RNA_MK_CORNER_K", 32) : 0;
+  if (K > 0) {
+    const int wantK = K;
+
+    K = (K + 31) & ~31;
+    if (K != wantK)
+      fprintf(stderr, "megakernel.cu            RNA_MK_CORNER_K=%d rounded up to %d "
+                      "(a warp)\n", wantK, K);
+  }
   int        ring        = want_ring ? 1 : 0;
 
   *cw_cols = 0; *cw_cols_m = 0; *cw_on = 0; *corner_k = 0; *bytes = 0;
@@ -1268,7 +1282,15 @@ mk_plan_smem(const int blocks, const int length, const int turn,
       *cw_cols = W; *cw_cols_m = Wm; *cw_on = ring; *corner_k = K; *bytes = need;
       return;
     }
-    if (K > 8)        K /= 2;        /* the corner degrades gracefully */
+    /* The corner degrades gracefully, but ONLY through warp multiples: K is a
+     * column's slot count and so the stride between cached runs, and the old
+     * ladder (K > 8 ? K/2) landed on 16 and 8, which start every other column
+     * mid-line. At 5601 nt with W = 452 columns per block even K = 32 wants
+     * 57 KB, so this ladder reaches 0 and the corner is simply UNAVAILABLE at
+     * that width -- which is a real statement about K and W trading off
+     * directly, and is reported rather than papered over with a K the caller
+     * never asked for. RNA_MK_SMEM_KB, or more blocks, is what buys it back. */
+    if (K > 32)       K /= 2;
     else if (K)       K = 0;
     else if (ring)    ring = 0;      /* then the ring */
     else              return;        /* then column ownership itself */
