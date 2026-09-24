@@ -1,5 +1,6 @@
 
 /* Modifications for eventual CUDA version $Revision: 1.2 $
+WBL & LAW added CUDA enabled arm of RNAFold 24/09/2026
 WBL  3 Dec 2017 investigate data dependence in E_mb_loop_fast
   split off multibranch_loops.c r1.10 for time being
 WBL 20 Jan 2017 Add const, remove unsupported options

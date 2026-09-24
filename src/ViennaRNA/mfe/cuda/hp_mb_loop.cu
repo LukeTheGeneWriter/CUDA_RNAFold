@@ -1,3 +1,4 @@
+//WBL & LAW added CUDA enabled arm of RNAFold 24/09/2026
 //New Jul 2026: GPU port of the hairpin-loop / multibranch-loop / 3'-extension
 //energy precompute that used to live in fill_arrays.c as 4 full nfiles*ijsize
 //host arrays (energy_hp, energy_mb, energy_3p_00; a 5th, energy_3p_en, is

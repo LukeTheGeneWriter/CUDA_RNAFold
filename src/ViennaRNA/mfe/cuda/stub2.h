@@ -1,4 +1,5 @@
 /* Modifications for eventual CUDA version $Revision: 1.14 $
+WBL & LAW added CUDA enabled arm of RNAFold 24/09/2026
 WBL  5 Aug 2026 Allow arrays to exceed two billion elements (shared Indx()/Hoff())
 WBL  8 Jan 2018 Extend linkage for CUDA interface in modular_decomposition.cu
 WBL  3 Dec 2017 investigate data dependence in E_mb_loop_fast

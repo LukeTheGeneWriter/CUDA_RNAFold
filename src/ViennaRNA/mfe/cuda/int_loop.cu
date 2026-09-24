@@ -1,4 +1,5 @@
 #define Version "$Revision: 1.110 $ "
+//WBL & LAW added CUDA enabled arm of RNAFold 24/09/2026
 //WBL 11 Jan 2018 CUDA GGGP ViennaRNA-2.3.0 rf/rf_cuda2
 //Helper for fill_arrays.c 
 //based on ViennaRNA-2.3.0/src/ViennaRNA/interior_loops.c (Nov  1  2016) 

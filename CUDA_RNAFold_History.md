@@ -30,17 +30,27 @@ upstream's CPU path (`BENCH272_V5_RESULTS.md`).
 
 ## 2. What differs from stock 2.7.2
 
-`git diff --shortstat v2.7.2..Finished_Port` — **216 files, +73 162, −24**. That
+`git diff --shortstat v2.7.2..Finished_Port` — **146 files, +36 249, −24**. That
 headline is misleading on its own, so here is the split that matters:
 
 | | files | lines | what it is |
 |---|---|---|---|
-| **New CUDA subdirectory** `src/ViennaRNA/mfe/cuda/` | 18 | **+13 102** | ours entirely. Upstream can take it or leave it |
-| **Upstream files modified** | 9 | **+2 296 / −20** | the part that needs defending. All marked in-source |
-| **Build glue** (`Makefile.am` × 2) | 2 | +150 | `--enable-cuda`, the nvcc libtool shim |
-| **Project documents, notebooks, results** | ~187 | +57 600 | not code. Scopes, measurements, notebooks, JSON artifacts |
+| **New CUDA subdirectory** `src/ViennaRNA/mfe/cuda/` | 18 | **+13 113** | ours entirely. Upstream can take it or leave it |
+| **Library files upstream owns** | 8 | **+477 / −7** | the part that needs defending. All marked in-source |
+| **The driver** `src/bin/RNAfold.c` | 1 | **+1 670 / −13** | ours in effect; not part of any proposal |
+| **Build system** (modified) | 7 | +196 / −4 | `--enable-cuda`, the nvcc libtool shim, test wiring |
+| **New autoconf macros + tests** | 37 | +4 216 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes |
+| **Project documents and tools** | 75 | +16 577 | not code. Scopes, specs, notebook generators |
 
-**Only the middle row is a change to something upstream owns**, and every one of
+> **These figures are recomputed, and two earlier versions of this section were
+> wrong.** It once read "216 files, +73 162" and "9 files, +2 296 / −20". The
+> first had drifted — commits landed after it was written, and the notebooks and
+> result JSON have since been untracked entirely. The second mixed two things:
+> the +2 296 included the +150 of `Makefile.am` glue while the file count did
+> not. The nine files upstream-or-ours (rows 2 + 3 above) are **+2 147 / −20**.
+> `Note_to_TBI.md` carries the same split and is computed from the tree.
+
+**Only the "Library files upstream owns" row is a change to something upstream owns**, and every one of
 those edits is bracketed in the source itself:
 
 ```
@@ -51,7 +61,7 @@ those edits is bracketed in the source itself:
 document that can drift, and fails if a marker is unpaired or an upstream file
 is modified without one. As of this tip: **12 marked regions across 8 files**,
 plus `src/bin/RNAfold.c` which is declared a local patch *whole-file* (it is
-+1 669 lines of driver — a CUDA chunker around upstream's per-record loop — and
++1 670 lines of driver — a CUDA chunker around upstream's per-record loop — and
 marking each hunk would be noise pretending to be precision).
 
 | class | meaning | count |

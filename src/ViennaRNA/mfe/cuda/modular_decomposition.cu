@@ -1,3 +1,4 @@
+//WBL & LAW added CUDA enabled arm of RNAFold 24/09/2026
 //WBL 11 Dec 2017 $Revision: 1.89 $ CUDA GGGP ViennaRNA-2.3.0 rf/rf/
 //Helper for fill_arrays.c 
 //based on fill_arrays_loop.c r1.10

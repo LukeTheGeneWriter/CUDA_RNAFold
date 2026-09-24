@@ -1,4 +1,5 @@
 /* VRNA-PATCH-FILE(rnafold-driver, DRIVER) -- PORT_LOCAL_PATCHES.md
+ * WBL & LAW added CUDA enabled arm of RNAFold 24/09/2026
  *
  * THIS WHOLE FILE IS A LOCAL PATCH, declared once rather than bracketed hunk
  * by hunk: it is +1333 lines against v2.7.2 and the changes are pervasive,

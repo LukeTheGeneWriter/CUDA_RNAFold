@@ -10,6 +10,9 @@
                   g-quadruplex support and threadsafety
                   by Ronny Lorenz
 
+                  CUDA enabled arm added by
+                  WBL & LAW 24/09/2026
+
                   Vienna RNA package
 */
 

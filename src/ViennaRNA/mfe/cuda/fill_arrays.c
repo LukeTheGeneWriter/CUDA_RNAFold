@@ -1,3 +1,4 @@
+//WBL & LAW added CUDA enabled arm of RNAFold 24/09/2026
 //WBL Dec 2017 include file for mfe.c $Revision: 1.20 $
 
 //WBL 27 Jan 2018 Add par_fill_arrays
