@@ -373,6 +373,9 @@ int* d_fml_i;  //my_fML
 // defined above the probe itself.
 static unsigned long long *d_md_inf = NULL;
 extern "C" void rnafold_md_inf_report(void);
+// RNA_MD_STREAM_STATS: the fml_j stream's SHAPE. Host arithmetic on the launch
+// geometry only -- no kernel, no copy. See the probe far below.
+extern "C" void rnafold_md_stream_report(void);
 int* d_fml_j;  //my_fML
 // int16 fml_j (RNA_FML_INT16). Allocated INSTEAD of d_fml_j when the gate is on,
 // so the VRAM saving is real and measurable rather than shadowed by keeping both.
@@ -771,6 +774,7 @@ teardown_gpu(void) {
   if(first) return; // never initialized (or already torn down) -- nothing to free
   gpuErrchk( cudaFree(d_energy_min) );
   rnafold_md_inf_report();
+  rnafold_md_stream_report();
   if(d_md_inf) { gpuErrchk( cudaFree(d_md_inf) ); d_md_inf = NULL; }
   gpuErrchk( cudaFree(d_fml_i) );
   if(!rnafold_fml_int16()) {
@@ -2181,6 +2185,172 @@ rnafold_md_inf_report(void)
   g_md_inf_rows = 0;
 }
 
+/* ============ RNA_MD_STREAM_STATS: the SHAPE of the fml_j stream ============
+ *
+ * Asked for 2026-09-24 (Luke): "I want to see the shape of the fml_j that
+ * streams in -- at the beginning many columns without much data, later fewer
+ * longer columns."
+ *
+ * HALF OF THAT IS BACKWARDS, AND THE PROBE EXISTS TO SETTLE IT RATHER THAN
+ * ARGUE IT. The sweep runs `i` DESCENDING from `length - turn - 1`, so a row's
+ * width is `n - i - 2*turn - 2` and it GROWS as the sweep proceeds. Early rows
+ * are FEW columns and SHORT ones; late rows are MANY columns and LONG ones.
+ * Both grow together -- there is no trade.
+ *
+ * WHY THIS COSTS NOTHING. The shape is a closed form of the launch geometry,
+ * not a property of the data. Cell `mj` of a row reads `y = 0..mj`, i.e.
+ * `mj+1` elements of column `j = mj + i + 2*(turn+1) + 1` (see the kernel's own
+ * bounds above). So a record contributing width W at this row touches W columns
+ * and reads W*(W+1)/2 elements, and `side_off_H[H+1] - side_off_H[H]` IS W.
+ * No kernel, no copy, no sync -- unlike md_inf_probe(), which has to read the
+ * actual values and therefore launches.
+ *
+ * WHAT IT IS FOR. Traffic is `sum over rows of W(W+1)/2`, which is cubic in the
+ * sweep position, so the mass is concentrated at the END. Half of md's entire
+ * DRAM traffic sits in roughly the last 21% of rows (m^3/6 reaches half of
+ * n^3/6 at m = n/2^(1/3) = 0.794n). Any strategy that treats all rows alike is
+ * spending its effort in the wrong place, and the decile table below is how to
+ * see that rather than take my word for it.
+ *
+ *   RNA_MD_STREAM_STATS=k   sample every k-th sweep row (k=1 for every row)
+ */
+static int
+rnafold_md_stream_stats(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_STREAM_STATS");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v < 0) v = 0;
+    if (v)
+      fprintf(stderr, "modular_decomposition.cu RNA_MD_STREAM_STATS=%d: recording the "
+                      "fml_j stream's shape every %d rows (host arithmetic, no kernel)\n",
+              v, v);
+  }
+
+  return v;
+}
+
+typedef struct {
+  int                 i;        /* sweep row (the slot's, under continuous flow) */
+  unsigned long long  cols;     /* columns touched this row, summed over records */
+  unsigned long long  elems;    /* elements read this row */
+  unsigned int        maxrun;   /* longest single column run this row */
+  int                 recs;     /* records actually contributing */
+} md_stream_row_t;
+
+static md_stream_row_t *g_ms_rows = NULL;
+static size_t           g_ms_n = 0, g_ms_cap = 0;
+
+static void
+md_stream_probe(const int nfiles, const int i, const int turn,
+                const size_t *side_off_H)
+{
+  const int k = rnafold_md_stream_stats();
+  unsigned long long cols = 0, elems = 0;
+  unsigned int maxrun = 0;
+  int recs = 0, H;
+
+  (void)turn;
+  if (!k) return;
+  if (i % k) return;
+  if (side_off_H[nfiles] == 0) return;
+
+  for (H = 0; H < nfiles; H++) {
+    const unsigned long long W = (unsigned long long)(side_off_H[H+1] - side_off_H[H]);
+
+    if (W == 0) continue;                 /* retired, or not yet admitted */
+    recs++;
+    cols  += W;
+    elems += W * (W + 1ull) / 2ull;       /* cell mj reads mj+1 elements */
+    if (W > maxrun) maxrun = (unsigned int)W;
+  }
+  if (cols == 0) return;
+
+  if (g_ms_n == g_ms_cap) {
+    const size_t cap = g_ms_cap ? g_ms_cap * 2 : 1024;
+    md_stream_row_t *p = (md_stream_row_t *)realloc(g_ms_rows, cap * sizeof(*p));
+
+    if (!p) return;                        /* out of memory: stop recording, do not die */
+    g_ms_rows = p; g_ms_cap = cap;
+  }
+  g_ms_rows[g_ms_n].i      = i;
+  g_ms_rows[g_ms_n].cols   = cols;
+  g_ms_rows[g_ms_n].elems  = elems;
+  g_ms_rows[g_ms_n].maxrun = maxrun;
+  g_ms_rows[g_ms_n].recs   = recs;
+  g_ms_n++;
+}
+
+extern "C" void
+rnafold_md_stream_report(void)
+{
+  unsigned long long tot_e = 0, tot_c = 0, cum = 0;
+  size_t b, r;
+  int hist_lo[10] = { 1, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
+  unsigned long long hist[10];
+
+  if ((!rnafold_md_stream_stats()) || (g_ms_n == 0)) return;
+
+  for (r = 0; r < g_ms_n; r++) { tot_e += g_ms_rows[r].elems; tot_c += g_ms_rows[r].cols; }
+  for (b = 0; b < 10; b++) hist[b] = 0;
+
+  fprintf(stderr,
+    "\nmodular_decomposition.cu RNA_MD_STREAM_STATS -- the fml_j stream's shape\n"
+    "  %zu sampled rows. The sweep runs i DESCENDING, so a row's width GROWS as it\n"
+    "  proceeds: early rows are FEW, SHORT columns; late rows are MANY, LONG ones.\n"
+    "  A row of width W touches W columns and reads W(W+1)/2 elements.\n\n"
+    "  sweep     rows   cols/row  mean run  max run       elements   %% traffic   cum %%\n",
+    g_ms_n);
+
+  /* Deciles of SWEEP PROGRESS (rows in recording order, which is sweep order). */
+  for (b = 0; b < 10; b++) {
+    const size_t lo = (g_ms_n * b) / 10, hi = (g_ms_n * (b + 1)) / 10;
+    unsigned long long e = 0, c = 0;
+    unsigned int mx = 0;
+    size_t n = 0;
+
+    for (r = lo; r < hi; r++) {
+      e += g_ms_rows[r].elems; c += g_ms_rows[r].cols; n++;
+      if (g_ms_rows[r].maxrun > mx) mx = g_ms_rows[r].maxrun;
+    }
+    if (n == 0) continue;
+    cum += e;
+    fprintf(stderr, "  %3zu-%3zu%% %6zu   %8.0f  %8.1f  %7u  %13llu   %7.2f  %6.2f\n",
+            b * 10, (b + 1) * 10, n, (double)c / (double)n,
+            c ? (double)e / (double)c : 0.0, mx, e,
+            tot_e ? 100.0 * (double)e / (double)tot_e : 0.0,
+            tot_e ? 100.0 * (double)cum / (double)tot_e : 0.0);
+  }
+
+  /* Where the BYTES are, by how deep the column run is. A cache that holds K
+   * elements per column can only ever serve runs it covers, so this is the
+   * histogram that prices any K. */
+  for (r = 0; r < g_ms_n; r++) {
+    const unsigned long long W = g_ms_rows[r].maxrun;
+    for (b = 9; ; b--) {
+      if ((unsigned long long)hist_lo[b] <= W) { hist[b] += g_ms_rows[r].elems; break; }
+      if (b == 0) { hist[0] += g_ms_rows[r].elems; break; }
+    }
+  }
+  fprintf(stderr, "\n  share of elements read in rows whose LONGEST run falls in:\n");
+  for (b = 0; b < 10; b++) {
+    if (!hist[b]) continue;
+    fprintf(stderr, "    run >= %-6d  %6.2f %%\n", hist_lo[b],
+            tot_e ? 100.0 * (double)hist[b] / (double)tot_e : 0.0);
+  }
+
+  fprintf(stderr,
+    "\n  TOTAL over sampled rows: %llu columns, %llu elements = %.2f GB at 4 B\n"
+    "  (sampling every %d rows; multiply by %d for the whole sweep)\n\n",
+    tot_c, tot_e, (double)tot_e * 4.0 / 1e9,
+    rnafold_md_stream_stats(), rnafold_md_stream_stats());
+
+  free(g_ms_rows); g_ms_rows = NULL; g_ms_n = g_ms_cap = 0;
+}
+
 // needing to special-case that boundary by hand.
 extern "C" /*PUBLIC*/ void
 load_fML_modular_decomposition_load_min_fML(const int nfiles,
@@ -2198,6 +2368,9 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   // RNA_MD_INF_STATS (off by default): sample how sparse the column stream is,
   // before the capture region and before load_fML(i) touches row i.
   md_inf_probe(nfiles, i, turn, side_off_H);
+  // RNA_MD_STREAM_STATS (off by default): record the stream's shape. Free --
+  // it reads side_off_H and launches nothing.
+  md_stream_probe(nfiles, i, turn, side_off_H);
 
   // RNA_CUDA_GRAPH=0 disables capture/replay and just issues the same
   // (now-async, graph_stream-targeted) calls directly, with one sync at the
