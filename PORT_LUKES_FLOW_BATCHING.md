@@ -828,3 +828,48 @@ So neither slot depth nor length 5601 nor serial retirement hangs. Scaling the
 which startup banner it last reached — so a stall is located in five minutes and
 attributed to startup vs the row loop, instead of costing an hour and yielding
 nothing.
+
+### 9.10 The A100 session was folding on the CPU — `--with-cuda` is not a flag
+
+**Root cause of both stalls.** The notebook's configure line said
+`--with-cuda`. The CUDA backend is an **`--enable-*`** feature
+(`m4/ac_rna_cuda.m4`: "Adds --enable-cuda (default: off)"), and autoconf treats
+an unknown `--with-*` as a *warning*, not an error. So configure succeeded, make
+succeeded, and the binary had no CUDA in it. Every fold ran on the CPU.
+
+**Why nothing revealed it**, which is the part worth keeping:
+
+| signal | GPU path | CPU path |
+|---|---|---|
+| stderr | 2437 bytes of banners | **0 bytes** |
+| stdout | the answer | **byte-identical** |
+| the decline message | — | printed **only under `--verbose`** |
+
+Measured locally on `mixed.fa`. A GPU-less run of this binary is *completely
+silent and returns the right answer*, so 64 × 5601 on the CPU looks exactly like
+a slow GPU run: static VRAM, static RAM, no output, correct results eventually.
+
+**And the smoke section proved nothing.** It asserted one sha across the arms —
+which is satisfied for free when every arm is the same CPU fold. **A check that
+passes when its subject is absent is not a check**, and this one was written into
+a section whose entire job was to catch exactly this class of problem. The
+`peak N in flight` counters exist for the same reason and were right; the sha
+assertion was the weak one.
+
+**The gate that is now first.** Positive evidence that the sweep ran —
+`sweep shape:` on stderr — from a 4 × 400 fold, before anything else executes.
+If it is missing the notebook re-runs with `--verbose` to print the decline
+reason, reports what `nvidia-smi` sees, and stops. Additionally:
+
+- the build cell now prints what configure **decided** about CUDA (the `checking
+  ... nvcc/cuda` lines), always, not only on failure — a green build says nothing
+  about whether the accelerator is in the binary;
+- `run()` sets `gpu_swept` per arm and prints `*** CPU FOLD -- NO SWEEP ***`, so
+  a silent fallback can never again be averaged into a result;
+- the smoke section counts arms that reached the GPU and fails on any that did
+  not, and says in its own output that the sha line is meaningful only given the
+  line above it.
+
+**Generalisation for this project:** whenever a fast path can silently fall back
+to a correct slow path, the bar must assert the fast path RAN, not that the
+answer is right. Answer-equality is exactly what a fallback preserves.
