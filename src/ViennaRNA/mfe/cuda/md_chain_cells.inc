@@ -71,7 +71,12 @@ load_fML_cell(const int nfiles, const int i_row, const int turn, const int lengt
 		const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
 		const size_t* __restrict__ size_off_H, const size_t total,
 		const int* __restrict__ i_H,
-               const long long m) {
+               const long long m,
+               /* RNA_MD_PRUNE: block minima of the triangle, one int per 32
+                * consecutive cells. NULL when off. Maintained HERE, in the
+                * kernel that already writes the cell, so it costs no extra
+                * launch -- which is the mistake band_fill made. */
+               int* __restrict__ fml_jmin = NULL) {
   // Staggered_Row_Batching Phase 4: flat index -> (H, position) via
   // flatten_index_to_H() over this row's real per-H active width
   // (size_off_H), replacing the old uniform m/nfiles split. j is guaranteed
@@ -100,6 +105,10 @@ load_fML_cell(const int nfiles, const int i_row, const int turn, const int lengt
   } else {
     assert(fml_j[tri_off_H[H]+ij] == INF);
            fml_j[tri_off_H[H]+ij] = energy_min[row_off_H[H]+j];
+    if (fml_jmin) {
+      const size_t idx = tri_off_H[H]+ij;
+      atomicMin(&fml_jmin[idx >> 5], energy_min[row_off_H[H]+j]);
+    }
   }
 }
 

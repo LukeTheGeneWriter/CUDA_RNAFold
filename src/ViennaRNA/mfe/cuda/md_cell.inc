@@ -25,7 +25,14 @@ md_cell(
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H,
         const long long m, const int lane,
-  const fml_corner_t corner) {   /* stage 2; .sm==NULL disables */
+  const fml_corner_t corner,   /* stage 2; .sm==NULL disables */
+  /* RNA_MD_PRUNE: block minima of fml_j, one int per 32 consecutive cells, or
+   * NULL. md is min over y of (A[y]+B[y+ij0]) -- a (min,+) convolution -- so
+   * min(A over blk) + min(B over win) is a VALID LOWER BOUND on a 32-block, and
+   * a block that cannot beat the running best never needs its 32 B-reads issued.
+   * Only B needs a summary: A is the 22 KB row buffer and is already cached, so
+   * reading it to get its block min is nearly free. */
+  const int* __restrict__ fml_jmin = NULL) {
   // Power of two <= 32 so a tile is a contiguous, warp-aligned lane group and
   // __shfl_down_sync()'s `width` can partition the warp for us. The launcher
   // additionally requires blockDim.x % 32 == 0, which is what makes "same
@@ -104,6 +111,64 @@ md_cell(
                                   bcell + (size_t)((unsigned)(idx0 + y - 1)/FML_BLK));
         value = MIN2(fml_i[row_off_H[H]+y] + d, value);
       }
+    } else if (fml_jmin && TILE == 32) {
+      /* RNA_MD_PRUNE. Same answer, fewer reads.
+       *
+       * min is associative and commutative over exact integers, so visiting the
+       * blocks in a different order and reducing per block instead of per lane
+       * cannot change the result -- which is why this is byte-identical rather
+       * than merely close. `best` is warp-UNIFORM, so the skip decision is
+       * uniform too: all 32 lanes serve one cell, and a skipped block costs no
+       * divergence.
+       *
+       * B's window [yb+ij0, yb+ij0+31] is NOT aligned to the summary's 32-cell
+       * blocks, so the bound takes the min over the two aligned blocks that
+       * cover it. That is a min over a SUPERSET of the window, hence still a
+       * valid lower bound -- just weaker than the exact window min the probe
+       * measured, which is why the realised skip fraction is below the probe's.
+       */
+      int best = INF;
+
+      for (int yb = 0; yb <= x; yb += 32) {
+        const int  y    = yb + lane;
+        const bool live = (y <= x);
+        const int  a    = live ? fml_i[row_off_H[H]+y] : INF;
+        int        amin = a;
+
+        /* A's block minimum, by warp reduction. NOTE: the single-instruction warp reduce was
+         * tried here (one instruction instead of five shuffles) and it was NOT
+         * faster -- the reduction is not this loop's bottleneck. See the
+         * measured verdict above rnafold_md_prune(). */
+        for (int o = 16; o > 0; o >>= 1)
+          amin = MIN2(__shfl_down_sync(0xffffffff, amin, o, 32), amin);
+        amin = __shfl_sync(0xffffffff, amin, 0, 32);
+
+
+        {
+          const size_t base = tri_off_H[H] + (size_t)(yb + ij0);
+          const int    hi   = MIN2(31, x - yb);
+          const int    m0   = fml_jmin[base >> 5];
+          const int    m1   = fml_jmin[(base + (size_t)hi) >> 5];
+          const int    bmin = MIN2(m0, m1);
+          const int    lb   = (amin >= INF/2 || bmin >= INF/2) ? INF : amin + bmin;
+
+          if (lb < best) {
+            /* The bound does not settle it: read the block and reduce it. */
+            const int b = live ? fml_j[base + (size_t)lane] : INF;
+            const int s = (a >= INF/2 || b >= INF/2) ? INF : a + b;
+            int       bm = s;
+
+            for (int o = 16; o > 0; o >>= 1)
+              bm = MIN2(__shfl_down_sync(0xffffffff, bm, o, 32), bm);
+            bm = __shfl_sync(0xffffffff, bm, 0, 32);
+            best = MIN2(bm, best);
+
+          }
+        }
+      }
+      /* Uniform across the warp, so the trailing reduction below is a no-op and
+       * yields exactly this value. */
+      value = best;
     } else
     for(int y=lane; y <= x; y += TILE) {
       assert(x>=0 && x<=length);
