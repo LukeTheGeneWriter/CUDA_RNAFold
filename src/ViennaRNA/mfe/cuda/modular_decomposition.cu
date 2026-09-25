@@ -367,6 +367,9 @@ rnafold_choose_md_tile(void) {
 //int* d_indx; //indx no longer used
 int* d_energy_min;
 int* d_fml_i;  //my_fML
+// Byte size of the d_fml_j allocation, kept so RNA_MD_L2_PERSIST can name the
+// range without re-deriving it from the offset tables.
+static size_t g_fml_j_bytes = 0;
 
 // RNA_MD_INF_STATS (see md_inf_probe() far below): four counters, and the
 // reporter teardown_gpu() calls. Declared here because teardown_gpu() is
@@ -376,6 +379,12 @@ extern "C" void rnafold_md_inf_report(void);
 // RNA_MD_STREAM_STATS: the fml_j stream's SHAPE. Host arithmetic on the launch
 // geometry only -- no kernel, no copy. See the probe far below.
 extern "C" void rnafold_md_stream_report(void);
+// RNA_MD_PRUNE_STATS: can a (min,+) block bound replace the column read?
+extern "C" void rnafold_md_prune_report(void);
+// RNA_MD_L2_PERSIST: mark the fml_j triangle persisting in L2 and everything
+// else streaming. Defined far below; called from init_gpu() once d_fml_j exists
+// and while we are still OUTSIDE any graph capture region.
+static void md_l2_persist_apply(const size_t triangle_bytes);
 int* d_fml_j;  //my_fML
 // int16 fml_j (RNA_FML_INT16). Allocated INSTEAD of d_fml_j when the gate is on,
 // so the VRAM saving is real and measurable rather than shadowed by keeping both.
@@ -648,6 +657,7 @@ init_gpu(const int nfiles, const int length,
 
   if(!rnafold_fml_int16()) {
     error = cudaMalloc((void **) &d_fml_j, ijsize_len);
+    g_fml_j_bytes = ijsize_len;
     if (error != cudaSuccess)  {
         printf("cudaMalloc d_fml_j %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
   	     ijsize_len, cudaGetErrorString(error), error, __LINE__);
@@ -775,6 +785,7 @@ teardown_gpu(void) {
   gpuErrchk( cudaFree(d_energy_min) );
   rnafold_md_inf_report();
   rnafold_md_stream_report();
+  rnafold_md_prune_report();
   if(d_md_inf) { gpuErrchk( cudaFree(d_md_inf) ); d_md_inf = NULL; }
   gpuErrchk( cudaFree(d_fml_i) );
   if(!rnafold_fml_int16()) {
@@ -2351,6 +2362,339 @@ rnafold_md_stream_report(void)
   free(g_ms_rows); g_ms_rows = NULL; g_ms_n = g_ms_cap = 0;
 }
 
+/* ============ RNA_MD_L2_PERSIST: keep the fml_j triangle resident ===========
+ *
+ * WHY THIS, AND WHY NOT THE OPPOSITE. It is tempting to mark the triangle
+ * evict-first (`__ldcs`) on the grounds that md "streams" it with no reuse.
+ * That is true WITHIN a row and badly false ACROSS rows, and the index
+ * arithmetic says so: row i reads cells (k,j) for k in [i+turn+2, j-turn-1],
+ * and row i-1 reads the SAME set plus one element. Traffic is n^3/6 while the
+ * distinct data is only n^2/2 -- a REUSE FACTOR of n/3, measured at 792x
+ * (2400 nt), 1859x (5601) and 2658x (8000). Evict-first would discard the most
+ * reuse-rich stream in the program.
+ *
+ * So the hint points the other way: mark the triangle PERSISTING and everything
+ * else that flows through L2 between md rows STREAMING.
+ *
+ * WHAT HAS TO FIT. The live set that must survive one row chain is
+ * (n-i)^2/2 cells PER RECORD. At 5601 nt: 15.6 MB int32 / 7.8 MB int16 at
+ * mid-sweep, 50.7 / 25.3 MB at 90% through. One record fits 40 MB of L2 for the
+ * whole sweep at int16; sixty-four records do not -- which is why the L2 hit
+ * rate falls 59.7 -> 20.1 % as residents go 1 -> 64, and is the mechanism this
+ * knob exists to test.
+ *
+ * CAVEAT, STATED BECAUSE IT AFFECTS HOW TO READ THE ARM. An access-policy
+ * window is a STREAM attribute, and the md kernel is launched inside a CUDA
+ * graph capture region. The attribute is applied here, OUTSIDE capture, on the
+ * streams the launch will use, so a captured node inherits it -- but that is an
+ * inheritance we do not control. Run the arm BOTH ways: with graphs on, and
+ * with RNA_CUDA_GRAPH=0 where the launch is a plain stream launch and the
+ * attribute is unambiguous. Disagreement between the two is information, not
+ * noise.
+ *
+ *   RNA_MD_L2_PERSIST=MB   reserve MB of L2 for the triangle (0 = off)
+ *   RNA_MD_L2_HITRATIO=f   hitRatio, default 1.0
+ */
+static int
+rnafold_md_l2_persist(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_L2_PERSIST");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v < 0) v = 0;
+  }
+
+  return v;
+}
+
+static void
+md_l2_persist_apply(const size_t triangle_bytes)
+{
+  const int mb = rnafold_md_l2_persist();
+  static int done = 0;
+  cudaDeviceProp prop;
+  size_t want, win;
+  float ratio = 1.0f;
+  const char *hr;
+  cudaStream_t streams[2];
+  int ns = 0, s;
+
+  if ((!mb) || done) return;
+  done = 1;
+
+  if (cudaGetDeviceProperties(&prop, 0) != cudaSuccess) {
+    fprintf(stderr, "modular_decomposition.cu RNA_MD_L2_PERSIST: cannot read device "
+                    "properties -- not applied\n");
+    return;
+  }
+  if (prop.persistingL2CacheMaxSize == 0) {
+    fprintf(stderr, "modular_decomposition.cu RNA_MD_L2_PERSIST=%d: this device reports "
+                    "no persisting-L2 support -- not applied\n", mb);
+    return;
+  }
+
+  want = (size_t)mb * 1024u * 1024u;
+  if (want > (size_t)prop.persistingL2CacheMaxSize)
+    want = (size_t)prop.persistingL2CacheMaxSize;
+  if (cudaDeviceSetLimit(cudaLimitPersistingL2CacheSize, want) != cudaSuccess) {
+    fprintf(stderr, "modular_decomposition.cu RNA_MD_L2_PERSIST: cudaDeviceSetLimit "
+                    "failed -- not applied\n");
+    return;
+  }
+
+  /* The window names a CONTIGUOUS byte range, so it can only cover a prefix of
+   * the batch's triangle. That prefix is record 0's, which is the honest thing
+   * to report: at high record counts most records get no window at all, and
+   * that asymmetry is part of what the arm measures. */
+  win = triangle_bytes;
+  if (win > (size_t)prop.accessPolicyMaxWindowSize)
+    win = (size_t)prop.accessPolicyMaxWindowSize;
+
+  hr = getenv("RNA_MD_L2_HITRATIO");
+  if (hr && hr[0]) {
+    ratio = (float)atof(hr);
+    if (ratio <= 0.0f || ratio > 1.0f) ratio = 1.0f;
+  }
+
+  streams[ns++] = rnafold_stream_md();
+  if (graph_stream) streams[ns++] = graph_stream;
+
+  for (s = 0; s < ns; s++) {
+    cudaStreamAttrValue a;
+
+    if (!streams[s]) continue;
+    memset(&a, 0, sizeof(a));
+    a.accessPolicyWindow.base_ptr  = (void *)d_fml_j;
+    a.accessPolicyWindow.num_bytes = win;
+    a.accessPolicyWindow.hitRatio  = ratio;
+    a.accessPolicyWindow.hitProp   = cudaAccessPropertyPersisting;
+    /* Everything OUTSIDE the window is marked evict-first. That is the other
+     * half of the idea: the phases that run between md rows are what evict the
+     * triangle, and this is where they are told not to. */
+    a.accessPolicyWindow.missProp  = cudaAccessPropertyStreaming;
+    if (cudaStreamSetAttribute(streams[s], cudaStreamAttributeAccessPolicyWindow, &a)
+        != cudaSuccess)
+      fprintf(stderr, "modular_decomposition.cu RNA_MD_L2_PERSIST: "
+                      "cudaStreamSetAttribute failed on stream %d\n", s);
+  }
+
+  fprintf(stderr, "modular_decomposition.cu RNA_MD_L2_PERSIST=%d: reserved %.1f MB of L2 "
+                  "(device max %.1f), window %.1f MB over d_fml_j (device max %.1f), "
+                  "hitRatio %.2f, misses marked STREAMING, on %d stream(s). "
+                  "Run RNA_CUDA_GRAPH=0 too -- under graph capture the attribute is "
+                  "inherited, not set per launch.\n",
+          mb, (double)want/1048576.0, (double)prop.persistingL2CacheMaxSize/1048576.0,
+          (double)win/1048576.0, (double)prop.accessPolicyMaxWindowSize/1048576.0,
+          ratio, ns);
+}
+
+/* ========== RNA_MD_PRUNE_STATS: can a block MINIMUM replace the column? ======
+ *
+ * md's inner loop is not a sum and not a plain min over one array -- it is
+ *
+ *     value = min over y of ( fml_i[y] + fml_j[y + ij0] )
+ *
+ * a (min,+) tropical convolution. That structure is compressible, and a sum
+ * would not have been: min admits a valid LOWER BOUND on a block,
+ *
+ *     min over a block of (A[y] + B[y+ij0])  >=  min(A|block) + min(B|window)
+ *
+ * so a block whose bound is already >= the best value found so far CANNOT
+ * contain the answer and its 32 reads never need to be issued. The compact
+ * representation is therefore one int per 32 cells -- 3.1 % extra storage --
+ * and the full column is needed only where the bound does not settle it.
+ *
+ * ALIGNMENT. A's block [32t, 32t+31] pairs with B indices [32t+ij0, ...+31],
+ * which is unaligned in B. This probe takes the min over B's aligned window
+ * exactly (it has the values in hand); a real implementation would use the two
+ * aligned summary blocks that cover it, giving a min over a SUPERSET -- still a
+ * valid lower bound, just weaker. So the numbers here are the CEILING for a
+ * 32-granular summary, which is the right thing to measure first.
+ *
+ * TWO FRACTIONS, because they answer different questions:
+ *   oracle    blocks whose bound >= the cell's FINAL value. The upper bound on
+ *             what any pruning order could ever skip.
+ *   in-order  blocks skipped by a single left-to-right pass carrying a running
+ *             best. What the simplest implementation would actually get.
+ *
+ * If the oracle fraction is small, the idea is dead and no ordering saves it.
+ * If oracle is large but in-order is small, the idea lives and needs a better
+ * visit order (best-bound-first), which is a real but larger build.
+ *
+ *   RNA_MD_PRUNE_STATS=k   probe every k-th sweep row
+ */
+static unsigned long long g_md_prune[4] = {0,0,0,0};
+static int                g_md_prune_rows = 0;
+static unsigned long long *d_md_prune = NULL;
+extern "C" void rnafold_md_prune_report(void);
+// RNA_MD_L2_PERSIST: mark the fml_j triangle persisting in L2 and everything
+// else streaming. Defined far below; called from init_gpu() once d_fml_j exists
+// and while we are still OUTSIDE any graph capture region.
+static void md_l2_persist_apply(const size_t triangle_bytes);
+
+static int
+rnafold_md_prune_stats(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_PRUNE_STATS");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v < 0) v = 0;
+    if (v)
+      fprintf(stderr, "modular_decomposition.cu RNA_MD_PRUNE_STATS=%d: measuring how "
+                      "many 32-blocks a (min,+) lower bound could skip\n", v);
+  }
+
+  return v;
+}
+
+__device__ __forceinline__ int
+md_warp_min(int v)
+{
+  for (int o = 16; o > 0; o >>= 1) {
+    const int other = __shfl_down_sync(0xffffffff, v, o, 32);
+    v = MIN2(other, v);
+  }
+  return __shfl_sync(0xffffffff, v, 0, 32);
+}
+
+__global__ void
+md_prune_probe_kernel(const int nfiles, const int turn,
+                      const int* __restrict__ fml_i,
+                      const int* __restrict__ fml_j,
+                      const size_t* __restrict__ tri_off_H,
+                      const size_t* __restrict__ row_off_H,
+                      const size_t* __restrict__ side_off_H, const size_t total,
+                      const int* __restrict__ i_H,
+                      unsigned long long* __restrict__ out)
+{
+  const long long gtid = (long long)blockIdx.x*blockDim.x + threadIdx.x;
+  const long long m    = gtid >> 5;
+  const int       lane = (int)(gtid & 31);
+
+  if ((size_t)m >= total) return;
+
+  const int       H   = flatten_index_to_H((size_t)m, side_off_H, nfiles);
+  const long long mj  = (long long)m - (long long)side_off_H[H];
+  const int       i   = i_H[H];
+  const int       x   = (int)mj;
+  const int       j   = x + (i + 2*(turn+1)) + 1;
+  const long long ij0 = Indx(i,j) + (turn+1) + 1;
+  const size_t    triH = tri_off_H[H], rowH = row_off_H[H];
+
+  unsigned long long nblk = 0, n_oracle = 0, n_inorder = 0, nelem = 0;
+
+  /* Pass 1: the cell's true value, and its per-block bounds. */
+  int truth = INF;
+  for (int yb = 0; yb <= x; yb += 32) {
+    const int  y    = yb + lane;
+    const bool live = (y <= x);
+    const int  a    = live ? fml_i[rowH + (size_t)y]        : INF;
+    const int  b    = live ? fml_j[triH + (size_t)(y+ij0)]  : INF;
+    const int  s    = (a >= INF/2 || b >= INF/2) ? INF : a + b;
+
+    truth = MIN2(md_warp_min(s), truth);
+  }
+
+  /* Pass 2: how many blocks a bound would have skipped. */
+  int running = INF;
+  for (int yb = 0; yb <= x; yb += 32) {
+    const int  y    = yb + lane;
+    const bool live = (y <= x);
+    const int  a    = live ? fml_i[rowH + (size_t)y]        : INF;
+    const int  b    = live ? fml_j[triH + (size_t)(y+ij0)]  : INF;
+    const int  amin = md_warp_min(a);
+    const int  bmin = md_warp_min(b);
+    const int  lb   = (amin >= INF/2 || bmin >= INF/2) ? INF : amin + bmin;
+    const int  s    = (a >= INF/2 || b >= INF/2) ? INF : a + b;
+    const int  blkv = md_warp_min(s);
+
+    if (lane == 0) {
+      nblk++;
+      nelem += (unsigned long long)(MIN2(31, x - yb) + 1);
+      if (lb >= truth)   n_oracle++;    /* could never have held the answer */
+      if (lb >= running) n_inorder++;   /* a single left-to-right pass skips it */
+    }
+    running = MIN2(blkv, running);
+  }
+
+  if (lane == 0) {
+    atomicAdd(&out[0], nblk);
+    atomicAdd(&out[1], n_oracle);
+    atomicAdd(&out[2], n_inorder);
+    atomicAdd(&out[3], nelem);
+  }
+}
+
+static void
+md_prune_probe(const int nfiles, const int i, const int turn,
+               const size_t *side_off_H)
+{
+  const int k = rnafold_md_prune_stats();
+
+  if (!k) return;
+  if (i % k) return;
+  {
+    const size_t total = side_off_H[nfiles];
+    unsigned long long h[4];
+    int t;
+
+    if (total == 0) return;
+    if (!d_md_prune) {
+      if (cudaMalloc((void **)&d_md_prune, 4*sizeof(unsigned long long)) != cudaSuccess) {
+        fprintf(stderr, "modular_decomposition.cu RNA_MD_PRUNE_STATS: cudaMalloc failed\n");
+        return;
+      }
+    }
+    gpuErrchk( cudaMemset(d_md_prune, 0, 4*sizeof(unsigned long long)) );
+    {
+      const int    block = 128;
+      const size_t nthr  = total * 32ull;
+      const int    nb    = (int)((nthr + block - 1)/block);
+
+      md_prune_probe_kernel<<<nb,block>>>(nfiles, turn, d_fml_i, d_fml_j,
+                                          d_tri_off_H, d_row_off_H,
+                                          d_side_off_H, total, d_i_H, d_md_prune);
+      gpuErrchk( cudaPeekAtLastError() );
+    }
+    gpuErrchk( cudaMemcpy(h, d_md_prune, sizeof(h), cudaMemcpyDeviceToHost) );
+    for (t = 0; t < 4; t++) g_md_prune[t] += h[t];
+    g_md_prune_rows++;
+  }
+}
+
+extern "C" void
+rnafold_md_prune_report(void)
+{
+  if ((!rnafold_md_prune_stats()) || (g_md_prune_rows == 0)) return;
+
+  {
+    const double blk = (double)g_md_prune[0];
+    const double orc = blk ? 100.0*(double)g_md_prune[1]/blk : 0.0;
+    const double ino = blk ? 100.0*(double)g_md_prune[2]/blk : 0.0;
+
+    fprintf(stderr,
+      "\nmodular_decomposition.cu RNA_MD_PRUNE_STATS over %d sampled rows\n"
+      "  the operation is min over y of (fml_i[y] + fml_j[y+ij0]) -- a (min,+)\n"
+      "  convolution, so min(A|blk)+min(B|win) is a valid lower bound on a block\n"
+      "  and a block that cannot beat the running best need never be READ.\n\n"
+      "  32-blocks examined            %llu  (%llu elements)\n"
+      "  skippable, ORACLE bound       %6.2f %%   <- ceiling for ANY visit order\n"
+      "  skippable, in-order pass      %6.2f %%   <- what the simplest version gets\n\n"
+      "  traffic if in-order pruning were implemented: %.2f x the current reads\n"
+      "  (1 - skip fraction, plus 1/32 for the block-minimum summary)\n\n",
+      g_md_prune_rows, g_md_prune[0], g_md_prune[3], orc, ino,
+      (1.0 - ino/100.0) + 1.0/32.0);
+    g_md_prune[0] = g_md_prune[1] = g_md_prune[2] = g_md_prune[3] = 0;
+    g_md_prune_rows = 0;
+  }
+}
+
 // needing to special-case that boundary by hand.
 extern "C" /*PUBLIC*/ void
 load_fML_modular_decomposition_load_min_fML(const int nfiles,
@@ -2371,6 +2715,11 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   // RNA_MD_STREAM_STATS (off by default): record the stream's shape. Free --
   // it reads side_off_H and launches nothing.
   md_stream_probe(nfiles, i, turn, side_off_H);
+  md_prune_probe(nfiles, i, turn, side_off_H);
+
+  // RNA_MD_L2_PERSIST: applied HERE because this point is outside the capture
+  // region that begins a few lines below, and it self-guards to run once.
+  md_l2_persist_apply(g_fml_j_bytes);
 
   // RNA_CUDA_GRAPH=0 disables capture/replay and just issues the same
   // (now-async, graph_stream-targeted) calls directly, with one sync at the
