@@ -334,7 +334,8 @@ __global__ void modular_decomposition_kernel(
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H,    // continuous flow phase A2
   const fml_corner_t band,        // RNA_MD_BAND; .sm==NULL disables
-  const int* __restrict__ fml_jmin);  // RNA_MD_PRUNE; NULL disables
+  const int* __restrict__ fml_jmin,   // RNA_MD_PRUNE; NULL disables
+  const int* __restrict__ dml_prev);  // RNA_MD_PRUNE=2 probe; NULL = mode 1
 
 // Block sizes for the above, chosen once in init_gpu() below instead of the
 // BLOCK_SIZE=64 constant these used to hardcode (tuned against one GPU, the
@@ -1019,9 +1020,27 @@ pack_fml_kernel(const int nfiles, const int i_row, const int turn, const int len
  *   kernel at 77-83 %% of DRAM peak, memory-level parallelism IS the
  *   performance, and serialising it costs more than 40 %% fewer reads returns.
  *
- * Swapping the five-shuffle reduction for the single-instruction warp reduce
- * changed nothing (+115 %% instead of +110 %%), which confirms the reduction was
- * never the bottleneck -- the dependency chain is.
+ * TWO DIAGNOSES TRIED AND BOTH WRONG, recorded so a third attempt does not
+ * repeat them:
+ *   (1) "the five-shuffle reduction is the cost" -- swapping it for the
+ *       single-instruction warp reduce moved +110 %% to +115 %%. Not it.
+ *   (2) "the RUNNING BEST serialises the loop" -- RNA_MD_PRUNE=2 uses a FIXED
+ *       threshold so every block decides independently, and it measured
+ *       IDENTICAL to mode 1 (md 10.449 vs 10.445 at 48x2400; 57.78 vs 57.87 at
+ *       8x5601). Ordering is not the cost either.
+ *
+ * WHAT IS LEFT, with the arithmetic. A is still read on EVERY block -- 32 loads
+ * plus a warp reduction -- because the bound needs min(A over the block), and
+ * only B reads are skipped. So per 32 elements the pruned loop pays 32 A loads +
+ * 2 summary loads + 1-2 warp reductions where the original paid 32 A + 32 B and
+ * no reduction at all. The DRAM saving is real (B is the O(n^3) stream) but the
+ * added per-block ALU and the unavoidable A traffic appear to make the kernel
+ * issue-bound, so the saving cannot be realised.
+ *
+ * THE UNTRIED FIX: a summary for A as well (row-shaped, row_total/32 ints,
+ * rebuilt per row), so a skipped block costs TWO loads instead of 32 loads plus
+ * a reduction. That removes both the A traffic and one reduction per block and
+ * is the only remaining candidate consistent with the two measurements above.
  *
  * WHAT WOULD FIX IT: a threshold that does NOT depend on progress, so every
  * block decides independently and the loop pipelines again. Two candidates,
@@ -1048,7 +1067,22 @@ rnafold_md_prune(void)
   if (v < 0) {
     const char *e = getenv("RNA_MD_PRUNE");
 
-    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v < 0 || v > 2) v = 0;
+
+    /* MODE 2 IS A SPEED PROBE AND CAN RETURN A SUBOPTIMAL STRUCTURE. It uses
+     * row i+1 DMLi as a FIXED skip threshold so every block decides
+     * independently -- which is the point, since mode 1 serialises the loop --
+     * but that value is NOT a provable upper bound on row i own answer: both
+     * operands change between rows. It exists to price the dependency chain.
+     * Gated behind an explicit override so it can never be a default. */
+    if (v == 2 && !getenv("RNA_MD_PRUNE_UNSAFE")) {
+      fprintf(stderr, "%-24s RNA_MD_PRUNE=2 is a SPEED PROBE that can return a "
+                      "SUBOPTIMAL structure (row i+1 DMLi is not a provable "
+                      "upper bound on row i). Set RNA_MD_PRUNE_UNSAFE=1 to run "
+                      "it anyway, and do not trust its output.\n", __FILE__);
+      exit(EXIT_FAILURE);
+    }
     if (v) {
       if (rnafold_fml_int16()) {
         fprintf(stderr, "%-24s RNA_MD_PRUNE and RNA_FML_INT16 cannot be combined: the "
@@ -1465,7 +1499,8 @@ modular_decomposition_kernel(
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H,
   const fml_corner_t band,   /* RNA_MD_BAND; .sm==NULL disables */
-  const int* __restrict__ fml_jmin) {   /* RNA_MD_PRUNE; NULL disables */
+  const int* __restrict__ fml_jmin,   /* RNA_MD_PRUNE; NULL disables */
+  const int* __restrict__ dml_prev) {   /* RNA_MD_PRUNE=2 probe; NULL = mode 1 */
   // The cell/lane split is the only thing that stays here; the arithmetic
   // lives in md_cell.inc so the megakernel runs exactly this code.
   const long long gtid = (long long)blockIdx.x*blockDim.x + threadIdx.x;
@@ -1475,7 +1510,7 @@ modular_decomposition_kernel(
                 gtid / TILE, (int)(gtid & (TILE-1)),
                 /* The band is GLOBAL, so this kernel can use it with no block
                  * owning anything -- which the shared corner could not. */
-                band, fml_jmin);
+                band, fml_jmin, dml_prev);
 }
 
 // RNA_MD_SMEM=1 -- route to modular_decomposition_smem_kernel, which stages the
@@ -1551,9 +1586,10 @@ modular_decomposition_smem_kernel(
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H,
   const fml_corner_t band,   /* RNA_MD_BAND; unused here -- see below */
-  const int* __restrict__ fml_jmin) {   /* RNA_MD_PRUNE: the smem twin has its
+  const int* __restrict__ fml_jmin,
+  const int* __restrict__ dml_prev) {   /* RNA_MD_PRUNE: the smem twin has its
                                          * own loop and does not prune */
-  (void)fml_jmin;
+  (void)fml_jmin; (void)dml_prev;
   static_assert(TILE >= 1 && TILE <= 32 && (TILE & (TILE-1)) == 0,
                 "TILE must be a power of two in [1,32]");
   /* RNA_MD_SMEM is a measured null (15 % slower) kept for the record, and it
@@ -1904,7 +1940,8 @@ void modular_decomposition_cuda(const int nfiles,
                 d_dml,   /*Out*/ \
                 rnafold_circ_fm2_device(), /*Out, NULL unless circular*/ \
                 d_tri_off_H, d_row_off_H, \
-                d_side_off_H, total, d_i_H, mk_band_desc(), d_fml_jmin
+                d_side_off_H, total, d_i_H, mk_band_desc(), d_fml_jmin, \
+                (rnafold_md_prune() == 2 ? d_dml1 : NULL)
 #define MD_LAUNCH(T) \
   do { \
     if(rnafold_md_smem()) \

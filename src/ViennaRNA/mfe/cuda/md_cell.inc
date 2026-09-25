@@ -32,7 +32,12 @@ md_cell(
    * a block that cannot beat the running best never needs its 32 B-reads issued.
    * Only B needs a summary: A is the 22 KB row buffer and is already cached, so
    * reading it to get its block min is nearly free. */
-  const int* __restrict__ fml_jmin = NULL) {
+  const int* __restrict__ fml_jmin = NULL,
+  /* RNA_MD_PRUNE=2 SPEED PROBE ONLY: row i+1's DMLi as a FIXED threshold, so
+   * every block decides independently. NOT a provable upper bound on row i --
+   * both operands change between rows -- so this arm can return a SUBOPTIMAL
+   * structure. It exists to price the dependency chain and nothing else. */
+  const int* __restrict__ dml_prev = NULL) {
   // Power of two <= 32 so a tile is a contiguous, warp-aligned lane group and
   // __shfl_down_sync()'s `width` can partition the warp for us. The launcher
   // additionally requires blockDim.x % 32 == 0, which is what makes "same
@@ -128,6 +133,14 @@ md_cell(
        * measured, which is why the realised skip fraction is below the probe's.
        */
       int best = INF;
+      /* FIXED when dml_prev is supplied (mode 2), otherwise the running best
+       * (mode 1). The whole difference is whether block b+1 waits on block b:
+       * mode 1 serialises a loop whose performance IS having many loads in
+       * flight, and measured 2.1-2.5x SLOWER. Tfix is NOT an achieved value, so
+       * a block whose bound EQUALS it must be kept (<=), while the running best
+       * IS achieved, so equality can be skipped (<). */
+      const int  Tfix  = dml_prev ? dml_prev[row_off_H[H]+j] : 0;
+      const bool fixed = (dml_prev != NULL);
 
       for (int yb = 0; yb <= x; yb += 32) {
         const int  y    = yb + lane;
@@ -152,7 +165,7 @@ md_cell(
           const int    bmin = MIN2(m0, m1);
           const int    lb   = (amin >= INF/2 || bmin >= INF/2) ? INF : amin + bmin;
 
-          if (lb < best) {
+          if (fixed ? (lb <= Tfix) : (lb < best)) {
             /* The bound does not settle it: read the block and reduce it. */
             const int b = live ? fml_j[base + (size_t)lane] : INF;
             const int s = (a >= INF/2 || b >= INF/2) ? INF : a + b;
