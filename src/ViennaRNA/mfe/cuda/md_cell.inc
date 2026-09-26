@@ -37,7 +37,11 @@ md_cell(
    * every block decides independently. NOT a provable upper bound on row i --
    * both operands change between rows -- so this arm can return a SUBOPTIMAL
    * structure. It exists to price the dependency chain and nothing else. */
-  const int* __restrict__ dml_prev = NULL) {
+  const int* __restrict__ dml_prev = NULL,
+  /* RNA_MD_PRUNE: block minima of fml_i (the ROW operand), rebuilt each row.
+   * With it, a skipped block costs four loads; without it the bound degrades
+   * to B alone and the arm is the v1 that measured 2.1-2.5x slower. */
+  const int* __restrict__ fml_imin = NULL) {
   // Power of two <= 32 so a tile is a contiguous, warp-aligned lane group and
   // __shfl_down_sync()'s `width` can partition the warp for us. The launcher
   // additionally requires blockDim.x % 32 == 0, which is what makes "same
@@ -119,64 +123,65 @@ md_cell(
     } else if (fml_jmin && TILE == 32) {
       /* RNA_MD_PRUNE. Same answer, fewer reads.
        *
-       * min is associative and commutative over exact integers, so visiting the
-       * blocks in a different order and reducing per block instead of per lane
-       * cannot change the result -- which is why this is byte-identical rather
-       * than merely close. `best` is warp-UNIFORM, so the skip decision is
-       * uniform too: all 32 lanes serve one cell, and a skipped block costs no
-       * divergence.
+       * md is min over y of (A[y] + B[y+ij0]) -- a (min,+) convolution -- so
+       * min(A over a block) + min(B over the matching window) is a VALID LOWER
+       * BOUND on that block, and a block that cannot beat the best found so far
+       * never needs to be READ AT ALL.
        *
-       * B's window [yb+ij0, yb+ij0+31] is NOT aligned to the summary's 32-cell
-       * blocks, so the bound takes the min over the two aligned blocks that
-       * cover it. That is a min over a SUPERSET of the window, hence still a
-       * valid lower bound -- just weaker than the exact window min the probe
-       * measured, which is why the realised skip fraction is below the probe's.
+       * min is associative and commutative over exact integers, so reducing per
+       * block instead of per lane cannot change the result -- which is why this
+       * is byte-identical rather than merely close. `best` is warp-UNIFORM, so
+       * the skip is uniform too: all 32 lanes serve one cell, no divergence.
+       *
+       * V3: BOTH OPERANDS ARE SUMMARISED. v1 read A in full on every block (32
+       * loads plus a warp reduction) just to get min(A), so a "skipped" block
+       * still paid 33 operations to save 32 -- close to break-even on
+       * instructions while adding ALU to a loop that had none. Measured 2.1-2.5x
+       * SLOWER, and a fixed threshold (mode 2) was exactly as slow, which ruled
+       * out both the reduction and the ordering. With an A summary a skipped
+       * block costs FOUR LOADS AND NOTHING ELSE.
+       *
+       * Neither window is aligned to its summary's 32-cell blocks (A's base is
+       * row_off_H[H], B's is tri_off_H[H]+ij0, neither a multiple of 32), so
+       * each bound takes the min over the two aligned blocks that cover it.
+       * That is a min over a SUPERSET of the window, hence still a valid lower
+       * bound -- weaker than the exact window min the probe measured, which is
+       * why the realised skip fraction sits below the probe's 28-62 %.
        */
       int best = INF;
       /* FIXED when dml_prev is supplied (mode 2), otherwise the running best
-       * (mode 1). The whole difference is whether block b+1 waits on block b:
-       * mode 1 serialises a loop whose performance IS having many loads in
-       * flight, and measured 2.1-2.5x SLOWER. Tfix is NOT an achieved value, so
-       * a block whose bound EQUALS it must be kept (<=), while the running best
-       * IS achieved, so equality can be skipped (<). */
+       * (mode 1). Tfix is NOT an achieved value, so a block whose bound EQUALS
+       * it must be kept (<=); the running best IS achieved, so equality can be
+       * skipped (<). */
       const int  Tfix  = dml_prev ? dml_prev[row_off_H[H]+j] : 0;
       const bool fixed = (dml_prev != NULL);
 
       for (int yb = 0; yb <= x; yb += 32) {
-        const int  y    = yb + lane;
-        const bool live = (y <= x);
-        const int  a    = live ? fml_i[row_off_H[H]+y] : INF;
-        int        amin = a;
+        const int    hi   = MIN2(31, x - yb);
+        const size_t abase = row_off_H[H] + (size_t)yb;
+        const size_t bbase = tri_off_H[H] + (size_t)(yb + ij0);
+        /* Four loads, all from arrays 1/32 the size of what they summarise. */
+        const int amin = fml_imin ? MIN2(fml_imin[abase >> 5],
+                                        fml_imin[(abase + (size_t)hi) >> 5])
+                                  : -INF;   /* no A summary: bound degrades to B alone */
+        const int bmin = MIN2(fml_jmin[bbase >> 5],
+                              fml_jmin[(bbase + (size_t)hi) >> 5]);
+        const int lb   = (amin >= INF/2 || bmin >= INF/2) ? INF
+                       : ((amin == -INF) ? bmin : amin + bmin);
 
-        /* A's block minimum, by warp reduction. NOTE: the single-instruction warp reduce was
-         * tried here (one instruction instead of five shuffles) and it was NOT
-         * faster -- the reduction is not this loop's bottleneck. See the
-         * measured verdict above rnafold_md_prune(). */
-        for (int o = 16; o > 0; o >>= 1)
-          amin = MIN2(__shfl_down_sync(0xffffffff, amin, o, 32), amin);
-        amin = __shfl_sync(0xffffffff, amin, 0, 32);
+        if (fixed ? (lb <= Tfix) : (lb < best)) {
+          /* The bound does not settle it: read the block and reduce it. */
+          const int  y    = yb + lane;
+          const bool live = (y <= x);
+          const int  a    = live ? fml_i[row_off_H[H] + (size_t)y] : INF;
+          const int  b    = live ? fml_j[bbase + (size_t)lane]     : INF;
+          const int  s    = (a >= INF/2 || b >= INF/2) ? INF : a + b;
+          int        bm   = s;
 
-
-        {
-          const size_t base = tri_off_H[H] + (size_t)(yb + ij0);
-          const int    hi   = MIN2(31, x - yb);
-          const int    m0   = fml_jmin[base >> 5];
-          const int    m1   = fml_jmin[(base + (size_t)hi) >> 5];
-          const int    bmin = MIN2(m0, m1);
-          const int    lb   = (amin >= INF/2 || bmin >= INF/2) ? INF : amin + bmin;
-
-          if (fixed ? (lb <= Tfix) : (lb < best)) {
-            /* The bound does not settle it: read the block and reduce it. */
-            const int b = live ? fml_j[base + (size_t)lane] : INF;
-            const int s = (a >= INF/2 || b >= INF/2) ? INF : a + b;
-            int       bm = s;
-
-            for (int o = 16; o > 0; o >>= 1)
-              bm = MIN2(__shfl_down_sync(0xffffffff, bm, o, 32), bm);
-            bm = __shfl_sync(0xffffffff, bm, 0, 32);
-            best = MIN2(bm, best);
-
-          }
+          for (int o = 16; o > 0; o >>= 1)
+            bm = MIN2(__shfl_down_sync(0xffffffff, bm, o, 32), bm);
+          bm = __shfl_sync(0xffffffff, bm, 0, 32);
+          best = MIN2(bm, best);
         }
       }
       /* Uniform across the warp, so the trailing reduction below is a no-op and

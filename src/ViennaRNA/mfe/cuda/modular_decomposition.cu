@@ -335,7 +335,8 @@ __global__ void modular_decomposition_kernel(
   const int* __restrict__ i_H,    // continuous flow phase A2
   const fml_corner_t band,        // RNA_MD_BAND; .sm==NULL disables
   const int* __restrict__ fml_jmin,   // RNA_MD_PRUNE; NULL disables
-  const int* __restrict__ dml_prev);  // RNA_MD_PRUNE=2 probe; NULL = mode 1
+  const int* __restrict__ dml_prev,   // RNA_MD_PRUNE=2 probe; NULL = mode 1
+  const int* __restrict__ fml_imin);  // RNA_MD_PRUNE: the row summary
 
 // Block sizes for the above, chosen once in init_gpu() below instead of the
 // BLOCK_SIZE=64 constant these used to hardcode (tuned against one GPU, the
@@ -392,6 +393,12 @@ int* d_fml_j;  //my_fML
 // Declared here because teardown_gpu() above frees it. See rnafold_md_prune().
 int*          d_fml_jmin = NULL;
 static size_t g_fml_jmin_n = 0;
+// RNA_MD_PRUNE: block minima of the ROW operand fml_i, rebuilt every row. Small
+// (row_total/32 ints), and written by a kernel that reads 32 values and writes
+// one, so it needs no reset and no atomics.
+int*          d_fml_imin = NULL;
+static size_t g_fml_imin_n = 0;
+
 // int16 fml_j (RNA_FML_INT16). Allocated INSTEAD of d_fml_j when the gate is on,
 // so the VRAM saving is real and measurable rather than shadowed by keeping both.
 //   d_fml_j16   the offsets themselves, same triangular layout as d_fml_j
@@ -804,6 +811,10 @@ teardown_gpu(void) {
     gpuErrchk( cudaFree(d_fml_jmin) );
     d_fml_jmin = NULL; g_fml_jmin_n = 0;
   }
+  if (d_fml_imin) {
+    gpuErrchk( cudaFree(d_fml_imin) );
+    d_fml_imin = NULL; g_fml_imin_n = 0;
+  }
   if (d_fml_band) {
     gpuErrchk( cudaFree(d_fml_band) );
     d_fml_band = NULL;
@@ -1037,10 +1048,21 @@ pack_fml_kernel(const int nfiles, const int i_row, const int turn, const int len
  * added per-block ALU and the unavoidable A traffic appear to make the kernel
  * issue-bound, so the saving cannot be realised.
  *
- * THE UNTRIED FIX: a summary for A as well (row-shaped, row_total/32 ints,
- * rebuilt per row), so a skipped block costs TWO loads instead of 32 loads plus
- * a reduction. That removes both the A traffic and one reduction per block and
- * is the only remaining candidate consistent with the two measurements above.
+ * (3) "the A traffic on every block is the cost" -- v3 summarises A too
+ *     (fml_imin, rebuilt per row by fml_imin_kernel), so a skipped block costs
+ *     FOUR LOADS and nothing else. Measured WORSE than v1: md 2.547 -> 11.172 s
+ *     at 32x2400 and 13.358 -> 64.553 at 16x5601. Not it either.
+ *
+ * THREE DIAGNOSES, ALL WRONG. What is left is structural and closes this line:
+ * the original loop is BRANCH-FREE straight-line code -- every lane issues one
+ * independent load pair per iteration, so the compiler unrolls it and keeps many
+ * loads in flight. Any bound-based skip inserts a DATA-DEPENDENT BRANCH into
+ * that loop, with the summary loads on its critical path. On a kernel whose speed
+ * IS branch-free pipelined loads, that costs more than the reads it saves -- at
+ * any bound, in any order, with or without an A summary.
+ *
+ * So 28-62 %% of md reads are provably unnecessary and are UNREACHABLE by this
+ * mechanism. Kept default-off as a measured negative with the full diagnosis.
  *
  * WHAT WOULD FIX IT: a threshold that does NOT depend on progress, so every
  * block decides independently and the loop pipelines again. Two candidates,
@@ -1112,6 +1134,26 @@ rnafold_md_prune(void)
   return v;
 }
 
+/* One thread per 32-cell block of the row buffers: read 32, write the min. No
+ * reset needed (it overwrites) and no atomics (one writer per block). */
+__global__ void
+fml_imin_kernel(const size_t n, const size_t nblk,
+                const int* __restrict__ fml_i, int* __restrict__ out)
+{
+  const size_t b = blockIdx.x*blockDim.x+threadIdx.x;
+
+  if (b >= nblk) return;
+  {
+    const size_t lo = b*32u;
+    const size_t hi = (lo + 32u < n) ? (lo + 32u) : n;
+    int m = INF;
+    size_t t;
+
+    for (t = lo; t < hi; t++) m = MIN2(fml_i[t], m);
+    out[b] = m;
+  }
+}
+
 __global__ void
 init_fml_jmin_kernel(const size_t n, int* __restrict__ s)
 {
@@ -1147,6 +1189,18 @@ md_prune_alloc(const size_t ijsize)
     init_fml_jmin_kernel<<<nb,BLOCK_SIZE>>>(g_fml_jmin_n, d_fml_jmin);
     gpuErrchk( cudaPeekAtLastError() );
   }
+
+  /* The ROW operand's summary. Rebuilt every row by fml_imin_kernel, so it only
+   * needs allocating here. g_row_total is the row buffers' total extent. */
+  g_fml_imin_n = (g_row_total + 31) / 32;
+  if (!d_fml_imin) {
+    if (cudaMalloc((void **)&d_fml_imin, g_fml_imin_n * sizeof(int)) != cudaSuccess) {
+      fprintf(stderr, "%-24s RNA_MD_PRUNE: cudaMalloc of the row summary failed -- "
+                      "the bound degrades to B alone\n", __FILE__);
+      d_fml_imin = NULL;
+    }
+  }
+
 }
 /* prefill matrices with init contributions */
 __global__ void
@@ -1500,7 +1554,8 @@ modular_decomposition_kernel(
   const int* __restrict__ i_H,
   const fml_corner_t band,   /* RNA_MD_BAND; .sm==NULL disables */
   const int* __restrict__ fml_jmin,   /* RNA_MD_PRUNE; NULL disables */
-  const int* __restrict__ dml_prev) {   /* RNA_MD_PRUNE=2 probe; NULL = mode 1 */
+  const int* __restrict__ dml_prev,    /* RNA_MD_PRUNE=2 probe; NULL = mode 1 */
+  const int* __restrict__ fml_imin) {  /* RNA_MD_PRUNE: the row summary */
   // The cell/lane split is the only thing that stays here; the arithmetic
   // lives in md_cell.inc so the megakernel runs exactly this code.
   const long long gtid = (long long)blockIdx.x*blockDim.x + threadIdx.x;
@@ -1510,7 +1565,7 @@ modular_decomposition_kernel(
                 gtid / TILE, (int)(gtid & (TILE-1)),
                 /* The band is GLOBAL, so this kernel can use it with no block
                  * owning anything -- which the shared corner could not. */
-                band, fml_jmin, dml_prev);
+                band, fml_jmin, dml_prev, fml_imin);
 }
 
 // RNA_MD_SMEM=1 -- route to modular_decomposition_smem_kernel, which stages the
@@ -1587,9 +1642,10 @@ modular_decomposition_smem_kernel(
   const int* __restrict__ i_H,
   const fml_corner_t band,   /* RNA_MD_BAND; unused here -- see below */
   const int* __restrict__ fml_jmin,
-  const int* __restrict__ dml_prev) {   /* RNA_MD_PRUNE: the smem twin has its
+  const int* __restrict__ dml_prev,
+  const int* __restrict__ fml_imin) {   /* RNA_MD_PRUNE: the smem twin has its
                                          * own loop and does not prune */
-  (void)fml_jmin; (void)dml_prev;
+  (void)fml_jmin; (void)dml_prev; (void)fml_imin;
   static_assert(TILE >= 1 && TILE <= 32 && (TILE & (TILE-1)) == 0,
                 "TILE must be a power of two in [1,32]");
   /* RNA_MD_SMEM is a measured null (15 % slower) kept for the record, and it
@@ -1905,7 +1961,18 @@ void modular_decomposition_cuda(const int nfiles,
 					d_tri_off_H, d_row_off_H,
 					d_side_off_H, total, d_i_H);
     gpuErrchk( cudaPeekAtLastError() );
+
+    /* RNA_MD_PRUNE: refresh the row operand block minima. fml_i has just been
+     * written for this row and md reads it next. About row_total/32 threads. */
+    if (d_fml_imin) {
+      const int nb2 = (int)((g_fml_imin_n + BLOCK_SIZE - 1)/BLOCK_SIZE);
+
+      fml_imin_kernel<<<nb2,BLOCK_SIZE,0,ISSUE_STREAM>>>(g_row_total, g_fml_imin_n,
+                                                         d_fml_i, d_fml_imin);
+      gpuErrchk( cudaPeekAtLastError() );
+    }
   }
+
 
 //const int todo = side*(side+1)/2;
 
@@ -1941,7 +2008,7 @@ void modular_decomposition_cuda(const int nfiles,
                 rnafold_circ_fm2_device(), /*Out, NULL unless circular*/ \
                 d_tri_off_H, d_row_off_H, \
                 d_side_off_H, total, d_i_H, mk_band_desc(), d_fml_jmin, \
-                (rnafold_md_prune() == 2 ? d_dml1 : NULL)
+                (rnafold_md_prune() == 2 ? d_dml1 : NULL), d_fml_imin
 #define MD_LAUNCH(T) \
   do { \
     if(rnafold_md_smem()) \
@@ -2662,7 +2729,17 @@ md_l2_persist_apply(const size_t triangle_bytes)
     /* Everything OUTSIDE the window is marked evict-first. That is the other
      * half of the idea: the phases that run between md rows are what evict the
      * triangle, and this is where they are told not to. */
-    a.accessPolicyWindow.missProp  = cudaAccessPropertyStreaming;
+    {
+      /* RNA_MD_L2_MISS: the first version hardwired Streaming here, which marks
+       * everything OUTSIDE the window evict-first -- including fml_i and the row
+       * buffers, the arrays that DO have reuse. That conflated "protect the
+       * triangle" with "evict everything else" and the arm lost. Separable now. */
+      const char *m = getenv("RNA_MD_L2_MISS");
+
+      a.accessPolicyWindow.missProp = (m && m[0] == 'n')
+                                    ? cudaAccessPropertyNormal
+                                    : cudaAccessPropertyStreaming;
+    }
     if (cudaStreamSetAttribute(streams[s], cudaStreamAttributeAccessPolicyWindow, &a)
         != cudaSuccess)
       fprintf(stderr, "modular_decomposition.cu RNA_MD_L2_PERSIST: "
@@ -2671,12 +2748,14 @@ md_l2_persist_apply(const size_t triangle_bytes)
 
   fprintf(stderr, "modular_decomposition.cu RNA_MD_L2_PERSIST=%d: reserved %.1f MB of L2 "
                   "(device max %.1f), window %.1f MB over d_fml_j (device max %.1f), "
-                  "hitRatio %.2f, misses marked STREAMING, on %d stream(s). "
+                  "hitRatio %.2f, misses marked %s, on %d stream(s). "
                   "Run RNA_CUDA_GRAPH=0 too -- under graph capture the attribute is "
                   "inherited, not set per launch.\n",
           mb, (double)want/1048576.0, (double)prop.persistingL2CacheMaxSize/1048576.0,
           (double)win/1048576.0, (double)prop.accessPolicyMaxWindowSize/1048576.0,
-          ratio, ns);
+          ratio,
+          (getenv("RNA_MD_L2_MISS") && getenv("RNA_MD_L2_MISS")[0] == 'n')
+            ? "NORMAL" : "STREAMING", ns);
 }
 
 /* ========== RNA_MD_PRUNE_STATS: can a block MINIMUM replace the column? ======
