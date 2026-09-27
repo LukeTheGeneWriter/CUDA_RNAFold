@@ -83,6 +83,10 @@ and when it is off, *why*, with the one command that would fix it.
 
 ### 2.4 Runtime: delete gate 3
 
+> **Release requirement, see §11.** Measured 2026-09-27: with `RNA_GPU_CHUNK` unset
+> the device is never used and stderr is **empty**. A user following upstream's
+> documented `./configure && make` gets 1x, silently. This is criterion 2 of §11.2.
+
 `RNA_GPU_CHUNK` stops being a gate and becomes what it already is internally —
 a **testing override** on chunk width. The default becomes "the VRAM budget
 decides", which is the code path `RNA_GPU_CHUNK=0` already takes and which every
@@ -223,6 +227,13 @@ is `RNA_FML_INT16` (20 %) and little else.
 
 ## 7. Gate 4, settled by measurement (2026-09-27)
 
+> **Superseded in part by §11.3.** The cells floor is correct but **unreachable**
+> for any input of more than 10 records, because `rnafold_chunk_earns_gpu()`
+> short-circuits on record count and `VRNA_MIN_GPU_BATCH` is 10. It is also the
+> wrong *shape* for heterogeneous compute: both gates decide per CHUNK, and a
+> router has to decide per RECORD against live queue occupancy. Read §11.3 before
+> tuning the floor's value.
+
 `tests/gpu_crossover.sh` on an RTX 3050, 30 shapes, every GPU arm byte-identical
 to the CPU. **Total nucleotides does not predict the crossover:**
 
@@ -317,3 +328,110 @@ because lowering priority never does.
 **And one prior the test must be allowed to overturn:** Flow4 §A showed the
 builder is *supposed* to compete — 4.96 s of overlap is the largest host-side win
 found. Starving it to protect the device may cost more than it saves.
+
+## 11. REQUIREMENT: as installable as upstream, and accelerated without being told
+
+**This is a release requirement, not an improvement.** The work is not done until a
+user who has never heard of this fork gets acceleration by following upstream's own
+instructions. Recorded 2026-09-27 at Luke's direction, with the thousands of
+existing ViennaRNA users as the audience.
+
+### 11.1 The bar, taken from upstream verbatim
+
+`https://github.com/ViennaRNA/ViennaRNA` documents exactly these paths:
+
+| path | what the user types |
+|---|---|
+| release tarball | `tar -zxvf ViennaRNA-2.7.2.tar.gz && cd ViennaRNA-2.7.2 && ./configure && make && sudo make install` |
+| no root | `./configure --prefix=$HOME/ViennaRNA && make install` |
+| git clone | unpack `src/libsvm-3.35.tar.gz` and `src/dlib-20.0.tar.bz2`, install the build tools, `autoreconf -i`, then `./configure && make && sudo make install` |
+| bioconda | `conda install viennarna` |
+| PyPI (Python interface) | `python -m pip install viennarna` |
+| binaries | prebuilt packages for Linux, Windows and macOS from the website |
+
+Build docs live in `INSTALL`; options are discoverable through `./configure --help`.
+
+Note what is **not** in that list: no accelerator flag, no environment variable, no
+device selection. `./configure` with no arguments is the documented path, and it is
+the one almost everyone uses.
+
+### 11.2 Acceptance criteria
+
+Each of these is testable, and each currently FAILS.
+
+1. **`./configure` with no arguments produces an accelerated binary** on a host with
+   a CUDA toolkit and a device, and a working CPU-only binary everywhere else.
+   Today `--enable-cuda` is required, and omitting it yields a silently CPU-only
+   build — see §2.1 and `feedback_silent_fallback_needs_positive_evidence`.
+2. **No environment variable is needed to reach the device.** Today gate 3
+   (`RNAfold.c:2513`) enables CUDA only when `RNA_GPU_CHUNK` is set to something;
+   unset means no acceleration, with **0 bytes of stderr** to say so (verified
+   2026-09-27). This alone means a user following upstream's instructions gets 1×.
+3. **`configure` prints its verdict**, and a declined runtime prints `why` without
+   `--verbose` (§2.3, §2.4).
+4. **The git-clone path works from a clean checkout** with upstream's tool list plus
+   whatever CUDA adds, and `INSTALL` states the CUDA requirements and how to opt
+   out. `doc/man2rst.py` mode was already one such blocker
+   (`project_man2rst_mode_blocks_a_clone_build`).
+5. **The distributed tarball builds accelerated**, i.e. `make dist` carries the CUDA
+   sources and the `.cu` rules survive out-of-tree builds.
+6. **Upstream's package paths still work**: a bioconda/PyPI build with no CUDA
+   present must configure, build and pass tests unchanged. Acceleration is additive
+   or it is not shippable.
+7. **Documented knob surface.** ~6 of 52 knobs are user-facing (§2.5); the rest are
+   ours and must not appear in user docs.
+
+### 11.3 Gate 3 and the cells floor both have to go
+
+Luke's instruction: *"You may need to fully rewrite or eliminate gate 3 and the
+cells floor to enable true heterogeneous compute."* The measurements agree, and the
+reason is sharper than "they are inconvenient".
+
+**Gate 3 is not a policy, it is an accident of testing.** `RNA_GPU_CHUNK` is a chunk
+*width* override that acquired a second, undocumented job: presence-as-enable. Its
+own `0` value means "no cap, the budget decides", so the flag's off state and its
+most useful state are the same value. Delete the presence test (§2.4); keep the
+override.
+
+**The cells floor cannot do the job it was added for.** It was added so one very
+long sequence would still reach the device. But `rnafold_chunk_earns_gpu()` returns
+1 as soon as `n >= rnafold_min_gpu_batch()`, and `VRNA_MIN_GPU_BATCH` is **10** — so
+for any input of more than 10 records the floor is never evaluated. Verified
+2026-09-27: 3 × 300 nt (1.35e5 cells, under the 2.5e5 floor) routes `3 cpu`, and the
+same input with `RNA_MIN_GPU_CELLS=1000` routes `3 gpu`. The floor is correct and
+unreachable.
+
+More importantly it is **the wrong shape for heterogeneous compute**. Both gates are
+all-or-nothing *per chunk*: they decide that a whole chunk goes to the device or a
+whole chunk goes to the host. True heterogeneous compute needs a **per-record
+decision made continuously against both queues' occupancy** — send this record
+wherever it will finish first, given what each side is already carrying. That is a
+scheduler, and neither a record-count threshold nor a cell threshold can express it,
+because both are properties of the *input* rather than of the *machine's current
+state*.
+
+The mechanism that already routes per record is option C (`RNA_CPU_SLICE`,
+`RNA_CPU_SLICE_CAP`, needs `--jobs > 1`), which holds records back from a chunk and
+folds them on the host pool while the device works. It is off by default and its
+slice size is a fixed fraction rather than a measurement.
+
+**So the replacement is one thing, not three:** a router that owns both queues, with
+the gates reduced to what they honestly are — a device-present check, and a
+"would this record be faster on a core?" estimate fed by measured throughput on
+*this* host. `tests/gpu_crossover.sh` already establishes that `Σ L²` predicts the
+crossover and `total_nt` does not, which is the input that estimate needs. This is
+the natural consumer of the tier-1 calibration in §3.1, and it subsumes gates 3
+and 4 rather than tuning them.
+
+### 11.4 Sequencing
+
+This does not block the kernel work, but it does block *shipping*. Order:
+
+1. §2.1 + gate 3 (configure autodetect, delete the presence test) — the two changes
+   that turn "expert-only" into "works".
+2. Criterion 5 and 6 (`make dist`, a no-CUDA build) — these protect every existing
+   user and are pure regression tests.
+3. The per-record router, replacing gate 4's floor. Needs the §C result from the
+   stress notebook first: if the host pool is only serviced after the device drains,
+   a router has nothing to schedule against until that is fixed.
+4. §2.5 knob classification, and an `INSTALL` section.
