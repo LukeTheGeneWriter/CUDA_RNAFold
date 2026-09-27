@@ -39,6 +39,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>   /* RNA_RECORD_TRACE: clock_gettime(CLOCK_MONOTONIC) */
 
 #include "ViennaRNA/mfe/global.h"
 #include "ViennaRNA/partfunc/global.h"
@@ -246,6 +247,13 @@ struct record_data {
    * rest (option C). Only used to signal completion, so the slice size can adapt
    * to how much the pool actually got through. */
   int             cpu_slice;
+
+  /* RNA_RECORD_TRACE: when this record's MATRICES were filled, in seconds since
+   * the first traced event. For a GPU record the window is its CHUNK's -- the
+   * device folds a batch, so a per-record device window does not exist unless
+   * slot flow is on. For a CPU record process_record() stamps its own fold.
+   * Zero means "not stamped", which is how the reader tells the two apart. */
+  double          trace_fold_t0, trace_fold_t1;
 #endif
 };
 
@@ -1219,6 +1227,81 @@ gpu_path_usable(struct options *opt,
  * not a better constant; carried over as-is so the port stays behaviour-
  * preserving and the guard lands as its own measured change. */
 #define VRNA_MIN_GPU_BATCH 10
+/* GATE 4, SECOND HALF (2026-09-26, Luke). A RECORD COUNT IS THE WRONG UNIT.
+ * The device's advantage scales with WORK, and work is O(n^2) per record in the
+ * matrices and O(n^3) in the sweep -- so ONE 5601 nt sequence is emphatically
+ * worth sending, while ten 80 nt sequences are not. The old count-only gate sent
+ * the first to the CPU and the second to the GPU, which is backwards both ways.
+ *
+ * So the chunk goes to the device when EITHER the record count reaches
+ * VRNA_MIN_GPU_BATCH or the total MATRIX CELLS reach VRNA_MIN_GPU_CELLS. The
+ * arm is kept because many small records still amortise one launch.
+ *
+ * AND CELLS, NOT NUCLEOTIDES, BECAUSE THE EXPERIMENT SAID SO. tests/gpu_crossover.sh
+ * on an RTX 3050 shows total length does NOT predict the crossover: at 1600 total
+ * nt, 8x200 runs at 0.84x (a loss) while 1x1600 runs at 2.69x. Same total, opposite
+ * verdicts. Sum of L^2 fits every boundary case instead -- everything at or below
+ * 3.2e5 loses, everything at or above 6.4e5 wins -- so the unit is matrix AREA,
+ * which is also what the device fixed cost is amortised against.
+ *
+ * 250000 triangular cells is the midpoint of that boundary ON ONE HOST. The
+ * threshold is host-dependent (a faster device crosses over sooner) and belongs to
+ * the tuner in PORT_ZEROCONF_SCOPE.md; RNA_MIN_GPU_CELLS overrides it meanwhile.
+ */
+#define VRNA_MIN_GPU_CELLS 250000
+
+/* ADMISSION CAP (2026-09-27, Luke: "shoot for 48 residents").
+ *
+ * MEASURED, and the number is a proxy for something else. Flow3 section B at
+ * 96 x 5601 nt: 4 residents 40.60 s, 24 -> 22.64, 48 -> 21.12 (best), 96 -> 22.32.
+ * So 48 beats both the wider and the narrower arms. But 48 is exactly n/2 in that
+ * fixture, and at 200 x 5601 the best measured width was 100 -- also n/2. In both
+ * cases the optimum is TWO CHUNKS, which is the minimum that lets the build
+ * pipeline overlap anything (Flow4 A: one chunk overlaps 0.00 s, two overlap
+ * 4.96 s of a 9.65 s build), while more chunks start paying per-chunk cost.
+ *
+ * WE CANNOT ASK FOR "TWO CHUNKS". The accumulator is streaming -- records arrive
+ * one at a time and n is not known until the input ends -- so the policy has to be
+ * expressible per-record. A width cap is that, and expressing it in CELLS rather
+ * than records is what makes it length-independent: the same cap yields ~48
+ * records at 5601 nt and ~586 at 1600, which is the right direction, because SM
+ * fill depends on cells per row and not on how many records supply them.
+ *
+ * THE RISK, RECORDED: a FIXED cap over-splits inputs much larger than the fixture
+ * it came from. At 200 x 5601 this cap gives ~5 chunks where 2 measured best, and
+ * 7 chunks measured 1.0 s worse than 2. So this is a starting point for the tuner
+ * (PORT_ZEROCONF_SCOPE.md section 3.2), not a settled constant -- and the thing
+ * that would replace it is per-RECORD overlap under continuous flow, which needs
+ * no splitting at all.
+ *
+ * 48 * (5601*5602/2) = 7.53e8 cells. RNA_GPU_CHUNK_CELLS overrides; 0 disables.
+ */
+#define VRNA_GPU_CHUNK_CELLS 753000000ull
+
+static unsigned long long
+rnafold_gpu_chunk_cells(void)
+{
+  static long long v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_GPU_CHUNK_CELLS");
+
+    v = (long long)VRNA_GPU_CHUNK_CELLS;
+    if ((e) && (e[0])) {
+      const long long n = atoll(e);
+
+      if (n >= 0) {
+        v = n;
+        fprintf(stderr, "%-24s RNA_GPU_CHUNK_CELLS=%lld (default %llu): chunk width "
+                        "capped by matrix area%s\n", "bin/RNAfold.c", v,
+                        (unsigned long long)VRNA_GPU_CHUNK_CELLS,
+                        v ? "" : " -- DISABLED, the VRAM budget alone decides");
+      }
+    }
+  }
+
+  return (unsigned long long)v;
+}
 
 
 /* The CPU-fallback threshold, overridable so it can be MEASURED.
@@ -1253,6 +1336,53 @@ gpu_path_usable(struct options *opt,
  * fills VRAM, i.e. one chunk per record, which is the worst case for chunk
  * count and so the worst case for wall clock.
  */
+static int rnafold_min_gpu_batch(void);   /* defined just below */
+
+/* Total matrix-CELL floor. See VRNA_MIN_GPU_CELLS. */
+static int
+rnafold_min_gpu_cells(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MIN_GPU_CELLS");
+
+    v = VRNA_MIN_GPU_CELLS;
+    if ((e) && (e[0])) {
+      const long n = atol(e);
+
+      if (n >= 0) {
+        v = (int)n;
+        fprintf(stderr, "%-24s RNA_MIN_GPU_CELLS=%d (default %d): a chunk goes to the "
+                        "device once its total matrix area reaches this, whatever "
+                        "record count\n", "bin/RNAfold.c", v, VRNA_MIN_GPU_CELLS);
+      }
+    }
+  }
+
+  return v;
+}
+
+/* Does this chunk earn the device? EITHER enough records to amortise a launch,
+ * OR enough total sequence that even one record is worth it. */
+static int
+rnafold_chunk_earns_gpu(struct record_data **chunk, const int n)
+{
+  size_t nt = 0;
+  int    i;
+
+  if (n >= rnafold_min_gpu_batch())
+    return 1;
+  for (i = 0; i < n; i++)
+    if ((chunk[i]) && (chunk[i]->sequence)) {
+      const size_t L = strlen(chunk[i]->sequence);
+
+      nt += L * (L + 1) / 2;        /* this record's triangle, in cells */
+    }
+
+  return (nt >= (size_t)rnafold_min_gpu_cells());
+}
+
 static int
 rnafold_min_gpu_batch(void)
 {
@@ -1412,6 +1542,104 @@ struct build_range {
 
 
 static void build_one(struct gpu_batch *b, struct options *opt, int i);
+
+/* ===================== RNA_RECORD_TRACE: who folded what, and when ==========
+ *
+ * One line per record: where it was folded, when its matrices were filled, and
+ * when its result reached the output stream. That last column is the point --
+ * it is the only way to see the TRICKLE, i.e. whether results emerge steadily
+ * as the device retires records or all at once when a batch completes.
+ *
+ * Three questions it exists to answer, none of which the existing timers can:
+ *   1. batching vs continuous flow -- does the build actually hide, per record,
+ *      or only in the aggregate the `OVERLAPPED` line reports?
+ *   2. on a multicore host, are the cores idle while the device works?
+ *   3. does the output trickle or arrive in one burst?
+ *
+ * Deliberately NOT a timer: it writes raw events and lets the analysis decide.
+ * Timers in this project have twice measured the wrong thing by aggregating too
+ * early.
+ *
+ *   RNA_RECORD_TRACE=<path>   write the CSV; unset writes nothing
+ *
+ * CSV: idx,length,route,fold_t0,fold_t1,out_t
+ *   route   gpu | cpu
+ *   fold_*  matrix-fill window, seconds from the first traced event. For a GPU
+ *           record this is its CHUNK's window, because a batch has no per-record
+ *           device window unless slot flow is on.
+ *   out_t   when the formatted result was handed to the output stream.
+ */
+static FILE  *g_trace_fp   = NULL;
+static double g_trace_base = 0.0;
+static int    g_trace_init = 0;
+
+static double
+trace_now(void)
+{
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
+    return 0.0;
+
+  return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
+
+static void
+trace_open(void)
+{
+  const char *path;
+
+  if (g_trace_init)
+    return;
+  g_trace_init = 1;
+  path = getenv("RNA_RECORD_TRACE");
+  if ((!path) || (!path[0]))
+    return;
+  g_trace_fp = fopen(path, "w");
+  if (!g_trace_fp) {
+    fprintf(stderr, "%-24s RNA_RECORD_TRACE: cannot open %s -- not tracing\n",
+            "bin/RNAfold.c", path);
+    return;
+  }
+  g_trace_base = trace_now();
+  fprintf(g_trace_fp, "idx,length,route,fold_t0,fold_t1,out_t\n");
+  fprintf(stderr, "%-24s RNA_RECORD_TRACE: per-record events to %s\n",
+          "bin/RNAfold.c", path);
+}
+
+static double
+trace_rel(double t)
+{
+  return (t > 0.0) ? (t - g_trace_base) : 0.0;
+}
+
+/* Called from process_record(), which is the one point both routes pass
+ * through. Locked because the CPU route runs it on many threads at once. */
+static void
+trace_record(struct record_data *record, unsigned int length,
+             double fold_t0, double fold_t1, double out_t)
+{
+  static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+
+  if (!g_trace_fp)
+    return;
+  pthread_mutex_lock(&m);
+  fprintf(g_trace_fp, "%u,%u,%s,%.6f,%.6f,%.6f\n",
+          record->number, length,
+#ifdef VRNA_WITH_CUDA
+          record->prefolded ? "gpu" : "cpu",
+#else
+          "cpu",
+#endif
+          trace_rel(fold_t0), trace_rel(fold_t1), trace_rel(out_t));
+
+  /* Flushed per record, not at exit. A trace is most useful on the runs that go
+   * WRONG -- a stress harness that kills a hung job on a timeout would otherwise
+   * recover an empty file, because stdio only flushes on a clean exit. ~50 bytes
+   * against a fold of at least milliseconds, so the cost is not measurable. */
+  fflush(g_trace_fp);
+  pthread_mutex_unlock(&m);
+}
 
 
 static void *
@@ -1586,7 +1814,23 @@ fold_gpu_batch(struct gpu_batch *b,
    *
    * That is what makes the diff presentable: the accelerator is a backend, not
    * a fork of the driver, and removing it leaves a correct program. */
+  /* RNA_RECORD_TRACE: the device window for every record in this chunk. A batch
+   * has no per-record device window -- that only exists under slot flow, where
+   * the retire pool knows each record's own span -- so the chunk's window is the
+   * honest answer here, and the reader treats a shared window as exactly that. */
+  const double trace_fold_a = trace_now();
+
   vrna_mfe_batch(VC, (size_t)n, Str, EN);
+
+  {
+    const double trace_fold_b = trace_now();
+    int ti;
+
+    for (ti = 0; ti < n; ti++) {
+      chunk[ti]->trace_fold_t0 = trace_fold_a;
+      chunk[ti]->trace_fold_t1 = trace_fold_b;
+    }
+  }
 
   /* stage_free_s: also a dead counter until 2026-09-08. Freeing a fold
    * compound releases the same O(n^2) tables build allocated. */
@@ -1890,7 +2134,9 @@ flush_gpu_chunk(struct record_data **chunk,
   if (n <= 0)
     return;
 
-  if (n < rnafold_min_gpu_batch()) {
+  trace_open();
+
+  if (!rnafold_chunk_earns_gpu(chunk, n)) {
     /* CPU fallback. Not a separate worker queue: upstream's driver already has
      * a per-record parallel path, so an undersized chunk simply goes down it.
      * That is the fork's RNAfold_cpu_queue.c retired rather than ported --
@@ -2152,7 +2398,7 @@ pipeline_flush(struct record_data **chunk,
     }
   }
 
-  if (n < rnafold_min_gpu_batch()) {
+  if (!rnafold_chunk_earns_gpu(chunk, n)) {
     /* Too small for the device, exactly as flush_gpu_chunk() decides. Dispatch
      * down the per-record path; ordering is by ostream slot (requested at READ
      * time, main loop), not by dispatch order, so this may precede a pending
@@ -2239,6 +2485,7 @@ process_input(FILE            *input_stream,
    * reconnected once this path is proven correct. */
   struct record_data  **gpu_chunk     = NULL;
   int                   gpu_chunk_n   = 0;
+  unsigned long long    gpu_chunk_cells = 0;   /* admission cap, see VRNA_GPU_CHUNK_CELLS */
   int                   gpu_chunk_cap = 0;   /* allocated slots in gpu_chunk[] */
   int                   gpu_enabled   = 0;
   int                   gpu_hard_cap  = 0;   /* RNA_GPU_CHUNK, testing override */
@@ -2304,6 +2551,11 @@ process_input(FILE            *input_stream,
       vrna_message_input_seq_simple();
     }
   }
+
+  /* RNA_RECORD_TRACE: opened HERE, on the single reader thread, before any
+   * record exists. trace_record() is called from many threads and takes a lock,
+   * but opening the file is not something to race over. */
+  trace_open();
 
   /* set options we wanna pass to vrna_file_fasta_read_record() */
   if (istty_in)
@@ -2399,6 +2651,7 @@ process_input(FILE            *input_stream,
           (getenv("RNA_GPU_UNIFORM_CHUNKS"))) {
         pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
         gpu_chunk_n = len_desc_n = 0;
+        gpu_chunk_cells = 0;
         chunk_started = 0;
       }
 
@@ -2411,9 +2664,22 @@ process_input(FILE            *input_stream,
       if ((gpu_hard_cap > 0) && (gpu_chunk_n >= gpu_hard_cap))
         need_flush = 1;
 
+      /* ADMISSION CAP. Flush before this record if it would push the chunk past
+       * the cell budget -- but never flush an empty chunk, or a single record
+       * larger than the cap could never be folded at all. */
+      {
+        const unsigned long long cap = rnafold_gpu_chunk_cells();
+        const unsigned long long c   = (unsigned long long)this_len *
+                                       ((unsigned long long)this_len + 1ull) / 2ull;
+
+        if ((cap > 0) && (gpu_chunk_n > 0) && (gpu_chunk_cells + c > cap))
+          need_flush = 1;
+      }
+
       if (need_flush) {
         pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
         gpu_chunk_n = len_desc_n = 0;
+        gpu_chunk_cells = 0;
 
         /* Query AFTER the flush: flush_gpu_chunk() tears the device state down,
          * so this sees free VRAM rather than counting the previous chunk's
@@ -2457,6 +2723,8 @@ process_input(FILE            *input_stream,
 
       gpu_chunk_len            = this_len;
       gpu_chunk[gpu_chunk_n++] = record;
+      gpu_chunk_cells += (unsigned long long)this_len *
+                         ((unsigned long long)this_len + 1ull) / 2ull;
     } else {
       RUN_IN_PARALLEL(process_record, record);
     }
@@ -2528,6 +2796,8 @@ process_record(struct record_data *record)
   struct output_stream  *o_stream;
   size_t                **mod_positions;
   size_t                mod_param_sets;
+
+  const double trace_p_in = trace_now();
 
   opt = record->options;
 
@@ -2954,6 +3224,28 @@ record_end:
       o_stream = NULL;
     }
 
+    /* RNA_RECORD_TRACE: out_t is taken HERE, at the hand-off to the output
+     * stream, because that is when a result becomes visible. For a CPU record
+     * the fold window is this function; for a GPU record it was stamped with its
+     * chunk. */
+    /* ONE clock read, into a local, BEFORE the call. Two trace_now() calls as
+     * separate arguments is a bug: C does not order argument evaluation, so out_t
+     * could be sampled before fold_t1 and 7 of 24 records came back with
+     * out_t < fold_t1, which is impossible by construction. For a CPU record the
+     * fold ends where the result is handed over, so they are the SAME instant and
+     * must come from the same read. */
+    {
+      const double trace_out = trace_now();
+
+#ifdef VRNA_WITH_CUDA
+      trace_record(record, length,
+                   record->trace_fold_t0 ? record->trace_fold_t0 : trace_p_in,
+                   record->trace_fold_t1 ? record->trace_fold_t1 : trace_out,
+                   trace_out);
+#else
+      trace_record(record, length, trace_p_in, trace_out, trace_out);
+#endif
+    }
     vrna_ostream_provide(opt->output_queue, record->number, (void *)o_stream);
   } else {
     ATOMIC_BLOCK(flush_cstr_callback(NULL, record->number, (void *)o_stream));

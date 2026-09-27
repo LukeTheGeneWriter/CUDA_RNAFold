@@ -176,16 +176,103 @@ rnafold_gpu_sweep(void) {
 // batch cannot un-load them.
 static int g_fml_int16_unsafe = 0;
 
+// DEFAULT ON since 2026-09-27. Measured on an A100 at 5601 nt, byte-identical at
+// every shape: md -8.8 % at 8 records, -15.5 % at 32, -17.7 % at 96, -18.4 % at
+// 200; wall -1.8 % from 32 records up. VRAM also halves (12946 -> 10168 MB at 96
+// records), which independently raises what admission can admit. The wall gain is
+// far smaller than the md gain because md is ~43 % of the wall and the host-side
+// build is ~21 % -- see PORT_ZEROCONF_SCOPE.md.
+//
+// WHY IT IS *AUTO* RATHER THAN MERELY ON. int16 is refused in combination with
+// RNA_SLOT_FLOW (a slot handover would leave stale per-block baselines) and with
+// RNA_MD_PRUNE (the packed triangle has per-block baselines, so a raw int32
+// minimum over it is meaningless). Those refusals call exit(). Flipping the
+// default without more would therefore make `RNA_SLOT_FLOW=2` a hard failure for
+// anyone who had it working -- a default must not break a working command line.
+//
+// So the asymmetry, which is the same one PORT_ZEROCONF_SCOPE.md argues for
+// --enable-cuda: an EXPLICIT request that cannot be honoured is an error, while a
+// DEFAULT that cannot be honoured steps aside and says so. rnafold_fml_int16_explicit()
+// is what the refusal sites test to tell the two apart.
+//
+//   RNA_FML_INT16=1  force on; conflicts are errors
+//   RNA_FML_INT16=0  force off
+//   (unset)          AUTO: on, and quietly off where it is not supported
+PUBLIC int
+rnafold_fml_int16_explicit(void) {
+  const char *e = getenv("RNA_FML_INT16");
+
+  return (e && e[0] && strcmp(e, "0")) ? 1 : 0;
+}
+
 PUBLIC int
 rnafold_fml_int16(void) {
   static int v = -1;
+
   if(v < 0) {
     const char *e = getenv("RNA_FML_INT16");
-    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
-    if(v) fprintf(stderr,"%-24s RNA_FML_INT16=1: fml_j is 16-bit offsets from a "
-                         "per-%d baseline\n", __FILE__, 64);
+    const char *why = NULL;
+
+    /* unset -> on. "0" -> off. anything else -> on. */
+    v = (e && e[0]) ? (strcmp(e, "0") ? 1 : 0) : 1;
+
+    /* THE COMPATIBILITY RESOLUTION LIVES HERE, ONCE, because the alternative is
+     * two downstream sites calling exit() on a combination the user never asked
+     * for. Both conditions are read from the environment rather than through
+     * their own accessors: rnafold_md_prune() calls back into this function, and
+     * a knob that can recurse into itself during initialisation is a hang
+     * waiting for a bug report. */
+    if(v) {
+      if(rnafold_slot_flow() >= 1)
+        why = "RNA_SLOT_FLOW is on, and a slot handover would leave the previous "
+              "occupant's per-block baselines in place";
+      else {
+        const char *pr = getenv("RNA_MD_PRUNE");
+
+        if(pr && pr[0] && pr[0] != '0')
+          why = "RNA_MD_PRUNE is on, and its block minima are meaningless over a "
+                "packed triangle with per-block baselines";
+      }
+    }
+
+    if(why) {
+      if(e && e[0] && strcmp(e, "0")) {
+        /* EXPLICIT request that cannot be honoured: that is an error. */
+        fprintf(stderr,"%-24s RNA_FML_INT16=1 cannot be honoured: %s. Unset one of "
+                       "them.\n", __FILE__, why);
+        exit(EXIT_FAILURE);
+      }
+      /* DEFAULT that cannot be honoured: step aside and say so. A new default
+       * must not break a command line that used to work. */
+      fprintf(stderr,"%-24s fml_j falls back to int32: %s. (int16 is the default; "
+                     "set RNA_FML_INT16=1 to make this combination an error.)\n",
+              __FILE__, why);
+      v = 0;
+    } else {
+      fprintf(stderr,"%-24s fml_j is %s (%s)\n", __FILE__,
+              v ? "16-bit offsets from a per-64 baseline" : "full int32",
+              (e && e[0]) ? "RNA_FML_INT16 set explicitly" : "default since 2026-09-27");
+    }
   }
+
   return v && !g_fml_int16_unsafe;
+}
+
+/* A DEFAULT that cannot be honoured steps aside; an EXPLICIT request does not.
+ * Must be called before init_gpu() commits the layout. */
+PUBLIC void
+rnafold_fml_int16_stand_down(const char *why) {
+  if (!rnafold_fml_int16())
+    return;                         /* already off, or already stood down */
+  if (rnafold_fml_int16_explicit()) {
+    fprintf(stderr,"%-24s RNA_FML_INT16=1 cannot be honoured: %s. Unset it.\n",
+            __FILE__, why);
+    exit(EXIT_FAILURE);
+  }
+  fprintf(stderr,"%-24s fml_j falls back to int32: %s. (int16 is the default; set "
+                 "RNA_FML_INT16=1 to make this an error instead.)\n",
+          __FILE__, why);
+  g_fml_int16_unsafe = 1;           /* sticky, same reasoning as the vet path */
 }
 
 // The int16 fML offset bound is (FML_BLK/2) * |most negative stack entry|: a
@@ -1439,6 +1526,42 @@ par_mfe(const int nfiles,
       }
     rnafold_fml_int16_vet_params(worst, FML_BLK);
   }
+
+  /* AND noLP, for the same reason and in the same place. noLP puts near-INF
+   * FINITE values into fML (c[ij] takes cc1[j-1]+stackEnergy, which is INF at the
+   * top of the triangle, and the asymmetric INF guard turns that into ~1e7 rather
+   * than INF) -- so a block whose first-written entry is one of those gets a 1e7
+   * baseline and ordinary energies no longer fit int16. The provable bound holds;
+   * its PREMISE that fML carries no near-INF finite cells is what noLP breaks.
+   *
+   * This used to exit() from par_fill_arrays, which was correct while int16 was
+   * opt-in and became a REGRESSION the moment it became the default: --noLP is an
+   * ordinary user option and it stopped working. It has to be resolved HERE,
+   * before init_gpu() commits the layout, because par_fill_arrays runs after the
+   * buffers are already int16. */
+  if (md->noLP)
+    rnafold_fml_int16_stand_down("--noLP puts near-INF finite values into fML, "
+                                 "which the 16-bit per-block offsets cannot "
+                                 "represent");
+
+  /* AND A NON-DEFAULT SALT, found by verify_option_parity.sh the moment int16
+   * became the default: the salt_hi arm gave a DIFFERENT ANSWER, not a refusal.
+   *
+   * It is not the documented bound that fails -- rnafold_fml_int16_vet_params()
+   * passes, because 64/2 * 340 = 10880 is far inside int16 even with the salt
+   * correction applied to the stacks. So salt breaks one of the encoding's other
+   * PREMISES, and which one is not yet identified: the correction also lands on
+   * hairpin, interior and multibranch terms, all of which feed fML, and the same
+   * asymmetric INF guard that noLP trips is a candidate.
+   *
+   * Standing down is therefore CONSERVATIVE AND HONEST rather than a fix. It keeps
+   * the answer right while the mechanism is unknown, which is the only acceptable
+   * state for a default. INT16_FML_SCOPE.md should carry the investigation. */
+  if (md->salt != VRNA_MODEL_DEFAULT_SALT)
+    rnafold_fml_int16_stand_down("a non-default salt concentration changes terms "
+                                 "that feed fML, and int16 was measured giving a "
+                                 "different answer under it (mechanism not yet "
+                                 "identified)");
   // Continuous flow phase C1: the per-slot capacity, in nucleotides. Every
   // LAYOUT table below is built from this; every BOUND stays on the occupant's
   // own VC[H]->length. Equal by default -- see rnafold_slot_capacity_max().

@@ -218,3 +218,102 @@ measured are shallow.** A tuner that cannot resolve a 2 % difference will spend
 its budget discovering noise. Step 5 may be where the real value is, with step 6
 reserved for the knobs whose crossovers are large — and on current evidence that
 is `RNA_FML_INT16` (20 %) and little else.
+
+---
+
+## 7. Gate 4, settled by measurement (2026-09-27)
+
+`tests/gpu_crossover.sh` on an RTX 3050, 30 shapes, every GPU arm byte-identical
+to the CPU. **Total nucleotides does not predict the crossover:**
+
+| total nt | shape | speedup |
+|---|---|---|
+| 1600 | 8 × 200 | **0.84× (loses)** |
+| 1600 | 4 × 400 | 2.25× |
+| 1600 | 1 × 1600 | **2.69×** |
+
+Same total length, opposite verdicts — so the 2000-nucleotide placeholder would
+have sent `1×1600` to the CPU and lost 2.69×.
+
+**`Σ L²` fits every boundary case.** Everything at or below 3.2e5 loses;
+everything at or above 6.4e5 wins, across four independent shapes. The unit is
+therefore **matrix area**, which is also what the device's fixed cost is
+amortised against. Gate 4 is now `Σ L(L+1)/2 ≥ VRNA_MIN_GPU_CELLS` (250 000),
+overridable with `RNA_MIN_GPU_CELLS`, ORed with the existing record-count arm.
+
+The value is host-dependent — a faster device crosses over sooner — so the
+threshold is a tier-1 calibration candidate (§3.1), not a constant to defend.
+
+## 8. int16 is the default (2026-09-27)
+
+Measured on an A100 at 5601 nt, byte-identical at every shape: md −8.8 % at 8
+records, −15.5 % at 32, −17.7 % at 96, **−18.4 % at 200**; wall −1.8 % from 32
+records up. VRAM halves (12 946 → 10 168 MB at 96 records), which independently
+raises what admission can admit.
+
+**It is AUTO, not merely on**, and the asymmetry is the same one §2.1 argues for
+`--enable-cuda`: an **explicit** `RNA_FML_INT16=1` that cannot be honoured is an
+error, while the **default** steps aside and says so. Without that, flipping the
+default would have turned `RNA_SLOT_FLOW=2` into a hard failure for anyone who
+had it working — `RNA_MD_PRUNE` likewise. **A new default must not break a
+command line that used to work.** Both conflicts are resolved in one place, in
+`rnafold_fml_int16()`, rather than at two downstream sites that call `exit()`.
+
+## 9. The build pipeline — the measured lever, and the catch
+
+Flow4 §A: the build is **9.1 s of a 43 s wall (21 %)** at 200 × 5601, and it
+overlaps the GPU **only when there are ≥ 2 chunks** — 0.00 s overlapped with one
+chunk, **4.96 s with two**. Turn the pipeline off and capping the chunk *loses*
+2.4 %, which is what proves the capping win was overlap all along.
+
+Extrapolating: with 4 chunks, chunks 2–4 build during folds 1–3, so ~3/4 of the
+build should hide (~7 s). More chunks is better for overlap.
+
+**Two constraints pull against each other**, and both are measured:
+
+- Flow4 §B: device time falls steeply up to **~48 residents** and flattens above
+  (28.93 → 17.88 → 14.94 → 14.11 s at 4/16/48/96). Chunks below ~48 records cost
+  device time.
+- overlap wants **more, smaller** chunks.
+
+So the policy is a floor, not a cap: **chunk width = max(enough-to-fill-the-SMs,
+total/k)**. At 5601 nt, 48 records is ~4.6 GB — comfortably inside budget — so
+both can be satisfied at once, giving ~4 chunks at 200 records.
+
+**THE CATCH, and why this is scoped rather than patched.** The chunk accumulator
+is **streaming** (`src/bin/RNAfold.c:2480`): records arrive one at a time and the
+chunk flushes when `gpu_chunk_n >= gpu_hard_cap` or the VRAM budget is hit.
+**The total record count is not known in advance**, so "split the batch into
+four" is not directly expressible. The options are:
+
+1. a fixed width floor in cells (`max(MIN_GPU_CELLS × f, …)`) — simple, works
+   with streaming, but picks the chunk count blind;
+2. read-ahead far enough to know `n` — changes the driver's streaming contract;
+3. adapt during the run: start narrow, widen if the overlap is not paying — the
+   tier-2 tuner (§3.2), and it needs the overlap number the pipeline already
+   prints.
+
+**Option 1 is the one to build first** and it is a few lines at the flush site.
+Option 3 is where it should end up. Option 2 should be avoided — the streaming
+contract is what keeps memory bounded on huge inputs.
+
+## 10. Reserve a core, or lower priority? Test written, host needed
+
+`tests/host_threads.sh` sweeps the **reserve** axis (`RNA_BUILD_THREADS` =
+`nproc`, −1, −2, half, serial), with and without a chunk cap so the pipeline has
+something to overlap.
+
+**Local run is inconclusive for a stated reason:** at 32 × 1600 the build is
+0.08 s of an 8.5 s wall, so every arm lands within noise (8.467–8.491 s). The
+axis only has room where the build is a real fraction — 21 % at 200 × 5601 on the
+A100. **This test needs the big shape, and a many-core host.**
+
+**The priority arm is absent, not null.** `nice` applies to a whole process and
+cannot express "builders below the GPU-facing thread". It needs a per-thread knob
+(`setpriority` on the builder tids, or `SCHED_BATCH`) — suggested as
+`RNA_BUILD_NICE`, applied by each builder to itself, which needs no privileges
+because lowering priority never does.
+
+**And one prior the test must be allowed to overturn:** Flow4 §A showed the
+builder is *supposed* to compete — 4.96 s of overlap is the largest host-side win
+found. Starving it to protect the device may cost more than it saves.
