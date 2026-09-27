@@ -32,7 +32,7 @@ cpu_ref() {
   local key=$1; shift
   [ -s "$W/ref_$key.out" ] && return
   env -u RNA_GPU_CHUNK -u RNA_SLOT_FLOW -u RNA_CONTINUOUS_FLOW -u RNA_MIN_GPU_BATCH \
-      "$BIN" --noPS $* -i "$IN" > "$W/ref_$key.out" 2>/dev/null
+      RNA_GPU=0 "$BIN" --noPS $* -i "$IN" > "$W/ref_$key.out" 2>/dev/null
 }
 
 check() {   # check "cliTagsCSV" "envTagsCSV"

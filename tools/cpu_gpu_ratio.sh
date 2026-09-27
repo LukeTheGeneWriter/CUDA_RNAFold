@@ -39,7 +39,7 @@ for L in 300 600 1200 2400; do
   NC=6
   gen $NC "$L" "$W/cpu_$L.fa"
   t0=$(date +%s.%N)
-  "$BIN" --noPS -i "$W/cpu_$L.fa" > /dev/null 2>&1
+  RNA_GPU=0 "$BIN" --noPS -i "$W/cpu_$L.fa" > /dev/null 2>&1
   t1=$(date +%s.%N)
   cpu=$(echo "($t1 - $t0) / $NC" | bc -l)
 

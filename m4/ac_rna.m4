@@ -235,6 +235,7 @@ m4_map_args([ AC_RNA_COLOR_RESULT_PACKAGE],
             [check])
 
 m4_map_args([ AC_RNA_COLOR_RESULT_FEATURE],
+            [cuda],
             [mpfr],
             [NRhash],
             [c11],
@@ -275,6 +276,27 @@ m4_map_args([ AC_RNA_COLOR_RESULT_SIMPLE],
             [_python_arch_dir],
             [_python_lib_dir])
 
+## The GPU verdict, stated unconditionally.
+##
+## A GPU-less build of this tree emits zero bytes of stderr and byte-identical
+## stdout, so silence must never be able to mean "not accelerated" -- that has
+## already cost 50 minutes of A100 time on a build that could not have used the
+## device. The summary says which way it went and, when it went the wrong way, why,
+## without --verbose and without reading config.log.
+AS_IF([test "x$enable_cuda" = "xyes"],[
+  cuda_report_detail="
+      - nvcc                  : ${cuda_report_nvcc}
+      - host compiler         : ${cuda_report_host}
+      - compute capabilities  : ${cuda_report_arch}"
+],[
+  AS_IF([test "x$cuda_report_why" != "x"],
+        [cuda_report_detail="
+      - reason                : ${cuda_report_why}
+      - folding runs on the CPU only, exactly as stock ViennaRNA does"],
+        [cuda_report_detail="
+      - disabled at configure time"])
+])
+
 # Notify the user
 
 AC_RNA_STRING_APPEND_FORMAT_BOLD([ac_rna_name_string], [ViennaRNA Package ${PACKAGE_VERSION}])
@@ -302,6 +324,10 @@ Extra Libraries
   * Support Vector Machine    : ${result_svm}
   * GNU Scientific Library    : ${result_gsl}
   * GNU MPFR                  : ${result_mpfr}
+
+GPU Acceleration
+----------------
+  * CUDA backend              : ${result_cuda}${cuda_report_detail}
 
 Features
 --------

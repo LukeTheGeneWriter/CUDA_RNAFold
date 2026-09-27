@@ -85,7 +85,7 @@ with open(path, "w") as f:
         f.write(">r%d\n%s\n" % (i, "".join(random.choice("ACGU") for _ in range(int(L)))))
 PY
     g=$(timeit "$W/g.out" "$W/g.err" RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_MIN_GPU_NT=0)
-    c=$(timeit "$W/c.out" "$W/c.err" RNA_GPU_CHUNK=)
+    c=$(timeit "$W/c.out" "$W/c.err" RNA_GPU=0)
     # The GPU arm must actually have swept, or this row means nothing.
     if ! grep -q 'sweep shape:' "$W/g.err"; then
       printf '%6d %6d %10d %10s %10s %9s %s\n' "$N" "$L" "$((N*L))" "-" "-" "-" "NO-SWEEP"

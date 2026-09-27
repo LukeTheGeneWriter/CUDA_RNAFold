@@ -61,16 +61,18 @@ note_fail() { fail=$((fail+1)); FAILURES+=("$1"); }
 # --------------------------------------------------------------------------
 # Primitives.
 #
-# The GPU path is opt-in: RNAfold.c:1299 sets gpu_enabled only when
-# RNA_GPU_CHUNK is set AND non-empty. So the CPU reference is the SAME BINARY
-# with that variable unset, which isolates the accelerator as the only
-# variable rather than comparing two different builds.
+# The GPU path is ON BY DEFAULT (gate 3 was deleted 2026-09-27; it used to enable
+# the device only when RNA_GPU_CHUNK was set and non-empty). So the CPU reference is
+# the SAME BINARY with RNA_GPU=0, which still isolates the accelerator as the only
+# variable rather than comparing two different builds -- and the GPU arm now has to
+# `-u RNA_GPU` so an inherited RNA_GPU=0 cannot quietly turn it into a second CPU
+# run. That is not hypothetical: this file briefly had RNA_GPU=0 on BOTH arms.
 
 cpu_run() {   # cpu_run TAG CLI...
   local tag=$1; shift
   env -u RNA_GPU_CHUNK -u RNA_FML_INT16 -u RNA_SLOT_FLOW \
       -u RNA_CONTINUOUS_FLOW -u RNA_MIN_GPU_BATCH \
-      "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.out" 2> "$W/$tag.err"
+      RNA_GPU=0 "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.out" 2> "$W/$tag.err"
   echo $?
 }
 
@@ -78,7 +80,7 @@ gpu_run() {   # gpu_run TAG "ENV..." CLI...
   local tag=$1 envs=$2; shift 2
   # shellcheck disable=SC2086 -- envs and CLI are controlled single-word tokens
   env -u RNA_FML_INT16 -u RNA_SLOT_FLOW -u RNA_CONTINUOUS_FLOW \
-      -u RNA_MIN_GPU_BATCH RNA_GPU_CHUNK=0 $envs \
+      -u RNA_MIN_GPU_BATCH -u RNA_GPU RNA_GPU_CHUNK=0 $envs \
       "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.out" 2> "$W/$tag.err"
   echo $?
 }
@@ -157,6 +159,14 @@ is_refused() {   # is_refused TAG_A TAG_B
   case "$1+$2" in
     int16+noLP|noLP+int16)         return 0 ;;
     int16+slotflow|slotflow+int16) return 0 ;;
+    # int16 became the DEFAULT on 2026-09-27, and the knob is asymmetric: unset means
+    # auto and stands down quietly where int16 is unsafe, while an EXPLICIT
+    # RNA_FML_INT16=1 is an error there. This file always sets it explicitly, so every
+    # unsafe pairing is a refusal by design. salt is the third such case and the least
+    # comfortable: int16 was measured giving a DIFFERENT ANSWER under a non-default
+    # salt and the mechanism is still unidentified, so the refusal is conservative
+    # rather than a fix. It stays a refusal until somebody explains the mechanism.
+    int16+salt|salt+int16)         return 0 ;;
   esac
   return 1
 }
@@ -214,7 +224,10 @@ check_pair() {   # check_pair KIND TAG_A TAG_B
              "$tag" "$rc" "$(records_of "$tag.ref")"
       note_fail "$tag: refused after emitting output"; return
     fi
-    if ! grep -q 'cannot be combined' "$W/$tag.ref.err"; then
+    # Two wordings, because there are two mechanisms: the engine guard says "cannot
+    # be combined", and the int16 stand-down says "cannot be honoured". Matching only
+    # the first reported two correctly-refused pairs as crashes for a day.
+    if ! grep -qE 'cannot be combined|cannot be honoured' "$W/$tag.ref.err"; then
       printf '  %-24s *** exit %d but no refusal message -- crashed?\n' "$tag" "$rc"
       note_fail "$tag: nonzero exit without a refusal message"; return
     fi

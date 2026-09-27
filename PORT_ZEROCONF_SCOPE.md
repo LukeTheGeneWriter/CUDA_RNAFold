@@ -227,6 +227,11 @@ is `RNA_FML_INT16` (20 %) and little else.
 
 ## 7. Gate 4, settled by measurement (2026-09-27)
 
+> **The over-splitting warning below is WRONG at production scale -- see §12.2.**
+> With the cap off, 400x5601 forms 2 chunks and hides only 3.23 s of an 18.85 s build;
+> with the cap it forms 9 and hides 18.05 s, and is 6.4 s FASTER. More chunks buy more
+> overlap than they cost.
+>
 > **Superseded in part by §11.3.** The cells floor is correct but **unreachable**
 > for any input of more than 10 records, because `rnafold_chunk_earns_gpu()`
 > short-circuits on record count and `VRNA_MIN_GPU_BATCH` is 10. It is also the
@@ -357,7 +362,28 @@ the one almost everyone uses.
 
 ### 11.2 Acceptance criteria
 
-Each of these is testable, and each currently FAILS.
+Each of these is testable. Status as of 2026-09-27, after the zero-config change:
+
+| # | criterion | status |
+|---|---|---|
+| 1 | bare `./configure` accelerates | **MET** — detects nvcc, capability, links, reports |
+| 2 | no env var needed at run time | **MET** — gate 3 deleted |
+| 3 | configure prints its verdict; a declined run says why | **MET** |
+| 4 | git-clone path works; requirements documented | **MET** for CUDA (README); upstream's own `yacc` requirement for RNAforester is unchanged and is theirs |
+| 5 | the tarball builds accelerated | **MET** — `EXTRA_DIST` carries every `.cu`/`.inc`/private header and sits OUTSIDE the CUDA conditional, so a non-CUDA `make dist` still ships an accelerable tree |
+| 6 | a no-CUDA build configures, builds, folds | **MET, and it was BROKEN** — see below |
+| 7 | knob surface documented | open (§2.5) |
+
+**Criterion 6 caught a live defect that nothing else would have.** The
+`RNA_RECORD_TRACE` block landed inside `#ifdef VRNA_WITH_CUDA` while being called
+from unconditional code, so a CPU-only build failed with three
+implicit-declaration errors. That is the bioconda and PyPI build — no toolkit
+present — so it would have broken every such build while looking perfectly fine on
+any machine with a GPU. It was found by actually configuring with `nvcc` hidden and
+running `make`. This is now the strongest argument in this document for keeping a
+no-CUDA build in CI: the accelerated build cannot detect it.
+
+The original text of these criteria follows, for the reasoning behind each.
 
 1. **`./configure` with no arguments produces an accelerated binary** on a host with
    a CUDA toolkit and a device, and a working CPU-only binary everywhere else.
@@ -381,7 +407,25 @@ Each of these is testable, and each currently FAILS.
 7. **Documented knob surface.** ~6 of 52 knobs are user-facing (§2.5); the rest are
    ours and must not appear in user docs.
 
-### 11.3 Gate 3 and the cells floor both have to go
+### 11.3 Gate 3 and the cells floor both have to go — DONE (2026-09-27)
+
+Both are gone. What replaced the floor is not another constant: the admission test
+is now a single work test in matrix cells, against a threshold **derived** from
+`F * R_host * jobs`, where `F` is the measured cost of reaching the device (timed at
+the `vrna_cuda_devices()` probe) and `jobs` is how many cores the host would
+otherwise fold on. One compiled-in number remains and it is a *CPU fold rate*, which
+is interpretable and is the obvious thing for §3.1's calibration to measure.
+
+Re-measuring on this host also **overturned the data the old floor was fitted to**:
+the device now wins at every size tested, including 8x200 at 1.23x where
+`tests/gpu_crossover.sh` had recorded a 0.84x loss. So the 250000-cell floor was not
+merely the wrong shape, it was keeping work on the CPU that the device would have
+won. The floor is still necessary, though, and for a reason a constant cannot
+express: those wins are on a **warm** driver, where reaching the device costs 0.09 s.
+Cold it costs 0.75 s, which flips 3x300 from a 1.09x win to a 2.3x loss. Same host,
+same input, opposite verdict — decided by a quantity the code now measures.
+
+The argument below is what motivated the change and still stands.
 
 Luke's instruction: *"You may need to fully rewrite or eliminate gate 3 and the
 cells floor to enable true heterogeneous compute."* The measurements agree, and the
@@ -435,3 +479,86 @@ This does not block the kernel work, but it does block *shipping*. Order:
    stress notebook first: if the host pool is only serviced after the device drains,
    a router has nothing to schedule against until that is fixed.
 4. §2.5 knob classification, and an `INSTALL` section.
+
+## 12. A100 stress results (2026-09-27), and what they overturn
+
+Run on an A100-SXM4-40GB, 12 cores, 83 GB host, at commit `069981ff`. Sections A and
+D ran; **B (the trickle) and C (CPU/GPU concurrency) were never executed**, so nothing
+below says anything about either.
+
+### 12.1 Continuous flow adds NO build overlap. Falsified.
+
+| shape | mode | wall | build | overlapped | hidden |
+|---|---|---|---|---|---|
+| 400x5601 | batch | 73.51 | 20.74 | 18.43 | 89 % |
+| 400x5601 | flow | 75.67 | 20.44 | 18.13 | 89 % |
+| 400x5601 | slot2 | 88.61 | 20.54 | 18.13 | 88 % |
+| 1000x1000 | batch | 5.08 | 0.99 | 0.00 | 0 % |
+| 40x8000 | batch | 22.53 | 4.92 | 2.32 | 47 % |
+| 10000x500 | batch | 13.82 | 2.71 | 1.18 | 43 % |
+| 10000x500 | slot2 | 58.49 | 2.76 | 1.11 | 40 % |
+
+`overlapped` is **flat to within 2 % across all three modes at every shape**. This was
+the stated falsification condition: continuous flow does not create extra overlap
+opportunity, and the build hides at chunk boundaries however the sweep is scheduled.
+So chunk COUNT is the lever on build overlap, not flow.
+
+Slot flow is also a straight loss everywhere, and catastrophically so at 10000x500 --
+**58.49 s against 13.82 s, 4.2x** -- on top of forcing int32. Every sha matched across
+all twelve runs, so this is a performance verdict, not a correctness one.
+
+### 12.2 The admission cap PAYS at production. My recorded risk did not materialise.
+
+| shape | cap | wall | chunks | build | overlapped |
+|---|---|---|---|---|---|
+| 400x5601 | off | 81.96 | 2 | 18.85 | 3.23 |
+| 400x5601 | default | 75.60 | 9 | 20.37 | 18.05 |
+| 400x5601 | 2x default | **73.76** | 5 | 19.85 | 15.32 |
+
+§7 and §11.3 of this document both warned that a fixed cap would **over-split** inputs
+larger than its fixture, and pointed at 200x5601 where 2 chunks beat 7. That is wrong
+at 400 records, and the mechanism is the opposite of what was assumed: with the cap
+off there are 2 chunks and only **3.23 s of a 18.85 s build hides**, while 9 chunks
+hide **18.05 s**. More chunks buy more overlap, and the overlap is worth more than the
+per-chunk cost. `off` is the **worst** arm.
+
+It also corrects the older figure this project has been quoting. The build was recorded
+as hiding 4.96 s of 9.65 s (51 %); at production with the cap it now hides **89 %**.
+The build is close to free, which retires it as a target.
+
+2x the default (5 chunks) beats the default (9 chunks) by 1.8 s, so the optimum is
+between them and the cap is slightly too aggressive -- a tuning question, not a design
+one. Nothing here justifies removing it.
+
+### 12.3 What the CPU cores can be worth, from these walls
+
+Luke's reading of the run: *"the only cases where the CPU cores would be useful are
+when the batch is so large that the time it takes to fold a seq on a core is small in
+comparison to the overall time of the whole run."* The arithmetic supports it, and
+sharpens it into a test the router can apply.
+
+Device throughput from the measured walls, and `t_core` for ONE record on ONE core at
+6.7e5 cells/s (**measured on the laptop, not on the A100 host** -- that host's cores
+are faster, so these are a lower bound on CPU usefulness):
+
+| shape | device cells/s | t_core | t_core / wall | all 12 cores as % of device |
+|---|---|---|---|---|
+| 400x5601 | 8.54e7 | 23.4 s | 0.32 | 9.4 % |
+| 1000x1000 | 9.85e7 | 0.75 s | 0.15 | 8.2 % |
+| 40x8000 | 5.68e7 | 47.8 s | **2.12** | 14.1 % |
+| 10000x500 | 9.06e7 | 0.19 s | **0.014** | 8.9 % |
+
+`t_core / wall` is the straggler cost: hand one record to a core and that fraction of
+the wall is what you risk if it finishes last. At **40x8000 it exceeds 1** -- a single
+record takes longer on a core than the entire GPU run takes -- so offloading even one
+record there can only make things worse, however many cores are idle. At **10000x500
+it is 1.4 %**, which is the shape where offload is safe.
+
+So the condition is not "is the host fast" but **`t_core(L) << remaining device time`**,
+and since `t_core` grows as L^3 while the wall grows only with the total, it is
+governed by RECORD LENGTH far more than by core count. The ceiling is ~8-14 % either
+way, which also says the cores are a modest win and never a rescue.
+
+**This is a bound, not a measurement.** §C was written to measure whether the two
+routes overlap in time at all and it did not run; until it does, "the cores are worth
+up to 9 %" is arithmetic, and whether option C realises any of it is unknown.
