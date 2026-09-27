@@ -88,6 +88,7 @@ version genuinely misses.
 | blocked + register tile, b=64, 2×2 | 44.23 | 3.41× | yes |
 | **blocked + register tile, b=64, 4×4** | **23.95** | **6.30×** | **yes** |
 | blocked + register tile, b=96, 4×4 | 27.99 | 5.39× | yes |
+| + packed int16 SIMD, b=64, 4×4 | 44.12 | 3.39× | yes (but slower — see below) |
 
 Stable across size: **5.82× at n=2048, 6.30× at n=4096, 6.08× at n=8192.**
 
@@ -126,10 +127,20 @@ contributes `INF16` plus a real value, ≥ 12128, while every legitimate sum is 
 - **Registers cap occupancy at 67 %** (56 regs × 256 threads → 4 blocks/SM). `warps
   active` = 66.5 % matches exactly. Trimming the accumulator block or the index
   arithmetic should recover some of it.
-- **Packed int16 SIMD is untried.** `__vaddss2`/`__vminss2` do two 16-bit lanes per
-  instruction, and our values stay inside ±18128 so saturation never triggers — the
-  production int16 path already keeps values in range with per-64 baselines. That is a
-  plausible further ~2× on the instruction count, which is now the binding term.
+- **Packed int16 SIMD: TRIED, and it is a NULL on Ampere.** `__vaddss2` + `__vmins2`
+  pack two reduction steps per instruction and are bit-exact here (values stay inside
+  ±32256, so saturation never triggers). Measured at n=4096: **44.12 ms against 23.38 ms
+  for the scalar 4×4 — 1.9× SLOWER**, with **2.03× MORE instructions** (351M vs 173M).
+  The SASS says why: `__vmins2` is synthesised from `IMNMX` + `IADD3` + `PRMT` + `SHF`
+  + `LOP3`. **These intrinsics are emulated on sm_86, not native**, so packing costs
+  more than it saves.
+
+  **But the instruction exists on Hopper.** DPX (`__viaddmin_s16x2`, `__vimin3_s16x2`)
+  is a native *fused add-then-min on two packed int16 lanes*, which is precisely this
+  recurrence's primitive, and it is sm_90+. So the blocked kernel's remaining
+  instruction-bound headroom is unlockable on an H100 and not on an A100 — worth knowing
+  for hardware planning, and worth a `#if __CUDA_ARCH__ >= 900` arm whenever this is
+  built for real.
 - It is no longer memory-bound at all: 0.476 GB in 23.95 ms is 20 GB/s on a 192 GB/s bus.
 
 ## 4. What it is worth end to end, stated so it cannot be oversold

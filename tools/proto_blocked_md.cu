@@ -319,6 +319,120 @@ __global__ void md_blocked_reg(const int n,
     }
 }
 
+
+/* ------------------------------------- blocked + register tile + int16 SIMD ---
+ * Register tiling made this kernel INSTRUCTION-bound: DRAM fell to 0.476 GB (20 GB/s
+ * on a 192 GB/s bus, i.e. irrelevant) while 1.32e9 instructions in 23.95 ms is ~57%
+ * of this device's issue peak. So the remaining lever is instructions per (min,+)
+ * step, and the hardware has an instruction for exactly this shape.
+ *
+ * __vaddss2 and __vmins2 operate on TWO packed signed 16-bit lanes at once. Pack
+ * two consecutive reduction indices t into one 32-bit word and each pair of steps
+ * costs one add and one min instead of two of each.
+ *
+ * IT IS EXACT, not approximate, and the range argument is the whole of it: fML
+ * values here are within +/-2000 and the mask sentinel is INF16 = 16128, so the
+ * largest sum is 16128+16128 = 32256 < 32767. Saturation never triggers, so
+ * __vaddss2 agrees with a plain int add on every value that can occur. Production's
+ * int16 path already keeps values in range with per-64 baselines, so the same
+ * argument transfers.
+ *
+ * AND THE PACKING IS FREE ON BOTH SIDES. X's two consecutive t are R[i][k] and
+ * R[i][k+1], adjacent in the row-major mirror; Y's are T[Indx(k+1,j)] and
+ * T[Indx(k+2,j)], adjacent because a column is contiguous in the triangle. Both
+ * stages therefore load 32 bits where they used to load 16.
+ */
+template <int B, int RM, int RN>
+__global__ void md_blocked_simd(const int n,
+                                const short *__restrict__ R,
+                                const short *__restrict__ T,
+                                int *__restrict__ out)
+{
+  /* packed: [t/2][r] holds (t even, t odd) for that r */
+  __shared__ int Xs[B / 2][B + 1];
+  __shared__ int Ys[B / 2][B + 1];
+
+  const int I = blockIdx.y, J = blockIdx.x;
+  if (J < I) return;
+
+  const int i0 = I * B + 1;
+  const int j0 = J * B + 1;
+
+  const int TPB = (B / RM) * (B / RN);
+  const int tid = threadIdx.x;
+  const int cbase = (tid % (B / RN)) * RN;
+  const int rbase = (tid / (B / RN)) * RM;
+
+  const unsigned INFPAIR = 0x3f003f00u;
+  unsigned acc[RM][RN];
+#pragma unroll
+  for (int u = 0; u < RM; u++)
+#pragma unroll
+    for (int v = 0; v < RN; v++) acc[u][v] = INFPAIR;
+
+  const int kmin_tile = i0 + TURN + 1;
+  const int kmax_tile = (j0 + B - 1) - TURN - 2;
+
+  for (int k0 = (kmin_tile / B) * B; k0 <= kmax_tile; k0 += B) {
+    /* ---- stage, packing pairs of t, with the recurrence range masked in */
+    for (int e = tid; e < (B / 2) * B; e += TPB) {
+      const int t2 = e / B, rr = e % B;
+      const int i = i0 + rr;
+      short w[2];
+#pragma unroll
+      for (int h = 0; h < 2; h++) {
+        const int k = k0 + 2 * t2 + h;
+        const bool ok = (i <= n) && (k >= 1) && (k <= n) && (i <= k)
+                     && (k >= i + TURN + 1);
+        w[h] = ok ? R[(long long)i * n + k] : INF16;
+      }
+      Xs[t2][rr] = (int)((unsigned short)w[0] | ((unsigned)(unsigned short)w[1] << 16));
+    }
+    for (int e = tid; e < (B / 2) * B; e += TPB) {
+      const int t2 = e / B, cc = e % B;
+      const int j = j0 + cc;
+      short w[2];
+#pragma unroll
+      for (int h = 0; h < 2; h++) {
+        const int kp1 = k0 + 2 * t2 + h + 1;
+        const bool ok = (j <= n) && (kp1 >= 1) && (kp1 <= j)
+                     && (kp1 <= j - TURN - 1);
+        w[h] = ok ? T[Indx(kp1, j)] : INF16;
+      }
+      Ys[t2][cc] = (int)((unsigned short)w[0] | ((unsigned)(unsigned short)w[1] << 16));
+    }
+    __syncthreads();
+
+#pragma unroll 4
+    for (int t2 = 0; t2 < B / 2; t2++) {
+      unsigned xa[RM], ya[RN];
+#pragma unroll
+      for (int u = 0; u < RM; u++) xa[u] = (unsigned)Xs[t2][rbase + u];
+#pragma unroll
+      for (int v = 0; v < RN; v++) ya[v] = (unsigned)Ys[t2][cbase + v];
+#pragma unroll
+      for (int u = 0; u < RM; u++)
+#pragma unroll
+        for (int v = 0; v < RN; v++)
+          acc[u][v] = __vmins2(acc[u][v], __vaddss2(xa[u], ya[v]));
+    }
+    __syncthreads();
+  }
+
+#pragma unroll
+  for (int u = 0; u < RM; u++)
+#pragma unroll
+    for (int v = 0; v < RN; v++) {
+      const int i = i0 + rbase + u, j = j0 + cbase + v;
+      if (i <= n && j <= n && j >= i + 2 * TURN + 3) {
+        const unsigned a = acc[u][v];
+        const int lo = (int)(short)(a & 0xffffu);
+        const int hi = (int)(short)((a >> 16) & 0xffffu);
+        out[Indx(i, j)] = min(lo, hi);
+      }
+    }
+}
+
 /* ------------------------------------------------------------------- driver ---*/
 static double ms_of(cudaEvent_t a, cudaEvent_t b)
 {
@@ -488,6 +602,42 @@ int main(int argc, char **argv)
   RUN_REG(96, 4, 4);
   RUN_REG(128, 8, 8);
 
+#define RUN_SIMD(BB, RM, RN)                                                      \
+  do {                                                                            \
+    const int ntb = (n + (BB) - 1) / (BB);                                        \
+    dim3 grid(ntb, ntb);                                                          \
+    CK(cudaMemset(dOutB, 0x3f, tri * sizeof(int)));                               \
+    CK(cudaEventRecord(e0));                                                      \
+    md_blocked_simd<BB, RM, RN><<<grid, ((BB)/(RM))*((BB)/(RN))>>>(n, dR, dT, dOutB);\
+    CK(cudaEventRecord(e1));                                                      \
+    cudaError_t ee = cudaDeviceSynchronize();                                     \
+    double ms = -1; bool ok = false;                                              \
+    if (ee == cudaSuccess) {                                                      \
+      ms = ms_of(e0, e1);                                                         \
+      CK(cudaMemcpy(hB.data(), dOutB, tri * sizeof(int), cudaMemcpyDeviceToHost));\
+      long long bad = 0;                                                          \
+      for (int j = 1; j <= n; j++)                                                \
+        for (int i = 1; i <= j; i++) {                                            \
+          if (j < i + 2 * TURN + 3) continue;                                     \
+          const long long q = Indx(i, j);                                         \
+          if (hA[q] != hB[q]) bad++;                                              \
+        }                                                                         \
+      ok = (bad == 0);                                                            \
+      if (!ok) printf("    simd b=%-3d %dx%d MISMATCH in %lld cells\n",          \
+                      BB, RM, RN, bad);                                           \
+    } else {                                                                      \
+      printf("    simd b=%-3d %dx%d launch failed: %s\n", BB, RM, RN,            \
+             cudaGetErrorString(ee));                                             \
+    }                                                                             \
+    rss.push_back({BB, RM, RN, ms, ok});                                           \
+  } while (0)
+
+  std::vector<ResR> rss;
+  RUN_SIMD(64, 2, 2);
+  RUN_SIMD(64, 4, 4);
+  RUN_SIMD(96, 4, 4);
+  RUN_SIMD(64, 4, 8);
+
   printf("\n  %-34s %12s %12s %10s %12s %s\n",
          "blocked", "ms", "vs per-row", "vs 1-launch", "traffic cut", "exact");
   for (size_t q = 0; q < rs.size(); q++) {
@@ -507,6 +657,18 @@ int main(int argc, char **argv)
     char nm[80]; snprintf(nm, sizeof nm, "b=%d, %dx%d per thread", r.b, r.rm, r.rn);
     printf("  %-34s %12.2f %11.2fx %10.2fx %12.2f %s\n", nm, r.ms,
            tA / r.ms, tB / r.ms, (double)(r.rm + r.rn) / (r.rm * r.rn),
+           r.ok ? "yes" : "*** NO ***");
+  }
+
+  printf("\n  %-34s %12s %12s %10s %12s %s\n",
+         "+ packed int16 SIMD", "ms", "vs per-row", "vs 1-launch", "shared/step", "exact");
+  for (size_t q = 0; q < rss.size(); q++) {
+    const ResR &r = rss[q];
+    if (r.ms < 0) continue;
+    char nm[80]; snprintf(nm, sizeof nm, "b=%d, %dx%d simd", r.b, r.rm, r.rn);
+    printf("  %-34s %12.2f %11.2fx %10.2fx %12.2f %s\n", nm, r.ms,
+           tA / r.ms, tB / r.ms,
+           (double)(r.rm + r.rn) / (r.rm * r.rn) / 2.0,
            r.ok ? "yes" : "*** NO ***");
   }
 
