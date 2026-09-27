@@ -98,6 +98,9 @@ extern "C" cudaStream_t rnafold_stream_cell(void);
 extern "C" cudaStream_t rnafold_stream_hp(void);
 
 unsigned int* d_hccc; //read via Hc
+// Host mirror of d_hc_off_H, for RNA_HC_VERIFY. See int_loop_hc_off_host().
+static size_t* g_hc_off_host   = NULL;
+static int     g_hc_off_host_n = 0;
 
 // HARD CONSTRAINTS, THE HALF THAT IS NOT IN hc->mx.
 //
@@ -397,6 +400,15 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // just leaves the tail of its bitmask block zero, and Indx(i,j) never
   // addresses it for this record.
   for(int H=0;H<nfiles;H++) hc_off_H[H+1] = hc_off_H[H] + Hc_ints(cap_H[H]);
+  // Published for RNA_HC_VERIFY (see int_loop_hc_off_host). Rebuilt every call,
+  // including a refill, because cap_H can change between chunks.
+  if(g_hc_off_host_n != nfiles + 1) {
+    free(g_hc_off_host);
+    g_hc_off_host   = (size_t *) malloc((size_t)(nfiles+1)*sizeof(size_t));
+    g_hc_off_host_n = g_hc_off_host ? nfiles + 1 : 0;
+  }
+  if(g_hc_off_host)
+    memcpy(g_hc_off_host, hc_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   SLOT_ALLOC(&d_hc_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_hc_off_H, hc_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
 
@@ -412,7 +424,32 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // init_gpu3 runs after this function). Skipping this loop is most of the
   // point: it and its init_gpu3 twin were 197.4 s of a 769 s Colab run.
   if(g_hc_seq_derived) {
-    gpuErrchk( cudaMemset(d_hccc, 0, hc_off_H[nfiles]*sizeof(unsigned int)) );
+    // SCOPED TO THE SLOT ON A REFILL, and this is load-bearing (2026-09-27).
+    //
+    // pack_hc_kernel writes only the first Hc_ints2(cap) words of each record's
+    // Hc_ints(cap) block here; the rest is MAXLOOP padding that has to read as
+    // zero. So this memset and that pack are a matched pair, and they must have
+    // the SAME scope.
+    //
+    // They did not. The memset was whole-batch while the pack was also
+    // whole-batch, which was consistent but meant a slot handover re-derived
+    // every record's masks -- the O(refills x slots) repack that made slot flow
+    // look 2.2x slower than it is. Scoping only the pack zeroes every OTHER
+    // slot's interior-loop mask and leaves it zero, which forbids interior-loop
+    // pairs for records that never changed: a WRONG ANSWER, not a slow one.
+    //
+    // It is also a wrong answer RNA_HC_VERIFY cannot see, because that check
+    // compares hccc_mb/mbenc/any/gu and NOT this buffer. It reported 0
+    // mismatching words over 174692 words x 4 masks on a run whose output was
+    // wrong at every k.
+    if(g_slot_only && g_slot_index >= 0) {
+      const size_t lo = hc_off_H[g_slot_index];
+      const size_t hi = hc_off_H[g_slot_index + 1];
+
+      gpuErrchk( cudaMemset(d_hccc + lo, 0, (hi - lo)*sizeof(unsigned int)) );
+    } else {
+      gpuErrchk( cudaMemset(d_hccc, 0, hc_off_H[nfiles]*sizeof(unsigned int)) );
+    }
   } else {
   unsigned int* hccc   = (unsigned int*) calloc(hc_off_H[nfiles],sizeof(unsigned int));
   const double _t_pk1 = rnafold_now_seconds();
@@ -688,6 +725,20 @@ extern "C" /*PUBLIC*/ void
 int_loop_hccc_buffers(unsigned int** d_out, const size_t** off_out) {
   *d_out   = d_hccc;
   *off_out = d_hc_off_H;
+}
+
+// The HOST side of the table above, for RNA_HC_VERIFY only.
+//
+// WHY IT EXISTS (2026-09-27). RNA_HC_VERIFY checked hccc_mb/mbenc/any/gu and NOT
+// d_hccc, the interior-loop mask -- the one buffer pack_hc_kernel writes through a
+// DIFFERENT offset table. So when a scoped refill left other slots' interior-loop
+// masks zeroed, it reported "174692 words x 4 masks, 0 mismatching words" on a run
+// whose fold output was wrong at every k. A mixed-length sha comparison caught it;
+// the dedicated mask verifier did not. hp_mb_loop.cu needs this table to close that.
+PUBLIC const size_t*
+int_loop_hc_off_host(int* n_out) {
+  if(n_out) *n_out = g_hc_off_host_n;
+  return g_hc_off_host;
 }
 
 // GPU-resident sweep, step 1: this file's two row-shaped device buffers, for

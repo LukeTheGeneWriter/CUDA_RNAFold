@@ -175,7 +175,7 @@ PUBLIC void
 #endif
 refill_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
             const int length, const int block_size,
-            const size_t* row_off_H, const size_t* cap_H);
+            const size_t* row_off_H, const size_t* cap_H, const int slot);
 
 // teardown_gpu()/teardown_gpu2()/teardown_gpu3(): free the nfiles/length-
 // scaled device buffers allocated by init_gpu()/init_gpu2()/init_gpu3() and
@@ -633,6 +633,9 @@ PUBLIC void rnafold_launch_stats_report(void);
 PUBLIC int rnafold_continuous_flow(void);
 
 // Continuous flow phase C1 (RNA_SLOT_CAPACITY=max, test mode) -- see mfe_cuda.c.
+// Host mirror of int_loop.cu's d_hc_off_H, for RNA_HC_VERIFY. NULL if not built.
+PUBLIC const size_t* int_loop_hc_off_host(int* n_out);
+
 PUBLIC int rnafold_slot_capacity_max(void);
 
 // Continuous flow phase C2 (RNA_SLOT_TURNOVER=1, test mode) -- see mfe_cuda.c.

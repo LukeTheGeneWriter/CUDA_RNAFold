@@ -1829,7 +1829,8 @@ par_mfe(const int nfiles,
       // par_fill_arrays() on every call, and d_my_c's INF prefill comes back
       // with refill_gpu2(); between them that is the complete reset list.
       refill_gpu2(nfiles, VC2, turn, length, 512, tri_off_H, row_off_H, cap_H);
-      refill_gpu3(nfiles, VC2, turn, length, 512, row_off_H, cap_H);
+      // -1: every occupant changed here, so the whole batch must be repacked.
+      refill_gpu3(nfiles, VC2, turn, length, 512, row_off_H, cap_H, -1);
 
       par_fill_arrays(nfiles, VC2, energy2, NULL);
       backtrack_all(nfiles, VC2, (const char **) Str2, energy2, EN2, tri_off_H, cpu_queue_threads);

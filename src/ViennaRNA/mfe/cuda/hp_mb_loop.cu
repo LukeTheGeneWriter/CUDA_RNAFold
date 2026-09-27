@@ -300,9 +300,14 @@ pack_hc_kernel(const int nfiles, const int turn,
                      unsigned int* __restrict__ any,
                      unsigned int* __restrict__ gu,
                      unsigned int* __restrict__ intenc,
-               const size_t total_words2) {
-  const size_t w = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
-  if(w >= total_words2) return;
+               const size_t word_lo, const size_t word_hi) {
+  // A WORD RANGE, not a count. On a slot handover only the incoming record's
+  // masks are stale -- every other slot's words still describe an occupant that
+  // has not changed -- so the launch covers [word_lo, word_hi) instead of the
+  // whole batch. word_lo=0, word_hi=hc2_off_H[nfiles] is the original behaviour,
+  // and is what a fresh chunk passes.
+  const size_t w = word_lo + (size_t)blockIdx.x*blockDim.x + threadIdx.x;
+  if(w >= word_hi) return;
 
   const int H = flatten_index_to_H(w, hc2_off_H, nfiles);
   const size_t wH = w - hc2_off_H[H];              //word index within this record
@@ -341,6 +346,25 @@ pack_hc_kernel(const int nfiles, const int turn,
 // re-entering init_gpu3() with the allocations suppressed, so there is exactly
 // one copy of the packing code and no way for a duplicate to drift.
 static int g_refill3 = 0;
+// Which slot a refill is for, or -1 for "the whole batch".
+//
+// WHY THIS EXISTS (2026-09-27). refill_gpu3() took no slot argument, so every
+// slot handover re-ran pack_hc_kernel over the ENTIRE batch's words. The cost was
+// O(refills x slots) = O(n^2 (1-1/k)/k), and the `pack` counter fitted that
+// exactly: predicted/measured ratio 1.800/1.776 at 600x300 and 1.772/1.772 at
+// 100x1200. At 10000 x 500 with k=2 that is 2.5e7 units, 278x the 600x300 probe,
+// which is why that shape lost 4.2x on an A100 while 400x5601 lost only 1.2x.
+//
+// And the device work slot flow does is IDENTICAL to batching: `cells` and
+// `active record-rows` from the sweep-shape line match byte for byte across every
+// k, and GPU+transfer time is flat. The whole measured penalty was this repack.
+//
+// Scoping is safe because these buffers are indexed by GLOBAL word offset: slot s
+// owns [hc2_off_H[s], hc2_off_H[s+1]) and nothing else reads or writes there.
+// d_len_H/d_span_H for slot s are rebuilt before the pack, so the incoming record
+// is packed against its own length and span, and the other slots' masks were
+// packed against theirs and have not gone stale.
+static int g_refill3_slot = -1;
 #define SLOT_ALLOC(pp, sz) do { if(!g_refill3) TIMED_CUDAMALLOC(pp, sz); } while(0)
 
 PUBLIC void
@@ -611,10 +635,16 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     // are the only sweep state prefilled here, which is exactly why no other
     // option ever noticed.
     //
-    // refill_gpu3() is called at EVERY slot handover and takes no slot
-    // argument, so without this guard each handover INF-filled cc/cc1 for the
-    // WHOLE batch -- wiping the mid-recursion cc1 of every record still
-    // running in every other slot, not just the incoming one. That is why the
+    // refill_gpu3() is called at EVERY slot handover, and it USED TO take no
+    // slot argument, so without this guard each handover INF-filled cc/cc1 for
+    // the WHOLE batch -- wiping the mid-recursion cc1 of every record still
+    // running in every other slot, not just the incoming one.
+    //
+    // It takes a slot now (2026-09-27, g_refill3_slot), which is the fix this
+    // guard was standing in for. The guard STAYS: cc/cc1 are SWEEP STATE, and the
+    // incoming record's own rows are reset by reset_slot_nolp() rather than here,
+    // so "do not touch them on a refill" is correct however narrowly the
+    // sequence-derived content is scoped. That is why the
     // corrupted records included eleven that had already retired before their
     // own slot was ever reset, and why the error was one-sided: c[ij] receives
     // cc1[j-1]+stackEnergy, so an INF cc1 FORBIDS pairs rather than mispricing
@@ -640,10 +670,14 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     int_loop_hccc_buffers(&d_intenc, &d_hcoff);   //init_gpu2 already ran
     assert(d_intenc && d_hcoff);
     const vrna_md_t* md_ = &(VC[0]->params->model_details);
-    const size_t total_words2 = hc2_off_H[nfiles];
+    // One slot on a scoped refill, the whole batch otherwise. See g_refill3_slot.
+    const int    scoped = (g_refill3 && g_refill3_slot >= 0 && g_refill3_slot < nfiles);
+    const size_t w_lo = scoped ? hc2_off_H[g_refill3_slot]     : (size_t)0;
+    const size_t w_hi = scoped ? hc2_off_H[g_refill3_slot + 1] : hc2_off_H[nfiles];
     const int    bs  = 256;
-    const size_t nbl = (total_words2 + bs - 1)/bs;
+    const size_t nbl = (w_hi - w_lo + bs - 1)/bs;
     assert(nbl <= 2147483647u);
+    assert(w_lo <= w_hi && w_hi <= hc2_off_H[nfiles]);
     // d_span_H carries max_bp_span PER RECORD (see where it is built above).
     // The scalar that used to be here, and the precondition assert that stood in
     // for a real table, are both gone: --maxBPspan is implemented rather than
@@ -653,7 +687,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
                                     d_S2, d_pair2,
                                     d_hc2_off_H, d_hcoff, d_seq_off_H, d_len_H,
                                     d_hccc_mb, d_hccc_mbenc, d_hccc_any,
-                                    d_hccc_gu, d_intenc, total_words2);
+                                    d_hccc_gu, d_intenc, w_lo, w_hi);
     gpuErrchk( cudaPeekAtLastError() );
     gpuErrchk( cudaDeviceSynchronize() );
     stage_ig_pack_s += rnafold_now_seconds() - _t_pk;  //same timer, for comparability
@@ -663,6 +697,10 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     // they are READ (j-i >= turn+1); this proves every word matches, including
     // cells nothing looks at today, so widening a read range later cannot
     // quietly expose a wrong bit. Slow by design -- diagnostics only.
+    // Deliberately NOT scoped: it recomputes every record's masks on the host
+    // and compares all of them, so it still catches a slot whose words were not
+    // repacked when they should have been -- which is the one failure mode
+    // scoping the launch above could introduce.
     if(getenv("RNA_HC_VERIFY")) {
       const size_t nw2 = hc2_off_H[nfiles];
       unsigned int* h_mb    = (unsigned int*) calloc(nw2,sizeof(unsigned int));
@@ -703,7 +741,67 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
                     nm[k],w,g[w],hv[k][w]);
         }
       }
-      fprintf(stderr,"%-24s RNA_HC_VERIFY: %zu words x 4 masks, %d mismatching words\n",
+      // AND THE INTERIOR-LOOP MASK, which lives in int_loop.cu's d_hccc and is
+      // addressed by ITS table (Hc_ints spacing, not Hc_ints2). Leaving it out is
+      // what let a wrong answer past this check: a scoped refill zeroed every other
+      // slot's words here and the four masks above were all still perfect.
+      //
+      // Two things are checked, because the buffer has two kinds of word: the first
+      // Hc_ints2(cap) words of each record's block, which pack_hc_kernel writes and
+      // which must match a host recomputation; and the MAXLOOP padding past that,
+      // which nothing writes and which must read as ZERO.
+      {
+        int noff = 0;
+        const size_t* hco = int_loop_hc_off_host(&noff);
+
+        if((!hco) || (noff != nfiles + 1)) {
+          fprintf(stderr,"%-24s RNA_HC_VERIFY: interior-loop mask NOT CHECKED "
+                         "(no host offset table)\n", __FILE__);
+        } else {
+          const size_t nwi = hco[nfiles];
+          unsigned int* h_int = (unsigned int*) calloc(nwi,sizeof(unsigned int));
+          unsigned int* gi    = (unsigned int*) malloc(nwi*sizeof(unsigned int));
+          int badi = 0, badpad = 0;
+
+          for(int H=0;H<nfiles;H++) {
+            const int length_H = (int)VC[H]->length;
+            for(int j=1;j<=length_H;j++)
+              for(int i=1;i<=j;i++) {
+                const size_t t = (size_t)j*(j-1)/2 + i;
+                const unsigned char hcv = VC[H]->hc->mx[(size_t)length_H*i + j];
+
+                if(hcv & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC)
+                  h_int[hco[H] + t/bitsperint] |= 1u << (t % bitsperint);
+              }
+          }
+          gpuErrchk( cudaMemcpy(gi,d_intenc,nwi*sizeof(unsigned int),cudaMemcpyDeviceToHost) );
+          for(int H=0;H<nfiles;H++) {
+            const size_t lo    = hco[H];
+            const size_t words = hc2_off_H[H+1] - hc2_off_H[H];   // what pack writes
+            const size_t hi    = hco[H+1];
+
+            for(size_t w=lo; w<lo+words && w<hi; w++)
+              if(gi[w] != h_int[w]) {
+                if(badi++ < 8)
+                  fprintf(stderr,"RNA_HC_VERIFY MISMATCH hccc_int record %d word %zu: "
+                                 "gpu=%08x host=%08x\n", H, w-lo, gi[w], h_int[w]);
+              }
+            for(size_t w=lo+words; w<hi; w++)
+              if(gi[w] != 0u) {
+                if(badpad++ < 4)
+                  fprintf(stderr,"RNA_HC_VERIFY PADDING NOT ZERO record %d word %zu: "
+                                 "gpu=%08x\n", H, w-lo, gi[w]);
+              }
+          }
+          bad += badi + badpad;
+          fprintf(stderr,"%-24s RNA_HC_VERIFY: interior-loop mask %zu words, "
+                         "%d mismatching, %d non-zero padding words\n",
+                  __FILE__, nwi, badi, badpad);
+          free(gi); free(h_int);
+        }
+      }
+
+      fprintf(stderr,"%-24s RNA_HC_VERIFY: %zu words x 5 masks, %d mismatching words\n",
               __FILE__, nw2, bad);
       free(g); free(h_mb); free(h_mbenc); free(h_any); free(h_gu);
     }
@@ -720,12 +818,14 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 PUBLIC void
 refill_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
             const int length, const int block_size,
-            const size_t* row_off_H, const size_t* cap_H) {
+            const size_t* row_off_H, const size_t* cap_H, const int slot) {
   assert(!first3);            // must be a live chunk, not a fresh one
-  g_refill3 = 1;
-  first3    = 1;
+  g_refill3      = 1;
+  g_refill3_slot = slot;      // -1 = every occupant changed, so repack the batch
+  first3         = 1;
   init_gpu3(nfiles, VC, turn_, length, block_size, row_off_H, cap_H);
-  g_refill3 = 0;
+  g_refill3_slot = -1;
+  g_refill3      = 0;
 }
 
 // Frees the 7 nfiles/length-scaled device buffers allocated by init_gpu3()

@@ -569,7 +569,9 @@
         if(noLP)
           reset_slot_nolp(row_off_H[s], row_off_H[s+1]-row_off_H[s]);
         refill_slot2(nfiles, VC, turn, length, 512, tri_off_H, row_off_H, cap_H, s);
-        refill_gpu3 (nfiles, VC, turn, length, 512, row_off_H, cap_H);
+        // ONE slot: only s's occupant changed. This was a whole-batch repack
+        // until 2026-09-27, and it was the entire measured cost of slot flow.
+        refill_gpu3 (nfiles, VC, turn, length, 512, row_off_H, cap_H, s);
 
         const int top = (int)VC[s]->length - turn - 1;
         i_H[s] = (top >= 1) ? top : 0;

@@ -5,9 +5,15 @@ potential of slot flow... I hypothesize that something structural from building 
 other design is hampering our attempts to show that slot flow would pay."*
 
 That hypothesis is **confirmed, with a named mechanism**. Slot flow's measured cost is
-an O(n²) re-initialisation inherited from the pre-slot design. Its GPU work is
-unchanged. And the cache thesis it was built to serve has **not been tested at all**,
-because the only machine we have tested it on cannot reach the regime.
+an O(n²) re-initialisation inherited from the pre-slot design, and its GPU work is
+unchanged.
+
+> **READ SECTION 7 BEFORE SECTIONS 3 AND 4.** They argue that the cache thesis was
+> untested and that a phase skew was worth building. It has since been tested on an
+> A100 and **it is falsified**: 22× more live data produces the same L2 hit-rate curve,
+> md's time rises monotonically as residency falls, and the residency the device needs
+> is 36× the residency L2 can hold. The phase skew is dead with it. Sections 3 and 4 are
+> kept for the reasoning and the arithmetic, not the conclusion.
 
 ---
 
@@ -205,3 +211,84 @@ machine with 1.5 MB of L2.
   column ownership alone costs 3.4×, and 80 registers cap occupancy at 12.5 % against
   md's 33.8 %. Pinning late-stage folds to SMs is that design, applied to the phase that
   carries 27 % of the traffic.
+
+---
+
+# 7. THE CACHE THESIS IS FALSIFIED (A100, 2026-09-27)
+
+Run at commit `420e4025` (pre-fix, which does not matter: at 48 records the O(n^2)
+repack is 576 units, 0.64 % of the 600x300 probe, and NCU measures
+`modular_decomposition_kernel` while the repack is a different kernel plus host time).
+
+## 7.1 The control moved exactly as much as the test
+
+48 records, `RNA_SLOT_FLOW=k`, footprints differing by **22x** at every k:
+
+| k | residents | fp @1200 | fp @5601 | L2 hit % @1200 | L2 hit % @5601 |
+|---|---|---|---|---|---|
+| off | 48 | 66.0 MB | 1436.3 MB | 23.89 | 24.42 |
+| 2 | 24 | 33.0 MB | 718.2 MB | 18.46 | 18.54 |
+| 8 | 6 | 8.2 MB | 179.5 MB | 26.48 | 26.97 |
+| 24 | 2 | 2.7 MB | 59.8 MB | 36.27 | 36.90 |
+| 48 | 1 | 1.4 MB | 29.9 MB | 48.11 | 46.61 |
+
+**Twenty-two times the live data, and the same curve to within half a point.** md's L2
+hit rate is set by RESIDENCY, not by footprint. That was the stated falsification
+condition for section B, and it fired.
+
+## 7.2 The hit-rate rise is starvation, not a win
+
+| | SM % | md_s | DRAM GB/s | DRAM GB total |
+|---|---|---|---|---|
+| 5601, off (48 res) | 38.3 | 4.20 | 253.8 | 1066 |
+| 5601, k=2 (24) | 23.1 | 5.19 | 331.0 | 1718 |
+| 5601, k=8 (6) | 10.1 | 6.82 | 154.8 | 1056 |
+| 5601, k=24 (2) | 3.7 | 10.79 | 63.8 | 688 |
+| 5601, k=48 (1) | 1.9 | 15.29 | 36.3 | 555 |
+
+`md_s` rises **monotonically** and SM occupancy collapses **38.3 % -> 1.9 %**. DRAM GB/s
+falls *with* occupancy rather than against it, so the kernel is doing less per unit time
+— not fewer reads per unit of work. At 1200 nt total DRAM bytes actually go UP
+(32 -> 69 GB) as residency falls.
+
+Fewer residents is strictly worse at every step, at 48 records where the repack is
+negligible:
+
+| | k=2 | k=8 | k=24 | k=48 |
+|---|---|---|---|---|
+| md at 5601 | +23.6 % | +62.4 % | +156.9 % | +264.0 % |
+| md at 1200 | +16.7 % | +175.0 % | +608.3 % | +1242 % |
+
+## 7.3 The number that closes it
+
+- residents for usable SM fill at 5601 nt: **~48** (measured 38.3 %)
+- residents whose triangles fit 40 MB of L2: **1.34**
+- **gap: 36x.** With the 3x phase skew of section 3: still **12x** short.
+
+The parallelism an A100 needs and the footprint L2 can hold are two orders of magnitude
+apart. They cannot both be satisfied, **so the phase skew is dead too** — it addresses
+footprint, and footprint is not the binding constraint. Do not build it.
+
+## 7.4 What survives
+
+- **The repack was a real O(n^2) defect** and is fixed (section 2). It takes slot flow
+  from a 2.2x loss to roughly break-even at k=2, degrading as k rises. It is a defect
+  fix with no performance case behind it.
+- **"48 residents is optimal" is dead as folklore.** The curve is monotone: more
+  residents is always better, at both lengths. Flow3 section B's optimum at 48 was
+  chunk count, exactly as section 4 suspected.
+- **Residency is not a cache lever at all.** Any future scheduling idea that reduces the
+  number of concurrently-swept records starts 36x underwater on SM fill, whatever it does
+  to footprint.
+
+## 7.5 Method notes from this run
+
+- Section A's "one sha across every arm: NO (2 distinct)" was **the check being wrong**,
+  not a defect: it compared shas across two different fixtures. Within each shape the sha
+  is constant across every k. Slot flow is answer-neutral.
+- An earlier claim in this session that the fix made slot flow "win by 20 %" was measured
+  on the BROKEN intermediate binary that produced wrong answers, so those walls were
+  meaningless. Corrected numbers are in section 2.
+- The 1200 nt control is the cheapest cell in the notebook and it is the one that ended
+  the thesis. Build the control first.
+
