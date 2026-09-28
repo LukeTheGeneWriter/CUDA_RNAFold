@@ -1539,6 +1539,167 @@ fmli_kernel(
 // and fml_j[tri_off_H[H]+y+ij0] unit-stride across the tile.
 // One cell of this kernel, shared with the fused megakernel (see the header).
 #include "md_cell.inc"
+/* Stage 1 of blocked Zuker: the tile primitive. A header for the same reason
+ * md_cell.inc is one -- device code cannot cross a translation unit here. */
+#include "md_block.inc"
+
+/* ===================== RNA_MD_BLOCK_SELFTEST: stage 1 of blocked Zuker =======
+ *
+ * PORT_MD_BLOCKING_INTEGRATION.md, stage 1. Recomputes this row's fM2 through the
+ * BLOCKED (min,+) tile primitive in md_block.inc and compares it, cell for cell,
+ * against what modular_decomposition_kernel just wrote. Off by default; when on it
+ * runs after md on every row and costs a second pass.
+ *
+ * WHY THIS SHAPE. The prototype (tools/proto_blocked_md.cu) measured the blocked
+ * product at 6.30x in isolation, but on synthetic data with no per-record offsets
+ * and no int16 baselines. Those two things are where a silent wrong answer would
+ * come from, and they cannot be tested in isolation. So stage 1 runs the primitive
+ * on LIVE sweep state at RB = 1 -- where it buys no speed, because one row is a
+ * matrix-VECTOR product with no reuse -- purely to prove the arithmetic before the
+ * schedule is touched. A mismatch here is a bug in the primitive; a mismatch after
+ * stage 2 could be either, which is why the order matters.
+ *
+ * The bar is zero mismatches over a whole fold on mixed-length fixtures, with the
+ * int16 path on (the default) and off.
+ */
+PUBLIC void rnafold_md_block_selftest_report(void);   /* defined below */
+
+__device__ unsigned long long g_md_block_bad   = 0;
+__device__ unsigned long long g_md_block_cells = 0;
+/* The first mismatch, recorded for the HOST to print. A device printf() writes to
+ * STDOUT, which on this program is the fold itself -- the first version of this
+ * selftest silently corrupted its own output that way, caught only by comparing
+ * against a clean run. Diagnostics never go to stdout here. */
+__device__ int g_md_block_first[5] = { -1, 0, 0, 0, 0 };
+
+PUBLIC int
+rnafold_md_block_selftest(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_BLOCK_SELFTEST");
+
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+    if (v) {
+      atexit(rnafold_md_block_selftest_report);   /* or the count is never printed */
+      fprintf(stderr, "%-24s RNA_MD_BLOCK_SELFTEST=1: every row's fM2 is recomputed "
+                      "through the blocked tile primitive and compared cell for cell "
+                      "(slow; diagnostics only)\n", __FILE__);
+    }
+  }
+
+  return v;
+}
+
+/* One block per (record, column-block). CB threads, one output cell each: RM=RN=1,
+ * because this is a correctness harness and not the fast path. */
+template <int CB>
+__global__ void md_block_selftest_kernel(
+  const int nfiles, const int turn,
+  const int *__restrict__ fml_i, const int *__restrict__ fml_j,
+  const short *__restrict__ fml_j16, const int *__restrict__ fml_b,
+  const size_t *__restrict__ base_off_H, const size_t *__restrict__ colb_off,
+  const int *__restrict__ dml,
+  const size_t *__restrict__ tri_off_H, const size_t *__restrict__ row_off_H,
+  const size_t *__restrict__ side_off_H, const int *__restrict__ i_H)
+{
+  __shared__ int Ys[CB * (CB + 1)];
+  __shared__ int Xs[CB * 2];   /* [t*(RB+1)+r] layout, RB=1 */
+
+  const int H = blockIdx.y;
+  if (H >= nfiles) return;
+
+  const long long ncell = (long long)side_off_H[H + 1] - (long long)side_off_H[H];
+  if (ncell <= 0) return;                       /* record has not joined the sweep */
+
+  const int i   = i_H[H];
+  const int jlo = i + 2 * (turn + 1) + 1;       /* md_cell's first column */
+  const int cb  = blockIdx.x;
+  const int m0  = cb * CB;                      /* first within-record cell index */
+  if ((long long)m0 >= ncell) return;
+
+  const int j0  = jlo + m0;
+  const int tid = threadIdx.x;
+  const int j   = j0 + tid;
+  const long long m = (long long)m0 + tid;
+  const bool live = (m < ncell);
+
+  /* the widest column in this tile decides how far k has to run */
+  const long long mhi = (m0 + CB - 1 < ncell) ? (m0 + CB - 1) : (ncell - 1);
+  const int jhi = jlo + (int)mhi;
+  const int kmax_tile = jhi - turn - 2;
+  const int kmin_tile = i + turn + 1;
+
+  int acc[1][1];
+  acc[0][0] = INF;
+
+  /* k-blocks aligned to FML_BLK: see md_block.inc, this is what makes one
+   * baseline cover a staged column run. */
+  for (int k0 = (kmin_tile / FML_BLK) * FML_BLK; k0 <= kmax_tile; k0 += CB) {
+    md_block_stage_col<CB, 1>(H, j0, k0, /*n_len*/ jhi, fml_j16, fml_b, fml_j,
+                              tri_off_H, base_off_H, colb_off, turn,
+                              Ys, tid, CB);
+    /* the row operand, masked on its half of the recurrence range */
+    if (tid < CB) {
+      const int k = k0 + tid;
+      const int y = k - i - turn - 1;
+
+      /* y can be negative for k below this row's range; the product's tlo keeps
+       * those out, so guard the LOAD only. */
+      Xs[tid * 2] = (y >= 0) ? fml_i[row_off_H[H] + (size_t)y] : INF;
+    }
+    __syncthreads();
+
+    if (live) {
+      /* This cell's own valid k range, intersected with the staged block. Bounding
+       * the loop is what keeps out-of-range entries from contributing; masking them
+       * to INF is WRONG here because INF plus a real value beats INF. */
+      const int kmax_cell = j - turn - 2;
+      const int tlo = (kmin_tile > k0) ? (kmin_tile - k0) : 0;
+      const int thi = (kmax_cell - k0 < CB - 1) ? (kmax_cell - k0) : (CB - 1);
+
+      md_block_product<CB, 1, 1, 1>(Xs, Ys, /*rbase*/ 0, /*cbase*/ tid, tlo, thi, acc);
+    }
+    __syncthreads();
+  }
+
+  if (live) {
+    const int got  = acc[0][0];
+    const int want = dml[row_off_H[H] + j];
+
+    atomicAdd(&g_md_block_cells, 1ull);
+    if (got != want) {
+      if (atomicAdd(&g_md_block_bad, 1ull) == 0ull) {
+        g_md_block_first[1] = H;    g_md_block_first[2] = i;
+        g_md_block_first[3] = j;    g_md_block_first[4] = got;
+        __threadfence();
+        g_md_block_first[0] = want;   /* published last: 0 means "not set" */
+      }
+    }
+  }
+}
+
+PUBLIC void
+rnafold_md_block_selftest_report(void)
+{
+  if (!rnafold_md_block_selftest()) return;
+
+  unsigned long long bad = 0, cells = 0;
+
+  int first[5] = { -1, 0, 0, 0, 0 };
+
+  gpuErrchk( cudaMemcpyFromSymbol(&bad,   g_md_block_bad,   sizeof(bad)) );
+  gpuErrchk( cudaMemcpyFromSymbol(&cells, g_md_block_cells, sizeof(cells)) );
+  gpuErrchk( cudaMemcpyFromSymbol(first,  g_md_block_first, sizeof(first)) );
+  fprintf(stderr, "%-24s RNA_MD_BLOCK_SELFTEST: %llu cells compared, %llu mismatching%s\n",
+          __FILE__, cells, bad,
+          bad ? "  *** THE BLOCKED PRIMITIVE DISAGREES WITH md ***" : "");
+  if (bad)
+    fprintf(stderr, "%-24s   first mismatch: H=%d i=%d j=%d blocked=%d md=%d\n",
+            __FILE__, first[1], first[2], first[3], first[4], first[0]);
+}
+
 
 template <int TILE>
 __global__ void
@@ -1999,6 +2160,8 @@ void modular_decomposition_cuda(const int nfiles,
   assert(nblocks_sz <= 2147483647u); //gridDim.x limit
   const int nblocks = (int)nblocks_sz;
 
+
+
 // The two kernels take identical arguments by construction -- one macro feeds
 // both, so a parameter added to one cannot be forgotten in the other.
 #define MD_ARGS nfiles, RNA_I_ROW(i), turn, length, \
@@ -2028,6 +2191,43 @@ void modular_decomposition_cuda(const int nfiles,
 #undef MD_ARGS
 
   gpuErrchk( cudaPeekAtLastError() );
+
+  /* Stage 1 of blocked Zuker: recompute this row through the blocked primitive and
+   * compare. After the launch above and before anything overwrites d_dml, which is
+   * the only point where both answers exist at once. */
+  if(rnafold_md_block_selftest()) {
+    const int CB = 64;   /* == FML_BLK; see md_block.inc on why this is not free */
+    int maxcell = 0;
+
+    for(int H = 0; H < nfiles; H++) {
+      const long long c = (long long)side_off_H[H+1] - (long long)side_off_H[H];
+
+      if(c > maxcell) maxcell = (int)c;
+    }
+    if(maxcell > 0) {
+      dim3 grid((maxcell + CB - 1)/CB, nfiles);
+
+      gpuErrchk( cudaStreamSynchronize(ISSUE_STREAM) );
+      /* FORCE the path rather than letting the primitive fall through. Passing both
+       * pointers let it silently take the int32 branch, so a deliberately perturbed
+       * int16 baseline index produced ZERO mismatches -- the negative control caught
+       * a test that was not testing the thing it was written for. */
+      static int said = 0;
+      const int i16 = (d_fml_j16 != NULL) && rnafold_fml_int16();
+
+      if(!said) {
+        said = 1;
+        fprintf(stderr,"%-24s RNA_MD_BLOCK_SELFTEST exercising the %s path" "\n",
+                __FILE__, i16 ? "int16 (decode + per-64 baseline)" : "int32");
+      }
+      md_block_selftest_kernel<64><<<grid, CB>>>(
+        nfiles, turn, d_fml_i, i16 ? NULL : d_fml_j, i16 ? d_fml_j16 : NULL, d_fml_b,
+        d_base_off_H, d_colb_off, d_dml, d_tri_off_H, d_row_off_H,
+        d_side_off_H, d_i_H);
+      gpuErrchk( cudaPeekAtLastError() );
+      gpuErrchk( cudaDeviceSynchronize() );
+    }
+  }
 
   //for effiency transfer all of DMLi rather that just those part that have been calculated
   // GPU-resident sweep: DMLi's only readers were new_c_host (via DMLi1) and
@@ -2998,6 +3198,15 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   if(use_graph == -1) {
     const char* env = getenv("RNA_CUDA_GRAPH");
     use_graph = (env && env[0]=='0') ? 0 : 1;
+    /* The blocked-primitive selftest synchronises and reads device symbols right
+     * after md, which is illegal inside a capture ("operation not permitted when
+     * stream is capturing", code 900 -- how this was found). It is a diagnostic, so
+     * it turns the graph off rather than the graph turning it off. */
+    if(use_graph && rnafold_md_block_selftest()) {
+      use_graph = 0;
+      fprintf(stderr,"%-24s RNA_MD_BLOCK_SELFTEST forces CUDA graph capture OFF "
+                     "(the selftest cannot run inside a capture)\n", __FILE__);
+    }
     fprintf(stderr,"%-24s CUDA graph capture for load_fML/modular_decomposition/load_min_fML: %s\n",
 	    __FILE__, use_graph? "enabled" : "disabled (RNA_CUDA_GRAPH=0)");
     if(use_graph) atexit(print_graph_update_stats);
