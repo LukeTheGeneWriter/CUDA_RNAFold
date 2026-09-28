@@ -47,16 +47,41 @@
  * RNA_MD_BLOCK_SELFTEST on real data -- blocked=9999950 against md=10000000, at
  * cells whose valid k range holds exactly one entry.
  *
- * So out-of-range entries must not contribute AT ALL, exactly as md_cell achieves
- * by iterating only y in [0,x]. This file does the same with per-cell loop bounds
- * over t. The bounds are contiguous and monotone in the column, so the cost is a
- * short divergent tail rather than a per-iteration branch -- but it is a cost the
- * prototype did not pay, and the 6.30x figure was measured without it.
+ * THE FIX IS NOT LOOP BOUNDS. The first attempt at a fix used per-cell t bounds,
+ * which is exact but costs 3.6x -- measured in tools/proto_blocked_md2.cu at n=4096
+ * with a 15%% INF sentinel: 79.79 ms bounded against 22.18 ms branchless, where the
+ * streaming reference is 169.79 ms. Per-cell bounds destroy the unrolled branchless
+ * body that blocking exists to create, because the range depends on both i and j and
+ * so differs for every cell of a register tile.
  *
- * The lesson generalises: a sentinel is not a number, and any transformation that
- * turns "skip" into "add something large" is wrong wherever the sentinel can be
- * the answer.
+ * MASK TO A SENTINEL LARGER THAN INF INSTEAD, and initialise the accumulator to INF.
+ * Then, writing S for the set of in-range sums,
+ *
+ *     md's answer = min( INF, S )                      (md's acc starts at INF)
+ *     ours        = min( INF, S, { masked sums } )
+ *
+ * and every masked sum is >= INF by construction, so the third set can never change
+ * the min. The two are therefore EXACTLY equal while the inner loop stays branchless.
+ * The condition on MD_BLOCK_MASK is only
+ *
+ *     MD_BLOCK_MASK + (the most negative fML value that can occur) >= INF
+ *
+ * and 2*MD_BLOCK_MASK must not overflow int. fML is a free energy in dacal, so even a
+ * 10000 nt fold is O(-3e5); the margin below is 1e6, and 2*MD_BLOCK_MASK is 2.2e7
+ * against a 2.1e9 limit.
+ *
+ * GENUINE INF CELLS ARE STAGED AS INF, NOT AS THE MASK. That is what preserves
+ * md_cell's own INF-plus-real near-INF values, which the linear path is
+ * byte-identical to upstream with. Masking and sentinel-carrying are different jobs
+ * and conflating them is what broke the first version.
+ *
+ * The lesson generalises: a sentinel is not a number. "Skip" cannot become "add
+ * something large" unless the something is large enough to lose against the
+ * sentinel itself -- which is exactly what this constant buys.
  */
+
+/* Out-of-range marker. See the derivation above; NOT interchangeable with INF. */
+#define MD_BLOCK_MASK (INF + 1000000)
 
 #ifndef RNAFOLD_MD_BLOCK_INC
 #define RNAFOLD_MD_BLOCK_INC
@@ -101,11 +126,12 @@ md_block_stage_col(const int H, const int j0, const int k0, const int n_len,
     const int j   = j0 + cc;
     const int kp1 = k0 + t + 1;         /* the ROW index of the column operand */
 
-    int v = INF;
-    /* Array bounds only. The RECURRENCE range is NOT applied here -- see the INF
-     * note in the header: masking it to INF lets a masked entry win the min. The
-     * product below restricts its t range instead. */
-    if ((j <= n_len) && (kp1 >= 1) && (kp1 <= j)) {
+    /* MD_BLOCK_MASK, not INF: out of the array OR out of the recurrence range both
+     * mean "this k does not participate", and the mask is what makes a
+     * non-participating entry lose against INF instead of beating it. */
+    int v = MD_BLOCK_MASK;
+
+    if ((j <= n_len) && (kp1 >= 1) && (kp1 <= j) && (kp1 <= j - turn - 1)) {
       const size_t tri = tri_off_H[H] + (size_t)Indx(kp1, j);
 
       if (fml_j16) {
@@ -125,19 +151,17 @@ md_block_stage_col(const int H, const int j0, const int k0, const int n_len,
  *
  * Xs[t*(RB+1)+r] is fML[i_r][k0+t]; no recurrence masking, see the header.
  *
- * tlo/thi bound t to the caller's valid k range for THIS thread's cells, which is
- * how out-of-range entries are kept from contributing. At RM/RN > 1 the bound has
- * to be the intersection over the thread's sub-tile, and the caller owns that --
- * a per-cell bound inside the unrolled body would reintroduce the branch this
- * structure exists to avoid.
+ * BRANCHLESS over the whole staged patch. Non-participating entries carry
+ * MD_BLOCK_MASK and lose against an accumulator initialised to INF, so no t range
+ * and no per-cell test is needed -- see the header for why that is exact.
  */
 template <int CB, int RB, int RM, int RN>
 __device__ __forceinline__ void
 md_block_product(const int *__restrict__ Xs, const int *__restrict__ Ys,
-                 const int rbase, const int cbase, const int tlo, const int thi,
-                 int acc[RM][RN])
+                 const int rbase, const int cbase, int acc[RM][RN])
 {
-  for (int t = tlo; t <= thi; t++) {
+#pragma unroll 4
+  for (int t = 0; t < CB; t++) {
     int xa[RM], ya[RN];
 #pragma unroll
     for (int u = 0; u < RM; u++) xa[u] = Xs[t * (RB + 1) + rbase + u];

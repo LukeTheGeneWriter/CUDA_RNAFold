@@ -6,8 +6,17 @@ keep making small greedy steps forwards, would we just find ourselves in a local
 instead of the theoretical optimum?"*
 
 **The answer is yes, we are in one, and the evidence is this project's own history.** A
-prototype on the laptop measures **6.30× on md's inner loop, bit-exact**, from a change
+prototype on the laptop measures **7.66× on md's inner loop, bit-exact**, from a change
 no sequence of small steps would ever have found.
+
+> **The 6.30× this document originally reported was measured on an unfaithful model** and
+> is superseded. `tools/proto_blocked_md.cu` had **no INF sentinel** (every value was a
+> real energy, so the branchless masking it used could not be wrong) and staged **int16**
+> into shared where production stages decoded **int32** — half the real footprint and half
+> the real shared bandwidth. `tools/proto_blocked_md2.cu` fixes both and measures
+> **7.66×**, higher despite the added sentinel and doubled staging, because the streaming
+> reference pays the decode too. §3.5 has the corrected table and what it cost to get
+> there.
 
 ---
 
@@ -122,6 +131,37 @@ min — 2 useful ops for 4 instructions. A thread owning an `RM × RN` sub-tile 
 then has no branch at all and unrolls fully. It stays exact because a masked entry
 contributes `INF16` plus a real value, ≥ 12128, while every legitimate sum is ≤ 4000.
 
+### 3.5 The corrected measurement, and what the first one got wrong
+
+`tools/proto_blocked_md2.cu`, same device, n = 4096, with **15 % of cells INF** and
+**int32 shared staging** — the two things the first prototype lacked. All variants
+verified cell-for-cell against the streaming reference.
+
+| kernel | ms | vs streaming | exact |
+|---|---|---|---|
+| streaming, `md_cell`'s shape (reference) | 169.79 | 1.00× | — |
+| blocked, **per-cell `t` bounds**, b=64 4×4 | 79.79 | 2.13× | yes |
+| **blocked, mask > INF, branchless**, b=64 4×4 | **22.18** | **7.66×** | **yes** |
+| blocked, mask > INF, b=32 4×4 | 36.18 | 4.69× | yes |
+| blocked, mask > INF, b=64 8×8 | 35.14 | 4.83× | yes |
+
+Two things to take from it.
+
+**The INF sentinel is not a detail.** The first prototype had none, so the branchless
+masking it used could not be wrong — and in production it is: an out-of-range entry masked
+to INF contributes `INF + (a real negative energy)`, lands *below* INF, and **wins** the
+min. Caught in-tree as `blocked=9999950` against `md=10000000` within minutes of the
+selftest existing.
+
+**And the obvious fix is the expensive one.** Per-cell `t` bounds are exact but cost
+**3.6×**, because the range depends on both `i` and `j` and therefore differs for every
+cell of a register tile, which destroys the branchless unrolled body. Masking to a
+sentinel **larger** than INF, with the accumulator initialised to INF, is exact *and*
+branchless: every masked sum is ≥ INF so it can never change `min(INF, S)`. Genuine INF
+cells stay INF, which preserves md's own INF-plus-real values. Confirmed by a negative
+control that reverts the mask to INF and reproduces the original failure signature
+(`blocked=9999840`, 62 975 cells).
+
 ### Headroom left in the prototype
 
 - **Registers cap occupancy at 67 %** (56 regs × 256 threads → 4 blocks/SM). `warps
@@ -151,12 +191,17 @@ caps this hard:
 | scenario | gpu_total | speedup |
 |---|---|---|
 | as built | 7.70 | 1.00× |
-| md 6.3× (this prototype) | 4.17 | 1.85× |
+| md 7.66× (the corrected prototype) | 4.05 | 1.90× |
 | md at machine balance (~13×) | 3.82 | 2.01× |
-| + int_loop window tiled 2× | 3.07 | 2.51× |
-| + int_loop window tiled 4× | 2.70 | 2.85× |
+| + int_loop window tiled 2× | 3.30 | 2.33× |
+| + int_loop window tiled 4× | 2.93 | 2.63× |
 
-So **~2× on GPU time, not 6×** — because md is only half of it. That is still larger
+Note how little the md figure moves the total: 6.30× and 7.66× give 1.85× and 1.90×.
+**Amdahl, not the kernel, is the binding constraint** — so tuning the blocked kernel past
+machine balance is worth almost nothing, and getting `int_loop` is worth more than another
+2× on md.
+
+So **~2× on GPU time, not 7.66×** — because md is only half of it. That is still larger
 than every scheduling lever measured on this branch put together, and unlike them it
 moves the roofline rather than the schedule.
 

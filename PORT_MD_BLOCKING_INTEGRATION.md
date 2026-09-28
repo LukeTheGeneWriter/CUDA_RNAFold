@@ -1,6 +1,6 @@
 # Integrating blocked Zuker into md: the plan
 
-Follows `PORT_MD_BLOCKING_SCOPE.md`, which measured **6.30× bit-exact** on the isolated
+Follows `PORT_MD_BLOCKING_SCOPE.md`, which measures **7.66× bit-exact** on the isolated
 (min,+) product. This document is the shape of the integration, the dependency proof it
 rests on, and the staging — written before the code, because this touches the spine of
 the sweep and a half-finished restructure is worse than none.
@@ -94,11 +94,20 @@ week-scale rather than a kernel swap.
 Each stage is independently landable and independently verifiable. No stage leaves the
 tree slower or less correct than it found it.
 
-### Stage 1 — the primitive, in-tree, exercised at `RB = 1`
+### Stage 1 — the primitive, in-tree, exercised at `RB = 1` — **LANDED 2026-09-28**
+
+It found three bugs and one wrong fix; `md_block.inc`'s header has them all. The one that
+matters for the rest of this plan: **the range must be MASKED, not BOUNDED.** Masking it
+to INF is wrong (a masked entry contributes `INF + negative`, lands below INF and wins the
+min), and per-cell `t` bounds are exact but cost **3.6×** because the range differs for
+every cell of a register tile. A mask **larger** than INF with the accumulator initialised
+to INF is exact and branchless. **Stage 2 therefore starts from a branchless primitive**,
+which matters because the bounded form would have eaten most of the win before Stage 2
+began.
 
 `md_block.inc`: the blocked tile product as a device function shaped for production —
 per-record `tri_off_H`/`row_off_H` offsets, the int16 decode with per-64 baselines, the
-same `INF` semantics. Selected by `RNA_MD_BLOCK=CB`, default off.
+same `INF` semantics. Selected by `RNA_MD_BLOCK_SELFTEST=1`, default off, which recomputes every row through the primitive and compares cell for cell against live md output.
 
 At `RB = 1` the tile is `1 × CB`, which is still a matvec, so **this stage buys no
 speed**. It buys the thing that must be right before `RB > 1` is worth attempting: the
@@ -111,7 +120,7 @@ did not take the path cannot pass for one that did.
 ### Stage 2 — `RB > 1`, tail on the host or in a second kernel
 
 Raise the row block. The bulk becomes a real (min,+) product with reuse, which is where
-the 6.30× lives. The tail is the sequential `RB × CB` corner; the first cut can run it
+the 7.66× lives. The tail is the sequential `RB × CB` corner; the first cut can run it
 one row at a time with the existing kernels, paying `RB` times the per-row launch cost on
 a `1/CB` slice of the work.
 
@@ -169,7 +178,7 @@ shared staging, the L2 window, pruning, continuous flow, slot flow, residency, t
 megakernel — left that number unchanged, which is why the limiter never moved. Blocking
 is the only change on the table that alters it.
 
-The honest ceiling is **~1.85×** on GPU time from md alone and **~2.5×** with int_loop's
+The honest ceiling is **~1.90×** on GPU time from md alone (at the corrected 7.66×) and **~2.5×** with int_loop's
 lever, capped by Amdahl rather than by the kernel. Not 6×. But it is larger than every
 scheduling result on this branch put together, and it is the only one that moves the
 roofline instead of the schedule.
