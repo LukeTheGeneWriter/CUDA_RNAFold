@@ -291,6 +291,70 @@ this document is supposed to have and the per-row tail did not.
 in the table above scales with one laptop-measured constant, and the A100's per-launch
 cost is the single input that decides between "+14 s" and "break even".
 
+## 3.8 Measured on the A100 — and §3.7's rejection is OVERTURNED
+
+Run 2026-09-29, commit `9f7be2ca`. **A launch costs 2.65 µs on an A100, not 10.5 µs.**
+`RNA_MD3_LAUNCH_PROBE` at 6 × 3000 nt, two reps, one sha throughout:
+
+| k | mean wall | extra launches | µs/launch |
+|---|---|---|---|
+| 0 | 1.17 s | — | — |
+| 32 | 1.42 s | 95 872 | **2.61** |
+| 128 | 2.19 s | 383 488 | **2.68** |
+
+Linear to 3 %. The laptop's 10.5 µs was 4× too high **for the device that matters**, and
+§3.7 rejected the per-row tail on it. Re-priced:
+
+| CB | multiple | extra launches | cost @2.65 µs | md after | **net** | (net @4 µs) |
+|---|---|---|---|---|---|---|
+| 128 | 21.9× | 8.41e6 | 22.3 s | 9.0 s | **+2.5 s** | −8.9 s |
+| 256 | 10.9× | 4.01e6 | 10.6 s | 10.5 s | **+12.6 s** | +7.2 s |
+| **512** | 5.5× | 1.80e6 | 4.8 s | 13.1 s | **+15.9 s** | +13.5 s |
+| 1024 | 2.7× | 6.99e5 | 1.9 s | 16.7 s | **+15.2 s** | +14.3 s |
+
+**So the per-row tail is viable after all** — positive at every `CB`, best near 512 at
+about **+15.9 s of a 72.21 s wall, 1.28×**. §3.7's "the per-row tail LOSES" holds only at
+`CB ≤ 128` and only on laptop numbers. The fused tail is still the better structure, but
+it is no longer a precondition: the simple schedule pays, which makes it the right thing
+to build first.
+
+**The lesson to keep is not "the laptop was wrong".** It is that the rejection rested on
+one constant measured on the wrong device, and the probe that produced it costs three
+minutes. Any future argument of the form "this schedule multiplies launches, so it
+cannot pay" is void until `RNA_MD3_LAUNCH_PROBE` has run on the target.
+
+### And step (a) — the row fusion — WINS at production
+
+The 2×2, 400 × 5601, two reps, **one sha across all four arms**:
+
+| arm | wall | vs default | gpu_total |
+|---|---|---|---|
+| `ov1_fuse0` (today's default) | 72.21 | — | 59.28 |
+| `ov0_fuse0` (single-stream control) | 73.16 | +1.3 % | 60.33 |
+| **`ov0_fuse1` (the fusion)** | **71.25** | **−1.3 %** | **58.64** |
+| `ov1_fuse1` | 71.82 | −0.5 % | 58.99 (REFUSED, ≈ `ov1_fuse0`) |
+
+Stream overlap level 1 is worth **1.3 %** here (not the −0.4 % on record), and the fusion
+beats the default **while giving that overlap up** — so its own contribution is nearer
+2.6 % of GPU-side work. The pre-registered criterion in §F of the run (*"if `ov0_fuse1`
+beats `ov1_fuse0`, integrate it with the stream protocol and make it the default"*) is
+**met**, so that integration is now justified by measurement rather than by a laptop.
+
+**One number in that table is an artefact and must not be read as a regression:** md
+shows **51.75 s** in the fused arm against 33.6 s elsewhere, while `gpu_total` went
+*down* (58.64 against 59.28) and the wall went down. The phase timers do not synchronise
+unless `RNA_PHASE_SYNC` is set, so they attribute rather than measure; collapsing three
+launches into one moved where the queue drains, and md's timer absorbed it. This is
+exactly `feedback_phase_timers_charge_the_drain`, and `gpu_total` is the number to read.
+
+### md's intensity, confirmed on the A100 with the denominator fixed
+
+`init_gpu()` reports **47 records per launch (9 chunks)**, and at f = 0.50 that gives
+**2.245 bytes per B-element and 0.89 ops/byte**, against a machine balance near 13. The
+same data divided by all 400 records — the previous notebook's bug — reads **0.264 bytes**
+and would again have said the thesis was refuted. The correction is now validated on the
+device it was wrong about.
+
 ### Stage 3 — tile-shaped `int_loop` / `hp_mb` / `new_c` / fML scan
 
 The tail's four phases become tile-shaped. This is the largest stage and the one that
