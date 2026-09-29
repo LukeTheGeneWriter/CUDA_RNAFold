@@ -58,36 +58,113 @@ So a tile splits into **a bulk that is a pure (min,+) product of finished blocks
 tail that is sequential inside the tile**. For `J-I = d`, the bulk is `(d-1)/d` of the
 work, so the tail is negligible as soon as `d` is more than a few.
 
-## 3. The target schedule: a block-row sweep
+## 3. The target schedule: a block-row sweep, COLUMN BLOCK MAJOR
 
 This is the part that makes integration tractable. A full anti-diagonal wavefront over
 tiles would replace the sweep entirely. It is not needed:
 
 ```
 for I = last block-row .. 0            # descending, like today's i-loop but RB rows wide
-    for J = I .. last block            # ascending columns
-        # BULK: parallel over the whole RB x CB tile
-        acc[r][c] = min over K in (I,J) of  (min,+) product of fML(I,K) and fML(K+1,J)
-        # TAIL: sequential inside the tile, i descending, j ascending
-        for i in block I, descending:
-            for j in block J, ascending:
-                fM2[i][j] = min( acc[r][c], k in block I, k in block J )
-                c  [i][j] = ...  uses fM2[i+1][j-1]
-                fML[i][j] = min( fML[i+1][j]+b, fML[i][j-1]+b, c[i][j]+stem )
+    for J = I .. last block            # ASCENDING columns -- and this order is forced
+        BULK(I,J)                      # ONE launch, all RB x CB cells, blocked
+        for i in block I, DESCENDING   # the existing row-shaped kernels, restricted
+            physics(i, columns of J)   #   to this column block
+            fM2[i][j] = min( BULK[i][j], cor1, cor2 )   for j in block J
 ```
 
-Everything the bulk reads is complete: `fML(I,K)` was produced at an earlier `J` in this
-same block-row, and `fML(K+1,J)` at an earlier block-row. The outer loop keeps its
-present shape and direction, which means `fill_arrays_loop.c`'s structure, the row
-tables, continuous flow's per-record row pointers and the retire pool all survive.
+**The order is not a preference.** Rows inside a block are serially dependent —
+`md[i][j]` needs `md[i+1][j-TURN-3]` through `c` — so the rows of a block cannot run
+concurrently, and *that* is why `RB > 1` buys nothing unless md's `k` range is split.
+Splitting it at `imax` (the first row of the block, since `i` descends) and at `j0`
+gives three pieces, and only the first is available for every row of the block up
+front:
 
-**What changes:** one iteration advances `RB` rows instead of one, and within an
-iteration the per-cell physics (`int_loop`, `hp_mb`, `new_c`, the fML scan) runs on a
-`RB × CB` tile instead of a full row.
+| piece | `k` range | `A = fML[i][k]` from | `B = fML[k+1][j]` from | ready |
+|---|---|---|---|---|
+| **bulk** | `[imax, j0-1]` | row `i`, columns `< j0` → earlier **column** blocks | rows `k+1 > imax` → earlier **block-rows** | **before the tile runs, for all RB rows** |
+| cor1 | `[i+TURN+1, imax-1]` | row `i`, near-diagonal, columns `< j0` | rows `k+1 ∈ [i+TURN+2, imax]` → **inside** the block | only after the rows above `i` |
+| cor2 | `[j0, j-TURN-2]` | row `i`, **this** column block | rows `k+1 > j0 > imax` → earlier block-rows | after row `i`'s own fML scan |
 
-**What that costs:** those four phases are currently row-shaped kernels with row-shaped
-buffers. Running them tile-shaped is the bulk of the work, and it is why this is
-week-scale rather than a kernel swap.
+The three ranges are contiguous and cover `[i+TURN+1, j-TURN-2]` exactly, so `min` of
+the three **is** md. The bulk is `(j-i) - (RB+CB)` of the `(j-i)` terms, so the corners
+are a few percent while `RB+CB` stays small — and they are the reason the column blocks
+must ascend (cor1 and cor2 both need data from earlier column blocks of the same
+block-row).
+
+**What changes:** one iteration advances `RB` rows instead of one; the four per-cell
+phases (`int_loop`, `hp_mb`, `new_c`, the fML scan) run on a column *range* instead of a
+whole row; the fML scan needs a carry-in from column `j0-1`, which is legal because it
+is an affine (min,+) scan and therefore associative.
+
+**What that costs — and this is the knob that matters.** The physics is relaunched once
+per `(row, column block)` instead of once per row, so the launch count multiplies by
+`n/(2·CB)`. Against that, the corner work grows as `RB+CB`. Large `CB` for few launches,
+small `RB+CB` for a cheap corner: §3.6 measures where that lands.
+
+`fill_arrays_loop.c`'s structure, the row tables, continuous flow's per-record row
+pointers and the retire pool all survive, because the outer loop keeps its shape and
+direction.
+
+## 3.6 The decomposition, measured: `tools/proto_blocked_md3.cu`
+
+**It is exact.** Every configuration tried reproduces the streaming reference cell for
+cell — 7 corner shapes × 10 block geometries, three runs, n = 4096 with 15 % INF.
+
+And it is worth what the blocking thesis claimed, **once the corner is not shaped like
+`md_cell`**. RTX 3050 at 1740 MHz, against the **per-row** reference (one launch per
+row, which is what production actually does):
+
+| corner lanes/cell | corner ms | total ms | vs per-row |
+|---|---|---|---|
+| 32 — `md_cell`'s own shape | 29.50 | 52.53 | 3.52× |
+| 8 | 13.39 | 37.34 | 5.33× |
+| **4** | **8.24** | **32.97** | **5.69×** |
+| 2 | 7.54 | 32.46 | **5.91×** |
+| 1 thread, no reduction | 10.39 | 34.86 | 5.50× |
+
+**A 32-lane shuffle reduction over a ~64-element range is nearly all reduction.** The
+corner went from 53 % of the time to 25 % by giving each cell 4 lanes instead of 32, and
+that single change is worth more than every block-geometry choice below. md's warp-per-
+cell shape is right for a 1400-element column and wrong for a 64-element corner; the
+same kernel cannot have both.
+
+| geometry | bulk | corner | total | vs per-row |
+|---|---|---|---|---|
+| RB32 CB32 KB32 4×4 | 41.84 | 8.27 | 50.11 | 3.80× |
+| RB64 CB32 KB32 4×4 | 32.36 | 7.42 | 39.79 | 4.68× |
+| RB64 CB64 KB32 4×4 | 24.74 | 8.24 | 32.97 | 5.69× |
+| RB64 CB128 KB32 4×4 | 20.63 | 11.34 | 31.97 | 5.82× |
+| **RB128 CB64 KB32 4×4** | **20.96** | 10.22 | **31.19** | **6.23×** |
+| RB128 CB128 KB32 4×4 | 18.15 | 12.47 | 30.62 | 6.13× |
+| RB128 CB256 KB16 8×8 | 14.99 | 16.94 | 31.93 | 5.90× |
+
+The bulk falls monotonically with `RB` (reuse **is** `RB`: 41.8 → 20.9 ms from RB32 to
+RB128) and the corner rises with `RB+CB`, and the total is flat at 30–32 ms across the
+whole RB64–128 / CB64–128 region. **So `CB` is nearly free to choose, and it should be
+chosen to minimise launches, not kernel time** — which points at the largest `CB` the
+corner tolerates, around 128.
+
+**`KB` had to be decoupled from `CB`.** Staging `KB` deep costs
+`4·(KB·(RB+1) + KB·(CB+1))` bytes; tied to `CB`, `CB=128` needs **99 KB** and cannot
+launch at all. Decoupled at `KB=32` it needs 25 KB, which is what makes the `CB` sweep —
+the one that prices the launch multiple — possible at all.
+
+### Two things this measurement corrected in the previous one
+
+**§3.5's 7.66× is an upper bound no schedule can reach, for two separate reasons.**
+First, `proto_blocked_md2.cu`'s tile blocks the whole `k` range including blocks whose
+`B` operand lies *inside* the row block — values that do not exist yet. It gets away
+with it because it is handed a complete synthetic `fML`. Second, its reference was timed
+**once, at the top of the run, on a cold device**: re-run in-session it reports 5.86×,
+not 7.66×. Both prototypes' absolute numbers move by 4× with this laptop's clock
+(1057 MHz against a 2100 MHz maximum, at 16 W), so `proto_blocked_md3.cu` times **each
+arm between two reference passes** and uses their mean. That is the only reason its
+numbers are stable to 5 % run to run.
+
+**A failed launch cost 0.00 ms and looked like a 33× win.** `RB256 CB256` with an 8×8
+register tile needs 1024 threads × 64+ registers, over the 65536-per-block limit. The
+first version of the harness printed it as a fast MISMATCH rather than as a failure.
+Every launch is now checked — the same lesson as `nvcc … | head; echo rc=$?`.
 
 ## 4. Staging, with a bar for each
 
@@ -117,15 +194,37 @@ index arithmetic, the decode, and the masking, validated in situ.
 fixtures, plus full option parity. Plus `RNA_MD_BLOCK` announced on stderr so a run that
 did not take the path cannot pass for one that did.
 
-### Stage 2 — `RB > 1`, tail on the host or in a second kernel
+### Stage 2 — `RB > 1`: the bulk kernel and the two corners
 
-Raise the row block. The bulk becomes a real (min,+) product with reuse, which is where
-the 7.66× lives. The tail is the sequential `RB × CB` corner; the first cut can run it
-one row at a time with the existing kernels, paying `RB` times the per-row launch cost on
-a `1/CB` slice of the work.
+Raise the row block. The bulk becomes a real (min,+) product with reuse; the corners stay
+per-row and use the existing kernels restricted to a column range. §3.6 measures the
+whole decomposition at **6.23×** on an isolated `fML`, bit-exact, so the arithmetic is
+settled before any driver work starts. What stage 2 adds in-tree:
 
-**Bar:** byte-identical again, and `dram__bytes.sum` for md down by roughly `CB/2`. If the
-bytes do not move, the bulk is not doing what this document claims and the stage stops.
+1. `md_block.inc` gains the bulk tile (`RB`, `CB`, `KB` independent) and a corner entry
+   point with a **tunable lane count** — 4 lanes, not md's 32. That is worth 1.6× on its
+   own and is the single most important number in §3.6.
+2. A `RB × CB` accumulator per record, `RB·CB·4` bytes × records — 2.9 MB at
+   RB=32, CB=512, 44 records. Small, but new state to keep coherent.
+3. A column-range argument on `int_loop`, `hp_mb`, `new_c` and the fML scan, plus a
+   carry-in for the scan.
+
+**Bar, and it is NOT the one this document originally set.** The original bar was
+*"`dram__bytes.sum` for md down by roughly `CB/2`"*. That bar is wrong on an A100 at
+production scale, for a reason worth keeping: md reads **2.39 bytes per B-element**
+(§`project_a100_stress_results`), i.e. essentially all of its B stream already comes from
+DRAM exactly once. Blocking cannot remove bytes that are only read once — it removes
+*re-reads*, and md has none. What blocking actually removes is **load instructions and
+the latency behind them**: the register tile does `RM+RN` loads for `RM·RN` steps, 0.50
+against 2.00.
+
+So the stage-2 bars are:
+
+- **byte-identical fold output**, on mixed-length fixtures, with full option parity;
+- **md wall time down**, which is the only claim that matters end to end;
+- `smsp__inst_executed` and `l1tex__t_requests` for md **down by ≈ 4×**, which is the
+  mechanism. If instructions fall and time does not, the bulk is bound by something else
+  and the stage stops.
 
 ### Stage 3 — tile-shaped `int_loop` / `hp_mb` / `new_c` / fML scan
 
