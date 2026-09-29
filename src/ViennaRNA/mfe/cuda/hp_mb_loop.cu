@@ -1696,3 +1696,200 @@ hp_mb_mk_ptrs(rnafold_mk_ptrs_t *p)
   p->cc               = d_cc;
   p->cc1              = d_cc1;
 }
+
+
+/* ================= RNA_ROW_FUSE: hp_mb_3p + new_c + load_my_c in ONE launch ===
+ *
+ * PORT_MD_BLOCKING_INTEGRATION.md section 3.7, the revised stage 3 step (a).
+ *
+ * WHY THESE THREE AND NOT FOUR. The plan said "fuse the four per-cell phases".
+ * int_loop cannot join them: it is ONE BLOCK PER CELL, 32 threads cooperating on
+ * that cell's (p,q) search with a shared prefix table and a block-wide reduction,
+ * while these three are THREAD per cell at block 768. Fusing across a 32x shape
+ * mismatch wastes threads on one side or the other -- run hp_mb on lane 0 of a
+ * 32-lane group and it costs 32x, give every cell 32 lanes and the cheap phases
+ * waste 31 of them. int_loop's own lever is different and bigger (its 30x30 my_c
+ * window is shared by neighbouring j, so a block owning 32 columns reads
+ * (30+32)x30 instead of 32x900); that is its own change, not this one.
+ *
+ * WHY THE THREE FUSE WITH NO BARRIER. The chain is per CELL, not per row:
+ *
+ *   hp_mb_3p(j) -> energy_hp_row[j], energy_mb_row[j], energy_3p00_row[j], gate_row[j]
+ *   new_c(j)    -> reads exactly those FOUR at its own j, plus dml1 (previous row)
+ *                  and energy_min2 (int_loop, a previous launch) -> writes new_e[j]
+ *   load_my_c(j)-> reads new_e[j] -> writes my_c[Indx(i,j)]
+ *
+ * so one thread owning cell j can run all three in sequence and no thread ever
+ * reads another thread's output. The row buffers are still WRITTEN, because later
+ * phases read them (the fML scan reads energy_3p00_row), but new_c's reads of them
+ * now hit L1 behind the write instead of crossing a kernel boundary.
+ *
+ * WHAT IT IS EXPECTED TO BE WORTH, stated before measuring so the result can
+ * disappoint honestly: per launch at 400x5601 these are 73.5 + 13.5 + 48.8 us
+ * against md's 1595.8 (notebook section D), so the ceiling is a few percent. Two
+ * of the three launches disappear (0.4 s of the 59.7 s GPU total at 4 us each),
+ * and the rest has to come from their STALLS overlapping -- hp_mb runs at 8.6%
+ * SM throughput and 67.6% warps active, i.e. almost entirely stalled, and a
+ * fused kernel lets new_c's and load_my_c's loads issue into those gaps. If the
+ * measurement shows nothing, the answer is that they were already overlapping
+ * across launch boundaries, and that is worth knowing before stage 3's step (b)
+ * assumes otherwise.
+ *
+ * REFUSALS, both deliberate. noLP needs stack_row_i() to run BETWEEN hp_mb and
+ * new_c, which a single fused kernel cannot express; and RNA_STREAM_OVERLAP runs
+ * these three on separate streams with wait/publish between them, which fusing
+ * removes. Both fall back to the three separate launches rather than being
+ * half-supported.
+ */
+/* load_my_c_cell lives on the int_loop side and its body uses int_loop.cu's
+ * "#define turn 3" macro rather than a parameter. Bracket the include exactly as
+ * megakernel.cu does, because THIS file uses `turn` as a parameter name all over
+ * and the macro would rewrite those into a literal. The macro is expanded where
+ * the inline body is defined, so undef'ing it straight after is correct. */
+#define turn 3
+#include "int_loop_cells.inc"
+#undef turn
+
+/* the two buffers that live on the int_loop side (int_loop.cu) */
+extern "C" void int_loop_my_c_buffers(int** my_c_out, const size_t** tri_off_H_out);
+__global__ void
+row_cells_kernel(const int nfiles, const int i_row, const int turn, const int length,
+                 const int noGUclosure,
+                 /* ---- hp_mb_3p_cell's inputs */
+                 const short* __restrict__ S,
+                 const char*  __restrict__ seq,
+                 const char*  __restrict__ pair,
+                 const unsigned int* __restrict__ hccc_mb,
+                 const unsigned int* __restrict__ hccc_mbenc,
+                 const unsigned int* __restrict__ hccc_any,
+                 const unsigned int* __restrict__ hccc_gu,
+                 const cuda_param2_t* __restrict__ P,
+                 const int* __restrict__ salt_loop,
+                 /* ---- the four row buffers hp_mb writes and new_c reads */
+                       int* __restrict__ energy_hp_row,
+                       int* __restrict__ energy_mb_row,
+                       int* __restrict__ energy_3p00_row,
+                      char* __restrict__ gate_row,
+                 /* ---- new_c_cell's other inputs */
+                 const int*  __restrict__ energy_min2,
+                 const int*  __restrict__ dml1,
+                 const int*  __restrict__ up_hp,
+                       int*  __restrict__ new_e,
+                 /* ---- load_my_c_cell's output */
+                       int*  __restrict__ my_c,
+                 const size_t* __restrict__ tri_off_H,
+                 /* ---- shared tables */
+                 const size_t* __restrict__ row_off_H,
+                 const size_t* __restrict__ hc2_off_H,
+                 const size_t* __restrict__ seq_off_H,
+                 const int* __restrict__ len_H,
+                 const size_t* __restrict__ size_off_H, const size_t total,
+                 const int* __restrict__ i_H)
+{
+  const long long m = (long long)blockIdx.x*blockDim.x + threadIdx.x;
+
+  /* Each call is the body of the kernel it replaces, argument for argument. The
+   * bar is byte-identical output, which is what catches a transposed pointer --
+   * two pointers of the same type in the wrong order compile silently. */
+  hp_mb_3p_cell(nfiles, i_row, turn, length, S, seq, pair,
+                hccc_mb, hccc_mbenc, hccc_any, hccc_gu, P, salt_loop,
+                energy_hp_row, energy_mb_row, energy_3p00_row, gate_row,
+                row_off_H, hc2_off_H, seq_off_H, len_H, size_off_H, total, i_H, m);
+
+  new_c_cell(nfiles, i_row, turn, noGUclosure, energy_min2,
+             energy_hp_row, energy_mb_row, gate_row, dml1, up_hp, seq_off_H, new_e,
+             /* noLP is refused by the launcher, so these three are always NULL */
+             NULL, NULL, NULL,
+             row_off_H, size_off_H, total, i_H, m);
+
+  load_my_c_cell(nfiles, i_row, length, new_e, my_c, tri_off_H, row_off_H,
+                 size_off_H, total, i_H, m);
+}
+
+/* Returns 1 if this row was handled by the fused kernel, 0 if the caller must run
+ * the three phases separately. Refusing is the whole interface: a half-supported
+ * fast path that silently skips stack_row_i() would be a wrong answer, and this
+ * project has shipped two of those. */
+PUBLIC int
+row_cells_i(const int nfiles, const vrna_fold_compound_t **VC,
+            const int i, const int turn, const int length,
+            const int noGUclosure, const int noLP,
+            const size_t* size_off_H,
+            const int* i_H)
+{
+  static int on = -1;
+
+  if(on < 0) {
+    const char *e = getenv("RNA_ROW_FUSE");
+
+    on = (e && e[0] && e[0] != '0') ? 1 : 0;
+    if(on)
+      fprintf(stderr, "%-24s RNA_ROW_FUSE=1: hp_mb_3p + new_c + load_my_c run as ONE "
+                      "kernel per row (three launches become one)\n", __FILE__);
+  }
+  if(!on) return 0;
+
+  /* noLP: stack_row_i() has to run between hp_mb and new_c. RNA_STREAM_OVERLAP:
+   * these three sit on separate streams with wait/publish between them. Neither
+   * survives fusion, so neither is attempted. */
+  /* POSITIVE EVIDENCE, because every refusal below is silent and produces a
+   * byte-identical answer -- so "the output matched" cannot distinguish "the fused
+   * kernel is correct" from "the fused kernel never ran". Say which, once. */
+  static int said = 0;
+#define ROW_FUSE_REFUSE(why) do {                                                  \
+    if(!said) { said = 1;                                                          \
+      fprintf(stderr, "%-24s RNA_ROW_FUSE REFUSED: %s -- the three phases run "    \
+                      "separately\n", __FILE__, (why)); }                          \
+    return 0;                                                                      \
+  } while(0)
+
+  /* noLP: stack_row_i() has to run between hp_mb and new_c. RNA_STREAM_OVERLAP:
+   * these three sit on separate streams with wait/publish between them. The HOST
+   * path: off the GPU-resident sweep, fill_arrays_loop.c computes new_C on the host
+   * and load_my_c() uploads it over d_new_e, so a fused kernel that skipped that
+   * upload would lose the host's values. None survives fusion, so none is attempted. */
+  if(noLP)                     ROW_FUSE_REFUSE("--noLP needs stack_row_i between the phases");
+  if(rnafold_stream_overlap()) ROW_FUSE_REFUSE("RNA_STREAM_OVERLAP puts them on separate streams");
+  if(!rnafold_gpu_sweep())     ROW_FUSE_REFUSE("the host path uploads its own new_C");
+
+  if(!said) {
+    said = 1;
+    fprintf(stderr, "%-24s RNA_ROW_FUSE ACTIVE: hp_mb_3p + new_c + load_my_c are ONE "
+                    "kernel per row\n", __FILE__);
+  }
+
+  const size_t total = size_off_H[nfiles];
+  if(total == 0) return 1;                 /* nothing to do IS handled */
+
+  static int block_size = 0;
+  if(!block_size)
+    block_size = rnafold_choose_block_size(row_cells_kernel, BLOCK_SIZE,
+                                           "RNA_ROW_FUSE_BLOCK_SIZE");
+
+  bind_row_tables(i);
+
+  int* d_energy_min2_ = NULL; int* d_new_e_ = NULL;
+  int_loop_row_buffers(&d_energy_min2_, &d_new_e_);
+  int* d_dml1_ = NULL;
+  md_row_buffers(NULL, &d_dml1_, NULL, NULL);
+  int* d_my_c_ = NULL; const size_t* d_tri_off_H_ = NULL;
+  int_loop_my_c_buffers(&d_my_c_, &d_tri_off_H_);
+
+  const int nblocks = (int)((total + block_size - 1)/block_size);
+
+  row_cells_kernel<<<nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn, length,
+                                           noGUclosure,
+                                           d_S2, d_sequence, d_pair2,
+                                           d_hccc_mb, d_hccc_mbenc,
+                                           d_hccc_any, d_hccc_gu, d_param2, d_salt_loop,
+                                           HP_ROW(i), MB_ROW(i), P3P_ROW(i), GATE_ROW(i),
+                                           d_energy_min2_, d_dml1_, d_up_hp, d_new_e_,
+                                           d_my_c_, d_tri_off_H_,
+                                           d_row_off_H, d_hc2_off_H, d_seq_off_H, d_len_H,
+                                           d_size_off_H, total, d_i_H);
+  gpuErrchk( cudaPeekAtLastError() );
+  if(!rnafold_gpu_sweep())
+    gpuErrchk( cudaDeviceSynchronize() );
+
+  return 1;
+}

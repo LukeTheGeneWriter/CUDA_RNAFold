@@ -237,7 +237,24 @@
     //computed fresh on GPU each i rather than precomputed as a full
     //nfiles*ijsize array (see fill_arrays.c) -- same row-buffer pattern as
     //energy_min/int_loop_i above.
+    //
+    // RNA_ROW_FUSE (hp_mb_loop.cu): these three phases -- hp_mb_3p, new_c and
+    // load_my_c -- chain within ONE cell, so one kernel can run all three. The
+    // launcher returns 0 when it cannot (noLP, RNA_STREAM_OVERLAP) and the three
+    // separate phases below run instead. Charged to the hp_mb timer, which is the
+    // largest of the three, so the phase split stays readable rather than
+    // pretending the work moved somewhere new.
+    int row_fused = 0;
     {
+      const double t0 = now_seconds();
+      row_fused = row_cells_i(nfiles,VC,i,turn,length,noGUclosure,noLP,size_off_H,i_H);
+      if(row_fused) {
+        rnafold_phase_sync();
+        phase_hp_mb_s += now_seconds() - t0;
+      }
+    }
+
+    if(!row_fused) {
       const double t0 = now_seconds();
       hp_mb_3p_i(nfiles,VC,i,turn,length,energy_hp_row,energy_mb_row,energy_3p00_row,gate_row,size_off_H,i_H);
       rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
@@ -340,11 +357,12 @@
     // (so RNA_ROW_VERIFY has something to compare) and load_my_c (which uploads
     // the host's new_C over d_new_e, so the readback must precede it and the
     // sweep still consumes the host's values either way).
+    if(!row_fused)
     new_c_i(nfiles, i, turn, noGUclosure, noLP,
             rnafold_gpu_sweep() ? NULL : new_C,  // no host result to verify against in device mode
             row_off_H, size_off_H, i_H);
 
-    {
+    if(!row_fused) {
       const double t0 = now_seconds();
       load_my_c(nfiles,i,turn,length,new_C,size_off_H,i_H); //keep my_c on GPU instep with my_c
       rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time

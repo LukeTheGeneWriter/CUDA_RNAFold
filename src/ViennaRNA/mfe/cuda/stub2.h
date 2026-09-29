@@ -608,6 +608,12 @@ PUBLIC int          *rnafold_rowtab_ih_host(const int i);
 PUBLIC const size_t *rnafold_rowtab_size(const int i);
 PUBLIC const size_t *rnafold_rowtab_side(const int i);
 PUBLIC const int    *rnafold_rowtab_ih(const int i);
+/* RNA_ROW_FUSE: hp_mb_3p + new_c + load_my_c as one launch. 1 = handled, 0 = run
+ * the three phases separately (noLP and RNA_STREAM_OVERLAP are refused). */
+PUBLIC int           row_cells_i(const int nfiles, const vrna_fold_compound_t **VC,
+                                 const int i, const int turn, const int length,
+                                 const int noGUclosure, const int noLP,
+                                 const size_t* size_off_H, const int* i_H);
 /* RNA_MD3_LAUNCH_PROBE: prices blocked-Zuker stage 3.s launch multiple. See device.cu. */
 PUBLIC int           rnafold_md3_launch_probe(void);
 PUBLIC void          rnafold_md3_launch_probe_fire(const int n, const int row);

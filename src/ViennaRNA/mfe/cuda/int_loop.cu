@@ -1971,3 +1971,20 @@ int_loop_mk_ptrs(rnafold_mk_ptrs_t *p)
   p->new_e       = d_new_e;
   p->energy_min2 = d_energy_min2;
 }
+
+
+/* ---- RNA_ROW_FUSE: the my_c triangle, for the fused row kernel -------------
+ * hp_mb_3p + new_c + load_my_c are three launches per row that are element-wise
+ * in j and chain within ONE cell: new_c(j) reads only hp_mb(j)'s outputs, and
+ * load_my_c(j) reads only new_c(j)'s. So one thread can run all three with no
+ * barrier -- see row_cells_kernel in hp_mb_loop.cu, which is where the fused
+ * kernel lives because two of the three cells are defined there.
+ *
+ * It needs the two buffers that live on THIS side: the my_c triangle it writes
+ * and that triangle's per-record base. Same shape and the same validity window
+ * as int_loop_row_buffers() above. */
+extern "C" /*PUBLIC*/ void
+int_loop_my_c_buffers(int** my_c_out, const size_t** tri_off_H_out) {
+  if(my_c_out)       *my_c_out       = d_my_c;
+  if(tri_off_H_out)  *tri_off_H_out  = d_tri_off_H;
+}
