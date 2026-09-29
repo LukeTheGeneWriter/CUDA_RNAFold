@@ -617,6 +617,8 @@ PUBLIC int           row_cells_i(const int nfiles, const vrna_fold_compound_t **
 /* RNA_MD3_LAUNCH_PROBE: prices blocked-Zuker stage 3.s launch multiple. See device.cu. */
 PUBLIC int           rnafold_md3_launch_probe(void);
 PUBLIC void          rnafold_md3_launch_probe_fire(const int n, const int row);
+/* RNA_INT_LOOP_UNROLL: 1 (default) or 2 candidates in flight per lane. */
+PUBLIC int           rnafold_int_loop_unroll(void);
 PUBLIC void          rnafold_rowtab_upload_all(void);
 PUBLIC void          rnafold_rowtab_upload_row(const int i);
 

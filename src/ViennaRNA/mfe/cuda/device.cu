@@ -1190,3 +1190,27 @@ rnafold_md3_launch_probe_fire(const int n, const int row)
                                                    * where the phases run unless
                                                    * RNA_STREAM_OVERLAP is set */
 }
+
+
+/* ---- RNA_INT_LOOP_UNROLL: candidates in flight per lane in int_loop's warp kernel.
+ *
+ * 1 (default) is the shape it has always had. 2 runs two independent column searches
+ * and two min accumulators, aimed at the `wait` stall that dominates it -- see
+ * int_loop_cell.inc for the ncu numbers and for the laptop NULL that keeps this off. */
+extern "C" int
+rnafold_int_loop_unroll(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_INT_LOOP_UNROLL");
+
+    v = (e && e[0]) ? atoi(e) : 1;
+    if (v != 2) v = 1;
+    if (v == 2)
+      fprintf(stderr, "%-24s RNA_INT_LOOP_UNROLL=2: int_loop keeps TWO candidates in "
+                      "flight per lane (two search chains, two accumulators)\n", __FILE__);
+  }
+
+  return v;
+}

@@ -13,7 +13,12 @@
  * is that lane. The reduction at the end names all 32.
  */
 
-template<class CREAD>
+/* U = how many candidates one lane keeps in flight. U=1 is the shape this kernel
+ * has always had and compiles to it exactly; U=2 runs two independent column
+ * searches and two accumulators. See the comment on the loop below for why that is
+ * the lever the stall mix points at. Defaulted so every existing caller -- including
+ * the megakernel -- keeps today's code with no edit. */
+template<class CREAD, int U = 1>
 __device__ inline void
 int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -68,55 +73,106 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
     const int total = __shfl_sync(0xffffffff, incl, 31);        // prefix[maxcol+1]
 
     const int iters = (total + 31) >> 5;                        // warp-uniform
-    for(int k = 0; k < iters; k++) {
-      const int  w   = (k << 5) + lane;
-      const bool has = (w < total);
 
-      // Smallest column c with prefix[c+1] > w. FIVE FIXED STEPS, not
-      // `while(lo < hi)`: 2^5 = 32 covers every column, and a fixed trip count
-      // keeps all 32 lanes in every shuffle. Lanes that have already converged
-      // (lo == hi) still execute the shuffle and discard it.
-      int lo = 0;
-      int hi = (maxcol > 0) ? maxcol : 0;
+    /* WHY U EXISTS, measured rather than assumed.
+     *
+     * ncu on an RTX 3050 (3 launches of this kernel, warp-per-cell, block 32):
+     *
+     *   wait (fixed-latency dependency)   2.693   <-- 46% of all stalling
+     *   long_scoreboard (global/L1)       1.210
+     *   short_scoreboard (shared)         0.700
+     *   not_selected                      0.680
+     *   math_pipe_throttle                0.553
+     *   barrier / mio_throttle / lg       0.000
+     *
+     * with DRAM throughput 0.83%, L2 2.43%, sectors per global load request 2.46 and
+     * 83% lane efficiency. So this kernel is NOT memory-bound in any sense: its own
+     * my_c window is already L1-resident and already reasonably coalesced. That kills
+     * the lever PORT_MD_BLOCKING_SCOPE.md proposed for it -- staging the 30x30 window
+     * in shared at "15.5x fewer loads" -- because the loads are neither the stall nor
+     * the bytes, and staging would move L1 hits to shared hits.
+     *
+     * `wait` is a FIXED-LATENCY dependency stall, i.e. a register chain. Two of them
+     * are right here. Per candidate the body runs SEVEN warp shuffles -- five for the
+     * binary search, where each step's `mid` depends on the previous step's lo/hi, plus
+     * two gathers -- and `energy = MIN2(energy, energy2)` is a single accumulator, so
+     * each iteration also waits on the previous one's min.
+     *
+     * U candidates in flight gives the scheduler U independent chains to interleave.
+     * Exact for any U: min over int is associative and commutative, and Energy()
+     * returns INF rather than doing arithmetic on it (it guards the my_c read), so INF
+     * stays a sentinel and no reassociation can promote a near-INF sum.
+     *
+     * MEASURED AT U=2 on that same laptop: stalls 5.837 -> 5.253 total, wait 2.693 ->
+     * 2.467, short_scoreboard 0.700 -> 0.350, issue_active 47.3% -> 50.4% -- and
+     * instructions 5.075e6 -> 5.431e6, +7%. Wall, ABAB, byte-identical: 5.74 s against
+     * 5.80 s, i.e. a NULL. Fewer stalls times more work came out even, which is the
+     * same 1:1 trade blocking hit on md. It stays behind RNA_INT_LOOP_UNROLL (default
+     * 1 = off) because a laptop whose clock drifts 30% inside one ABAB cannot resolve
+     * it, and because the A100's latency/throughput balance is the one that matters.
+     *
+     * `iters`, `k` and `U` are all warp-uniform, so every guard below is warp-uniform
+     * and each __shfl_sync still names all 32 lanes -- the property the reduction
+     * comment further down was written about. */
+    int acc[U];
 #pragma unroll
-      for(int s = 0; s < 5; s++) {
-        const int  mid = (lo + hi) >> 1;
-        const int  v   = __shfl_sync(0xffffffff, incl, mid);
-        const bool act = (lo < hi);
-        const bool go  = act && (v > w);
-        hi = go ? mid : hi;
-        lo = (act && !go) ? (mid + 1) : lo;
-      }
-      const int column = lo;
+    for(int u = 0; u < U; u++) acc[u] = INF;
 
-      // Column `column`'s mask and prefix, gathered from the lane that owns
-      // them. A per-lane source index is a legal gather, and both are register
-      // reads -- this is the shared-memory traffic the twin pays.
-      const unsigned int cmask = __shfl_sync(0xffffffff, my_mask, column);
-      const int          cbase = __shfl_sync(0xffffffff, excl,    column);
+    for(int k = 0; k < iters; k += U) {
+#pragma unroll
+      for(int u = 0; u < U; u++) {
+        const bool live = (U == 1) || ((k + u) < iters);   /* warp-uniform */
+        const int  w    = ((k + u) << 5) + lane;
+        const bool has  = live && (w < total);
 
-      if(has) {
-        int popc_unused;
-        const int row = find_nth_set_bit(cmask, w - cbase, popc_unused);
-        assert(row >= 0);
-        const int p = p0 + row;
-        const int q = q0 + column;
-        const int energy2 = Energy(H,S_STRIDE(length),i,j,q,p, ci,
-                      cread,
-                      up_int ? &up_int[row_off_H[H]] : NULL,
-                      S,pair_,P,
-                      TerminalAU,ninio2,
-                      P->bulge,P->internal_loop,lxc,
-                      P->mismatchI,
-                      P->mismatch1nI,
-                      P->mismatch23I,
-                      P->stack,
-                      P->int11,
-                      P->int21,
-                      P->int22);
-        energy = MIN2(energy,energy2);
+        // Smallest column c with prefix[c+1] > w. FIVE FIXED STEPS, not
+        // `while(lo < hi)`: 2^5 = 32 covers every column, and a fixed trip count
+        // keeps all 32 lanes in every shuffle. Lanes that have already converged
+        // (lo == hi) still execute the shuffle and discard it.
+        int lo = 0;
+        int hi = (maxcol > 0) ? maxcol : 0;
+#pragma unroll
+        for(int st = 0; st < 5; st++) {
+          const int  mid = (lo + hi) >> 1;
+          const int  v   = live ? __shfl_sync(0xffffffff, incl, mid) : 0;
+          const bool act = (lo < hi);
+          const bool go  = act && (v > w);
+          hi = go ? mid : hi;
+          lo = (act && !go) ? (mid + 1) : lo;
+        }
+        const int column = lo;
+
+        // Column `column`'s mask and prefix, gathered from the lane that owns
+        // them. A per-lane source index is a legal gather, and both are register
+        // reads -- this is the shared-memory traffic the twin pays.
+        const unsigned int cmask = live ? __shfl_sync(0xffffffff, my_mask, column) : 0u;
+        const int          cbase = live ? __shfl_sync(0xffffffff, excl,    column) : 0;
+
+        if(has) {
+          int popc_unused;
+          const int row = find_nth_set_bit(cmask, w - cbase, popc_unused);
+          assert(row >= 0);
+          const int p = p0 + row;
+          const int q = q0 + column;
+          const int energy2 = Energy(H,S_STRIDE(length),i,j,q,p, ci,
+                        cread,
+                        up_int ? &up_int[row_off_H[H]] : NULL,
+                        S,pair_,P,
+                        TerminalAU,ninio2,
+                        P->bulge,P->internal_loop,lxc,
+                        P->mismatchI,
+                        P->mismatch1nI,
+                        P->mismatch23I,
+                        P->stack,
+                        P->int11,
+                        P->int21,
+                        P->int22);
+          acc[u] = MIN2(acc[u],energy2);
+        }
       }
     }
+#pragma unroll
+    for(int u = 0; u < U; u++) energy = MIN2(energy, acc[u]);
   }
 
   // Warp-wide min. No shared memory and no __syncthreads() at any block size --
@@ -155,6 +211,7 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
  *  The triangle-backed form, which is what every standalone kernel calls: same
  *  signature it has always had, so those call sites are untouched.
  */
+template<int U = 1>
 __device__ inline void
 int_loop_warp_cell(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -174,7 +231,7 @@ int_loop_warp_cell(const int nfiles, const int i_row, const int length,
   c_tri_reader cread;
 
   cread.base = &my_c[tri_off_H[H]];
-  int_loop_warp_cell_r(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
+  int_loop_warp_cell_r<c_tri_reader, U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                        pair_, S, hccc, up_int, cread, row_off_H, hc_off_H,
                        size_off_H, i_H, energy_min, H, local, lane);
 }

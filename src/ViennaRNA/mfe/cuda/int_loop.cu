@@ -1049,7 +1049,9 @@ flatten_index_to_H_warp(const size_t idx, const size_t* __restrict__ flat_off_H,
 // kernel below is a wrapper around exactly this code.
 #include "int_loop_cell.inc"
 
-template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH>
+/* U: candidates in flight per lane. 1 = the shape this kernel has always had.
+ * See int_loop_cell.inc for the stall measurement that motivates U>1. */
+template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH, int U = 1>
 __global__ void
 int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -1093,7 +1095,7 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
 
   // The arithmetic lives in int_loop_cell.inc so the megakernel runs
   // exactly this code; only the cell derivation above is kernel-specific.
-  int_loop_warp_cell(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
+  int_loop_warp_cell<U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
                      H, local, lane);
 }
 
@@ -1568,11 +1570,28 @@ int_loop_cuda(const int nfiles,
       }
     }
 
-#define IL_WARP_LAUNCH(C, G, W, GRID) int_loop_warp_kernel<C,G,W><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
+#define IL_WARP_LAUNCH(C, G, W, GRID) int_loop_warp_kernel<C,G,W,1><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
+        nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
+        d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
+        d_size_off_H, d_i_H, d_energy_min2)
+/* RNA_INT_LOOP_UNROLL=2: the same kernel with two candidates in flight per lane.
+ * int_loop_cell.inc carries the stall measurement that motivates it and the laptop
+ * NULL that keeps it off by default. A separate macro rather than another dimension
+ * of the switch below, because U only ever takes two values and doubling a 4-way
+ * dispatch to instantiate a knob nobody has shown to pay is object code for nothing. */
+#define IL_WARP_LAUNCH_U2(C, G, W, GRID) int_loop_warp_kernel<C,G,W,2><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
         d_size_off_H, d_i_H, d_energy_min2)
 #define IL_WARP_DISPATCH(G, W, GRID) \
+    if(rnafold_int_loop_unroll() == 2) { \
+      switch(cpb) { \
+        case 8: IL_WARP_LAUNCH_U2(8, G, W, GRID); break; \
+        case 4: IL_WARP_LAUNCH_U2(4, G, W, GRID); break; \
+        case 2: IL_WARP_LAUNCH_U2(2, G, W, GRID); break; \
+        default: IL_WARP_LAUNCH_U2(1, G, W, GRID); break; \
+      } \
+    } else \
     switch(cpb) { \
       case 8: IL_WARP_LAUNCH(8, G, W, GRID); break; \
       case 4: IL_WARP_LAUNCH(4, G, W, GRID); break; \
@@ -1592,6 +1611,7 @@ int_loop_cuda(const int nfiles,
     }
 #undef IL_WARP_DISPATCH
 #undef IL_WARP_LAUNCH
+#undef IL_WARP_LAUNCH_U2
   } else
   // NOT an early return: the tail of this function still owns the launch-stats
   // end, the error check, the optional sync and -- in non-GPU-resident mode --
