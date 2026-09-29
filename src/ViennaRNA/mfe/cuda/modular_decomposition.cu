@@ -800,13 +800,42 @@ teardown_gpu(void) {
   rnafold_md_stream_report();
   rnafold_md_prune_report();
   if(d_md_inf) { gpuErrchk( cudaFree(d_md_inf) ); d_md_inf = NULL; }
-  gpuErrchk( cudaFree(d_fml_i) );
-  if(!rnafold_fml_int16()) {
-    gpuErrchk( cudaFree(d_fml_j) );
-  } else {
-    gpuErrchk( cudaFree(d_fml_j16) );
-    gpuErrchk( cudaFree(d_fml_b) );
-  }
+  /*
+   * FREE BY WHAT WAS ALLOCATED, NOT BY WHAT THE CONFIGURATION NOW SAYS.
+   *
+   * This used to branch on rnafold_fml_int16() -- and that is a question whose
+   * answer CAN CHANGE between the allocation and the free, which made it a wrong
+   * answer generator. rnafold_fml_int16_stand_down() flips int16 off for the rest
+   * of the process when a model turns out to be unsupported (--noLP, a non-default
+   * salt), so:
+   *
+   *   batch 1, plain    int16 ON  -> allocates d_fml_j16 / d_fml_b
+   *                     teardown: int16 still on, frees them, LEAVES THE POINTERS SET
+   *   batch 2, --noLP   stand-down -> int16 OFF -> allocates d_fml_j instead
+   *                     md_cell selects its path on `if(fml_j16)`, which is now a
+   *                     DANGLING non-NULL pointer -> reads freed device memory
+   *
+   * Measured through the Python binding: plain then --noLP gives a wrong structure,
+   * and every later call in that process stays wrong. --noLP first is fine, because
+   * int16 is off before anything is allocated. The CLI cannot reach it -- one batch
+   * shape and one model per run, then exit -- which is why 45 option checks and
+   * every parity bar in the project are blind to it, exactly as they were to the
+   * teardown defect this same binding found in September.
+   *
+   * So: guard on the POINTER, free it, and NULL it. The int16 setting is not
+   * consulted here at all, which is what makes this robust against it changing.
+   */
+  if (d_fml_i)      { gpuErrchk( cudaFree(d_fml_i) );      d_fml_i      = NULL; }
+  if (d_fml_j)      { gpuErrchk( cudaFree(d_fml_j) );      d_fml_j      = NULL; }
+  if (d_fml_j16)    { gpuErrchk( cudaFree(d_fml_j16) );    d_fml_j16    = NULL; }
+  if (d_fml_b)      { gpuErrchk( cudaFree(d_fml_b) );      d_fml_b      = NULL; }
+  /* These three are int16-path buffers too, and they were freed inside the
+   * `if (d_fml_band)` block below -- a misplaced brace, so with the band off (the
+   * default) they LEAKED on every batch and left three more dangling pointers. */
+  if (d_fml_row)    { gpuErrchk( cudaFree(d_fml_row) );    d_fml_row    = NULL; }
+  if (d_colb_off)   { gpuErrchk( cudaFree(d_colb_off) );   d_colb_off   = NULL; }
+  if (d_base_off_H) { gpuErrchk( cudaFree(d_base_off_H) ); d_base_off_H = NULL; }
+  g_base_total = 0;
   if (d_fml_jmin) {
     gpuErrchk( cudaFree(d_fml_jmin) );
     d_fml_jmin = NULL; g_fml_jmin_n = 0;
@@ -818,9 +847,6 @@ teardown_gpu(void) {
   if (d_fml_band) {
     gpuErrchk( cudaFree(d_fml_band) );
     d_fml_band = NULL;
-    gpuErrchk( cudaFree(d_fml_row) );
-    gpuErrchk( cudaFree(d_colb_off) );
-    gpuErrchk( cudaFree(d_base_off_H) );
   }
   gpuErrchk( cudaFree(d_dml) );
   gpuErrchk( cudaFree(d_dml1) );

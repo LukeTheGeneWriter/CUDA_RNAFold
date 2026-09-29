@@ -94,6 +94,51 @@ class cuda_batchTest(unittest.TestCase):
             self.assertEqual(structure, ref_structure)
             self.assertAlmostEqual(energy, ref_energy, 2)
 
+    def test_int16_may_stand_down_between_batches(self):
+        """A batch after an int16 stand-down still folds correctly
+
+        Regression, and a SHIPPED one: int16 fML became the default on
+        2026-09-27 and this broke every batch after the first in a process.
+
+        rnafold_fml_int16_stand_down() turns int16 off for the rest of the
+        process when a model turns out not to support it (--noLP, a
+        non-default salt). teardown_gpu() decided WHICH buffers to free by
+        asking rnafold_fml_int16() -- a question whose answer had just
+        changed -- so it freed d_fml_j16/d_fml_b and left the pointers set.
+        md_cell selects its path on `if(fml_j16)`, so the next batch read
+        FREED DEVICE MEMORY through a dangling pointer:
+
+            plain, then noLP    wrong structure, no error, and every later
+                                call in the process stays wrong
+            noLP first          fine -- int16 is off before anything is
+                                allocated, so nothing dangles
+
+        The order below is the failing one on purpose. Reversing it passes
+        even with the defect present, which is why this test asserts the
+        transition rather than just "two batches work".
+
+        RNAfold cannot reach this: one batch shape and one model per run,
+        then exit. Every parity bar in this project runs through that CLI,
+        so all of them were blind to it -- the same reason the teardown
+        defect in test_second_batch_may_be_longer needed this API to be
+        found at all.
+        """
+        rng = random.Random(1616)
+        nolp = RNA.md()
+        nolp.noLP = 1
+
+        # plain FIRST, so int16 is on and allocates its buffers
+        for model in (None, nolp, None):
+            batch = [rand_seq(150, rng)]
+            got = RNA.cuda_fold(batch, model) if model is not None \
+                  else RNA.cuda_fold(batch)
+            for seq, (structure, energy) in zip(batch, got):
+                ref_structure, ref_energy = cpu(seq, model)
+                self.assertEqual(structure, ref_structure,
+                                 "wrong structure after an int16 stand-down "
+                                 "(model=%s)" % ("noLP" if model else "plain"))
+                self.assertAlmostEqual(energy, ref_energy, 2)
+
     def test_model_details_reach_the_fold(self):
         """A model handed to cuda_fold() is the model that folds"""
         rng = random.Random(7)

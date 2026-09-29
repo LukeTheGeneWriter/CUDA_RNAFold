@@ -307,6 +307,16 @@ the work is worth the device, measuring the cost of reaching the GPU and account
 for how many cores it would otherwise fold on (`-j`), so small inputs are not made
 slower. Nothing needs to be configured for that either.
 
+If you installed with `--prefix` and `import RNA` cannot find the module, note that on
+Debian-family systems the Python interface installs under the `local` scheme:
+
+```
+export PYTHONPATH=$PREFIX/local/lib/pythonX.Y/dist-packages
+```
+
+not `$PREFIX/lib/pythonX.Y/site-packages`. (Verified 2026-09-28 on Ubuntu with
+Python 3.14 — see PORT_INSTALL_VERIFIED.md.)
+
 To get stock CPU behaviour from an accelerated build for one run, without
 reconfiguring:
 
