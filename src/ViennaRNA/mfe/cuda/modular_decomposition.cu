@@ -529,6 +529,25 @@ static size_t* d_row_off_H;
 // -- equals the old uniform nfiles*(length+1) only while chunks are
 // uniform-length, and that formula over-runs the allocation once they aren't.
 static size_t  g_row_total = 0;
+
+/* ---- RNA_MD_BLOCK_SELFTEST=2 (blocked Zuker stage 2). Declared up here because
+ * init_gpu() and teardown_gpu() both touch the ring, and they come well before the
+ * selftest section that uses it. The geometry is deliberately small: this is a
+ * correctness harness, and the geometry that WINS (RB128 CB64, measured in
+ * PORT_MD_BLOCKING_INTEGRATION.md section 3.6) belongs in the fast path. */
+#define MD_BLK2_RB    32
+#define MD_BLK2_CB    32
+#define MD_BLK2_KB    32
+#define MD_BLK2_LANES  4     /* 4, not md_cell's 32 -- see md_block_corner()'s header */
+#define MD_BLK2_RING  (MD_BLK2_RB + 1)
+
+PUBLIC int rnafold_md_block_selftest(void);   /* defined in the selftest section */
+
+/* RING copies of the whole row-buffer layout, so a slot is indexed exactly as d_dml
+ * is (row_off_H[H] + j) and no per-record stride has to be derived. */
+static int    *d_md_blk_ring = NULL;
+static size_t  g_md_blk_ring_stride = 0;   /* one slot = g_row_total ints */
+
 // Staggered_Row_Batching Phase 4: per-row "current active width" tables for
 // load_fML/fmli_kernel/modular_decomposition_kernel/load_min_fML_kernel's
 // flat grids -- rebuilt+reuploaded every sweep row i (see fill_arrays_loop.c),
@@ -667,6 +686,30 @@ init_gpu(const int nfiles, const int length,
       printf("cudaMalloc d_fml_i %zu returned error %s (code %d), line(%d)\n", // 32-bit signed integer overflow bug fix
 	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
+
+  /* RNA_MD_BLOCK_SELFTEST=2 only: a ring of the last RB+1 rows' fM2, so the RB>1
+   * decomposition can be checked against rows the sweep has already left behind.
+   * MD_BLK2_RING x the whole row layout -- 296 MB at 400 x 5601, which is why it is
+   * allocated only when the selftest asks for it. */
+  if(rnafold_md_block_selftest() == 2) {
+    g_md_blk_ring_stride = g_row_total;
+    error = cudaMalloc((void **) &d_md_blk_ring,
+                       (size_t)MD_BLK2_RING * g_row_total * sizeof(int));
+    if (error != cudaSuccess) {
+      fprintf(stderr, "%-24s RNA_MD_BLOCK_SELFTEST=2 could not allocate the %zu MB "
+                      "fM2 ring (%s) -- the stage 2 check is SKIPPED, not silently "
+                      "passed\n", __FILE__,
+              (size_t)MD_BLK2_RING * g_row_total * sizeof(int) / (1024*1024),
+              cudaGetErrorString(error));
+      d_md_blk_ring = NULL;
+      g_md_blk_ring_stride = 0;
+    } else {
+      /* INF, so a cell the ring never received compares UNEQUAL rather than
+       * accidentally matching a zero the decomposition also produced. */
+      gpuErrchk( cudaMemset(d_md_blk_ring, 0x7f,
+                            (size_t)MD_BLK2_RING * g_row_total * sizeof(int)) );
+    }
+  }
 
   if(!rnafold_fml_int16()) {
     error = cudaMalloc((void **) &d_fml_j, ijsize_len);
@@ -835,6 +878,8 @@ teardown_gpu(void) {
   if (d_fml_row)    { gpuErrchk( cudaFree(d_fml_row) );    d_fml_row    = NULL; }
   if (d_colb_off)   { gpuErrchk( cudaFree(d_colb_off) );   d_colb_off   = NULL; }
   if (d_base_off_H) { gpuErrchk( cudaFree(d_base_off_H) ); d_base_off_H = NULL; }
+  if (d_md_blk_ring) { gpuErrchk( cudaFree(d_md_blk_ring) ); d_md_blk_ring = NULL;
+                       g_md_blk_ring_stride = 0; }
   g_base_total = 0;
   if (d_fml_jmin) {
     gpuErrchk( cudaFree(d_fml_jmin) );
@@ -1606,12 +1651,21 @@ rnafold_md_block_selftest(void)
   if (v < 0) {
     const char *e = getenv("RNA_MD_BLOCK_SELFTEST");
 
-    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+    /* 1 = stage 1 (RB=1, the primitive), 2 = stage 2 (the RB>1 decomposition). */
+    v = (e && e[0] && e[0] != '0') ? atoi(e) : 0;
+    if (v < 0) v = 0;
+    if (v > 2) v = 2;
     if (v) {
       atexit(rnafold_md_block_selftest_report);   /* or the count is never printed */
-      fprintf(stderr, "%-24s RNA_MD_BLOCK_SELFTEST=1: every row's fM2 is recomputed "
-                      "through the blocked tile primitive and compared cell for cell "
-                      "(slow; diagnostics only)\n", __FILE__);
+      if (v == 1)
+        fprintf(stderr, "%-24s RNA_MD_BLOCK_SELFTEST=1: every row's fM2 is recomputed "
+                        "through the blocked tile primitive and compared cell for cell "
+                        "(slow; diagnostics only)\n", __FILE__);
+      else
+        fprintf(stderr, "%-24s RNA_MD_BLOCK_SELFTEST=2: the RB>1 bulk+corner "
+                        "decomposition is recomputed for a %d-row x %d-column tile and "
+                        "compared against what md wrote (slow; diagnostics only)\n",
+                        __FILE__, MD_BLK2_RB, MD_BLK2_CB);
     }
   }
 
@@ -1698,6 +1752,155 @@ __global__ void md_block_selftest_kernel(
       }
     }
   }
+}
+
+/* ===================== stage 2: the RB>1 decomposition, on live state ==========
+ *
+ * WHAT THIS CHECKS THAT STAGE 1 CANNOT. Stage 1 runs the primitive at RB = 1, so it
+ * exercises one row's A operand out of the fml_i row buffer and nothing else. Stage 2
+ * is the first thing that exercises
+ *
+ *   - the A operand for RB DIFFERENT rows, read from the int16 triangle by ROW index
+ *     (fml_bidx(H, k, i) -- the row is the within-column index there, the mirror image
+ *     of the B side's fml_bidx(H, j, k+1)),
+ *   - the three-way range split, whose pieces must tile [i+turn+1, j-turn-2] with no
+ *     gap and no cell counted from the wrong piece,
+ *   - a KB-deep staging round that is shallower than CB.
+ *
+ * HOW IT GETS RB>1 OUT OF A SWEEP THAT ONLY HAS ONE LIVE ROW. It checks the RB rows
+ * ABOVE the current one, [i+1, i+RB], not the current row. Those are all final AND
+ * already packed (pack_fml_cell closes row i at the end of iteration i), so every
+ * operand comes from the packed triangle exactly as the fast path will read it. Their
+ * fM2 is gone from the dml row buffer by then, so a RING of the last RB+1 rows' fM2 is
+ * kept, written by a copy kernel after each md. That ring costs
+ * (RB+1) x row_stride x 4 bytes per record -- 17 MB on a 64 x 2000 fixture, 296 MB at
+ * 400 x 5601, which is why this is a diagnostic and not a default.
+ *
+ * WHAT IT STILL DOES NOT COVER: the SCHEDULE. That every operand is *available* at the
+ * right time in the column-block-major order is an argument (section 3 of
+ * PORT_MD_BLOCKING_INTEGRATION.md), not a measurement, and it stays an argument until
+ * the driver exists. This kernel reads a finished triangle, so it would pass even if
+ * the order were wrong. Do not read a green stage 2 as clearance for the driver.
+ */
+
+/* Copy this row's fM2 into its ring slot. One thread per cell. */
+__global__ void
+md_blk_ring_kernel(const int nfiles, const int i_row, const int turn,
+                   const int *__restrict__ dml, int *__restrict__ ring,
+                   const size_t *__restrict__ row_off_H,
+                   const size_t *__restrict__ side_off_H,
+                   const size_t stride, const size_t total,
+                   const int *__restrict__ i_H)
+{
+  const size_t m = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (m >= total) return;
+  const int H = flatten_index_to_H(m, side_off_H, nfiles);
+  const int i = i_H[H];
+  const int j = (int)(m - side_off_H[H]) + i + 2 * (turn + 1) + 1;
+
+  assert(i_row < 0 || i == i_row);
+  ring[(size_t)(i % MD_BLK2_RING) * stride + row_off_H[H] + j] = dml[row_off_H[H] + j];
+}
+
+/* One block per (record, column block). The block owns the whole RB x CB tile. */
+template <int RB, int CB, int KB, int RM, int RN, int LANES>
+__global__ void md_block2_selftest_kernel(
+  const int nfiles, const int turn, const int length,
+  const int *__restrict__ fml_j,
+  const short *__restrict__ fml_j16, const int *__restrict__ fml_b,
+  const size_t *__restrict__ base_off_H, const size_t *__restrict__ colb_off,
+  const int *__restrict__ ring, const size_t stride,
+  const size_t *__restrict__ tri_off_H, const size_t *__restrict__ side_off_H,
+  const size_t *__restrict__ row_off_H,
+  const int *__restrict__ i_H)
+{
+  __shared__ int Xs[KB * (RB + 1)];
+  __shared__ int Ys[KB * (CB + 1)];
+
+  const int H = blockIdx.y;
+  if (H >= nfiles) return;
+
+  const long long ncell = (long long)side_off_H[H + 1] - (long long)side_off_H[H];
+  if (ncell <= 0) return;                     /* record has not joined the sweep */
+
+  const int i = i_H[H];
+  /* the record's own length, the way the rest of this file derives it: side_off_H's
+   * extent is length_H[H] - i - 2*turn - 2 (see the comment at the top of the file) */
+  const int n_len = i + 2 * turn + 2 + (int)ncell;
+  const int imin = i + 1, imax = i + RB;
+
+  (void)length;
+
+  /* the tile must be entirely inside the part of the triangle that is finished */
+  if (imax > n_len) return;
+
+  const int j0 = imax + 1 + blockIdx.x * CB;
+  if (j0 > n_len) return;
+
+  const int tid   = threadIdx.x;
+  const int TPB   = (RB / RM) * (CB / RN);
+  const int cbase = (tid % (CB / RN)) * RN;
+  const int rbase = (tid / (CB / RN)) * RM;
+
+  int acc[RM][RN];
+#pragma unroll
+  for (int u = 0; u < RM; u++)
+#pragma unroll
+    for (int v = 0; v < RN; v++) acc[u][v] = INF;
+
+  /* THE BULK: k in [imax, j0-1], staged KB deep, k-blocks aligned to FML_BLK so one
+   * baseline covers a staged run. */
+  const int kb0 = (imax / FML_BLK) * FML_BLK;
+
+  for (int k0 = kb0; k0 <= j0 - 1; k0 += KB) {
+    md_block_stage_row_tri<RB, KB>(H, imin, imax, k0, j0, n_len,
+                                   fml_j16, fml_b, fml_j,
+                                   tri_off_H, base_off_H, colb_off, turn,
+                                   Xs, tid, TPB);
+    md_block_stage_col_kb<CB, KB>(H, j0, k0, n_len, fml_j16, fml_b, fml_j,
+                                  tri_off_H, base_off_H, colb_off, turn,
+                                  Ys, tid, TPB);
+    __syncthreads();
+    md_block_product<CB, RB, RM, RN>(Xs, Ys, rbase, cbase, acc);
+    __syncthreads();
+  }
+
+  /* THE CORNERS, per cell, plus the comparison. */
+#pragma unroll
+  for (int u = 0; u < RM; u++)
+#pragma unroll
+    for (int v = 0; v < RN; v++) {
+      const int ii = imin + rbase + u;
+      const int jj = j0 + cbase + v;
+
+      if (jj > n_len || jj < ii + 2 * (turn + 1) + 1) continue;
+
+      int got = acc[u][v];
+
+      /* LANES=1 inside a selftest: correctness does not need the lane split, and
+       * running it single-lane also checks md_block_corner's loop bounds without a
+       * reduction in the way. The LANES>1 path is exercised by the fast path. */
+      const int cor = md_block_corner<1>(H, ii, jj, imax, j0, turn,
+                                         fml_j16, fml_b, fml_j,
+                                         tri_off_H, base_off_H, colb_off, 0);
+
+      got = MIN2(got, cor);
+
+      const int want = ring[(size_t)(ii % MD_BLK2_RING) * stride
+                            + row_off_H[H] + jj];
+
+      atomicAdd(&g_md_block_cells, 1ull);
+      if (got != want) {
+        if (atomicAdd(&g_md_block_bad, 1ull) == 0ull) {
+          g_md_block_first[1] = H;    g_md_block_first[2] = ii;
+          g_md_block_first[3] = jj;   g_md_block_first[4] = got;
+          __threadfence();
+          g_md_block_first[0] = want;
+        }
+      }
+    }
+  (void)LANES;
 }
 
 PUBLIC void
@@ -2215,7 +2418,53 @@ void modular_decomposition_cuda(const int nfiles,
   /* Stage 1 of blocked Zuker: recompute this row through the blocked primitive and
    * compare. After the launch above and before anything overwrites d_dml, which is
    * the only point where both answers exist at once. */
-  if(rnafold_md_block_selftest()) {
+  if(rnafold_md_block_selftest() == 2) {
+    /* stage 2: keep this row's fM2, then check the RB rows ABOVE it -- the ones that
+     * are final AND already packed. See md_block2_selftest_kernel's header. */
+    int maxcell = 0;
+
+    for(int H = 0; H < nfiles; H++) {
+      const long long c = (long long)side_off_H[H+1] - (long long)side_off_H[H];
+
+      if(c > maxcell) maxcell = (int)c;
+    }
+    if(maxcell > 0 && d_md_blk_ring) {
+      const size_t tot = side_off_H[nfiles];
+      const int    nb  = (int)((tot + BLOCK_SIZE - 1)/BLOCK_SIZE);
+
+      gpuErrchk( cudaStreamSynchronize(ISSUE_STREAM) );
+      md_blk_ring_kernel<<<nb,BLOCK_SIZE>>>(nfiles, RNA_I_ROW(i), turn, d_dml,
+                                            d_md_blk_ring, d_row_off_H, d_side_off_H,
+                                            g_md_blk_ring_stride, tot, d_i_H);
+      gpuErrchk( cudaPeekAtLastError() );
+
+      /* The tile spans columns [imax+1, ...], so the widest record decides the grid. */
+      const int ncol = maxcell;
+      dim3 grid((ncol + MD_BLK2_CB - 1)/MD_BLK2_CB, nfiles);
+      const int TPB  = (MD_BLK2_RB/4) * (MD_BLK2_CB/4);
+      static int said2 = 0;
+      const int i16 = (d_fml_j16 != NULL) && rnafold_fml_int16();
+
+      if(!said2) {
+        said2 = 1;
+        fprintf(stderr,"%-24s RNA_MD_BLOCK_SELFTEST=2 exercising the %s path, "
+                       "RB=%d CB=%d KB=%d, %d threads/tile\n", __FILE__,
+                i16 ? "int16 (decode + per-64 baseline, BOTH operands)" : "int32",
+                MD_BLK2_RB, MD_BLK2_CB, MD_BLK2_KB, TPB);
+      }
+      /* FORCE the path -- passing both pointers is what let a perturbed baseline
+       * produce zero mismatches in stage 1. Same discipline here. */
+      md_block2_selftest_kernel<MD_BLK2_RB, MD_BLK2_CB, MD_BLK2_KB, 4, 4,
+                                MD_BLK2_LANES><<<grid, TPB>>>(
+        nfiles, turn, length, i16 ? NULL : d_fml_j, i16 ? d_fml_j16 : NULL, d_fml_b,
+        d_base_off_H, d_colb_off, d_md_blk_ring, g_md_blk_ring_stride,
+        d_tri_off_H, d_side_off_H, d_row_off_H, d_i_H);
+      gpuErrchk( cudaPeekAtLastError() );
+      gpuErrchk( cudaDeviceSynchronize() );
+    }
+  }
+
+  if(rnafold_md_block_selftest() == 1) {
     const int CB = 64;   /* == FML_BLK; see md_block.inc on why this is not free */
     int maxcell = 0;
 
