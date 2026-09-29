@@ -163,6 +163,8 @@
  // exactly once. Under the fused path the per-phase timers stay at zero by
  // construction: there are no phases on the host to time, and the device-side
  // clock shares megakernel.cu prints are the measurement instead.
+ const int md3_probe_n = rnafold_md3_launch_probe();
+
  for (i = mk_done ? 0 : sweep_iters; i >= 1; i--) { /* i,j in [1..length] */
 
     if(!continuous_flow) for(int H=0;H<nfiles;H++) i_H[H] = i;
@@ -208,6 +210,12 @@
       cf_rows += active;
       if(active > cf_peak_rows) cf_peak_rows = active;
     }
+
+    /* RNA_MD3_LAUNCH_PROBE: price blocked-Zuker stage 3's launch multiple before
+     * building the driver that would pay it. Extra no-op launches per row, same
+     * stream as the phases; the fold is unchanged and only the wall moves. See
+     * device.cu. */
+    if(md3_probe_n) rnafold_md3_launch_probe_fire(md3_probe_n, i);
 
     {
       const double t0 = now_seconds();

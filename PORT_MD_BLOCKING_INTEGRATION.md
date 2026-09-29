@@ -226,6 +226,71 @@ So the stage-2 bars are:
   mechanism. If instructions fall and time does not, the bulk is bound by something else
   and the stage stops.
 
+## 3.7 Stage 3's launch multiple, PRICED — and it rules out the per-row tail
+
+§3 says the physics relaunches once per `(row, column block)`, so the launch count
+multiplies by `n/(2·CB)`, and notes that this is "the knob that matters". It is worse
+than that: **at `CB ≤ 128` it costs more than md can save**, so the schedule as scoped
+cannot win by tuning. This was measured before the driver was written, with
+`RNA_MD3_LAUNCH_PROBE=k` (device.cu): `k` extra no-op launches per sweep row, same
+stream, fold unchanged.
+
+RTX 3050, 6 records of 2400–3000 nt, warm-up discarded, 3 reps:
+
+| k | mean wall | extra launches | µs per launch |
+|---|---|---|---|
+| 0 | 2.00 s | — | — |
+| 32 | 3.05 s | 96 000 | **10.90** |
+| 128 | 6.05 s | 384 000 | **10.53** |
+
+Linear in `k` to 3 %, which is what makes it a per-launch cost rather than a
+coincidence. (The first attempt at this used a 1.5 s fold where the cold k=0 run came
+out at 1.97 s against 1.02 s warm — a 2× artefact bigger than the whole signal.)
+
+Applied to the A100 at 400 × 5601 — 50 373 sweep iterations (= `int_loop_kernel`'s
+launch count, `RNA_LAUNCH_STATS`), ~8 launches each, md 33.74 s of 59.68 s GPU:
+
+| CB | launch multiple | extra launches | cost @4 µs | cost @10.5 µs | md after | net @4 µs |
+|---|---|---|---|---|---|---|
+| 128 | 21.9× | 8.4e6 | 33.7 s | 88.3 s | 9.0 s | **−8.9 s** |
+| 256 | 10.9× | 4.0e6 | 16.0 s | 42.1 s | 10.5 s | +7.2 s |
+| 512 | 5.5× | 1.8e6 | 7.2 s | 18.9 s | 13.1 s | +13.5 s |
+| 1024 | 2.7× | 7.0e5 | 2.8 s | 7.3 s | 16.7 s | +14.3 s |
+
+Two things fall out, and they point the same way.
+
+**The geometry the kernel wants and the geometry the schedule wants are in conflict.**
+§3.6 found the kernel flat across `CB` 64–128 and the corner rising with `RB+CB`; this
+table wants `CB ≥ 512`, where the corner is ~24 % of the work and caps md at ~2.6×
+however good the bulk is. The net never exceeds ~14 s of a 72 s wall — **about 1.24×** —
+and that is with the optimistic 4 µs. At the 10.5 µs actually measured here, `CB=512`
+breaks even.
+
+**So the tail must stop being per-row.** The rows of a block are serially dependent only
+through a 6-column skew, so one kernel can own a `RB × CB` tile and walk its rows with
+`__syncthreads()` instead of returning to the host `RB` times for each of 4 phases. At
+`RB=128, CB=512` that is **11 fused launches per block-row against 1024 today** — stage 3
+stops paying a launch multiple and becomes a launch *reduction*, which also removes the
+per-row overhead the megakernel was built to attack.
+
+**This is not the megakernel again, and the difference is the part that killed it.**
+`project_megakernel_a100_verdict`: 30–109 % slower, from 80 registers capping occupancy
+at 12.5 % against md's 33.8 %, and equal-width column ownership costing 3.4×. Here md's
+product stays a **separate, well-shaped kernel** — it is not inside the fused thing at
+all — so the fused kernel holds only the four cheap per-cell phases, and the columns it
+owns are one tile's `CB`, not a static slice of the row. Whether its register footprint
+behaves is the open question, and it is the first thing to measure.
+
+**Revised order (this becomes the new stage 3, ahead of the tile-shaped phases below):** (a) fuse the four physics phases over a tile, on today's
+row-at-a-time schedule, with `RB=1, CB=`row — byte-identical, and it should already be
+faster because it deletes launches; (b) then raise `RB` and add the bulk. Step (a) is
+independently useful and independently verifiable, which is the property every stage in
+this document is supposed to have and the per-row tail did not.
+
+**Run `RNA_MD3_LAUNCH_PROBE` on the A100 before committing to any of this.** Every number
+in the table above scales with one laptop-measured constant, and the A100's per-launch
+cost is the single input that decides between "+14 s" and "break even".
+
 ### Stage 3 — tile-shaped `int_loop` / `hp_mb` / `new_c` / fML scan
 
 The tail's four phases become tile-shaped. This is the largest stage and the one that
@@ -237,7 +302,7 @@ shared, aimed at a kernel whose dominant stall is `long_scoreboard`.
 **Bar:** byte-identical, and md + int_loop time down. This is where the ~2–2.5× end-to-end
 should appear.
 
-### Stage 4 — tuning, and the Hopper arm
+### Stage 5 — tuning, and the Hopper arm
 
 `CB`, `RB`, `RM × RN` and the shared budget are all machine-dependent; `b = 64` with a
 4×4 register tile won on an RTX 3050 and an A100 may differ. And on `sm_90+`, DPX

@@ -1136,3 +1136,57 @@ rnafold_pinned_ints_free(int *p, const int pinned)
 extern "C" const size_t *rnafold_rowtab_size_base(void) { return g_rt_size_d; }
 extern "C" const size_t *rnafold_rowtab_side_base(void) { return g_rt_side_d; }
 extern "C" const int    *rnafold_rowtab_ih_base(void)   { return g_rt_ih_d; }
+
+
+/* ---- RNA_MD3_LAUNCH_PROBE: what does stage 3's launch multiple actually cost? ----
+ *
+ * Blocked Zuker stage 3 runs the per-cell physics once per (row, COLUMN BLOCK) instead
+ * of once per row, so its launch count multiplies by about n/(2*CB) -- 22x at CB=128.
+ * md saves at most ~24 s of its 33.7 s at 400x5601, so if 22x the launches costs more
+ * than that, the schedule cannot win and the DESIGN has to change rather than be tuned.
+ *
+ * That is worth knowing BEFORE the driver exists, and it is measurable without it:
+ * issue k extra launches per sweep row, in the same stream, and read the slope. The
+ * kernel does nothing, so the slope is pure per-launch cost -- which is the quantity
+ * the design question turns on.
+ *
+ * This is deliberately NOT a null kernel with an empty body: nvcc is entitled to
+ * discard a launch whose kernel provably does nothing. It writes one int to a device
+ * global, which cannot be elided.
+ */
+__device__ int g_md3_probe_sink = 0;
+
+__global__ void
+md3_probe_kernel(const int tag)
+{
+  if (threadIdx.x == 0 && blockIdx.x == 0) g_md3_probe_sink = tag;
+}
+
+extern "C" int
+rnafold_md3_launch_probe(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD3_LAUNCH_PROBE");
+
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v < 0) v = 0;
+    if (v > 256) v = 256;
+    if (v)
+      fprintf(stderr, "%-24s RNA_MD3_LAUNCH_PROBE=%d: %d extra no-op launches per sweep "
+                      "row, to price stage 3's launch multiple. The fold is unchanged; "
+                      "only the wall moves.\n", __FILE__, v, v);
+  }
+
+  return v;
+}
+
+extern "C" void
+rnafold_md3_launch_probe_fire(const int n, const int row)
+{
+  for (int t = 0; t < n; t++)
+    md3_probe_kernel<<<1, 32>>>(row * 1000 + t);   /* the default stream, which is
+                                                   * where the phases run unless
+                                                   * RNA_STREAM_OVERLAP is set */
+}

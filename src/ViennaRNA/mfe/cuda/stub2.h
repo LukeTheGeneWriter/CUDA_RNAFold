@@ -608,6 +608,9 @@ PUBLIC int          *rnafold_rowtab_ih_host(const int i);
 PUBLIC const size_t *rnafold_rowtab_size(const int i);
 PUBLIC const size_t *rnafold_rowtab_side(const int i);
 PUBLIC const int    *rnafold_rowtab_ih(const int i);
+/* RNA_MD3_LAUNCH_PROBE: prices blocked-Zuker stage 3.s launch multiple. See device.cu. */
+PUBLIC int           rnafold_md3_launch_probe(void);
+PUBLIC void          rnafold_md3_launch_probe_fire(const int n, const int row);
 PUBLIC void          rnafold_rowtab_upload_all(void);
 PUBLIC void          rnafold_rowtab_upload_row(const int i);
 
