@@ -948,3 +948,23 @@ across sync arms.**
   (T2 / device backtrack); (4) on a cold start the router measured device reach at 1.5 s
   and sent a small fixture to the CPU — harmless to the answer, but it silently turns a
   GPU check into a CPU check, which is why every arm now asserts it swept.
+
+**Third sweep (2026-09-30) — the hairpin length term, and the int_loop ∥ md question.**
+
+- **`RNA_HP_TABLE` (default ON).** `E_Hairpin_device` computed `hairpin[30] +
+  (int)(lxc*log(size/30.))` per CELL — ~n²/2 evaluations per record of a function of
+  `size = j−i−1` alone, in FP64 (1/64 rate on sm_86). Worse, `cuda_param2_t` holds `lxc` as
+  a FLOAT while upstream multiplies in double, so the truncation differs for some sizes:
+  none below 20 000 nt at 20/42/55/60/70/95 °C, but **5536 nt at 25 °C and 13 763 at 37 °C**.
+  A per-size table built on the host with upstream's literal expression fixes both. Laptop:
+  `hp_mb_3p` 43.1 → 19.6 µs per launch; 223 GPU arms and three temperatures match the CPU.
+  Default ON because it moves the device TOWARD upstream; `=0` is the A/B.
+- **int_loop and md are serial at the default.** At level 1 the md chain runs on the cell
+  stream; only `hp_mb_3p` has its own. `int_loop(i-1)` does not depend on `md(i)`, and
+  level 2 lets them co-run, but `load_my_c`'s per-row drain ended that overlap every row
+  — likely why level 2 measured only −0.8 %. `all_ov2` is its first free run. Both grids
+  fill the device, so expect tail overlap, not two kernels side by side.
+- **A price list per kernel** (`ncu`, laptop, 6×1200 mid-sweep): the old md-side small
+  kernels 45.5 µs/row → 18.9 with `RNA_MD_TAIL` + `RNA_NEW_C_STORE`; `fml_scan` 15 µs and
+  growing with the row (one block per record, ~width/256 serial tiles on the critical
+  path) — the next suspect, pending the A100's §E.

@@ -25,7 +25,7 @@ struct cuda_param2_s {
   int   MLbase;
   int   rtype[8];
   int   TerminalAU;
-  float lxc;
+  float lxc;        // FLOAT: see hp_len below -- do not use for anything new
   int   special_hp; //bool, but stored as int for simple memcpy from vrna_md_t
   int   dangles;    //0 or 2; anything else is refused before the sweep starts
   int   Tetraloop_E[200];
@@ -38,6 +38,14 @@ struct cuda_param2_s {
   //discipline as int_loop.cu's salt fields. Needed by stack_row_kernel for
   //upstream's vrna_eval_stack(): P->stack[type][type_2].
   int   stack[NBPAIRS+1][NBPAIRS+1];
+  // RNA_HP_TABLE (default ON, 2026-09-30), appended last for the same reason.
+  // hp_len[size] = the hairpin's length term, built ON THE HOST in double from
+  // upstream's own expression, one entry per size up to the batch's longest record.
+  // It replaces a per-CELL double log() -- n^2/2 evaluations of a function of
+  // size = j-i-1 alone -- and fixes a precision defect: lxc above is a FLOAT, so
+  // (int)(lxc*log(size/30.)) truncated differently from upstream's double for some
+  // sizes (5536 nt at 25 C, 13763 nt at 37 C). NULL = the old per-cell path.
+  const int* hp_len;
 };
 
 __device__ inline unsigned char
@@ -78,7 +86,8 @@ E_Hairpin_device(const int size, const int type, const int si1, const int sj1,
   // tetraloop/triloop/hexaloop cases uncorrected and nothing else would notice.
   const int salt = salt_loop[size+1];
 
-  if(size <= 30) energy = P->hairpin[size];
+  if(P->hp_len)   energy = P->hp_len[size];   // RNA_HP_TABLE: host double, upstream's expression
+  else if(size <= 30) energy = P->hairpin[size];
   else            energy = P->hairpin[30] + (int)(P->lxc*log((double)size/30.)); //double log() to match host precision (hairpin_loops.h:116)
 
   energy += salt;

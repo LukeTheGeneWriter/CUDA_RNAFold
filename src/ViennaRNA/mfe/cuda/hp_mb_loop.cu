@@ -85,6 +85,27 @@ cuda_param2_t* d_param2;
 // result: length+2 ints, and the kernel is left with a load and an add.
 // All zeros when md->salt is the default, exactly as upstream's own guard.
 int*           d_salt_loop;
+int*           d_hp_len = NULL;   // RNA_HP_TABLE -- see the hp_len field in hp_mb_dev.h
+
+/* RNA_HP_TABLE: default ON; =0 restores the per-cell float-lxc log(). ON by default,
+ * unlike this branch's other knobs, because it is a CORRECTNESS fix toward upstream
+ * (the float lxc truncated differently for some sizes) as well as removing work --
+ * the old path is kept only as the A/B. */
+static int
+rnafold_hp_table(void)
+{
+  static int v = -1;
+
+  if(v < 0) {
+    const char* e = getenv("RNA_HP_TABLE");
+    v = (e && e[0] == '0') ? 0 : 1;
+    fprintf(stderr,"%-24s RNA_HP_TABLE %s: hairpin length term %s\n", __FILE__,
+            v ? "ON" : "OFF",
+            v ? "from a host-built double table, one entry per size"
+              : "computed per cell with a float lxc (the pre-2026-09-30 path)");
+  }
+  return v;
+}
 char*  d_pair2;      //[NBPAIRS+1][NBPAIRS+1], pair-type lookup, same content as int_loop.cu's d_pair
 short* d_S2;          //sequence_encoding, [nfiles][length+2]
 char*  d_sequence;    //raw nucleotide letters, [nfiles][length+2], for the tri/tetra/hexaloop string scan
@@ -272,6 +293,7 @@ void load_param2(const vrna_param_t *P){
   memcpy(H->Hexaloop_E,  P->Hexaloop_E,  40*sizeof(int));
   memcpy(H->Hexaloops,   P->Hexaloops,   1801*sizeof(char));
   memcpy(H->stack,       P->stack,       (NBPAIRS+1)*(NBPAIRS+1)*sizeof(int));
+  H->hp_len     = NULL;   // attached by init_gpu3() once the batch length is known
 
   gpuErrchk( cudaMemcpy(d_param2,H,sizeof(cuda_param2_t),cudaMemcpyHostToDevice) );
   free(H);
@@ -527,6 +549,26 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     rnafold_build_salt_table(VC[0]->params, length, saltbuff);
     gpuErrchk( cudaMemcpy(d_salt_loop, saltbuff, salt_bytes, cudaMemcpyHostToDevice) );
     free(saltbuff);
+  }
+
+  // RNA_HP_TABLE: the hairpin length term, per size, built here in DOUBLE with
+  // upstream's literal expression (eval/hairpin.h:369, mfe/fold.c:441) -- see the
+  // hp_len field in hp_mb_dev.h. Same extent and lifetime as d_salt_loop. On a
+  // refill SLOT_ALLOC keeps the buffer, and it is rewritten and re-attached because
+  // load_param2() above just reset the pointer.
+  if(rnafold_hp_table()) {
+    const vrna_param_t *Pp = VC[0]->params;
+    const size_t n = (size_t)length + 2;
+    SLOT_ALLOC(&d_hp_len, n*sizeof(int));
+    int* hb = (int*) malloc(n*sizeof(int));
+    for(size_t s = 0; s < n; s++)
+      hb[s] = (s <= 30) ? Pp->hairpin[s]
+                        : Pp->hairpin[30] + (int)(Pp->lxc * log((double)s / 30.));
+    gpuErrchk( cudaMemcpy(d_hp_len, hb, n*sizeof(int), cudaMemcpyHostToDevice) );
+    free(hb);
+    const int* dp = d_hp_len;
+    gpuErrchk( cudaMemcpy((char*)d_param2 + offsetof(cuda_param2_t, hp_len), &dp,
+                          sizeof(dp), cudaMemcpyHostToDevice) );
   }
 
   // (d_size_off_H / d_i_H: the chunk's row tables now, bound per row.)
@@ -851,6 +893,7 @@ teardown_gpu3(void) {
   gpuErrchk( cudaFree(d_up_ml_ok) );
   if(d_up_hp) { gpuErrchk( cudaFree(d_up_hp) ); d_up_hp = NULL; }
   gpuErrchk( cudaFree(d_salt_loop) );   //length-dependent: freed with the batch
+  if(d_hp_len) { gpuErrchk( cudaFree(d_hp_len) ); d_hp_len = NULL; }   // RNA_HP_TABLE, same lifetime
   gpuErrchk( cudaFree(d_energy_hp_row) );
   gpuErrchk( cudaFree(d_energy_mb_row) );
   gpuErrchk( cudaFree(d_energy_3p00_row) );
