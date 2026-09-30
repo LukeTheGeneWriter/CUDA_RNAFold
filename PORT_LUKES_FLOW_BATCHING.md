@@ -1036,3 +1036,13 @@ a fixture with many rows AND enough records to amortise start-up — not this on
 3. **Next measurements:** `all_ov2` + graph off (the two best effects have never been
    combined), level 2 through the stress soak before it can be a default, and the
    `fml_scan` / `unroll2` arms the later notebook already carries.
+
+**Defaults flipped (2026-09-30), on that measurement:** `load_my_c`'s per-row drain OFF
+(`RNA_LOAD_MY_C_SYNC=1` restores), md's per-row host sync OFF (`RNA_MD_ROW_SYNC=1`
+restores), the collapsed md tail ON (`RNA_MD_TAIL=0` restores); each announces itself only
+when set. Checked on the laptop against the CPU across 130 runs: the new default, the old
+one restored, overlap 0/2, graph off, continuous flow, slot flow, the megakernel and the
+`RNA_ROW_VERIFY` host path — all equal except **slot flow + `-g`, which is wrong
+deterministically in EVERY arm including the old defaults at overlap 0** (pre-existing,
+slot flow is off by default; queued with the other `-g` work). Next A100 run:
+`tools/make_nb_rowbarriers2.py` (level 2 + graph off together, the scan's K, unroll2).

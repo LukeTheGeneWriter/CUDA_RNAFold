@@ -225,8 +225,10 @@ rnafold_sync_probe_tick(void)
 }
 
 
-/* RNA_LOAD_MY_C_SYNC=0: skip load_my_c()'s per-row cudaDeviceSynchronize (see
- * int_loop.cu for why it exists at all). Default 1 -- today's behaviour. */
+/* load_my_c()'s per-row cudaDeviceSynchronize (see int_loop.cu for why it existed).
+ * DEFAULT OFF since 2026-09-30: the A100 priced it at -1.0 % alone and -3.0 % with
+ * md's row sync also gone, byte-identical in every arm (PORT_LUKES_FLOW_BATCHING.md
+ * 9.12). RNA_LOAD_MY_C_SYNC=1 restores the old per-row drain. Announced only when set. */
 extern "C" int
 rnafold_load_my_c_sync(void)
 {
@@ -235,10 +237,11 @@ rnafold_load_my_c_sync(void)
   if (v < 0) {
     const char *e = getenv("RNA_LOAD_MY_C_SYNC");
 
-    v = (e && e[0] == '0') ? 0 : 1;
-    if (!v)
-      fprintf(stderr, "device.cu                RNA_LOAD_MY_C_SYNC=0: no device sync "
-                      "in load_my_c (was one per sweep row in every release build)\n");
+    v = (e && e[0] == '1') ? 1 : 0;
+    if (e && e[0])
+      fprintf(stderr, "device.cu                RNA_LOAD_MY_C_SYNC=%d: %s\n", v,
+              v ? "a device sync in load_my_c every sweep row (the pre-2026-09-30 default)"
+                : "no device sync in load_my_c (the default)");
   }
 
   return v;

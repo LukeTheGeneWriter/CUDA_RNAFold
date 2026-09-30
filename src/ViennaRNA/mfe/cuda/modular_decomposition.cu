@@ -3492,16 +3492,17 @@ rnafold_md_prune_report(void)
 
 /* ===================== RNA_MD_ROW_SYNC and RNA_MD_TAIL =====================
  *
- * Two changes to the md chain's per-row shape, both answer-neutral by
- * construction and both GATED so one binary can A/B them (2026-09-29, from a
- * call-order audit of the default path).
+ * Two changes to the md chain's per-row shape, both answer-neutral by construction
+ * (2026-09-29, from a call-order audit of the default path). BOTH DEFAULT ON SINCE
+ * 2026-09-30: with RNA_LOAD_MY_C_SYNC they are -5.3 % at 400 x 5601 on an A100,
+ * byte-identical in every arm against the CPU (PORT_LUKES_FLOW_BATCHING.md 9.12).
+ * Each has an env var that restores the old path, and announces itself only when set.
  *
- * RNA_MD_ROW_SYNC=0 drops the host's per-row cudaStreamSynchronize after the md
- * chain below level 2. It is kept by default only until the A100 has priced it;
- * a sync is a wait, never a write. Forced ON off the GPU-resident sweep, where
- * the host reads DMLi back and needs the copy to have landed.
+ * md's per-row cudaStreamSynchronize below level 2 is now OFF; RNA_MD_ROW_SYNC=1
+ * restores it. Forced ON off the GPU-resident sweep, where the host reads DMLi back
+ * and needs the copy to have landed.
  *
- * RNA_MD_TAIL=1 replaces
+ * The collapsed tail replaces
  *     load_fML -> fmli -> md -> load_min_fML -> pack_fml     (graph)
  *     fml_prev                                                (md stream)
  *     md_snapshot_dml: a whole-row D2D copy                   (md stream)
@@ -3509,7 +3510,8 @@ rnafold_md_prune_report(void)
  *     md (reading fml_i out of energy_min) -> md_close_row   (graph)
  *     a d_dml/d_dml1 pointer swap                             (host)
  * because fmli only copies energy_min, and load_min_fML and fml_prev compute the
- * same min(energy_min, DMLi). Two GPU operations instead of seven. */
+ * same min(energy_min, DMLi). Two GPU operations instead of seven. RNA_MD_TAIL=0
+ * restores the old chain; md_tail_refuse() still declines it where it cannot apply. */
 extern "C" int
 rnafold_md_row_sync(void)
 {
@@ -3517,15 +3519,17 @@ rnafold_md_row_sync(void)
 
   if(v < 0) {
     const char* e = getenv("RNA_MD_ROW_SYNC");
-    v = (e && e[0] == '0') ? 0 : 1;
+    v = (e && e[0] == '1') ? 1 : 0;
     if(!v && !rnafold_gpu_sweep()) {
-      fprintf(stderr,"%-24s RNA_MD_ROW_SYNC=0 ignored: off the GPU-resident sweep "
-                     "the host reads DMLi back every row\n", __FILE__);
+      if(e && e[0])
+        fprintf(stderr,"%-24s RNA_MD_ROW_SYNC=0 ignored: off the GPU-resident sweep "
+                       "the host reads DMLi back every row\n", __FILE__);
       v = 1;
     }
-    if(!v)
-      fprintf(stderr,"%-24s RNA_MD_ROW_SYNC=0: no host sync after the md chain; "
-                     "the host may queue the next row behind it\n", __FILE__);
+    if(e && e[0])
+      fprintf(stderr,"%-24s RNA_MD_ROW_SYNC=%d: %s\n", __FILE__, v,
+              v ? "a host sync after the md chain every sweep row (the pre-2026-09-30 default)"
+                : "no host sync after the md chain (the default)");
   }
   return v;
 }
@@ -3537,7 +3541,10 @@ rnafold_md_tail(void)
 
   if(v < 0) {
     const char* e = getenv("RNA_MD_TAIL");
-    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+    v = (e && e[0] == '0') ? 0 : 1;
+    if(!v)
+      fprintf(stderr,"%-24s RNA_MD_TAIL=0: the old seven-operation md tail "
+                     "(the pre-2026-09-30 default)\n", __FILE__);
   }
   return v;
 }

@@ -801,8 +801,8 @@ load_my_c(const int nfiles,
   // once per sweep row, here. RNA_ROW_FUSE never calls load_my_c(), so it deletes
   // this sync as a side effect -- which confounds the fusion's measured win.
   //
-  // RNA_LOAD_MY_C_SYNC=0 removes it so the two can be priced apart. Default
-  // unchanged until the A100 has measured it. Cross-stream order no longer leans on
+  // OFF BY DEFAULT since 2026-09-30 (A100: -1.0 % alone, -3.0 % with md's row sync
+  // gone, byte-identical); RNA_LOAD_MY_C_SYNC=1 restores it. Cross-stream order no longer leans on
   // it: the per-row legacy-stream work (gq_internal, the noLP cc reset, the DMLi
   // snapshot) moved onto the cell/md streams, and hp_mb waits on the scan event at
   // level 1 as well as 2 (2026-09-29).
