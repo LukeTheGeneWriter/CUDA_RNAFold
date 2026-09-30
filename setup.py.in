@@ -336,6 +336,19 @@ def vrna_ext(name = "RNA._RNA"):
         #print(files)
         srcFiles += files
 
+    # CUDA_RNAFold: mfe/cuda is built by nvcc through the Makefile, never by
+    # setuptools. The "*.c*" globs above match its .cu sources (setuptools stops
+    # at the first with UnknownFileType) and also fill_arrays*.c / mb_loop_fast.c,
+    # which are #included or unbuilt and must never compile standalone. Keep only
+    # engine.c, compiled host-only (VRNA_CUDA_HOST_ONLY, see engine.c), which
+    # provides the stubs RNA.cuda_devices()/cuda_fold() link against. The wheel
+    # is therefore CPU-only; the accelerated module is the one `make install`
+    # builds.
+    cudaDir = os.path.join(srcDir, 'mfe', 'cuda')
+    srcFiles = [f for f in srcFiles
+                if os.path.dirname(f) != cudaDir or os.path.basename(f) == 'engine.c']
+    define_macros += [('VRNA_CUDA_HOST_ONLY', None)]
+
     srcFiles += ['interfaces/Python/RNA_wrap.cpp']
 
     # append include paths required to build the Python interface

@@ -155,3 +155,45 @@ real allocations before it could be trusted to fire correctly.
   Python imported it as an empty **namespace package** — so `import RNA` succeeded and
   `RNA.cuda_devices` did not exist. Same class as the fallback failures elsewhere in this
   project: the probe reached something, just not its subject.
+
+---
+
+## 6. Re-checked 2026-09-30 against the live README — two more paths, two defects fixed
+
+The README documents six paths. Clone and `--prefix` were §1–§2. Two more were testable:
+
+**The release tarball — PASSES.** `tar -zxvf ViennaRNA-2.7.2.tar.gz && ./configure &&
+make && make install`, with NO `autoreconf`, from a tarball built by `make distdir`: CUDA
+backend yes, the installed `RNAfold` swept on the device and matched the CPU byte for byte.
+All 30 tracked `mfe/cuda` files are distributed (their `EXTRA_DIST` is deliberately
+unconditional, so a tarball made on a machine without CUDA still carries the kernels).
+One caveat, and it is upstream's: `make dist` from a `--without-doc` tree fails in `doc/`
+(it needs Sphinx to produce the distributed pages), so the test tarball skipped `doc/` —
+TBI builds releases with the doc toolchain present.
+
+**DEFECT 1 — on a machine with NO CUDA, `./configure && make` FAILED.** `interfaces/RNA.i`
+includes `cuda.i` unconditionally, so the Python and Perl modules reference
+`vrna_cuda_devices()` on every build; but `engine.c`, its only definition, was compiled
+only inside the CUDA conditional. The module linked with the symbol undefined, `make`
+byte-compiles the package — which imports it — and the build stopped with
+`ImportError: … undefined symbol: vrna_cuda_devices`. That is every upstream user without
+an NVIDIA toolkit who has Python and SWIG. **The CPU-only bar could not see it:
+`tests/zeroconf_configure.sh` configures `--without-python`.** Fix: without CUDA,
+`Makefile.am` builds `engine.c` alone (host compiler, its existing stubs). Verified from a
+clean clone with `--disable-cuda`: `make` OK, 0 undefined `vrna_cuda` symbols,
+`RNA.cuda_devices() == 0`, `RNA.cuda_fold()` equals `RNA.fold()`.
+
+**DEFECT 2 — `python -m build` after `./configure` FAILED.** The generated `setup.py`
+globs `src/ViennaRNA/**/*.c*`, which catches six `.cu` files (setuptools:
+`UnknownFileType`) and `fill_arrays*.c` / `mb_loop_fast.c`, which are `#include`d or
+unbuilt. Fix: `setup.py.in` keeps only `engine.c` from `mfe/cuda` and compiles it with
+`VRNA_CUDA_HOST_ONLY`, which `engine.c` honours by un-defining `VRNA_WITH_CUDA` for itself.
+**Not** by adding `VRNA_WITH_CUDA` to setup.py's `comment_lines()` list: that rewrites
+`config.h` in place and permanently, so a later `make` in the same tree would build a CLI
+that silently never accelerates. Verified in a CUDA-configured tree (the README's exact
+case): the wheel builds, compiles only `engine.o` from `mfe/cuda`, imports, folds equal to
+`RNA.fold()`, and `config.h` still defines `VRNA_WITH_CUDA` afterwards. The wheel is
+CPU-only by design; the accelerated module is the one `make install` builds.
+
+**Still owed:** the CPU-only bar should build the Python module, since that is where this
+hid. conda / PyPI / prebuilt binaries are distribution channels the tree cannot satisfy.

@@ -17,6 +17,21 @@
 #include "config.h"
 #endif
 
+/* VRNA_CUDA_HOST_ONLY: the Python wheel (setup.py, `python -m build`) compiles
+ * this file with the HOST compiler and nothing else from mfe/cuda -- setuptools
+ * cannot build .cu sources. So it must take the no-CUDA branch below even when
+ * ./configure found CUDA and wrote VRNA_WITH_CUDA into config.h: the wheel then
+ * exports the same stubs a --disable-cuda build does (cuda_devices() == 0, the
+ * batch backend declines, folds go through upstream's vrna_mfe()).
+ *
+ * Done HERE, per translation unit, rather than by editing config.h -- setup.py's
+ * comment_lines() rewrites config.h in place and permanently, so un-defining it
+ * there would leave a later `make` in the same tree building a CLI that silently
+ * never accelerates. */
+#ifdef VRNA_CUDA_HOST_ONLY
+#undef VRNA_WITH_CUDA
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
