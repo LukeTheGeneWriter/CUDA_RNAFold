@@ -15,13 +15,14 @@
 # not evidence that the device was used. Every accelerated arm here demands POSITIVE
 # evidence -- the `sweep shape:` line -- and treats its absence as a failure.
 #
-# Six cases:
+# Seven cases:
 #   1  bare ./configure, toolkit present   -> accelerated       (criterion 1)
 #   2  bare RNAfold, no environment at all -> device is used     (criterion 2)
 #   3  --disable-cuda                      -> off, still builds
 #   4  --enable-cuda, toolkit hidden       -> configure FAILS, does not downgrade
 #   5  bare ./configure, toolkit hidden    -> succeeds, CPU-only (criterion 6)
 #   6  the two builds' output is identical
+#   7  no toolkit, WITH the Python module  -> make OK, import RNA OK (the 6e39905b break)
 #
 # HIDING THE TOOLKIT IS THE FIDDLY PART. A first attempt filtered PATH entries whose
 # name contained "cuda", which never reached the branch it claimed to test, because
@@ -39,7 +40,7 @@ TREE=${1:-$HOME/lfb}
 WORK=${TMPDIR:-$HOME}/zeroconf.$$
 COMMON="--without-perl --without-python --without-swig --without-doc
         --without-rnaxplorer --without-forester --without-kinfold --without-rnalocmin"
-# Overridable: this runs three full builds back to back, and on a small host that
+# Overridable: this runs four full builds back to back, and on a small host that
 # is enough memory pressure to get the run killed from outside.
 JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
 
@@ -167,6 +168,62 @@ if [ -s "$WORK/cpu.out" ] && [ -s "$WORK/gpu.out" ]; then
     || bad "the two builds disagree"
 else
   bad "cannot compare: one of the two runs produced nothing"
+fi
+
+echo "=== 7. no toolkit, WITH the Python module -- what a default CPU-only install builds"
+# Every case above uses COMMON, i.e. --without-python --without-swig, and that is
+# exactly where a shipped break hid (found 2026-09-30, fixed in 6e39905b): RNA.i
+# includes cuda.i unconditionally, engine.c -- the only vrna_cuda_devices() -- was
+# built only with CUDA, and `make` byte-compiles the package, which imports it, so a
+# machine with Python and SWIG but no nvcc could not `./configure && make` at all.
+# Upstream's default configure builds this module whenever python3 and swig exist.
+PYCOMMON="--without-perl --without-doc
+          --without-rnaxplorer --without-forester --without-kinfold --without-rnalocmin"
+if ! $NOCUDA_ENV sh -c 'command -v swig' >/dev/null 2>&1; then
+  bad "swig is not reachable, so the Python module cannot be built -- install swig"
+elif $NOCUDA_ENV ./configure $PYCOMMON > "$WORK/c8.log" 2>&1; then
+  cuda_on && bad "CUDA was enabled although no toolkit was reachable" \
+           || pass "configure succeeded with CUDA off and Python on"
+  if $NOCUDA_ENV make -j"$JOBS" > "$WORK/m8.log" 2>&1; then
+    pass "CPU-only build WITH the Python module"
+    MOD=$(find interfaces/Python -name '_RNA*.so' | head -1)
+    if [ -z "$MOD" ]; then
+      bad "make succeeded but built no Python extension -- the case proves nothing"
+    else
+      n=$(nm -D --undefined-only "$MOD" | grep -c 'vrna_cuda')
+      [ "$n" -eq 0 ] && pass "no undefined vrna_cuda symbols in $(basename "$MOD")" \
+                     || bad "$n undefined vrna_cuda symbol(s) in the module"
+      # Import from the BUILD tree, and prove it is that module and not an
+      # installed one: a passing import can be the wrong package.
+      (cd "$WORK" && PYTHONPATH="$TREE/interfaces/Python" python3 - "$FA" "$TREE" \
+          > "$WORK/py.out" 2>&1 <<'PY'
+import os, sys
+import RNA
+fa, tree = sys.argv[1], sys.argv[2]
+assert os.path.realpath(RNA.__file__).startswith(os.path.realpath(tree)), RNA.__file__
+print("devices", RNA.cuda_devices())
+seqs = [l.strip() for l in open(fa) if l.strip() and not l.startswith(">")][:3]
+got  = [(s, round(e, 2)) for s, e in RNA.cuda_fold(seqs)]
+ref  = [(RNA.fold(q)[0], round(RNA.fold(q)[1], 2)) for q in seqs]
+print("agree", got == ref, len(got))
+PY
+      )
+      if grep -q '^devices 0$' "$WORK/py.out"; then
+        pass "import RNA works; RNA.cuda_devices() == 0 on the CPU-only build"
+      else
+        bad "import RNA failed or reported devices (see $WORK/py.out)"
+        head -3 "$WORK/py.out" | sed 's/^/          /'
+      fi
+      grep -q '^agree True 3$' "$WORK/py.out" \
+        && pass "RNA.cuda_fold() equals RNA.fold() -- it falls back to the host" \
+        || bad "RNA.cuda_fold() disagrees with RNA.fold() or returned nothing"
+    fi
+  else
+    bad "CPU-ONLY BUILD WITH PYTHON FAILED -- a default install on a machine without nvcc (see $WORK/m8.log)"
+    grep -iE 'undefined symbol|\berror\b' "$WORK/m8.log" | head -5 | sed 's/^/          /'
+  fi
+else
+  bad "configure with Python on failed when no toolkit was present (see $WORK/c8.log)"
 fi
 
 echo "=== restoring the accelerated configuration"

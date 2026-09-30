@@ -195,5 +195,5 @@ case): the wheel builds, compiles only `engine.o` from `mfe/cuda`, imports, fold
 `RNA.fold()`, and `config.h` still defines `VRNA_WITH_CUDA` afterwards. The wheel is
 CPU-only by design; the accelerated module is the one `make install` builds.
 
-**Still owed:** the CPU-only bar should build the Python module, since that is where this
-hid. conda / PyPI / prebuilt binaries are distribution channels the tree cannot satisfy.
+**Closed:** `tests/zeroconf_configure.sh` case 7 now builds the Python module with no toolkit
+reachable and imports it (all 7 cases pass). conda / PyPI / binaries remain out of scope.
