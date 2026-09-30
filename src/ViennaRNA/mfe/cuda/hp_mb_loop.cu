@@ -1105,6 +1105,44 @@ bind_row_tables(const int i) {
 // instantiated compile-time constants -- hence an explicit allow-list, and an
 // invalid value warns and falls back rather than silently picking something
 // that was never instantiated.
+/* RNA_FML_SCAN=2: K consecutive elements per thread -- see fml_scan_block2. */
+template<int TW, int K>
+__global__ void
+fml_scan2_kernel(const int nfiles, const int i_row, const int turn,
+                 const int*  __restrict__ new_e, const int*  __restrict__ e3p00,
+                 const int*  __restrict__ gq_row, const int*  __restrict__ fml_prev,
+                 const char* __restrict__ up_ml_ok, const cuda_param2_t* __restrict__ P,
+                       int*  __restrict__ energy_min,
+                 const size_t* __restrict__ row_off_H, const size_t* __restrict__ seq_off_H,
+                 const size_t* __restrict__ size_off_H, const int* __restrict__ i_H) {
+  const int H = blockIdx.x;
+  if(H >= nfiles) return;
+  __shared__ int sa[TW*K + (TW*K)/32];
+  __shared__ int sc[TW*K + (TW*K)/32];
+  __shared__ int wa[TW/32], wc[TW/32], sE;
+  fml_scan_block2<TW,K>(nfiles, i_row, turn, new_e, e3p00, gq_row, fml_prev, up_ml_ok, P,
+                        energy_min, row_off_H, seq_off_H, size_off_H, i_H, H,
+                        sa, sc, wa, wc, &sE);
+}
+
+/* 1 = the Hillis-Steele tile scan (default); 2 = K per thread. RNA_FML_SCAN_K picks K
+ * from {4, 8, 16}, default 8. Read once and announced, so an arm can prove it ran. */
+static int
+fml_scan_version(int* k_out) {
+  static int v = -1, k = 8;
+  if(v < 0) {
+    const char* e = getenv("RNA_FML_SCAN");
+    v = (e && e[0] == '2') ? 2 : 1;
+    const char* ek = getenv("RNA_FML_SCAN_K");
+    if(ek && ek[0]) { const int w = atoi(ek); if(w == 4 || w == 8 || w == 16) k = w; }
+    if(v == 2)
+      fprintf(stderr,"%-24s RNA_FML_SCAN=2 ACTIVE: %d elements per thread, 256 threads, "
+                     "tile %d (was 256 with 16 barriers)\n", __FILE__, k, 256*k);
+  }
+  if(k_out) *k_out = k;
+  return v;
+}
+
 static int
 fml_scan_tile(void) {
   static int v = -1;
@@ -1170,6 +1208,19 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   // to be TOLD that row i's c is written -- program order no longer says it.
   // The tables it reads are row i's own slot, which nothing overwrites.
   rnafold_stream_md_wait_cell();
+  int scan_k = 8;
+  if(fml_scan_version(&scan_k) == 2) {
+#define FML_SCAN2_LAUNCH(K) \
+    fml_scan2_kernel<256,K><<<nfiles,256,0,rnafold_stream_md()>>>(nfiles, RNA_I_ROW(i), turn, \
+        d_new_e_, P3P_ROW(i), rnafold_gq_row_device(), d_fml_prev_, d_up_ml_ok, d_param2, \
+        d_energy_min_, d_row_off_H, d_seq_off_H, d_size_off_H, d_i_H)
+    switch(scan_k) {
+      case  4: FML_SCAN2_LAUNCH(4);  break;
+      case 16: FML_SCAN2_LAUNCH(16); break;
+      default: FML_SCAN2_LAUNCH(8);  break;
+    }
+#undef FML_SCAN2_LAUNCH
+  } else
   switch(fml_scan_tile()) {
     case   32: FML_SCAN_LAUNCH(  32); break;
     case   64: FML_SCAN_LAUNCH(  64); break;

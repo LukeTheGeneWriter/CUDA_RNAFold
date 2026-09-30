@@ -968,3 +968,25 @@ across sync arms.**
   kernels 45.5 µs/row → 18.9 with `RNA_MD_TAIL` + `RNA_NEW_C_STORE`; `fml_scan` 15 µs and
   growing with the row (one block per record, ~width/256 serial tiles on the critical
   path) — the next suspect, pending the A100's §E.
+
+**Fourth pass (2026-09-30) — `fml_scan`, measured then rebuilt.** `ncu` on the laptop,
+6 × 3000: the Hillis-Steele tile scan costs **~12.5 µs per 256-wide tile + ~10 µs fixed**
+(22.9 µs at width 100 → 163 µs at width 2800), because each tile is 16 `__syncthreads` on
+one block per record — barrier latency on the critical path between `c(i)` and `md(i)`,
+which a faster device does not buy back. `RNA_FML_SCAN=2` (`fml_scan_block2`, gated OFF)
+gives each thread K consecutive elements: coalesced staging, a register compose, a
+warp-shuffle scan of the aggregates, and then a **re-walk with the host's own recurrence**
+from an exact incoming value — so every stored value comes from the literal recurrence,
+and the only regrouped quantity is the same kind every TW of the original already is.
+
+| width | ~100 | ~1000 | ~2000 | ~2800 |
+|---|---|---|---|---|
+| old | 22.9 | 60.7 | 110.9 | 163.1 µs |
+| K=4 | 22.0 | 25.1 | 38.5 | 51.0 |
+| K=8 (default under the knob) | 27.5 | 31.2 | 33.5 | 51.8 |
+| K=16 | 34.3 | 40.4 | 45.8 | 50.8 |
+
+240 runs (4 fixtures × plain/noLP/circ/-g × K 4/8/16 × default, all-knobs at overlap
+0/1/2, int32), 239 swept, **0 differing from the CPU**. The first-element-not-identity rule
+in the per-thread compose is load-bearing: composing from `(INF,0)` would apply
+`min(a, INF)` to a first element that hazard 1 lets exceed INF.
