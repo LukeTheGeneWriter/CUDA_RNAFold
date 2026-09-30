@@ -197,3 +197,26 @@ CPU-only by design; the accelerated module is the one `make install` builds.
 
 **Closed:** `tests/zeroconf_configure.sh` case 7 now builds the Python module with no toolkit
 reachable and imports it (all 7 cases pass). conda / PyPI / binaries remain out of scope.
+
+## 7. Second pass, 2026-09-30 — the full `python -m build` route, and the binding under the new defaults
+
+- **`python -m build` builds an sdist FIRST and the wheel from it**, which the §6 check
+  (`pip wheel .` from the tree) did not exercise. Verified: the sdist carries only
+  `engine.c` from `mfe/cuda` (plus headers — setuptools adds every `Extension` source, and
+  `MANIFEST.in` already includes `*.h *.inc`), the wheel builds from the sdist alone,
+  imports, and folds equal to `RNA.fold()`.
+- **The binding's suite, 8/8, on a CUDA + Python build with the 2026-09-30 defaults**,
+  11 device sweeps on stderr — and a one-process probe of 26 batches over 13 model
+  switches (plain, noLP and salt int16 stand-downs, circ, gquad, dangles 0, 25 °C), 0
+  mismatching `fold_compound.mfe()` under the same model, 29 sweeps.
+- **DEFECT FIXED: `RNA.cuda_fold(["A"])` SEGFAULTED the interpreter.** A batch whose
+  records are all ≤ 3 nt never sweeps, and that branch of `par_fill_arrays()` filled the
+  host c/fML triangles that `par_mfe()` had already freed and NULLed. The fill was also
+  dead: `backtrack_all()` fetches the (already INF) device triangles afterwards. Removed;
+  now a suite case (`test_records_too_short_to_pair`, 9/9). RNAfold never hands the device
+  such a chunk, so no CLI bar could reach it — the binding's second call found it again.
+
+Noted, not changed: the library ignores `RNA_GPU=0` (it is the CLI's off switch), so a
+Python caller cannot turn the device off except by not calling `cuda_fold`; `cuda_fold`
+holds the GIL for the whole fold; and the wheel is CPU-only by design — the accelerated
+module is the one `make install` builds.

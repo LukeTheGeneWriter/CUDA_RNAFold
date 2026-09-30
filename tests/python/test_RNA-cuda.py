@@ -44,6 +44,18 @@ class cuda_batchTest(unittest.TestCase):
         """An empty batch is an empty result, not a crash"""
         self.assertEqual(len(RNA.cuda_fold([])), 0)
 
+    def test_records_too_short_to_pair(self):
+        """A batch whose records are all <= 3 nt folds instead of crashing
+
+        Such a batch never sweeps, and the no-sweep branch of par_fill_arrays()
+        used to fill the host c/fML triangles -- which par_mfe() had already freed
+        and NULLed, so RNA.cuda_fold(["A"]) SEGFAULTED the interpreter. RNAfold
+        never hands the device a chunk like this, so no CLI bar could see it."""
+        for seqs in (["A"], ["AC", "ACG"], ["A", "C", "GGG"], ["", "A"]):
+            got = [(s, round(e, 2)) for s, e in RNA.cuda_fold(seqs)]
+            ref = [(RNA.fold(q)[0], round(RNA.fold(q)[1], 2)) for q in seqs]
+            self.assertEqual(got, ref, seqs)
+
     def test_batch_matches_the_cpu(self):
         """A batch agrees with vrna_mfe() record for record"""
         rng = random.Random(4242)

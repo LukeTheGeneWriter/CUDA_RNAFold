@@ -386,14 +386,17 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
   /* start recursion */
 
   if (length <= turn){
-    // No sweep and no fetch_my_c()/fetch_fML() on this path, so the triangles
-    // the prefill above no longer touches are still uninitialised here, and
-    // backtrack() is about to read them. Fill them now -- free, because this
-    // branch only triggers when every record is at most `turn` (3) bases.
-    for(int H=0;H<nfiles;H++)
-      for(j = 1; j <= (int)VC[H]->length; j++)
-        for(i = 1; i <= j; i++)
-          My_c(H,Indx(H,i,j)) = My_fML(H,Indx(H,i,j)) = INF;
+    // No sweep. This used to fill the HOST c/fML triangles with INF here, and it
+    // SEGFAULTED: par_mfe() frees every record's c/fML and NULLs the pointers before
+    // this function runs (the scratch-pool change), so the fill wrote through NULL.
+    // Reached by any batch whose records are all <= turn (3) nt -- e.g.
+    // RNA.cuda_fold(["A"]) killed the interpreter (found 2026-09-30); RNAfold never
+    // hands the device such a chunk, which is why no CLI bar saw it.
+    //
+    // Nothing needs filling. backtrack_all() still runs after this return and
+    // fetches each record's triangles from the DEVICE into a scratch pair, and those
+    // are already INF: init_my_c() in init_gpu2() and init_fML() above.
+    (void)i; (void)j;
     /* clean up memory */
     //free(cc);
     //free(cc1);
