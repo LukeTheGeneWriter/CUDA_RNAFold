@@ -809,6 +809,13 @@ load_my_c(const int nfiles,
   if(rnafold_load_my_c_sync())
     gpuErrchk( cudaDeviceSynchronize() );
 #endif
+  // RNA_NEW_C_STORE: new_c already wrote row i into d_my_c. The sync above and the
+  // event below are KEPT, so this knob prices the deleted launch alone and does not
+  // silently absorb RNA_LOAD_MY_C_SYNC's effect -- the confound the row fusion has.
+  if(rnafold_new_c_stored_row(i)) {
+    rnafold_stream_cell_done();
+    return;
+  }
   //for simplicity transfer all new_e, even though only need H * [start:length]
   // GPU-resident sweep: in device mode new_c_kernel has already written d_new_e
   // directly, so uploading the host's copy over it is exactly the round trip

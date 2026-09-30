@@ -924,3 +924,27 @@ confound with a fair control (`ov0` + `RNA_LOAD_MY_C_SYNC=0`).
 wrappers. Remove a sync and they record issue time — `gpu_total` fell 50–66 % in every
 no-sync arm of the laptop dry run while the wall barely moved. **Only the wall compares
 across sync arms.**
+
+**Second sweep (2026-09-30) — one more redundancy, and the nulls.**
+
+- **`load_my_c`'s kernel only copies the row `new_c` just wrote**, same size range, same
+  flattening, same (cell) stream at every overlap level. `RNA_NEW_C_STORE=1` has `new_c`
+  store the triangle itself (`new_c_store_kernel`). It is the part of the row fusion with
+  no stream conflict: the fusion also pulls in `hp_mb`, which is why it refuses at
+  overlap ≥ 1. `load_my_c()` keeps its sync and its level-2 event, so this knob prices the
+  launch alone. 223 GPU arms, 0 differing from the CPU. With all four knobs a default row
+  is **6 GPU operations and 0 host blocks, from 11 and 2**.
+- **The per-row CUDA graph is now in question.** With the tail at 2 nodes, a capture +
+  update per row may cost more than two direct launches; the notebook times `all_nog`.
+- **Checked and NOT levers:** the host `c`/`fML` that `vrna_fold_compound_prepare()`
+  allocates and `par_mfe()` frees at once is `calloc` → untouched `mmap` pages, not a fill;
+  int16 `fML` crosses PCIe at 16 bits and widens on the host; `sanity()` is 1.7 KB per
+  record; per-row host bookkeeping is O(nfiles).
+- **Noted, not built:** (1) `par_fill_arrays()` still pins ten host row buffers per chunk
+  that only `RNA_ROW_VERIFY` reads (cheap, but `modular_decomposition_cuda()`'s side-0 path
+  writes host `DMLi`, so removal needs care); (2) every thread-per-cell kernel repeats the
+  `flatten_index_to_H` binary search — H6's `blockIdx.y` deleted it from `int_loop` for
+  −7.6 %; (3) the exit path fetches whole `c`/`fML` triangles for a sparse backtrack
+  (T2 / device backtrack); (4) on a cold start the router measured device reach at 1.5 s
+  and sent a small fixture to the CPU — harmless to the answer, but it silently turns a
+  GPU check into a CPU check, which is why every arm now asserts it swept.
