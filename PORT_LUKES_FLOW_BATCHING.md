@@ -990,3 +990,49 @@ and the only regrouped quantity is the same kind every TW of the original alread
 0/1/2, int32), 239 swept, **0 differing from the CPU**. The first-element-not-identity rule
 in the per-thread compose is load-bearing: composing from `(INF,0)` would apply
 `min(a, INF)` to a first element that hazard 1 lets exceed INF.
+
+### 9.12 The A100 prices the row barriers (2026-09-30, `154750e2`, RowBarriers notebook)
+
+**Correctness first, all clean.** A1: `-g` on a G-rich fixture at the default, 4/4 equal
+to the CPU. A2: every knob combination × plain/noLP/circ/-g equal to the CPU, swept, knob
+confirmed. **D: the previous commit `6634d6cd` gave 4/4 WRONG `-g` answers on the A100** —
+the shipped defect is confirmed on the production device. B and C: one sha per grid.
+
+**B, 400 × 5601, two reps ABBA, spread ≤ 1 %** (walls; `gpu_total` is issue time once a
+sync is gone, exactly as the laptop warned — it read −85 % for `all`):
+
+| arm | wall | vs dflt |
+|---|---|---|
+| dflt (overlap 1, table on) | 72.57 | — |
+| hpt0 (old hairpin path) | 72.37 | −0.3 % (noise: fast FP64 here) |
+| nomyc | 71.84 | −1.0 % |
+| nomd | 72.25 | −0.4 % |
+| **nosync** (both) | 70.41 | **−3.0 %** — more than the parts (−1.4 %): queueing ahead is the win |
+| tail | 71.29 | −1.8 % |
+| store | 72.38 | −0.3 % |
+| all3 | 68.72 | −5.3 % |
+| all (4 knobs) | 68.73 | −5.3 % — `store` adds nothing on top |
+| all_nog | 68.23 | −6.0 % — the per-row graph now costs more than it saves |
+| ov2 | 71.39 | −1.6 % |
+| **all_ov2** | **67.91** | **−6.4 %** — int_loop ∥ md pays once nothing drains per row |
+| ov0 | 73.88 | +1.8 % (level 1 is worth 1.8 %) |
+| ov0_fuse vs ov0_nomyc | 71.97 vs 72.57 | **−0.8 %: 69 % of the fusion's win was load_my_c's sync** |
+
+**E, `ncu` mid-sweep at 5601 (µs/launch):** md 569, int_loop 441–451 — 88 % of a row's
+device time. The rest: hp_mb 41, fml_scan 30, and the old md-side small kernels 77 µs →
+46 µs with `RNA_MD_TAIL` + `RNA_NEW_C_STORE` (−31 µs of 1158 per row). **fml_scan is
+~5× cheaper here than the laptop predicted** (30 µs at width ~2800 vs 148), so
+`RNA_FML_SCAN=2` is worth ~1–2 % at most on this device, not the several seconds feared.
+
+**C, 200 × 1500: uninformative.** A 2.8 s wall is dominated by fixed per-run cost
+(gpu_total 1.4 s), so every arm sits inside a 2–5 % spread. The "cheap rows" regime needs
+a fixture with many rows AND enough records to amortise start-up — not this one.
+
+**What it decides:**
+1. **`RNA_LOAD_MY_C_SYNC=0`, `RNA_MD_ROW_SYNC=0`, `RNA_MD_TAIL=1` should become the
+   defaults** — −5.3 %, byte-identical on both devices, every combination checked against
+   the CPU. `RNA_NEW_C_STORE` is neutral on top (strictly less work; default it too or not).
+2. **Row fusion (stage 3 step a) is closed**: its fair gain is −0.8 %.
+3. **Next measurements:** `all_ov2` + graph off (the two best effects have never been
+   combined), level 2 through the stress soak before it can be a default, and the
+   `fml_scan` / `unroll2` arms the later notebook already carries.
