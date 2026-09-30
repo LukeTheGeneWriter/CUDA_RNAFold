@@ -625,6 +625,11 @@ PUBLIC void          rnafold_rowtab_upload_row(const int i);
 PUBLIC void rnafold_phase_sync(void);
 PUBLIC int  rnafold_sync_probe(void);       /* RNA_SYNC_PROBE, negative control */
 PUBLIC void rnafold_sync_probe_tick(void);
+PUBLIC void rnafold_device_drain(void);     /* cudaDeviceSynchronize, device.cu */
+PUBLIC int  rnafold_load_my_c_sync(void);   /* RNA_LOAD_MY_C_SYNC, device.cu */
+PUBLIC int  rnafold_md_row_sync(void);      /* RNA_MD_ROW_SYNC, modular_decomposition.cu */
+PUBLIC int  rnafold_md_tail(void);          /* RNA_MD_TAIL, modular_decomposition.cu */
+PUBLIC int  rnafold_md_tail_closed_row(const int i);
 PUBLIC int  rnafold_phase_sync_enabled(void);
 
 // RNA_LAUNCH_STATS -- per-launch DEVICE time for int_loop_kernel, so a phase

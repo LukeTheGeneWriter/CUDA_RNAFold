@@ -794,7 +794,20 @@ load_my_c(const int nfiles,
 
 #ifdef NDEBUG
   //check here in case of earlier errors
-  gpuErrchk( cudaDeviceSynchronize() );
+  //
+  // INVERTED, AND LIVE SINCE 709a072e (2026-09-05). "In case of earlier errors" is a
+  // debug check, but NDEBUG is the RELEASE macro: this was dead until -DNDEBUG first
+  // reached nvcc, and since then every release build has drained the whole device
+  // once per sweep row, here. RNA_ROW_FUSE never calls load_my_c(), so it deletes
+  // this sync as a side effect -- which confounds the fusion's measured win.
+  //
+  // RNA_LOAD_MY_C_SYNC=0 removes it so the two can be priced apart. Default
+  // unchanged until the A100 has measured it. Cross-stream order no longer leans on
+  // it: the per-row legacy-stream work (gq_internal, the noLP cc reset, the DMLi
+  // snapshot) moved onto the cell/md streams, and hp_mb waits on the scan event at
+  // level 1 as well as 2 (2026-09-29).
+  if(rnafold_load_my_c_sync())
+    gpuErrchk( cudaDeviceSynchronize() );
 #endif
   //for simplicity transfer all new_e, even though only need H * [start:length]
   // GPU-resident sweep: in device mode new_c_kernel has already written d_new_e
@@ -1463,7 +1476,12 @@ gq_internal_i(const int nfiles, const int i, const int turn_, const size_t* size
 
   const int block = 128;
   const size_t grid = (total + block - 1)/block;
-  gq_internal_kernel<<<(unsigned int)grid,block>>>(
+  /* ON THE CELL STREAM (2026-09-29). This MIN2s into d_energy_min2, which
+   * int_loop_kernel(i) writes and new_c(i) reads, both on the cell stream. It
+   * used to go to the legacy default stream, and at RNA_STREAM_OVERLAP >= 1 --
+   * the default -- the cell stream is NON-BLOCKING, so nothing ordered this
+   * read-modify-write against int_loop's plain stores to the same cells. */
+  gq_internal_kernel<<<(unsigned int)grid,block,0,rnafold_stream_cell()>>>(
       nfiles, turn_, g_s_stride, d_param, d_S, d_pair,
       d_row_off_H, d_size_off_H, d_i_H, d_energy_min2,
       gv, gc, gr, ge_, gro);

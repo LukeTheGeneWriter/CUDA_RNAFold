@@ -225,6 +225,43 @@ rnafold_sync_probe_tick(void)
 }
 
 
+/* RNA_LOAD_MY_C_SYNC=0: skip load_my_c()'s per-row cudaDeviceSynchronize (see
+ * int_loop.cu for why it exists at all). Default 1 -- today's behaviour. */
+extern "C" int
+rnafold_load_my_c_sync(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_LOAD_MY_C_SYNC");
+
+    v = (e && e[0] == '0') ? 0 : 1;
+    if (!v)
+      fprintf(stderr, "device.cu                RNA_LOAD_MY_C_SYNC=0: no device sync "
+                      "in load_my_c (was one per sweep row in every release build)\n");
+  }
+
+  return v;
+}
+
+
+/* Every stream, including the non-blocking ones the legacy stream does not
+ * order against. For the host-side points that READ what the sweep wrote
+ * mid-sweep (slot flow's retire fetch): they used to be covered by the md
+ * chain's per-row host sync, which RNA_MD_ROW_SYNC=0 removes. */
+extern "C" void
+rnafold_device_drain(void)
+{
+  const cudaError_t rc = cudaDeviceSynchronize();
+
+  if (rc != cudaSuccess) {
+    fprintf(stderr, "device.cu                device drain failed: %s\n",
+            cudaGetErrorString(rc));
+    exit(EXIT_FAILURE);
+  }
+}
+
+
 /* ===================== RNA_STREAM_OVERLAP: the row's streams =====================
  *
  * The row loop issues six kernels and every one of them has always gone to the
@@ -338,6 +375,13 @@ rnafold_streams_init(void)
      * synchronisation the schedule is trying to avoid. */
     cudaEventCreateWithFlags(&g_ev_hp,   cudaEventDisableTiming);
     cudaEventCreateWithFlags(&g_ev_cell, cudaEventDisableTiming);
+    /* The scan edge is needed at level 1 TOO (2026-09-29). There the hp/mb row
+     * buffers are single, so hp_mb(i-1) overwrites what fml_scan(i) reads; the
+     * only thing that ever ordered them was md's per-row host sync, which was
+     * documented as an error checkpoint and nothing more. RNA_MD_ROW_SYNC=0
+     * removed it and 6 of 72 level-1 arms returned wrong answers. */
+    cudaEventCreateWithFlags(&g_ev_scan[0], cudaEventDisableTiming);
+    cudaEventCreateWithFlags(&g_ev_scan[1], cudaEventDisableTiming);
 
     /* Level 2 only: the md chain gets a stream of its own so that row i's
      * fml_scan -> md -> fml_prev -> snapshot runs beside row i-1's int_loop and
@@ -349,8 +393,6 @@ rnafold_streams_init(void)
         g_stream_md = 0;
       } else {
         cudaEventCreateWithFlags(&g_ev_md, cudaEventDisableTiming);
-        cudaEventCreateWithFlags(&g_ev_scan[0], cudaEventDisableTiming);
-        cudaEventCreateWithFlags(&g_ev_scan[1], cudaEventDisableTiming);
       }
     }
   }
@@ -410,19 +452,21 @@ rnafold_stream_md_done(void)
 extern "C" void
 rnafold_stream_scan_done(int i)
 {
-  if (g_ev_scan[0] && g_stream_md)
-    (void)cudaEventRecord(g_ev_scan[i & 1], g_stream_md);
+  if (g_ev_scan[0])
+    (void)cudaEventRecord(g_ev_scan[i & 1], rnafold_stream_md());
 }
 
-/* hp_mb_3p(i) may not write its parity until the fml_scan that last read it is
- * done -- which is row i+2's, recorded two rows ago. Unrecorded on the first
- * two rows, where the wait is a no-op, which is correct: nothing has read them
- * yet. */
+/* hp_mb_3p(i) may not write its buffer until the fml_scan that last read it is
+ * done. Level 2 double-buffers on parity, so that is row i+2's, recorded two
+ * rows ago. Level 1 has ONE buffer, so it is row i+1's -- the previous row.
+ * Unrecorded on the first rows, where the wait is a no-op, which is correct:
+ * nothing has read them yet. */
 extern "C" void
 rnafold_stream_wait_scan(int i)
 {
-  if (g_ev_scan[0] && g_stream_md && g_stream_hp)
-    (void)cudaStreamWaitEvent(g_stream_hp, g_ev_scan[i & 1], 0);
+  if (g_ev_scan[0] && g_stream_hp)
+    (void)cudaStreamWaitEvent(g_stream_hp,
+                              g_ev_scan[(g_stream_md ? i : i + 1) & 1], 0);
 }
 
 extern "C" void

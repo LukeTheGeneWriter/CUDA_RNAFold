@@ -1347,7 +1347,9 @@ nolp_rotate_cc(void) {
   int* t = d_cc1; d_cc1 = d_cc; d_cc = t;
   if(g_row_total == 0) return;
   const size_t nb = (g_row_total + 512 - 1)/512;
-  nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc);
+  /* On the cell stream, where new_c reads d_cc1 and writes d_cc: the legacy
+   * stream is not ordered against it at RNA_STREAM_OVERLAP >= 1 (2026-09-29). */
+  nolp_init_kernel<<<(int)nb,512,0,rnafold_stream_cell()>>>(g_row_total, d_cc);
   gpuErrchk( cudaPeekAtLastError() );
 }
 
@@ -1543,6 +1545,9 @@ fml_prev_i(const int nfiles, const int i, const int turn,
            const int* i_H) {            //in, nfiles+1
   const size_t total = size_off_H[nfiles];
   if(total==0) return;
+  // RNA_MD_TAIL: md_close_row already wrote row i's fml_prev inside the md
+  // graph. Asked of the code that did it, not re-derived from the knob.
+  if(rnafold_md_tail_closed_row(i)) return;
 
   int* d_energy_min_ = NULL; int* d_dml_ = NULL; int* d_fml_prev_ = NULL;
   md_row_buffers(&d_dml_, NULL, &d_fml_prev_, &d_energy_min_);

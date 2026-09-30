@@ -873,3 +873,54 @@ reason, reports what `nvidia-smi` sees, and stops. Additionally:
 **Generalisation for this project:** whenever a fast path can silently fall back
 to a correct slow path, the bar must assert the fast path RAN, not that the
 answer is right. Answer-equality is exactly what a fallback preserves.
+
+### 9.11 The per-row barrier audit — three races live at the default, and three knobs (2026-09-29/30)
+
+A call-order trace of the default path (overlap 1, fusion off, int16, graph on) found the
+row loop issuing **11 GPU operations and 2 host blocks per row**, much of it inherited
+from infrastructure that no longer needs it.
+
+**Three races at the shipped default, each fixed unconditionally.** At
+`RNA_STREAM_OVERLAP=1` the cell stream is created NON-BLOCKING, so the legacy default
+stream is not ordered against it — the same class as the 2026-09-17 graph-off defect.
+Three per-row launches still went there:
+
+| launch | races against | exposure |
+|---|---|---|
+| `gq_internal_kernel` (RMW `min` into `d_energy_min2`) | `int_loop`'s plain stores, `new_c`'s read | **`-g`: a shipped wrong answer.** `6634d6cd`, G-rich fixture, default env: 5 of 5 GPU runs wrong, 5 different shas |
+| `nolp_rotate_cc`'s INF re-init of `d_cc` | `new_c` | `--noLP`, in principle |
+| `md_snapshot_dml`'s D2D copy into `d_dml1` | `new_c(i-1)` | every fold; only the host syncs covered it |
+
+Random ACGU cannot see the `-g` one — its `-g` answer equals the plain answer — which is
+how it survived every parity bar. The fixture that caught it biases toward `GGGG` runs.
+
+**md's per-row host sync was load-bearing, and documented as not.** Its comment called it
+"the graph's only error checkpoint". At level 1 the hp/mb row buffers are single and
+`hp_mb_3p` has its own stream with no wait, so that sync was the only thing keeping
+`hp_mb(i-1)` from overwriting `energy_3p00_row` under `fml_scan(i)`. Removing it: 6 of 72
+level-1 arms wrong. Fixed by extending level 2's scan event to level 1 (previous row's
+scan, since there is one buffer). Negative control: that edge removed, 8/8 wrong.
+
+**Three knobs, default OFF, byte-identical in every arm:**
+
+| knob | removes |
+|---|---|
+| `RNA_LOAD_MY_C_SYNC=0` | `load_my_c()`'s per-row `cudaDeviceSynchronize` — an `#ifdef NDEBUG` debug check, live in release since `709a072e`. **The row fusion never calls `load_my_c`, so its −1.3 % is confounded by this sync** |
+| `RNA_MD_ROW_SYNC=0` | md's per-row host sync below level 2 (its stated reason, pageable per-row H2Ds, went with fix 3) |
+| `RNA_MD_TAIL=1` | `load_fML` + `fmli` + `load_min_fML` + `pack_fml` + `fml_prev` + the D2D snapshot → **md reading `fml_i` straight from `energy_min` + one close kernel + a pointer swap**: 7 ops → 2 |
+
+The close kernel keeps TWO write rules — the triangle is raw `energy_min` below the side
+range while `fml_prev` is `min(energy_min, INF)` — because the asymmetric INF guard makes
+them differ on near-INF values.
+
+**Bars:** 224 GPU arms × 4 fixtures × plain / `--noLP` / `--circ` / `-g`, 0 differing
+from the CPU, every arm confirmed to have swept; negative controls detected (tail without
+the swap 3/3 wrong; no level-1 scan edge 8/8; `gq_internal` back on legacy 4/4 at the
+default). **Measured nothing yet:** the laptop cannot resolve per-row costs.
+`tools/make_nb_rowbarriers.py` prices each knob on the A100 and settles the fusion
+confound with a fair control (`ov0` + `RNA_LOAD_MY_C_SYNC=0`).
+
+**A trap for reading it:** `gpu_total` and the phase timers are host clocks around the
+wrappers. Remove a sync and they record issue time — `gpu_total` fell 50–66 % in every
+no-sync arm of the laptop dry run while the wall barely moved. **Only the wall compares
+across sync arms.**

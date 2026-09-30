@@ -604,6 +604,14 @@ extern "C" void         rnafold_stream_md_done(void);
  * (found 2026-09-17 by the overlap bar's graph-off arm). */
 static cudaStream_t g_issue_stream = 0;
 #define ISSUE_STREAM (g_issue_stream ? g_issue_stream : graph_stream)
+
+/* RNA_MD_TAIL (see rnafold_md_tail()). g_md_tail_now is set by the row driver
+ * for the duration of the md chain and read by modular_decomposition_cuda();
+ * g_md_tail_row is the row the collapsed tail CLOSED, which is how fml_prev_i()
+ * and md_snapshot_dml() learn that their work is already done -- positive
+ * evidence from the code that did it, not a re-evaluation of the knob. */
+static int g_md_tail_now = 0;
+static int g_md_tail_row = -1;
 cudaGraphExec_t graph_exec       = NULL;
 
 // T2a (device.cu): device-to-host for backtrack worker w, through w's own
@@ -1065,6 +1073,25 @@ pack_fml_kernel(const int nfiles, const int i_row, const int turn, const int len
   // The arithmetic lives in md_chain_cells.inc so the megakernel runs exactly this code.
   pack_fml_cell(nfiles, i_row, turn, length, fml_row, fml_j16, fml_b, tri_off_H, row_off_H, base_off_H, colb_off, size_off_H, total, i_H,
                 blockIdx.x*blockDim.x+threadIdx.x);
+}
+
+/* RNA_MD_TAIL: load_fML + load_min_fML + pack_fml + fml_prev as one launch.
+ * See md_close_row_cell for why this is byte-identical. */
+__global__ void
+md_close_row_kernel(const int nfiles, const int i_row, const int turn,
+                    const int* __restrict__ energy_min,
+                    const int* __restrict__ dml,
+                          int* __restrict__ fml_prev,
+                          int* __restrict__ fml_j,
+                          short* __restrict__ fml_j16,
+                          int* __restrict__ fml_b,
+                    const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                    const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
+                    const size_t* __restrict__ size_off_H, const size_t total,
+                    const int* __restrict__ i_H) {
+  md_close_row_cell(nfiles, i_row, turn, energy_min, dml, fml_prev, fml_j, fml_j16, fml_b,
+                    tri_off_H, row_off_H, base_off_H, colb_off, size_off_H, total, i_H,
+                    blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 
@@ -2333,6 +2360,14 @@ void modular_decomposition_cuda(const int nfiles,
   */
 //gpuErrchk( cudaDeviceSynchronize() );
 
+  /* RNA_MD_TAIL: fml_i is not a buffer md needs. fmli_cell copies
+   * fml_i[row_off+y] = energy_min[row_off + i+turn+1 + y] (through d_fml_row or
+   * the triangle, both of which load_fML had just filled FROM energy_min), so in
+   * lock-step -- one i for every record, which md_tail_refuse() checks -- the
+   * same values are energy_min shifted by i+turn+1. md's own indexing is
+   * untouched; only the base pointer moves. */
+  const int* md_fml_i = g_md_tail_now ? (const int*)(d_energy_min + (i+turn+1)) : d_fml_i;
+  if(!g_md_tail_now)
   { /* Setup execution parameters for helper kernel */
     // g_block_size_fmli: chosen once in init_gpu() -- see the forward
     // declarations near the top of this file for why.
@@ -2388,7 +2423,7 @@ void modular_decomposition_cuda(const int nfiles,
 // The two kernels take identical arguments by construction -- one macro feeds
 // both, so a parameter added to one cannot be forgotten in the other.
 #define MD_ARGS nfiles, RNA_I_ROW(i), turn, length, \
-                d_fml_i, d_fml_j, \
+                md_fml_i, d_fml_j, \
                 d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, \
                 d_dml,   /*Out*/ \
                 rnafold_circ_fm2_device(), /*Out, NULL unless circular*/ \
@@ -2655,14 +2690,38 @@ md_snapshot_dml(void) {
   // The tail of the md chain. A BLOCKING cudaMemcpy here would serialise the
   // two streams every row whatever the events say, so at level 2 it is async on
   // the md stream and publishes the event new_c(i-1) waits on.
-  if(rnafold_stream_overlap() >= 2) {
+  //
+  // ORDERING FIX (2026-09-29): below level 2 this used to be a plain cudaMemcpy
+  // to the LEGACY default stream. At level 1 -- the default -- new_c runs on
+  // g_stream_cell, created NON-BLOCKING, so it is not ordered against the legacy
+  // stream at all, and a device-to-device cudaMemcpy does not block the host.
+  // Only the host syncs elsewhere in the row (md's per-row stream sync, and
+  // load_my_c's) kept new_c(i-1) from reading d_dml1 before this copy landed --
+  // the same class of hole the g_issue_stream fix above closed for the
+  // graph-off path. On rnafold_stream_md() it is ordered at every level: at 0
+  // that IS the legacy stream, at 1 it is the stream new_c runs on, at 2 the
+  // event covers it.
+  //
+  // RNA_MD_TAIL: and no copy at all -- the ROTATE the declaration comment above
+  // declined. Its reason was to keep the captured graph's parameters fixed, but
+  // they change every row regardless (i does), so a swapped pointer is one more
+  // parameter in an update that happens anyway, never a reinstantiate. Check
+  // the graph-stats line: the reinstantiate count must stay where it was.
+  // Equivalence: d_dml1 must hold row i's DMLi for new_c(i-1), and md(i-1) then
+  // overwrites d_dml. Swapping gives exactly that PROVIDED md(i-1) writes every
+  // cell a later reader takes from d_dml, and it does: a row's side range
+  // contains the previous row's, cells below it are never written (INF in both
+  // buffers from init_fML/reset_slot_md), and a record outside the sweep has
+  // width 0 until it joins. Readers fetch both pointers per launch through
+  // md_row_buffers().
+  if(g_md_tail_row >= 0) {
+    int *t = d_dml; d_dml = d_dml1; d_dml1 = t;
+    g_md_tail_row = -1;
+  } else {
     gpuErrchk( cudaMemcpyAsync(d_dml1, d_dml, g_row_total*sizeof(int),
                                cudaMemcpyDeviceToDevice, rnafold_stream_md()) );
-    rnafold_stream_md_done();
-  } else {
-    gpuErrchk( cudaMemcpy(d_dml1, d_dml, g_row_total*sizeof(int),
-                          cudaMemcpyDeviceToDevice) );
   }
+  rnafold_stream_md_done();   // a no-op below level 2
 }
 
 // Widens on the way out when the gate is on. The host's fML is int32 and every
@@ -3431,6 +3490,123 @@ rnafold_md_prune_report(void)
   }
 }
 
+/* ===================== RNA_MD_ROW_SYNC and RNA_MD_TAIL =====================
+ *
+ * Two changes to the md chain's per-row shape, both answer-neutral by
+ * construction and both GATED so one binary can A/B them (2026-09-29, from a
+ * call-order audit of the default path).
+ *
+ * RNA_MD_ROW_SYNC=0 drops the host's per-row cudaStreamSynchronize after the md
+ * chain below level 2. It is kept by default only until the A100 has priced it;
+ * a sync is a wait, never a write. Forced ON off the GPU-resident sweep, where
+ * the host reads DMLi back and needs the copy to have landed.
+ *
+ * RNA_MD_TAIL=1 replaces
+ *     load_fML -> fmli -> md -> load_min_fML -> pack_fml     (graph)
+ *     fml_prev                                                (md stream)
+ *     md_snapshot_dml: a whole-row D2D copy                   (md stream)
+ * with
+ *     md (reading fml_i out of energy_min) -> md_close_row   (graph)
+ *     a d_dml/d_dml1 pointer swap                             (host)
+ * because fmli only copies energy_min, and load_min_fML and fml_prev compute the
+ * same min(energy_min, DMLi). Two GPU operations instead of seven. */
+extern "C" int
+rnafold_md_row_sync(void)
+{
+  static int v = -1;
+
+  if(v < 0) {
+    const char* e = getenv("RNA_MD_ROW_SYNC");
+    v = (e && e[0] == '0') ? 0 : 1;
+    if(!v && !rnafold_gpu_sweep()) {
+      fprintf(stderr,"%-24s RNA_MD_ROW_SYNC=0 ignored: off the GPU-resident sweep "
+                     "the host reads DMLi back every row\n", __FILE__);
+      v = 1;
+    }
+    if(!v)
+      fprintf(stderr,"%-24s RNA_MD_ROW_SYNC=0: no host sync after the md chain; "
+                     "the host may queue the next row behind it\n", __FILE__);
+  }
+  return v;
+}
+
+extern "C" int
+rnafold_md_tail(void)
+{
+  static int v = -1;
+
+  if(v < 0) {
+    const char* e = getenv("RNA_MD_TAIL");
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+  }
+  return v;
+}
+
+/* NULL when the collapsed tail may run this row, else why not. Every refusal
+ * is something that reads a buffer the tail no longer writes (d_fml_i,
+ * d_fml_row, the triangle's row i before md), or a schedule where records sit
+ * on different rows and a single base pointer cannot stand in for fml_i. */
+static const char*
+md_tail_refuse(const int nfiles, const int i, const int* i_H)
+{
+  if(!rnafold_gpu_sweep())        return "off the GPU-resident sweep the host rotates DMLi itself";
+  if(rnafold_continuous_flow())   return "continuous flow puts records on different rows";
+  for(int H = 0; H < nfiles; H++)
+    if(i_H[H] != i)               return "records are on different rows (slot flow)";
+  if(rnafold_md_prune() || rnafold_md_prune_stats())
+                                  return "RNA_MD_PRUNE reads fml_i and maintains fml_jmin in load_fML";
+  if(d_fml_band)                  return "RNA_MD_BAND reads d_fml_row";
+  if(rnafold_md_block_selftest()) return "RNA_MD_BLOCK_SELFTEST reads d_fml_i";
+  return NULL;
+}
+
+/* Is row i's fml_prev already written? fml_prev_i() (hp_mb_loop.cu) asks, and
+ * skips its launch only on a yes from the code that did the work. */
+extern "C" int
+rnafold_md_tail_closed_row(const int i)
+{
+  return g_md_tail_row == i;
+}
+
+static void
+md_close_row(const int nfiles, const int i, const int turn, const size_t* size_off_H)
+{
+  const size_t total = size_off_H[nfiles];
+  if(total == 0) return;
+  bind_row_tables(i);
+  const int nblocks = (int)((total + BLOCK_SIZE - 1)/BLOCK_SIZE);
+  md_close_row_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn,
+      d_energy_min, d_dml, d_fml_prev, d_fml_j, d_fml_j16, d_fml_b,
+      d_tri_off_H, d_row_off_H, d_base_off_H, d_colb_off,
+      d_size_off_H, total, d_i_H);
+  gpuErrchk( cudaPeekAtLastError() );
+}
+
+/* The md chain for one row, on whichever path the caller is capturing or
+ * issuing. `tail` from md_tail_refuse(). */
+static void
+md_row_chain(const int nfiles, const int i, const int turn, const int length,
+             const int* energy_min, int* DMLi,
+             const size_t* row_off_H, const size_t* size_off_H,
+             const size_t* side_off_H, const int* i_H, const int tail)
+{
+  if(!tail) {
+    load_fML(nfiles,i,turn,length,energy_min,size_off_H);
+    modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
+    load_min_fML(nfiles,i,turn,length,side_off_H[nfiles]);
+    // int16: closes the row AFTER both writers, which is the whole ordering
+    // constraint this design exists to respect. No-op when the gate is off.
+    pack_fml(nfiles,i,turn,length,size_off_H);
+    band_fill(nfiles,i,turn,size_off_H);
+    return;
+  }
+  g_md_tail_now = 1;
+  modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
+  g_md_tail_now = 0;
+  md_close_row(nfiles,i,turn,size_off_H);
+  g_md_tail_row = i;
+}
+
 // needing to special-case that boundary by hand.
 extern "C" /*PUBLIC*/ void
 load_fML_modular_decomposition_load_min_fML(const int nfiles,
@@ -3444,6 +3620,21 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   // Row i's tables were uploaded with the chunk (device.cu), so nothing is
   // copied here and nothing host-side is captured into the graph.
   bind_row_tables(i);
+
+  // RNA_MD_TAIL: decided per row (the lock-step test reads i_H), reported once.
+  const char* tail_why = rnafold_md_tail() ? md_tail_refuse(nfiles, i, i_H) : "off";
+  const int   tail     = (tail_why == NULL);
+  if(rnafold_md_tail()) {
+    static int said = 0;
+    if(!said) {
+      said = 1;
+      if(tail) fprintf(stderr,"%-24s RNA_MD_TAIL ACTIVE: md reads fml_i from energy_min, "
+                              "and ONE kernel closes the row (was load_fML + fmli + "
+                              "load_min_fML + pack_fml + fml_prev + a D2D snapshot)\n", __FILE__);
+      else     fprintf(stderr,"%-24s RNA_MD_TAIL REFUSED: %s -- the old md chain runs\n",
+                       __FILE__, tail_why);
+    }
+  }
 
   // RNA_MD_INF_STATS (off by default): sample how sparse the column stream is,
   // before the capture region and before load_fML(i) touches row i.
@@ -3483,16 +3674,11 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 
   if(!use_graph) {
     g_issue_stream = rnafold_stream_overlap() ? rnafold_stream_md() : 0;
-    load_fML(nfiles,i,turn,length,energy_min,size_off_H);
-    modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
-    load_min_fML(nfiles,i,turn,length,side_off_H[nfiles]);
-    // int16: closes the row AFTER both writers, which is the whole ordering
-    // constraint this design exists to respect. No-op when the gate is off.
-    pack_fml(nfiles,i,turn,length,size_off_H);
-    band_fill(nfiles,i,turn,size_off_H);
+    md_row_chain(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H,i_H,tail);
     // Level 2 must not sync here -- that would end the overlap before it began,
-    // exactly as on the graph path below.
-    if(rnafold_stream_overlap() < 2)
+    // exactly as on the graph path below. RNA_MD_ROW_SYNC=0 drops it below
+    // level 2 as well; see rnafold_md_row_sync().
+    if(rnafold_stream_overlap() < 2 && rnafold_md_row_sync())
       gpuErrchk( cudaStreamSynchronize(ISSUE_STREAM) );
     g_issue_stream = 0;
     return;
@@ -3501,14 +3687,10 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   cudaGraph_t graph = NULL;
   gpuErrchk( cudaStreamBeginCapture(graph_stream, cudaStreamCaptureModeThreadLocal) );
 
-  load_fML(nfiles,i,turn,length,energy_min,size_off_H);
-  modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
-  load_min_fML(nfiles,i,turn,length,side_off_H[nfiles]);
-  // int16: a FOURTH captured node, and it must be inside the capture so the
-  // replay reproduces the whole row. Ordering is what matters -- pack must
+  // int16: pack_fml is a captured node too, and must be inside the capture so
+  // the replay reproduces the whole row. Ordering is what matters -- pack must
   // follow both writers -- and stream order inside the capture gives that.
-  pack_fml(nfiles,i,turn,length,size_off_H);
-  band_fill(nfiles,i,turn,size_off_H);
+  md_row_chain(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H,i_H,tail);
 
   gpuErrchk( cudaStreamEndCapture(graph_stream, &graph) );
 
@@ -3569,7 +3751,13 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   // began. The graph's error checkpoint moves to the next synchronisation --
   // the end of the sweep, or the next row's own blocking upload -- which costs
   // attribution, not correctness.
-  if(rnafold_stream_overlap() < 2)
+  //
+  // AND BELOW LEVEL 2 IT IS NOW OPTIONAL (RNA_MD_ROW_SYNC=0, 2026-09-29). The
+  // "two blocking pageable H2Ds" above are gone -- fix 3 uploads every row
+  // table with the chunk -- so this sync no longer lands on an already-blocked
+  // host; it is what stops the host queueing the next row. Error attribution
+  // moves to the next blocking call, exactly as at level 2.
+  if(rnafold_stream_overlap() < 2 && rnafold_md_row_sync())
     gpuErrchk( cudaStreamSynchronize(launch_stream) );
   }
 }

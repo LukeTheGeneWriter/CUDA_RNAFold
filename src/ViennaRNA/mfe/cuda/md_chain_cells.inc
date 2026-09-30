@@ -6,24 +6,16 @@
  * verbatim -- only the thread-index prologue became a parameter.
  */
 
+/* Store one final fML value v at (H,i,j) of the int16 triangle. Split out of
+ * pack_fml_cell so md_close_row_cell (RNA_MD_TAIL) packs with the SAME code
+ * rather than a copy of it; pack_fml_cell reads v from d_fml_row, the close cell
+ * computes it in registers. */
 __device__ inline void
-pack_fml_cell(const int nfiles, const int i_row, const int turn, const int length,
-                const int* __restrict__ fml_row,
+pack_fml_value(const int v, const int H, const int i, const int j,
                       short* __restrict__ fml_j16,
                       int* __restrict__ fml_b,
-                const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-                const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
-                const size_t* __restrict__ size_off_H, const size_t total,
-                const int* __restrict__ i_H,
-               const long long m) {
-  if((size_t)m >= total) return;
-  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
-  const long long mj = (long long)m - (long long)size_off_H[H];
-  const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);
-  const int j = mj + i+turn+1;
-
-  const int  v    = fml_row[row_off_H[H]+j];
+                const size_t* __restrict__ tri_off_H,
+                const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off) {
   const size_t t  = tri_off_H[H] + Indx(i,j);
 
   if(v == INF) { fml_j16[t] = FML_INF16; return; }
@@ -61,6 +53,78 @@ pack_fml_cell(const int nfiles, const int i_row, const int turn, const int lengt
     __trap();
   }
   fml_j16[t] = (short)d;
+}
+
+__device__ inline void
+pack_fml_cell(const int nfiles, const int i_row, const int turn, const int length,
+                const int* __restrict__ fml_row,
+                      short* __restrict__ fml_j16,
+                      int* __restrict__ fml_b,
+                const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
+                const size_t* __restrict__ size_off_H, const size_t total,
+                const int* __restrict__ i_H,
+               const long long m) {
+  if((size_t)m >= total) return;
+  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  const long long mj = (long long)m - (long long)size_off_H[H];
+  const int i = i_H[H];
+  assert(i_row < 0 || i == i_row);
+  const int j = mj + i+turn+1;
+
+  pack_fml_value(fml_row[row_off_H[H]+j], H, i, j, fml_j16, fml_b, tri_off_H,
+                 base_off_H, colb_off);
+}
+
+/* RNA_MD_TAIL: close row i in ONE pass, replacing load_fML + load_min_fML +
+ * pack_fml + fml_prev (and fmli, which md no longer needs -- it reads its row
+ * operand straight out of energy_min). Over the SIZE range, one thread per cell.
+ *
+ * Byte-identity with the four kernels it replaces rests on reproducing each old
+ * writer's rule exactly, and they are NOT the same rule:
+ *
+ *   triangle  load_fML wrote energy_min over the whole size range, then
+ *             load_min_fML overwrote the SIDE range (mj >= turn+1) with
+ *             min(energy_min, dml). Below the side range it stays RAW.
+ *   fml_prev  min(energy_min, dml) over the whole size range, plus INF on the
+ *             diagonal-band cell (i, i+turn).
+ *
+ * Below the side range dml is INF (md never writes there), so the two agree
+ * unless energy_min exceeds INF -- which the asymmetric INF guard can produce
+ * (INT16_FML_SCOPE.md). The triangle keeps that value and fml_prev clamps it,
+ * so writing one shared value would change the answer on exactly the inputs
+ * that are hardest to test. Hence the `side` test below. */
+__device__ inline void
+md_close_row_cell(const int nfiles, const int i_row, const int turn,
+                  const int* __restrict__ energy_min,
+                  const int* __restrict__ dml,
+                        int* __restrict__ fml_prev,
+                        int* __restrict__ fml_j,       //int32 path; unused when fml_j16
+                        short* __restrict__ fml_j16,   //int16 path, NULL when off
+                        int* __restrict__ fml_b,
+                  const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                  const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
+                  const size_t* __restrict__ size_off_H, const size_t total,
+                  const int* __restrict__ i_H,
+                  const long long m) {
+  if((size_t)m >= total) return;
+  const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
+  const long long mj = (long long)m - (long long)size_off_H[H];
+  const int i = i_H[H];
+  assert(i_row < 0 || i == i_row);
+  const int j = mj + i+turn+1;
+  const size_t o = row_off_H[H];
+
+  const int e  = energy_min[o+j];
+  const int d  = dml[o+j];
+  const int mn = (e < d) ? e : d;
+
+  if(mj == 0) fml_prev[o + (i+turn)] = INF;
+  fml_prev[o+j] = mn;
+
+  const int v = (mj >= turn+1) ? mn : e;   // the triangle's rule -- see above
+  if(fml_j16) pack_fml_value(v, H, i, j, fml_j16, fml_b, tri_off_H, base_off_H, colb_off);
+  else        fml_j[tri_off_H[H] + Indx(i,j)] = v;
 }
 
 __device__ inline void

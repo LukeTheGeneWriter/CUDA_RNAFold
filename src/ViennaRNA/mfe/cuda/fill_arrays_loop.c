@@ -573,6 +573,11 @@
         if(i_H[s] >= 1) continue;                                  // still working
         const int qn = sched->qoff[s+1] - sched->qoff[s];
         if(q_pos[s] >= qn) continue;                               // already all retired
+        // The retire fetch reads this record's triangles on a copy stream that
+        // is not ordered against the sweep's non-blocking streams. md's per-row
+        // host sync used to cover that; RNA_MD_ROW_SYNC=0 removes it, so drain
+        // here instead. Once per handover, never per row.
+        rnafold_device_drain();
         sched->on_retire(sched->ctx, s, sched->queue[sched->qoff[s] + q_pos[s]]);
         q_pos[s]++;
         if(q_pos[s] >= qn) continue;                               // queue empty: slot idle
@@ -608,6 +613,8 @@
  // Anything still unretired -- a record with no rows of its own, or a slot that
  // emptied on the final iteration -- is retired here, so on_retire() is called
  // exactly once for every record in the schedule.
+ if(sched)
+   rnafold_device_drain();   // before rnafold_rowtab_end()'s drain -- see the handover above
  if(sched)
    for(int s=0;s<nfiles;s++)
      while(q_pos[s] < sched->qoff[s+1] - sched->qoff[s]) {
