@@ -31,6 +31,8 @@ SWIG_misc_src = \
   $(srcdir)/../loops.i \
   $(srcdir)/../math.i \
   $(srcdir)/../mfe.i \
+  $(srcdir)/../cuda.i \
+  $(srcdir)/../cuda_python.i \
   $(srcdir)/../mfe_window.i \
   $(srcdir)/../model_details.i \
   $(srcdir)/../move.i \

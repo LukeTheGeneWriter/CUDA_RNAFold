@@ -327,6 +327,26 @@ RNA_GPU=0 RNAfold < input.fa
 That is also how the accelerator is tested: the same binary folds the same input
 with and without the GPU, and the two outputs must be identical.
 
+#### From Python
+
+The normal calls use the GPU by default — there is no separate function to learn:
+
+```python
+import RNA
+RNA.fold(seq)                        # [structure, mfe], folded on the GPU
+RNA.fold([seq1, seq2, ...])          # [(structure, mfe), ...] as ONE GPU batch
+RNA.fold_compound(seq).mfe()         # [structure, mfe]; backtracking works after it
+RNA.fold(seq, cpu_only=True)         # ViennaRNA's own fold, the GPU never touched
+RNA.fold_compound(seq).mfe(cpu_only=True)
+```
+
+Unlike `RNAfold`, the Python default does not judge whether a small input is worth
+the device: every call goes to the GPU unless `cpu_only=True`. A list is where the
+GPU pays — fold many sequences in one call rather than one call per sequence. Without
+a GPU, without a CUDA build, or for a model the device does not support, the same
+calls fold on the CPU and the answer is identical. `RNA.cuda_batches()` counts the
+batches the device actually folded, if you need to prove which path ran.
+
 ----
 
 ## Executable Programs

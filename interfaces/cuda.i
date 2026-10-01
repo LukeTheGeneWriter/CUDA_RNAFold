@@ -140,6 +140,96 @@ my_cuda_fold(std::vector<std::string>  sequences,
 std::vector<std::pair<std::string, float> >
 my_cuda_fold(std::vector<std::string> sequences);
 
+
+/* ---- the device inside the NORMAL calls: RNA.fold() and fold_compound.mfe() ----
+ *
+ * cuda_python.i (included last in RNA.i) makes RNA.fold and fold_compound.mfe use
+ * these by default, with cpu_only=True calling upstream's own functions instead. They
+ * build the fold compound exactly as mfe.i's my_fold() does -- same model, same
+ * constraint handling -- and differ only in folding it through vrna_mfe_batch(),
+ * which uses the device when there is one and the model is supported, and otherwise
+ * falls back to upstream's vrna_mfe() record by record. So "GPU by default" never
+ * changes an answer and never fails on a machine without one. */
+%rename (fold_device) my_fold_device;
+
+/* RNA.cuda_batches(): batches the device has folded in this process -- the only way a
+ * Python caller can prove a fold used the GPU, since the host fallback is identical. */
+%rename (cuda_batches) vrna_cuda_device_batches;
+unsigned long vrna_cuda_device_batches(void);
+
+%{
+  /* One record through the batch backend. `keep`: leave the record's MFE matrices
+   * populated afterwards, as vrna_mfe() does (see vrna_cuda_keep_matrices()). */
+  static float
+  rnafold_py_mfe_one(vrna_fold_compound_t *fc,
+                     char                 *structure,
+                     int                  keep)
+  {
+    float e     = 0.;
+    char  *s[1] = { structure };
+
+    (void)vrna_cuda_register_batch_backend();
+    vrna_cuda_keep_matrices(keep);
+    (void)vrna_mfe_batch(&fc, 1, s, &e);
+    vrna_cuda_keep_matrices(0);
+    return e;
+  }
+
+  char *
+  my_fold_device(char   *string,
+                 float  *energy)
+  {
+    char                  *struc  = (char *)calloc(strlen(string) + 1, sizeof(char));
+    vrna_fold_compound_t  *fc     = vrna_fold_compound(string, NULL, VRNA_OPTION_DEFAULT);
+
+    *energy = rnafold_py_mfe_one(fc, struc, 0);
+    vrna_fold_compound_free(fc);
+    return struc;
+  }
+
+  char *
+  my_fold_device(char   *string,
+                 char   *constraints,
+                 float  *energy)
+  {
+    char                  *struc  = (char *)calloc(strlen(string) + 1, sizeof(char));
+    vrna_fold_compound_t  *fc     = vrna_fold_compound(string, NULL, VRNA_OPTION_DEFAULT);
+
+    if (constraints && fold_constrained)
+      vrna_hc_add_from_db(fc, constraints, VRNA_CONSTRAINT_DB_DEFAULT);
+
+    *energy = rnafold_py_mfe_one(fc, struc, 0);
+    vrna_fold_compound_free(fc);
+
+#ifndef VRNA_DISABLE_BACKWARD_COMPATIBILITY
+    if (constraints && (!fold_constrained))
+      strncpy(constraints, struc, strlen(constraints));
+#endif
+
+    return struc;
+  }
+%}
+
+%newobject my_fold_device;
+/* Same output convention as mfe.i's my_fold, which %clears this after itself. */
+%apply  float *OUTPUT { float *energy };
+char *my_fold_device(char *string, float *energy);
+char *my_fold_device(char *string, char *constraints, float *energy);
+%clear float *energy;
+
+#ifdef SWIGPYTHON
+%newobject vrna_fold_compound_t::_mfe_device;
+%extend vrna_fold_compound_t {
+  /* fold_compound.mfe()'s device path: the matrices are KEPT, because a caller of
+   * fc.mfe() may backtrack or read them next, exactly as after upstream's mfe(). */
+  char *_mfe_device(float *OUTPUT) {
+    char *structure = (char *)vrna_alloc(sizeof(char) * ($self->length + 1));
+    *OUTPUT = rnafold_py_mfe_one($self, structure, 1);
+    return structure;
+  }
+}
+#endif
+
 /**********************************************/
 /* END interface for the CUDA batch backend   */
 /**********************************************/

@@ -90,4 +90,40 @@ unsigned int
 vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
                           const char            **reason);
 
+
+/**
+ *  @brief  Leave each record's MFE matrices populated after a device fold
+ *
+ *  The batch backend releases every record's host c/fML before the sweep and
+ *  backtracks each record from a pooled scratch pair, so after a device fold the
+ *  fold compound's c and fML are NULL -- fine for a caller that only wants the
+ *  structure and energy, fatal for one that then calls vrna_backtrack5() or reads
+ *  the matrices, as upstream's vrna_mfe() lets it. With this switch on, each
+ *  record gets its own copies of the device's triangles (c, fML, and fM2_real when
+ *  circular), exactly the extents vrna_mfe() would have left. Costs one triangle
+ *  copy per record; off by default. Used by the Python binding's fold_compound.mfe().
+ *
+ *  @param  on  Non-zero to keep the matrices, zero for the default behaviour
+ */
+void
+vrna_cuda_keep_matrices(int on);
+
+
+/**
+ *  @brief  Whether vrna_cuda_keep_matrices() is on
+ */
+int
+vrna_cuda_keeping_matrices(void);
+
+
+/**
+ *  @brief  How many batches the device has folded in this process
+ *
+ *  Positive evidence that a call used the GPU: a fold that falls back to the host
+ *  gives the identical answer, so the answer alone never proves which path ran.
+ *  Always 0 in a build without CUDA.
+ */
+unsigned long
+vrna_cuda_device_batches(void);
+
 #endif

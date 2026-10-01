@@ -15,7 +15,9 @@ def rand_seq(n, rng):
 
 def cpu(seq, md=None):
     fc = RNA.fold_compound(seq, md) if md is not None else RNA.fold_compound(seq)
-    return fc.mfe()
+    # cpu_only=True is LOAD-BEARING: fc.mfe() uses the device by default since
+    # 2026-09-30, and without it every parity check below compares the GPU to itself.
+    return fc.mfe(cpu_only=True)
 
 
 class cuda_batchTest(unittest.TestCase):
@@ -53,8 +55,71 @@ class cuda_batchTest(unittest.TestCase):
         never hands the device a chunk like this, so no CLI bar could see it."""
         for seqs in (["A"], ["AC", "ACG"], ["A", "C", "GGG"], ["", "A"]):
             got = [(s, round(e, 2)) for s, e in RNA.cuda_fold(seqs)]
-            ref = [(RNA.fold(q)[0], round(RNA.fold(q)[1], 2)) for q in seqs]
+            ref = [(RNA.fold(q, cpu_only=True)[0], round(RNA.fold(q, cpu_only=True)[1], 2))
+                   for q in seqs]
             self.assertEqual(got, ref, seqs)
+
+    # ---- the device inside the NORMAL calls (2026-09-30) ---------------------------
+    # RNA.fold and fold_compound.mfe use the GPU by default; cpu_only=True calls
+    # upstream's own. RNA.cuda_batches() is the positive evidence: a host fallback is
+    # byte-identical, so only the counter can say which path ran.
+
+    def test_fold_uses_the_device_by_default(self):
+        """RNA.fold(seq) folds on the device, and agrees with cpu_only=True"""
+        rng = random.Random(11)
+        seq = rand_seq(300, rng)
+        b0 = RNA.cuda_batches()
+        got = RNA.fold(seq)
+        if RNA.cuda_devices() > 0:
+            self.assertEqual(RNA.cuda_batches(), b0 + 1, "the default did not use the device")
+        else:
+            self.assertEqual(RNA.cuda_batches(), b0)
+        ref = RNA.fold(seq, cpu_only=True)
+        self.assertEqual(got[0], ref[0])
+        self.assertAlmostEqual(got[1], ref[1], 2)
+
+    def test_cpu_only_never_touches_the_device(self):
+        """cpu_only=True leaves the device alone in every entry point"""
+        rng = random.Random(12)
+        seq = rand_seq(200, rng)
+        b0 = RNA.cuda_batches()
+        RNA.fold(seq, cpu_only=True)
+        RNA.fold([seq, seq], cpu_only=True)
+        RNA.fold_compound(seq).mfe(cpu_only=True)
+        self.assertEqual(RNA.cuda_batches(), b0)
+
+    def test_fold_accepts_a_list(self):
+        """RNA.fold([...]) is one device batch of (structure, mfe) tuples"""
+        rng = random.Random(13)
+        seqs = [rand_seq(n, rng) for n in (90, 210, 333)]
+        b0 = RNA.cuda_batches()
+        got = RNA.fold(seqs)
+        if RNA.cuda_devices() > 0:
+            self.assertEqual(RNA.cuda_batches(), b0 + 1, "a list should be ONE batch")
+        self.assertIsInstance(got, list)
+        for (structure, energy), seq in zip(got, seqs):
+            ref = RNA.fold(seq, cpu_only=True)
+            self.assertEqual(structure, ref[0])
+            self.assertAlmostEqual(energy, ref[1], 2)
+
+    def test_fc_mfe_on_the_device_keeps_the_matrices(self):
+        """After a device fc.mfe(), backtracking works exactly as upstream"""
+        rng = random.Random(14)
+        seq = rand_seq(400, rng)
+        fc_d, fc_h = RNA.fold_compound(seq), RNA.fold_compound(seq)
+        b0 = RNA.cuda_batches()
+        d, h = fc_d.mfe(), fc_h.mfe(cpu_only=True)
+        if RNA.cuda_devices() > 0:
+            self.assertEqual(RNA.cuda_batches(), b0 + 1)
+        self.assertEqual(d[0], h[0])
+        self.assertAlmostEqual(d[1], h[1], 2)
+        # c/fML must be populated afterwards; before vrna_cuda_keep_matrices() they
+        # were NULL after a device fold and this would crash
+        for length in (None, 150):
+            bd = fc_d.backtrack() if length is None else fc_d.backtrack(length)
+            bh = fc_h.backtrack() if length is None else fc_h.backtrack(length)
+            self.assertEqual(bd[0], bh[0])
+            self.assertAlmostEqual(bd[1], bh[1], 2)
 
     def test_batch_matches_the_cpu(self):
         """A batch agrees with vrna_mfe() record for record"""

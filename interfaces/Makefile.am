@@ -34,6 +34,7 @@ SOURCES = \
     math.i \
     mfe.i \
     cuda.i \
+    cuda_python.i \
     mfe_window.i \
     model_details.i \
     move.i \
@@ -112,6 +113,7 @@ EXTRA_DIST = \
     math.i \
     mfe.i \
     cuda.i \
+    cuda_python.i \
     mfe_window.i \
     model_details.i \
     move.i \

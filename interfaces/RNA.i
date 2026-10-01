@@ -354,3 +354,8 @@ struct bondT {
   }
 }
 
+/* LAST, on purpose: rebinds RNA.fold and fold_compound.mfe so the normal calls use
+ * the GPU by default (cpu_only=True for upstream's own). It needs every proxy class
+ * to exist already. Python only; Perl is untouched. */
+%include cuda_python.i
+

@@ -44,6 +44,7 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 #include "ViennaRNA/params/basic.h"
 #include "ViennaRNA/constraints/basic.h"
 #include "ViennaRNA/constraints/hard.h"
+#include "ViennaRNA/mfe/cuda/engine.h"   /* vrna_cuda_keeping_matrices() */
 #include "ViennaRNA/constraints/soft.h"
 #include "ViennaRNA/eval/gquad.h"
 #include "ViennaRNA/mfe/gquad.h"
@@ -1051,6 +1052,24 @@ backtrack_finish_slot(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc)
   // Detach before anything can free the compound: the scratch outlives it and
   // is reused, so leaving these set would hand vrna_mx_mfe_free() a pointer it
   // does not own. free(NULL) in there is a no-op.
+  /* The scratch pair is pooled, so the record must let go of it. Normally it is
+   * left with NULL c/fML -- par_mfe() freed its own before the sweep. Under
+   * vrna_cuda_keep_matrices() it gets private copies instead, the extents upstream's
+   * vrna_mfe() leaves, so a caller can backtrack or read the matrices afterwards. */
+  if (vrna_cuda_keeping_matrices()) {
+    const size_t cells = (len + 1) * (len + 2) / 2;
+    vc->matrices->c   = (int *) vrna_alloc(sizeof(int) * cells);
+    vc->matrices->fML = (int *) vrna_alloc(sizeof(int) * cells);
+    memcpy(vc->matrices->c,   sc->c,   sizeof(int) * cells);
+    memcpy(vc->matrices->fML, sc->fML, sizeof(int) * cells);
+    if (vc->params->model_details.circ) {
+      vc->matrices->fM2_real = (int *) vrna_alloc(sizeof(int) * cells);
+      memcpy(vc->matrices->fM2_real, sc->fM2, sizeof(int) * cells);
+    } else {
+      vc->matrices->fM2_real = NULL;
+    }
+    return;
+  }
   vc->matrices->c   = NULL;
   vc->matrices->fML = NULL;
   vc->matrices->fM2_real = NULL;   /* CIRCULAR: pooled, same reason */
@@ -1562,6 +1581,30 @@ par_mfe(const int nfiles,
                                  "that feed fML, and int16 was measured giving a "
                                  "different answer under it (mechanism not yet "
                                  "identified)");
+
+  /* AND HARD CONSTRAINTS -- a SHIPPED crash, found 2026-09-30 by the Python
+   * binding's GPU default and then reproduced on the CLI:
+   *
+   *     RNAfold -C --enforceConstraint  (8 x 700 nt, one enforced (1,700) pair)
+   *     RNA_FML_INT16 range: H=0 (i=1,j=34) value 9999960 baseline 480 ... ABORTING
+   *
+   * Enforcing a pair forbids everything that conflicts with it, and the forbidden
+   * cells reach fML as near-INF FINITE values -- the same premise noLP breaks, so
+   * the 16-bit per-block offsets cannot hold them and pack_fml_cell() traps. Live
+   * since int16 became the default (069981ff); under WSL the trap does not even
+   * abort, it wedges the process in the driver.
+   *
+   * Standing down on ANY depot is conservative: it is not yet known which constraint
+   * shapes are safe, and int32 is always right. Same honesty as salt above --
+   * finding the precise condition belongs in INT16_FML_SCOPE.md. */
+  for (int H = 0; H < nfiles; H++)
+    if ((VC[H]->hc != NULL) && (VC[H]->hc->depot != NULL)) {
+      rnafold_fml_int16_stand_down("hard constraints put near-INF finite values into "
+                                   "fML (an enforced pair forbids its conflicts), "
+                                   "which the 16-bit per-block offsets cannot "
+                                   "represent");
+      break;
+    }
   // Continuous flow phase C1: the per-slot capacity, in nucleotides. Every
   // LAYOUT table below is built from this; every BOUND stays on the occupant's
   // own VC[H]->length. Equal by default -- see rnafold_slot_capacity_max().

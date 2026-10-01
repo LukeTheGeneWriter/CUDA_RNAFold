@@ -492,6 +492,8 @@ extern void teardown_gpu3(void);
 #endif
 
 
+static unsigned long device_batches;   /* defined with vrna_cuda_device_batches() */
+
 PRIVATE int
 cuda_batch_cb(vrna_fold_compound_t  **fcs,
               size_t                  n,
@@ -519,6 +521,7 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
 
   par_mfe((int)n, (const vrna_fold_compound_t **)fcs,
           (const char **)structures, energies, 0);
+  device_batches++;   /* vrna_cuda_device_batches(): the device really folded this one */
 
   /*
    * Release the device state this batch sized, before the next batch sizes its
@@ -565,6 +568,37 @@ vrna_cuda_register_batch_backend(void)
     return 0;
 
   return vrna_mfe_batch_backend_set(&cuda_batch_cb, NULL);
+}
+
+
+/* vrna_cuda_device_batches(): how many batches the DEVICE has folded in this
+ * process. Positive evidence for a caller that cannot see stderr -- a fallback to
+ * the host is byte-identical, so "the answer was right" never proves the device ran. */
+static unsigned long device_batches = 0;
+
+PUBLIC unsigned long
+vrna_cuda_device_batches(void)
+{
+  return device_batches;
+}
+
+
+/* vrna_cuda_keep_matrices(): see engine.h. Here, not in mfe_cuda.c, so it exists in
+ * a build without CUDA too -- the Python binding calls it either way. Read by the
+ * backtrack workers, which only ever see it set before a batch and cleared after. */
+static int keep_matrices = 0;
+
+PUBLIC void
+vrna_cuda_keep_matrices(int on)
+{
+  keep_matrices = (on != 0);
+}
+
+
+PUBLIC int
+vrna_cuda_keeping_matrices(void)
+{
+  return keep_matrices;
 }
 
 

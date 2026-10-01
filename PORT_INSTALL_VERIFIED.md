@@ -220,3 +220,41 @@ Noted, not changed: the library ignores `RNA_GPU=0` (it is the CLI's off switch)
 Python caller cannot turn the device off except by not calling `cuda_fold`; `cuda_fold`
 holds the GIL for the whole fold; and the wheel is CPU-only by design — the accelerated
 module is the one `make install` builds.
+
+## 8. The GPU by default in the normal Python calls (2026-09-30)
+
+Luke's spec: the GPU by default, `cpu_only=True` to opt out, no separate call. Chosen
+with him: `RNA.fold` AND `fold_compound.mfe`, EVERY call to the device (no small-input
+routing — that is the CLI's job), and `RNA.fold([...])` folds a list as one batch.
+
+- `interfaces/cuda_python.i`, included LAST in `RNA.i` (it rebinds names the proxy
+  classes define): `RNA.fold` → `fold_device` (builds the fold compound exactly as
+  `my_fold` does, then `vrna_mfe_batch`), a list → `cuda_fold`, `cpu_only=True` →
+  upstream's own. `fc.mfe()` → `_mfe_device`. Python only; Perl is untouched.
+- **A device `fc.mfe()` must leave the matrices populated**, because upstream's does and
+  callers backtrack next — but `par_mfe()` frees c/fML before the sweep.
+  `vrna_cuda_keep_matrices()` (engine.c, so CPU-only builds have it) makes the backtrack
+  workers hand each record private copies of the device's c/fML/fM2_real.
+- **`RNA.cuda_batches()`** — positive evidence: a host fallback is byte-identical, so only
+  a counter says which path ran. The binding suite now asserts it moves by default and
+  never under `cpu_only=True`.
+- **The suite's CPU reference had to be pinned** (`fc.mfe(cpu_only=True)`): without it
+  every parity check compares the GPU to itself, silently.
+- **The Python module never rebuilt when `cuda.i` changed** — `generic.mk` did not list
+  it — so a binding edit could be tested against a stale module. Both binding `.i` files
+  are dependencies now.
+
+**Bars:** binding suite 13/13 (CUDA build, 14 device sweeps; CPU-only build, counter 0);
+11 behaviour checks, device sweeps in every default phase and none under `cpu_only`;
+**upstream's whole Python suite, 17 files, with the GPU default — all pass, 504 device
+sweeps**, except `test_pairtable_slicing`, which fails identically on the CPU baseline
+(SWIG array slicing, environmental). Run it with `VRNA_TEST_DATA` set: the data-driven
+tests otherwise load nothing and fail for that reason alone.
+
+**And the shipped crash it found:** upstream's constraint tests through the device hit
+the int16 trap — `RNAfold -C --enforceConstraint` too (`value 9999960 … exceeds int16 --
+ABORTING`), live since int16 became the default. An enforced pair puts near-INF finite
+values into fML. int16 now stands down whenever any record carries a hard-constraint
+depot; `-C` and `-C --enforceConstraint` on the device then match the CPU byte for byte.
+Under WSL the trap does not abort — it wedges the process in the driver and needs
+`wsl --shutdown`.
