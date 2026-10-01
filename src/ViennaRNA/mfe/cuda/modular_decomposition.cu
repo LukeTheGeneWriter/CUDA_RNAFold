@@ -3734,6 +3734,22 @@ tri_hash(const void* dev, const size_t bytes, unsigned long long h)
   return h;
 }
 
+static long long
+tri_nearinf(const int* dev, const size_t cells)
+{
+  const size_t chunk = (size_t)16 << 20;                 /* ints */
+  int* buf = (int*)malloc(chunk * sizeof(int));
+  if(!buf) return -1;
+  long long n = 0;
+  for(size_t off = 0; off < cells; off += chunk) {
+    const size_t m = (cells - off < chunk) ? (cells - off) : chunk;
+    gpuErrchk( cudaMemcpy(buf, dev + off, m * sizeof(int), cudaMemcpyDeviceToHost) );
+    for(size_t k = 0; k < m; k++) n += (buf[k] > INF/2 && buf[k] < INF);
+  }
+  free(buf);
+  return n;
+}
+
 extern "C" void
 rnafold_tri_checksum(void)
 {
@@ -3751,6 +3767,14 @@ rnafold_tri_checksum(void)
   else          hf = tri_hash(d_fml_j, g_tri_cells * sizeof(int), seed);
   fprintf(stderr, "%-24s triangle checksum: c %016llx  fML %016llx (%s, %zu cells)\n",
           __FILE__, hc, hf, d_fml_j16 ? "int16+baselines" : "int32", g_tri_cells);
+  /* NEAR-INF FINITE cells, INF/2 < v < INF: the premise int16's per-block offsets
+   * rest on, and the one --noLP and -C were found to break (an INF term plus a
+   * finite correction, passed by a one-sided guard). Counted on the int32 encoding
+   * only -- under int16 such a cell traps in pack_fml_cell() before it lands. */
+  const long long nc = myc ? tri_nearinf((const int*)myc, g_tri_cells) : -1;
+  const long long nf = d_fml_j16 ? -1 : tri_nearinf(d_fml_j, g_tri_cells);
+  fprintf(stderr, "%-24s triangle near-INF finite cells: c %lld  fML %lld%s\n",
+          __FILE__, nc, nf, d_fml_j16 ? " (fML not counted: int16)" : "");
 }
 
 /* RNA_ROW_BATCH: flush the g_stage_n staged rows, the newest being i_new, on `s`.

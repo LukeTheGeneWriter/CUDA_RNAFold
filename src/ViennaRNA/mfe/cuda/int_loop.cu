@@ -1280,6 +1280,11 @@ flatten_index_to_H_warp(const size_t idx, const size_t* __restrict__ flat_off_H,
 // kernel below is a wrapper around exactly this code.
 #include "int_loop_cell.inc"
 
+/* RNA_INT_LOOP_WORK_STATS: the per-cell candidate-count buffer, NULL when off.
+ * __constant__ rather than another kernel parameter so none of the launch macros
+ * change; it is warp-uniform, so the read is one broadcast from the constant cache. */
+__constant__ int* c_il_work = NULL;
+
 /* U: candidates in flight per lane. 1 = the shape this kernel has always had.
  * See int_loop_cell.inc for the stall measurement that motivates U>1. */
 template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH, int U = 1, bool RING = false>
@@ -1301,12 +1306,73 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 /* RNA_C_RING: read c from the 32-row ring instead of the triangle.
                  * A template flag, so the choice costs nothing in the inner loop. */
                 const int* __restrict__ c_ring = NULL,
-                const size_t c_ring_stride = 0) {
+                const size_t c_ring_stride = 0,
+                /* RNA_INT_LOOP_CELLS_PER_WARP: G consecutive cells per warp, 1..32.
+                 * 1 = one warp per cell, exactly the code below the packed block. */
+                const int G = 1) {
   static_assert(CELLS_PER_BLOCK >= 1 && CELLS_PER_BLOCK <= 32,
                 "one warp per cell; blockDim.x must be CELLS_PER_BLOCK*32");
 
   const int lane = (int)(threadIdx.x & 31u);
   const int wib  = (int)(threadIdx.x >> 5);             // warp within the block
+
+  /* DEAD CELLS DO NOT GET A WARP (G >= 2).
+   *
+   * RNA_INT_LOOP_WORK_STATS measured 62.6 % of the cells at 400x5601 with ZERO
+   * candidates: hc says (i,j) cannot pair -- 1 - 6/16 on random ACGU -- so the warp
+   * reads one hc bit, fails it, and still runs the 5-shuffle reduction to store INF.
+   * Live cells are uniform (5-7 passes, 92 % lane efficiency), so the waste is whole
+   * warps, not lanes.
+   *
+   * Here a warp owns G consecutive cells. Lane l < G probes cell l's hc bit -- one
+   * coalesced read for all G -- and a dead cell's lane stores the INF itself, exactly
+   * the value the reduction would have produced (every lane starts at INF and nothing
+   * lowers it). The warp then runs the unchanged cell function on the LIVE cells only,
+   * in ascending order. The set of cells written and every value written are the
+   * same as at G = 1; only which warp writes them changes. `todo` comes from a
+   * ballot, so the loop is warp-uniform and every shuffle inside still names all 32. */
+  if(G > 1) {
+    int    Hu  = 0;
+    size_t lim;
+    const size_t base = ((size_t)blockIdx.x * CELLS_PER_BLOCK + wib) * (size_t)G;
+    if(GRIDY) { Hu = (int)blockIdx.y; lim = size_off_H[Hu+1] - size_off_H[Hu]; }
+    else      lim = size_off_H[nfiles];
+    if(base >= lim) return;                              // warp-uniform
+
+    const size_t mine  = base + (size_t)lane;
+    int          myH   = Hu;
+    size_t       myloc = mine;
+    bool         live  = false;
+    if(lane < G && mine < lim) {
+      // The flat grid may straddle records within G cells: each lane finds its own.
+      if(!GRIDY) { myH = flatten_index_to_H(mine, size_off_H, nfiles); myloc = mine - size_off_H[myH]; }
+      const int i = i_H[myH];
+      const int j = (int)myloc + i + turn + 1;
+      live = Hc(Indx(i,j), &hccc[hc_off_H[myH]]);
+      if(!live) {
+        energy_min[row_off_H[myH]+j] = INF;
+        if(c_il_work) c_il_work[row_off_H[myH]+j] = 0;
+      }
+    }
+    unsigned int todo = __ballot_sync(0xffffffffu, live);
+    while(todo) {
+      const int src = __ffs(todo) - 1;
+      todo &= todo - 1u;
+      const int    H     = __shfl_sync(0xffffffffu, myH, src);
+      const size_t local = (size_t)__shfl_sync(0xffffffffu, (unsigned long long)myloc, src);
+      if(RING) {
+        c_ring_reader rr;
+        rr.base   = c_ring + row_off_H[H];
+        rr.stride = c_ring_stride;
+        int_loop_warp_cell_r<c_ring_reader, U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
+                             pair_, S, hccc, up_int, rr, row_off_H, hc_off_H,
+                             size_off_H, i_H, energy_min, H, local, lane, c_il_work);
+      } else
+      int_loop_warp_cell<U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
+                         H, local, lane, c_il_work);
+    }
+    return;
+  }
 
   // Whole-warp exit in both grids: every lane of this warp shares the cell, so
   // no lane is left behind to be named by a shuffle mask below. This is the one
@@ -1336,10 +1402,10 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
     rr.stride = c_ring_stride;
     int_loop_warp_cell_r<c_ring_reader, U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                          pair_, S, hccc, up_int, rr, row_off_H, hc_off_H,
-                         size_off_H, i_H, energy_min, H, local, lane);
+                         size_off_H, i_H, energy_min, H, local, lane, c_il_work);
   } else
   int_loop_warp_cell<U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
-                     H, local, lane);
+                     H, local, lane, c_il_work);
 }
 
 // H6: WHICH RECORD IS THIS CELL IN? -- asked once per cell, answered with a
@@ -1413,6 +1479,70 @@ rnafold_int_loop_gridy(void)
   }
 
   return v;
+}
+
+/* RNA_INT_LOOP_CELLS_PER_WARP=G (1..32, default 1): each warp owns G consecutive
+ * cells and spends its time on the live ones only -- see the packed block at the
+ * top of int_loop_warp_kernel. 1 is the one-warp-per-cell kernel unchanged.
+ * =auto picks G PER LAUNCH from the row's width: see rnafold_int_loop_cpw_for(). */
+#define IL_CPW_AUTO 0
+static int
+rnafold_int_loop_cpw(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_INT_LOOP_CELLS_PER_WARP");
+
+    if (e && !strcmp(e, "auto")) {
+      v = IL_CPW_AUTO;
+      fprintf(stderr, "%-24s RNA_INT_LOOP_CELLS_PER_WARP=auto: G per row, the largest "
+                      "that leaves every SM enough warps\n", __FILE__);
+      return v;
+    }
+    v = (e && e[0]) ? atoi(e) : 1;
+    if (v < 1)  v = 1;
+    if (v > 32) v = 32;
+    if (v > 1)
+      fprintf(stderr, "%-24s RNA_INT_LOOP_CELLS_PER_WARP=%d: a warp owns %d cells and "
+                      "runs only the ones hc lets pair\n", __FILE__, v, v);
+  }
+
+  return v;
+}
+
+/* AUTO: G FOR THIS ROW. Packing trades warps for less dead work, so it pays only
+ * while the packed grid still fills the device. Measured on the laptop (RTX 3050,
+ * 16 SMs, ncu, 20 x 4800, int_loop us per launch vs G=1):
+ *
+ *     cells/row    G=2     G=4     G=8
+ *        4 050    +4 %   +15 %   +29 %
+ *        8 050    -2 %    -3 %    +5 %
+ *       16 050    -3 %    -5 %    -5 %
+ *       32 050    -5 %    -9 %   -11 %
+ *
+ * Every G breaks even at the same place: ~2 000 PACKED warps, i.e. ~125 per SM. So
+ * G is the largest power of two <= IL_CPW_AUTO_MAX with cells/G >= SMs * 128 --
+ * G=1 on the narrow first rows of a sweep, G=8 once a row is wide. The SM count is
+ * the device's own, so the A100's 108 SMs move the threshold, not the rule. */
+#define IL_CPW_AUTO_MAX          8
+#define IL_CPW_WARPS_PER_SM    128
+static int
+rnafold_int_loop_cpw_for(const size_t cells)
+{
+  const int fixed = rnafold_int_loop_cpw();
+  if (fixed != IL_CPW_AUTO) return fixed;
+
+  static size_t floor_warps = 0;
+  if (!floor_warps) {
+    int dev = 0, sms = 0;
+    cudaGetDevice(&dev);
+    cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, dev);
+    floor_warps = (size_t)(sms > 0 ? sms : 1) * IL_CPW_WARPS_PER_SM;
+  }
+  int G = 1;
+  while (G < IL_CPW_AUTO_MAX && cells / (size_t)(2 * G) >= floor_warps) G *= 2;
+  return G;
 }
 
 // Waste budget for the 2-D grid: a ragged chunk launches nfiles*ceil(maxw/cpb)
@@ -1719,6 +1849,98 @@ gq_internal_i(const int nfiles, const int i, const int turn_, const size_t* size
 }
 
 
+/* RNA_INT_LOOP_WORK_STATS=1: how the int_loop work is DISTRIBUTED over cells.
+ *
+ * Every cell gets a warp, and the warp runs ceil(total/32) passes of the candidate
+ * loop, so the averages ncu reports (83 % lane efficiency) cannot say whether the
+ * waste sits in a few near-empty cells or is spread evenly -- and those want
+ * different fixes (packing several small cells into one warp vs. nothing). This
+ * records `total` for every cell of every row, histograms it on the host and prints
+ * once at exit. It synchronises and copies after EVERY launch, so it is a
+ * diagnostic only: never read a wall with it on. Warp kernel only (the default);
+ * the block-per-cell kernels ignore it. */
+static int il_work_stats(void) {
+  static int v = -1;
+  if(v < 0) { const char* e = getenv("RNA_INT_LOOP_WORK_STATS"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  return v;
+}
+
+#define IL_WORK_HIST 18                 /* iters 0..16, then 17+ */
+static int*      d_il_work   = NULL;
+static int*      h_il_work   = NULL;
+static size_t    il_work_cap = 0;
+static long long il_cells = 0, il_zero = 0, il_le8 = 0, il_le16 = 0, il_lt32 = 0;
+static long long il_cand  = 0, il_slots = 0, il_launches = 0;
+static long long il_hist[IL_WORK_HIST];
+static int       il_max   = 0;
+
+static void il_work_report(void) {
+  if(!il_cells) return;
+  fprintf(stderr, "%-24s RNA_INT_LOOP_WORK_STATS: %lld launches, %lld cells, %lld candidates\n",
+          __FILE__, il_launches, il_cells, il_cand);
+  fprintf(stderr, "%-24s   lane efficiency %.1f %% (candidates / 32*passes), mean %.1f, max %d per cell\n",
+          __FILE__, il_slots ? 100.0 * (double)il_cand / (double)il_slots : 0.0,
+          (double)il_cand / (double)il_cells, il_max);
+  fprintf(stderr, "%-24s   cells with 0: %.1f %%  1-8: %.1f %%  9-16: %.1f %%  17-31: %.1f %%\n",
+          __FILE__, 100.0 * il_zero / il_cells, 100.0 * il_le8 / il_cells,
+          100.0 * il_le16 / il_cells, 100.0 * il_lt32 / il_cells);
+  fprintf(stderr, "%-24s   passes  cells%%   share of passes%%\n", __FILE__);
+  long long passes = 0;
+  for(int k = 1; k < IL_WORK_HIST; k++) passes += il_hist[k] * (long long)k;
+  for(int k = 0; k < IL_WORK_HIST; k++) {
+    if(!il_hist[k]) continue;
+    fprintf(stderr, "%-24s   %s%-5d %6.2f   %6.2f\n", __FILE__,
+            k == IL_WORK_HIST - 1 ? ">=" : "  ", k, 100.0 * il_hist[k] / il_cells,
+            passes ? 100.0 * (double)(il_hist[k] * (long long)k) / (double)passes : 0.0);
+  }
+}
+
+/* Before the launch: point the kernel at a buffer pre-filled with -1, so an
+ * untouched slot is "not a cell" and a 0 is "a cell with no candidates". */
+static void il_work_begin(void) {
+  if(il_work_cap < g_row_total) {
+    if(d_il_work) { gpuErrchk( cudaFree(d_il_work) ); }
+    free(h_il_work);
+    gpuErrchk( cudaMalloc(&d_il_work, g_row_total * sizeof(int)) );
+    h_il_work = (int*)malloc(g_row_total * sizeof(int));
+    assert(h_il_work);
+    il_work_cap = g_row_total;
+    static int registered = 0;
+    if(!registered) { atexit(il_work_report); registered = 1; }
+  }
+  gpuErrchk( cudaMemsetAsync(d_il_work, 0xff, g_row_total * sizeof(int), rnafold_stream_cell()) );
+  gpuErrchk( cudaMemcpyToSymbolAsync(c_il_work, &d_il_work, sizeof(int*), 0,
+                                     cudaMemcpyHostToDevice, rnafold_stream_cell()) );
+}
+
+/* After the launch: read the row back and fold it into the histogram, then
+ * switch the kernel back off so no other launch writes into a stale buffer. */
+static void il_work_end(void) {
+  int* const off = NULL;
+
+  gpuErrchk( cudaMemcpyAsync(h_il_work, d_il_work, g_row_total * sizeof(int),
+                             cudaMemcpyDeviceToHost, rnafold_stream_cell()) );
+  gpuErrchk( cudaMemcpyToSymbolAsync(c_il_work, &off, sizeof(int*), 0,
+                                     cudaMemcpyHostToDevice, rnafold_stream_cell()) );
+  gpuErrchk( cudaStreamSynchronize(rnafold_stream_cell()) );
+  il_launches++;
+  for(size_t x = 0; x < g_row_total; x++) {
+    const int t = h_il_work[x];
+    if(t < 0) continue;
+    const int it = (t + 31) >> 5;
+    il_cells++;
+    il_cand  += t;
+    il_slots += (long long)it * 32;
+    il_hist[it < IL_WORK_HIST - 1 ? it : IL_WORK_HIST - 1]++;
+    if(t == 0)       il_zero++;
+    else if(t <= 8)  il_le8++;
+    else if(t <= 16) il_le16++;
+    else if(t < 32)  il_lt32++;
+    if(t > il_max) il_max = t;
+  }
+}
+
+
 //Host (ie non-GPU) code
 PRIVATE void
 int_loop_cuda(const int nfiles,
@@ -1774,9 +1996,16 @@ int_loop_cuda(const int nfiles,
   // than in cells and block_size selects how many independent cells share a
   // block. Same launch-stats bracket, same grid quantity reported, so the
   // per-launch numbers stay comparable between the two kernels.
+  const int work_stats = rnafold_int_loop_warp() && il_work_stats();
+  if(work_stats) il_work_begin();
+
   if(rnafold_int_loop_warp()) {
     const int    cpb = block_size / 32;
-    const size_t nb  = (flat_nblocks + (size_t)cpb - 1)/(size_t)cpb;
+    // G cells per warp (RNA_INT_LOOP_CELLS_PER_WARP): the grid counts WARPS, each
+    // owning G consecutive cells, so G = 1 is the old sizing exactly.
+    const int    il_G = rnafold_int_loop_cpw_for(flat_nblocks);   /* NOT `G`: the launch macros below take a parameter named G (GRIDY) */
+    const size_t nw  = (flat_nblocks + (size_t)il_G - 1)/(size_t)il_G;
+    const size_t nb  = (nw + (size_t)cpb - 1)/(size_t)cpb;
     assert(nb <= 2147483647u);
 
     // H6: take the 2-D grid only when it is nearly free. `maxw` is the widest
@@ -1790,7 +2019,7 @@ int_loop_cuda(const int nfiles,
       const size_t w = size_off_H[H+1] - size_off_H[H];
       if(w > maxw) maxw = w;
     }
-    const size_t nbx   = (maxw + (size_t)cpb - 1)/(size_t)cpb;
+    const size_t nbx   = ((maxw + (size_t)il_G - 1)/(size_t)il_G + (size_t)cpb - 1)/(size_t)cpb;
     const int    wsearch = rnafold_int_loop_wsearch();   // read UNCONDITIONALLY:
                                                         // see the banner note
     const int    gridy = rnafold_int_loop_gridy() &&
@@ -1821,7 +2050,7 @@ int_loop_cuda(const int nfiles,
 #define IL_WARP_LAUNCH_R(C, G, W, GRID, RG) int_loop_warp_kernel<C,G,W,1,RG><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
-        d_size_off_H, d_i_H, d_energy_min2, d_c_ring, g_row_total)
+        d_size_off_H, d_i_H, d_energy_min2, d_c_ring, g_row_total, il_G)
 /* RNA_C_RING picks the reader at the launch; the U=2 path never has the ring
  * (c_ring_refuse() refuses that pairing). */
 #define IL_WARP_LAUNCH(C, G, W, GRID) \
@@ -1835,7 +2064,7 @@ int_loop_cuda(const int nfiles,
 #define IL_WARP_LAUNCH_U2(C, G, W, GRID) int_loop_warp_kernel<C,G,W,2><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
-        d_size_off_H, d_i_H, d_energy_min2)
+        d_size_off_H, d_i_H, d_energy_min2, NULL, 0, il_G)
 #define IL_WARP_DISPATCH(G, W, GRID) \
     if(rnafold_int_loop_unroll() == 2) { \
       switch(cpb) { \
@@ -1933,6 +2162,7 @@ int_loop_cuda(const int nfiles,
   rnafold_launch_stats_end((unsigned int)flat_nblocks);
 
   gpuErrchk( cudaPeekAtLastError() );
+  if(work_stats) il_work_end();
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
   if(!rnafold_gpu_sweep())

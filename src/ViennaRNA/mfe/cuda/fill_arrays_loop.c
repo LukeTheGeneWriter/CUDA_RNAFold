@@ -603,6 +603,13 @@
         // ONE slot: only s's occupant changed. This was a whole-batch repack
         // until 2026-09-27, and it was the entire measured cost of slot flow.
         refill_gpu3 (nfiles, VC, turn, length, 512, row_off_H, cap_H, s);
+        // -g: the c_gq table is laid out by SLOT (mfe_cuda.c uploads VCsl), so a
+        // new occupant needs its own. Whole-table re-upload: c_gq is sparse and
+        // this is once per handover, on a path that is off by default. Safe here
+        // because the device was drained at the top of this handover, and the
+        // kernels read the table's pointers at launch, never from a stale capture.
+        if(rnafold_gq_active())
+          (void)rnafold_gq_upload(nfiles, VC);
 
         const int top = (int)VC[s]->length - turn - 1;
         i_H[s] = (top >= 1) ? top : 0;

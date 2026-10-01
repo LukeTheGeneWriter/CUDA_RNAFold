@@ -1576,7 +1576,10 @@ par_mfe(const int nfiles,
    * Standing down is therefore CONSERVATIVE AND HONEST rather than a fix. It keeps
    * the answer right while the mechanism is unknown, which is the only acceptable
    * state for a default. INT16_FML_SCOPE.md should carry the investigation. */
-  if (md->salt != VRNA_MODEL_DEFAULT_SALT)
+  /* RNA_FML_INT16_SALT_PROBE=1 skips this stand-down: a DIAGNOSTIC for finding the
+   * mechanism, never a way to run. It reproduces the wrong answer on purpose. */
+  const char *salt_probe = getenv("RNA_FML_INT16_SALT_PROBE");
+  if (md->salt != VRNA_MODEL_DEFAULT_SALT && !(salt_probe && salt_probe[0] == '1'))
     rnafold_fml_int16_stand_down("a non-default salt concentration changes terms "
                                  "that feed fML, and int16 was measured giving a "
                                  "different answer under it (mechanism not yet "
@@ -1770,7 +1773,16 @@ par_mfe(const int nfiles,
      * from the recursion work -- if the table does not arrive intact, every
      * later stage debugs the wrong thing.
      */
-    (void)rnafold_gq_upload(nfiles, VC);
+    /*
+     * BY SLOT, NOT BY RECORD. The device indexes the table by the sweep's H,
+     * which under slot flow (RNA_SLOT_FLOW) is a SLOT: slot s starts with record
+     * queue[qoff[s]], almost never record s. Uploading (nfiles, VC) gave every
+     * slot some other record's c_gq -- the "-g + slot flow wrong in EVERY arm"
+     * defect (A100, 2026-09-30). Without slot flow VCsl == VC and nslots ==
+     * nfiles, so this is the old call exactly. par_fill_arrays() re-uploads at
+     * every handover, when a slot's occupant changes.
+     */
+    (void)rnafold_gq_upload(nslots, VCsl);
 
     // Release every record's c/fML now. Nothing reads either between here and
     // backtrack_one(), which reattaches a pooled scratch pair per record --
