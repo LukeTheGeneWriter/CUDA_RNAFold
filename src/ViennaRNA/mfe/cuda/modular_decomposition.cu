@@ -491,6 +491,7 @@ int*    d_fml_row;
 size_t* d_colb_off;
 size_t* d_base_off_H;   // per-record start in d_fml_b
 static size_t g_base_total = 0;
+static size_t g_tri_cells  = 0;   /* the chunk's triangle cells, for RNA_TRI_CHECKSUM */
 int* d_dml;  //DMLi
 // GPU-resident sweep, step 1. Two row-shaped buffers the device side of the
 // sweep needs once new_c_host/fml_host/fml_prev_host become kernels. They are
@@ -612,6 +613,27 @@ static cudaStream_t g_issue_stream = 0;
  * evidence from the code that did it, not a re-evaluation of the knob. */
 static int g_md_tail_now = 0;
 static int g_md_tail_row = -1;
+
+/* RNA_ROW_BATCH=K (2..turn+2; 0/1 = off): the fML triangle is written K rows at a time
+ * from a row-major stage instead of one scattered row per sweep row. See
+ * md_flush_rows_kernel. Gated OFF until priced. */
+#define ROW_BATCH_MAX 5            /* turn+2 at the default turn; the stage's slot count */
+int*       d_fml_stage   = NULL;   /* ROW_BATCH_MAX x row_total ints, row-major */
+static int g_stage_n     = 0;      /* rows staged and not yet flushed */
+static int g_stage_K     = 0;      /* the K in force for this chunk (clamped) */
+
+static int
+rnafold_row_batch(void)
+{
+  static int v = -1;
+  if(v < 0) {
+    const char* e = getenv("RNA_ROW_BATCH");
+    v = (e && e[0]) ? atoi(e) : 0;
+    if(v < 2) v = 0;
+    if(v > ROW_BATCH_MAX) v = ROW_BATCH_MAX;
+  }
+  return v;
+}
 cudaGraphExec_t graph_exec       = NULL;
 
 // T2a (device.cu): device-to-host for backtrack worker w, through w's own
@@ -655,6 +677,7 @@ init_gpu(const int nfiles, const int length,
   if(!first) return;
   const double _t_ig1 = rnafold_now_seconds();
   fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
+  g_tri_cells = tri_off_H[nfiles];   /* RNA_TRI_CHECKSUM */
   cudaError_t error;
   // graph_stream is nfiles/length-independent -- guarded on its own initial
   // value (0), not on `first`, so teardown_gpu() can reset first=1 between
@@ -802,6 +825,16 @@ init_gpu(const int nfiles, const int length,
 	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
 
+  // RNA_ROW_BATCH: the stage, ROW_BATCH_MAX rows of the same row-major layout.
+  g_stage_n = 0;
+  if(rnafold_row_batch()) {
+    error = cudaMalloc((void **) &d_fml_stage, mem_size_len * ROW_BATCH_MAX);
+    if (error != cudaSuccess)  {
+        printf("cudaMalloc d_fml_stage %zu returned error %s (code %d), line(%d)\n",
+               mem_size_len * ROW_BATCH_MAX, cudaGetErrorString(error), error, __LINE__);
+        exit(EXIT_FAILURE);}
+  }
+
   // See the forward declarations above for why this happens here rather
   // than lazily at first launch.
   g_block_size_fmli = rnafold_choose_block_size(fmli_kernel, BLOCK_SIZE, "RNA_FMLI_BLOCK_SIZE");
@@ -904,6 +937,8 @@ teardown_gpu(void) {
   gpuErrchk( cudaFree(d_dml) );
   gpuErrchk( cudaFree(d_dml1) );
   gpuErrchk( cudaFree(d_fml_prev) );
+  if(d_fml_stage) { gpuErrchk( cudaFree(d_fml_stage) ); d_fml_stage = NULL; }  // by the pointer
+  g_stage_n = 0;
   gpuErrchk( cudaFree(d_tri_off_H) );
   gpuErrchk( cudaFree(d_row_off_H) );
   d_size_off_H = d_side_off_H = NULL;   // borrowed from the row tables
@@ -941,6 +976,9 @@ modular_decomposition_bytes_per_file(const int length) {
   // accepted that does not fit, and the failure surfaces as an OOM inside
   // par_mfe() rather than as a smaller batch.
   const size_t cells        = (size_t)(length+1)*(length+2)/2;
+  /* RNA_ROW_BATCH's stage: ROW_BATCH_MAX more row-shaped buffers -- noise beside the
+   * triangle, but this number admits chunks, so it is charged rather than assumed. */
+  const size_t stage_bytes  = rnafold_row_batch() ? (size_t)(length+1) * sizeof(int) * ROW_BATCH_MAX : 0;
   if(rnafold_fml_int16()) {
     // x6: the five above plus d_fml_row, which is row-shaped and so is noise
     // beside the triangle. The triangle halves, and the baselines add one int32
@@ -948,7 +986,7 @@ modular_decomposition_bytes_per_file(const int length) {
     const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 6;
     const size_t tri16        = cells * sizeof(short);
     const size_t base_bytes   = ((cells + FML_BLK - 1)/FML_BLK + (size_t)length + 2) * sizeof(int);
-    return mem_size_len + tri16 + base_bytes
+    return mem_size_len + tri16 + base_bytes + stage_bytes
          + (g_circ_expected ? cells * sizeof(int) : 0);   /* fM2_real stays int32 */
   }
   const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 5;
@@ -956,7 +994,7 @@ modular_decomposition_bytes_per_file(const int length) {
   /* CIRCULAR costs a SECOND full triangle -- fM2_real, the same extent as
    * d_fml_j. This is the "costs a chunk width" trade PORT_CIRC_SPEC.md names:
    * the arithmetic is free, the memory is not. */
-  return mem_size_len + ijsize_len
+  return mem_size_len + ijsize_len + stage_bytes
        + (g_circ_expected ? cells * sizeof(int) : 0);
 }
 
@@ -1088,10 +1126,89 @@ md_close_row_kernel(const int nfiles, const int i_row, const int turn,
                     const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
                     const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
                     const size_t* __restrict__ size_off_H, const size_t total,
-                    const int* __restrict__ i_H) {
+                    const int* __restrict__ i_H,
+                          int* __restrict__ stage) {   // RNA_ROW_BATCH slot, or NULL
   md_close_row_cell(nfiles, i_row, turn, energy_min, dml, fml_prev, fml_j, fml_j16, fml_b,
                     tri_off_H, row_off_H, base_off_H, colb_off, size_off_H, total, i_H,
-                    blockIdx.x*blockDim.x+threadIdx.x);
+                    blockIdx.x*blockDim.x+threadIdx.x, stage);
+}
+
+/* RNA_ROW_BATCH: write `npend` staged rows -- i_new (the newest, smallest i) up to
+ * i_new+npend-1 -- into the triangle in ONE pass.
+ *
+ * WHY: the triangle is column-major (Indx(i,j) = j(j-1)/2 + i), so writing ONE row puts
+ * one element in every column -- measured 31.96 sectors per store request in load_my_c,
+ * 18 in md_close_row (RTX 3050, ncu): a sector per element. Here the K pending rows
+ * of a column are written CONTIGUOUSLY (they share a sector), through a shared-memory
+ * transpose so the stage is read coalesced as well -- see the kernel body.
+ *
+ * WHY THIS IS LEGAL WITHOUT TOUCHING md: md(r) reads fML rows >= r+turn+2. A row is
+ * flushed at most K-1 rows after it was closed, and the driver clamps K <= turn+2, so
+ * no md ever reads a row that is still only in the stage.
+ *
+ * The cells are row i_new's size range (the widest pending row); row r is written
+ * only where it has that column (j >= r+turn+1), which is exactly the cells
+ * md_close_row_cell staged for it. int16: the per-(column, 64-row block) baseline is
+ * the FIRST non-INF value in SWEEP order (descending i), so each column's thread sets
+ * any unset baselines oldest-row-first before the tile packs -- the same baselines
+ * row-at-a-time packing would have chosen. */
+template<int TJ>
+__global__ void
+md_flush_rows_kernel(const int nfiles, const int turn, const int i_new, const int npend,
+                     const int K, const size_t row_total,
+                     const int* __restrict__ stage,
+                           int* __restrict__ fml_j,
+                           short* __restrict__ fml_j16,
+                           int* __restrict__ fml_b,
+                     const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                     const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
+                     const size_t* __restrict__ size_off_H, const size_t total)
+{
+  /* One block = TJ consecutive cells (columns) of row i_new's size range. Shared-memory
+   * TRANSPOSE: the stage is row-major, the triangle column-major, so
+   *   1. read the tile row by row  -- thread t reads column t of each pending row:
+   *      consecutive threads, consecutive j, COALESCED;
+   *   2. int16: one thread per column sets that column's unset baselines, oldest
+   *      pending row first (sweep order), from shared;
+   *   3. write column by column -- consecutive threads write consecutive ROWS of the
+   *      same column, which Indx(i,j) = j(j-1)/2 + i makes CONTIGUOUS.
+   * The first version gave lanes different rows of the stage and paid uncoalesced
+   * READS for coalesced writes: a wash (K=5: 12.4 vs 11.9 us/row on an RTX 3050). */
+  __shared__ int    sv[ROW_BATCH_MAX][TJ];
+  __shared__ int    sH[TJ], sj[TJ];
+  const int    t  = threadIdx.x;
+  const size_t m  = (size_t)blockIdx.x * TJ + t;
+  int H = -1, j = 0;
+
+  if(m < total) {
+    H = flatten_index_to_H(m, size_off_H, nfiles);
+    j = (int)((long long)m - (long long)size_off_H[H]) + i_new + turn + 1;
+    const size_t o = row_off_H[H];
+    for(int q = 0; q < npend; q++) {
+      const int r = i_new + q;
+      sv[q][t] = (j >= r + turn + 1) ? stage[(size_t)(r % K)*row_total + o + j] : INF;
+    }
+  }
+  sH[t] = H; sj[t] = j;
+  __syncthreads();
+
+  if(fml_j16 && H >= 0)
+    for(int q = npend - 1; q >= 0; q--) {               // sweep order: oldest row first
+      const int r = i_new + q, v = sv[q][t];
+      if(j < r + turn + 1 || v == INF) continue;
+      const size_t bidx = fml_bidx(base_off_H, colb_off, H, j, r);
+      if(fml_b[bidx] == FML_BASE_UNSET) fml_b[bidx] = v;
+    }
+  __syncthreads();
+
+  for(int k = t; k < TJ * npend; k += TJ) {             // row fastest: contiguous per column
+    const int c = k / npend, q = k % npend;
+    const int Hc = sH[c], jc = sj[c], r = i_new + q;
+    if(Hc < 0 || jc < r + turn + 1) continue;
+    const int v = sv[q][c];
+    if(fml_j16) pack_fml_value(v, Hc, r, jc, fml_j16, fml_b, tri_off_H, base_off_H, colb_off);
+    else        fml_j[tri_off_H[Hc] + Indx(r, jc)] = v;
+  }
 }
 
 
@@ -3582,10 +3699,79 @@ md_close_row(const int nfiles, const int i, const int turn, const size_t* size_o
   if(total == 0) return;
   bind_row_tables(i);
   const int nblocks = (int)((total + BLOCK_SIZE - 1)/BLOCK_SIZE);
+  int* stage = (g_stage_K >= 2) ? d_fml_stage + (size_t)(i % g_stage_K) * g_row_total : NULL;
   md_close_row_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn,
       d_energy_min, d_dml, d_fml_prev, d_fml_j, d_fml_j16, d_fml_b,
       d_tri_off_H, d_row_off_H, d_base_off_H, d_colb_off,
-      d_size_off_H, total, d_i_H);
+      d_size_off_H, total, d_i_H, stage);
+  gpuErrchk( cudaPeekAtLastError() );
+}
+
+/* RNA_TRI_CHECKSUM=1: at the end of each chunk's sweep, hash the WHOLE c and fML
+ * triangles and print the hashes.
+ *
+ * WHY: a structure-level comparison cannot see some defects. The first negative
+ * control for RNA_ROW_BATCH removed the turn+2 clamp so md read fML rows still sitting
+ * in the stage -- and every output still matched, because the candidates it lost
+ * (fML[i][i+4..i+6], segments too short for anything but a minimal hairpin) essentially
+ * never win the minimum. Equal triangles is the stronger bar: any change that only
+ * reorders writes must leave every cell, winning or not, bit-identical. Compare runs
+ * of the same encoding (int16 and int32 hash differently by construction). */
+extern "C" void int_loop_my_c_buffers(int** my_c_out, const size_t** tri_off_H_out);
+
+static unsigned long long
+tri_hash(const void* dev, const size_t bytes, unsigned long long h)
+{
+  const size_t chunk = (size_t)64 << 20;
+  unsigned char* buf = (unsigned char*)malloc(chunk);
+  if(!buf) return 0;
+  for(size_t off = 0; off < bytes; off += chunk) {
+    const size_t n = (bytes - off < chunk) ? (bytes - off) : chunk;
+    gpuErrchk( cudaMemcpy(buf, (const char*)dev + off, n, cudaMemcpyDeviceToHost) );
+    for(size_t k = 0; k < n; k++) { h ^= buf[k]; h *= 1099511628211ULL; }   /* FNV-1a */
+  }
+  free(buf);
+  return h;
+}
+
+extern "C" void
+rnafold_tri_checksum(void)
+{
+  static int on = -1;
+  if(on < 0) { const char* e = getenv("RNA_TRI_CHECKSUM"); on = (e && e[0] == '1'); }
+  if(!on || g_tri_cells == 0) return;
+  gpuErrchk( cudaDeviceSynchronize() );
+  int* myc = NULL; const size_t* t = NULL;
+  int_loop_my_c_buffers(&myc, &t);
+  const unsigned long long seed = 1469598103934665603ULL;
+  const unsigned long long hc = myc ? tri_hash(myc, g_tri_cells * sizeof(int), seed) : 0;
+  unsigned long long hf;
+  if(d_fml_j16) hf = tri_hash(d_fml_b, g_base_total * sizeof(int),
+                              tri_hash(d_fml_j16, g_tri_cells * sizeof(short), seed));
+  else          hf = tri_hash(d_fml_j, g_tri_cells * sizeof(int), seed);
+  fprintf(stderr, "%-24s triangle checksum: c %016llx  fML %016llx (%s, %zu cells)\n",
+          __FILE__, hc, hf, d_fml_j16 ? "int16+baselines" : "int32", g_tri_cells);
+}
+
+/* RNA_ROW_BATCH: flush the g_stage_n staged rows, the newest being i_new, on `s`.
+ * size_off_H is row i_new's, the widest of them. Issued OUTSIDE the captured graph:
+ * flushing every K-th row inside it would change the graph's topology every K rows
+ * and force a reinstantiate each time. Stream order keeps it after the close. */
+static void
+md_flush_rows(const int nfiles, const int i_new, const int turn,
+              const size_t* size_off_H, cudaStream_t s)
+{
+  const int npend = g_stage_n;
+  g_stage_n = 0;
+  if(npend == 0) return;
+  const size_t total = size_off_H[nfiles];
+  if(total == 0) return;
+  bind_row_tables(i_new);
+  const int TJ = 128;                    /* columns per block = threads per block */
+  const int nblocks = (int)((total + TJ - 1)/TJ);
+  md_flush_rows_kernel<128><<<nblocks,TJ,0,s>>>(nfiles, turn, i_new, npend,
+      g_stage_K, g_row_total, d_fml_stage, d_fml_j, d_fml_j16, d_fml_b,
+      d_tri_off_H, d_row_off_H, d_base_off_H, d_colb_off, d_size_off_H, total);
   gpuErrchk( cudaPeekAtLastError() );
 }
 
@@ -3643,6 +3829,31 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
     }
   }
 
+  // RNA_ROW_BATCH: part of the collapsed tail (it stages md_close_row's triangle
+  // writes), so it runs only where the tail does. K is clamped to turn+2: md(r) reads
+  // fML rows >= r+turn+2, so a row may wait at most turn+1 rows for its flush.
+  {
+    int K = (tail && d_fml_stage) ? rnafold_row_batch() : 0;
+    if(K > turn + 2) K = turn + 2;
+    if(K < 2)        K = 0;
+    if(K == 0 && g_stage_n > 0) {
+      // the stage was in use and this row cannot continue it: flush what is pending
+      // (newest row i+1) before anything reads the triangle
+      g_stage_K = (g_stage_K ? g_stage_K : 2);
+      md_flush_rows(nfiles, i + 1, turn, rnafold_rowtab_size_host(i + 1),
+                    rnafold_stream_overlap() ? rnafold_stream_md() : graph_stream);
+    }
+    g_stage_K = K;
+    static int said = 0;
+    if(rnafold_row_batch() && !said) {
+      said = 1;
+      if(K) fprintf(stderr,"%-24s RNA_ROW_BATCH=%d ACTIVE: the fML triangle is written %d rows "
+                           "at a time from a row-major stage\n", __FILE__, K, K);
+      else  fprintf(stderr,"%-24s RNA_ROW_BATCH REFUSED: %s\n", __FILE__,
+                    tail ? "turn+2 < 2" : "it is part of the collapsed md tail, which is off here");
+    }
+  }
+
   // RNA_MD_INF_STATS (off by default): sample how sparse the column stream is,
   // before the capture region and before load_fML(i) touches row i.
   md_inf_probe(nfiles, i, turn, side_off_H);
@@ -3682,6 +3893,10 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   if(!use_graph) {
     g_issue_stream = rnafold_stream_overlap() ? rnafold_stream_md() : 0;
     md_row_chain(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H,i_H,tail);
+    // RNA_ROW_BATCH: count this row into the stage; flush every K rows and at the
+    // sweep's last row (i == 1), before anything after the sweep reads the triangle.
+    if(g_stage_K && (++g_stage_n == g_stage_K || i == 1))
+      md_flush_rows(nfiles, i, turn, size_off_H, ISSUE_STREAM);
     // Level 2 must not sync here -- that would end the overlap before it began,
     // exactly as on the graph path below. RNA_MD_ROW_SYNC=0 drops it below
     // level 2 as well; see rnafold_md_row_sync().
@@ -3739,6 +3954,10 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   {
   cudaStream_t launch_stream = rnafold_stream_overlap() ? rnafold_stream_md() : graph_stream;
   gpuErrchk( cudaGraphLaunch(graph_exec, launch_stream) );
+  // RNA_ROW_BATCH: outside the graph (a K-periodic node would change its topology),
+  // same stream, so after this row's close. Every K rows and at the last row.
+  if(g_stage_K && (++g_stage_n == g_stage_K || i == 1))
+    md_flush_rows(nfiles, i, turn, size_off_H, launch_stream);
   //the one sync that remains: also the only point where a real runtime/data
   //error from the replayed graph (bad address, illegal access, device-side
   //assert()) becomes observable, since a graph gives no per-node attribution

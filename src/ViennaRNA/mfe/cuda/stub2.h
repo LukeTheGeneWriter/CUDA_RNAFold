@@ -626,6 +626,7 @@ PUBLIC void rnafold_phase_sync(void);
 PUBLIC int  rnafold_sync_probe(void);       /* RNA_SYNC_PROBE, negative control */
 PUBLIC void rnafold_sync_probe_tick(void);
 PUBLIC void rnafold_device_drain(void);     /* cudaDeviceSynchronize, device.cu */
+PUBLIC void rnafold_tri_checksum(void);     /* RNA_TRI_CHECKSUM, modular_decomposition.cu */
 PUBLIC int  rnafold_load_my_c_sync(void);   /* RNA_LOAD_MY_C_SYNC, device.cu */
 PUBLIC int  rnafold_new_c_stored_row(const int i);  /* RNA_NEW_C_STORE, hp_mb_loop.cu */
 PUBLIC int  rnafold_md_row_sync(void);      /* RNA_MD_ROW_SYNC, modular_decomposition.cu */

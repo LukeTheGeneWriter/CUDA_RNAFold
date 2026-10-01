@@ -106,7 +106,12 @@ md_close_row_cell(const int nfiles, const int i_row, const int turn,
                   const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
                   const size_t* __restrict__ size_off_H, const size_t total,
                   const int* __restrict__ i_H,
-                  const long long m) {
+                  const long long m,
+                  /* RNA_ROW_BATCH: this row's slot of the row-major stage, or NULL.
+                   * When set, the triangle value goes HERE -- one coalesced store --
+                   * and md_flush_rows_kernel writes K staged rows into the triangle
+                   * at once, contiguous per column. NULL: the triangle, as before. */
+                        int* __restrict__ stage = NULL) {
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
@@ -123,8 +128,9 @@ md_close_row_cell(const int nfiles, const int i_row, const int turn,
   fml_prev[o+j] = mn;
 
   const int v = (mj >= turn+1) ? mn : e;   // the triangle's rule -- see above
-  if(fml_j16) pack_fml_value(v, H, i, j, fml_j16, fml_b, tri_off_H, base_off_H, colb_off);
-  else        fml_j[tri_off_H[H] + Indx(i,j)] = v;
+  if(stage)        stage[o+j] = v;
+  else if(fml_j16) pack_fml_value(v, H, i, j, fml_j16, fml_b, tri_off_H, base_off_H, colb_off);
+  else             fml_j[tri_off_H[H] + Indx(i,j)] = v;
 }
 
 __device__ inline void

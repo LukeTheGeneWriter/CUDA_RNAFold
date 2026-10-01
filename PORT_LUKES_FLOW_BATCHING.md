@@ -1075,3 +1075,39 @@ kernels that WRITE a row into a column-major triangle (`Indx(i,j) = j(j−1)/2 +
 one element per column, uncoalesced. Together ~4.6 % of an L4 row (A100: ~3.4 %). The
 layout is right for md's column reads; the row writes are its price. A candidate lever
 (stage writes, or a row-major staging buffer flushed by column blocks), not yet scoped.
+
+### 9.14 Batching the fML triangle writes — `RNA_ROW_BATCH` (2026-10-01, Luke's idea)
+
+The L4 price list showed the two kernels that WRITE a finished row into a column-major
+triangle costing more than the row's compute around them. `ncu` named the mechanism:
+`load_my_c` 31.96 store sectors per request — every element its own sector — and
+`md_close_row` 18.
+
+**Luke's idea:** stage the next few rows and write them back together. **What makes it
+legal for fML:** md(r) reads fML rows ≥ r+turn+2, so a row may wait turn+1 rows — up to
+**K = turn+2 = 5 rows can be batched with NO reader change.** `md_close_row` writes into a
+row-major stage (coalesced); every K rows `md_flush_rows_kernel` writes them out through a
+shared-memory transpose, so each column's K rows are contiguous. (`c` is different:
+`int_loop` reads the previous row immediately, so batching it needs `int_loop` to read
+recent rows from the stage — the T2b ring. Not built.)
+
+**First flush was a wash, and why:** lanes mapped to stage ROWS made the reads
+uncoalesced (K=5: 12.4 vs 11.9 µs/row). The transpose fixed it:
+
+| K | close + flush (µs/row, RTX 3050, 6 × 3000) | vs off |
+|---|---|---|
+| off | 12.2 | — |
+| 2 | 13.0 | +7 % |
+| 3 | 12.2 | 0 |
+| 4 | 11.4 | −7 % |
+| **5** | **10.5** | **−14 %** |
+
+**Correctness bar raised:** 320 runs (4 fixtures × plain/noLP/circ/-g × K 2–5 × overlap
+0/2, graph off, int32), 279 swept, 0 differ from the CPU. But the NEGATIVE CONTROL showed
+outputs cannot see an ordering violation — the clamp removed, K=8, md reading rows still
+in the stage: identical structures. **`RNA_TRI_CHECKSUM=1` (new)** hashes both triangles,
+cell for cell, at every chunk's end: identical at K 2–5 in both encodings on three
+fixtures with and without -g; **K=8 unclamped DIFFERS** — caught. (K=6 hashes equal: it
+loses only fML[r][r+4]+fML[r+5][j], which never set a cell here; the clamp is the derived
+bound and stays.) Gated OFF; the RowBarriers2 notebook prices rb4/rb5 and repeats the
+triangle check on the device.

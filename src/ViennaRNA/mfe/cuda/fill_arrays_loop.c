@@ -624,6 +624,7 @@
 
  // The sweep is over; drain and release the row tables.
  rnafold_rowtab_end();
+ rnafold_tri_checksum();   // RNA_TRI_CHECKSUM=1: hash both triangles, cell for cell
 
  fprintf(stderr,"%-24s sweep shape: %lld iterations, %lld active record-rows, "
                 "%lld cells; peak/iteration %lld records %lld cells; "
