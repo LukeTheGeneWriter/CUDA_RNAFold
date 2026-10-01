@@ -130,6 +130,18 @@ static int g_slot_index = -1;
 int*          d_my_c;
 int*          d_energy_min2; //share with modular_decomposition.cu ?
 int*          d_new_e;
+// RNA_C_RING (see c_ring_store_kernel): the last 32 c rows, row-major, one slot per
+// row (slot p & 31), each slot laid out like the row buffers (row_off_H[H] + j).
+// g_c_ring_on is this chunk's decision -- the int_loop launch reads it to pick the
+// reader -- and g_c_pend rows (the newest being g_c_pend_i) are still only in the ring.
+static int*   d_c_ring    = NULL;
+static int    g_c_ring_on = 0;
+static int    g_c_pend    = 0;
+static int    g_c_pend_i  = 0;
+static long   g_c_rows    = 0;      // rows ringed / flushes issued, this chunk:
+static long   g_c_flushes = 0;      //   positive evidence, printed by rnafold_c_ring_end()
+static int    rnafold_c_ring(void);
+static int    c_ring_asked(void);
 // Staggered_Row_Batching Phase 2b: device copy of compute_batch_offsets()'s
 // tri_off_H[] (mfe_cuda.c/stub2.h) -- d_my_c's per-H triangle-block start,
 // nfiles+1 entries, uploaded once per chunk in init_gpu2(). Replaces
@@ -588,6 +600,23 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // the old uniform nfiles*(length+1) exactly while chunks stay uniform-length,
   // diverges once they don't.
   SLOT_ALLOC(&d_energy_min2, g_row_total*sizeof(int));
+
+  // RNA_C_RING: decided and sized per chunk (a slot is this chunk's row_total), and
+  // INF everywhere, so a cell outside a row's size range reads exactly what the
+  // triangle's INF prefill would give. Slot flow, the only refill2 caller, refuses
+  // the ring, so the guard only keeps a refill from re-allocating it.
+  if(!g_refill2) {
+    g_c_ring_on = rnafold_c_ring();
+    g_c_pend = 0; g_c_rows = 0; g_c_flushes = 0;
+    if(g_c_ring_on) {
+      const size_t n = (size_t)32 * g_row_total;
+      TIMED_CUDAMALLOC(&d_c_ring, n*sizeof(int));
+      init_my_c_kernel<<<(unsigned int)((n + BLOCK_SIZE - 1)/BLOCK_SIZE),BLOCK_SIZE>>>(n, d_c_ring);
+      gpuErrchk( cudaPeekAtLastError() );
+      // legacy stream; the ring's writers are on the non-blocking cell stream
+      gpuErrchk( cudaDeviceSynchronize() );
+    }
+  }
   /*no longer in use
   SLOT_ALLOC(&d_energy_min20, size);
 
@@ -656,6 +685,8 @@ teardown_gpu2(void) {
   gpuErrchk( cudaFree(d_my_c) );
   gpuErrchk( cudaFree(d_new_e) );
   gpuErrchk( cudaFree(d_energy_min2) );
+  if(d_c_ring) { gpuErrchk( cudaFree(d_c_ring) ); d_c_ring = NULL; }   // by the pointer
+  g_c_ring_on = 0;
   gpuErrchk( cudaFree(d_tri_off_H) );
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_hc_off_H) );
@@ -678,7 +709,10 @@ int_loop_bytes_per_file(const int length) {
   const size_t my_c_bytes         = (size_t)(length+1)*(length+2)/2*sizeof(int);
   const size_t new_e_bytes        = (size_t)(length+1)*sizeof(int);
   const size_t energy_min2_bytes  = (size_t)(length+1)*sizeof(int);
-  return hccc_bytes + s_bytes + my_c_bytes + new_e_bytes + energy_min2_bytes;
+  // RNA_C_RING: 32 row slots. Charged when ASKED, not when granted -- the refusals
+  // are decided per chunk, after the budget, and over-estimating is the safe side.
+  const size_t c_ring_bytes       = c_ring_asked() ? (size_t)32*(length+1)*sizeof(int) : 0;
+  return hccc_bytes + s_bytes + my_c_bytes + new_e_bytes + energy_min2_bytes + c_ring_bytes;
 }
 
 // Copies the GPU's my_c triangle back into each record's own
@@ -782,6 +816,168 @@ load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const in
                  blockIdx.x*blockDim.x+threadIdx.x);
 }
 
+/* ===================== RNA_C_RING: the c triangle, batched =====================
+ *
+ * The c twin of RNA_ROW_BATCH (modular_decomposition.cu). load_my_c writes ONE row
+ * of a column-major triangle, so every element is its own sector (31.96 sectors per
+ * store request, RTX 3050 ncu). Here the row goes to a 32-row ring instead -- a
+ * contiguous, coalesced store -- and the triangle is written RNA_C_FLUSH_ROWS rows
+ * at a time, where a column's pending rows are CONTIGUOUS (Indx(i,j) = j(j-1)/2 + i).
+ *
+ * WHY THE RING HAS 32 ROWS AND NOT RNA_C_FLUSH_ROWS: unlike fML (md(r) reads rows
+ * >= r+turn+2, so staging 5 is free), int_loop(i) reads c rows i+1..i+31 -- MAXLOOP
+ * -- starting with the row just written. So int_loop must READ the ring
+ * (c_ring_reader, int_loop_dev.h), and the ring must hold every row it can reach;
+ * those 31 rows are distinct mod 32. The triangle then has no reader during the
+ * sweep at all (md reads c from row buffers; the twin kernel, the megakernel, row
+ * fusion and RNA_NEW_C_STORE do read or write it, and are refused below), so the
+ * flush only has to beat the ring's own overwrite: row r's slot is reused by row
+ * r-32, and with K <= 32 every flush lands, in cell-stream order, before that.
+ *
+ * Only reorders writes: RNA_TRI_CHECKSUM=1 must match the ring-off run exactly. */
+static int
+c_ring_asked(void)
+{
+  static int v = -1;
+  if(v < 0) { const char* e = getenv("RNA_C_RING"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  return v;
+}
+
+/* RNA_C_FLUSH_ROWS=K, 1..32 (default 16): rows per triangle flush. K=1 keeps the
+ * ring's reads and drops the batching -- the control that splits the two effects. */
+static int
+c_flush_rows(void)
+{
+  static int v = -1;
+  if(v < 0) {
+    const char* e = getenv("RNA_C_FLUSH_ROWS");
+    v = (e && e[0]) ? atoi(e) : 16;
+    if(v < 1)  v = 1;
+    if(v > 32) v = 32;
+  }
+  return v;
+}
+
+static int
+c_env_on(const char* name)
+{
+  const char* e = getenv(name);
+  return (e && e[0] && e[0] != '0') ? 1 : 0;
+}
+
+PUBLIC int rnafold_int_loop_warp(void);
+
+/* This chunk's decision. Every refusal is silent in the answer (the triangle path
+ * is byte-identical), so say which, once. */
+static int
+rnafold_c_ring(void)
+{
+  if(!c_ring_asked()) return 0;
+  const char* why = NULL;
+  if(rnafold_continuous_flow())           why = "continuous flow puts records on different rows";
+  else if(rnafold_slot_flow())            why = "slot flow refills a record's triangle mid-sweep";
+  else if(!rnafold_gpu_sweep())           why = "off the GPU-resident sweep the host path owns new_C";
+  else if(!rnafold_int_loop_warp())       why = "the block-per-cell int_loop twin reads the triangle";
+  else if(rnafold_int_loop_unroll() == 2) why = "RNA_INT_LOOP_UNROLL=2 has no ring reader";
+  else if(c_env_on("RNA_NEW_C_STORE"))    why = "RNA_NEW_C_STORE writes the triangle from new_c";
+  else if(c_env_on("RNA_ROW_FUSE"))       why = "RNA_ROW_FUSE writes the triangle from its fused kernel";
+  else if(rnafold_megakernel())           why = "the megakernel reads the triangle";
+  static int said = 0;
+  if(!said) {
+    said = 1;
+    if(why) fprintf(stderr,"%-24s RNA_C_RING REFUSED: %s -- the c triangle is written row by row\n",
+                    __FILE__, why);
+    else    fprintf(stderr,"%-24s RNA_C_RING ACTIVE: int_loop reads c from a 32-row ring; the c "
+                           "triangle is written %d rows at a time (RNA_C_FLUSH_ROWS)\n",
+                    __FILE__, c_flush_rows());
+  }
+  return why ? 0 : 1;
+}
+
+/* Row i of c into ring slot i & 31, over the row's size range only: what lies
+ * outside it stays INF, as in the triangle. */
+__global__ void
+c_ring_store_kernel(const int nfiles, const int i,
+                    const int* __restrict__ new_e, int* __restrict__ ring, const size_t stride,
+                    const size_t* __restrict__ row_off_H, const size_t* __restrict__ size_off_H,
+                    const size_t total)
+{
+  const size_t m = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
+  if(m >= total) return;
+  const int    H = flatten_index_to_H(m, size_off_H, nfiles);
+  const size_t o = row_off_H[H] + (m - size_off_H[H]) + (size_t)(i + turn + 1);
+  ring[(size_t)(i & 31)*stride + o] = new_e[o];
+}
+
+/* Rows i_new .. i_new+npend-1 from the ring into the triangle, in one pass. The
+ * shape of md_flush_rows_kernel: a block is TJ consecutive columns of row i_new's
+ * size range (the widest pending row); read the tile row by row (consecutive
+ * threads, consecutive j: coalesced), then write column by column (consecutive
+ * threads, consecutive ROWS of one column: contiguous in the triangle). The +1 pad
+ * keeps the column-wise shared read off a single bank -- with 32 pending rows,
+ * TJ = 128 without it is a 32-way conflict. */
+template<int TJ>
+__global__ void
+c_flush_rows_kernel(const int nfiles, const int i_new, const int npend,
+                    const int* __restrict__ ring, const size_t stride,
+                    int* __restrict__ my_c,
+                    const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                    const size_t* __restrict__ size_off_H, const size_t total)
+{
+  __shared__ int sv[32][TJ + 1];
+  __shared__ int sH[TJ], sj[TJ];
+  const int    t = threadIdx.x;
+  const size_t m = (size_t)blockIdx.x * TJ + t;
+  int H = -1, j = 0;
+
+  if(m < total) {
+    H = flatten_index_to_H(m, size_off_H, nfiles);
+    j = (int)(m - size_off_H[H]) + i_new + turn + 1;
+    const size_t o = row_off_H[H] + j;
+    for(int q = 0; q < npend; q++)
+      sv[q][t] = ring[(size_t)((i_new + q) & 31)*stride + o];
+  }
+  sH[t] = H; sj[t] = j;
+  __syncthreads();
+
+  for(int k = t; k < TJ * npend; k += TJ) {             // row fastest: contiguous per column
+    const int c = k / npend, q = k % npend;
+    const int Hc = sH[c], jc = sj[c], r = i_new + q;
+    if(Hc < 0 || jc < r + turn + 1) continue;           // row r has no column jc
+    my_c[tri_off_H[Hc] + Indx(r, jc)] = sv[q][c];
+  }
+}
+
+/* Flush the g_c_pend ringed rows, the newest being g_c_pend_i, on the cell stream --
+ * the ring's writer, so the slot reuse that bounds K is ordered by the stream. */
+static void
+c_ring_flush(const int nfiles)
+{
+  const int npend = g_c_pend, i_new = g_c_pend_i;
+  g_c_pend = 0;
+  if(npend == 0) return;
+  const size_t total = rnafold_rowtab_size_host(i_new)[nfiles];
+  if(total == 0) return;
+  bind_row_tables(i_new);
+  const int TJ = 128;
+  c_flush_rows_kernel<128><<<(unsigned int)((total + TJ - 1)/TJ),TJ,0,rnafold_stream_cell()>>>(
+      nfiles, i_new, npend, d_c_ring, g_row_total, d_my_c, d_tri_off_H, d_row_off_H,
+      d_size_off_H, total);
+  gpuErrchk( cudaPeekAtLastError() );
+  g_c_flushes++;
+}
+
+/* End of a chunk's sweep (fill_arrays_loop.c, before the row tables are released):
+ * whatever is still only in the ring goes to the triangle, for the backtrack. */
+extern "C" void
+rnafold_c_ring_end(const int nfiles)
+{
+  if(!g_c_ring_on) return;
+  c_ring_flush(nfiles);
+  fprintf(stderr,"%-24s RNA_C_RING: %ld rows ringed, %ld triangle flushes this chunk\n",
+          __FILE__, g_c_rows, g_c_flushes);
+}
+
 PUBLIC void
 load_my_c(const int nfiles,
 	  const int i, const int turn_, const int length,
@@ -822,6 +1018,21 @@ load_my_c(const int nfiles,
   // being removed.
   if(!rnafold_gpu_sweep())
     gpuErrchk( cudaMemcpy(d_new_e,new_e,g_row_total*sizeof(int),cudaMemcpyHostToDevice) );
+
+  // RNA_C_RING: the row goes to the ring; the triangle gets it at the next flush.
+  // The pending rows must be consecutive for one flush to cover them -- they are
+  // (a row's size range only grows as i falls) -- but a gap is flushed, not assumed.
+  if(g_c_ring_on) {
+    if(g_c_pend > 0 && i != g_c_pend_i - 1) c_ring_flush(nfiles);
+    bind_row_tables(i);
+    c_ring_store_kernel<<<(unsigned int)((total + 255)/256),256,0,rnafold_stream_cell()>>>(
+        nfiles, i, d_new_e, d_c_ring, g_row_total, d_row_off_H, d_size_off_H, total);
+    gpuErrchk( cudaPeekAtLastError() );
+    g_c_pend++; g_c_pend_i = i; g_c_rows++;
+    if(g_c_pend >= c_flush_rows()) c_ring_flush(nfiles);
+    rnafold_stream_cell_done();
+    return;            // GPU-resident sweep only (rnafold_c_ring()), so no trailing sync
+  }
   bind_row_tables(i);
 
 
@@ -1071,7 +1282,7 @@ flatten_index_to_H_warp(const size_t idx, const size_t* __restrict__ flat_off_H,
 
 /* U: candidates in flight per lane. 1 = the shape this kernel has always had.
  * See int_loop_cell.inc for the stall measurement that motivates U>1. */
-template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH, int U = 1>
+template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH, int U = 1, bool RING = false>
 __global__ void
 int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -1086,7 +1297,11 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const size_t* __restrict__ hc_off_H,
                 const size_t* __restrict__ size_off_H,
                 const int* __restrict__ i_H,
-                      int* __restrict__ energy_min) {
+                      int* __restrict__ energy_min,
+                /* RNA_C_RING: read c from the 32-row ring instead of the triangle.
+                 * A template flag, so the choice costs nothing in the inner loop. */
+                const int* __restrict__ c_ring = NULL,
+                const size_t c_ring_stride = 0) {
   static_assert(CELLS_PER_BLOCK >= 1 && CELLS_PER_BLOCK <= 32,
                 "one warp per cell; blockDim.x must be CELLS_PER_BLOCK*32");
 
@@ -1115,6 +1330,14 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
 
   // The arithmetic lives in int_loop_cell.inc so the megakernel runs
   // exactly this code; only the cell derivation above is kernel-specific.
+  if(RING) {
+    c_ring_reader rr;
+    rr.base   = c_ring + row_off_H[H];
+    rr.stride = c_ring_stride;
+    int_loop_warp_cell_r<c_ring_reader, U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
+                         pair_, S, hccc, up_int, rr, row_off_H, hc_off_H,
+                         size_off_H, i_H, energy_min, H, local, lane);
+  } else
   int_loop_warp_cell<U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
                      H, local, lane);
 }
@@ -1595,10 +1818,15 @@ int_loop_cuda(const int nfiles,
       }
     }
 
-#define IL_WARP_LAUNCH(C, G, W, GRID) int_loop_warp_kernel<C,G,W,1><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
+#define IL_WARP_LAUNCH_R(C, G, W, GRID, RG) int_loop_warp_kernel<C,G,W,1,RG><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
-        d_size_off_H, d_i_H, d_energy_min2)
+        d_size_off_H, d_i_H, d_energy_min2, d_c_ring, g_row_total)
+/* RNA_C_RING picks the reader at the launch; the U=2 path never has the ring
+ * (c_ring_refuse() refuses that pairing). */
+#define IL_WARP_LAUNCH(C, G, W, GRID) \
+        do { if(g_c_ring_on) IL_WARP_LAUNCH_R(C, G, W, GRID, true); \
+             else            IL_WARP_LAUNCH_R(C, G, W, GRID, false); } while(0)
 /* RNA_INT_LOOP_UNROLL=2: the same kernel with two candidates in flight per lane.
  * int_loop_cell.inc carries the stall measurement that motivates it and the laptop
  * NULL that keeps it off by default. A separate macro rather than another dimension
@@ -1636,6 +1864,7 @@ int_loop_cuda(const int nfiles,
     }
 #undef IL_WARP_DISPATCH
 #undef IL_WARP_LAUNCH
+#undef IL_WARP_LAUNCH_R
 #undef IL_WARP_LAUNCH_U2
   } else
   // NOT an early return: the tail of this function still owns the launch-stats

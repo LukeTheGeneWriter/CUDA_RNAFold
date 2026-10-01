@@ -1111,3 +1111,62 @@ fixtures with and without -g; **K=8 unclamped DIFFERS** — caught. (K=6 hashes 
 loses only fML[r][r+4]+fML[r+5][j], which never set a cell here; the clamp is the derived
 bound and stays.) Gated OFF; the RowBarriers2 notebook prices rb4/rb5 and repeats the
 triangle check on the device.
+
+### 9.15 Batching the c triangle — `RNA_C_RING` (2026-10-01, phase 2 of Luke's idea)
+
+`c` cannot use §9.14's trick: `int_loop(i)` reads c rows i+1..i+31 (MAXLOOP), starting
+with the row just written, so ANY staging needs `int_loop` to read the staged rows. Those
+31 rows are distinct mod 32, so **a 32-row ring holds every row int_loop can reach**:
+
+- `load_my_c` writes row i into ring slot `i & 31` (`c_ring_store_kernel`, row-major,
+  coalesced) instead of the triangle.
+- `int_loop_warp_kernel<..., RING=true>` reads c through `c_ring_reader`
+  (`int_loop_dev.h`): `base[(p & 31) * row_total + q]`. A template flag, so no runtime
+  branch sits in the inner loop.
+- Every `RNA_C_FLUSH_ROWS=K` rows (1..32, default 16), `c_flush_rows_kernel` writes the
+  pending rows to the triangle through §9.14's shared-memory transpose (padded +1 against
+  bank conflicts at 32 rows). `rnafold_c_ring_end()` flushes the rest before the row
+  tables are released.
+
+**Why it is legal:** during the sweep the c TRIANGLE then has no reader — md reads c from
+row buffers. Every path that does read or write it is refused, with a REFUSED line:
+continuous and slot flow, the host path, the block-per-cell twin, unroll2,
+`RNA_NEW_C_STORE`, `RNA_ROW_FUSE`, the megakernel. The flush only has to beat the slot's
+own reuse (row r's slot is taken by row r−32). With K ≤ 32, the cell stream orders every
+flush before that reuse. The ring is INF-filled once per chunk, so a cell outside a row's
+size range reads exactly what the triangle's prefill would. It costs 32 × row_total ints
+of VRAM, charged to the budget when the knob is asked.
+
+**Correctness:**
+
+- `RNA_TRI_CHECKSUM` matches ring-off at K 1/8/16/32, int16 and int32, plain/-g/noLP, on
+  four fixtures, and also with `RNA_ROW_BATCH=5`.
+- 288 runs (4 fixtures × plain/noLP/circ/-g × K 1/16/32 × overlap 0/1/2, graph off, int32,
+  +rb5): 288 swept, 0 differ from the CPU.
+- **Two negative controls, both bite:**
+  - K=48 (slots overwritten before their flush): the c hash changes, fML does not, and the
+    structures differ. K=32 stays identical.
+  - A reader offset by one slot changes both hashes. This is positive evidence that
+    int_loop really reads the ring.
+- Routing caveat: the short fixture's checksums differed from run to run in BOTH arms,
+  because admission sends a varying share of small records to the CPU, which changes the
+  chunk. With `RNA_GPU_WORK_FLOOR=0` they are identical. Correctness checks must pin
+  routing.
+
+**Price (ncu, RTX 3050, 48 × 3000, the SAME 64 rows in each arm):**
+
+| | int_loop | c writes | sectors/req |
+|---|---|---|---|
+| off | 3159 µs/row | load_my_c 71.6 µs/row | 32.0 |
+| ring K=16 | 3120 µs/row (−1.2 %) | store 15.2 + flush 9.2 = **24.4 µs/row (−66 %)** | 4.7 / 5.7 |
+| ring K=32 | — | store 15.2 + flush 7.0 = 22.1 µs/row | 4.7 / 4.8 |
+| ring K=1 | — | store 15.2 + flush 74.1 | 32.0 (flush) |
+
+A method note, learned here: `ncu --launch-skip` counts MATCHED launches, so skipping
+"rows × kernels per row" lands on different rows once an arm adds a flush every K rows.
+The first pricing compared different rows (and int_loop "moved" 29 %). Profile one
+kernel at a time and skip rows (R for per-row kernels, R/K for a flush).
+
+Gated OFF. The RowBatch notebook (`tools/make_nb_rowbatch.py`, local) prices phase 1 and
+phase 2 in SEPARATE grids, each with its own interleaved `dflt`. It then runs them
+together at the K each picked.

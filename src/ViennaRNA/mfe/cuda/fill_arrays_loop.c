@@ -623,6 +623,7 @@
      }
 
  // The sweep is over; drain and release the row tables.
+ rnafold_c_ring_end(nfiles);   // RNA_C_RING: rows still only in the ring, before the tables go
  rnafold_rowtab_end();
  rnafold_tri_checksum();   // RNA_TRI_CHECKSUM=1: hash both triangles, cell for cell
 

@@ -249,6 +249,25 @@ struct c_tri_reader {
   }
 };
 
+/*
+ *  RNA_C_RING: the same read out of a 32-row ring in GLOBAL memory, row-major.
+ *
+ *  int_loop(i) reads c(p,q) only for p in [i+1, i+31] (MAXLOOP), and those rows are
+ *  distinct mod 32 -- so with every finished c row written to slot p & 31, int_loop
+ *  never reads the triangle during the sweep, and the triangle's scattered row writes
+ *  can be batched (load_my_c, RNA_C_RING in int_loop.cu). The per-cell layout is the
+ *  row buffers' own (row_off_H[H] + q), so a slot is exactly one c row.
+ */
+struct c_ring_reader {
+  const int *base;                /* the ring, offset by this record's row_off_H */
+  size_t     stride;              /* ints per slot: the chunk's row_total        */
+
+  __device__ __forceinline__ int
+  operator()(const int p, const int q) const {
+    return base[(size_t)(p & 31) * stride + q];
+  }
+};
+
 //interface to interior_loopx.h via IntLoop_X()
 /*
  *  Stage 1b: the same read, served out of a shared-memory window.
