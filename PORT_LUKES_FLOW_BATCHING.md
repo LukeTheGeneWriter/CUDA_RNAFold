@@ -1046,3 +1046,32 @@ one restored, overlap 0/2, graph off, continuous flow, slot flow, the megakernel
 deterministically in EVERY arm including the old defaults at overlap 0** (pre-existing,
 slot flow is off by default; queued with the other `-g` work). Next A100 run:
 `tools/make_nb_rowbarriers2.py` (level 2 + graph off together, the scan's K, unroll2).
+
+### 9.13 RowBarriers2 ran on an L4, not the A100 (2026-10-01, `80be04f1`)
+
+The A100 was unavailable. The L4 is ~2.6× slower here (dflt 178.6 s vs 68.7 s), so
+per-row overhead is a smaller share of each row and the knobs' effects shrink with it.
+
+**Correctness, all clean:** A1 4/4, A2 every arm equal to the CPU with its knobs shown
+(the new default tail ran in every arm), one sha across the grid. **D: `6634d6cd` 4/4
+WRONG under `-g` on the L4 too** — the shipped defect now confirmed on two devices.
+
+**B, 400 × 5601, ABBA:**
+
+| arm | wall | vs dflt | read |
+|---|---|---|---|
+| dflt | 178.61 | — | spread 1.2 %: rep 1 (177.56) was an early outlier; rep 2 179.66 |
+| **old** | **185.11** | **+3.6 %** | **the flip holds on a second device** (−3.5 %; A100 −5.3 %) |
+| nog, ov2, ov2_nog, store, scan4/8/16, ov2_nog_* | 179.6–180.5 | +0.6 to +1.1 % | **within ±0.5 % of dflt's rep 2 — noise on this device** |
+| unroll2 | 182.04 | +1.9 % | **a loss, spread 0.1 %** — joins the sm_86 null |
+
+So the L4 cannot decide `ov2_nog`; that still needs the A100, where level 2 and graph-off
+each paid on top of the knobs. `unroll2` is now a loss on two devices.
+
+**E, `ncu` mid-sweep (µs/launch, L4):** md 1833, int_loop ~1170 (89 % of the row).
+`fml_scan2` 25 vs `fml_scan` 41 — real, but ~0.5 % of a row. **New:** `load_my_c` is 60 µs
+against `new_c`'s 15, and `md_close_row` (94 µs) ≈ the old `pack_fml` (93 µs) — the two
+kernels that WRITE a row into a column-major triangle (`Indx(i,j) = j(j−1)/2 + i`) scatter
+one element per column, uncoalesced. Together ~4.6 % of an L4 row (A100: ~3.4 %). The
+layout is right for md's column reads; the row writes are its price. A candidate lever
+(stage writes, or a row-major staging buffer flushed by column blocks), not yet scoped.
