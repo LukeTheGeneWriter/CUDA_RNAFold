@@ -63,14 +63,14 @@ PY
 # without it this "CPU" reference was a GPU run (fixed 2026-10-02). The stderr check
 # makes that impossible to repeat silently.
 cpu () {
-  env -u RNA_GPU_CHUNK RNA_GPU=0 RNA_MIN_GPU_BATCH=1 "$BIN" --noPS "$@" 2>"$WORK/cpu.err"
+  env -u RNA_GPU_CHUNK RNA_GPU=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 "$BIN" --noPS "$@" 2>"$WORK/cpu.err"
   if grep -q "sweep shape:" "$WORK/cpu.err"; then
     echo "FAIL: the CPU reference swept on the GPU -- the probe would be GPU vs GPU" >&3; exit 1
   fi
 }
 gpu () { # gpu <allow-id> [args...]
   local id=$1; shift
-  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_ENGINE_ALLOW="$id" "$BIN" --noPS "$@" 2>"$WORK/gpu.err"
+  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_ENGINE_ALLOW="$id" "$BIN" --noPS "$@" 2>"$WORK/gpu.err"
 }
 
 # Energy column only, for a delta that means something when structures differ.

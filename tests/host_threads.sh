@@ -48,7 +48,7 @@ with open(path, "w") as f:
 PY
 
 # The accelerator must be live, or every row compares the CPU against itself.
-RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 "$BIN" --noPS -i "$FA" >/dev/null 2>"$W/gate.err"
+RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 "$BIN" --noPS -i "$FA" >/dev/null 2>"$W/gate.err"
 grep -q 'sweep shape:' "$W/gate.err" || { echo "FATAL: no sweep -- no CUDA or no device"; exit 1; }
 echo "host: $NPROC cores; shape ${N} x ${L}; accelerator live"
 echo
@@ -60,7 +60,7 @@ arm() {
   local i s e last
   for ((i=0;i<REPS;i++)); do
     s=$(date +%s.%N)
-    env RNA_GPU_CHUNK="$chunkcap" RNA_MIN_GPU_BATCH=1 RNA_BUILD_THREADS="$bt" \
+    env RNA_GPU_CHUNK="$chunkcap" RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_BUILD_THREADS="$bt" \
         "$BIN" --noPS -i "$FA" >"$W/o.out" 2>"$W/o.err"
     e=$(date +%s.%N)
     ts+=("$(echo "$e - $s" | bc)")
@@ -76,7 +76,7 @@ arm() {
 }
 
 # Baseline output for the identity column.
-env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 "$BIN" --noPS -i "$FA" >"$W/base.out" 2>/dev/null
+env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 "$BIN" --noPS -i "$FA" >"$W/base.out" 2>/dev/null
 
 echo "  RESERVE axis: how many cores the fold-compound builders may use"
 printf '  %-22s %-8s %9s  %8s  %10s  %s\n' arm threads wall_s build_s overlapped identical

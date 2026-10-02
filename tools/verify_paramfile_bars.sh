@@ -73,7 +73,7 @@ run_bar() {
 
   env "${envs[@]}" RNA_GPU=0           "$BIN" --noPS "$@" -i "$IN" \
       > "$W/$tag.off" 2> "$W/$tag.off.err"; local rc_off=$?
-  env "${envs[@]}" RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 \
+  env "${envs[@]}" RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 \
       "$BIN" --noPS "$@" -i "$IN" \
       > "$W/$tag.on"  2> "$W/$tag.on.err";  local rc_on=$?
 

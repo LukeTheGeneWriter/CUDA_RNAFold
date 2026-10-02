@@ -74,7 +74,7 @@ say "u2000: the fixture really is uniform ($ulen distinct)" \
 run() {  # run <tag> <fixture> <slotflow> <threads-env>
   local tag=$1 fa=$2 k=$3
   shift 3
-  env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_SLOT_FLOW=$k "$@" \
+  env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_SLOT_FLOW=$k "$@" \
       $GPU --noPS -i $fa 2> $W/$tag.err > $W/$tag.out
 }
 

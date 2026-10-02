@@ -18,7 +18,7 @@ say() { printf '  %-46s %s\n' "$1" "$2"; [ "$2" != ok ] && fail=1; return 0; }
 for fa in u900 u2000; do
   F=$HOME/dfprobe/$fa.fa
   $CPU --noPS --noLP -i $F 2>/dev/null > $W/$fa.cpu
-  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 $GPU --noPS --noLP -i $F 2>$W/$fa.err > $W/$fa.gpu
+  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 $GPU --noPS --noLP -i $F 2>$W/$fa.err > $W/$fa.gpu
   $CPU --noPS        -i $F 2>/dev/null > $W/$fa.plain
 
   swept=$(grep -c 'sweep shape:' $W/$fa.err)
@@ -35,7 +35,7 @@ for fa in u900 u2000; do
   # Multi-chunk must not move the answer: cc/cc1 are per-record row
   # buffers. 96MB, not 352MB -- at 352MB u900 does not split at all, so
   # the earlier version of this check passed on a path it never took.
-  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_VRAM_BUDGET_MB=96 \
+  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_GPU_VRAM_BUDGET_MB=96 \
       $GPU --noPS --noLP -i $F 2> $W/$fa.chunk.err > $W/$fa.chunk
   nch=$(grep -c 'sweep shape:' $W/$fa.chunk.err)
   say "$fa: the multi-chunk arm really split ($nch chunks)" \
@@ -46,7 +46,7 @@ for fa in u900 u2000; do
   # noLP + int16 must REFUSE, not silently disagree: noLP puts near-INF
   # finite values into fML that the 16-bit per-block offsets cannot
   # represent. The existing range guard is what found it.
-  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_FML_INT16=1 \
+  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_FML_INT16=1 \
       $GPU --noPS --noLP -i $F > $W/$fa.i16 2> $W/$fa.i16.err
   rc16=$?
   say "$fa: --noLP + RNA_FML_INT16 refuses at init" \
@@ -57,7 +57,7 @@ for fa in u900 u2000; do
   # of cells as false mismatches and -- because load_my_c uploads the host's
   # new_C over the device's in verify mode -- returns a fold that is neither
   # the noLP answer nor the plain one. A debug flag must not change the answer.
-  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_ROW_VERIFY=1 \
+  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_ROW_VERIFY=1 \
       $GPU --noPS --noLP -i $F > $W/$fa.rv 2> $W/$fa.rv.err
   rcrv=$?
   say "$fa: --noLP + RNA_ROW_VERIFY refuses at init" \
@@ -65,7 +65,7 @@ for fa in u900 u2000; do
           && echo ok || echo FAIL)"
   # ...and the verifier must still WORK without noLP, or the guard above has
   # simply broken it. Zero mismatches over a non-zero cell count, both asserted.
-  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_ROW_VERIFY=1 \
+  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_ROW_VERIFY=1 \
       $GPU --noPS -i $F > /dev/null 2> $W/$fa.rvp.err
   rvline=$(grep -oE 'new_c: [0-9]+ cells checked, [0-9]+ mismatching' $W/$fa.rvp.err | tail -1)
   rvcells=$(echo "$rvline" | awk '{print $2}')
@@ -111,7 +111,7 @@ say "mixed: the fixture really is mixed-length ($nlen distinct in $nrec)" \
     "$([ "$nlen" -gt 10 ] && echo ok || echo FAIL)"
 
 $CPU --noPS --noLP -i $MIX 2>/dev/null > $W/mix.cpu
-RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_SLOT_FLOW=2 \
+RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_SLOT_FLOW=2 \
     $GPU --noPS --noLP -i $MIX 2> $W/mix.err > $W/mix.gpu
 peak=$(grep -o 'peak/iteration [0-9]* records' $W/mix.err | head -1 | awk '{print $2}')
 # Slot flow with as many slots as records never hands a slot over, and would

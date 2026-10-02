@@ -17,7 +17,7 @@
 # gate needs a different form.
 #
 # HOW EACH ARM IS FORCED, and why it is not just RNA_MIN_GPU_NT:
-#   GPU: RNA_MIN_GPU_NT=0 RNA_MIN_GPU_BATCH=1   -- both arms of gate 4 wide open
+#   GPU: RNA_MIN_GPU_NT=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0   -- both arms of gate 4 wide open
 #   CPU: RNA_GPU_CHUNK unset                    -- gate 3, the master switch
 # Using the master switch for the CPU arm means the comparison is device-vs-no-
 # device, not one threshold against another.
@@ -45,7 +45,7 @@ with open(sys.argv[1], "w") as f:
     for i in range(4):
         f.write(">g%d\n%s\n" % (i, "".join(random.choice("ACGU") for _ in range(400))))
 PY
-RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_MIN_GPU_NT=0 \
+RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_MIN_GPU_NT=0 \
     "$BIN" --noPS -i "$W/gate.fa" > /dev/null 2> "$W/gate.err"
 if ! grep -q 'sweep shape:' "$W/gate.err"; then
   echo "FATAL: this build never sweeps -- it has no CUDA, or no device is visible."
@@ -84,7 +84,7 @@ with open(path, "w") as f:
     for i in range(int(n)):
         f.write(">r%d\n%s\n" % (i, "".join(random.choice("ACGU") for _ in range(int(L)))))
 PY
-    g=$(timeit "$W/g.out" "$W/g.err" RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_MIN_GPU_NT=0)
+    g=$(timeit "$W/g.out" "$W/g.err" RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_MIN_GPU_NT=0)
     c=$(timeit "$W/c.out" "$W/c.err" RNA_GPU=0)
     # The GPU arm must actually have swept, or this row means nothing.
     if ! grep -q 'sweep shape:' "$W/g.err"; then

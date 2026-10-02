@@ -147,7 +147,7 @@ env_args() {
     int16)     echo "RNA_FML_INT16=1" ;;
     slotflow)  echo "RNA_SLOT_FLOW=2" ;;
     contflow)  echo "RNA_CONTINUOUS_FLOW=1" ;;
-    minbatch1) echo "RNA_MIN_GPU_BATCH=1" ;;
+    minbatch1) echo "RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0" ;;
     chunk12)   echo "RNA_GPU_CHUNK=12" ;;  # applied after the base, last wins
   esac
 }
@@ -298,7 +298,7 @@ check_pair() {   # check_pair KIND TAG_A TAG_B
     # at stock threshold. Anywhere else it is the partial fallback that cost a
     # session, and it must not pass silently.
     # ...and NOT when minbatch1 is also set, because defeating exactly this
-    # fallback is what RNA_MIN_GPU_BATCH=1 is for. Allowing it there would let
+    # fallback is what RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 is for. Allowing it there would let
     # the one pair that tests the override pass without the override working.
     if { [ "$a" = chunk12 ] || [ "$b" = chunk12 ]; } &&
        [ "$a" != minbatch1 ] && [ "$b" != minbatch1 ]; then

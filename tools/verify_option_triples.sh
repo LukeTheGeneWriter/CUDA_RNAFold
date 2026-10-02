@@ -23,7 +23,7 @@ cli_of() { case $1 in
 esac; }
 env_of() { case $1 in
   slotflow) echo "RNA_SLOT_FLOW=2";; chunk12) echo "RNA_GPU_CHUNK=12";;
-  minbatch1) echo "RNA_MIN_GPU_BATCH=1";; contflow) echo "RNA_CONTINUOUS_FLOW=1";;
+  minbatch1) echo "RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0";; contflow) echo "RNA_CONTINUOUS_FLOW=1";;
 esac; }
 
 pass=0; fail=0; n=0
