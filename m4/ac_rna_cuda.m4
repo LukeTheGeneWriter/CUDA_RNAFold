@@ -31,12 +31,18 @@ AC_DEFUN([RNA_ENABLE_CUDA], [
               [cuda_prefix=""])
 
   ## the compute capabilities to generate code for; overridable because the
-  ## right answer is entirely a property of the machine this will run on
+  ## right answer is entirely a property of the machine this will run on.
+  ##
+  ## NO FIXED DEFAULT. This used to be 60,70,75,80,86,89, which stopped building
+  ## the day CUDA 13 removed sm_60 and sm_70 ("nvcc fatal: Unsupported gpu
+  ## architecture 'compute_60'", Colab, 2026-10-02). Unset now means: ask the
+  ## toolkit what it can emit, then build for the local device if one is visible,
+  ## else a fat binary over what the toolkit supports (see below).
   AC_ARG_WITH([cuda-arch],
               [AS_HELP_STRING([--with-cuda-arch=LIST],
-                              [CUDA compute capabilities, comma separated @<:@default: 60,70,75,80,86,89@:>@])],
+                              [CUDA compute capabilities, comma separated @<:@default: the local device, else everything the toolkit supports@:>@])],
               [cuda_arch="$withval"],
-              [cuda_arch="60,70,75,80,86,89"])
+              [cuda_arch=""])
 
   RNA_FEATURE_IF_ENABLED([cuda],[
 
@@ -67,14 +73,58 @@ __global__ void vrna_conftest_kernel(int *p) { *p = 1; }
 int main(void) { int n = 0; return (cudaGetDeviceCount(&n) == cudaSuccess) ? 0 : 0; }
 _ACEOF
 
-      ## build the -gencode list from the requested architectures
-      NVCC_ARCH_FLAGS=""
-      for arch in `echo "$cuda_arch" | tr ',' ' '`; do
-        NVCC_ARCH_FLAGS="$NVCC_ARCH_FLAGS -gencode arch=compute_${arch},code=sm_${arch}"
-      done
+      ## Pick the architectures (the same rule Lukes_Flow_Batching uses since
+      ## 04480802). Requested: as given. Otherwise ask the toolkit what it can
+      ## emit, and keep the local device's capability if there is one -- the build
+      ## host is often not the run host, so detection must not REQUIRE a GPU -- or
+      ## else a fat binary over a broad list, intersected with what is supported.
+      AS_IF([test "x$cuda_arch" != "x"],[
+        cuda_arch_list=`echo "$cuda_arch" | tr ',' ' '`
+      ],[
+        cuda_arch_supported=`$NVCC_BIN --list-gpu-code 2>/dev/null | sed -e 's/^sm_//' | tr '\n' ' '`
+        AS_IF([test "x$cuda_arch_supported" = "x"],[
+          ## an nvcc too old for --list-gpu-code: probe, so the list cannot hold a
+          ## capability the toolkit will later reject
+          echo '__global__ void k(void){}' > conftest_arch.cu
+          for a in 50 52 53 60 61 62 70 72 75 80 86 87 89 90 100 120; do
+            AS_IF([$NVCC_BIN -gencode arch=compute_${a},code=sm_${a} -c conftest_arch.cu -o conftest_arch.cu.o >/dev/null 2>&1],
+                  [cuda_arch_supported="$cuda_arch_supported $a"])
+          done
+          rm -f conftest_arch.cu conftest_arch.cu.o
+        ])
+        cuda_local_cc=`nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | tr -d ' .' | sort -u | tr '\n' ' '`
+        cuda_arch_list=""
+        for a in $cuda_local_cc; do
+          for s in $cuda_arch_supported; do
+            AS_IF([test "x$a" = "x$s"], [cuda_arch_list="$cuda_arch_list $a"])
+          done
+        done
+        AS_IF([test "x$cuda_arch_list" = "x"],[
+          for a in 60 70 75 80 86 89 90 100 120; do
+            for s in $cuda_arch_supported; do
+              AS_IF([test "x$a" = "x$s"], [cuda_arch_list="$cuda_arch_list $a"])
+            done
+          done
+        ])
+      ])
 
-      AS_IF([$NVCC_BIN -ccbin "$NVCC_HOST_CC" -c conftest.cu -o conftest.cu.o >/dev/null 2>&1],[
-        AC_MSG_RESULT([yes])
+      ## build the -gencode list, plus PTX for the highest so a newer device than
+      ## anything compiled for still runs by JIT
+      NVCC_ARCH_FLAGS=""
+      cuda_arch_highest=""
+      for arch in $cuda_arch_list; do
+        NVCC_ARCH_FLAGS="$NVCC_ARCH_FLAGS -gencode arch=compute_${arch},code=sm_${arch}"
+        cuda_arch_highest="$arch"
+      done
+      AS_IF([test "x$cuda_arch_highest" != "x"],
+            [NVCC_ARCH_FLAGS="$NVCC_ARCH_FLAGS -gencode arch=compute_${cuda_arch_highest},code=compute_${cuda_arch_highest}"])
+      cuda_arch_report=`echo $cuda_arch_list | tr " " ","`
+
+      ## The test compile USES the architecture flags. It used to compile without
+      ## them, so an unsupported list passed configure and failed in make, minutes
+      ## later -- exactly how the CUDA 13 break surfaced.
+      AS_IF([test "x$cuda_arch_list" != "x" && $NVCC_BIN -ccbin "$NVCC_HOST_CC" $NVCC_ARCH_FLAGS -c conftest.cu -o conftest.cu.o >/dev/null 2>&1],[
+        AC_MSG_RESULT([yes, for sm_$cuda_arch_report +PTX])
 
         ## No -fPIC here: libtool appends the host compiler's PIC flags itself,
         ## and mfe/cuda/nvcc-libtool.sh forwards them with -Xcompiler. Setting
@@ -100,9 +150,13 @@ _ACEOF
                 [cuda_libdir="$d"; break])
         done
 
+        ## AND libstdc++: nvcc output is C++, but libtool links with the C compiler.
+        ## CUDA 13 emits thread-safe static guards (__cxa_guard_*) in kernel launch
+        ## stubs, and without this the final RNAfold link fails (Colab, 2026-10-02;
+        ## Lukes_Flow_Batching 2b96539b). Dropped by the linker where unneeded.
         AS_IF([test "x$cuda_libdir" != "x"],
-              [CUDA_LIBS="-L$cuda_libdir -lcudart"],
-              [CUDA_LIBS="-lcudart"
+              [CUDA_LIBS="-L$cuda_libdir -lcudart -lstdc++"],
+              [CUDA_LIBS="-lcudart -lstdc++"
                AC_MSG_WARN([could not locate libcudart; relying on the default library search path])])
 
         AS_IF([test "x$cuda_prefix" != "x"],
