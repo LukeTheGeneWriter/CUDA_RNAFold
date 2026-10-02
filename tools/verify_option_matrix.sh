@@ -162,11 +162,12 @@ is_refused() {   # is_refused TAG_A TAG_B
     # int16 became the DEFAULT on 2026-09-27, and the knob is asymmetric: unset means
     # auto and stands down quietly where int16 is unsafe, while an EXPLICIT
     # RNA_FML_INT16=1 is an error there. This file always sets it explicitly, so every
-    # unsafe pairing is a refusal by design. salt is the third such case and the least
-    # comfortable: int16 was measured giving a DIFFERENT ANSWER under a non-default
-    # salt and the mechanism is still unidentified, so the refusal is conservative
-    # rather than a fix. It stays a refusal until somebody explains the mechanism.
-    int16+salt|salt+int16)         return 0 ;;
+    # unsafe pairing is a refusal by design.
+    #
+    # int16+salt WAS listed here until 2026-10-02 and is now an ordinary pair that must
+    # WORK: the salt stand-down was lifted after the recorded failure never reproduced
+    # (HEAD 255 arms, 069981ff 120 runs + its own parity script, A100 72/72) and salt
+    # was shown to put no near-INF cell into fML. See mfe_cuda.c at the lifted block.
   esac
   return 1
 }

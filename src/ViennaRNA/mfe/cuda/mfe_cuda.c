@@ -1563,27 +1563,25 @@ par_mfe(const int nfiles,
                                  "which the 16-bit per-block offsets cannot "
                                  "represent");
 
-  /* AND A NON-DEFAULT SALT, found by verify_option_parity.sh the moment int16
-   * became the default: the salt_hi arm gave a DIFFERENT ANSWER, not a refusal.
+  /* A NON-DEFAULT SALT USED TO STAND INT16 DOWN, and no longer does (2026-10-02).
    *
-   * It is not the documented bound that fails -- rnafold_fml_int16_vet_params()
-   * passes, because 64/2 * 340 = 10880 is far inside int16 even with the salt
-   * correction applied to the stacks. So salt breaks one of the encoding's other
-   * PREMISES, and which one is not yet identified: the correction also lands on
-   * hairpin, interior and multibranch terms, all of which feed fML, and the same
-   * asymmetric INF guard that noLP trips is a candidate.
+   * 069981ff added the stand-down because verify_option_parity.sh's salt_hi arm once
+   * gave a different answer under int16, mechanism unknown. It never reproduced:
    *
-   * Standing down is therefore CONSERVATIVE AND HONEST rather than a fix. It keeps
-   * the answer right while the mechanism is unknown, which is the only acceptable
-   * state for a default. INT16_FML_SCOPE.md should carry the investigation. */
-  /* RNA_FML_INT16_SALT_PROBE=1 skips this stand-down: a DIAGNOSTIC for finding the
-   * mechanism, never a way to run. It reproduces the wrong answer on purpose. */
-  const char *salt_probe = getenv("RNA_FML_INT16_SALT_PROBE");
-  if (md->salt != VRNA_MODEL_DEFAULT_SALT && !(salt_probe && salt_probe[0] == '1'))
-    rnafold_fml_int16_stand_down("a non-default salt concentration changes terms "
-                                 "that feed fML, and int16 was measured giving a "
-                                 "different answer under it (mechanism not yet "
-                                 "identified)");
+   *   - HEAD, laptop: 255 arms of -g and salt (0.05..5.0 M, with -c, -T, -d0, -g,
+   *     --helical-rise) x 15 knob arms, int16 forced -- all equal to the CPU, and the
+   *     c triangle identical to int32's;
+   *   - 069981ff ITSELF with the stand-down patched out: its own parity script on its
+   *     own fixture passes, and 120 repeated runs (plain + salt 1.5/0.2) are 0 wrong;
+   *   - A100 (CUDA_RNAFold_DeadWarps.ipynb, section S): 4 salts x 2 fixtures x
+   *     overlap 0/1/2 x 3 = 72/72 equal to the CPU and to int32's c triangle.
+   *
+   * Salt also breaks no premise of the encoding: RNA_TRI_CHECKSUM counts 0 near-INF
+   * finite cells under every salt (-C --enforceConstraint: 10 845, so the counter
+   * sees them). The likeliest past cause is the md_snapshot_dml race 7982a147 fixed
+   * after 069981ff, which sat on every run's path -- unconfirmed, it did not show in
+   * those 120 runs either. If a salt run ever differs again, RNA_TRI_CHECKSUM's c hash
+   * against RNA_FML_INT16=0 is the first thing to compare. */
 
   /* AND HARD CONSTRAINTS -- a SHIPPED crash, found 2026-09-30 by the Python
    * binding's GPU default and then reproduced on the CLI:
@@ -1598,7 +1596,8 @@ par_mfe(const int nfiles,
    * abort, it wedges the process in the driver.
    *
    * Standing down on ANY depot is conservative: it is not yet known which constraint
-   * shapes are safe, and int32 is always right. Same honesty as salt above --
+   * shapes are safe, and int32 is always right. Unlike salt (above), -C has a FOUND
+   * mechanism, so this one stays until the safe shapes are known --
    * finding the precise condition belongs in INT16_FML_SCOPE.md. */
   for (int H = 0; H < nfiles; H++)
     if ((VC[H]->hc != NULL) && (VC[H]->hc->depot != NULL)) {

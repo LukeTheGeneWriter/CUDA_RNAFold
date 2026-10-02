@@ -839,7 +839,9 @@ static int
 c_ring_asked(void)
 {
   static int v = -1;
-  if(v < 0) { const char* e = getenv("RNA_C_RING"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  /* DEFAULT ON since 2026-10-02 (A100: c writes -63 % per row, wall -1.1..-1.5 % at
+   * 400x5601 and -2.5 % at 3000x1200, triangles identical). RNA_C_RING=0 turns it off. */
+  if(v < 0) { const char* e = getenv("RNA_C_RING"); v = (e && e[0]) ? (e[0] != '0') : 1; }
   return v;
 }
 
@@ -1481,11 +1483,12 @@ rnafold_int_loop_gridy(void)
   return v;
 }
 
-/* RNA_INT_LOOP_CELLS_PER_WARP=G (1..32, default 1): each warp owns G consecutive
- * cells and spends its time on the live ones only -- see the packed block at the
- * top of int_loop_warp_kernel. 1 is the one-warp-per-cell kernel unchanged.
- * =auto picks G PER LAUNCH from the row's width: see rnafold_int_loop_cpw_for(). */
+/* RNA_INT_LOOP_CELLS_PER_WARP=G|auto (1..32; DEFAULT auto since 2026-10-02): each
+ * warp owns G consecutive cells and spends its time on the live ones only -- see the
+ * packed block at the top of int_loop_warp_kernel. =1 is the one-warp-per-cell kernel
+ * unchanged (the opt-out). auto picks G PER LAUNCH: see rnafold_int_loop_cpw_for(). */
 #define IL_CPW_AUTO 0
+#define IL_CPW_AUTO_MAX 4      /* why 4 and not 8: see rnafold_int_loop_cpw_for() */
 static int
 rnafold_int_loop_cpw(void)
 {
@@ -1494,13 +1497,14 @@ rnafold_int_loop_cpw(void)
   if (v < 0) {
     const char *e = getenv("RNA_INT_LOOP_CELLS_PER_WARP");
 
-    if (e && !strcmp(e, "auto")) {
+    if (!e || !e[0] || !strcmp(e, "auto")) {
       v = IL_CPW_AUTO;
       fprintf(stderr, "%-24s RNA_INT_LOOP_CELLS_PER_WARP=auto: G per row, the largest "
-                      "that leaves every SM enough warps\n", __FILE__);
+                      "<= %d that leaves every SM enough warps (=1 turns packing off)\n",
+              __FILE__, IL_CPW_AUTO_MAX);
       return v;
     }
-    v = (e && e[0]) ? atoi(e) : 1;
+    v = atoi(e);
     if (v < 1)  v = 1;
     if (v > 32) v = 32;
     if (v > 1)
@@ -1523,9 +1527,24 @@ rnafold_int_loop_cpw(void)
  *
  * Every G breaks even at the same place: ~2 000 PACKED warps, i.e. ~125 per SM. So
  * G is the largest power of two <= IL_CPW_AUTO_MAX with cells/G >= SMs * 128 --
- * G=1 on the narrow first rows of a sweep, G=8 once a row is wide. The SM count is
- * the device's own, so the A100's 108 SMs move the threshold, not the rule. */
-#define IL_CPW_AUTO_MAX          8
+ * G=1 on the narrow first rows of a sweep, the cap once a row is wide. The SM count
+ * is the device's own, so the A100's 108 SMs move the threshold, not the rule.
+ *
+ * THE CAP IS 4, NOT 8: the best G also moves with LENGTH, which the width rule does
+ * not see. A100 (CUDA_RNAFold_DeadWarps.ipynb B1, int_loop per row vs G=1):
+ *
+ *     L       G=4      G=8      G=16
+ *     1200   -18.1 %  -21.8 %  -21.7 %
+ *     2400   -15.2 %  -17.3 %  -14.3 %
+ *     5601    -9.5 %   -7.1 %   +2.2 %      <- a mid row here is ~1.1 M cells: not starved
+ *
+ * Long-sequence cells cost more each, so G=8 leaves a warp too much serial work. The
+ * production size is 5601, and the wall agrees: G4 -2.6 %, G8 -1.5 % at 400x5601. 4
+ * gives up ~3-4 points of int_loop at short lengths; a length term could win them
+ * back, but three points on one GPU is too little to fit one. The width rule is
+ * moot on the A100 at production (every wide row clears 8 x SMs x 128) and still
+ * protects narrow rows (laptop: G=8 on 550 cells was +159 %). */
+/* IL_CPW_AUTO_MAX is defined beside IL_CPW_AUTO above: 4. */
 #define IL_CPW_WARPS_PER_SM    128
 static int
 rnafold_int_loop_cpw_for(const size_t cells)

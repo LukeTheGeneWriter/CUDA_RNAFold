@@ -616,7 +616,7 @@ static int g_md_tail_row = -1;
 
 /* RNA_ROW_BATCH=K (2..turn+2; 0/1 = off): the fML triangle is written K rows at a time
  * from a row-major stage instead of one scattered row per sweep row. See
- * md_flush_rows_kernel. Gated OFF until priced. */
+ * md_flush_rows_kernel. DEFAULT 5 since 2026-10-02 (see rnafold_row_batch). */
 #define ROW_BATCH_MAX 5            /* turn+2 at the default turn; the stage's slot count */
 int*       d_fml_stage   = NULL;   /* ROW_BATCH_MAX x row_total ints, row-major */
 static int g_stage_n     = 0;      /* rows staged and not yet flushed */
@@ -628,7 +628,9 @@ rnafold_row_batch(void)
   static int v = -1;
   if(v < 0) {
     const char* e = getenv("RNA_ROW_BATCH");
-    v = (e && e[0]) ? atoi(e) : 0;
+    /* DEFAULT 5 since 2026-10-02 (A100: rb5 best at 1200/2400/5601 nt per row, wall
+     * -1.0..-1.8 % at 400x5601 in two notebooks, triangles identical). =0 turns it off. */
+    v = (e && e[0]) ? atoi(e) : ROW_BATCH_MAX;
     if(v < 2) v = 0;
     if(v > ROW_BATCH_MAX) v = ROW_BATCH_MAX;
   }
