@@ -1308,7 +1308,17 @@ par_mfe(const int nfiles,
      * from the recursion work -- if the table does not arrive intact, every
      * later stage debugs the wrong thing.
      */
-    (void)rnafold_gq_upload(nfiles, VC);
+    /*
+     * BY SLOT, NOT BY RECORD. The device indexes the table by the sweep's H,
+     * which under slot flow (RNA_SLOT_FLOW) is a SLOT: slot s starts with record
+     * queue[qoff[s]], almost never record s. Uploading (nfiles, VC) gave every
+     * slot some other record's c_gq -- -g + slot flow was wrong on every run
+     * (found on Lukes_Flow_Batching 2026-10-01, cbf663f1; reproduced here
+     * 2026-10-02, 6 of 6). Without slot flow VCsl == VC and nslots == nfiles, so
+     * this is the old call exactly. par_fill_arrays() re-uploads at every
+     * handover, when a slot's occupant changes.
+     */
+    (void)rnafold_gq_upload(nslots, VCsl);
 
     // Release every record's c/fML now. Nothing reads either between here and
     // backtrack_one(), which reattaches a pooled scratch pair per record --

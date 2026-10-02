@@ -515,6 +515,14 @@
           reset_slot_nolp(row_off_H[s], row_off_H[s+1]-row_off_H[s]);
         refill_slot2(nfiles, VC, turn, length, 512, tri_off_H, row_off_H, cap_H, s);
         refill_gpu3 (nfiles, VC, turn, length, 512, row_off_H, cap_H);
+        // -g: the c_gq table is laid out by SLOT (mfe_cuda.c uploads VCsl), so a
+        // new occupant needs its own. Whole-table re-upload: c_gq is sparse and
+        // this is once per handover, on a path that is off by default. Safe here:
+        // the device is idle at a handover (see the comment above this loop), its
+        // cudaFree synchronises regardless, and the kernels take the table's
+        // pointers at launch.
+        if(rnafold_gq_active())
+          (void)rnafold_gq_upload(nfiles, VC);
 
         const int top = (int)VC[s]->length - turn - 1;
         i_H[s] = (top >= 1) ? top : 0;
