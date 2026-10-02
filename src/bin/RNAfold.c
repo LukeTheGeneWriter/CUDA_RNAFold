@@ -416,17 +416,26 @@ postscript_layout(vrna_fold_compound_t  *fc,
   aux_data.md = md;
   vrna_plot_layout_t  *layout;
 
-  layout = vrna_plot_layout(structure, opt->plot_layout);
-
-  THREADSAFE_FILE_OUTPUT(
+  /* THE LAYOUT GOES INSIDE THE LOCK, not just the write. vrna_plot_layout() is not
+   * thread-safe: the default layout (naview) keeps its whole working state in
+   * file-scope statics (regions, loops, nbase, ...). Upstream 2.7.2 computes it
+   * outside the lock, a race that a CPU-only `-j` rarely hits because records finish
+   * folding at scattered times. A GPU chunk finishes hundreds at once and hands them
+   * all to the pool together, so `RNAfold -j8` WITHOUT --noPS aborted with
+   * "double free or corruption" after a burst of naview "Loop N has crossed regions"
+   * warnings (Colab T4, reproduced on the laptop 2026-10-02, rc=134, 2 of 300 plots
+   * written). The layout is cheap beside the fold, so serialising it costs nothing
+   * measurable. */
+  THREADSAFE_FILE_OUTPUT(({
+    layout = vrna_plot_layout(structure, opt->plot_layout);
     vrna_plot_structure(filename_plot,
                         orig_sequence,
                         structure,
                         VRNA_FILE_FORMAT_PLOT_DEFAULT,
                         layout,
-                        &aux_data));
-
-  vrna_plot_layout_free(layout);
+                        &aux_data);
+    vrna_plot_layout_free(layout);
+  }));
   free(annotation);
   free(filename_plot);
 }
@@ -466,17 +475,17 @@ ImFeelingLucky(vrna_fold_compound_t *fc,
     aux_data.md = md;
     vrna_plot_layout_t  *layout;
 
-    layout = vrna_plot_layout(s, rna_plot_type);
-
-    THREADSAFE_FILE_OUTPUT(
+    /* Inside the lock: see postscript_layout() -- the layout is not thread-safe. */
+    THREADSAFE_FILE_OUTPUT(({
+      layout = vrna_plot_layout(s, rna_plot_type);
       vrna_plot_structure(filename_plot,
                           orig_sequence,
                           s,
                           VRNA_FILE_FORMAT_PLOT_DEFAULT,
                           layout,
-                          &aux_data));
-
-    vrna_plot_layout_free(layout);
+                          &aux_data);
+      vrna_plot_layout_free(layout);
+    }));
   }
 
   free(s);
