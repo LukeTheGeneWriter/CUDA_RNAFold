@@ -30,7 +30,7 @@ upstream's CPU path (`BENCH272_V5_RESULTS.md`).
 
 ## 2. What differs from stock 2.7.2
 
-`git diff --shortstat v2.7.2..Finished_Port` — **146 files, +36 249, −24**. That
+`git diff --shortstat v2.7.2..Finished_Port` — **146 files, +36 327, −24**. That
 headline is misleading on its own, so here is the split that matters:
 
 | | files | lines | what it is |
@@ -39,8 +39,8 @@ headline is misleading on its own, so here is the split that matters:
 | **Library files upstream owns** | 8 | **+477 / −7** | the part that needs defending. All marked in-source |
 | **The driver** `src/bin/RNAfold.c` | 1 | **+1 670 / −13** | ours in effect; not part of any proposal |
 | **Build system** (modified) | 7 | +196 / −4 | `--enable-cuda`, the nvcc libtool shim, test wiring |
-| **New autoconf macros + tests** | 37 | +4 216 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes |
-| **Project documents and tools** | 75 | +16 577 | not code. Scopes, specs, notebook generators |
+| **New autoconf macros + tests** | 37 | +4 270 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes |
+| **Project documents and tools** | 75 | +16 601 | not code. Scopes, specs, notebook generators |
 
 > **These figures are recomputed, and two earlier versions of this section were
 > wrong.** It once read "216 files, +73 162" and "9 files, +2 296 / −20". The
@@ -158,6 +158,20 @@ make -j$(nproc)
 `doxygen` (install it **before** `configure` — it is probed there), and a CUDA
 toolkit with `nvcc` on `PATH`. Without `--enable-cuda` the tree builds as
 stock ViennaRNA and the GPU path is simply absent.
+
+**CUDA 13 and the architecture list (2026-10-02, `86ec6020`).** This branch stopped
+building on CUDA 13.0 (the Colab image of that date), twice: its default
+`--with-cuda-arch` was a fixed `60,70,75,80,86,89`, and CUDA 13 removed `sm_60` and
+`sm_70` (`nvcc fatal: Unsupported gpu architecture 'compute_60'`); and CUDA 13's
+kernel launch stubs need libstdc++ (`__cxa_guard_*`), which libtool's C link did not
+pull in. Configure had not caught the first because its test compile omitted the
+architecture flags. Now, unless `--with-cuda-arch` is given, configure asks `nvcc`
+what it can emit and builds for the local GPU if one is visible, otherwise a fat
+binary over everything that toolkit supports, plus PTX for the highest; the test
+compile uses those flags, so an unusable list disables CUDA at configure with a
+warning rather than failing in `make`; and `-lstdc++` is linked. `configure` reports
+the choice: `checking whether nvcc can compile a CUDA translation unit... yes, for
+sm_86 +PTX`. Nothing the tree accelerates, or how, changed.
 
 **Using it.** The GPU path is off unless asked for: `RNA_GPU_CHUNK` is the
 **master switch, not a cap** — unset means fold on the CPU, and `0` means "no
