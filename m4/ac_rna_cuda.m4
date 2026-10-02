@@ -286,9 +286,17 @@ but if the final link fails try --disable-cuda or a matching host compiler."])
               [cuda_libdir="$d"; break])
       done
 
+      ## AND libstdc++. nvcc output is C++, but the binaries and libRNA are linked
+      ## by libtool with the C compiler, which does not add it. Through CUDA 12.4
+      ## nothing in our objects needed it; a newer nvcc on Colab (2026-10-02,
+      ## the python3.13 image) emits thread-safe function-local-static guards in
+      ## the kernel launch stubs, and every build died at the final RNAfold link
+      ## on undefined __cxa_guard_acquire/release/abort -- in device.o, gquad.o and
+      ## modular_decomposition.o, code that had not changed. The check below links
+      ## with nvcc, which adds libstdc++ itself, so it could not see this.
       AS_IF([test "x$cuda_libdir" != "x"],
-            [CUDA_LIBS="-L$cuda_libdir -lcudart"],
-            [CUDA_LIBS="-lcudart"])
+            [CUDA_LIBS="-L$cuda_libdir -lcudart -lstdc++"],
+            [CUDA_LIBS="-lcudart -lstdc++"])
 
       AS_IF([test -d "$cuda_root/include"],
             [NVCC_FLAGS="$NVCC_FLAGS -I$cuda_root/include"])
