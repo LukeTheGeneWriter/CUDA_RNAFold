@@ -37,7 +37,7 @@ surface() {   # $1 = env, $2 = fixture, $3 = what must be proven taken
   for arm in "" "--noLP" "-d0" "--noGU" "--noClosingGU" "-c" "-g" \
              "--maxBPspan=60" "-T 25" "-p"; do
     $REF --noPS $arm < "$2" > /tmp/il_r.out 2>/dev/null
-    env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 $1 \
+    env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 $1 \
         $GPU --noPS $arm < "$2" > /tmp/il_o.out 2> $E
     sw=$(grep -c 'sweep shape:' $E)
     tk=$(grep -c "$3" $E)
@@ -52,7 +52,7 @@ surface "RNA_INT_LOOP_WSEARCH=1" "$S" 'RNA_INT_LOOP_WSEARCH=1'
 
 echo "=== byte-identity across both knobs, cells/block, encoding and chunking"
 for fx in "$U" "$S"; do
-  base=$(env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 $GPU --noPS < "$fx" 2>/dev/null |
+  base=$(env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 $GPU --noPS < "$fx" 2>/dev/null |
          sha256sum | cut -c1-12)
   echo "  $(basename "$fx"): reference sha (shipped default) = $base"
   for e in "RNA_INT_LOOP_GRIDY=1" \
@@ -65,7 +65,7 @@ for fx in "$U" "$S"; do
            "RNA_INT_LOOP_WSEARCH=1 RNA_GPU_VRAM_BUDGET_MB=64" \
            "RNA_INT_LOOP_WSEARCH=1 RNA_INT_LOOP_WARP=0" \
            "RNA_INT_LOOP_WSEARCH=1 RNA_BUILD_THREADS=1"; do
-    a=$(env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 $e $GPU --noPS < "$fx" 2>/dev/null |
+    a=$(env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 $e $GPU --noPS < "$fx" 2>/dev/null |
         sha256sum | cut -c1-12)
     printf '    %-52s sha=%s\n' "$e" "$a"
     [ "$a" = "$base" ] || { echo "      *** sha moved"; fail=1; }
@@ -73,7 +73,7 @@ for fx in "$U" "$S"; do
 done
 
 echo "=== the 2-D grid's waste guard must DECLINE the ragged chunk"
-env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_INT_LOOP_GRIDY=1 \
+env RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_INT_LOOP_GRIDY=1 \
     $GPU --noPS < "$S" > /dev/null 2> $E
 dec=$(grep -c 'waste guard declined' $E)
 printf '  ngu.fa declined=%s\n' "$dec"

@@ -30,24 +30,24 @@ upstream's CPU path (`BENCH272_V5_RESULTS.md`).
 
 ## 2. What differs from stock 2.7.2
 
-`git diff --shortstat v2.7.2..Finished_Port` — **146 files, +36 327, −24**. That
+`git diff --shortstat v2.7.2..Finished_Port` — **149 files, +37 062, −36**. That
 headline is misleading on its own, so here is the split that matters:
 
 | | files | lines | what it is |
 |---|---|---|---|
-| **New CUDA subdirectory** `src/ViennaRNA/mfe/cuda/` | 18 | **+13 113** | ours entirely. Upstream can take it or leave it |
+| **New CUDA subdirectory** `src/ViennaRNA/mfe/cuda/` | 18 | **+13 131** | ours entirely. Upstream can take it or leave it |
 | **Library files upstream owns** | 8 | **+477 / −7** | the part that needs defending. All marked in-source |
-| **The driver** `src/bin/RNAfold.c` | 1 | **+1 670 / −13** | ours in effect; not part of any proposal |
-| **Build system** (modified) | 7 | +196 / −4 | `--enable-cuda`, the nvcc libtool shim, test wiring |
-| **New autoconf macros + tests** | 37 | +4 270 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes |
-| **Project documents and tools** | 75 | +16 601 | not code. Scopes, specs, notebook generators |
+| **The driver** `src/bin/RNAfold.c` | 1 | **+1 848 / −25** | ours in effect; not part of any proposal |
+| **Build system and README** (modified) | 9 | +296 / −4 | the configure summary, the nvcc libtool shim, test wiring, README's GPU section, `setup.py`'s `mfe/cuda` exclusion |
+| **New autoconf macros + tests** | 38 | +4 620 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes, `tests/zeroconf_configure.sh` |
+| **Project documents and tools** | 75 | +16 690 | not code. Scopes, specs, notebook generators |
 
 > **These figures are recomputed, and two earlier versions of this section were
 > wrong.** It once read "216 files, +73 162" and "9 files, +2 296 / −20". The
 > first had drifted — commits landed after it was written, and the notebooks and
 > result JSON have since been untracked entirely. The second mixed two things:
 > the +2 296 included the +150 of `Makefile.am` glue while the file count did
-> not. The nine files upstream-or-ours (rows 2 + 3 above) are **+2 147 / −20**.
+> not. The nine files upstream-or-ours (rows 2 + 3 above) are **+2 325 / −32**.
 > `Note_to_TBI.md` carries the same split and is computed from the tree.
 
 **Only the "Library files upstream owns" row is a change to something upstream owns**, and every one of
@@ -141,23 +141,32 @@ project had been papering over it with a `chmod +x` for months.
 
 ```sh
 git clone https://github.com/LukeTheGeneWriter/CUDA_RNAFold.git
-cd CUDA_RNAFold && git checkout Lukes_Flow_Batching
+cd CUDA_RNAFold && git checkout Finished_Port
 
 # the vendored third-party sources ship as tarballs and autogen expects them open
 tar -xjf src/dlib-*.tar.bz2   -C src/
 tar -xzf src/libsvm-*.tar.gz  -C src/
 
-./autogen.sh
-./configure --enable-cuda \
-    --without-python --without-perl --without-swig --without-doc \
-    --without-rnaxplorer --without-forester --without-kinfold --without-rnalocmin
+autoreconf -i            # or ./autogen.sh
+./configure              # no CUDA flag: it looks for a toolkit and decides
 make -j$(nproc)
 ```
 
+**Zero-config (2026-10-02).** This is upstream's own install procedure, unchanged:
+`./configure` looks for a CUDA toolkit (`PATH`, then `CUDA_HOME`, `CUDA_PATH`,
+`CUDAToolkit_ROOT`, `CONDA_PREFIX`, then `/usr/local/cuda*` and `/opt/cuda*`), chooses
+the architectures from what that toolkit supports, and builds the backend if it can —
+otherwise the ordinary CPU-only library, exactly as stock ViennaRNA. Its summary always
+states which you got, under **GPU Acceleration**. `--enable-cuda` *demands* the backend
+and fails rather than downgrading; `--disable-cuda` refuses it. Until this change the
+branch needed `--enable-cuda` at configure time and an environment variable at run
+time, so following upstream's instructions gave an unaccelerated build that said
+nothing. Ported from Lukes_Flow_Batching (`04480802`), without that branch's
+performance tuning.
+
 **Build prerequisites**: `gengetopt`, `help2man`, `xxd`, `libtool`, `texinfo`,
-`doxygen` (install it **before** `configure` — it is probed there), and a CUDA
-toolkit with `nvcc` on `PATH`. Without `--enable-cuda` the tree builds as
-stock ViennaRNA and the GPU path is simply absent.
+`doxygen` (install it **before** `configure` — it is probed there), and — for the
+GPU backend — a CUDA toolkit.
 
 **CUDA 13 and the architecture list (2026-10-02, `86ec6020`).** This branch stopped
 building on CUDA 13.0 (the Colab image of that date), twice: its default
@@ -169,21 +178,46 @@ architecture flags. Now, unless `--with-cuda-arch` is given, configure asks `nvc
 what it can emit and builds for the local GPU if one is visible, otherwise a fat
 binary over everything that toolkit supports, plus PTX for the highest; the test
 compile uses those flags, so an unusable list disables CUDA at configure with a
-warning rather than failing in `make`; and `-lstdc++` is linked. `configure` reports
-the choice: `checking whether nvcc can compile a CUDA translation unit... yes, for
-sm_86 +PTX`. Nothing the tree accelerates, or how, changed.
+warning rather than failing in `make`; and `-lstdc++` is linked. Nothing the tree
+accelerates, or how, changed. (The zero-config configure above supersedes that
+macro and keeps both fixes.)
 
-**Using it.** The GPU path is off unless asked for: `RNA_GPU_CHUNK` is the
-**master switch, not a cap** — unset means fold on the CPU, and `0` means "no
-cap, the VRAM budget decides".
+**Using it.** Nothing to set: an accelerated build uses the GPU when one is visible
+and the options are supported, and says so on stderr —
 
-```sh
-RNA_GPU_CHUNK=0 src/bin/RNAfold --noPS -i sequences.fa
+```
+bin/RNAfold.c   GPU acceleration ON (1 device); reaching the device measured 1.55 s,
+                so with 1 job a chunk needs 1.04e+06 matrix cells to beat the host
 ```
 
-Verified from the clean clone above, 24 × 600 nt: **byte-identical to the same
-binary with the GPU path off**, one sweep, the AUTO build pipeline engaging, and
-`-C` — the feature that shipped today — accelerated and byte-identical too.
+(that is a cold driver; a warm one measured ~0.08 s, a floor of 5.4e4 cells)
+
+A chunk goes to the device when its work (matrix cells) exceeds a floor derived on
+the spot from the measured cost of reaching the device, the CPU fold rate and `-j`; a
+present-but-unused device prints one line saying why. `RNA_GPU=0` asks for the CPU path
+explicitly — every correctness harness in `tools/` uses it for its reference arm, and
+asserts that arm did not sweep, because a reference that silently runs on the GPU
+compares the GPU against itself. `RNA_GPU_CHUNK` is only a chunk-width override now
+(it used to be the on switch); `RNA_GPU_WORK_FLOOR=0` sends every chunk to the device.
+
+```sh
+src/bin/RNAfold --noPS -i sequences.fa             # GPU, if there is one
+RNA_GPU=0 src/bin/RNAfold --noPS -i sequences.fa   # stock CPU path
+```
+
+**Verified from a clean clone, 2026-10-02** (laptop, RTX 3050, CUDA 12.4): a bare
+`./configure` reports *CUDA backend: yes, 86 +PTX (detected from the local device)*;
+with no environment the run prints the line above and sweeps on the device, `RNA_GPU=0`
+prints `GPU acceleration OFF: RNA_GPU=0` and does not, and the two answers are
+byte-identical; `RNA_GPU_WORK_FLOOR=0` and `RNA_GPU_CHUNK=0` still behave as documented.
+`tools/verify_option_parity.sh` — reference arm on the CPU, every accelerated option on
+the GPU for all 30 records — gives 45 options identical and the three declined ones on
+the CPU as required; the repaired salt, constraint and declined-option harnesses pass;
+and `tests/zeroconf_configure.sh` passes 16/16 — including `--enable-cuda` refusing with
+no toolkit reachable, a bare `./configure` without one succeeding CPU-only and silent on
+stderr, and the CPU-only and accelerated builds giving byte-identical output. The A100 three-way run of the same date (before this change, with
+`--enable-cuda` and the run-time variable) measured this branch at 45.7× upstream 2.7.2
+on all 12 cores at 400 × 5601 nt, byte-identical across eleven option cases.
 
 ---
 

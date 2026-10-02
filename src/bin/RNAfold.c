@@ -40,6 +40,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 
 #include "ViennaRNA/mfe/global.h"
 #include "ViennaRNA/partfunc/global.h"
@@ -1217,16 +1218,58 @@ gpu_path_usable(struct options *opt,
 }
 
 
-/* Below this, a chunk is not worth a GPU batch: the per-chunk init_gpu/teardown
- * cycle alone measured ~1.6 s, which dwarfs folding a handful of records.
+/* NO LONGER AN ADMISSION GATE (zero-config, 2026-10-02; Lukes_Flow_Batching
+ * 04480802). This was the 2.3.0 record-count threshold and it decided whether a chunk
+ * went to the device. It does not any more -- rnafold_chunk_earns_gpu() asks about
+ * WORK, in matrix cells, against a floor derived from this host. A record count was
+ * the wrong unit: ten 80 nt sequences went to the device while one 5601 nt sequence
+ * did not, which is backwards both ways.
  *
- * 10 is the 2.3.0 value and is carried over deliberately unchanged, but it is
- * KNOWN to be length-dependent rather than a constant -- break-even is ~65
- * records at 300 nt, ~10 at 600 nt, and 1 at >=1200 nt. So 10 is right only
- * near 600-700 nt and too small below that. The proper fix is a length guard,
- * not a better constant; carried over as-is so the port stays behaviour-
- * preserving and the guard lands as its own measured change. */
+ * ONE user remains: cpu_slice_take(), which holds records back from a chunk already
+ * bound for the device and needs a floor on how many it may leave there. That is a
+ * question about SPLITTING a chunk, and a record count suits it, because the records
+ * in one chunk are of similar length by construction. */
 #define VRNA_MIN_GPU_BATCH 10
+
+/* ============ THE ADMISSION TEST, AND THE ONE CONSTANT IT STILL HAS ==========
+ *
+ * Break-even is where   host time == device startup + device time,   and two of
+ * those terms belong to the MACHINE, not the input. So the floor is DERIVED:
+ *
+ *     cells / (R_host * jobs)  >  F + cells / R_device
+ *     floor ~= F * R_host * jobs          (R_device >> R_host * jobs)
+ *
+ *   F      the measured cost of reaching a usable device -- the first
+ *          vrna_cuda_devices() call creates the CUDA context, and is timed where it
+ *          happens. A cold driver, a shared cluster GPU or a MIG slice raises it, and
+ *          the floor rises with it. Warm F = 0.09 s sends 3 x 300 nt to the device
+ *          (a 1.09x win); cold F = 0.75 s keeps it on the CPU, where the device would
+ *          have lost 2.3x. No constant is right in both regimes.
+ *   jobs   how many cores the host would otherwise fold on (-j).
+ *
+ * The one compiled-in number left is a CPU FOLD RATE: 1.045e7 cells in 15.67 s on
+ * one core (24 records at 600/900/1200 nt), interpretable and the obvious thing for
+ * a tuner to measure. Derivation and validation: Lukes_Flow_Batching 04480802. */
+#define VRNA_HOST_FOLD_CELLS_PER_SEC 670000.0
+
+/* F, in seconds, measured once at the vrna_cuda_devices() probe. Negative means not
+ * measured yet, and the floor falls back to the value below. */
+static double g_gpu_reach_cost = -1.0;
+#define VRNA_GPU_REACH_COST_FALLBACK 0.6
+
+/* jobs, captured where opt is in scope. */
+static int g_host_jobs = 1;
+
+static double
+rnafold_now_s(void)
+{
+  struct timespec ts;
+
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
+    return 0.0;
+
+  return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
+}
 
 
 /* The CPU-fallback threshold, overridable so it can be MEASURED.
@@ -1255,11 +1298,11 @@ gpu_path_usable(struct options *opt,
  * It announces itself for the reason the int16 gate does: a run that did not
  * apply the setting must not be able to pass for one that did.
  *
- * Deliberately NOT used at the other VRNA_MIN_GPU_BATCH site below, which
- * asks a different question -- "can free VRAM hold a worthwhile batch at this
- * length?". Setting that to 1 would admit a GPU path where a single record
- * fills VRAM, i.e. one chunk per record, which is the worst case for chunk
- * count and so the worst case for wall clock.
+ * Since zero-config it only sizes the CPU slice (see VRNA_MIN_GPU_BATCH); whether a
+ * chunk goes to the device at all is rnafold_chunk_earns_gpu()'s question. The VRAM
+ * site below no longer uses a batch count either: it asks only whether ONE record
+ * fits, a capacity fact -- demanding room for ten silently excluded every long
+ * sequence on a small card, the ones the device helps most.
  */
 static int
 rnafold_min_gpu_batch(void)
@@ -1277,8 +1320,9 @@ rnafold_min_gpu_batch(void)
       if (n >= 1) {
         v = (int)n;
         fprintf(stderr,
-                "%-24s RNA_MIN_GPU_BATCH=%d (default %d): chunks smaller than "
-                "this fold on the CPU\n",
+                "%-24s RNA_MIN_GPU_BATCH=%d (default %d): the CPU slice leaves at "
+                "least this many records to the device (admission is by work: "
+                "RNA_GPU_WORK_FLOOR)\n",
                 "bin/RNAfold.c", v, VRNA_MIN_GPU_BATCH);
       } else {
         fprintf(stderr,
@@ -1289,6 +1333,71 @@ rnafold_min_gpu_batch(void)
   }
 
   return v;
+}
+
+
+/* The work floor, in triangular matrix cells. See the derivation above
+ * VRNA_HOST_FOLD_CELLS_PER_SEC. RNA_GPU_WORK_FLOOR overrides it (RNA_MIN_GPU_CELLS is
+ * accepted as an alias); 0 means no floor -- always use the device. */
+static double
+rnafold_gpu_work_floor(void)
+{
+  static double v = -1.0;
+
+  if (v < 0.0) {
+    const char *e = getenv("RNA_GPU_WORK_FLOOR");
+
+    if ((!e) || (!e[0]))
+      e = getenv("RNA_MIN_GPU_CELLS");
+
+    if ((e) && (e[0])) {
+      const double n = atof(e);
+
+      if (n >= 0.0) {
+        v = n;
+        fprintf(stderr, "%-24s work floor forced to %.0f cells: a chunk goes to the "
+                        "device once its total matrix area reaches this\n",
+                "bin/RNAfold.c", v);
+        return v;
+      }
+    }
+
+    {
+      const double F = (g_gpu_reach_cost >= 0.0) ? g_gpu_reach_cost
+                                                 : VRNA_GPU_REACH_COST_FALLBACK;
+
+      v = F * VRNA_HOST_FOLD_CELLS_PER_SEC * (double)g_host_jobs;
+    }
+  }
+
+  return v;
+}
+
+
+/* Does this chunk earn the device? ONE test, in ONE unit: the work in the chunk, as
+ * matrix cells, against a floor derived from this host. Cells rather than nucleotides
+ * because the device's fixed cost is amortised against matrix AREA: at 1600 total nt,
+ * 8 x 200 measures 1.23x while 1 x 1600 measures 2.68x. */
+static int
+rnafold_chunk_earns_gpu(struct record_data **chunk, const int n)
+{
+  const double floor_cells = rnafold_gpu_work_floor();
+  double       cells       = 0.0;
+  int          i;
+
+  if (floor_cells <= 0.0)
+    return 1;
+
+  for (i = 0; i < n; i++)
+    if ((chunk[i]) && (chunk[i]->sequence)) {
+      const double L = (double)strlen(chunk[i]->sequence);
+
+      cells += L * (L + 1.0) / 2.0;   /* this record's triangle, in cells */
+      if (cells >= floor_cells)       /* the answer cannot change past the floor */
+        return 1;
+    }
+
+  return 0;
 }
 
 
@@ -1898,9 +2007,11 @@ flush_gpu_chunk(struct record_data **chunk,
   if (n <= 0)
     return;
 
-  if (n < rnafold_min_gpu_batch()) {
-    /* CPU fallback. Not a separate worker queue: upstream's driver already has
-     * a per-record parallel path, so an undersized chunk simply goes down it.
+  if (!rnafold_chunk_earns_gpu(chunk, n)) {
+    /* CPU fallback, for a chunk whose WORK (matrix cells) is under the floor derived
+     * from this host -- a record count until zero-config. Not a separate worker
+     * queue: upstream's driver already has a per-record parallel path, so an
+     * undersized chunk simply goes down it.
      * That is the fork's RNAfold_cpu_queue.c retired rather than ported --
      * MERGING.md flagged it as largely redundant once upstream grew its own
      * thread pool and vrna_ostream_t, and this is where that pays off. The
@@ -2160,8 +2271,8 @@ pipeline_flush(struct record_data **chunk,
     }
   }
 
-  if (n < rnafold_min_gpu_batch()) {
-    /* Too small for the device, exactly as flush_gpu_chunk() decides. Dispatch
+  if (!rnafold_chunk_earns_gpu(chunk, n)) {
+    /* Too little work for the device, exactly as flush_gpu_chunk() decides. Dispatch
      * down the per-record path; ordering is by ostream slot (requested at READ
      * time, main loop), not by dispatch order, so this may precede a pending
      * chunk's output without reordering the file. */
@@ -2268,24 +2379,70 @@ process_input(FILE            *input_stream,
   const int             slot_cap_max       = rnafold_slot_capacity_max();
 
   {
+    /* ZERO-CONFIG (2026-10-02; Lukes_Flow_Batching 04480802). This used to read
+     *
+     *   gpu_enabled = (vrna_cuda_devices() > 0) && (e) && (e[0]);   e = RNA_GPU_CHUNK
+     *
+     * so the accelerator engaged only if an environment variable was SET. Nothing in
+     * upstream ViennaRNA's documented use sets it, so every ordinary user of an
+     * accelerated build got the CPU path, silently -- zero sweeps, zero bytes of
+     * stderr. RNA_GPU_CHUNK is a chunk-WIDTH override that had acquired
+     * presence-as-enable as a second job; it keeps only the first.
+     *
+     * Now: a build with a backend, a visible device and supported options uses the
+     * device. RNA_GPU=0 is the explicit off switch -- for a user who wants stock
+     * behaviour, and for every verification harness, whose CPU reference used to be
+     * "RNA_GPU_CHUNK unset" and must now say RNA_GPU=0 or it compares the GPU with
+     * itself. */
     const char *e   = getenv("RNA_GPU_CHUNK");
+    const char *off = getenv("RNA_GPU");
     const char *why = NULL;
 
-    gpu_enabled = (vrna_cuda_devices() > 0) && (e) && (e[0]);
+    /* F, MEASURED: cudaGetDeviceCount() brings up the driver and creates the
+     * context, so this call IS the cost of reaching the device -- the dominant term
+     * in the admission floor. It has to happen anyway; timing it is free. */
+    {
+      const double t_probe = rnafold_now_s();
+      const int    ndev    = vrna_cuda_devices();
 
-    if ((gpu_enabled) && (!gpu_path_usable(opt, &why))) {
-      /* Not an error: this run just folds on the CPU, exactly as stock
-       * ViennaRNA would. Announced only in verbose mode -- a user who asked
-       * for --gquad wants their answer, not a lecture about the accelerator. */
-      if (opt->verbose)
-        vrna_log_info("CUDA backend not used for this run (%s); "
-                      "folding on the CPU path", why);
+      g_gpu_reach_cost = rnafold_now_s() - t_probe;
+      g_host_jobs      = (opt->jobs > 0) ? opt->jobs : 1;
+      gpu_enabled      = (ndev > 0);
+    }
 
+    if ((off) && (off[0]) && (!strcmp(off, "0"))) {
       gpu_enabled = 0;
+      why         = "RNA_GPU=0";
+    }
+
+    if ((!gpu_enabled) && (!why))
+      why = "no CUDA device is visible";
+
+    if ((gpu_enabled) && (!gpu_path_usable(opt, &why)))
+      gpu_enabled = 0;
+
+    /* ANNOUNCE THE DECISION -- only when there is one. Engaged: one line, positive
+     * evidence a silent fallback cannot fake. Device present but declined (or the
+     * user asked for the CPU): one line with the reason, because unused hardware is
+     * the dangerous case. No device at all: silent unless --verbose, because that is
+     * the common case for a CUDA-enabled package on a CPU-only machine, and stock
+     * ViennaRNA says nothing there either. */
+    if (gpu_enabled) {
+      fprintf(stderr, "%-24s GPU acceleration ON (%d device%s); reaching the device "
+                      "measured %.2f s, so with %d job%s a chunk needs %.3g matrix "
+                      "cells to beat the host\n", "bin/RNAfold.c",
+              vrna_cuda_devices(), (vrna_cuda_devices() == 1) ? "" : "s",
+              g_gpu_reach_cost, g_host_jobs, (g_host_jobs == 1) ? "" : "s",
+              rnafold_gpu_work_floor());
+    } else if ((vrna_cuda_devices() > 0) || ((off) && (off[0]))) {
+      fprintf(stderr, "%-24s GPU acceleration OFF: %s -- folding on the CPU\n",
+              "bin/RNAfold.c", why ? why : "unavailable");
+    } else if (opt->verbose) {
+      vrna_log_info("no CUDA device visible; folding on the CPU path");
     }
 
     if (gpu_enabled) {
-      gpu_hard_cap = atoi(e);            /* 0 or less: budget alone decides */
+      gpu_hard_cap = (e && e[0]) ? atoi(e) : 0;   /* 0 or less: budget alone decides */
       if (gpu_hard_cap < 0)
         gpu_hard_cap = 0;
 
@@ -2429,12 +2586,13 @@ process_input(FILE            *input_stream,
         chunk_usable_bytes = compute_gpu_usable_bytes();
         chunk_started      = 1;
 
-        /* Degraded case: free VRAM cannot hold even a minimum batch of this
-         * length. Folding it on the GPU one chunk at a time would be slower
-         * than not using the GPU at all, so this record and its like go down
-         * the per-record path. */
-        if (gpu_bytes_per_file((int)this_len) * (size_t)VRNA_MIN_GPU_BATCH
-            > chunk_usable_bytes) {
+        /* Degraded case: free VRAM cannot hold even ONE record of this length, so
+         * there is no batch to form and the record goes down the per-record path.
+         * A capacity fact, not a policy. It used to demand room for TEN records,
+         * which on a 4 GB card meant no 8000 nt sequence could ever reach the device
+         * while a bigger card took it -- a gate that turned on the size of the card.
+         * Whether the work is worth the device is the work floor's question. */
+        if (gpu_bytes_per_file((int)this_len) > chunk_usable_bytes) {
           RUN_IN_PARALLEL(process_record, record);
           continue;
         }
@@ -2492,9 +2650,10 @@ process_input(FILE            *input_stream,
 
 #ifdef VRNA_WITH_CUDA
   /* whatever is left over at EOF. A short final chunk is the normal case, and
-   * flush_gpu_chunk() sends it down the per-record path if it is below
-   * VRNA_MIN_GPU_BATCH -- which is exactly the tail-case fallback the 2.3.0
-   * driver had, now expressed once rather than at each call site. */
+   * flush_gpu_chunk() sends it down the per-record path if it does not carry enough
+   * WORK to earn the device -- the tail-case fallback the 2.3.0 driver had, expressed
+   * once. It was a record count until zero-config; the tail of a long-sequence input
+   * now correctly stays on the device. */
   if (gpu_enabled) {
     pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
     /* The pipeline leaves the last chunk built but unfolded by construction --

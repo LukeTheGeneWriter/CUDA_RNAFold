@@ -44,7 +44,7 @@ echo "--- 1. frozen vectors from pristine 2.7.2 (CPU semantics)"
 checked=0
 while read -r salt idx want; do
   case "$salt" in \#*|"") continue;; esac
-  got=$(env -u RNA_GPU_CHUNK "$BIN" --noPS --salt "$salt" -i "$REF/salt_test.fa" 2>/dev/null \
+  got=$(env -u RNA_GPU_CHUNK RNA_GPU=0 "$BIN" --noPS --salt "$salt" -i "$REF/salt_test.fa" 2>/dev/null \
         | awk '/^>/{n++} n=='"$((idx+1))"' && /\(/{ if (match($0,/\(\s*-?[0-9.]+\)$/)) {
                  e=substr($0,RSTART+1,RLENGTH-2); gsub(/ /,"",e); print e; exit } }')
   checked=$((checked+1))
@@ -87,8 +87,13 @@ PY
 
 default_out=""
 for salt in 0.05 0.1 0.2 0.5 1.021 2.0 5.0; do
-  env -u RNA_GPU_CHUNK "$BIN" --noPS --salt "$salt" -i "$WORK/big.fa" \
-      > "$WORK/cpu.$salt" 2>/dev/null
+  # RNA_GPU=0: an unset RNA_GPU_CHUNK has meant the DEVICE since zero-config (04480802),
+  # so until 2026-10-02 this "CPU" arm was a GPU run and section 2 was GPU vs GPU.
+  env -u RNA_GPU_CHUNK RNA_GPU=0 "$BIN" --noPS --salt "$salt" -i "$WORK/big.fa" \
+      > "$WORK/cpu.$salt" 2> "$WORK/cpuerr.$salt"
+  if grep -q "sweep shape:" "$WORK/cpuerr.$salt"; then
+    echo "    FAIL: the CPU reference at salt $salt swept on the GPU -- GPU vs GPU"; exit 1
+  fi
   RNA_GPU_CHUNK=0 "$BIN" --noPS --salt "$salt" -i "$WORK/big.fa" \
       > "$WORK/gpu.$salt" 2> "$WORK/err.$salt"
 

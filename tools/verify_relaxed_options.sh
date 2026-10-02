@@ -47,7 +47,7 @@ for opt_spec in "noGU:--noGU"; do
     [ -f "$T/$inp.fa" ] || continue
     n=$(grep -c '^>' "$T/$inp.fa")
 
-    "$BIN" --noPS $flag -i "$T/$inp.fa" > "$W/$tag.$inp.cpu" 2>/dev/null
+    RNA_GPU=0 "$BIN" --noPS $flag -i "$T/$inp.fa" > "$W/$tag.$inp.cpu" 2>/dev/null
     RNA_GPU_CHUNK=0 "$BIN" --noPS $flag -i "$T/$inp.fa" \
         > "$W/$tag.$inp.gpu" 2> "$W/$tag.$inp.err"
     rc=$?

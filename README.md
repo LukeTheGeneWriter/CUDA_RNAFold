@@ -255,6 +255,68 @@ See also
 for a complete list of all `./configure` options and important environment
 variables.
 
+### GPU acceleration
+
+The MFE matrix fill (`RNAfold`) has a CUDA backend. **It needs nothing from you.**
+`./configure` looks for a CUDA toolkit, works out which compute capabilities to
+build for, and enables the backend if it can; if it cannot, you get the ordinary
+CPU-only library, exactly as before. Either way `./configure && make && sudo make
+install` is all there is to it, and the configure summary says which you got:
+
+```
+GPU Acceleration
+----------------
+  * CUDA backend              : yes
+      - nvcc                  : /usr/local/cuda/bin/nvcc (release 12.4)
+      - host compiler          : gcc
+      - compute capabilities  : 86 +PTX (detected from the local device)
+```
+
+`nvcc` is looked for on `PATH`, then under `CUDA_HOME`, `CUDA_PATH`,
+`CUDAToolkit_ROOT` and `CONDA_PREFIX`, then in `/usr/local/cuda*` and `/opt/cuda*`
+(newest first). If yours is somewhere else:
+
+```
+./configure --with-cuda-prefix=/path/to/cuda
+```
+
+Architectures are chosen for you. If a GPU is visible at configure time, the build
+targets exactly its compute capability, which keeps the build fast; otherwise it
+targets every capability your toolkit supports, which is what you want when the
+machine you build on is not the machine you run on. PTX is always emitted as well,
+so a newer GPU still works. To override:
+
+```
+./configure --with-cuda-arch=80,90        # explicit list
+./configure --with-cuda-arch=native       # let nvcc decide
+```
+
+To insist, or to refuse:
+
+```
+./configure --enable-cuda     # fail if the backend cannot be built
+./configure --disable-cuda    # do not build it, do not look
+```
+
+`--enable-cuda` is a demand, not a hint: if the toolkit is missing or broken,
+configure stops rather than quietly handing you a CPU-only build.
+
+At run time, `RNAfold` uses the GPU when one is present and the run's options are
+supported, and prints one line to stderr saying so. It decides per batch whether
+the work is worth the device, measuring the cost of reaching the GPU and accounting
+for how many cores it would otherwise fold on (`-j`), so small inputs are not made
+slower. Nothing needs to be configured for that either.
+
+To get stock CPU behaviour from an accelerated build for one run, without
+reconfiguring:
+
+```
+RNA_GPU=0 RNAfold < input.fa
+```
+
+That is also how the accelerator is tested: the same binary folds the same input
+with and without the GPU, and the two outputs must be identical.
+
 ----
 
 ## Executable Programs

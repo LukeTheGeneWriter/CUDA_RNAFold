@@ -22,12 +22,17 @@
 # in the wrong mode is meant to fail loudly -- a guard that quietly stopped
 # declining is exactly the regression worth catching.
 #
-# Usage: verify_constraint_parity.sh [--expect-accelerated] [build-tree] [input.fa]
+# Usage: verify_constraint_parity.sh [--expect-accelerated|--expect-routed] [build-tree] [input.fa]
+#
+# The DEFAULT is now accelerated (2026-10-02): -C has been accelerated since it
+# shipped, so the old default ("routed") failed on every correct tree. --expect-routed
+# keeps the declined-guard check for a build where -C is meant to be refused.
 
 set -u
 
-EXPECT=routed
+EXPECT=accelerated
 if [ "${1:-}" = "--expect-accelerated" ]; then EXPECT=accelerated; shift; fi
+if [ "${1:-}" = "--expect-routed" ];      then EXPECT=routed;      shift; fi
 
 TREE=${1:-$HOME/port27rel}
 SRC=${2:-$HOME/rnatest/asc.fa}
@@ -49,7 +54,13 @@ run () {  # run <outfile> <errfile> <gpu:0|1> [args...]
   if [ "$gpu" = 1 ]; then
     RNA_GPU_CHUNK=0 "$BIN" --noPS "$@" > "$out" 2> "$err"
   else
-    env -u RNA_GPU_CHUNK "$BIN" --noPS "$@" > "$out" 2> "$err"
+    # RNA_GPU=0, NOT just "RNA_GPU_CHUNK unset": since zero-config (04480802) an unset
+    # RNA_GPU_CHUNK means the DEVICE, so this reference was a second GPU run and the bar
+    # compared the GPU against itself until 2026-10-02. And ASSERT it stayed on the CPU.
+    env -u RNA_GPU_CHUNK RNA_GPU=0 "$BIN" --noPS "$@" > "$out" 2> "$err"
+    if grep -q "sweep shape:" "$err"; then
+      echo "FAIL: the CPU reference swept on the GPU ($err) -- the bar would be GPU vs GPU"; exit 1
+    fi
   fi
 }
 

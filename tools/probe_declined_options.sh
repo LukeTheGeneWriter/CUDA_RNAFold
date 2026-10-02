@@ -37,6 +37,7 @@ TREE=${1:-$HOME/port27fml}
 BIN=$TREE/src/bin/RNAfold
 EVAL=$TREE/src/bin/RNAeval
 WORK=$(mktemp -d)
+exec 3>&2   # the real stderr, for messages from functions whose stderr a caller redirects
 trap 'rm -rf "$WORK"' EXIT
 
 echo "binary : $BIN"
@@ -58,10 +59,18 @@ with open(sys.argv[1], "w") as f:
         f.write(">s%d\n%s\n" % (i, "".join(random.choice("ACGU") for _ in range(L))))
 PY
 
-cpu () { env -u RNA_GPU_CHUNK RNA_MIN_GPU_BATCH=1 "$BIN" --noPS "$@" 2>/dev/null; }
+# RNA_GPU=0: since zero-config (04480802) an unset RNA_GPU_CHUNK means the DEVICE, so
+# without it this "CPU" reference was a GPU run (fixed 2026-10-02). The stderr check
+# makes that impossible to repeat silently.
+cpu () {
+  env -u RNA_GPU_CHUNK RNA_GPU=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 "$BIN" --noPS "$@" 2>"$WORK/cpu.err"
+  if grep -q "sweep shape:" "$WORK/cpu.err"; then
+    echo "FAIL: the CPU reference swept on the GPU -- the probe would be GPU vs GPU" >&3; exit 1
+  fi
+}
 gpu () { # gpu <allow-id> [args...]
   local id=$1; shift
-  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_ENGINE_ALLOW="$id" "$BIN" --noPS "$@" 2>"$WORK/gpu.err"
+  RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_ENGINE_ALLOW="$id" "$BIN" --noPS "$@" 2>"$WORK/gpu.err"
 }
 
 # Energy column only, for a delta that means something when structures differ.

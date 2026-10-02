@@ -71,9 +71,9 @@ run_bar() {
   while [ "${1:-}" != "--" ]; do envs+=("$1"); shift; done
   shift
 
-  env "${envs[@]}"                     "$BIN" --noPS "$@" -i "$IN" \
+  env "${envs[@]}" RNA_GPU=0           "$BIN" --noPS "$@" -i "$IN" \
       > "$W/$tag.off" 2> "$W/$tag.off.err"; local rc_off=$?
-  env "${envs[@]}" RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 \
+  env "${envs[@]}" RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 \
       "$BIN" --noPS "$@" -i "$IN" \
       > "$W/$tag.on"  2> "$W/$tag.on.err";  local rc_on=$?
 
@@ -115,7 +115,7 @@ run_bar() {
 # identical, but DID NOT BITE" for exactly this reason.
 bites() {
   local tag=$1 base=$2; shift 2
-  "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.bite" 2>/dev/null
+  RNA_GPU=0 "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.bite" 2>/dev/null
   local d; d=$(diff "$base" "$W/$tag.bite" 2>/dev/null | grep -c '^[<>]')
   if [ "$d" -eq 0 ]; then
     printf '  %-34s DOES NOT BITE -- the parity result above is vacuous\n' "$tag"
@@ -157,7 +157,7 @@ run_bar dna_salt_hi  gpu -- -P DNA --salt 1.5 || true
 # therefore closes --backbone-length but NOT --helical-rise.
 run_bar rise_salt    gpu -- --salt 0.2 --helical-rise 10 || true
 run_bar backbone_slt gpu -- --salt 0.2 --backbone-length 6.76 || true
-"$BIN" --noPS --salt 0.2 -i "$IN" > "$W/salt_base" 2>/dev/null
+RNA_GPU=0 "$BIN" --noPS --salt 0.2 -i "$IN" > "$W/salt_base" 2>/dev/null
 bites  rise_bites     "$W/salt_base" --salt 0.2 --helical-rise 10     || fail=$((fail+1))
 bites  backbone_bites "$W/salt_base" --salt 0.2 --backbone-length 6.76 || fail=$((fail+1))
 

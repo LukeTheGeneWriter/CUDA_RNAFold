@@ -15,6 +15,7 @@
 # src/RNAxplorer/doc/Makefile.am), which would put whitespace-only noise in the
 # diff against upstream on a branch whose whole point is to be reviewable.
 tools/*.sh                  text eol=lf
+tests/*.sh                  text eol=lf
 tests/upstream/*.sh         text eol=lf
 tests/upstream/*.c          text eol=lf
 tests/mfe_engine.ts         text eol=lf

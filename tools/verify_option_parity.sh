@@ -4,8 +4,16 @@
 #
 # This is the claim being taken to upstream -- "a strict accelerator of the
 # validated CPU code" -- so it is checked across the option surface rather than
-# on default folds alone. The reference is the SAME BINARY with RNA_GPU_CHUNK
-# unset, which isolates the accelerator as the only variable.
+# on default folds alone. The reference is the SAME BINARY with RNA_GPU=0, which
+# isolates the accelerator as the only variable.
+#
+# IT USED TO BE "the same binary with RNA_GPU_CHUNK unset", and that stopped working
+# the moment gate 3 was deleted (2026-09-27): with the device used by default, the
+# reference arm would have become a SECOND GPU RUN, and every row below would have
+# compared the accelerator against itself -- passing always, proving nothing. Hence
+# RNA_GPU=0, and hence the symmetric assertion in both check functions: each row now
+# checks that the reference arm did NOT sweep as well as that the accelerated arm
+# DID. A negative control nobody checks is not a control.
 #
 # Usage: verify_option_parity.sh [build-tree] [input]
 set -u
@@ -38,9 +46,15 @@ NREC=$(grep -c '^>' "$IN")
 check_sorted() {
   local tag=$1 expect=$2; shift 2
   n=$((n+1))
-  "$BIN" --noPS "$@" -i "$IN" 2> "$W/$tag.off.err" | sort > "$W/$tag.off"
+  RNA_GPU=0 "$BIN" --noPS "$@" -i "$IN" 2> "$W/$tag.off.err" | sort > "$W/$tag.off"
   RNA_GPU_CHUNK=0 "$BIN" --noPS "$@" -i "$IN" 2> "$W/$tag.on.err" | sort > "$W/$tag.on"
   local sweeps; sweeps=$(grep -c 'sweep shape:' "$W/$tag.on.err")
+  local offsw;  offsw=$(grep -c 'sweep shape:' "$W/$tag.off.err")
+
+  if [ "$offsw" -ne 0 ]; then
+    printf '  %-22s *** REFERENCE ARM USED THE GPU (%s sweeps) -- not a control ***\n' \
+           "$tag" "$offsw"; fail=$((fail+1)); return
+  fi
 
   if [ ! -s "$W/$tag.off" ]; then
     printf '  %-22s NO OUTPUT from either side\n' "$tag"; fail=$((fail+1)); return
@@ -67,9 +81,15 @@ check() {
   local tag=$1 expect=$2; shift 2
   n=$((n+1))
   set -- "${@//PARAMFILE/$PARFILE}"
-  "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.off" 2> "$W/$tag.off.err"; rc_off=$?
+  RNA_GPU=0 "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.off" 2> "$W/$tag.off.err"; rc_off=$?
   RNA_GPU_CHUNK=0 "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.on" 2> "$W/$tag.on.err"; rc_on=$?
   local sweeps; sweeps=$(grep -c 'sweep shape:' "$W/$tag.on.err")
+  local offsw;  offsw=$(grep -c 'sweep shape:' "$W/$tag.off.err")
+
+  if [ "$offsw" -ne 0 ]; then
+    printf '  %-22s *** REFERENCE ARM USED THE GPU (%s sweeps) -- not a control ***\n' \
+           "$tag" "$offsw"; fail=$((fail+1)); return
+  fi
   local gpurec; gpurec=$(grep -o 'peak/iteration [0-9]* records' "$W/$tag.on.err" \
                          | awk '{s+=$2} END{print s+0}')
 
