@@ -95,7 +95,7 @@ strncpy(symbolset, "AUGC", sizeof(char) * 5);
 }
 
 %typemap(varout) char * symbolset {
-  $result = SWIG_Python_str_FromChar((const char *)symbolset);
+  $result = PyUnicode_FromString((const char *)symbolset);  /* SWIG 4.5 removed the Python-2 aliases (PyString_*, SWIG_Python_str_*); this is what they meant on Python 3 */
 }
 #endif
 

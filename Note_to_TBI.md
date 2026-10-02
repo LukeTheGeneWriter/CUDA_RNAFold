@@ -15,7 +15,7 @@ that is `PORT_UPSTREAM_PROPOSAL.md` — nor restate the measurements, which are 
 
 ## 1. How to read the diff
 
-`git diff --shortstat v2.7.2..Finished_Port` reports **149 files, +37 116, −36**
+`git diff --shortstat v2.7.2..Finished_Port` reports **156 files, +37 180, −42**
 (including this document), after the notebooks and result JSON were untracked.
 Even that is more than the proposal: about half the remaining lines are the
 project's own `PORT_*.md` scope documents and tooling, which are how the port was
@@ -28,15 +28,16 @@ The split that matters:
 |---|---|---|---|
 | **A. Library files upstream owns** | **8** | **+477 / −7** | the part that needs defending |
 | **B. The driver, `src/bin/RNAfold.c`** | 1 | +1 848 / −25 | ours in effect; not proposed |
-| **C. Build system and README (modified)** | 9 | +296 / −4 | configure wiring and summary, `.cu` build rules, README's GPU section |
+| **C. Build system, README, SWIG interfaces (modified)** | 16 | +338 / −10 | configure wiring and summary, `.cu` build rules, README's GPU section, the SWIG 4.5 fix |
 | **D. New CUDA backend** `src/ViennaRNA/mfe/cuda/` | 18 | +13 131 | a new subdirectory; take it or leave it |
 | **E. New autoconf macros** | 2 | +411 | `m4/ac_rna_cuda.m4`, `ac_rna_asserts.m4` |
 | **F. New tests and fixtures** | 36 | +4 209 | including standalone upstream reproducers |
-| **G. Documents and tools** | 75 | +16 744 | **not code, not proposed** |
+| **G. Documents and tools** | 75 | +16 766 | **not code, not proposed** |
 
-**All 36 deleted lines** are accounted for: 7 in the eight library files, 25 in
-`RNAfold.c`, 4 list-continuations in `tests/Makefile.am`. There is no upstream
-code removed anywhere else in the tree.
+**All 42 deleted lines** are accounted for: 7 in the eight library files, 25 in
+`RNAfold.c`, 4 list-continuations in `tests/Makefile.am`, and 6 in the SWIG interface
+files, each replaced by its Python 3 spelling (§2.1). There is no upstream code removed
+anywhere else in the tree.
 
 > **Corrections to our own earlier numbers, now fixed at source.**
 > `CUDA_RNAFold_History.md` §2 once reported the modified upstream files as
@@ -141,6 +142,21 @@ our driver (Part B), since `RNAfold.c` is a whole-file local patch here, and wit
 nine runs (CPU and GPU, `-j8`, with and without `-o`) are clean with every plot
 identical to `-j1`. We would send it as a two-hunk patch to 2.7.2's driver on its own.
 
+**A seventh, in the Python interface: it does not build with SWIG 4.5.** `pip install
+swig` now installs SWIG 4.5.0, which removed the Python-2 compatibility aliases SWIG
+used to define for Python 3 — and 2.7.2's interface files still use three of them:
+`PyString_FromString` (the subopt, mfe-window and Boltzmann-sampling callbacks),
+`PyString_AsString` (the `char **` typemap in `Python/tmaps.i`) and
+`SWIG_Python_str_FromChar` (`inverse.i`'s `symbolset` getter; its setter is already
+guarded for SWIG ≥ 4.2). The result is ten compile errors in `RNA_wrap.cpp` and no Python
+module. Each is now written as what the alias meant on Python 3 — `PyUnicode_FromString`,
+`PyBytes_AsString`, `PyUnicode_FromString` — plain C-API that works with every SWIG
+version; six lines in five files (§4). With it, SWIG 4.5.0 builds and passes the Python
+suite (131/131), and SWIG 4.4.0 still builds. (Separately: under 4.4.0 one test,
+`test_RNA-utils` "Slice pair table", fails in `varArrayShort___getitem__`, independent of
+this change and passing under 4.5; and the `char **` typemap leaks one bytes object per
+string, which this change deliberately preserves.)
+
 ### 2.2 The SEAM patches — one idea in four files plus a batch entry
 
 Five of the seven SEAM regions implement a single thing: **a fold compound can
@@ -216,7 +232,7 @@ is backend-agnostic and would serve any batch backend. Built without a CUDA tool
 
 ---
 
-## 4. Part C — build system and README (modified, +296 / −4)
+## 4. Part C — build system, README and SWIG interfaces (modified, +338 / −10)
 
 | file | + / − | what |
 |---|---|---|
@@ -227,8 +243,14 @@ is backend-agnostic and would serve any batch backend. Built without a CUDA tool
 | `setup.py.in` | +12 / 0 | excludes `mfe/cuda` from setuptools' source glob: its `*.c*` pattern caught the `.cu` sources and `python -m build` stopped on "unknown file type '.cu'". The wheel is CPU-only by construction |
 | `.gitignore` | +8 / 0 | build artifacts |
 | `src/bin/Makefile.am` | +6 / 0 | binaries link `libRNA_conv.la` directly, so they need `$(CUDA_LIBS)` themselves — it is not inherited from `libRNA.la` |
+| `interfaces/Python/Makefile.am`, `interfaces/Perl/Makefile.am` | +18 / 0 each | the same for the language modules: without `$(CUDA_LIBS)` the module builds and then fails at import on `undefined symbol: cudaMemcpyAsync` — and once CUDA became the default that broke `make` itself, which byte-compiles the package |
 | `silent_rules.mk` | +5 / 0 | an `NVCC` line for `make V=0`, matching the existing style |
 | `doc/man2rst.py` | mode only | upstream ships it mode 644; the port sets 755, without which a fresh clone from git does not build |
+| `interfaces/Python/callbacks-mfe-window.i` | +2 / −2 | SWIG 4.5: `PyString_FromString` → `PyUnicode_FromString` (§2.1) |
+| `interfaces/Python/callbacks-boltzmann-sampling.i` | +1 / −1 | the same |
+| `interfaces/Python/callbacks-subopt.i` | +1 / −1 | the same |
+| `interfaces/Python/tmaps.i` | +1 / −1 | SWIG 4.5: `PyString_AsString` → `PyBytes_AsString` |
+| `interfaces/inverse.i` | +1 / −1 | SWIG 4.5: `SWIG_Python_str_FromChar` → `PyUnicode_FromString` |
 
 **`configure.ac` is not modified.** The feature attaches through `m4/ac_rna.m4`,
 which is where upstream already aggregates its `RNA_ENABLE_*` macros.
@@ -398,14 +420,14 @@ to invite rather than for us to take. `nth.h` was also left alone: it is a
 
 ## 9. What is deliberately not offered
 
-Group G of the table in §1 — **75 files and 16 744 lines** of `PORT_*.md` scope
+Group G of the table in §1 — **75 files and 16 766 lines** of `PORT_*.md` scope
 documents, specifications and notebook-generator tooling. They are how the port
 was argued and measured, not part of what is being proposed.
 
 The Colab notebooks and the measurement JSON that used to sit alongside them are
 **no longer tracked at all**, on this branch or on the development branch: none
 of it exists in ViennaRNA and none of it ever would. That is why the headline in
-§1 is 149 files rather than the 220 an earlier version of this document reported.
+§1 is 156 files rather than the 220 an earlier version of this document reported.
 
 ## 10. Where to read further
 
