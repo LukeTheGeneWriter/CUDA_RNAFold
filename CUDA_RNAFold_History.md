@@ -30,7 +30,7 @@ upstream's CPU path (`BENCH272_V5_RESULTS.md`).
 
 ## 2. What differs from stock 2.7.2
 
-`git diff --shortstat v2.7.2..Finished_Port` — **149 files, +37 062, −36**. That
+`git diff --shortstat v2.7.2..Finished_Port` — **149 files, +37 116, −36**. That
 headline is misleading on its own, so here is the split that matters:
 
 | | files | lines | what it is |
@@ -40,7 +40,7 @@ headline is misleading on its own, so here is the split that matters:
 | **The driver** `src/bin/RNAfold.c` | 1 | **+1 848 / −25** | ours in effect; not part of any proposal |
 | **Build system and README** (modified) | 9 | +296 / −4 | the configure summary, the nvcc libtool shim, test wiring, README's GPU section, `setup.py`'s `mfe/cuda` exclusion |
 | **New autoconf macros + tests** | 38 | +4 620 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes, `tests/zeroconf_configure.sh` |
-| **Project documents and tools** | 75 | +16 690 | not code. Scopes, specs, notebook generators |
+| **Project documents and tools** | 75 | +16 744 | not code. Scopes, specs, notebook generators |
 
 > **These figures are recomputed, and two earlier versions of this section were
 > wrong.** It once read "216 files, +73 162" and "9 files, +2 296 / −20". The

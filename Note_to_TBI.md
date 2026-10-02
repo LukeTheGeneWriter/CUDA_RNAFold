@@ -15,7 +15,7 @@ that is `PORT_UPSTREAM_PROPOSAL.md` — nor restate the measurements, which are 
 
 ## 1. How to read the diff
 
-`git diff --shortstat v2.7.2..Finished_Port` reports **146 files, +36 249, −24**
+`git diff --shortstat v2.7.2..Finished_Port` reports **149 files, +37 116, −36**
 (including this document), after the notebooks and result JSON were untracked.
 Even that is more than the proposal: about half the remaining lines are the
 project's own `PORT_*.md` scope documents and tooling, which are how the port was
@@ -27,24 +27,26 @@ The split that matters:
 | | files | lines | what it is |
 |---|---|---|---|
 | **A. Library files upstream owns** | **8** | **+477 / −7** | the part that needs defending |
-| **B. The driver, `src/bin/RNAfold.c`** | 1 | +1 670 / −13 | ours in effect; not proposed |
-| **C. Build system (modified)** | 7 | +196 / −4 | `--enable-cuda` wiring |
-| **D. New CUDA backend** `src/ViennaRNA/mfe/cuda/` | 18 | +13 113 | a new subdirectory; take it or leave it |
-| **E. New autoconf macros** | 2 | +193 | `m4/ac_rna_cuda.m4`, `ac_rna_asserts.m4` |
-| **F. New tests and fixtures** | 35 | +4 023 | including standalone upstream reproducers |
-| **G. Documents and tools** | 75 | +16 577 | **not code, not proposed** |
+| **B. The driver, `src/bin/RNAfold.c`** | 1 | +1 848 / −25 | ours in effect; not proposed |
+| **C. Build system and README (modified)** | 9 | +296 / −4 | configure wiring and summary, `.cu` build rules, README's GPU section |
+| **D. New CUDA backend** `src/ViennaRNA/mfe/cuda/` | 18 | +13 131 | a new subdirectory; take it or leave it |
+| **E. New autoconf macros** | 2 | +411 | `m4/ac_rna_cuda.m4`, `ac_rna_asserts.m4` |
+| **F. New tests and fixtures** | 36 | +4 209 | including standalone upstream reproducers |
+| **G. Documents and tools** | 75 | +16 744 | **not code, not proposed** |
 
-**All 24 deleted lines** are accounted for: 7 in the eight library files, 13 in
+**All 36 deleted lines** are accounted for: 7 in the eight library files, 25 in
 `RNAfold.c`, 4 list-continuations in `tests/Makefile.am`. There is no upstream
 code removed anywhere else in the tree.
 
-> **A correction to our own earlier numbers, now fixed at source.**
-> `CUDA_RNAFold_History.md` §2 reported the modified upstream files as
-> "9 files, +2 296 / −20". The line total there included the +150 of
-> `Makefile.am` glue while the file count did not; the nine files (rows A + B
-> above) are **+2 147 / −20**. Its headline had drifted too. Both are corrected
-> in that document as of this commit, and every figure in both is now computed
-> from the tree rather than carried forward.
+> **Corrections to our own earlier numbers, now fixed at source.**
+> `CUDA_RNAFold_History.md` §2 once reported the modified upstream files as
+> "9 files, +2 296 / −20"; that total included the +150 of `Makefile.am` glue while
+> the file count did not. Rows A + B above are now **+2 325 / −32**. This document's
+> own headline had also drifted by ten lines past its last count, and Part D's
+> per-file table no longer summed to its header. Every figure in both documents is
+> recomputed from the tree as of 2026-10-02 — the six-way split in the History and
+> the seven-way split here reproduce `git diff --shortstat v2.7.2..Finished_Port`
+> exactly.
 
 ### Verifying the claims in this document
 
@@ -56,9 +58,11 @@ tools/list_local_patches.sh --check           # pairing check only; non-zero on 
 
 `list_local_patches.sh` reads the **source**, not this document. It lists every
 marked region, verifies each `BEGIN` pairs with its `END` in order, and — the
-part that matters — lists every upstream file changed against `v2.7.2` and
-**fails if one is not marked**. An unmarked edit is a failure of the honesty
-check, not a silent omission.
+part that matters — lists every upstream **source** file under `src/` changed
+against `v2.7.2` and **fails if one is not marked**. An unmarked edit is a failure
+of the honesty check, not a silent omission. (Build files and the README, Part C,
+are outside its scope and are listed by hand in §4.) It needs the `v2.7.2` tag to
+be reachable; without it, it says so and skips that check rather than passing it.
 
 ---
 
@@ -115,11 +119,27 @@ gone unnoticed, since `RNAfold` passes one model for the whole run.
 **This is the strongest standalone contribution here** and we would submit it on
 its own regardless of what happens to the rest.
 
-**It is not the only defect we found, only the only one we patched.**
+**It is not the only defect we found, only the only one we patched in the library.**
 `PORT_UPSTREAM_PROPOSAL.md` Part 1 reports five in 2.7.2 — three in the library
 and two that stop a build from git — each with a reproducer in `tests/upstream/`
 (§7). We report rather than patch them on purpose: they are independent of
 CUDA, and fixing them inside a large feature branch would bury them.
+
+**A sixth, in the `RNAfold` driver: `-j` with structure plots can crash.** In
+2.7.2's `src/bin/RNAfold.c`, `postscript_layout()` and `ImFeelingLucky()` compute the
+plot layout with `vrna_plot_layout()` **outside** `THREADSAFE_FILE_OUTPUT` — only the
+file write is locked. The default naview layout keeps its whole working state in
+file-scope statics (`regions`, `loops`, `nbase`, …), so two worker threads laying out
+plots at once corrupt each other: naview prints `Loop N has crossed regions`, and the
+process aborts with `double free or corruption` or hangs. Measured 2026-10-02 on stock
+CPU folding (`RNA_GPU=0`), 300 records of 300–900 nt, `-j8`, plots on: of three runs one
+aborted and one hung until killed at 900 s. It hides because CPU-folded records finish
+at scattered times, so layouts rarely overlap; our GPU path, which hands hundreds of
+finished records to the pool at once, made it 3 aborts in 3, which is how it was found
+(first on a Colab T4). The fix is to compute the layout inside the same lock; it is in
+our driver (Part B), since `RNAfold.c` is a whole-file local patch here, and with it
+nine runs (CPU and GPU, `-j8`, with and without `-o`) are clean with every plot
+identical to `-j1`. We would send it as a two-hunk patch to 2.7.2's driver on its own.
 
 ### 2.2 The SEAM patches — one idea in four files plus a batch entry
 
@@ -160,39 +180,54 @@ That is what makes the accelerator optional rather than load-bearing.
 
 ---
 
-## 3. Part B — `src/bin/RNAfold.c` (+1 670 / −13)
+## 3. Part B — `src/bin/RNAfold.c` (+1 848 / −25)
 
 Declared a local patch **whole-file** (`VRNA-PATCH-FILE(rnafold-driver, DRIVER)`)
 rather than hunk by hunk: marking each hunk would be noise pretending to be
 precision. It is a CUDA chunker wrapped around upstream's per-record loop —
 accumulating records into batches, budgeting VRAM, building fold compounds on a
-thread pool, dispatching a chunk to `vrna_mfe_batch()`, and falling back to the
-per-record path below a size threshold.
+thread pool, dispatching a chunk to `vrna_mfe_batch()`, and folding a chunk on the
+per-record path when it carries too little work to earn the device.
 
-**It is ours in effect and is not part of any proposal.** The 13 deleted lines
-are the per-record body being moved into the chunk builder, not behaviour
-removed.
+**It is ours in effect and is not part of any proposal.** Of the 25 deleted lines, 13
+are the per-record body (and two signatures) being moved into the chunk builder, and
+12 are upstream's two plot-layout call sites, rewritten to lay out inside the lock
+(§2.1) — no behaviour removed.
+
+**Since 2026-10-02 it uses the device without being told.** An accelerated build folds
+on the GPU whenever a device is visible and the run's options are supported; there is
+no environment variable to set. `RNA_GPU=0` asks for upstream's CPU path explicitly,
+and the decision is printed on stderr (on with the admission floor, or off with the
+reason, when a device is present — silent when there is none, as stock ViennaRNA is).
+A chunk is sent to the device when its work, in matrix cells, exceeds a floor derived
+on the spot as *F × R_host × jobs*: the measured cost of reaching the device (the
+timed `vrna_cuda_devices()` probe that creates the CUDA context), a CPU fold rate, and
+`-j`. Before this, the device was used only when `RNA_GPU_CHUNK` was set, and a chunk
+needed ten records — which sent ten 80 nt sequences to the device and one 5601 nt
+sequence to the CPU.
 
 Its CUDA-specific surface is small and guarded: one include, a handful of
 `#ifdef VRNA_WITH_CUDA` blocks, and three calls —
 `vrna_cuda_devices()`, `vrna_cuda_register_batch_backend()` and
 `vrna_cuda_engine_allow()` (a test hook). Everything else — the chunk
-accumulator, the VRAM budget, the fold-compound build pool, the fallback
-threshold — is backend-agnostic and would serve any batch backend. Compiled
-without `--enable-cuda` the file is upstream's driver plus chunking.
+accumulator, the VRAM budget, the fold-compound build pool, the admission floor —
+is backend-agnostic and would serve any batch backend. Built without a CUDA toolkit
+(or with `--disable-cuda`) the file is upstream's driver plus chunking.
 
 ---
 
-## 4. Part C — build system (modified, +196 / −4)
+## 4. Part C — build system and README (modified, +296 / −4)
 
 | file | + / − | what |
 |---|---|---|
 | `src/ViennaRNA/Makefile.am` | +144 / 0 | the `.cu` build rules, the CUDA sources list, `libRNA` link |
+| `README.md` | +62 / 0 | a *GPU acceleration* section under Configuration: what configure does on its own, `--with-cuda-prefix`, `--with-cuda-arch`, `--enable-cuda`/`--disable-cuda`, `RNA_GPU=0` |
 | `tests/Makefile.am` | +30 / −4 | registers the new `.ts` suites; the 4 deletions are list continuations |
+| `m4/ac_rna.m4` | +29 / 0 | calls `RNA_ENABLE_CUDA`, then `RNA_ENABLE_ASSERTS` **after** it (that macro appends `-DNDEBUG` to `NVCC_FLAGS`, which `RNA_ENABLE_CUDA` sets); and a *GPU Acceleration* block in the configure summary that always states the verdict and, when it is no, why |
+| `setup.py.in` | +12 / 0 | excludes `mfe/cuda` from setuptools' source glob: its `*.c*` pattern caught the `.cu` sources and `python -m build` stopped on "unknown file type '.cu'". The wheel is CPU-only by construction |
 | `.gitignore` | +8 / 0 | build artifacts |
 | `src/bin/Makefile.am` | +6 / 0 | binaries link `libRNA_conv.la` directly, so they need `$(CUDA_LIBS)` themselves — it is not inherited from `libRNA.la` |
 | `silent_rules.mk` | +5 / 0 | an `NVCC` line for `make V=0`, matching the existing style |
-| `m4/ac_rna.m4` | +3 / 0 | calls `RNA_ENABLE_CUDA`, then `RNA_ENABLE_ASSERTS` **after** it (that macro appends `-DNDEBUG` to `NVCC_FLAGS`, which `RNA_ENABLE_CUDA` sets) |
 | `doc/man2rst.py` | mode only | upstream ships it mode 644; the port sets 755, without which a fresh clone from git does not build |
 
 **`configure.ac` is not modified.** The feature attaches through `m4/ac_rna.m4`,
@@ -200,7 +235,7 @@ which is where upstream already aggregates its `RNA_ENABLE_*` macros.
 
 ---
 
-## 5. Part D — the new CUDA backend, `src/ViennaRNA/mfe/cuda/` (18 files, +13 113)
+## 5. Part D — the new CUDA backend, `src/ViennaRNA/mfe/cuda/` (18 files, +13 131)
 
 A new subdirectory. Nothing upstream owns is touched by it, so this part can be
 taken or left independently of Part A.
@@ -211,27 +246,27 @@ taken or left independently of Part A.
 |---|---|---|
 | `engine.c` | 530 | The backend's attachment point and **routing guard**. Contains no CUDA. Decides *whether* a fold compound may go to the device — the decision that has to be conservative, since anything it wrongly admits is a wrong answer. |
 | `engine.h` | 93 | The engine's public header. |
-| `mfe_cuda.c` | 1 458 | The batch orchestrator: chunk lifecycle, per-record fetch and backtrack, the worker pool, phase accounting. |
-| `stub2.h` | 1 039 | Shared declarations and the index helpers (`Indx()`, `Hoff()`), widened so arrays may exceed 2×10⁹ elements. Also the documented home of the `RNA_*` environment knobs. |
+| `mfe_cuda.c` | 1 471 | The batch orchestrator: chunk lifecycle, per-record fetch and backtrack, the worker pool, phase accounting. |
+| `stub2.h` | 1 040 | Shared declarations and the index helpers (`Indx()`, `Hoff()`), widened so arrays may exceed 2×10⁹ elements. Also the documented home of the `RNA_*` environment knobs. |
 
 ### Host-side row loop
 
 | file | lines | what it is |
 |---|---|---|
-| `fill_arrays.c` | 472 | Host helpers for the row loop. |
-| `fill_arrays_loop.c` | 540 | The row loop itself — the sweep that drives every device phase, row by row. |
-| `mb_loop_fast.c` | 357 | Multibranch host code, split off from `multibranch_loops.c` to isolate the data dependence. |
+| `fill_arrays.c` | 473 | Host helpers for the row loop. |
+| `fill_arrays_loop.c` | 549 | The row loop itself — the sweep that drives every device phase, row by row. |
+| `mb_loop_fast.c` | 358 | Multibranch host code, split off from `multibranch_loops.c` to isolate the data dependence. |
 
 ### Device code
 
 | file | lines | what it is |
 |---|---|---|
 | `device.cu` | 716 | Device discovery, streams, pinned transfers, the per-row offset tables. The first `.cu` translation unit; it exists partly to exercise the nvcc build rule. |
-| `int_loop.cu` | 2 403 | The interior-loop kernel and the `d_S` / `d_my_c` device buffers. |
+| `int_loop.cu` | 2 404 | The interior-loop kernel and the `d_S` / `d_my_c` device buffers. |
 | `int_loop_kernel_body.inc` | 173 | The kernel body, included once per candidate `BLOCK_SIZE` so several instantiations stay available to a selection strategy. |
-| `interior_loopx.h` | 213 | Device-callable interior-loop energy helpers. |
-| `hp_mb_loop.cu` | 2 116 | Hairpin / multibranch / 3′-extension precompute. Replaces four full `nfiles × ijsize` **host** arrays that used to live in `fill_arrays.c`. |
-| `modular_decomposition.cu` | 2 241 | The `fML` modular-decomposition kernel — the dominant phase at production sizes. |
+| `interior_loopx.h` | 214 | Device-callable interior-loop energy helpers. |
+| `hp_mb_loop.cu` | 2 117 | Hairpin / multibranch / 3′-extension precompute. Replaces four full `nfiles × ijsize` **host** arrays that used to live in `fill_arrays.c`. |
+| `modular_decomposition.cu` | 2 242 | The `fML` modular-decomposition kernel — the dominant phase at production sizes. |
 
 ### G-quadruplex transport
 
@@ -250,23 +285,32 @@ taken or left independently of Part A.
 
 ---
 
-## 6. Part E — new autoconf macros (2 files, +193)
+## 6. Part E — new autoconf macros (2 files, +411)
 
 | file | lines | what |
 |---|---|---|
-| `m4/ac_rna_cuda.m4` | 135 | Adds **`--enable-cuda` (default: off)**. Locates `nvcc`, pins the host compiler nvcc drives to the one building the rest of the tree, and sets `NVCC_FLAGS` / `CUDA_LIBS`. `--with-cuda-prefix=DIR` and `--with-cuda-arch=LIST` are available. **Failure to find a usable nvcc disables the feature with a warning rather than failing configure**, so `--enable-cuda` on a toolkit-less machine still produces a working CPU build. |
+| `m4/ac_rna_cuda.m4` | 353 | **Zero-config CUDA detection.** With no flag, configure looks for `nvcc` (on `PATH`, then `CUDA_HOME`, `CUDA_PATH`, `CUDAToolkit_ROOT`, `CONDA_PREFIX`, then `/usr/local/cuda*` and `/opt/cuda*`, newest first) and builds the backend if it can — otherwise the ordinary CPU-only library, exactly as before. **`--enable-cuda` demands it** and fails rather than downgrading; `--disable-cuda` refuses it. Architectures are asked of the toolkit (`nvcc --list-gpu-code`), not asserted: a visible device gets exactly its capability, no device a fat binary over what the toolkit supports, and PTX for the highest is always emitted; `--with-cuda-arch=LIST|native` overrides. If nvcc refuses the host compiler it falls back through older `gcc` majors and says so. It link-tests, not just compiles, and the test compile uses the real architecture flags, so an unusable toolkit is caught at configure rather than in `make`. `CUDA_LIBS` includes `-lstdc++`, which CUDA 13's kernel launch stubs need (`__cxa_guard_*`). `--with-cuda-prefix=DIR` points at a toolkit elsewhere. |
 | `m4/ac_rna_asserts.m4` | 58 | Assertion control that also reaches `NVCC_FLAGS` — without it `-DNDEBUG` reached the C compiler and never nvcc. |
 
-> **The flag is `--enable-cuda`, not `--with-cuda`.** Autoconf treats an unknown
-> `--with-*` as a warning rather than an error, so the wrong spelling configures
-> cleanly, builds cleanly, and produces a silently CPU-only binary. We lost an
-> A100 session to exactly that.
+> **Why zero-config.** Upstream's documented install is `./configure && make &&
+> make install`, with no accelerator flag anywhere. Until 2026-10-02 this branch
+> needed `--enable-cuda` at configure time *and* an environment variable at run time,
+> so following upstream's instructions produced an unaccelerated build that said
+> nothing — and `--with-cuda`, the natural misspelling, is only a warning to autoconf,
+> so it configured and built a silently CPU-only binary (we lost an A100 session to
+> exactly that). Now the default does the right thing, and the configure summary
+> always states the verdict.
+>
+> **Two CUDA 13 breaks, both found on Google Colab on 2026-10-02:** the old fixed
+> architecture list started at `sm_60`, which CUDA 13 removed (`nvcc fatal:
+> Unsupported gpu architecture 'compute_60'`); and the missing `-lstdc++`. Both are
+> fixed in the macro above, and the branch has since built and run on CUDA 13.0.
 
 ---
 
-## 7. Part F — new tests and fixtures (35 files, +4 023)
+## 7. Part F — new tests and fixtures (36 files, +4 209)
 
-Two groups, and the second may be of more immediate interest than the first.
+Three groups, and the second may be of more immediate interest than the first.
 
 **`tests/mfe_cuda_*.ts` and `tests/mfe_engine.ts`** — suites in upstream's own
 harness, one per option family: `guard`, `gquad`, `constraints`, `nsp`, `nolp`,
@@ -297,6 +341,16 @@ report, runnable in about a minute via `tests/upstream/run_probes.sh`, and
 rather than fixed, deliberately: they are upstream questions with nothing to do
 with CUDA, and burying them inside a large feature branch would be the wrong
 shape for review. `PORT_UPSTREAM_PROPOSAL.md` Part 1 is where they are argued.
+
+**`tests/zeroconf_configure.sh`** — the configure bar for Part E, in six cases: a
+bare `./configure` with a toolkit enables the backend and states it; a bare
+`RNAfold` with no environment uses the device; `--disable-cuda` turns it off;
+`--enable-cuda` with no toolkit reachable **refuses**; a bare `./configure` with no
+toolkit **succeeds** CPU-only and is silent on stderr, as stock ViennaRNA is; and the
+CPU-only and accelerated builds give byte-identical output. Hiding the toolkit is a
+trap of its own — filtering `PATH` entries containing "cuda" never reaches an
+`nvcc` in `/usr/bin` — so it builds a shim `PATH` and asserts `nvcc` is gone and
+`gcc` is still there before trusting a result. 16/16 on 2026-10-02.
 
 ---
 
@@ -344,14 +398,14 @@ to invite rather than for us to take. `nth.h` was also left alone: it is a
 
 ## 9. What is deliberately not offered
 
-Group G of the table in §1 — **75 files and 16 577 lines** of `PORT_*.md` scope
+Group G of the table in §1 — **75 files and 16 744 lines** of `PORT_*.md` scope
 documents, specifications and notebook-generator tooling. They are how the port
 was argued and measured, not part of what is being proposed.
 
 The Colab notebooks and the measurement JSON that used to sit alongside them are
 **no longer tracked at all**, on this branch or on the development branch: none
 of it exists in ViennaRNA and none of it ever would. That is why the headline in
-§1 is 146 files rather than the 220 an earlier version of this document reported.
+§1 is 149 files rather than the 220 an earlier version of this document reported.
 
 ## 10. Where to read further
 
