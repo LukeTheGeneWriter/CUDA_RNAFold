@@ -61,7 +61,7 @@
     for (i = 0; i < size; i++) {
       PyObject *o = PyList_GetItem($input,i);
       if (PyUnicode_Check(o))
-        $1[i] = PyString_AsString(PyUnicode_AsASCIIString(o));
+        $1[i] = PyBytes_AsString(PyUnicode_AsASCIIString(o));  /* SWIG 4.5 removed the Python-2 aliases (PyString_*, SWIG_Python_str_*); this is what they meant on Python 3 */
       else {
         PyErr_SetString(PyExc_TypeError,"list must contain strings");
         free($1);
