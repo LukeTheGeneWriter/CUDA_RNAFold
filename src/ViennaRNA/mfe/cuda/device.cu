@@ -13,6 +13,10 @@
 #include <string.h>
 #include <cuda_runtime.h>
 
+/* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
+ * asked for the routine diagnostics below to be left out; errors still print. */
+extern "C" int vrna_cuda_quiet(void);
+
 /* rnafold_now_seconds() -- the same clock every other timer in the sweep uses,
  * so a launch total can be compared against a phase total without converting. */
 extern "C" double rnafold_now_seconds(void);
@@ -1046,7 +1050,7 @@ rt_pin_is_cheap(void)
       cudaGetLastError();
 
     v = (ok && (per_gb < RT_PIN_SECONDS_PER_GB_MAX)) ? 1 : 0;
-    fprintf(stderr,
+    if (!vrna_cuda_quiet()) fprintf(stderr,
             "device.cu                pinning costs %.2f s/GB here -> backtrack "
             "scratch %s (RNA_XFER_STAGE_MB to override)\n",
             per_gb, v ? "PINNED, no stage" : "unpinned, copied through an 8 MB stage");

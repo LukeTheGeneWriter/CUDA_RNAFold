@@ -73,6 +73,10 @@ int first3 = 1; //avoid id clash with int_loop.cu's first2 / modular_decompositi
  * can call exactly this code; see the header. */
 #include "hp_mb_dev.h"
 
+/* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
+ * asked for the routine diagnostics below to be left out; errors still print. */
+extern "C" int vrna_cuda_quiet(void);
+
 
 cuda_param2_t* d_param2;
 // Salt correction, indexed by BACKBONE COUNT (params/salt.h's L), not loop size.
@@ -99,7 +103,7 @@ rnafold_hp_table(void)
   if(v < 0) {
     const char* e = getenv("RNA_HP_TABLE");
     v = (e && e[0] == '0') ? 0 : 1;
-    fprintf(stderr,"%-24s RNA_HP_TABLE %s: hairpin length term %s\n", __FILE__,
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s RNA_HP_TABLE %s: hairpin length term %s\n", __FILE__,
             v ? "ON" : "OFF",
             v ? "from a host-built double table, one entry per size"
               : "computed per cell with a float lxc (the pre-2026-09-30 path)");
@@ -395,7 +399,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
           const size_t* cap_H) { //in, nfiles slot capacities in nt -- continuous flow phase C1
   if(!first3) return;
   const double _t_ig3 = rnafold_now_seconds();
-  fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
+  if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
   SLOT_ALLOC(&d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
@@ -1467,7 +1471,7 @@ stack_row_i(const int nfiles, const int i, const int turn,
   static int block_size = 0;
   if(!block_size) {
     block_size = rnafold_choose_block_size(stack_row_kernel, BLOCK_SIZE, "RNA_STACK_ROW_BLOCK_SIZE");
-    fprintf(stderr,"%-24s stack_row_kernel block size %d (noLP)\n", __FILE__, block_size);
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s stack_row_kernel block size %d (noLP)\n", __FILE__, block_size);
   }
 
   const size_t nblocks = (total + block_size - 1)/block_size;
@@ -1552,7 +1556,7 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
   static int block_size = 0;
   if(!block_size) {
     block_size = rnafold_choose_block_size(new_c_kernel, BLOCK_SIZE, "RNA_NEW_C_BLOCK_SIZE");
-    fprintf(stderr,"%-24s new_c_kernel block size %d\n", __FILE__, block_size);
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s new_c_kernel block size %d\n", __FILE__, block_size);
   }
 
   bind_row_tables(i);
@@ -1785,7 +1789,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   static int block_size = 0;
   if(!block_size) {
     block_size = rnafold_choose_block_size(hp_mb_3p_kernel, BLOCK_SIZE, "RNA_HP_MB_BLOCK_SIZE");
-    fprintf(stderr,"%-24s hp_mb_3p_kernel block size %d (was hardcoded %d)\n",
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s hp_mb_3p_kernel block size %d (was hardcoded %d)\n",
 	    __FILE__, block_size, BLOCK_SIZE);
   }
 

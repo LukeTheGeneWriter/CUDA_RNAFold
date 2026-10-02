@@ -510,6 +510,16 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
   if ((fcs == NULL) || (n == 0) || (structures == NULL) || (energies == NULL))
     return 0;
 
+  /* RNA_GPU=0 is the documented off switch, and it has to be honoured HERE, at the
+   * time of the batch, not only by RNAfold.c's admission gate. That gate was its only
+   * reader, so every other caller of vrna_mfe_batch() -- the Python binding's
+   * RNA.fold(), fc.mfe() and cuda_fold() among them -- used the device with the
+   * switch set, and RNA.cuda_batches() counted it. Read per batch, so a script that
+   * sets os.environ["RNA_GPU"] mid-run is obeyed from its next call. Declining
+   * leaves the batch to vrna_mfe_batch()'s host loop: upstream's own answer. */
+  if (vrna_cuda_switched_off())
+    return 0;
+
   /* Decline the WHOLE batch unless every record is supported. Splitting it
    * would be a silent policy decision about which records the caller gets
    * accelerated; declining leaves that choice with the caller, which already
@@ -599,6 +609,37 @@ PUBLIC int
 vrna_cuda_keeping_matrices(void)
 {
   return keep_matrices;
+}
+
+
+/* vrna_cuda_switched_off(): RNA_GPU=0, exactly as RNAfold.c reads it -- the string
+ * "0" and nothing else, so RNA_GPU=1 or an empty value leave the device on. */
+PUBLIC int
+vrna_cuda_switched_off(void)
+{
+  const char *off = getenv("RNA_GPU");
+
+  return (off != NULL) && (strcmp(off, "0") == 0);
+}
+
+
+/* vrna_cuda_quiet(): see engine.h. Off by default, so RNAfold and every harness
+ * that greps its stderr ("sweep shape", "phase timing", ...) see what they always
+ * have; the Python binding turns it on. Here rather than in mfe_cuda.c so a build
+ * without CUDA has it too, like vrna_cuda_keep_matrices(). */
+static int quiet = 0;
+
+PUBLIC void
+vrna_cuda_set_quiet(int on)
+{
+  quiet = (on != 0);
+}
+
+
+PUBLIC int
+vrna_cuda_quiet(void)
+{
+  return quiet;
 }
 
 

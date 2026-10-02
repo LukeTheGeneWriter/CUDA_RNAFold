@@ -75,6 +75,10 @@
 // CUDA runtime
 #include <cuda_runtime.h>
 
+/* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
+ * asked for the routine diagnostics below to be left out; errors still print. */
+extern "C" int vrna_cuda_quiet(void);
+
 // Helper functions and utilities to work with CUDA
 //#include <helper_functions.h> //Commented out in 2026, nothing here is used
 //#include <helper_cuda.h> //Commented out in 2026 to get started
@@ -658,7 +662,7 @@ double graph_mgmt_seconds              = 0.0;
 
 static void
 print_graph_update_stats(void) {
-  fprintf(stderr,
+  if (!vrna_cuda_quiet()) fprintf(stderr,
     "%-24s CUDA graph stats: %ld update() succeeded, %ld first-time instantiate, "
     "%ld forced reinstantiate (update failed), %.3f s cumulative capture/update/"
     "instantiate/destroy overhead (excludes launch+sync)\n",
@@ -678,7 +682,7 @@ init_gpu(const int nfiles, const int length,
          const size_t* tri_off_H, const size_t* row_off_H) {
   if(!first) return;
   const double _t_ig1 = rnafold_now_seconds();
-  fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
+  if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
   g_tri_cells = tri_off_H[nfiles];   /* RNA_TRI_CHECKSUM */
   cudaError_t error;
   // graph_stream is nfiles/length-independent -- guarded on its own initial
@@ -859,7 +863,7 @@ init_gpu(const int nfiles, const int length,
   // today -- asserted so a future change there fails loudly here instead of
   // silently corrupting the reduction for TILE < 32.
   assert(g_block_size_md % 32 == 0);
-  fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d), md tile %d\n",
+  if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d), md tile %d\n",
 	  __FILE__, g_block_size_fmli, g_block_size_md, BLOCK_SIZE, g_md_tile);
 
   stage_ig1_s += rnafold_now_seconds() - _t_ig1;
@@ -2349,7 +2353,7 @@ rnafold_circ_alloc(const int circ, const size_t tri_cells)
     gpuErrchk( cudaPeekAtLastError() );
   }
 
-  fprintf(stderr, "modular_decomposition.cu  circular: fM2_real allocated, "
+  if (!vrna_cuda_quiet()) fprintf(stderr, "modular_decomposition.cu  circular: fM2_real allocated, "
                   "%zu cells, %.1f MB\n", tri_cells,
           tri_cells * sizeof(int) / 1048576.0);
 
@@ -3847,9 +3851,9 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
     static int said = 0;
     if(!said) {
       said = 1;
-      if(tail) fprintf(stderr,"%-24s RNA_MD_TAIL ACTIVE: md reads fml_i from energy_min, "
+      if(tail) { if(!vrna_cuda_quiet()) fprintf(stderr,"%-24s RNA_MD_TAIL ACTIVE: md reads fml_i from energy_min, "
                               "and ONE kernel closes the row (was load_fML + fmli + "
-                              "load_min_fML + pack_fml + fml_prev + a D2D snapshot)\n", __FILE__);
+                              "load_min_fML + pack_fml + fml_prev + a D2D snapshot)\n", __FILE__); }
       else     fprintf(stderr,"%-24s RNA_MD_TAIL REFUSED: %s -- the old md chain runs\n",
                        __FILE__, tail_why);
     }
@@ -3873,8 +3877,8 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
     static int said = 0;
     if(rnafold_row_batch() && !said) {
       said = 1;
-      if(K) fprintf(stderr,"%-24s RNA_ROW_BATCH=%d ACTIVE: the fML triangle is written %d rows "
-                           "at a time from a row-major stage\n", __FILE__, K, K);
+      if(K) { if(!vrna_cuda_quiet()) fprintf(stderr,"%-24s RNA_ROW_BATCH=%d ACTIVE: the fML triangle is written %d rows "
+                           "at a time from a row-major stage\n", __FILE__, K, K); }
       else  fprintf(stderr,"%-24s RNA_ROW_BATCH REFUSED: %s\n", __FILE__,
                     tail ? "turn+2 < 2" : "it is part of the collapsed md tail, which is off here");
     }
@@ -3911,7 +3915,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
       fprintf(stderr,"%-24s RNA_MD_BLOCK_SELFTEST forces CUDA graph capture OFF "
                      "(the selftest cannot run inside a capture)\n", __FILE__);
     }
-    fprintf(stderr,"%-24s CUDA graph capture for load_fML/modular_decomposition/load_min_fML: %s\n",
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s CUDA graph capture for load_fML/modular_decomposition/load_min_fML: %s\n",
 	    __FILE__, use_graph? "enabled" : "disabled (RNA_CUDA_GRAPH=0)");
     if(use_graph) atexit(print_graph_update_stats);
   }

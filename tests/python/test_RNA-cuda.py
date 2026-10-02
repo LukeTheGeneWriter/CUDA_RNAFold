@@ -1,4 +1,7 @@
+import os
 import random
+import sys
+import tempfile
 import unittest
 
 if __name__ == '__main__':
@@ -11,6 +14,42 @@ import RNA
 
 def rand_seq(n, rng):
     return "".join(rng.choice("ACGU") for _ in range(n))
+
+
+class env(object):
+    """Set (value) or unset (None) one environment variable for a with-block"""
+
+    def __init__(self, name, value):
+        self.name, self.value = name, value
+
+    def __enter__(self):
+        self.saved = os.environ.get(self.name)
+        if self.value is None:
+            os.environ.pop(self.name, None)
+        else:
+            os.environ[self.name] = self.value
+
+    def __exit__(self, *exc):
+        if self.saved is None:
+            os.environ.pop(self.name, None)
+        else:
+            os.environ[self.name] = self.saved
+
+
+def stderr_of(call):
+    """What call() writes to file descriptor 2 -- the backend writes there from C,
+    below sys.stderr, so only a dup2 can see it"""
+    sys.stderr.flush()
+    saved = os.dup(2)
+    with tempfile.TemporaryFile() as f:
+        os.dup2(f.fileno(), 2)
+        try:
+            call()
+        finally:
+            os.dup2(saved, 2)
+            os.close(saved)
+        f.seek(0)
+        return f.read().decode("utf-8", "replace")
 
 
 def cpu(seq, md=None):
@@ -101,6 +140,62 @@ class cuda_batchTest(unittest.TestCase):
             ref = RNA.fold(seq, cpu_only=True)
             self.assertEqual(structure, ref[0])
             self.assertAlmostEqual(energy, ref[1], 2)
+
+    def test_rna_gpu_0_keeps_every_entry_point_on_the_host(self):
+        """RNA_GPU=0 is obeyed by the library, not only by RNAfold
+
+        RNAfold.c's admission gate was the switch's only reader, so the binding used
+        the device with RNA_GPU=0 set and RNA.cuda_batches() counted it. The second
+        half is the control: the same calls with the switch cleared must reach the
+        device again, or the first half proves nothing on a machine with a GPU."""
+        rng = random.Random(14)
+        seqs = [rand_seq(n, rng) for n in (120, 240)]
+
+        def every_entry_point():
+            return (RNA.fold(seqs[0]), RNA.fold(seqs), RNA.cuda_fold(seqs),
+                    RNA.fold_compound(seqs[1]).mfe())
+
+        with env("RNA_GPU", "0"):
+            b0 = RNA.cuda_batches()
+            one, many, batch, fc = every_entry_point()
+            self.assertEqual(RNA.cuda_batches(), b0, "RNA_GPU=0 reached the device")
+        self.assertEqual(one[0], cpu(seqs[0])[0])
+        for (s, e), (t, f), q in zip(many, batch, seqs):
+            self.assertEqual(s, cpu(q)[0])
+            self.assertEqual(t, cpu(q)[0])
+        self.assertEqual(fc[0], cpu(seqs[1])[0])
+
+        if RNA.cuda_devices() > 0:
+            for value in (None, "1"):
+                with env("RNA_GPU", value):
+                    b0 = RNA.cuda_batches()
+                    every_entry_point()
+                    self.assertEqual(RNA.cuda_batches(), b0 + 4,
+                                     "RNA_GPU=%s should use the device" % value)
+
+    def test_diagnostics_are_quiet_unless_asked_for(self):
+        """The backend's stderr diagnostics are off in the binding by default
+
+        RNAfold prints them on every run, and the harnesses grep them, so they stay
+        on there. Through the binding they were ~20 lines per process and six per
+        batch on every call. RNA_GPU_VERBOSE=1 brings them back -- which is also the
+        control that this capture can see the lines at all."""
+        rng = random.Random(15)
+        seqs = [rand_seq(n, rng) for n in (150, 260)]
+
+        def calls():
+            RNA.fold(seqs[0])
+            RNA.fold(seqs)
+            RNA.fold_compound(seqs[1]).mfe()
+
+        with env("RNA_GPU_VERBOSE", None):
+            quiet = stderr_of(calls)
+        self.assertEqual(quiet, "", "diagnostics printed by default:\n" + quiet)
+
+        if RNA.cuda_devices() > 0:
+            with env("RNA_GPU_VERBOSE", "1"):
+                loud = stderr_of(calls)
+            self.assertEqual(loud.count("sweep shape:"), 3, loud)
 
     def test_fc_mfe_on_the_device_keeps_the_matrices(self):
         """After a device fc.mfe(), backtracking works exactly as upstream"""

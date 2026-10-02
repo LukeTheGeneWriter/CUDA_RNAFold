@@ -245,11 +245,12 @@ rnafold_fml_int16(void) {
       }
       /* DEFAULT that cannot be honoured: step aside and say so. A new default
        * must not break a command line that used to work. */
-      fprintf(stderr,"%-24s fml_j falls back to int32: %s. (int16 is the default; "
-                     "set RNA_FML_INT16=1 to make this combination an error.)\n",
-              __FILE__, why);
+      if (!vrna_cuda_quiet())
+        fprintf(stderr,"%-24s fml_j falls back to int32: %s. (int16 is the default; "
+                       "set RNA_FML_INT16=1 to make this combination an error.)\n",
+                __FILE__, why);
       v = 0;
-    } else {
+    } else if (!vrna_cuda_quiet()) {
       fprintf(stderr,"%-24s fml_j is %s (%s)\n", __FILE__,
               v ? "16-bit offsets from a per-64 baseline" : "full int32",
               (e && e[0]) ? "RNA_FML_INT16 set explicitly" : "default since 2026-09-27");
@@ -270,9 +271,10 @@ rnafold_fml_int16_stand_down(const char *why) {
             __FILE__, why);
     exit(EXIT_FAILURE);
   }
-  fprintf(stderr,"%-24s fml_j falls back to int32: %s. (int16 is the default; set "
-                 "RNA_FML_INT16=1 to make this an error instead.)\n",
-          __FILE__, why);
+  if (!vrna_cuda_quiet())
+    fprintf(stderr,"%-24s fml_j falls back to int32: %s. (int16 is the default; set "
+                   "RNA_FML_INT16=1 to make this an error instead.)\n",
+            __FILE__, why);
   g_fml_int16_unsafe = 1;           /* sticky, same reasoning as the vet path */
 }
 
@@ -520,6 +522,8 @@ double rnafold_now_seconds(void) {
 
 PRIVATE void
 print_stage_timing_stats(void) {
+  if (vrna_cuda_quiet())
+    return;
   fprintf(stderr,
     "%-24s backtrack scratch (worker-s): alloc=%.3f fetch=%.3f\n",
     __FILE__, stage_btpin_worker_s, stage_btfetch_worker_s);
@@ -559,7 +563,8 @@ print_phase_timing_stats(void) {
                                    + phase_fetch_mx_s;
   const double host_combine_total = phase_new_c_host_s + phase_fml_host_s
                                    + phase_fml_prev_host_s;
-  fprintf(stderr,
+  if (!vrna_cuda_quiet())
+    fprintf(stderr,
     "%-24s phase timing (s): int_loop=%.3f hp_mb=%.3f load_my_c=%.3f "
     "modular_decomp=%.3f fetch_mx=%.3f | new_c_host=%.3f fml_host=%.3f fml_prev_host=%.3f "
     "|| GPU+transfer total=%.3f host-combine total=%.3f\n",

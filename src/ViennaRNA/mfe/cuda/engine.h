@@ -126,4 +126,36 @@ vrna_cuda_keeping_matrices(void);
 unsigned long
 vrna_cuda_device_batches(void);
 
+
+/**
+ *  @brief  Whether RNA_GPU=0 is set, the run-time off switch
+ *
+ *  The batch backend checks this at every batch and declines when it is set, so the
+ *  host folds the batch with upstream's vrna_mfe().
+ */
+int
+vrna_cuda_switched_off(void);
+
+
+/**
+ *  @brief  Silence the backend's routine diagnostics
+ *
+ *  The backend reports its configuration, sweep shape and timings on stderr: one
+ *  line per decision. RNAfold and the verification harnesses depend on those
+ *  lines, so they are on by default. A library caller such as the Python binding
+ *  can turn them off. Errors, refusals, and lines that only appear when an RNA_*
+ *  knob is set still print.
+ *
+ *  @param  on  Non-zero to silence, zero for the default behaviour
+ */
+void
+vrna_cuda_set_quiet(int on);
+
+
+/**
+ *  @brief  Whether vrna_cuda_set_quiet() is on
+ */
+int
+vrna_cuda_quiet(void);
+
 #endif

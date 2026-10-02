@@ -67,6 +67,21 @@ extern "C" {
 %rename (cuda_fold)    my_cuda_fold;
 
 %{
+  /* The backend's routine stderr diagnostics -- configuration, sweep shape, timings,
+   * some twenty lines per process and six per batch -- are for RNAfold and the
+   * verification harnesses, which grep them. From a script they are noise on every
+   * call, so the binding turns them off unless RNA_GPU_VERBOSE is set (to anything
+   * but "0"). Read per call, like RNA_GPU, so os.environ changes take effect at the
+   * next fold. Errors and refusals print either way. */
+  static void
+  rnafold_py_set_quiet(void)
+  {
+    const char *v = getenv("RNA_GPU_VERBOSE");
+
+    vrna_cuda_set_quiet(!((v != NULL) && (v[0] != '\0') && (strcmp(v, "0") != 0)));
+  }
+
+
   unsigned int
   my_cuda_devices(void)
   {
@@ -95,6 +110,7 @@ extern "C" {
      * then folds every compound on the host through upstream's own vrna_mfe().
      * Same answers, no GPU. */
     (void)vrna_cuda_register_batch_backend();
+    rnafold_py_set_quiet();
 
     vrna_fold_compound_t  **fcs        = (vrna_fold_compound_t **)vrna_alloc(sizeof(vrna_fold_compound_t *) * n);
     char                  **structures = (char **)vrna_alloc(sizeof(char *) * n);
@@ -169,6 +185,7 @@ unsigned long vrna_cuda_device_batches(void);
     char  *s[1] = { structure };
 
     (void)vrna_cuda_register_batch_backend();
+    rnafold_py_set_quiet();
     vrna_cuda_keep_matrices(keep);
     (void)vrna_mfe_batch(&fc, 1, s, &e);
     vrna_cuda_keep_matrices(0);
