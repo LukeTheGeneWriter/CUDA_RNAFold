@@ -336,6 +336,18 @@ def vrna_ext(name = "RNA._RNA"):
         #print(files)
         srcFiles += files
 
+    # CUDA_RNAFold: mfe/cuda is built by nvcc through the Makefile, never by
+    # setuptools. The "*.c*" globs above match its .cu sources -- `python -m build`
+    # stopped at the first: "error: unknown file type '.cu' (from
+    # 'src/ViennaRNA/mfe/cuda/device.cu')" -- and also fill_arrays*.c and
+    # mb_loop_fast.c, which are #included or unbuilt and must never compile on
+    # their own. Nothing outside mfe/cuda references a CUDA symbol on this branch
+    # and the SWIG interface has no CUDA part, so the whole directory is left out
+    # and the wheel is CPU-only by construction; the accelerated build is the one
+    # `./configure --enable-cuda && make` produces.
+    cudaDir = os.path.join(srcDir, 'mfe', 'cuda')
+    srcFiles = [f for f in srcFiles if os.path.dirname(f) != cudaDir]
+
     srcFiles += ['interfaces/Python/RNA_wrap.cpp']
 
     # append include paths required to build the Python interface
