@@ -247,21 +247,28 @@ declines(vrna_fold_compound_t *fc)
  * and passes against the BROKEN binary. See PORT_NSP_PARAMFILE_SCOPE.md 1.
  */
 
-#test test_guard_declines_hard_structure_constraints
+#test test_guard_accepts_hard_structure_constraints
 {
   /*
-   * Regression, and it was a live wrong-answer bug rather than a hypothetical.
-   * A -C style dot-bracket constraint leaves hc->type at VRNA_HC_DEFAULT and
-   * hc->f at NULL, so before the depot check every other test in this guard
-   * passed a constrained compound straight through to the device -- which
-   * returned -14.30 for a structure worth -5.40.
+   * This test used to assert the OPPOSITE, and the inversion is the record of
+   * -C shipping. The decline it defended was real while it stood: a -C style
+   * dot-bracket constraint leaves hc->type at VRNA_HC_DEFAULT and hc->f at
+   * NULL, so before the depot check every other test in this guard passed a
+   * constrained compound straight through to the device -- which returned
+   * -14.30 for a structure worth -5.40. The fix at the time was to decline on
+   * hc->depot; the fix now is that the device honours the constraint, with
+   * tests/mfe_cuda_constraints.ts and tools/verify_constraint_parity.sh as the
+   * byte-identical bars.
    *
-   * The compound is deliberately NOT prepared here, because that is the state
-   * the batch callback sees: vrna_constraints_add() only queues, and hc->mx,
-   * ptype and up_* are all still byte-identical to an unconstrained compound
-   * until vrna_fold_compound_prepare() runs inside par_mfe(). A guard that
+   * What is still worth asserting here is the SHAPE of the question. The
+   * compound is deliberately NOT prepared, because that is the state the batch
+   * callback sees: vrna_constraints_add() only queues, and hc->mx, ptype and
+   * up_* are all still byte-identical to an unconstrained compound until
+   * vrna_fold_compound_prepare() runs inside par_mfe(). So a guard that
    * inspected hc->mx at this point would compare two identical matrices and
-   * accept everything.
+   * accept everything -- which is exactly how the original defect hid. The
+   * depot is the thing that exists this early, and the accept below has to
+   * happen with it non-NULL to mean anything.
    */
   vrna_fold_compound_t  *fc = fc_with(NULL);
   char                  *con;
@@ -277,9 +284,10 @@ declines(vrna_fold_compound_t *fc)
 
   vrna_constraints_add(fc, con, VRNA_CONSTRAINT_DB_DEFAULT);
 
-  /* ... and decline it after, with nothing prepared in between */
+  /* ... and still accept it after, with the queued constraint visible and
+   * nothing prepared in between */
   ck_assert(fc->hc->depot != NULL);
-  ck_assert(declines(fc));
+  ck_assert(vrna_cuda_engine_supports(fc, NULL) == 1);
 
   free(con);
   vrna_fold_compound_free(fc);

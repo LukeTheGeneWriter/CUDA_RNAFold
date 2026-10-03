@@ -15,7 +15,7 @@ that is `PORT_UPSTREAM_PROPOSAL.md` — nor restate the measurements, which are 
 
 ## 1. How to read the diff
 
-`git diff --shortstat v2.7.2..Finished_Port` reports **156 files, +37 180, −42**
+`git diff --shortstat v2.7.2..Finished_Port` reports **162 files, +38 307, −42**
 (including this document), after the notebooks and result JSON were untracked.
 Even that is more than the proposal: about half the remaining lines are the
 project's own `PORT_*.md` scope documents and tooling, which are how the port was
@@ -28,11 +28,11 @@ The split that matters:
 |---|---|---|---|
 | **A. Library files upstream owns** | **8** | **+477 / −7** | the part that needs defending |
 | **B. The driver, `src/bin/RNAfold.c`** | 1 | +1 848 / −25 | ours in effect; not proposed |
-| **C. Build system, README, SWIG interfaces (modified)** | 16 | +338 / −10 | configure wiring and summary, `.cu` build rules, README's GPU section, the SWIG 4.5 fix |
-| **D. New CUDA backend** `src/ViennaRNA/mfe/cuda/` | 18 | +13 131 | a new subdirectory; take it or leave it |
+| **C. Build system, README, SWIG interfaces** | 21 | +743 / −10 | configure wiring and summary, `.cu` build rules, README's GPU section, the SWIG 4.5 fix, and the Python interface to the GPU backend (two new `.i` files, §4.1) |
+| **D. New CUDA backend** `src/ViennaRNA/mfe/cuda/` | 18 | +13 389 | a new subdirectory; take it or leave it |
 | **E. New autoconf macros** | 2 | +411 | `m4/ac_rna_cuda.m4`, `ac_rna_asserts.m4` |
-| **F. New tests and fixtures** | 36 | +4 209 | including standalone upstream reproducers |
-| **G. Documents and tools** | 75 | +16 766 | **not code, not proposed** |
+| **F. New tests and fixtures** | 37 | +4 614 | including standalone upstream reproducers |
+| **G. Documents and tools** | 75 | +16 825 | **not code, not proposed** |
 
 **All 42 deleted lines** are accounted for: 7 in the eight library files, 25 in
 `RNAfold.c`, 4 list-continuations in `tests/Makefile.am`, and 6 in the SWIG interface
@@ -232,15 +232,19 @@ is backend-agnostic and would serve any batch backend. Built without a CUDA tool
 
 ---
 
-## 4. Part C — build system, README and SWIG interfaces (modified, +338 / −10)
+## 4. Part C — build system, README and SWIG interfaces (+743 / −10)
 
 | file | + / − | what |
 |---|---|---|
-| `src/ViennaRNA/Makefile.am` | +144 / 0 | the `.cu` build rules, the CUDA sources list, `libRNA` link |
-| `README.md` | +62 / 0 | a *GPU acceleration* section under Configuration: what configure does on its own, `--with-cuda-prefix`, `--with-cuda-arch`, `--enable-cuda`/`--disable-cuda`, `RNA_GPU=0` |
-| `tests/Makefile.am` | +30 / −4 | registers the new `.ts` suites; the 4 deletions are list continuations |
+| `src/ViennaRNA/Makefile.am` | +159 / 0 | the `.cu` build rules, the CUDA sources list, `libRNA` link; and, with no CUDA, `engine.c` alone, so the language modules' `cuda_*` symbols resolve in a CPU-only build |
+| `README.md` | +96 / 0 | a *GPU acceleration* section under Configuration: what configure does on its own, `--with-cuda-prefix`, `--with-cuda-arch`, `--enable-cuda`/`--disable-cuda`, `RNA_GPU=0`; and *From Python* (§4.1) |
+| `tests/Makefile.am` | +31 / −4 | registers the new `.ts` suites and the Python suite; the 4 deletions are list continuations |
+| `interfaces/cuda.i` | +252 / 0 | **new.** `RNA.cuda_devices()`, `RNA.cuda_enable()`, `RNA.cuda_fold([...])`, `RNA.cuda_batches()`, and the device path behind `RNA.fold()` / `fc.mfe()` (§4.1) |
+| `interfaces/cuda_python.i` | +85 / 0 | **new.** Rebinds `RNA.fold` and `fold_compound.mfe` to use the GPU by default, `cpu_only=True` for upstream's own (§4.1) |
+| `interfaces/RNA.i` | +9 / 0 | includes the two files above |
+| `interfaces/Makefile.am`, `interfaces/generic.mk` | +4 / 0, +2 / 0 | list them as sources and in `EXTRA_DIST` |
 | `m4/ac_rna.m4` | +29 / 0 | calls `RNA_ENABLE_CUDA`, then `RNA_ENABLE_ASSERTS` **after** it (that macro appends `-DNDEBUG` to `NVCC_FLAGS`, which `RNA_ENABLE_CUDA` sets); and a *GPU Acceleration* block in the configure summary that always states the verdict and, when it is no, why |
-| `setup.py.in` | +12 / 0 | excludes `mfe/cuda` from setuptools' source glob: its `*.c*` pattern caught the `.cu` sources and `python -m build` stopped on "unknown file type '.cu'". The wheel is CPU-only by construction |
+| `setup.py.in` | +15 / 0 | excludes `mfe/cuda` from setuptools' source glob except `engine.c`, compiled host-only (`VRNA_CUDA_HOST_ONLY`): the `*.c*` pattern caught the `.cu` sources and `python -m build` stopped on "unknown file type '.cu'", and the SWIG interface needs `engine.c`'s stubs. The wheel is CPU-only by construction |
 | `.gitignore` | +8 / 0 | build artifacts |
 | `src/bin/Makefile.am` | +6 / 0 | binaries link `libRNA_conv.la` directly, so they need `$(CUDA_LIBS)` themselves — it is not inherited from `libRNA.la` |
 | `interfaces/Python/Makefile.am`, `interfaces/Perl/Makefile.am` | +18 / 0 each | the same for the language modules: without `$(CUDA_LIBS)` the module builds and then fails at import on `undefined symbol: cudaMemcpyAsync` — and once CUDA became the default that broke `make` itself, which byte-compiles the package |
@@ -255,9 +259,45 @@ is backend-agnostic and would serve any batch backend. Built without a CUDA tool
 **`configure.ac` is not modified.** The feature attaches through `m4/ac_rna.m4`,
 which is where upstream already aggregates its `RNA_ENABLE_*` macros.
 
+### 4.1 The Python interface to the GPU backend
+
+Ported 2026-10-02 from Lukes_Flow_Batching, where it was built. Users reach ViennaRNA
+through `import RNA` far more than through `RNAfold`, and `RNA.i` ignores every
+`vrna_*` function by default, so without these two files the backend was absent from
+Python rather than merely awkward to call.
+
+The normal calls use the device: `RNA.fold(seq)`, `RNA.fold([seq, ...])` (one batch)
+and `fold_compound.mfe()`, which keeps the MFE matrices populated so backtracking works
+as upstream. `cpu_only=True` calls upstream's own functions. They go through
+`vrna_mfe_batch()`, so without a GPU, in a CPU-only build, or for a model the device
+does not support, they fold on the host with the identical answer. `RNA_GPU=0` is
+obeyed at every call, as by `RNAfold`, and the backend's stderr diagnostics, which
+`RNAfold` prints and the harnesses read, are left out unless `RNA_GPU_VERBOSE=1`.
+`RNA.cuda_batches()` counts batches the device folded, so a caller can prove which
+path ran.
+
+A second call in one process is something `RNAfold` never makes, and the binding found
+three defects that no CLI bar could reach. All three are fixed here:
+
+* **The batch backend did not release device state between batches.** The teardown
+  lived in `RNAfold.c`'s chunk loop, so through any other caller a second batch reused
+  the first batch's buffers: wrong answers under a different model, CUDA errors for
+  longer records. It now lives in the backend's batch callback (`engine.c`).
+* **`teardown_gpu()` freed by configuration, not by allocation.** It asked
+  `rnafold_fml_int16()` which buffers to free, and with `RNA_FML_INT16=1` that answer
+  changes when the int16 vet declines a parameter table loaded between batches. Then
+  the next batch ran with dangling int16 pointers: measured here, "an illegal memory
+  access was encountered" (code 700). It now frees by pointer and NULLs.
+* **A batch of records all ≤ 3 nt segfaulted** (`RNA.cuda_fold(["A"])`): the
+  no-sweep branch filled host triangles that had already been freed (`fill_arrays.c`).
+
+`tests/python/test_RNA-cuda.py` covers each. The second has its own case, run in a
+child process because `RNA_FML_INT16` is read once per process; with the old teardown
+it goes red (checked 2026-10-02).
+
 ---
 
-## 5. Part D — the new CUDA backend, `src/ViennaRNA/mfe/cuda/` (18 files, +13 131)
+## 5. Part D — the new CUDA backend, `src/ViennaRNA/mfe/cuda/` (18 files, +13 389)
 
 A new subdirectory. Nothing upstream owns is touched by it, so this part can be
 taken or left independently of Part A.
@@ -266,16 +306,16 @@ taken or left independently of Part A.
 
 | file | lines | what it is |
 |---|---|---|
-| `engine.c` | 530 | The backend's attachment point and **routing guard**. Contains no CUDA. Decides *whether* a fold compound may go to the device — the decision that has to be conservative, since anything it wrongly admits is a wrong answer. |
-| `engine.h` | 93 | The engine's public header. |
-| `mfe_cuda.c` | 1 471 | The batch orchestrator: chunk lifecycle, per-record fetch and backtrack, the worker pool, phase accounting. |
+| `engine.c` | 656 | The backend's attachment point and **routing guard**. Contains no CUDA. Decides *whether* a fold compound may go to the device — the decision that has to be conservative, since anything it wrongly admits is a wrong answer. Also the batch callback (which honours `RNA_GPU=0` and releases device state after every batch), and the switches the Python interface uses, compiled without CUDA too. |
+| `engine.h` | 161 | The engine's public header. |
+| `mfe_cuda.c` | 1 493 | The batch orchestrator: chunk lifecycle, per-record fetch and backtrack, the worker pool, phase accounting. |
 | `stub2.h` | 1 040 | Shared declarations and the index helpers (`Indx()`, `Hoff()`), widened so arrays may exceed 2×10⁹ elements. Also the documented home of the `RNA_*` environment knobs. |
 
 ### Host-side row loop
 
 | file | lines | what it is |
 |---|---|---|
-| `fill_arrays.c` | 473 | Host helpers for the row loop. |
+| `fill_arrays.c` | 476 | Host helpers for the row loop. |
 | `fill_arrays_loop.c` | 549 | The row loop itself — the sweep that drives every device phase, row by row. |
 | `mb_loop_fast.c` | 358 | Multibranch host code, split off from `multibranch_loops.c` to isolate the data dependence. |
 
@@ -283,19 +323,19 @@ taken or left independently of Part A.
 
 | file | lines | what it is |
 |---|---|---|
-| `device.cu` | 716 | Device discovery, streams, pinned transfers, the per-row offset tables. The first `.cu` translation unit; it exists partly to exercise the nvcc build rule. |
-| `int_loop.cu` | 2 404 | The interior-loop kernel and the `d_S` / `d_my_c` device buffers. |
+| `device.cu` | 720 | Device discovery, streams, pinned transfers, the per-row offset tables. The first `.cu` translation unit; it exists partly to exercise the nvcc build rule. |
+| `int_loop.cu` | 2 408 | The interior-loop kernel and the `d_S` / `d_my_c` device buffers. |
 | `int_loop_kernel_body.inc` | 173 | The kernel body, included once per candidate `BLOCK_SIZE` so several instantiations stay available to a selection strategy. |
 | `interior_loopx.h` | 214 | Device-callable interior-loop energy helpers. |
-| `hp_mb_loop.cu` | 2 117 | Hairpin / multibranch / 3′-extension precompute. Replaces four full `nfiles × ijsize` **host** arrays that used to live in `fill_arrays.c`. |
-| `modular_decomposition.cu` | 2 242 | The `fML` modular-decomposition kernel — the dominant phase at production sizes. |
+| `hp_mb_loop.cu` | 2 121 | Hairpin / multibranch / 3′-extension precompute. Replaces four full `nfiles × ijsize` **host** arrays that used to live in `fill_arrays.c`. |
+| `modular_decomposition.cu` | 2 265 | The `fML` modular-decomposition kernel — the dominant phase at production sizes. |
 
 ### G-quadruplex transport
 
 | file | lines | what it is |
 |---|---|---|
 | `gquad.c` | 162 | Host side: flattens the batch's `c_gq` matrices. Separate translation unit for a **build** reason — the ViennaRNA headers carry no `extern "C"`. |
-| `gquad.cu` | 434 | Carries `c_gq` to the device and provides the lookup. |
+| `gquad.cu` | 438 | Carries `c_gq` to the device and provides the lookup. |
 | `gquad_dev.h` | 61 | The device-side `c_gq` lookup — one definition, because its two call sites must agree with upstream and with each other. |
 
 ### Build shim and a bit-trick
@@ -330,7 +370,7 @@ taken or left independently of Part A.
 
 ---
 
-## 7. Part F — new tests and fixtures (36 files, +4 209)
+## 7. Part F — new tests and fixtures (37 files, +4 614)
 
 Three groups, and the second may be of more immediate interest than the first.
 
@@ -340,7 +380,9 @@ harness, one per option family: `guard`, `gquad`, `constraints`, `nsp`, `nolp`,
 With reference outputs under `tests/circ/`, `tests/gquad/`, `tests/salt/`,
 `tests/noclosinggu/`. The standing bar throughout is that **output must be
 byte-identical to the same binary with the GPU path off** — self-comparison
-rather than an oracle.
+rather than an oracle. **`tests/python/test_RNA-cuda.py`** holds the Python
+interface (§4.1) to the same bar against `cpu_only=True`, and also tests what only a
+second call in one process can reach.
 
 **`tests/upstream/`** — standalone reproducers for the upstream behaviour we
 report, runnable in about a minute via `tests/upstream/run_probes.sh`, and

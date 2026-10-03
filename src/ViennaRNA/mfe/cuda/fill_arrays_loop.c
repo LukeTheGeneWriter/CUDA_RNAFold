@@ -540,7 +540,7 @@
        q_pos[s]++;
      }
 
- fprintf(stderr,"%-24s sweep shape: %lld iterations, %lld active record-rows, "
+ if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s sweep shape: %lld iterations, %lld active record-rows, "
                 "%lld cells; peak/iteration %lld records %lld cells; "
                 "continuous flow %s\n",
          __FILE__, cf_iters, cf_rows, cf_cells, cf_peak_rows, cf_peak_cells,

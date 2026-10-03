@@ -90,4 +90,72 @@ unsigned int
 vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
                           const char            **reason);
 
+
+/**
+ *  @brief  Leave each record's MFE matrices populated after a device fold
+ *
+ *  The batch backend releases every record's host c/fML before the sweep and
+ *  backtracks each record from a pooled scratch pair, so after a device fold the
+ *  fold compound's c and fML are NULL -- fine for a caller that only wants the
+ *  structure and energy, fatal for one that then calls vrna_backtrack5() or reads
+ *  the matrices, as upstream's vrna_mfe() lets it. With this switch on, each
+ *  record gets its own copies of the device's triangles (c, fML, and fM2_real when
+ *  circular), exactly the extents vrna_mfe() would have left. Costs one triangle
+ *  copy per record; off by default. Used by the Python binding's fold_compound.mfe().
+ *
+ *  @param  on  Non-zero to keep the matrices, zero for the default behaviour
+ */
+void
+vrna_cuda_keep_matrices(int on);
+
+
+/**
+ *  @brief  Whether vrna_cuda_keep_matrices() is on
+ */
+int
+vrna_cuda_keeping_matrices(void);
+
+
+/**
+ *  @brief  How many batches the device has folded in this process
+ *
+ *  Positive evidence that a call used the GPU: a fold that falls back to the host
+ *  gives the identical answer, so the answer alone never proves which path ran.
+ *  Always 0 in a build without CUDA.
+ */
+unsigned long
+vrna_cuda_device_batches(void);
+
+
+/**
+ *  @brief  Whether RNA_GPU=0 is set, the run-time off switch
+ *
+ *  The batch backend checks this at every batch and declines when it is set, so the
+ *  host folds the batch with upstream's vrna_mfe().
+ */
+int
+vrna_cuda_switched_off(void);
+
+
+/**
+ *  @brief  Silence the backend's routine diagnostics
+ *
+ *  The backend reports its configuration, sweep shape and timings on stderr: one
+ *  line per decision. RNAfold and the verification harnesses depend on those
+ *  lines, so they are on by default. A library caller such as the Python binding
+ *  can turn them off. Errors, refusals, and lines that only appear when an RNA_*
+ *  knob is set still print.
+ *
+ *  @param  on  Non-zero to silence, zero for the default behaviour
+ */
+void
+vrna_cuda_set_quiet(int on);
+
+
+/**
+ *  @brief  Whether vrna_cuda_set_quiet() is on
+ */
+int
+vrna_cuda_quiet(void);
+
 #endif

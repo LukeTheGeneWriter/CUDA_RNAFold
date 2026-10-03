@@ -65,6 +65,10 @@
 #include "gquad_dev.h"
 #include <assert.h>
 
+/* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
+ * asked for the routine diagnostics below to be left out; errors still print. */
+extern "C" int vrna_cuda_quiet(void);
+
 //Avoiding passing turn as a kernel parameter make only a tiny saving
 //allow GPU compile to optimise
 //ViennaRNA/model.h  min_loop_size == TURN
@@ -410,7 +414,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
           const size_t* cap_H) { //in, nfiles slot capacities in nt -- continuous flow phase C1
   if(!first2) return;
   const double _t_ig2 = rnafold_now_seconds();
-  fprintf(stderr,"%-24s init_gpu2(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
+  if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s init_gpu2(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
   assert(turn_ == turn);
 
@@ -902,7 +906,7 @@ load_my_c(const int nfiles,
   static int block_size = 0;
   if(!block_size) {
     block_size = rnafold_choose_block_size(load_my_c_kernel, BLOCK_SIZE, "RNA_LOAD_MY_C_BLOCK_SIZE");
-    fprintf(stderr,"%-24s load_my_c_kernel block size %d (was hardcoded %d)\n",
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s load_my_c_kernel block size %d (was hardcoded %d)\n",
 	    __FILE__, block_size, BLOCK_SIZE);
   }
   const int nblocks = (total + block_size - 1)/block_size;
@@ -1688,7 +1692,7 @@ rnafold_int_loop_warp(void)
 
     v = (e && e[0]) ? (e[0] != '0') : 1;
 
-    fprintf(stderr, "%-24s int_loop kernel: %s%s\n", __FILE__,
+    if (!vrna_cuda_quiet()) fprintf(stderr, "%-24s int_loop kernel: %s%s\n", __FILE__,
             v ? "warp-per-cell" : "block-per-cell (twin)",
             (e && e[0]) ? " (from RNA_INT_LOOP_WARP)" : " (the measured default)");
   }
@@ -1962,7 +1966,7 @@ int_loop_cuda(const int nfiles,
 		__FILE__, env, block_size);
       }
     }
-    fprintf(stderr,"%-24s int_loop_kernel block size %d%s\n",
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s int_loop_kernel block size %d%s\n",
 	    __FILE__, block_size,
 	    env ? " (from RNA_INT_LOOP_BLOCK_SIZE)" : " (measured default -- see comment above)");
   }

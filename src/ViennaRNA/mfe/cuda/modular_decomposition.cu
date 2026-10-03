@@ -68,6 +68,10 @@
 // CUDA runtime
 #include <cuda_runtime.h>
 
+/* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
+ * asked for the routine diagnostics below to be left out; errors still print. */
+extern "C" int vrna_cuda_quiet(void);
+
 // Helper functions and utilities to work with CUDA
 //#include <helper_functions.h> //Commented out in 2026, nothing here is used
 //#include <helper_cuda.h> //Commented out in 2026 to get started
@@ -484,7 +488,7 @@ double graph_mgmt_seconds              = 0.0;
 
 static void
 print_graph_update_stats(void) {
-  fprintf(stderr,
+  if (!vrna_cuda_quiet()) fprintf(stderr,
     "%-24s CUDA graph stats: %ld update() succeeded, %ld first-time instantiate, "
     "%ld forced reinstantiate (update failed), %.3f s cumulative capture/update/"
     "instantiate/destroy overhead (excludes launch+sync)\n",
@@ -504,7 +508,7 @@ init_gpu(const int nfiles, const int length,
          const size_t* tri_off_H, const size_t* row_off_H) {
   if(!first) return;
   const double _t_ig1 = rnafold_now_seconds();
-  fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
+  if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s init_gpu(%d, %d)\n",__FILE__,nfiles,length);
   cudaError_t error;
   // graph_stream is nfiles/length-independent -- guarded on its own initial
   // value (0), not on `first`, so teardown_gpu() can reset first=1 between
@@ -641,7 +645,7 @@ init_gpu(const int nfiles, const int length,
   // today -- asserted so a future change there fails loudly here instead of
   // silently corrupting the reduction for TILE < 32.
   assert(g_block_size_md % 32 == 0);
-  fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d), md tile %d\n",
+  if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d), md tile %d\n",
 	  __FILE__, g_block_size_fmli, g_block_size_md, BLOCK_SIZE, g_md_tile);
 
   stage_ig1_s += rnafold_now_seconds() - _t_ig1;
@@ -664,16 +668,35 @@ PUBLIC void
 teardown_gpu(void) {
   if(first) return; // never initialized (or already torn down) -- nothing to free
   gpuErrchk( cudaFree(d_energy_min) );
-  gpuErrchk( cudaFree(d_fml_i) );
-  if(!rnafold_fml_int16()) {
-    gpuErrchk( cudaFree(d_fml_j) );
-  } else {
-    gpuErrchk( cudaFree(d_fml_j16) );
-    gpuErrchk( cudaFree(d_fml_b) );
-    gpuErrchk( cudaFree(d_fml_row) );
-    gpuErrchk( cudaFree(d_colb_off) );
-    gpuErrchk( cudaFree(d_base_off_H) );
-  }
+  /*
+   * FREE BY WHAT WAS ALLOCATED, NOT BY WHAT THE CONFIGURATION NOW SAYS.
+   *
+   * This used to branch on rnafold_fml_int16() -- a question whose answer CAN
+   * CHANGE between the allocation and the free. With RNA_FML_INT16=1,
+   * rnafold_fml_int16_vet_params() shuts the gate for the rest of the process the
+   * first time a batch arrives with a parameter table the encoding cannot hold, and
+   * a vrna_mfe_batch() caller can load such a table between batches. Then:
+   *
+   *   batch 1, default table   int16 ON  -> allocates d_fml_j16 / d_fml_b
+   *   batch 2, -P table        gate shut -> teardown takes the int32 branch, frees
+   *                            d_fml_j (never allocated) and LEAKS the int16
+   *                            buffers, leaving their pointers set
+   *
+   * and md_cell selects its path on `if(fml_j16)`, so a dangling non-NULL pointer
+   * is a read of freed device memory. Found on Lukes_Flow_Batching (6c0c6aa9), where
+   * int16 is the default and the same shape gave a wrong structure through the
+   * Python binding. The CLI cannot reach it: one model per run, then exit.
+   *
+   * So: guard on the POINTER, free it, and NULL it. The int16 setting is not
+   * consulted here at all.
+   */
+  if (d_fml_i)      { gpuErrchk( cudaFree(d_fml_i) );      d_fml_i      = NULL; }
+  if (d_fml_j)      { gpuErrchk( cudaFree(d_fml_j) );      d_fml_j      = NULL; }
+  if (d_fml_j16)    { gpuErrchk( cudaFree(d_fml_j16) );    d_fml_j16    = NULL; }
+  if (d_fml_b)      { gpuErrchk( cudaFree(d_fml_b) );      d_fml_b      = NULL; }
+  if (d_fml_row)    { gpuErrchk( cudaFree(d_fml_row) );    d_fml_row    = NULL; }
+  if (d_colb_off)   { gpuErrchk( cudaFree(d_colb_off) );   d_colb_off   = NULL; }
+  if (d_base_off_H) { gpuErrchk( cudaFree(d_base_off_H) ); d_base_off_H = NULL; }
   gpuErrchk( cudaFree(d_dml) );
   gpuErrchk( cudaFree(d_dml1) );
   gpuErrchk( cudaFree(d_fml_prev) );
@@ -1652,7 +1675,7 @@ rnafold_circ_alloc(const int circ, const size_t tri_cells)
     gpuErrchk( cudaPeekAtLastError() );
   }
 
-  fprintf(stderr, "modular_decomposition.cu  circular: fM2_real allocated, "
+  if (!vrna_cuda_quiet()) fprintf(stderr, "modular_decomposition.cu  circular: fM2_real allocated, "
                   "%zu cells, %.1f MB\n", tri_cells,
           tri_cells * sizeof(int) / 1048576.0);
 
@@ -2150,7 +2173,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   if(use_graph == -1) {
     const char* env = getenv("RNA_CUDA_GRAPH");
     use_graph = (env && env[0]=='0') ? 0 : 1;
-    fprintf(stderr,"%-24s CUDA graph capture for load_fML/modular_decomposition/load_min_fML: %s\n",
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s CUDA graph capture for load_fML/modular_decomposition/load_min_fML: %s\n",
 	    __FILE__, use_graph? "enabled" : "disabled (RNA_CUDA_GRAPH=0)");
     if(use_graph) atexit(print_graph_update_stats);
   }

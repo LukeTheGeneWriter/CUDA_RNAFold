@@ -17,6 +17,21 @@
 #include "config.h"
 #endif
 
+/* VRNA_CUDA_HOST_ONLY: the Python wheel (setup.py, `python -m build`) compiles
+ * this file with the HOST compiler and nothing else from mfe/cuda -- setuptools
+ * cannot build .cu sources. So it must take the no-CUDA branch below even when
+ * ./configure found CUDA and wrote VRNA_WITH_CUDA into config.h: the wheel then
+ * exports the same stubs a --disable-cuda build does (cuda_devices() == 0, the
+ * batch backend declines, folds go through upstream's vrna_mfe()).
+ *
+ * Done HERE, per translation unit, rather than by editing config.h -- setup.py's
+ * comment_lines() rewrites config.h in place and permanently, so un-defining it
+ * there would leave a later `make` in the same tree building a CLI that silently
+ * never accelerates. */
+#ifdef VRNA_CUDA_HOST_ONLY
+#undef VRNA_WITH_CUDA
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -468,8 +483,16 @@ par_mfe(const int                     nfiles,
         const char                  **Structure,
         float                        *EN,
         const int                     cpu_queue_threads);
+
+/* The device state a batch sizes for itself, released below. Declared in
+ * stub2.h; repeated here for the same reason par_mfe() is. */
+extern void teardown_gpu(void);
+extern void teardown_gpu2(void);
+extern void teardown_gpu3(void);
 #endif
 
+
+static unsigned long device_batches;   /* defined with vrna_cuda_device_batches() */
 
 PRIVATE int
 cuda_batch_cb(vrna_fold_compound_t  **fcs,
@@ -487,6 +510,16 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
   if ((fcs == NULL) || (n == 0) || (structures == NULL) || (energies == NULL))
     return 0;
 
+  /* RNA_GPU=0 is the documented off switch, and it has to be honoured HERE, at the
+   * time of the batch, not only by RNAfold.c's admission gate. That gate was its only
+   * reader, so every other caller of vrna_mfe_batch() -- the Python binding's
+   * RNA.fold(), fc.mfe() and cuda_fold() among them -- used the device with the
+   * switch set, and RNA.cuda_batches() counted it. Read per batch, so a script that
+   * sets os.environ["RNA_GPU"] mid-run is obeyed from its next call. Declining
+   * leaves the batch to vrna_mfe_batch()'s host loop: upstream's own answer. */
+  if (vrna_cuda_switched_off())
+    return 0;
+
   /* Decline the WHOLE batch unless every record is supported. Splitting it
    * would be a silent policy decision about which records the caller gets
    * accelerated; declining leaves that choice with the caller, which already
@@ -498,6 +531,37 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
 
   par_mfe((int)n, (const vrna_fold_compound_t **)fcs,
           (const char **)structures, energies, 0);
+  device_batches++;   /* vrna_cuda_device_batches(): the device really folded this one */
+
+  /*
+   * Release the device state this batch sized, before the next batch sizes its
+   * own -- the last step of folding a batch, not the caller's housekeeping.
+   *
+   * It used to be only the caller's. RNAfold.c does exactly this after every
+   * chunk ("without this the second chunk inherits dirty buffers"), and it was
+   * the ONLY caller, so the port never noticed that the rule lived in the
+   * driver rather than in the backend that needs it. init_gpu/2/3 each open
+   * with `if(!first) return;`, so for anyone else a second vrna_mfe_batch()
+   * call in one process silently reused the FIRST batch's device buffers:
+   *
+   *   same batch again                 correct
+   *   second batch, different model    wrong answers, no error
+   *                                    (the per-batch parameter upload sits
+   *                                     below that early return)
+   *   second batch, longer records     CUDA error 719, or an invalid-argument
+   *                                    copy out of an under-sized buffer
+   *
+   * Invisible from RNAfold -- one model per run, records sorted descending, so
+   * no chunk ever outgrows the first -- and reached immediately by the Python
+   * binding, which is what a script does: fold a batch, fold another.
+   *
+   * The driver's own calls stay where they are and simply become no-ops; all
+   * three teardowns are idempotent (`if(first) return`). Cost is one round of
+   * free/re-allocate per batch, which the driver was already paying per chunk.
+   */
+  teardown_gpu();
+  teardown_gpu2();
+  teardown_gpu3();
 
   return 1;
 #else
@@ -514,6 +578,68 @@ vrna_cuda_register_batch_backend(void)
     return 0;
 
   return vrna_mfe_batch_backend_set(&cuda_batch_cb, NULL);
+}
+
+
+/* vrna_cuda_device_batches(): how many batches the DEVICE has folded in this
+ * process. Positive evidence for a caller that cannot see stderr -- a fallback to
+ * the host is byte-identical, so "the answer was right" never proves the device ran. */
+static unsigned long device_batches = 0;
+
+PUBLIC unsigned long
+vrna_cuda_device_batches(void)
+{
+  return device_batches;
+}
+
+
+/* vrna_cuda_keep_matrices(): see engine.h. Here, not in mfe_cuda.c, so it exists in
+ * a build without CUDA too -- the Python binding calls it either way. Read by the
+ * backtrack workers, which only ever see it set before a batch and cleared after. */
+static int keep_matrices = 0;
+
+PUBLIC void
+vrna_cuda_keep_matrices(int on)
+{
+  keep_matrices = (on != 0);
+}
+
+
+PUBLIC int
+vrna_cuda_keeping_matrices(void)
+{
+  return keep_matrices;
+}
+
+
+/* vrna_cuda_switched_off(): RNA_GPU=0, exactly as RNAfold.c reads it -- the string
+ * "0" and nothing else, so RNA_GPU=1 or an empty value leave the device on. */
+PUBLIC int
+vrna_cuda_switched_off(void)
+{
+  const char *off = getenv("RNA_GPU");
+
+  return (off != NULL) && (strcmp(off, "0") == 0);
+}
+
+
+/* vrna_cuda_quiet(): see engine.h. Off by default, so RNAfold and every harness
+ * that greps its stderr ("sweep shape", "phase timing", ...) see what they always
+ * have; the Python binding turns it on. Here rather than in mfe_cuda.c so a build
+ * without CUDA has it too, like vrna_cuda_keep_matrices(). */
+static int quiet = 0;
+
+PUBLIC void
+vrna_cuda_set_quiet(int on)
+{
+  quiet = (on != 0);
+}
+
+
+PUBLIC int
+vrna_cuda_quiet(void)
+{
+  return quiet;
 }
 
 

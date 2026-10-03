@@ -166,6 +166,21 @@ libRNA_mfe_cuda_la_LIBADD = \
 libRNA_mfe_cuda_la_CPPFLAGS = $(AM_CPPFLAGS) -DSTUB
 
 libRNA_la_LIBADD += $(CUDA_LIBS)
+else
+## NO CUDA: engine.c alone, host compiler, taking its #ifndef VRNA_WITH_CUDA stubs
+## (vrna_cuda_devices() == 0, the batch backend declines). It is NOT optional.
+## interfaces/RNA.i includes cuda.i unconditionally, so the Python and Perl modules
+## reference vrna_cuda_devices() on every build -- and before this, a machine with
+## no CUDA toolkit got a module with that symbol undefined. `make` byte-compiles the
+## Python package, which imports it, so upstream's own `./configure && make` FAILED
+## on any machine without nvcc but with Python and SWIG (found 2026-09-30; the
+## CPU-only bar tests/zeroconf_configure.sh configures --without-python, so it could
+## not see it). Own CPPFLAGS so the object is per-target and cannot collide with the
+## CUDA library's copy of the same source.
+noinst_LTLIBRARIES += libRNA_mfe_cuda_host.la
+libRNA_conv_la_LIBADD += libRNA_mfe_cuda_host.la
+libRNA_mfe_cuda_host_la_SOURCES = mfe/cuda/engine.c
+libRNA_mfe_cuda_host_la_CPPFLAGS = $(AM_CPPFLAGS)
 endif
 
 # Dummy C++ source to cause C++ linking.

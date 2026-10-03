@@ -341,12 +341,15 @@ def vrna_ext(name = "RNA._RNA"):
     # stopped at the first: "error: unknown file type '.cu' (from
     # 'src/ViennaRNA/mfe/cuda/device.cu')" -- and also fill_arrays*.c and
     # mb_loop_fast.c, which are #included or unbuilt and must never compile on
-    # their own. Nothing outside mfe/cuda references a CUDA symbol on this branch
-    # and the SWIG interface has no CUDA part, so the whole directory is left out
-    # and the wheel is CPU-only by construction; the accelerated build is the one
-    # `./configure --enable-cuda && make` produces.
+    # their own. Keep only engine.c, compiled host-only (VRNA_CUDA_HOST_ONLY, see
+    # engine.c): it provides the stubs the SWIG interface's RNA.cuda_devices(),
+    # cuda_fold() and the GPU default in RNA.fold() link against. The wheel is
+    # therefore CPU-only by construction; the accelerated module is the one
+    # `./configure && make install` builds.
     cudaDir = os.path.join(srcDir, 'mfe', 'cuda')
-    srcFiles = [f for f in srcFiles if os.path.dirname(f) != cudaDir]
+    srcFiles = [f for f in srcFiles
+                if os.path.dirname(f) != cudaDir or os.path.basename(f) == 'engine.c']
+    define_macros += [('VRNA_CUDA_HOST_ONLY', None)]
 
     srcFiles += ['interfaces/Python/RNA_wrap.cpp']
 

@@ -47,6 +47,7 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 #include "ViennaRNA/params/basic.h"
 #include "ViennaRNA/constraints/basic.h"
 #include "ViennaRNA/constraints/hard.h"
+#include "ViennaRNA/mfe/cuda/engine.h"   /* vrna_cuda_keeping_matrices() */
 #include "ViennaRNA/constraints/soft.h"
 #include "ViennaRNA/eval/gquad.h"
 #include "ViennaRNA/mfe/gquad.h"
@@ -432,6 +433,8 @@ double rnafold_now_seconds(void) {
 
 PRIVATE void
 print_stage_timing_stats(void) {
+  if (vrna_cuda_quiet())
+    return;
   fprintf(stderr,
     "%-24s stage timing (s): build=%.3f prepare=%.3f prefill=%.3f backtrack=%.3f "
     "output=%.3f gpuinit=%.3f teardown=%.3f free=%.3f || non-sweep total=%.3f\n",
@@ -468,7 +471,8 @@ print_phase_timing_stats(void) {
                                    + phase_fetch_mx_s;
   const double host_combine_total = phase_new_c_host_s + phase_fml_host_s
                                    + phase_fml_prev_host_s;
-  fprintf(stderr,
+  if (!vrna_cuda_quiet())
+    fprintf(stderr,
     "%-24s phase timing (s): int_loop=%.3f hp_mb=%.3f load_my_c=%.3f "
     "modular_decomp=%.3f fetch_mx=%.3f | new_c_host=%.3f fml_host=%.3f fml_prev_host=%.3f "
     "|| GPU+transfer total=%.3f host-combine total=%.3f\n",
@@ -863,6 +867,24 @@ backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_s
   // Detach before anything can free the compound: the scratch outlives it and
   // is reused, so leaving these set would hand vrna_mx_mfe_free() a pointer it
   // does not own. free(NULL) in there is a no-op.
+  /* The scratch pair is pooled, so the record must let go of it. Normally it is
+   * left with NULL c/fML -- par_mfe() freed its own before the sweep. Under
+   * vrna_cuda_keep_matrices() it gets private copies instead, the extents upstream's
+   * vrna_mfe() leaves, so a caller can backtrack or read the matrices afterwards. */
+  if (vrna_cuda_keeping_matrices()) {
+    const size_t cells = (len + 1) * (len + 2) / 2;
+    vc->matrices->c   = (int *) vrna_alloc(sizeof(int) * cells);
+    vc->matrices->fML = (int *) vrna_alloc(sizeof(int) * cells);
+    memcpy(vc->matrices->c,   sc->c,   sizeof(int) * cells);
+    memcpy(vc->matrices->fML, sc->fML, sizeof(int) * cells);
+    if (vc->params->model_details.circ) {
+      vc->matrices->fM2_real = (int *) vrna_alloc(sizeof(int) * cells);
+      memcpy(vc->matrices->fM2_real, sc->fM2, sizeof(int) * cells);
+    } else {
+      vc->matrices->fM2_real = NULL;
+    }
+    return;
+  }
   vc->matrices->c   = NULL;
   vc->matrices->fML = NULL;
   vc->matrices->fM2_real = NULL;   /* CIRCULAR: pooled, same reason */

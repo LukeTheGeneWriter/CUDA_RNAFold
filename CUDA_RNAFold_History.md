@@ -30,17 +30,17 @@ upstream's CPU path (`BENCH272_V5_RESULTS.md`).
 
 ## 2. What differs from stock 2.7.2
 
-`git diff --shortstat v2.7.2..Finished_Port` — **156 files, +37 180, −42**. That
+`git diff --shortstat v2.7.2..Finished_Port` — **162 files, +38 307, −42**. That
 headline is misleading on its own, so here is the split that matters:
 
 | | files | lines | what it is |
 |---|---|---|---|
-| **New CUDA subdirectory** `src/ViennaRNA/mfe/cuda/` | 18 | **+13 131** | ours entirely. Upstream can take it or leave it |
+| **New CUDA subdirectory** `src/ViennaRNA/mfe/cuda/` | 18 | **+13 389** | ours entirely. Upstream can take it or leave it |
 | **Library files upstream owns** | 8 | **+477 / −7** | the part that needs defending. All marked in-source |
 | **The driver** `src/bin/RNAfold.c` | 1 | **+1 848 / −25** | ours in effect; not part of any proposal |
-| **Build system, README and SWIG interfaces** (modified) | 16 | +338 / −10 | the configure summary, the nvcc libtool shim, test wiring, README's GPU section, `setup.py`'s `mfe/cuda` exclusion, the SWIG 4.5 fix |
-| **New autoconf macros + tests** | 38 | +4 620 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes, `tests/zeroconf_configure.sh` |
-| **Project documents and tools** | 75 | +16 766 | not code. Scopes, specs, notebook generators |
+| **Build system, README and SWIG interfaces** | 21 | +743 / −10 | the configure summary, the nvcc libtool shim, test wiring, README's GPU section, `setup.py`'s `mfe/cuda` exclusion, the SWIG 4.5 fix, the Python interface to the GPU backend (`interfaces/cuda.i`, `cuda_python.i`) |
+| **New autoconf macros + tests** | 39 | +5 025 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes, `tests/zeroconf_configure.sh`, `tests/python/test_RNA-cuda.py` |
+| **Project documents and tools** | 75 | +16 825 | not code. Scopes, specs, notebook generators |
 
 > **These figures are recomputed, and two earlier versions of this section were
 > wrong.** It once read "216 files, +73 162" and "9 files, +2 296 / −20". The
@@ -205,6 +205,22 @@ src/bin/RNAfold --noPS -i sequences.fa             # GPU, if there is one
 RNA_GPU=0 src/bin/RNAfold --noPS -i sequences.fa   # stock CPU path
 ```
 
+**From Python (2026-10-02, ported from Lukes_Flow_Batching).** `RNA.fold(seq)`,
+`RNA.fold([seq, ...])` (one device batch) and `fold_compound.mfe()` use the GPU;
+`cpu_only=True` calls upstream's own. They fold on the host with the identical answer
+when there is no device or the model is not supported, `RNA_GPU=0` keeps them on the
+host, and the backend's stderr diagnostics are left out unless `RNA_GPU_VERBOSE=1`.
+`RNA.cuda_batches()` proves which path ran. A second batch in one process, which
+`RNAfold` never makes, reached three defects on this branch that are now fixed:
+device state was not released between batches; `teardown_gpu()` chose what to free
+from the int16 setting, which can change mid-process (with `RNA_FML_INT16=1` and a
+parameter table loaded between batches, the next batch hit "an illegal memory access
+was encountered"); and a batch of records ≤ 3 nt segfaulted. Verified on the laptop:
+`tests/python/test_RNA-cuda.py` 16/16 in a CUDA build, with its new int16 case red on
+the old teardown; nine models × three entry points silent on stderr; `RNAfold`'s
+stdout unchanged and its GPU output equal to `RNA_GPU=0`'s; a `--disable-cuda` build
+builds, imports, and passes the suite with no device (the device-only int16 case skips); and `python -m build` from a CUDA-configured tree builds a CPU-only wheel (`engine.c` alone, host-only) that installs into a fresh venv and passes the same way. Details in `Note_to_TBI.md` §4.1.
+
 **Verified from a clean clone, 2026-10-02** (laptop, RTX 3050, CUDA 12.4): a bare
 `./configure` reports *CUDA backend: yes, 86 +PTX (detected from the local device)*;
 with no environment the run prints the line above and sweeps on the device, `RNA_GPU=0`
@@ -246,6 +262,7 @@ otherwise gate 2 inspects a different object than the one that gets folded.
 | `tools/option_status_census.py` | every option has a verdict |
 | `tools/list_local_patches.sh` | every upstream edit is marked |
 | `tests/mfe_cuda_*.ts` | ten in-tree regression tests (`make check`) |
+| `tests/python/test_RNA-cuda.py` | the Python interface against `cpu_only=True`, including second batches in one process, `RNA_GPU=0`, and silence on stderr |
 
 ---
 

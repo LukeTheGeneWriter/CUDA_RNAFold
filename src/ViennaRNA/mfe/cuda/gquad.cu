@@ -65,6 +65,10 @@ extern "C" cudaStream_t rnafold_stream_cell(void);  /* RNA_STREAM_OVERLAP, devic
 #include "stub2.h"
 #include "gquad_dev.h"
 
+/* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
+ * asked for the routine diagnostics below to be left out; errors still print. */
+extern "C" int vrna_cuda_quiet(void);
+
 #ifndef INF
 #define INF 10000000
 #endif
@@ -210,7 +214,7 @@ rnafold_gq_upload_flat(const int           nfiles,
   g_gq_nfiles   = nfiles;
   g_gq_active   = 1;
 
-  fprintf(stderr, "gquad.cu                 c_gq uploaded: %d records, %zu "
+  if (!vrna_cuda_quiet()) fprintf(stderr, "gquad.cu                 c_gq uploaded: %d records, %zu "
                   "entries, %zu row slots, %.1f KiB\n",
           nfiles, entries, rowslots, (vb + cb + rb + 2.0 * ob) / 1024.0);
 

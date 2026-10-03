@@ -298,6 +298,10 @@ namespace std {
 %include basic_algorithms.i
 %include math.i
 %include mfe.i
+/* the CUDA batch backend, reachable as RNA.cuda_fold(). Wraps nothing when
+ * the library was built without CUDA -- cuda_devices() returns 0 and
+ * cuda_fold() folds on the host. */
+%include cuda.i
 %include mfe_window.i
 %include backtrack.i
 %include part_func.i
@@ -349,4 +353,9 @@ struct bondT {
     return self+i;
   }
 }
+
+/* LAST, on purpose: rebinds RNA.fold and fold_compound.mfe so the normal calls use
+ * the GPU by default (cpu_only=True for upstream's own). It needs every proxy class
+ * to exist already. Python only; Perl is untouched. */
+%include cuda_python.i
 

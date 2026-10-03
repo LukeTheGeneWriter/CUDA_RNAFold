@@ -43,6 +43,10 @@
 
 #include "stub2.h"
 
+/* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
+ * asked for the routine diagnostics below to be left out; errors still print. */
+extern "C" int vrna_cuda_quiet(void);
+
 #define BLOCK_SIZE 512
 
 //https://stackoverflow.com/questions/14038589/what-is-the-canonical-way-to-check-for-errors-using-the-cuda-runtime-api/14038590#14038590
@@ -400,7 +404,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
           const size_t* cap_H) { //in, nfiles slot capacities in nt -- continuous flow phase C1
   if(!first3) return;
   const double _t_ig3 = rnafold_now_seconds();
-  fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
+  if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
 
   SLOT_ALLOC(&d_row_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_row_off_H, row_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
@@ -1757,7 +1761,7 @@ stack_row_i(const int nfiles, const int i, const int turn,
   static int block_size = 0;
   if(!block_size) {
     block_size = rnafold_choose_block_size(stack_row_kernel, BLOCK_SIZE, "RNA_STACK_ROW_BLOCK_SIZE");
-    fprintf(stderr,"%-24s stack_row_kernel block size %d (noLP)\n", __FILE__, block_size);
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s stack_row_kernel block size %d (noLP)\n", __FILE__, block_size);
   }
 
   const size_t nblocks = (total + block_size - 1)/block_size;
@@ -1840,7 +1844,7 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
   static int block_size = 0;
   if(!block_size) {
     block_size = rnafold_choose_block_size(new_c_kernel, BLOCK_SIZE, "RNA_NEW_C_BLOCK_SIZE");
-    fprintf(stderr,"%-24s new_c_kernel block size %d\n", __FILE__, block_size);
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s new_c_kernel block size %d\n", __FILE__, block_size);
   }
 
   upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
@@ -1998,7 +2002,7 @@ fml_prev_i(const int nfiles, const int i, const int turn,
   static int block_size = 0;
   if(!block_size) {
     block_size = rnafold_choose_block_size(fml_prev_kernel, BLOCK_SIZE, "RNA_FML_PREV_BLOCK_SIZE");
-    fprintf(stderr,"%-24s fml_prev_kernel block size %d\n", __FILE__, block_size);
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s fml_prev_kernel block size %d\n", __FILE__, block_size);
   }
 
   upload_size_off_H(nfiles, size_off_H);   // skips this row's redundant re-uploads
@@ -2074,7 +2078,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   static int block_size = 0;
   if(!block_size) {
     block_size = rnafold_choose_block_size(hp_mb_3p_kernel, BLOCK_SIZE, "RNA_HP_MB_BLOCK_SIZE");
-    fprintf(stderr,"%-24s hp_mb_3p_kernel block size %d (was hardcoded %d)\n",
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s hp_mb_3p_kernel block size %d (was hardcoded %d)\n",
 	    __FILE__, block_size, BLOCK_SIZE);
   }
 
