@@ -347,6 +347,10 @@ a GPU, without a CUDA build, or for a model the device does not support, the sam
 calls fold on the CPU and the answer is identical. `RNA.cuda_batches()` counts the
 batches the device actually folded, if you need to prove which path ran.
 
+`RNA_GPU=0` keeps every call on the CPU, as it does for `RNAfold`. The GPU backend's
+diagnostics, which `RNAfold` prints on stderr, are left out from Python unless
+`RNA_GPU_VERBOSE=1` is set.
+
 ----
 
 ## Executable Programs
