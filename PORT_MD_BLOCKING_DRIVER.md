@@ -291,3 +291,33 @@ every record in one launch.
   at production, left-looking's zero footprint is worth more than its grid.
 - **Measured**, not argued. 3d can carry both behind a switch (`RNA_MD_BLOCK_BULK=right|left`):
   the corners, the schedule and the bars are shared, and only the bulk's placement differs.
+
+---
+
+## 10. What the A100 Queue run said (2026-10-03, `ffdba8c5`)
+
+**Section E1 priced the tile width, and the ratio is 1.59**, above §7's threshold of 1.5.
+It compares the per-cell cost of the physics kernels at ~24 k cells (one `CB = 512` tile
+of 47 records) with their cost at ~130 k (a production row). It is not uniform:
+
+| kernel | ns/cell at 24 k | at 130 k | ratio |
+|---|---|---|---|
+| `int_loop_warp_kernel` | 3.97 | 3.22 | 1.23 |
+| `hp_mb_3p_kernel` | 0.78 | 0.32 | 2.48 |
+| `md_close_row_kernel` | 0.24 | 0.07 | 3.30 |
+| `new_c_kernel` | 0.28 | 0.08 | 3.67 |
+| `c_ring_store_kernel` | 0.22 | 0.05 | 4.02 |
+| `fml_scan_kernel` | 0.69 | 0.14 | 4.97 |
+| **summed** | **6.17** | **3.88** | **1.59** |
+
+`int_loop`, the expensive one, barely minds the narrower grid. The ratio comes from the
+four small kernels, which take 4–19 µs per launch whatever their width (E1's µs/row barely
+moves from 2 to 128 records). They are bound by **per-launch latency**, not work. So the
+per-tile tail does not pay as separate launches, and as §7 pre-registered, **fusing the
+tile's small kernels (3e) moves ahead of 3c.** One kernel per tile for `new_c` + c store +
+fML scan + `md_close` (+ `hp_mb_3p`) turns four or five latency-bound launches into one.
+
+**The new order:** 3a (column ranges, carry-in; byte-identical) → 3a′ (`CB < row`; records the
+unfused cost) → 3b (the schedule and its negative control) → **3e-fuse** (the tile's small
+kernels as one) → 3c (the blocked md) → 3d (tuning). 3a and 3b are unchanged by this: fusion
+needs the column ranges and the order proven first.
