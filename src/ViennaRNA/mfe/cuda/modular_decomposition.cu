@@ -618,6 +618,40 @@ static cudaStream_t g_issue_stream = 0;
 static int g_md_tail_now = 0;
 static int g_md_tail_row = -1;
 
+/* ---- Blocked md, stage 3a.1 (PORT_MD_BLOCKING_DRIVER.md section 3.1): the rotating
+ * row buffers as RINGS.
+ *
+ * The blocked schedule visits RB rows per column block, so a buffer that row i reads
+ * to the LEFT of the column it is on -- fM2 of row i+1 at j-1 (d_dml1, through
+ * new_c), and row i's own fML back in earlier column blocks (d_energy_min, md's A
+ * operand) -- must keep RB+1 rows, not the one or two it keeps today. Today's
+ * per-row pointer swap of d_dml/d_dml1 IS a ring of depth 2, and today's single
+ * d_energy_min IS a ring of depth 1, so this file now owns its rotating rows as
+ * rings and the swap becomes one case of advancing them.
+ *
+ * DEPTH 2 / 1 IS TODAY, LITERALLY: md_ring_advance() keeps the old swap statement for
+ * that case, so the default path runs the same code, not merely equivalent code.
+ * RNA_MD_RING_DEPTH=N (2..MD_RING_MAX, a diagnostic) runs the ROW path with deeper
+ * rings, which must be byte-identical too: rows descend, so each row's write range
+ * contains every older row's, and whatever a slot held N rows ago is overwritten
+ * before it is read (the argument md_snapshot_dml() already makes for depth 2). That
+ * proves the allocation, prefill, teardown and VRAM accounting of N slots on the
+ * path that exists today, before stage 3b's schedule needs them.
+ *
+ * FREE BY ALLOCATION. teardown_gpu() used to free whatever d_dml/d_dml1 pointed at,
+ * which at depth 2 is always the two allocations and at depth N is two arbitrary
+ * slots. The ring arrays are the allocations; d_dml, d_dml1 and d_energy_min only
+ * point into them. */
+#define MD_RING_MAX 130                    /* RB + 1 for RB up to 128, plus one */
+static int*  g_dml_ring[MD_RING_MAX];      /* g_dml_depth allocations */
+static int*  g_emin_ring[MD_RING_MAX];     /* g_emin_depth allocations */
+static int   g_dml_depth  = 2;             /* this chunk's: 2 unless RNA_MD_RING_DEPTH took */
+static int   g_emin_depth = 1;             /* always g_dml_depth - 1 */
+static long  g_ring_k     = 0;             /* advances this chunk */
+
+extern "C" int rnafold_md_ring_depth(void); /* requested; defined with md_tail_refuse() */
+static int md_ring_depth_effective(void);   /* this chunk's, after refusals */
+
 /* RNA_ROW_BATCH=K (2..turn+2; 0/1 = off): the fML triangle is written K rows at a time
  * from a row-major stage instead of one scattered row per sweep row. See
  * md_flush_rows_kernel. DEFAULT 5 since 2026-10-02 (see rnafold_row_batch). */
@@ -825,6 +859,20 @@ init_gpu(const int nfiles, const int length,
 	     mem_size_len, cudaGetErrorString(error), error, __LINE__);
       exit(EXIT_FAILURE);}
 
+  /* Stage 3a.1: the rings. Slots 0 and 1 of the dml ring and slot 0 of the energy_min
+   * ring ARE the allocations above, so at the default depths nothing new is allocated.
+   * Extra slots are prefilled with INF with the others, further down. */
+  g_dml_depth  = md_ring_depth_effective();
+  g_emin_depth = g_dml_depth - 1;
+  g_ring_k     = 0;
+  g_dml_ring[0]  = d_dml;
+  g_dml_ring[1]  = d_dml1;
+  g_emin_ring[0] = d_energy_min;
+  for (int s = 2; s < g_dml_depth; s++)
+    gpuErrchk( cudaMalloc((void **) &g_dml_ring[s], mem_size_len) );
+  for (int s = 1; s < g_emin_depth; s++)
+    gpuErrchk( cudaMalloc((void **) &g_emin_ring[s], mem_size_len) );
+
   error = cudaMalloc((void **) &d_fml_prev, mem_size_len);
   if (error != cudaSuccess)  {
       printf("cudaMalloc d_fml_prev %zu returned error %s (code %d), line(%d)\n",
@@ -885,7 +933,13 @@ init_gpu(const int nfiles, const int length,
 PUBLIC void
 teardown_gpu(void) {
   if(first) return; // never initialized (or already torn down) -- nothing to free
-  gpuErrchk( cudaFree(d_energy_min) );
+  /* Stage 3a.1: by allocation. Slot 0 is the original d_energy_min allocation; once
+   * the ring has advanced, d_energy_min may point at any slot. */
+  for (int s = 0; s < g_emin_depth; s++) {
+    gpuErrchk( cudaFree(g_emin_ring[s]) );
+    g_emin_ring[s] = NULL;
+  }
+  d_energy_min = NULL;
   rnafold_md_inf_report();
   rnafold_md_stream_report();
   rnafold_md_prune_report();
@@ -940,8 +994,13 @@ teardown_gpu(void) {
     gpuErrchk( cudaFree(d_fml_band) );
     d_fml_band = NULL;
   }
-  gpuErrchk( cudaFree(d_dml) );
-  gpuErrchk( cudaFree(d_dml1) );
+  /* Stage 3a.1: by allocation, not by what d_dml/d_dml1 point at now. At depth 2 the
+   * two are the same set; at depth N they are two of N slots. */
+  for (int s = 0; s < g_dml_depth; s++) {
+    gpuErrchk( cudaFree(g_dml_ring[s]) );
+    g_dml_ring[s] = NULL;
+  }
+  d_dml = d_dml1 = NULL;
   gpuErrchk( cudaFree(d_fml_prev) );
   if(d_fml_stage) { gpuErrchk( cudaFree(d_fml_stage) ); d_fml_stage = NULL; }  // by the pointer
   g_stage_n = 0;
@@ -985,6 +1044,11 @@ modular_decomposition_bytes_per_file(const int length) {
   /* RNA_ROW_BATCH's stage: ROW_BATCH_MAX more row-shaped buffers -- noise beside the
    * triangle, but this number admits chunks, so it is charged rather than assumed. */
   const size_t stage_bytes  = rnafold_row_batch() ? (size_t)(length+1) * sizeof(int) * ROW_BATCH_MAX : 0;
+  /* Stage 3a.1: depth-N rings add N-2 dml rows and N-2 energy_min rows. The REQUESTED
+   * depth, not this chunk's: admission runs before any chunk exists, and a refusal can
+   * only make this an over-count, never an under-count. */
+  const size_t ring_bytes   = (size_t)(length+1) * sizeof(int) * 2
+                              * (size_t)(rnafold_md_ring_depth() - 2);
   if(rnafold_fml_int16()) {
     // x6: the five above plus d_fml_row, which is row-shaped and so is noise
     // beside the triangle. The triangle halves, and the baselines add one int32
@@ -992,7 +1056,7 @@ modular_decomposition_bytes_per_file(const int length) {
     const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 6;
     const size_t tri16        = cells * sizeof(short);
     const size_t base_bytes   = ((cells + FML_BLK - 1)/FML_BLK + (size_t)length + 2) * sizeof(int);
-    return mem_size_len + tri16 + base_bytes + stage_bytes
+    return mem_size_len + tri16 + base_bytes + stage_bytes + ring_bytes
          + (g_circ_expected ? cells * sizeof(int) : 0);   /* fM2_real stays int32 */
   }
   const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 5;
@@ -1000,7 +1064,7 @@ modular_decomposition_bytes_per_file(const int length) {
   /* CIRCULAR costs a SECOND full triangle -- fM2_real, the same extent as
    * d_fml_j. This is the "costs a chunk width" trade PORT_CIRC_SPEC.md names:
    * the arithmetic is free, the memory is not. */
-  return mem_size_len + ijsize_len + stage_bytes
+  return mem_size_len + ijsize_len + stage_bytes + ring_bytes
        + (g_circ_expected ? cells * sizeof(int) : 0);
 }
 
@@ -1490,6 +1554,15 @@ init_fML(const int nfiles, const int length,
   // state a single-sequence fold starts from. Prefilling here also means row
   // `length-turn-1` reads a defined d_dml1 on the very first iteration.
   init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, d_dml1);
+  gpuErrchk( cudaPeekAtLastError() );
+  /* Stage 3a.1: extra ring slots start as INF, like d_dml1 -- a slot is first read as
+   * "the previous row's" before any row has written it in a record that has not joined
+   * the sweep. The energy_min extras need it less (each row writes its whole range
+   * before md reads it), but a defined value costs one launch per chunk. */
+  for (int s = 2; s < g_dml_depth; s++)
+    init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, g_dml_ring[s]);
+  for (int s = 1; s < g_emin_depth; s++)
+    init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, g_emin_ring[s]);
   gpuErrchk( cudaPeekAtLastError() );
   init_fML_kernel<<<nblock2,BLOCK_SIZE>>>(hsize, d_fml_prev);
   gpuErrchk( cudaPeekAtLastError() );
@@ -2850,7 +2923,19 @@ md_snapshot_dml(void) {
   // width 0 until it joins. Readers fetch both pointers per launch through
   // md_row_buffers().
   if(g_md_tail_row >= 0) {
-    int *t = d_dml; d_dml = d_dml1; d_dml1 = t;
+    if(g_dml_depth == 2) {
+      /* depth 2: today's swap, the same statement as before stage 3a.1 */
+      int *t = d_dml; d_dml = d_dml1; d_dml1 = t;
+    } else {
+      /* Stage 3a.1, depth N: row i's slot becomes "the previous row's" (d_dml1)
+       * and the next slot -- last written N-1 rows ago, every cell of it inside the
+       * range row i-1 is about to write -- becomes d_dml. energy_min advances with
+       * it, one slot shallower, so md(i-1) reads row i-1's own fML. */
+      g_ring_k++;
+      d_dml1       = g_dml_ring[(g_ring_k - 1) % g_dml_depth];
+      d_dml        = g_dml_ring[g_ring_k % g_dml_depth];
+      d_energy_min = g_emin_ring[g_ring_k % g_emin_depth];
+    }
     g_md_tail_row = -1;
   } else {
     gpuErrchk( cudaMemcpyAsync(d_dml1, d_dml, g_row_total*sizeof(int),
@@ -3700,6 +3785,66 @@ md_tail_refuse(const int nfiles, const int i, const int* i_H)
   if(d_fml_band)                  return "RNA_MD_BAND reads d_fml_row";
   if(rnafold_md_block_selftest()) return "RNA_MD_BLOCK_SELFTEST reads d_fml_i";
   return NULL;
+}
+
+/* Stage 3a.1: RNA_MD_RING_DEPTH=N, the depth of the dml and cc rings (energy_min's is
+ * N-1). Default 2, today's swap. A diagnostic until stage 3b sets it from RB. */
+extern "C" int
+rnafold_md_ring_depth(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_RING_DEPTH");
+
+    v = (e && e[0]) ? atoi(e) : 2;
+    if (v < 2)           v = 2;
+    if (v > MD_RING_MAX) v = MD_RING_MAX;
+    if (e && e[0])
+      fprintf(stderr, "%-24s RNA_MD_RING_DEPTH=%d: the dml and cc rings hold %d rows and "
+                      "energy_min's %d (the row path; byte-identical by construction)\n",
+              __FILE__, v, v, v - 1);
+  }
+  return v;
+}
+
+/* This chunk's depth, as init_gpu() settled it -- for hp_mb_loop.cu's cc ring, which
+ * must rotate in step with the dml ring (init_gpu3() runs after init_gpu()). */
+extern "C" int
+rnafold_md_ring_depth_now(void)
+{
+  return g_dml_depth;
+}
+
+/* This chunk's depth: the requested one only where every reader of the rotating rows
+ * fetches them per launch, which is exactly where the collapsed md tail runs. Anywhere
+ * else the rows are copied rather than rotated (md_snapshot_dml()'s other branch), or
+ * read through a pointer captured once (the megakernel), so depth 2 is kept and said. */
+static int
+md_ring_depth_effective(void)
+{
+  const int   want = rnafold_md_ring_depth();
+  const char *why  = NULL;
+
+  if (want == 2)                                       return 2;
+  if (!rnafold_md_tail())                              why = "RNA_MD_TAIL=0 copies DMLi instead of rotating it";
+  else if (!rnafold_gpu_sweep())                       why = "off the GPU-resident sweep the host rotates DMLi itself";
+  else if (rnafold_continuous_flow())                  why = "continuous flow puts records on different rows";
+  else if (rnafold_slot_flow() >= 1)                   why = "slot flow refills records mid-sweep";
+  else if (rnafold_megakernel())                       why = "the megakernel captures the row pointers once";
+  else if (rnafold_md_prune() || rnafold_md_prune_stats()) why = "RNA_MD_PRUNE refuses the collapsed tail";
+  else if (rnafold_md_band() > 0)                      why = "RNA_MD_BAND refuses the collapsed tail";
+  else if (rnafold_md_block_selftest())                why = "RNA_MD_BLOCK_SELFTEST refuses the collapsed tail";
+  if (why) {
+    static int said = 0;
+    if (!said) {
+      said = 1;
+      fprintf(stderr, "%-24s RNA_MD_RING_DEPTH=%d REFUSED: %s -- depth 2\n",
+              __FILE__, want, why);
+    }
+    return 2;
+  }
+  return want;
 }
 
 /* Is row i's fml_prev already written? fml_prev_i() (hp_mb_loop.cu) asks, and

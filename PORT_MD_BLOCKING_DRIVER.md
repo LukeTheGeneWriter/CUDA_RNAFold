@@ -126,6 +126,35 @@ a ring of three such buffers is 3 × 65 × row width × 4 B ≈ 4 MB per record 
 `RB + 1`, default 2. At depth 2 the ring *is* today's swap, so this is byte-identical by
 construction, and the bars say so. Column ranges (3a.2) come after, on top of it.
 
+### 3.2 How a kernel addresses a tile (stage 3a.2, design for review)
+
+Today every row kernel runs on a **flat** index over the row's cells of all records, and
+finds its record by searching the row's offset table (`size_off_H` / `side_off_H`, built
+per sweep row and uploaded once per chunk, Luke's Flow Batching fix 3). A tile-shaped
+version of that would need a table per *(row, column block)*. At production that is about
+60 000 tables, roughly 46 MB, so **3a.2 uses no tables**:
+
+- **A tile launch is a 2-D grid.** `blockIdx.y` is the record and `x` runs over the
+  tile's `CB` columns: `j = jlo + x`, kept only if `i + turn + 1 ≤ j ≤ L_H` (`side`
+  ranges: `i + 2·turn + 3`). Rows are aligned across records in lock-step, so `jlo` and
+  `i` are scalars for the whole launch. A record shorter than `jlo` exits at once, and
+  that idle space is the only waste. `int_loop`'s `RNA_INT_LOOP_GRIDY` variant is already
+  this shape, and it passes the CPU bar (DeadWarps A1, A100).
+- **The flat path is untouched.** At `RB = 1, CB = row` the row path runs as today, so
+  3a stays byte-identical by construction. The 2-D tile path is exercised at 3a′
+  (`CB < row`), where it must match the CPU and the row path's triangles byte for byte.
+- **The fML scan's carry-in** is row `i`'s fML at `jlo − 1`. It sits in row `i`'s
+  `energy_min` ring slot, written by the previous column block, so it needs no new
+  storage. The scan stays a Hillis–Steele scan inside the tile, seeded with it.
+- **Per tile, in order:** `int_loop`, `hp_mb_3p`, `new_c` (with the c store), the fML
+  scan, `md` over the tile's columns, then `md_close` (packing row `i`'s columns of the
+  tile). That is the same chain as a row, restricted to `[jlo, jhi]`.
+
+`RNA_MD_TILE_CB=N` (a diagnostic) runs 3a′: `RB = 1` with `N`-column tiles. It is
+expected to be slower, by the launch multiple, and that cost is recorded rather than
+treated as a failure. Its job is to prove the column ranges and the carry-in before
+3b changes the order.
+
 **Packing.** `pack_fml_cell` closes row `i` at the end of iteration `i`. In tile order it
 packs row `i`'s columns of `J` at the end of step `(i, J)`, because `cor1` reads rows of the
 same block from the triangle. `RNA_ROW_BATCH` defers triangle writes by up to 5 rows, which

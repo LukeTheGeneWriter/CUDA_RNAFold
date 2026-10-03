@@ -147,6 +147,16 @@ int* d_energy_mb_row;
 int* d_energy_stack_row;
 int* d_cc;
 int* d_cc1;
+/* Stage 3a.1 (PORT_MD_BLOCKING_DRIVER.md 3.1): cc/cc1 as a ring. new_c reads row i+1's
+ * cc at j-1, LEFT of its own column, so the blocked schedule needs RB+1 rows of it.
+ * Depth 2 (the default) IS the old swap; d_cc and d_cc1 point into the ring, and the
+ * ring owns the allocations (free by allocation, not by where the pointers are now). */
+#define CC_RING_MAX 130
+static int* g_cc_ring[CC_RING_MAX];
+static int  g_cc_depth = 2;
+static long g_cc_k     = 0;
+extern "C" int rnafold_md_ring_depth_now(void);   /* modular_decomposition.cu */
+extern "C" int rnafold_md_ring_depth(void);       /* the requested depth, for the budget */
 int* d_energy_3p00_row;
 // Staggered_Row_Batching Phase 2c: device copy of row_off_H[] (own copy,
 // per this file's established convention of not sharing device state with
@@ -671,6 +681,18 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   SLOT_ALLOC(&d_energy_stack_row, size);
   SLOT_ALLOC(&d_cc,  size);
   SLOT_ALLOC(&d_cc1, size);
+  /* Stage 3a.1: the cc ring, rotating in step with modular_decomposition.cu's dml ring
+   * (see nolp_rotate_cc()). Slots 0 and 1 ARE d_cc and d_cc1, so depth 2 allocates
+   * nothing. Not on a refill: slot flow refuses depth > 2, and a refill must not
+   * re-own the allocations it is reusing. */
+  if(!g_refill3) {
+    g_cc_depth   = rnafold_md_ring_depth_now();
+    g_cc_k       = 0;
+    g_cc_ring[0] = d_cc;
+    g_cc_ring[1] = d_cc1;
+    for(int s = 2; s < g_cc_depth; s++)
+      gpuErrchk( cudaMalloc((void **) &g_cc_ring[s], size) );
+  }
   {
     // `!g_refill3` is load-bearing, and it is the whole of the --noLP +
     // RNA_SLOT_FLOW defect (found 2026-09-08, see PORT_FEATURE_AUDIT.md).
@@ -702,6 +724,8 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     if(g_row_total && !g_refill3) {
       nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc);
       nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc1);
+      for(int s = 2; s < g_cc_depth; s++)      /* stage 3a.1: extra slots, INF like cc1 */
+        nolp_init_kernel<<<(int)nb,512>>>(g_row_total, g_cc_ring[s]);
       gpuErrchk( cudaPeekAtLastError() );
     }
   }
@@ -905,8 +929,13 @@ teardown_gpu3(void) {
   if(d_energy_mb_row_b)   { gpuErrchk( cudaFree(d_energy_mb_row_b) );   d_energy_mb_row_b = NULL; }
   if(d_energy_3p00_row_b) { gpuErrchk( cudaFree(d_energy_3p00_row_b) ); d_energy_3p00_row_b = NULL; }
   gpuErrchk( cudaFree(d_energy_stack_row) );   //noLP
-  gpuErrchk( cudaFree(d_cc) );                //noLP
-  gpuErrchk( cudaFree(d_cc1) );               //noLP
+  /* noLP's cc ring, by allocation (stage 3a.1): slots 0 and 1 are the d_cc/d_cc1
+   * allocations, wherever the rotation has left the pointers. */
+  for(int s = 0; s < g_cc_depth; s++) {
+    gpuErrchk( cudaFree(g_cc_ring[s]) );
+    g_cc_ring[s] = NULL;
+  }
+  d_cc = d_cc1 = NULL;
   gpuErrchk( cudaFree(d_row_off_H) );
   gpuErrchk( cudaFree(d_hc2_off_H) );
   gpuErrchk( cudaFree(d_seq_off_H) );
@@ -954,7 +983,9 @@ hp_mb_loop_bytes_per_file(const int length) {
   // Making the VRAM budget depend on a model detail would be a far worse trade
   // than the memory: this is 67 KB against ~125 MB of triangles at 5601 nt,
   // 0.05%, the same argument the salt table above already makes.
-  const size_t nolp_bytes       = 3*(size_t)(length+1)*sizeof(int);
+  const size_t nolp_bytes       = 3*(size_t)(length+1)*sizeof(int)
+                                  /* stage 3a.1: a depth-N cc ring adds N-2 rows */
+                                  + (size_t)(rnafold_md_ring_depth() - 2)*(size_t)(length+1)*sizeof(int);
   // The chunk's row tables (device.cu, Luke's Flow Batching fix 3): one slot
   // per sweep row, and a record adds one size_off and one side_off entry (and
   // one i_H) to each of at most length+1 slots. The tables' extra trailing
@@ -1490,7 +1521,15 @@ stack_row_i(const int nfiles, const int i, const int turn,
 // the point the DMLi generations rotate, so the two cannot drift.
 PUBLIC void
 nolp_rotate_cc(void) {
-  int* t = d_cc1; d_cc1 = d_cc; d_cc = t;
+  if(g_cc_depth == 2) {
+    int* t = d_cc1; d_cc1 = d_cc; d_cc = t;     /* depth 2: the same statement as ever */
+  } else {
+    /* Stage 3a.1, depth N: the slot this row wrote becomes cc1; the next slot (N-1 rows
+     * old) becomes cc, and is INF-filled below exactly as the swap's was. */
+    g_cc_k++;
+    d_cc1 = g_cc_ring[(g_cc_k - 1) % g_cc_depth];
+    d_cc  = g_cc_ring[g_cc_k % g_cc_depth];
+  }
   if(g_row_total == 0) return;
   const size_t nb = (g_row_total + 512 - 1)/512;
   /* On the cell stream, where new_c reads d_cc1 and writes d_cc: the legacy
