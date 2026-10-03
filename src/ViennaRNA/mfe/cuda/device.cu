@@ -309,24 +309,26 @@ rnafold_stream_overlap(void)
      * the one where level 2 returned two different wrong answers; the per-chunk
      * row tables removed that race. Level 2 stays opt-in until it has been
      * through the H stress soak. "0" still forces the old single-stream
-     * schedule, and is the control every sha comparison is made against. */
-    v = (e && e[0]) ? atoi(e) : 1;
+     * schedule, and is the control every sha comparison is made against.
+     *
+     * DEFAULT CHANGED 2026-10-03 to 2, with CUDA graphs off at that level (Luke's call,
+     * on the A100 Queue run's pre-registered rule, section D): -1.9 % at 400 x 5601
+     * (arm spreads 0.4 / 0.8 %), -0.7 % at 3000 x 1200 (within its spread), and every
+     * arm against the CPU -- 16 arms x 5 option cases, and a 600-record mixed-length
+     * soak over 5 chunks, twice -- byte-identical. That soak is what level 2 was
+     * waiting for. "1" keeps the 2026-09-17 default; graphs come back on with
+     * RNA_CUDA_GRAPH=1 (they measured the same -1.9 % at level 2, also clean). */
+    v = (e && e[0]) ? atoi(e) : 2;
 
     if (v < 0) v = 0;
     if (v > 2) v = 2;
 
-    if (v != 1)
+    if (e && e[0])
       fprintf(stderr,
               "device.cu                RNA_STREAM_OVERLAP=%d: %s\n", v,
               (v == 0) ? "one stream, the pre-2026-09-17 schedule"
-                       : "hp_mb_3p beside int_loop, and md(i) beside row i-1's cell work");
-
-    if (v >= 2)
-      fprintf(stderr,
-              "device.cu                RNA_STREAM_OVERLAP=2 is opt-in: correct at "
-              "400 x 5601 (Scaling G, 2026-09-17, one sha\n"
-              "device.cu                across six arms) and worth -0.8%%, but it has not "
-              "been through the stress soak. Compare shas.\n");
+                       : (v == 1) ? "hp_mb_3p beside int_loop (the 2026-09-17..10-03 default)"
+                                  : "hp_mb_3p beside int_loop, and md(i) beside row i-1's cell work");
   }
 
   return v;
@@ -1000,64 +1002,20 @@ static int          g_xfer_stage_pin[RT_XFER_MAX];
 static int          g_xfer_n = 0;
 
 /* RNA_XFER_STAGE_MB: 0 = "no stage, pin the worker scratch itself", N = an N-MB
- * pinned stage per worker that the worker memcpys out of, UNSET = AUTO, decided
- * by measuring what page-locking costs on THIS host.
+ * pinned stage per worker that the worker memcpys out of. UNSET = an 8 MB stage.
  *
- * WHICH ONE WINS IS A PROPERTY OF THE HOST, and both arms have now been
- * measured. On the A100 (Scaling I, 2026-09-17) the staged form took fetch_mx
- * 7.24 -> 1.85 s but pushed +1.93 s into backtrack -- that is the memcpy out of
- * the stage -- so pinning the scratch should be the better half. Under WSL the
- * opposite, and not marginally: pinning ~1.7 GB of scratch cost 27-35 worker-
- * seconds, and the exit path measured 3.09 s pinned against 0.91 s staged.
- *
- * So AUTO probes instead of guessing: page-lock 16 MB once, time it, and pin the
- * scratch only if the host does it faster than RT_PIN_GBPS_MIN. The probe costs
- * ~5 ms where pinning is cheap and ~0.3 s where it is dear -- which is exactly
- * the case that is about to save seconds. Same shape as RNA_BUILD_PIPELINE's
- * memory gate: measure the host, do not assume it. */
-#define RT_PIN_PROBE_BYTES (16u << 20)
-/* THE THRESHOLD, and it was wrong once already.
- *
- * 0.25 s/GB was a guess with margin. Scaling I (2026-09-18, A100) then showed
- * it choosing the WRONG arm on the host that matters: every AUTO arm came back
- * with the staged signature, while the forced-pin arm was better --
- * fetch_mx 1.94 -> 0.60 s for +0.37 s of allocation, the exit path 9.61 -> 8.64
- * (-10.1%). Pinning there costs about 0.25 s/GB, exactly on the boundary.
- *
- * So: 0.8 s/GB. It picks PINNED on the A100 (~0.25 measured) and STAGED under
- * WSL (1.13 measured, where pinning lost 3.09 s against 0.91 s staged). The gap
- * between the two hosts is 4.5x, so a threshold in the middle is not a knife
- * edge -- but it IS a two-point calibration, and a third host is allowed to
- * move it. The probe is single-threaded while the pool it decides for is
- * allocated serially, which is why a rate comparison is meaningful at all. */
-#define RT_PIN_SECONDS_PER_GB_MAX 0.8
-
-static int
-rt_pin_is_cheap(void)
-{
-  static int v = -1;
-
-  if (v < 0) {
-    void        *p     = NULL;
-    const double t0    = rnafold_now_seconds();
-    const int    ok    = (cudaHostAlloc(&p, RT_PIN_PROBE_BYTES, cudaHostAllocDefault) == cudaSuccess);
-    const double spent = rnafold_now_seconds() - t0;
-    const double per_gb = spent * (1073741824.0 / (double)RT_PIN_PROBE_BYTES);
-
-    if (ok)
-      cudaFreeHost(p);
-    else
-      cudaGetLastError();
-
-    v = (ok && (per_gb < RT_PIN_SECONDS_PER_GB_MAX)) ? 1 : 0;
-    if (!vrna_cuda_quiet()) fprintf(stderr,
-            "device.cu                pinning costs %.2f s/GB here -> backtrack "
-            "scratch %s (RNA_XFER_STAGE_MB to override)\n",
-            per_gb, v ? "PINNED, no stage" : "unpinned, copied through an 8 MB stage");
-  }
-
-  return v;
-}
+ * THE DEFAULT WAS A PROBE, AND THE PROBE CHOSE WRONG ON THE HOST THAT MATTERS.
+ * Until 2026-10-03, AUTO page-locked 16 MB once, timed it, and pinned the scratch
+ * when pinning cost under 0.8 s/GB -- a two-point calibration (A100 Scaling I,
+ * 2026-09-18: pinned won, fetch_mx 1.94 -> 0.60 s; WSL: staged won, 0.91 s against
+ * 3.09 s pinned, pinning ~1.7 GB costing 27-35 worker-seconds). It picked PINNED on
+ * the A100. The A100 Queue run (2026-10-03, section G, 400 x 5601, ABBA x2, one sha)
+ * then measured every arm at today's code: AUTO / pinned 65.50 s, a 4 MB stage
+ * 61.98 (-5.4 %), 8 MB 62.31 (-4.9 %), 32 MB 62.62 (-4.4 %), fetch_mx 6.19 -> 3.00 s.
+ * The overlap and transfer work since Scaling I moved the balance, and staged now
+ * wins on both hosts that have been measured, so the probe has nothing left to
+ * decide and is gone. 8 MB, not 4: it is the size the WSL default has always used,
+ * and 4 vs 8 is within the run's noise (0.5 % against a 0.5 % spread). Luke's call. */
 
 static long
 rt_stage_mb(void)
@@ -1071,19 +1029,16 @@ rt_stage_mb(void)
       v = atol(e);
       if (v < 0)
         v = 0;
-      /* Positive evidence for an explicit setting: AUTO prints its probe line, and
-       * without this an explicit arm printed nothing -- so a stage-size sweep could
+      /* Positive evidence for an explicit setting: without this an explicit arm
+       * printed nothing -- so a stage-size sweep could
        * not tell a value that took from one that was ignored. */
       fprintf(stderr, "device.cu                RNA_XFER_STAGE_MB=%ld: backtrack scratch "
                       "%s\n", v, v ? "unpinned, copied through a pinned stage of that size"
                                    : "PINNED, no stage");
     } else {
-      v = -1;                       /* AUTO: decided on first use, below */
+      v = 8;                        /* the default: an 8 MB stage (see above) */
     }
   }
-
-  if (v == -1)
-    return rt_pin_is_cheap() ? 0 : 8;
 
   return v;
 }
@@ -1253,7 +1208,12 @@ rnafold_md3_launch_probe_fire(const int n, const int row)
  *
  * 1 (default) is the shape it has always had. 2 runs two independent column searches
  * and two min accumulators, aimed at the `wait` stall that dominates it -- see
- * int_loop_cell.inc for the ncu numbers and for the laptop NULL that keeps this off. */
+ * int_loop_cell.inc for the ncu numbers and for the laptop NULL that keeps this off.
+ *
+ * RETIRED as a lever, 2026-10-03: a null on the A100 too (Queue run, section B), the
+ * device it was expected to help. int_loop +4.3..4.5 % per row against the same
+ * configuration with the ring off (which U2 needs), and the wall equal to it. Kept
+ * as a knob; not a candidate. */
 extern "C" int
 rnafold_int_loop_unroll(void)
 {

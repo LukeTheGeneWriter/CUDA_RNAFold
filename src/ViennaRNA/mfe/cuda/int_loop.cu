@@ -1547,7 +1547,12 @@ rnafold_int_loop_cpw(void)
  * gives up ~3-4 points of int_loop at short lengths; a length term could win them
  * back, but three points on one GPU is too little to fit one. The width rule is
  * moot on the A100 at production (every wide row clears 8 x SMs x 128) and still
- * protects narrow rows (laptop: G=8 on 550 cells was +159 %). */
+ * protects narrow rows (laptop: G=8 on 550 cells was +159 %).
+ *
+ * THE LENGTH TERM WAS THEN TESTED AND IS RETIRED (A100 Queue run, 2026-10-03, section
+ * C). Per row against auto, G8 is -4.6 % at 1200 nt and -2.9 % at 2400, +1.7 % at 5601;
+ * but in the WALL no fixed G beat auto beyond the spread at any of the three lengths
+ * (G8 at 1200: -1.7 % inside a 2.5 % spread). The cap of 4 stands. */
 /* IL_CPW_AUTO_MAX is defined beside IL_CPW_AUTO above: 4. */
 #define IL_CPW_WARPS_PER_SM    128
 static int

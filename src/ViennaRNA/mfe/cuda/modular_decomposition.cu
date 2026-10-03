@@ -4062,7 +4062,11 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   static int use_graph = -1;
   if(use_graph == -1) {
     const char* env = getenv("RNA_CUDA_GRAPH");
-    use_graph = (env && env[0]=='0') ? 0 : 1;
+    /* An explicit RNA_CUDA_GRAPH wins. Unset, capture follows the overlap level: OFF at
+     * level 2, the default since 2026-10-03 (the A100 Queue run's rule was written for
+     * level 2 without graphs; with them it measured the same, see rnafold_stream_overlap()),
+     * and on below it, as before. */
+    use_graph = (env && env[0]) ? (env[0] != '0') : (rnafold_stream_overlap() >= 2 ? 0 : 1);
     /* The blocked-primitive selftest synchronises and reads device symbols right
      * after md, which is illegal inside a capture ("operation not permitted when
      * stream is capturing", code 900 -- how this was found). It is a diagnostic, so
@@ -4073,7 +4077,9 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
                      "(the selftest cannot run inside a capture)\n", __FILE__);
     }
     if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s CUDA graph capture for load_fML/modular_decomposition/load_min_fML: %s\n",
-	    __FILE__, use_graph? "enabled" : "disabled (RNA_CUDA_GRAPH=0)");
+	    __FILE__, use_graph ? "enabled"
+	              : (env && env[0]) ? "disabled (RNA_CUDA_GRAPH=0)"
+	                                : "disabled (the default at RNA_STREAM_OVERLAP=2; RNA_CUDA_GRAPH=1 turns it on)");
     if(use_graph) atexit(print_graph_update_stats);
   }
 

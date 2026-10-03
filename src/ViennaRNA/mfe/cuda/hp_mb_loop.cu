@@ -671,7 +671,8 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     SLOT_ALLOC(&d_energy_mb_row_b, size);
     SLOT_ALLOC(&d_energy_3p00_row_b, size);
     SLOT_ALLOC(&d_gate_row_b, g_row_total*sizeof(char));
-    fprintf(stderr,"%-24s RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered "
+    /* default-path since level 2 became the default (2026-10-03): quiet in the binding */
+    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered "
                    "on row parity (+%.1f MB)\n", __FILE__,
             (3.0*size + g_row_total*sizeof(char))/1048576.0);
   }
@@ -993,7 +994,12 @@ hp_mb_loop_bytes_per_file(const int length) {
   // by (nfiles-1) x that term, ~45 KB at 5601 nt against ~170 MB, which is the
   // same side of the trade the salt table above takes.
   const size_t rowtab_bytes     = (size_t)(length+1)*(3*sizeof(size_t) + sizeof(int));
-  return nolp_bytes + rowtab_bytes + hccc_mb_bytes + hccc_mbenc_bytes + hccc_any_bytes + hccc_gu_bytes
+  // RNA_STREAM_OVERLAP=2 double-buffers the three hp/mb/3p rows and the gate row
+  // (init_gpu3). Uncounted while level 2 was opt-in; charged now that it is the
+  // default (2026-10-03), for the same reason as everything else here.
+  const size_t ov2_bytes        = (rnafold_stream_overlap() >= 2)
+                                  ? (size_t)(length+1)*(3*sizeof(int) + sizeof(char)) : 0;
+  return nolp_bytes + rowtab_bytes + ov2_bytes + hccc_mb_bytes + hccc_mbenc_bytes + hccc_any_bytes + hccc_gu_bytes
        + s2_bytes + sequence_bytes + up_ml_bytes + salt_bytes
        + hp_row_bytes + mb_row_bytes + p3p00_row_bytes + gate_row_bytes;
 }
