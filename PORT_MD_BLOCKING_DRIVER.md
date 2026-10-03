@@ -92,7 +92,39 @@ run (cells in `Jd` against all cells), because it bounds what blocking can buy.
 
 The classification is the first deliverable of stage 3a. It is done from the source,
 buffer by buffer, as `feedback_hand_rolled_barrier_needs_fences` demands of any change
-that overlaps steps, and committed as a table in this file.
+that overlaps steps, and committed as a table in this file — **§3.1, done 2026-10-03.**
+
+### 3.1 The audit, from every read in the source (stage 3a, deliverable 1)
+
+The table above draws the line by *row*. Reading every index expression shows the line
+that matters is the **column offset** of each read. Column-block-major order changes which
+columns run when, but **every single column still sees its rows strictly descending**. So a
+buffer that row `i` reads at the *same column* `j` it was written by row `i+1` still holds
+row `i+1` there, with one row of storage. Only a read that reaches **left** of `j` can
+land on a column that a later row of the block has already overwritten in an earlier
+column block.
+
+| buffer | written at | read at | by | tile order needs |
+|---|---|---|---|---|
+| `d_dml` → `d_dml1` (fM2 row; swapped per row under `RNA_MD_TAIL`, copied otherwise) | (i, j) md (`md_cell.inc:217`) | (i, j) md_close; **(i−1, j+1)**, i.e. row `i+1` at **`j−1`** from row `i`, in new_c (`hp_mb_cells.inc:182`) | new_c | **ring of RB+1 rows**. At RB = 1 that is exactly today's pair |
+| `d_cc` → `d_cc1` (`--noLP`; swapped per row, `hp_mb_loop.cu:1493`) | (i, j) new_c (`hp_mb_cells.inc:202`) | row `i+1` at **`j−1`** (`hp_mb_cells.inc:197`) | new_c | **ring of RB+1**, the same as dml |
+| `d_energy_min` (row `i`'s fML before the DMLi min; md's `fml_i` under the collapsed tail) | (i, j) fML scan (`fml_scan_block.inc:127`) | (i, j) md_close; **(i, k)** for every `k ∈ [i+turn+1, j−turn−2]`, md's A operand (`md_cell.inc:121/201`) | md | **ring of RB+1**: md(i, J) reads row `i` back into earlier column blocks |
+| `d_fml_prev` (row `i`'s final fML) | (i, j) md_close (`md_chain_cells.inc:128`) | row `i+1` at the **same** `j` (`fml_scan_block.inc:85/214`) | fML scan | **one row, unchanged** |
+| `d_new_e`, `d_energy_min2`, `d_gate_row`, `d_energy_hp_row`, `d_energy_mb_row`, `d_energy_3p00_row`, `d_energy_stack_row`, `d_gq_row` | (i, j) | (i, j), same step | | **unchanged scratch** |
+| the c ring (`d_c_ring`, slot `p & 31`) | row `p` | rows `p ∈ (i, i+31]`, columns `q < j` | int_loop | **RB + 32 slots** (column-indexed, so depth is its only problem) |
+| the triangles `d_my_c`, `d_fml_j` | per (i, j) | anywhere below | int_loop, md | unchanged: written once per cell, read after |
+| `d_fml_stage` (`RNA_ROW_BATCH`) | | | | refused on the tile path (§4) |
+
+So **three rotating row buffers become rings, `fml_prev` stays, and the scratch is
+untouched**, which is less than §3's table first assumed. Two reads (`dml1`, `cc1`) cross a
+column-block boundary only at its *first* column, `j0−1`. Keeping one edge column per row is
+a possible later saving against a full ring. It is not worth it for v1, because at RB = 64
+a ring of three such buffers is 3 × 65 × row width × 4 B ≈ 4 MB per record at 5601 nt.
+
+**First code step (3a.1), landable on its own:** replace the per-row pointer swaps of
+`dml`/`dml1` and `cc`/`cc1`, and the single `energy_min`, by row-indexed rings with depth
+`RB + 1`, default 2. At depth 2 the ring *is* today's swap, so this is byte-identical by
+construction, and the bars say so. Column ranges (3a.2) come after, on top of it.
 
 **Packing.** `pack_fml_cell` closes row `i` at the end of iteration `i`. In tile order it
 packs row `i`'s columns of `J` at the end of step `(i, J)`, because `cor1` reads rows of the
@@ -122,7 +154,7 @@ already exist (`c_ring_refuse`, `row_fuse`, `md_tail`).
 | `RNA_ROW_FUSE`, the megakernel | refuse | each owns a whole row |
 | stream overlap ≥ 1 | **v1 runs single-stream** | the overlap protocol publishes per row; per step is 3d |
 | CUDA graphs | off on the tile path in v1 | capture is per row; a graph per block-row is 3d, and it is how the launch multiple gets paid down |
-| `-g` | column range for `gq_row` in 3a, or refuse | `gq_row` is row-shaped; it is a carrier only if hp_mb reads it across steps (to check) |
+| `-g` | **included**: `gq_row_kernel` takes the column range in 3a.2 | §3.1: `gq_row` is same-step scratch, read at (i, j) only |
 | `--circ`, `--noLP`, `-C` | **included**, each with its own parity case | their extra phases (`fM2_real`, `stack_row`, the hc depot) are per cell |
 
 ---
@@ -177,7 +209,7 @@ On every stage, the **CPU column**, never agreement between GPU arms:
 
 ---
 
-## 8. Decisions I need from you
+## 8. Decisions (asked 2026-10-03, answered below)
 
 1. **Right-looking `UPDATE`** (wide grids, a 135 MB accumulator) **or left-looking
    `BULK(I,J)`** as §3 first wrote it (47-block launches, no accumulator)? I recommend
@@ -189,3 +221,44 @@ On every stage, the **CPU column**, never agreement between GPU arms:
    is flat across 64–128 (§3.6).
 4. **Whether stage 3 waits for the A100 run's section E.** I recommend 3a starts now (it
    is byte-identical and needed whatever E says), and 3b/3c wait for E.
+
+**Decided 2026-10-03 (Luke): all four as recommended.** Right-looking `UPDATE`; v1's
+refusal list; `RB = 64, CB = 512, KB = 32`, 4-lane corners; 3a starts now, 3b/3c wait for
+the A100 run's section E.
+
+---
+
+## 9. Kept for later: the left-looking bulk
+
+Not chosen, but not discarded. Luke asked for it to stay on record in case experiment
+favours it. As §3 first wrote it, the bulk for column block `J` is one product computed
+just before `J` runs:
+
+```
+for J ascending:
+    BULK(I,J) = min over k in [imax, j0-1] of fML[i][k] + fML[k+1][j]   (all RB rows, J's columns)
+    for i descending: physics(i,J); md(i,J) = min(BULK[i][j], cor1, cor2)
+```
+
+**What it has over right-looking.** No accumulator: the bulk lives in registers and
+shared memory for one tile and is consumed at once, so there is no `RB × width × records`
+buffer (135 MB at RB = 128 at production) and no VRAM taken from chunk width. Each output
+cell is written once rather than min-updated once per earlier column block, so global
+read-modify-write traffic is lower. And it is exactly what `md_block2_selftest_kernel`
+already computes, so the kernel exists.
+
+**Why it lost the first round.** One launch per (block-row, `J`) covers `RB × CB` cells
+per record, so at 47 records the grid is 47 blocks on a 108-SM A100. It underfills the
+device by construction, while right-looking's `UPDATE(J)` covers every later column of
+every record in one launch.
+
+**When it could win**, and so what would reopen it:
+
+- **Wide chunks.** With hundreds of records per chunk (short sequences, a larger device),
+  47 blocks becomes hundreds and the underfill disappears.
+- **Several `J` per launch.** If 3e's wavefront runs `(i, J)` beside `(i+1, J+1)`, the
+  bulks of several column blocks are ready at once and can share a launch.
+- **VRAM-bound chunks.** If the accumulator's 1 to 2 % of VRAM measurably shrinks chunk width
+  at production, left-looking's zero footprint is worth more than its grid.
+- **Measured**, not argued. 3d can carry both behind a switch (`RNA_MD_BLOCK_BULK=right|left`):
+  the corners, the schedule and the bars are shared, and only the bulk's placement differs.
