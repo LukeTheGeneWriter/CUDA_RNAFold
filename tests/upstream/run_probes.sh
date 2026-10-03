@@ -18,6 +18,11 @@
 #                       default 1.021 M and above, where SaltStack truncates
 #                       to 0, which is why a test written at default salt sees
 #                       nothing. 6 of 18 cases, all three sequences.
+#   E  params_load_stale STALE CONFIRMED (deterministic; measured 2026-10-03) -- a
+#                       parameter set loaded after the first fold does not reach
+#                       the next fold with unchanged model details. The cache is
+#                       the cause: with SPEEDUP_PARAMS 0 the same probe reports
+#                       "no defect".
 set -u
 
 V=${1:-$HOME/vrna27/ViennaRNA-2.7.2}
@@ -44,6 +49,7 @@ build race_same    params_race_probe.c   -DNTEMP=1   || exit 2
 build race_window  params_window_probe.c          || exit 2
 build race_window1 params_window_probe.c -DNTHREAD=1 || exit 2
 build nolp_salt   nolp_salt_probe.c              || exit 2
+build params_load_stale params_load_stale_probe.c || exit 2
 
 echo "###### A. auxiliary grammar rules receive the wrong i (mfe/mfe.c:502)"
 "$W/aux_index"
@@ -67,3 +73,7 @@ echo "###### C control: single-threaded, must report 0%"
 echo
 echo "###### D. --noLP stacking term misses the salt correction (mfe/mfe.c:4415)"
 "$W/nolp_salt" -v
+
+echo
+echo "###### E. SPEEDUP_PARAMS cache: a parameter set loaded after the first fold is ignored"
+"$W/params_load_stale"

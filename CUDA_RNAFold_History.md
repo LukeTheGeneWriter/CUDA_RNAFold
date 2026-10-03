@@ -30,7 +30,7 @@ upstream's CPU path (`BENCH272_V5_RESULTS.md`).
 
 ## 2. What differs from stock 2.7.2
 
-`git diff --shortstat v2.7.2..Finished_Port` — **162 files, +38 307, −42**. That
+`git diff --shortstat v2.7.2..Finished_Port` — **163 files, +38 457, −42**. That
 headline is misleading on its own, so here is the split that matters:
 
 | | files | lines | what it is |
@@ -39,8 +39,8 @@ headline is misleading on its own, so here is the split that matters:
 | **Library files upstream owns** | 8 | **+477 / −7** | the part that needs defending. All marked in-source |
 | **The driver** `src/bin/RNAfold.c` | 1 | **+1 848 / −25** | ours in effect; not part of any proposal |
 | **Build system, README and SWIG interfaces** | 21 | +743 / −10 | the configure summary, the nvcc libtool shim, test wiring, README's GPU section, `setup.py`'s `mfe/cuda` exclusion, the SWIG 4.5 fix, the Python interface to the GPU backend (`interfaces/cuda.i`, `cuda_python.i`) |
-| **New autoconf macros + tests** | 39 | +5 025 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes, `tests/zeroconf_configure.sh`, `tests/python/test_RNA-cuda.py` |
-| **Project documents and tools** | 75 | +16 825 | not code. Scopes, specs, notebook generators |
+| **New autoconf macros + tests** | 40 | +5 159 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes, `tests/zeroconf_configure.sh`, `tests/python/test_RNA-cuda.py` |
+| **Project documents and tools** | 75 | +16 841 | not code. Scopes, specs, notebook generators |
 
 > **These figures are recomputed, and two earlier versions of this section were
 > wrong.** It once read "216 files, +73 162" and "9 files, +2 296 / −20". The

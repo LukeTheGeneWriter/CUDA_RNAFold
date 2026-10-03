@@ -15,7 +15,7 @@ that is `PORT_UPSTREAM_PROPOSAL.md` — nor restate the measurements, which are 
 
 ## 1. How to read the diff
 
-`git diff --shortstat v2.7.2..Finished_Port` reports **162 files, +38 307, −42**
+`git diff --shortstat v2.7.2..Finished_Port` reports **163 files, +38 457, −42**
 (including this document), after the notebooks and result JSON were untracked.
 Even that is more than the proposal: about half the remaining lines are the
 project's own `PORT_*.md` scope documents and tooling, which are how the port was
@@ -31,8 +31,8 @@ The split that matters:
 | **C. Build system, README, SWIG interfaces** | 21 | +743 / −10 | configure wiring and summary, `.cu` build rules, README's GPU section, the SWIG 4.5 fix, and the Python interface to the GPU backend (two new `.i` files, §4.1) |
 | **D. New CUDA backend** `src/ViennaRNA/mfe/cuda/` | 18 | +13 389 | a new subdirectory; take it or leave it |
 | **E. New autoconf macros** | 2 | +411 | `m4/ac_rna_cuda.m4`, `ac_rna_asserts.m4` |
-| **F. New tests and fixtures** | 37 | +4 614 | including standalone upstream reproducers |
-| **G. Documents and tools** | 75 | +16 825 | **not code, not proposed** |
+| **F. New tests and fixtures** | 38 | +4 748 | including standalone upstream reproducers |
+| **G. Documents and tools** | 75 | +16 841 | **not code, not proposed** |
 
 **All 42 deleted lines** are accounted for: 7 in the eight library files, 25 in
 `RNAfold.c`, 4 list-continuations in `tests/Makefile.am`, and 6 in the SWIG interface
@@ -156,6 +156,21 @@ suite (131/131), and SWIG 4.4.0 still builds. (Separately: under 4.4.0 one test,
 `test_RNA-utils` "Slice pair table", fails in `varArrayShort___getitem__`, independent of
 this change and passing under 4.5; and the `char **` typemap leaks one bytes object per
 string, which this change deliberately preserves.)
+
+**An eighth, in the same parameter cache: a parameter set loaded after the first fold
+is ignored.** `p_pre_init` is set the first time `vrna_params()` fills the cache and
+never cleared, and nothing on the load path (`vrna_params_load*()` →
+`set_parameters_from_string()`, `params/io.c`) invalidates it. A fold compound with
+unchanged model details then gets the cached old table back, although the load
+returned success. `RNAfold -P` cannot see this, because it loads before it folds. A
+library caller that folds, loads, and folds again does, and the Python binding found
+it. `tests/upstream/params_load_stale_probe.c` (section E of `run_probes.sh`) folds,
+loads, and folds again, against a child process that loads first: on pristine 2.7.2
+the second fold gives −37.80 with the default table, against −30.32 from Andronescu
+2007, and the same happens with a parameter file. With `SPEEDUP_PARAMS` set to 0 the
+same probe reports no defect. Not patched: our `params-cache-race` lock leaves the
+cache's behaviour exactly as upstream's, and the fix (invalidate the cache on load)
+belongs with that DEFECT when it is submitted.
 
 ### 2.2 The SEAM patches — one idea in four files plus a batch entry
 
@@ -370,7 +385,7 @@ taken or left independently of Part A.
 
 ---
 
-## 7. Part F — new tests and fixtures (37 files, +4 614)
+## 7. Part F — new tests and fixtures (38 files, +4 748)
 
 Three groups, and the second may be of more immediate interest than the first.
 
@@ -392,6 +407,7 @@ report, runnable in about a minute via `tests/upstream/run_probes.sh`, and
 |---|---|
 | `params_race_probe.c` | the `params.c` cache race — the one DEFECT we patched |
 | `params_window_probe.c` | the same cache's **hit** path writing three caller fields into the shared static before comparing |
+| `params_load_stale_probe.c` | the same cache surviving a parameter load: a set loaded after the first fold never reaches the next one (§2.1) |
 | `nolp_salt_probe.c` | whether `--noLP`'s stacking term misses the salt correction every other stack in the MFE recursion receives |
 | `aux_index_probe.c` | whether the MFE aux-grammar inside callback receives the segment's 5′ delimiter `i` as documented, or the **rule index**, because of a shadowing `size_t i` at `mfe/mfe.c:502` |
 | `circ_fm2_probe.c` | whether `fM2_real` is the same quantity the multibranch modular decomposition already computes for `fML` |
