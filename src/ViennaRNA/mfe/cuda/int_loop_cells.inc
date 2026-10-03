@@ -25,7 +25,7 @@ load_my_c_cell(const int nfiles, const int i_row, /*const int turn,*/ const int 
   // wrong.
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-  const long long j  = mj + i+turn+1;
+  const long long j  = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
   const long long ij = Indx(i,j);
   // Staggered_Row_Batching Phase 6d: bound the check by THIS H's own triangle

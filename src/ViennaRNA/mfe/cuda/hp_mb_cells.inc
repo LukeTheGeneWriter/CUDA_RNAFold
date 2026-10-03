@@ -37,7 +37,7 @@ hp_mb_3p_cell(const int nfiles, const int i_row, const int turn, const int lengt
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   const long long mj = (long long)m - (long long)size_off_H[H];
-  const int j = mj + i+turn+1;
+  const int j = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
   const short* S_H   = &S[seq_off_H[H]];
   const char*  seq_H = &seq[seq_off_H[H]];
@@ -158,7 +158,7 @@ new_c_cell(const int nfiles, const int i_row, const int turn, const int noGUclos
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
   const long long mj = (long long)m - (long long)size_off_H[H];
-  const int j = mj + i+turn+1;
+  const int j = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
   const size_t o = row_off_H[H];
 
   const unsigned char gate = (unsigned char)gate_row[o+j];
@@ -224,7 +224,7 @@ fml_prev_cell(const int nfiles, const int i_row, const int turn,
   // disagrees traps instead of folding silently wrong.
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-  const long long mj = (long long)m - (long long)size_off_H[H];
+  const long long mj = (long long)m - (long long)size_off_H[H] + (long long)size_off_H[nfiles + 1];   /* ROW-local (3a.2): mj == 0 is the row's first cell */
   const int j = mj + i+turn+1;
   const size_t o = row_off_H[H];
 

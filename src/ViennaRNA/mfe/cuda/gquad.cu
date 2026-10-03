@@ -335,7 +335,7 @@ gq_row_kernel(const int                   nfiles,
 
     {
       const int    i = i_H[H];
-      const int    j = i + turn + 1 + (int)k;
+      const int    j = i + turn + 1 + (int)k + (int)size_off_H[nfiles + 1];
       const size_t o = row_off_H[H];
 
       gq_row[o + j] = gq_get(H, (unsigned int)i, (unsigned int)j,

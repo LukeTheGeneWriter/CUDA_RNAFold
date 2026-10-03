@@ -74,7 +74,7 @@ md_cell(
     const int i = i_H[H];
     assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
 
-    const int x = mj;
+    const int x = (int)mj + (int)side_off_H[nfiles + 1];   /* ROW-local: the k range, corners and loops all key on it (3a.2) */
     const int j = x + (i + 2*(turn+1)) + 1;
     const long long ij0 = Indx(i,j) + (turn+1) + 1;
 

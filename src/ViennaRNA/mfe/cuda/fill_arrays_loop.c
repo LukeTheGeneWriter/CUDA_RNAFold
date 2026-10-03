@@ -217,6 +217,39 @@
      * device.cu. */
     if(md3_probe_n) rnafold_md3_launch_probe_fire(md3_probe_n, i);
 
+    /* BLOCKED MD STAGE 3a' (RNA_MD_TILE_CB=N, PORT_MD_BLOCKING_DRIVER.md 3.2): run this
+     * row's cell phases as N-column blocks, left to right, instead of once over the
+     * whole row. Each block gets tables of the row's layout with every record's width
+     * clipped to [jlo, jhi] and the column shift in slot nfiles+1, and rnafold_tile_begin
+     * points row i's lookups at them -- so the phases below run unchanged. What is
+     * per-ROW stays outside this loop: the stats above, and the ring advance and
+     * rotations below. Off (0), the loop body runs once with the row's own tables:
+     * today's path, the same calls in the same order. */
+    const int tile_cb  = rnafold_md_tile_cb();
+    int       tile_jlo = i + turn + 1;
+    for(;;) {
+    if(tile_cb) {
+      const int jhi = tile_jlo + tile_cb - 1;
+      size_t w_so[nfiles], w_sd[nfiles];
+      for(int H=0; H<nfiles; H++) {
+        const int L   = (int)VC[H]->length;
+        const int top = (L < jhi) ? L : jhi;
+        const int lso = (tile_jlo > i + turn + 1)       ? tile_jlo : i + turn + 1;
+        const int lsd = (tile_jlo > i + 2*turn + 3)     ? tile_jlo : i + 2*turn + 3;
+        /* the row tables' own rule: a record with no row here has no width */
+        const int act = (i_H[H] >= 1) && (L - i_H[H] - turn > 0);
+        w_so[H] = (act && top >= lso) ? (size_t)(top - lso + 1) : 0;
+        w_sd[H] = (act && top >= lsd) ? (size_t)(top - lsd + 1) : 0;
+      }
+      compute_flatten_offsets(nfiles, w_so, rnafold_tile_size_host());
+      compute_flatten_offsets(nfiles, w_sd, rnafold_tile_side_host());
+      rnafold_tile_size_host()[nfiles+1] = (size_t)((tile_jlo > i + turn + 1)   ? tile_jlo - (i + turn + 1)   : 0);
+      rnafold_tile_side_host()[nfiles+1] = (size_t)((tile_jlo > i + 2*turn + 3) ? tile_jlo - (i + 2*turn + 3) : 0);
+      rnafold_tile_begin(i);
+      size_off_H = rnafold_rowtab_size_host(i);   // now the tile's, by the override
+      side_off_H = rnafold_rowtab_side_host(i);
+    }
+
     {
       const double t0 = now_seconds();
       int_loop_i(nfiles,VC,i,turn,length,/*indx,ijsize,
@@ -490,6 +523,16 @@
       phase_modular_decomp_s += now_seconds() - t0;
     }
 
+    /* Stage 3a': the next column block of this row, or the row is done. */
+    if(!tile_cb) break;
+    tile_jlo += tile_cb;
+    if(tile_jlo > length) {
+      rnafold_tile_end();
+      size_off_H = rnafold_rowtab_size_host(i);   // the row's own tables again
+      side_off_H = rnafold_rowtab_side_host(i);
+      break;
+    }
+    } /* end of the stage-3a' column-block loop */
     // Was my_fml_update_host, which wrote MIN2(energy_min[..j], DMLi[..j])
     // into the fML *triangle* at stride ~j. load_min_fML_kernel had already
     // computed exactly that into d_fml_j a moment earlier on the GPU, and the

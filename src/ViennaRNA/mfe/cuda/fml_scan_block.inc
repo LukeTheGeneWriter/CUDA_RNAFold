@@ -37,13 +37,17 @@ fml_scan_block(const int nfiles, const int i_row, const int turn,
   if(width <= 0) return;                  // has not joined the sweep -- whole block returns
   const size_t o  = row_off_H[H];
   const size_t so = seq_off_H[H];
-  const int j0     = i + turn + 1;
+  const int j0     = i + turn + 1 + (int)size_off_H[nfiles + 1];   /* + the slot's column shift (3a.2) */
   const int MLbase = P->MLbase;
   const int en_i   = up_ml_ok[so + (size_t)i] ? MLbase : INF;
 
   // sa/sc are supplied by the caller: the megakernel owns its shared memory.
 
-  int carry = INF;                        // E[j0-1], the host's `j == i+turn+1` special case
+  /* E[j0-1]. A whole row starts at the diagonal, where it is INF (the host's `j == i+turn+1`
+   * special case). A column block (blocked md 3a.2: a nonzero shift) continues the row
+   * from the previous block, whose last E is already in energy_min -- the scan is an
+   * affine (min,+) composition, so a carry-in is exact. */
+  int carry = (size_off_H[nfiles + 1] > 0) ? energy_min[o + j0 - 1] : INF;
   const int t = threadIdx.x;
 
   for(long long base = 0; base < width; base += TW) {
@@ -195,11 +199,11 @@ fml_scan_block2(const int nfiles, const int i_row, const int turn,
   if(width <= 0) return;                  // whole block returns together
   const size_t o  = row_off_H[H];
   const size_t so = seq_off_H[H];
-  const int j0     = i + turn + 1;
+  const int j0     = i + turn + 1 + (int)size_off_H[nfiles + 1];   /* + the slot's column shift (3a.2) */
   const int MLbase = P->MLbase;
   const int en_i   = up_ml_ok[so + (size_t)i] ? MLbase : INF;
   const int t = threadIdx.x, lane = t & 31, warp = t >> 5;
-  int carry = INF;                        // E[j0-1]
+  int carry = (size_off_H[nfiles + 1] > 0) ? energy_min[o + j0 - 1] : INF;   /* E[j0-1]; see fml_scan_block() */
 
   for(long long base = 0; base < width; base += TILE) {
     // 1. stage (a,c), coalesced. Past the end: (INF,0), which the re-walk passes through.

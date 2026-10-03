@@ -849,6 +849,15 @@ rt_check(const cudaError_t rc, const char *what)
   }
 }
 
+/* One row slot: nfiles + 1 cumulative offsets, then ONE MORE entry -- the slot's
+ * COLUMN SHIFT (blocked md stage 3a.2, PORT_MD_BLOCKING_DRIVER.md 3.2). Every kernel
+ * that turns a flat index into a column adds slot[nfiles+1], so a table describing
+ * only columns [jlo, jhi] of a row needs no other change anywhere. A row's own slots
+ * carry 0 (the memset below), so whole rows are what they always were. The
+ * megakernel walks these tables on the device too, and takes the stride from
+ * rnafold_rowtab_stride() rather than repeating it. */
+#define RT_STRIDE(n) ((size_t)(n) + 2)
+
 static size_t *g_rt_size_h = NULL, *g_rt_side_h = NULL;   /* host, pinned */
 static int    *g_rt_ih_h   = NULL;
 static int     g_rt_size_pin = 0, g_rt_side_pin = 0, g_rt_ih_pin = 0;
@@ -856,12 +865,29 @@ static size_t *g_rt_size_d = NULL, *g_rt_side_d = NULL;   /* device */
 static int    *g_rt_ih_d   = NULL;
 static int     g_rt_nfiles = 0, g_rt_iters = -1;
 
+/* ---- Blocked md stage 3a.2: COLUMN-BLOCK tables (PORT_MD_BLOCKING_DRIVER.md 3.2).
+ *
+ * While a tile of row g_tile_row is active, rnafold_rowtab_size/side(_host)(row)
+ * return the TILE's tables instead of the row's: the same layout (stride nfiles+2),
+ * widths clipped to the tile's columns, and the column shift in slot nfiles+1. Every
+ * phase binds its table through those accessors per call and sizes its grid from the
+ * host table's total, so a tile needs no change to any phase. Other rows' lookups
+ * (the c ring's flushes, for one) are untouched -- the override is keyed on the row.
+ *
+ * The upload is a blocking cudaMemcpy: stage 3a' runs single-stream (overlap 0), so
+ * the copy is ordered against every kernel that read the previous tile's table, and
+ * one pair of tables is enough. Its cost is recorded, not hidden: 3a' measures the
+ * unfused tile path, and 3e (fusion) is what removes the per-tile launches. */
+static size_t *g_tile_size_h = NULL, *g_tile_side_h = NULL;   /* host */
+static size_t *g_tile_size_d = NULL, *g_tile_side_d = NULL;   /* device */
+static int     g_tile_row    = -1;
+
 extern "C" size_t
 rnafold_rowtab_bytes(const int nfiles, const int iters)
 {
   const size_t rows = (size_t)(iters + 1);
 
-  return rows * (size_t)(nfiles + 1) * sizeof(size_t) * 2
+  return rows * RT_STRIDE(nfiles) * sizeof(size_t) * 2
        + rows * (size_t)nfiles * sizeof(int);
 }
 
@@ -881,6 +907,11 @@ rnafold_rowtab_end(void)
   if (g_rt_ih_d)   cudaFree(g_rt_ih_d);
   g_rt_size_h = g_rt_side_h = NULL; g_rt_ih_h = NULL;
   g_rt_size_d = g_rt_side_d = NULL; g_rt_ih_d = NULL;
+  free(g_tile_size_h); free(g_tile_side_h);               /* stage 3a.2 */
+  if (g_tile_size_d) cudaFree(g_tile_size_d);
+  if (g_tile_side_d) cudaFree(g_tile_side_d);
+  g_tile_size_h = g_tile_side_h = NULL; g_tile_size_d = g_tile_side_d = NULL;
+  g_tile_row = -1;
   g_rt_nfiles = 0;
   g_rt_iters  = -1;
 }
@@ -890,7 +921,7 @@ extern "C" void
 rnafold_rowtab_begin(const int nfiles, const int iters)
 {
   const size_t rows = (size_t)((iters > 0 ? iters : 0) + 1);
-  const size_t ob   = rows * (size_t)(nfiles + 1) * sizeof(size_t);
+  const size_t ob   = rows * RT_STRIDE(nfiles) * sizeof(size_t);
   const size_t ib   = rows * (size_t)nfiles * sizeof(int);
 
   rnafold_rowtab_end();
@@ -917,6 +948,17 @@ rnafold_rowtab_begin(const int nfiles, const int iters)
     exit(EXIT_FAILURE);
   }
 
+  /* stage 3a.2: one slot each for the active tile, same layout as a row slot */
+  g_tile_size_h = (size_t *)calloc(RT_STRIDE(nfiles), sizeof(size_t));
+  g_tile_side_h = (size_t *)calloc(RT_STRIDE(nfiles), sizeof(size_t));
+  if ((!g_tile_size_h) || (!g_tile_side_h) ||
+      (cudaMalloc((void **)&g_tile_size_d, RT_STRIDE(nfiles) * sizeof(size_t)) != cudaSuccess) ||
+      (cudaMalloc((void **)&g_tile_side_d, RT_STRIDE(nfiles) * sizeof(size_t)) != cudaSuccess)) {
+    fprintf(stderr, "device.cu                tile tables: allocation failed\n");
+    exit(EXIT_FAILURE);
+  }
+  g_tile_row = -1;
+
   g_rt_nfiles = nfiles;
   g_rt_iters  = (int)rows - 1;
 }
@@ -931,13 +973,96 @@ rowtab_check(const int i)
   }
 }
 
-extern "C" size_t *rnafold_rowtab_size_host(const int i) { rowtab_check(i); return g_rt_size_h + (size_t)i * (g_rt_nfiles + 1); }
-extern "C" size_t *rnafold_rowtab_side_host(const int i) { rowtab_check(i); return g_rt_side_h + (size_t)i * (g_rt_nfiles + 1); }
+extern "C" size_t *rnafold_rowtab_size_host(const int i) { rowtab_check(i); if (i == g_tile_row) return g_tile_size_h; return g_rt_size_h + (size_t)i * RT_STRIDE(g_rt_nfiles); }
+extern "C" size_t *rnafold_rowtab_side_host(const int i) { rowtab_check(i); if (i == g_tile_row) return g_tile_side_h; return g_rt_side_h + (size_t)i * RT_STRIDE(g_rt_nfiles); }
 extern "C" int    *rnafold_rowtab_ih_host(const int i)   { rowtab_check(i); return g_rt_ih_h   + (size_t)i * g_rt_nfiles; }
 
-extern "C" const size_t *rnafold_rowtab_size(const int i) { rowtab_check(i); return g_rt_size_d + (size_t)i * (g_rt_nfiles + 1); }
-extern "C" const size_t *rnafold_rowtab_side(const int i) { rowtab_check(i); return g_rt_side_d + (size_t)i * (g_rt_nfiles + 1); }
+extern "C" const size_t *rnafold_rowtab_size(const int i) { rowtab_check(i); if (i == g_tile_row) return g_tile_size_d; return g_rt_size_d + (size_t)i * RT_STRIDE(g_rt_nfiles); }
+extern "C" const size_t *rnafold_rowtab_side(const int i) { rowtab_check(i); if (i == g_tile_row) return g_tile_side_d; return g_rt_side_d + (size_t)i * RT_STRIDE(g_rt_nfiles); }
 extern "C" const int    *rnafold_rowtab_ih(const int i)   { rowtab_check(i); return g_rt_ih_d   + (size_t)i * g_rt_nfiles; }
+
+/* Stage 3a.2: the active tile. The driver fills the two host tables below (widths
+ * clipped to [jlo, jhi], the column shift in slot nfiles+1), then rnafold_tile_begin()
+ * uploads them and points row i's lookups at them until rnafold_tile_end(). */
+extern "C" size_t *rnafold_tile_size_host(void) { return g_tile_size_h; }
+extern "C" size_t *rnafold_tile_side_host(void) { return g_tile_side_h; }
+
+extern "C" void
+rnafold_tile_begin(const int i)
+{
+  rowtab_check(i);
+  rt_check(cudaMemcpy(g_tile_size_d, g_tile_size_h, RT_STRIDE(g_rt_nfiles) * sizeof(size_t),
+                      cudaMemcpyHostToDevice), "tile upload");
+  rt_check(cudaMemcpy(g_tile_side_d, g_tile_side_h, RT_STRIDE(g_rt_nfiles) * sizeof(size_t),
+                      cudaMemcpyHostToDevice), "tile upload");
+  g_tile_row = i;
+}
+
+extern "C" void
+rnafold_tile_end(void)
+{
+  g_tile_row = -1;
+}
+
+/* RNA_MD_TILE_CB=N: stage 3a' -- RB = 1, each row run as N-column blocks instead of
+ * whole. A DIAGNOSTIC: it must give the row path's answer byte for byte (that is the
+ * proof of the column ranges and the scan's carry-in, before 3b changes the order),
+ * and it is slower by the launch multiple (recorded, not a failure). 0 = off.
+ *
+ * It refuses -- with the reason, and the row path runs -- wherever something holds a
+ * whole row across the row's phases: the c ring and RNA_ROW_BATCH flush whole rows on
+ * their own schedule; stream overlap > 0 and CUDA graphs publish or capture per row;
+ * the flow modes put records on different rows; the megakernel and RNA_ROW_FUSE own a
+ * whole row; RNA_MD_TAIL=0 runs the old seven-step chain. */
+extern "C" int rnafold_continuous_flow(void);
+extern "C" int rnafold_slot_flow(void);
+extern "C" int rnafold_gpu_sweep(void);
+extern "C" int rnafold_megakernel(void);
+
+static int
+env_is(const char *name, const char *want)
+{
+  const char *e = getenv(name);
+
+  return (e != NULL) && (strcmp(e, want) == 0);
+}
+
+extern "C" int
+rnafold_md_tile_cb(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e   = getenv("RNA_MD_TILE_CB");
+    const char *why = NULL;
+
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v < 0) v = 0;
+    if (v == 0) return 0;
+
+    if (rnafold_stream_overlap() != 0)         why = "set RNA_STREAM_OVERLAP=0 (overlap publishes per row)";
+    else if (!env_is("RNA_CUDA_GRAPH", "0"))   why = "set RNA_CUDA_GRAPH=0 (the graph captures a whole row)";
+    else if (!env_is("RNA_C_RING", "0"))       why = "set RNA_C_RING=0 (the ring flushes whole rows)";
+    else if (!env_is("RNA_ROW_BATCH", "0"))    why = "set RNA_ROW_BATCH=0 (the stage flushes whole rows)";
+    else if (env_is("RNA_MD_TAIL", "0"))       why = "RNA_MD_TAIL=0 runs the old seven-step md chain";
+    else if (getenv("RNA_ROW_FUSE") && getenv("RNA_ROW_FUSE")[0] && !env_is("RNA_ROW_FUSE", "0"))
+                                               why = "RNA_ROW_FUSE owns a whole row";
+    else if (!rnafold_gpu_sweep())             why = "off the GPU-resident sweep the host owns the row";
+    else if (rnafold_continuous_flow())        why = "continuous flow puts records on different rows";
+    else if (rnafold_slot_flow() >= 1)         why = "slot flow refills records mid-sweep";
+    else if (rnafold_megakernel())             why = "the megakernel owns a whole row";
+
+    if (why) {
+      fprintf(stderr, "device.cu                RNA_MD_TILE_CB=%d REFUSED: %s -- whole rows\n",
+              v, why);
+      v = 0;
+    } else {
+      fprintf(stderr, "device.cu                RNA_MD_TILE_CB=%d ACTIVE: every row runs as "
+                      "%d-column blocks (blocked md stage 3a'; RB = 1)\n", v, v);
+    }
+  }
+  return v;
+}
 
 static void
 rowtab_copy(const size_t lo_o, const size_t n_o, const size_t lo_i, const size_t n_i)
@@ -956,7 +1081,7 @@ rnafold_rowtab_upload_all(void)
   const size_t rows = (size_t)(g_rt_iters + 1);
 
   rowtab_check(0);
-  rowtab_copy(0, rows * (g_rt_nfiles + 1), 0, rows * g_rt_nfiles);
+  rowtab_copy(0, rows * RT_STRIDE(g_rt_nfiles), 0, rows * g_rt_nfiles);
 }
 
 /* Flow: one slot, as its row is built. Blocking, and before any kernel of the
@@ -966,7 +1091,7 @@ extern "C" void
 rnafold_rowtab_upload_row(const int i)
 {
   rowtab_check(i);
-  rowtab_copy((size_t)i * (g_rt_nfiles + 1), (size_t)(g_rt_nfiles + 1),
+  rowtab_copy((size_t)i * RT_STRIDE(g_rt_nfiles), RT_STRIDE(g_rt_nfiles),
               (size_t)i * g_rt_nfiles, (size_t)g_rt_nfiles);
 }
 
@@ -1147,6 +1272,7 @@ rnafold_pinned_ints_free(int *p, const int pinned)
  * launch and never returns to the host to be told where the next one is. */
 extern "C" const size_t *rnafold_rowtab_size_base(void) { return g_rt_size_d; }
 extern "C" const size_t *rnafold_rowtab_side_base(void) { return g_rt_side_d; }
+extern "C" size_t        rnafold_rowtab_stride(void)    { return RT_STRIDE(g_rt_nfiles); }
 extern "C" const int    *rnafold_rowtab_ih_base(void)   { return g_rt_ih_d; }
 
 

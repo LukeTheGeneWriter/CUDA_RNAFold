@@ -2027,7 +2027,7 @@ md_blk_ring_kernel(const int nfiles, const int i_row, const int turn,
   if (m >= total) return;
   const int H = flatten_index_to_H(m, side_off_H, nfiles);
   const int i = i_H[H];
-  const int j = (int)(m - side_off_H[H]) + i + 2 * (turn + 1) + 1;
+  const int j = (int)(m - side_off_H[H]) + i + 2 * (turn + 1) + 1 + (int)side_off_H[nfiles + 1];
 
   assert(i_row < 0 || i == i_row);
   ring[(size_t)(i % MD_BLK2_RING) * stride + row_off_H[H] + j] = dml[row_off_H[H] + j];
@@ -2298,7 +2298,7 @@ modular_decomposition_smem_kernel(
     const long long mj = (long long)m - (long long)side_off_H[H];
     const int i  = i_H[H];
     assert(i_row < 0 || i == i_row);
-    x   = (int)mj;
+    x   = (int)mj + (int)side_off_H[nfiles + 1];   /* ROW-local (3a.2) */
     const int j = x + (i + 2*(turn+1)) + 1;
     ij0  = Indx(i,j) + (turn+1) + 1;
     triH = tri_off_H[H];
@@ -3115,7 +3115,7 @@ md_inf_probe_kernel(const int nfiles, const int turn,
   const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj = (long long)m - (long long)side_off_H[H];
   const int i  = i_H[H];
-  const int x  = (int)mj;
+  const int x  = (int)mj + (int)side_off_H[nfiles + 1];   /* ROW-local (3a.2) */
   const int j  = x + (i + 2*(turn+1)) + 1;
   const long long ij0 = Indx(i,j) + (turn+1) + 1;
 
@@ -3597,7 +3597,7 @@ md_prune_probe_kernel(const int nfiles, const int turn,
   const int       H   = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj  = (long long)m - (long long)side_off_H[H];
   const int       i   = i_H[H];
-  const int       x   = (int)mj;
+  const int       x   = (int)mj + (int)side_off_H[nfiles + 1];   /* ROW-local (3a.2) */
   const int       j   = x + (i + 2*(turn+1)) + 1;
   const long long ij0 = Indx(i,j) + (turn+1) + 1;
   const size_t    triH = tri_off_H[H], rowH = row_off_H[H];

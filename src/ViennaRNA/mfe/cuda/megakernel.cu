@@ -281,8 +281,8 @@ mk_ctx_row(mk_ctx_t *c, const rnafold_mk_ptrs_t &p, const int i)
   if (i < 1)
     return;
 
-  c->size_off = p.rt_size + (size_t)i * (size_t)(c->nfiles + 1);
-  c->side_off = p.rt_side + (size_t)i * (size_t)(c->nfiles + 1);
+  c->size_off = p.rt_size + (size_t)i * p.rt_stride;
+  c->side_off = p.rt_side + (size_t)i * p.rt_stride;
   c->i_H      = p.rt_ih   + (size_t)i * (size_t)c->nfiles;
   c->sbase    = c->size_off[c->H];
   c->width    = (long long)c->size_off[c->H + 1] - (long long)c->sbase;
@@ -1365,6 +1365,7 @@ rnafold_megakernel_records_in_flight(const int total_blocks, const int length)
 
 extern "C" const size_t *rnafold_rowtab_size_base(void);
 extern "C" const size_t *rnafold_rowtab_side_base(void);
+extern "C" size_t        rnafold_rowtab_stride(void);
 extern "C" const int    *rnafold_rowtab_ih_base(void);
 
 extern "C" int
@@ -1445,6 +1446,7 @@ rnafold_megakernel_sweep(const int nfiles, const int *slots, const int count,
   p.own_mask   = mk_env("RNA_MK_OWN_MASK", 3);
   p.rt_size    = rnafold_rowtab_size_base();
   p.rt_side    = rnafold_rowtab_side_base();
+  p.rt_stride  = rnafold_rowtab_stride();
   p.rt_ih      = rnafold_rowtab_ih_base();
 
   if ((!p.rt_size) || (!p.rt_side) || (!p.rt_ih)) {

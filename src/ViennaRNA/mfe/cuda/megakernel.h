@@ -125,6 +125,7 @@ typedef struct {
   const size_t       *rt_size;
   const size_t       *rt_side;
   const int          *rt_ih;
+  size_t              rt_stride;    /* rnafold_rowtab_stride(): nfiles + 2 (the column shift) */
 } rnafold_mk_ptrs_t;
 
 /* One accessor per owning file. Valid between init_gpu*() and teardown_gpu*(). */

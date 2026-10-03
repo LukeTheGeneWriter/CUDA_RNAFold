@@ -40,7 +40,7 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
                    int* __restrict__ work_out = NULL) {
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);
-  const int j = (int)local + i + turn + 1;
+  const int j = (int)local + i + turn + 1 + (int)size_off_H[nfiles + 1];
 
   const long long ij = Indx(i,j);
   int energy = INF;

@@ -126,34 +126,44 @@ a ring of three such buffers is 3 × 65 × row width × 4 B ≈ 4 MB per record 
 `RB + 1`, default 2. At depth 2 the ring *is* today's swap, so this is byte-identical by
 construction, and the bars say so. Column ranges (3a.2) come after, on top of it.
 
-### 3.2 How a kernel addresses a tile (stage 3a.2, design for review)
+### 3.2 How a kernel addresses a tile (stage 3a.2 — built 2026-10-03)
 
-Today every row kernel runs on a **flat** index over the row's cells of all records, and
-finds its record by searching the row's offset table (`size_off_H` / `side_off_H`, built
-per sweep row and uploaded once per chunk, Luke's Flow Batching fix 3). A tile-shaped
-version of that would need a table per *(row, column block)*. At production that is about
-60 000 tables, roughly 46 MB, so **3a.2 uses no tables**:
+**Revised from the first draft**, which proposed a 2-D grid per tile. Reading the
+kernels showed something smaller. Every row kernel already turns its flat index into a
+column as `j = (m − off[H]) + i + turn + 1`, from the row's offset table, and in
+lock-step every record is on the same row. So a column range changes that formula by
+**one scalar per launch**, `max(0, jlo − (i+turn+1))` (and `max(0, jlo − (i+2·turn+3))`
+for md's `side` range). That scalar is carried in **one extra slot of the table it
+already reads**, `off[nfiles+1]`:
 
-- **A tile launch is a 2-D grid.** `blockIdx.y` is the record and `x` runs over the
-  tile's `CB` columns: `j = jlo + x`, kept only if `i + turn + 1 ≤ j ≤ L_H` (`side`
-  ranges: `i + 2·turn + 3`). Rows are aligned across records in lock-step, so `jlo` and
-  `i` are scalars for the whole launch. A record shorter than `jlo` exits at once, and
-  that idle space is the only waste. `int_loop`'s `RNA_INT_LOOP_GRIDY` variant is already
-  this shape, and it passes the CPU bar (DeadWarps A1, A100).
-- **The flat path is untouched.** At `RB = 1, CB = row` the row path runs as today, so
-  3a stays byte-identical by construction. The 2-D tile path is exercised at 3a′
-  (`CB < row`), where it must match the CPU and the row path's triangles byte for byte.
-- **The fML scan's carry-in** is row `i`'s fML at `jlo − 1`. It sits in row `i`'s
-  `energy_min` ring slot, written by the previous column block, so it needs no new
-  storage. The scan stays a Hillis–Steele scan inside the tile, seeded with it.
-- **Per tile, in order:** `int_loop`, `hp_mb_3p`, `new_c` (with the c store), the fML
-  scan, `md` over the tile's columns, then `md_close` (packing row `i`'s columns of the
-  tile). That is the same chain as a row, restricted to `[jlo, jhi]`.
+- **The row tables' stride becomes `nfiles + 2`** (`RT_STRIDE`, `device.cu`). A row's own
+  slots hold 0 there (the existing `memset`), so whole rows are byte-identical by
+  construction. The megakernel walks the same tables on the device and now takes the
+  stride from `rnafold_rowtab_stride()` instead of repeating `nfiles + 1`.
+- **21 kernel sites** add the slot when turning the index into a column, and both fML
+  scan variants seed their carry from `energy_min[o + j0 − 1]` when it is non-zero
+  (`INF`, as before, at 0).
+- **A tile's tables are built by the driver**: each record's width clipped to
+  `[jlo, jhi]`, the shift in the extra slot. `rnafold_tile_begin(i)` uploads them and
+  points row `i`'s lookups at them until `rnafold_tile_end()`. Every phase binds its
+  table per call and sizes its grid from the host table's total, so no phase's
+  signature changed. No per-tile tables are precomputed and no 2-D variants were
+  written (`int_loop` alone has the cells-per-warp, GRIDY, ring and U2 variants).
+- **`RNA_MD_TILE_CB=N`** runs 3a′ (`RB = 1`, every row as `N`-column blocks). It refuses
+  with the reason, and the row path runs, unless overlap 0, graphs off, the c ring off
+  and the row batch off. Those four hold or flush whole rows.
 
-`RNA_MD_TILE_CB=N` (a diagnostic) runs 3a′: `RB = 1` with `N`-column tiles. It is
-expected to be slower, by the launch multiple, and that cost is recorded rather than
-treated as a failure. Its job is to prove the column ranges and the carry-in before
-3b changes the order.
+**THE BUG THE TILE BAR CAUGHT, and the rule it leaves.** The first version added the
+shift to `j` only. But several kernels use their local index for more than `j`:
+md's reduction runs `for (y …; y <= x; …)` with `x` the cell's position, `md_close`
+chooses the triangle's rule by `mj >= turn+1`, and two kernels key "the row's first
+cell" on `mj == 0`. With `x` local to the *tile*, md's `k` loop stopped early inside
+any tile that started past md's first column. One 120-nt record came out −36.90
+against the CPU's −37.70, correct at widths ≥ 60 and wrong at 40 and 10. Shift 0 hid
+it completely: every default-path bar passed. The fix puts the shift into the
+**row-local index** (`x`, `mj`) wherever it is used beyond `j`. The rule for 3b and 3c:
+**a tile-local index is never a row position**, and any formula keyed on "where in the
+row" must see the row position.
 
 **Packing.** `pack_fml_cell` closes row `i` at the end of iteration `i`. In tile order it
 packs row `i`'s columns of `J` at the end of step `(i, J)`, because `cor1` reads rows of the

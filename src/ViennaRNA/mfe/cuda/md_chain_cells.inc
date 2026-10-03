@@ -70,7 +70,7 @@ pack_fml_cell(const int nfiles, const int i_row, const int turn, const int lengt
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);
-  const int j = mj + i+turn+1;
+  const int j = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
   pack_fml_value(fml_row[row_off_H[H]+j], H, i, j, fml_j16, fml_b, tri_off_H,
                  base_off_H, colb_off);
@@ -114,7 +114,9 @@ md_close_row_cell(const int nfiles, const int i_row, const int turn,
                         int* __restrict__ stage = NULL) {
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
-  const long long mj = (long long)m - (long long)size_off_H[H];
+  /* ROW-local (3a.2): the triangle's rule below and the band cell key on the position in
+   * the ROW, so the column shift goes into mj itself, not only into j */
+  const long long mj = (long long)m - (long long)size_off_H[H] + (long long)size_off_H[nfiles + 1];
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);
   const int j = mj + i+turn+1;
@@ -160,7 +162,7 @@ load_fML_cell(const int nfiles, const int i_row, const int turn, const int lengt
   // is precisely the property phase B stops holding.
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-  const long long j  = mj + i+turn+1;
+  const long long j  = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
   assert(H >= 0 && H < nfiles);
   assert(j>=0 && j<=length);
@@ -198,7 +200,7 @@ load_min_fML_cell(const int nfiles, const int i_row, const int turn, const int l
   const int i = i_H[H];   // continuous flow phase A2 -- see load_fML_kernel
   assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
 
-  const int j  = mj + (i + 2*(turn+1)) + 1;
+  const int j  = mj + (i + 2*(turn+1)) + 1 + (int)side_off_H[nfiles + 1];
   const long long ij = Indx(i,j);
 
   assert(H >= 0 && H < nfiles);

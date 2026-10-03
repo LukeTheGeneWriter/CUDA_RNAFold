@@ -608,6 +608,15 @@ PUBLIC int          *rnafold_rowtab_ih_host(const int i);
 PUBLIC const size_t *rnafold_rowtab_size(const int i);
 PUBLIC const size_t *rnafold_rowtab_side(const int i);
 PUBLIC const int    *rnafold_rowtab_ih(const int i);
+/* Blocked md stage 3a.2 (device.cu): a column block of row i. Fill the two host tables
+ * (stride nfiles+2: widths clipped to the block, the column shift in slot nfiles+1),
+ * then rnafold_tile_begin(i) makes row i's lookups return them until
+ * rnafold_tile_end(). RNA_MD_TILE_CB=N runs every row as N-column blocks (3a'). */
+PUBLIC size_t       *rnafold_tile_size_host(void);
+PUBLIC size_t       *rnafold_tile_side_host(void);
+PUBLIC void          rnafold_tile_begin(const int i);
+PUBLIC void          rnafold_tile_end(void);
+PUBLIC int           rnafold_md_tile_cb(void);
 /* RNA_ROW_FUSE: hp_mb_3p + new_c + load_my_c as one launch. 1 = handled, 0 = run
  * the three phases separately (noLP and RNA_STREAM_OVERLAP are refused). */
 PUBLIC int           row_cells_i(const int nfiles, const vrna_fold_compound_t **VC,

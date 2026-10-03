@@ -1368,7 +1368,7 @@ stack_row_kernel(const int nfiles, const int i_row, const int turn,
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);
   const long long mj = (long long)m - (long long)size_off_H[H];
-  const int j = mj + i+turn+1;
+  const int j = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
   int e = INF;
   // vrna_eval_stack()'s own guard (eval/eval_internal.c:228): i > 0 and

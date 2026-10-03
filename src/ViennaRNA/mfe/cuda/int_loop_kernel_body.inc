@@ -59,7 +59,7 @@ INT_LOOP_KERNEL_NAME(BLOCK_SIZE)(const int nfiles, const int i_row, /*const int 
   // but one.
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
-  const int j = ((int)blockIdx.x - (int)size_off_H[H]) + i+turn+1;
+  const int j = ((int)blockIdx.x - (int)size_off_H[H]) + i+turn+1 + (int)size_off_H[nfiles + 1];
 
   const long long ij = Indx(i,j);
   if(Hc(ij,&hccc[hc_off_H[H]])) { //emulate hc[ij] & VRNA_CONSTRAINT_CONTEXT_INT_LOOP

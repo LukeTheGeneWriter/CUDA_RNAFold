@@ -911,7 +911,7 @@ c_ring_store_kernel(const int nfiles, const int i,
   const size_t m = (size_t)blockIdx.x*blockDim.x + threadIdx.x;
   if(m >= total) return;
   const int    H = flatten_index_to_H(m, size_off_H, nfiles);
-  const size_t o = row_off_H[H] + (m - size_off_H[H]) + (size_t)(i + turn + 1);
+  const size_t o = row_off_H[H] + (m - size_off_H[H]) + (size_t)(i + turn + 1 + (int)size_off_H[nfiles + 1]);
   ring[(size_t)(i & 31)*stride + o] = new_e[o];
 }
 
@@ -938,7 +938,7 @@ c_flush_rows_kernel(const int nfiles, const int i_new, const int npend,
 
   if(m < total) {
     H = flatten_index_to_H(m, size_off_H, nfiles);
-    j = (int)(m - size_off_H[H]) + i_new + turn + 1;
+    j = (int)(m - size_off_H[H]) + i_new + turn + 1 + (int)size_off_H[nfiles + 1];
     const size_t o = row_off_H[H] + j;
     for(int q = 0; q < npend; q++)
       sv[q][t] = ring[(size_t)((i_new + q) & 31)*stride + o];
@@ -1353,7 +1353,7 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
       // The flat grid may straddle records within G cells: each lane finds its own.
       if(!GRIDY) { myH = flatten_index_to_H(mine, size_off_H, nfiles); myloc = mine - size_off_H[myH]; }
       const int i = i_H[myH];
-      const int j = (int)myloc + i + turn + 1;
+      const int j = (int)myloc + i + turn + 1 + (int)size_off_H[nfiles + 1];
       live = Hc(Indx(i,j), &hccc[hc_off_H[myH]]);
       if(!live) {
         energy_min[row_off_H[myH]+j] = INF;
@@ -1742,7 +1742,7 @@ gq_internal_kernel(const int nfiles, const int turn_,   // turn_ not turn: `turn
 
   const int H = flatten_index_to_H(k, size_off_H, nfiles);
   const int i = i_H[H];
-  const int j = (int)(k - size_off_H[H]) + i + turn_ + 1;
+  const int j = (int)(k - size_off_H[H]) + i + turn_ + 1 + (int)size_off_H[nfiles + 1];
 
   // Upstream's own entry guard (mfe_gquad.c:283-285). i>0 always holds here,
   // and j <= this record's length because size_off_H[H] is built from
