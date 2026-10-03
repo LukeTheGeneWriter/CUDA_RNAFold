@@ -15,7 +15,7 @@ that is `PORT_UPSTREAM_PROPOSAL.md` — nor restate the measurements, which are 
 
 ## 1. How to read the diff
 
-`git diff --shortstat v2.7.2..Finished_Port` reports **163 files, +38 457, −42**
+`git diff --shortstat v2.7.2..Finished_Port` reports **166 files, +38 493, −51**
 (including this document), after the notebooks and result JSON were untracked.
 Even that is more than the proposal: about half the remaining lines are the
 project's own `PORT_*.md` scope documents and tooling, which are how the port was
@@ -28,15 +28,15 @@ The split that matters:
 |---|---|---|---|
 | **A. Library files upstream owns** | **8** | **+477 / −7** | the part that needs defending |
 | **B. The driver, `src/bin/RNAfold.c`** | 1 | +1 848 / −25 | ours in effect; not proposed |
-| **C. Build system, README, SWIG interfaces** | 21 | +743 / −10 | configure wiring and summary, `.cu` build rules, README's GPU section, the SWIG 4.5 fix, and the Python interface to the GPU backend (two new `.i` files, §4.1) |
+| **C. Build system, README, SWIG interfaces** | 24 | +764 / −19 | configure wiring and summary, `.cu` build rules, README's GPU section, the SWIG 4.5 fix, and the Python interface to the GPU backend (two new `.i` files, §4.1), and RNAxplorer's interface (the same SWIG 4.5 fix, §2.1) |
 | **D. New CUDA backend** `src/ViennaRNA/mfe/cuda/` | 18 | +13 389 | a new subdirectory; take it or leave it |
 | **E. New autoconf macros** | 2 | +411 | `m4/ac_rna_cuda.m4`, `ac_rna_asserts.m4` |
 | **F. New tests and fixtures** | 38 | +4 748 | including standalone upstream reproducers |
-| **G. Documents and tools** | 75 | +16 841 | **not code, not proposed** |
+| **G. Documents and tools** | 75 | +16 856 | **not code, not proposed** |
 
-**All 42 deleted lines** are accounted for: 7 in the eight library files, 25 in
-`RNAfold.c`, 4 list-continuations in `tests/Makefile.am`, and 6 in the SWIG interface
-files, each replaced by its Python 3 spelling (§2.1). There is no upstream code removed
+**All 51 deleted lines** are accounted for: 7 in the eight library files, 25 in
+`RNAfold.c`, 4 list-continuations in `tests/Makefile.am`, and 15 in SWIG interface
+files (6 in ViennaRNA's, 9 in RNAxplorer's), each replaced by its Python 3 spelling (§2.1). There is no upstream code removed
 anywhere else in the tree.
 
 > **Corrections to our own earlier numbers, now fixed at source.**
@@ -80,12 +80,12 @@ thousand lines of CUDA to locate three hundred:
 /* VRNA-PATCH-END(<id>) */
 ```
 
-**12 marked regions across 8 files.** The classes are separated because they have
+**18 marked regions across 11 files**: the 12 below in the eight library files, and six in RNAxplorer's SWIG interface (§2.1). The classes are separated because they have
 very different odds and should be judged separately:
 
 | class | meaning | standalone? | count |
 |---|---|---|---|
-| **DEFECT** | an upstream bug we fixed, with a reproducer | **yes** — stands whether or not any CUDA work is accepted | 1 |
+| **DEFECT** | an upstream bug we fixed, with a reproducer | **yes** — stands whether or not any CUDA work is accepted | 1, plus 6 regions of the SWIG 4.5 fix in RNAxplorer |
 | **SEAM** | an attachment point we need that upstream lacks; shaped to be useful on CPU with no GPU at all | yes, as a feature proposal | 7 |
 | **REACH** | a capability upstream **already has** that its public API cannot reach | yes — usually the hardest to argue against | 4 |
 
@@ -156,6 +156,18 @@ suite (131/131), and SWIG 4.4.0 still builds. (Separately: under 4.4.0 one test,
 `test_RNA-utils` "Slice pair table", fails in `varArrayShort___getitem__`, independent of
 this change and passing under 4.5; and the `char **` typemap leaks one bytes object per
 string, which this change deliberately preserves.)
+
+**The same aliases in RNAxplorer, found 2026-10-03.** RNAxplorer's bundled Python
+interface (`src/RNAxplorer/interfaces/`) uses four of them too (`PyInt_FromLong`,
+`PyString_FromString`, `PyString_Check`, `PyString_AsString`), so with SWIG 4.5 its wrapper
+does not compile, and **a bare `./configure && make` stops** (`make: *** [all] Error 2`)
+before `make install`. It was missed at first because every test build had configured
+`--without-rnaxplorer`. Nine lines in three files are now written as what each alias
+meant on Python 3 under SWIG ≤ 4.4, so behaviour is unchanged. That includes one upstream
+quirk, kept: the list-of-strings typemap tests for *bytes*, so it never accepts a Python
+3 `str`. They are marked `swig45-py3-aliases` (six regions). Verified with the default
+line: a fresh clone, bare `./configure` with no `--without-*`, `make` and `make install`
+both succeed under SWIG 4.5.0, and `RNA` and `RNAxplorer` both import from the install.
 
 **An eighth, in the same parameter cache: a parameter set loaded after the first fold
 is ignored.** `p_pre_init` is set the first time `vrna_params()` fills the cache and
@@ -247,7 +259,7 @@ is backend-agnostic and would serve any batch backend. Built without a CUDA tool
 
 ---
 
-## 4. Part C — build system, README and SWIG interfaces (+743 / −10)
+## 4. Part C — build system, README and SWIG interfaces (+764 / −19)
 
 | file | + / − | what |
 |---|---|---|
@@ -270,6 +282,9 @@ is backend-agnostic and would serve any batch backend. Built without a CUDA tool
 | `interfaces/Python/callbacks-subopt.i` | +1 / −1 | the same |
 | `interfaces/Python/tmaps.i` | +1 / −1 | SWIG 4.5: `PyString_AsString` → `PyBytes_AsString` |
 | `interfaces/inverse.i` | +1 / −1 | SWIG 4.5: `SWIG_Python_str_FromChar` → `PyUnicode_FromString` |
+| `src/RNAxplorer/interfaces/distorted_samplingMD.i` | +11 / −5 | SWIG 4.5 in RNAxplorer (§2.1): `PyInt_FromLong`, `PyString_FromString`, `PyString_Check`, `PyString_AsString`, with markers |
+| `src/RNAxplorer/interfaces/distorted_sampling.i` | +7 / −3 | the same, two of the four |
+| `src/RNAxplorer/interfaces/paths.i` | +3 / −1 | the same, `PyString_FromString` |
 
 **`configure.ac` is not modified.** The feature attaches through `m4/ac_rna.m4`,
 which is where upstream already aggregates its `RNA_ENABLE_*` macros.

@@ -30,7 +30,7 @@ upstream's CPU path (`BENCH272_V5_RESULTS.md`).
 
 ## 2. What differs from stock 2.7.2
 
-`git diff --shortstat v2.7.2..Finished_Port` — **163 files, +38 457, −42**. That
+`git diff --shortstat v2.7.2..Finished_Port` — **166 files, +38 493, −51**. That
 headline is misleading on its own, so here is the split that matters:
 
 | | files | lines | what it is |
@@ -38,9 +38,9 @@ headline is misleading on its own, so here is the split that matters:
 | **New CUDA subdirectory** `src/ViennaRNA/mfe/cuda/` | 18 | **+13 389** | ours entirely. Upstream can take it or leave it |
 | **Library files upstream owns** | 8 | **+477 / −7** | the part that needs defending. All marked in-source |
 | **The driver** `src/bin/RNAfold.c` | 1 | **+1 848 / −25** | ours in effect; not part of any proposal |
-| **Build system, README and SWIG interfaces** | 21 | +743 / −10 | the configure summary, the nvcc libtool shim, test wiring, README's GPU section, `setup.py`'s `mfe/cuda` exclusion, the SWIG 4.5 fix, the Python interface to the GPU backend (`interfaces/cuda.i`, `cuda_python.i`) |
+| **Build system, README and SWIG interfaces** | 24 | +764 / −19 | the configure summary, the nvcc libtool shim, test wiring, README's GPU section, `setup.py`'s `mfe/cuda` exclusion, the SWIG 4.5 fix, the Python interface to the GPU backend (`interfaces/cuda.i`, `cuda_python.i`), and the same SWIG 4.5 fix in RNAxplorer |
 | **New autoconf macros + tests** | 40 | +5 159 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes, `tests/zeroconf_configure.sh`, `tests/python/test_RNA-cuda.py` |
-| **Project documents and tools** | 75 | +16 841 | not code. Scopes, specs, notebook generators |
+| **Project documents and tools** | 75 | +16 856 | not code. Scopes, specs, notebook generators |
 
 > **These figures are recomputed, and two earlier versions of this section were
 > wrong.** It once read "216 files, +73 162" and "9 files, +2 296 / −20". The
@@ -59,14 +59,14 @@ those edits is bracketed in the source itself:
 
 `tools/list_local_patches.sh` lists them from the source rather than from a
 document that can drift, and fails if a marker is unpaired or an upstream file
-is modified without one. As of this tip: **12 marked regions across 8 files**,
+is modified without one. As of this tip: **18 marked regions across 11 files** (six of them the SWIG 4.5 fix in RNAxplorer),
 plus `src/bin/RNAfold.c` which is declared a local patch *whole-file* (it is
 +1 670 lines of driver — a CUDA chunker around upstream's per-record loop — and
 marking each hunk would be noise pretending to be precision).
 
 | class | meaning | count |
 |---|---|---|
-| **DEFECT** | an upstream bug we fixed; submittable on its own, with a reproducer | 1 |
+| **DEFECT** | an upstream bug we fixed; submittable on its own, with a reproducer | 1, plus 6 regions of the SWIG 4.5 fix in RNAxplorer |
 | **SEAM** | an attachment point the accelerator needs and upstream does not have; shaped to be useful on CPU with no GPU at all | 7 |
 | **REACH** | a capability upstream **already has** that its public API cannot reach | 4 |
 

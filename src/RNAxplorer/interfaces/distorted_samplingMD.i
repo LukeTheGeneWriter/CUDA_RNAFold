@@ -28,8 +28,10 @@
     $1 = (char **) malloc((size+1)*sizeof(char *));
     for (i = 0; i < size; i++) {
       PyObject *o = PyList_GetItem($input,i);
-      if (PyString_Check(o))
-        $1[i] = PyString_AsString(PyList_GetItem($input,i));
+/* VRNA-PATCH-BEGIN(swig45-py3-aliases, DEFECT) -- SWIG 4.5 removed the Python-2 PyInt_ and PyString_ aliases */
+      if (PyBytes_Check(o))  /* SWIG 4.5: what PyString_Check meant on Python 3 (so, as before, a str is not accepted) */
+        $1[i] = PyBytes_AsString(PyList_GetItem($input,i));  /* SWIG 4.5: PyString_AsString on Python 3 */
+/* VRNA-PATCH-END(swig45-py3-aliases) */
       else {
         PyErr_SetString(PyExc_TypeError,"list must contain strings");
         free($1);
@@ -61,15 +63,19 @@
 			if($1->landscape[i][j].num_structs > 0){
 				PyObject* cellList = PyTuple_New(4);
 				
-				PyObject* pK = PyInt_FromLong($1->landscape[i][j].k);
-				PyObject* pL = PyInt_FromLong($1->landscape[i][j].l);
+/* VRNA-PATCH-BEGIN(swig45-py3-aliases, DEFECT) -- SWIG 4.5 removed the Python-2 PyInt_ and PyString_ aliases */
+				PyObject* pK = PyLong_FromLong($1->landscape[i][j].k);  /* SWIG 4.5 removed the Python-2 aliases; this is what PyInt_FromLong meant on Python 3 */
+				PyObject* pL = PyLong_FromLong($1->landscape[i][j].l);  /* SWIG 4.5 removed the Python-2 aliases; this is what PyInt_FromLong meant on Python 3 */
+/* VRNA-PATCH-END(swig45-py3-aliases) */
 				
 				double num = $1->landscape[i][j].mfe;
 				PyObject* pMFE = PyFloat_FromDouble(num);
 				
 				PyObject* structureList = PyList_New($1->landscape[i][j].num_structs);
 				for(int k = 0; k < $1->landscape[i][j].num_structs; k++){
-					PyObject* pStr = PyString_FromString($1->landscape[i][j].structures[k]);
+/* VRNA-PATCH-BEGIN(swig45-py3-aliases, DEFECT) -- SWIG 4.5 removed the Python-2 PyInt_ and PyString_ aliases */
+					PyObject* pStr = PyUnicode_FromString($1->landscape[i][j].structures[k]);  /* SWIG 4.5: PyString_FromString on Python 3 */
+/* VRNA-PATCH-END(swig45-py3-aliases) */
 					PyList_SetItem(structureList,k,pStr);
 					free($1->landscape[i][j].structures[k]);
 				}

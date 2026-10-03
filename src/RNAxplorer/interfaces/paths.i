@@ -12,7 +12,9 @@
 		float e = $1[i].en;
 		char* s = $1[i].s;
 		PyObject* energy = PyFloat_FromDouble(e);
-		PyObject* structure = PyString_FromString(s);
+/* VRNA-PATCH-BEGIN(swig45-py3-aliases, DEFECT) -- SWIG 4.5 removed the Python-2 PyInt_ and PyString_ aliases */
+		PyObject* structure = PyUnicode_FromString(s);  /* SWIG 4.5 removed the Python-2 aliases; this is what PyString_FromString meant on Python 3 */
+/* VRNA-PATCH-END(swig45-py3-aliases) */
 		PyObject* tupel = PyTuple_New(2);
 		PyTuple_SET_ITEM(tupel,0,structure);
 		PyTuple_SET_ITEM(tupel,1,energy); 
