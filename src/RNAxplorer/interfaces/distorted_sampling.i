@@ -25,15 +25,19 @@ void computeDistortion(vrna_fold_compound_t *vc, const char *s0, const char *s1,
 			if($1->landscape[i][j].num_structs > 0){
 				PyObject* cellList = PyTuple_New(4);
 				
-				PyObject* pK = PyInt_FromLong($1->landscape[i][j].k);
-				PyObject* pL = PyInt_FromLong($1->landscape[i][j].l);
+/* VRNA-PATCH-BEGIN(swig45-py3-aliases, DEFECT) -- SWIG 4.5 removed the Python-2 PyInt_ and PyString_ aliases */
+				PyObject* pK = PyLong_FromLong($1->landscape[i][j].k);  /* SWIG 4.5 removed the Python-2 aliases; this is what PyInt_FromLong meant on Python 3 */
+				PyObject* pL = PyLong_FromLong($1->landscape[i][j].l);  /* SWIG 4.5 removed the Python-2 aliases; this is what PyInt_FromLong meant on Python 3 */
+/* VRNA-PATCH-END(swig45-py3-aliases) */
 				
 				double num = $1->landscape[i][j].mfe;
 				PyObject* pMFE = PyFloat_FromDouble(num);
 				
 				PyObject* structureList = PyList_New($1->landscape[i][j].num_structs);
 				for(int k = 0; k < $1->landscape[i][j].num_structs; k++){
-					PyObject* pStr = PyString_FromString($1->landscape[i][j].structures[k]);
+/* VRNA-PATCH-BEGIN(swig45-py3-aliases, DEFECT) -- SWIG 4.5 removed the Python-2 PyInt_ and PyString_ aliases */
+					PyObject* pStr = PyUnicode_FromString($1->landscape[i][j].structures[k]);  /* SWIG 4.5: PyString_FromString on Python 3 */
+/* VRNA-PATCH-END(swig45-py3-aliases) */
 					PyList_SetItem(structureList,k,pStr);
 					free($1->landscape[i][j].structures[k]);
 				}

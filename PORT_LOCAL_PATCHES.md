@@ -76,6 +76,22 @@ A mutex rather than thread-local storage, because `vrna_param_t` is ~250 KB and 
 library cannot know how many threads its caller has. Without pthreads the cache
 is **disabled** rather than left racy: slower, not wrong.
 
+**`swig45-py3-aliases`** — `src/RNAxplorer/interfaces/{distorted_sampling,distorted_samplingMD,paths}.i`
+(added 2026-10-03, six regions)
+
+`pip install swig` now installs SWIG 4.5, which removed the Python-2 compatibility
+aliases (`PyInt_FromLong`, `PyString_FromString`, `PyString_Check`,
+`PyString_AsString`). RNAxplorer's bundled Python interface still uses them, so its
+wrapper does not compile and **a bare `./configure && make` fails** (`make: *** [all]
+Error 2`), with `make install` never reached. Reproducer: that build. Found by Luke on
+Colab on 2026-10-03, after the same aliases had been fixed in `interfaces/` on 10-02.
+That fix never reached RNAxplorer because every test build had configured
+`--without-rnaxplorer`. Each call is now written as what the alias meant on Python 3
+under SWIG ≤ 4.4 (`PyLong_FromLong`, `PyUnicode_FromString`, `PyBytes_Check`,
+`PyBytes_AsString`), so behaviour is unchanged. That includes one upstream quirk: the
+list-of-strings typemap tests for *bytes*, so it never accepts a Python 3 `str`.
+The quirk is preserved, not fixed here.
+
 ### REACH
 
 **`bps-backtrack`** — `src/ViennaRNA/mfe/mfe.c`, `src/ViennaRNA/backtrack/global.h`
