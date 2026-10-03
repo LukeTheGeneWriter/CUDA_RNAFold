@@ -355,6 +355,11 @@ same data divided by all 400 records — the previous notebook's bug — reads *
 and would again have said the thesis was refuted. The correction is now validated on the
 device it was wrong about.
 
+> **2026-10-03: the driver is planned in `PORT_MD_BLOCKING_DRIVER.md`** — the schedule
+> with a read-by-read readiness table, a right-looking bulk update, the buffer audit,
+> v1's refusals, stages 3a–3e with bars, and the decisions awaiting sign-off. Stage 2's
+> negative control (`RNA_MD_BLOCK_SELFTEST=3`) has now run and bites.
+
 ### Stage 3 — tile-shaped `int_loop` / `hp_mb` / `new_c` / fML scan
 
 The tail's four phases become tile-shaped. This is the largest stage and the one that

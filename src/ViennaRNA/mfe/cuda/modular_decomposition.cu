@@ -728,7 +728,7 @@ init_gpu(const int nfiles, const int length,
    * decomposition can be checked against rows the sweep has already left behind.
    * MD_BLK2_RING x the whole row layout -- 296 MB at 400 x 5601, which is why it is
    * allocated only when the selftest asks for it. */
-  if(rnafold_md_block_selftest() == 2) {
+  if(rnafold_md_block_selftest() >= 2) {
     g_md_blk_ring_stride = g_row_total;
     error = cudaMalloc((void **) &d_md_blk_ring,
                        (size_t)MD_BLK2_RING * g_row_total * sizeof(int));
@@ -1801,10 +1801,15 @@ rnafold_md_block_selftest(void)
   if (v < 0) {
     const char *e = getenv("RNA_MD_BLOCK_SELFTEST");
 
-    /* 1 = stage 1 (RB=1, the primitive), 2 = stage 2 (the RB>1 decomposition). */
+    /* 1 = stage 1 (RB=1, the primitive), 2 = stage 2 (the RB>1 decomposition),
+     * 3 = stage 2's NEGATIVE CONTROL: the same check with the bulk's first k term
+     * (k = imax) deliberately dropped, so it covers [imax+1, j0-1] and the corners
+     * still stop at imax-1. One term of md's range is then missing from every cell,
+     * and wherever it was the minimum the check must report a mismatch. A run of 3
+     * that reports 0 mismatching means the check cannot see a range error. */
     v = (e && e[0] && e[0] != '0') ? atoi(e) : 0;
     if (v < 0) v = 0;
-    if (v > 2) v = 2;
+    if (v > 3) v = 3;
     if (v) {
       atexit(rnafold_md_block_selftest_report);   /* or the count is never printed */
       if (v == 1)
@@ -1812,10 +1817,12 @@ rnafold_md_block_selftest(void)
                         "through the blocked tile primitive and compared cell for cell "
                         "(slow; diagnostics only)\n", __FILE__);
       else
-        fprintf(stderr, "%-24s RNA_MD_BLOCK_SELFTEST=2: the RB>1 bulk+corner "
+        fprintf(stderr, "%-24s RNA_MD_BLOCK_SELFTEST=%d: the RB>1 bulk+corner "
                         "decomposition is recomputed for a %d-row x %d-column tile and "
-                        "compared against what md wrote (slow; diagnostics only)\n",
-                        __FILE__, MD_BLK2_RB, MD_BLK2_CB);
+                        "compared against what md wrote (slow; diagnostics only)%s\n",
+                        __FILE__, v, MD_BLK2_RB, MD_BLK2_CB,
+                        (v == 3) ? " -- NEGATIVE CONTROL: the bulk omits k = imax, so "
+                                   "mismatches are EXPECTED" : "");
     }
   }
 
@@ -1963,7 +1970,8 @@ __global__ void md_block2_selftest_kernel(
   const int *__restrict__ ring, const size_t stride,
   const size_t *__restrict__ tri_off_H, const size_t *__restrict__ side_off_H,
   const size_t *__restrict__ row_off_H,
-  const int *__restrict__ i_H)
+  const int *__restrict__ i_H,
+  const int drop)                  /* 1 = RNA_MD_BLOCK_SELFTEST=3, the negative control */
 {
   __shared__ int Xs[KB * (RB + 1)];
   __shared__ int Ys[KB * (CB + 1)];
@@ -2004,7 +2012,10 @@ __global__ void md_block2_selftest_kernel(
   const int kb0 = (imax / FML_BLK) * FML_BLK;
 
   for (int k0 = kb0; k0 <= j0 - 1; k0 += KB) {
-    md_block_stage_row_tri<RB, KB>(H, imin, imax, k0, j0, n_len,
+    /* imax + drop: the A operand's mask is k >= imax, so drop = 1 removes k = imax
+     * from the bulk while the corners still end at imax - 1 -- the term is then in
+     * neither piece. Only the selftest's negative control passes 1. */
+    md_block_stage_row_tri<RB, KB>(H, imin, imax + drop, k0, j0, n_len,
                                    fml_j16, fml_b, fml_j,
                                    tri_off_H, base_off_H, colb_off, turn,
                                    Xs, tid, TPB);
@@ -2576,7 +2587,7 @@ void modular_decomposition_cuda(const int nfiles,
   /* Stage 1 of blocked Zuker: recompute this row through the blocked primitive and
    * compare. After the launch above and before anything overwrites d_dml, which is
    * the only point where both answers exist at once. */
-  if(rnafold_md_block_selftest() == 2) {
+  if(rnafold_md_block_selftest() >= 2) {
     /* stage 2: keep this row's fM2, then check the RB rows ABOVE it -- the ones that
      * are final AND already packed. See md_block2_selftest_kernel's header. */
     int maxcell = 0;
@@ -2616,7 +2627,8 @@ void modular_decomposition_cuda(const int nfiles,
                                 MD_BLK2_LANES><<<grid, TPB>>>(
         nfiles, turn, length, i16 ? NULL : d_fml_j, i16 ? d_fml_j16 : NULL, d_fml_b,
         d_base_off_H, d_colb_off, d_md_blk_ring, g_md_blk_ring_stride,
-        d_tri_off_H, d_side_off_H, d_row_off_H, d_i_H);
+        d_tri_off_H, d_side_off_H, d_row_off_H, d_i_H,
+        (rnafold_md_block_selftest() == 3) ? 1 : 0);
       gpuErrchk( cudaPeekAtLastError() );
       gpuErrchk( cudaDeviceSynchronize() );
     }

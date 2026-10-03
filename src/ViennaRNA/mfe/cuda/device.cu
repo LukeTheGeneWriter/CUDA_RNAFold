@@ -1071,6 +1071,12 @@ rt_stage_mb(void)
       v = atol(e);
       if (v < 0)
         v = 0;
+      /* Positive evidence for an explicit setting: AUTO prints its probe line, and
+       * without this an explicit arm printed nothing -- so a stage-size sweep could
+       * not tell a value that took from one that was ignored. */
+      fprintf(stderr, "device.cu                RNA_XFER_STAGE_MB=%ld: backtrack scratch "
+                      "%s\n", v, v ? "unpinned, copied through a pinned stage of that size"
+                                   : "PINNED, no stage");
     } else {
       v = -1;                       /* AUTO: decided on first use, below */
     }
