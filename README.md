@@ -89,7 +89,7 @@ and installation process.*
 One command installs the prerequisites, a CUDA toolkit if an NVIDIA GPU is visible, builds,
 and checks that the GPU's answer equals the CPU's:
 ```
-git clone https://github.com/lukethegenewriter/CUDA_RNAFold.git
+git clone --branch Lukes_Flow_Batching https://github.com/lukethegenewriter/CUDA_RNAFold.git
 cd CUDA_RNAFold
 tools/setup_ubuntu.sh --install
 ```
