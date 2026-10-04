@@ -172,6 +172,13 @@ AS_IF([test $with_perl = "yes"],[
 AS_IF([test $with_python = "yes"],[
   eval _python_arch_dir=$(eval printf "%s" ${py3execdir})
   eval _python_lib_dir=$(eval printf "%s" ${python3dir})
+  ## Will `import RNA` find the installed module? If the directory is not on the
+  ## interpreter's sys.path, say so here, with the line that fixes it, rather than
+  ## leaving the user to discover a ModuleNotFoundError after `make install`.
+  AS_IF([$PYTHON3 -c "import sys; d='$_python_arch_dir'.rstrip('/'); sys.exit(0 if d in [[p.rstrip('/') for p in sys.path]] else 1)" 2>/dev/null],
+        [python_path_line=""],
+        [python_path_line="
+      (on Python's path)      : no -- after installing, run: export PYTHONPATH=$_python_arch_dir"])
   ],[
     _python_arch_dir=""
     _python_lib_dir=""
@@ -291,7 +298,8 @@ AS_IF([test "x$enable_cuda" = "xyes"],[
 ],[
   AS_IF([test "x$cuda_report_why" != "x"],
         [cuda_report_detail="
-      - reason                : ${cuda_report_why}
+      - reason                : ${cuda_report_why}${cuda_report_hint:+
+      - to enable it          : ${cuda_report_hint}}
       - folding runs on the CPU only, exactly as stock ViennaRNA does"],
         [cuda_report_detail="
       - disabled at configure time"])
@@ -349,7 +357,7 @@ Optimizations
 Scripting Language Interfaces
 -----------------------------
   * Perl 5                    : ${result_perl}
-  * Python 3.x                : ${result_python}
+  * Python 3.x                : ${result_python} ${python_report_why}
   * Python 2.x                : ${result_python2}
 
 Documentation
@@ -387,7 +395,7 @@ Install Directories
       (scripts)               : $result__perl_lib_dir
   * Python 3.x Interface      : $result__python_install
       (binaries)              : $result__python_arch_dir
-      (scripts)               : $result__python_lib_dir
+      (scripts)               : $result__python_lib_dir${python_path_line}
   * Python 2.x Interface      : $result__python2_install
       (binaries)              : $result__python2_arch_dir
       (scripts)               : $result__python2_lib_dir

@@ -59,7 +59,7 @@ those edits is bracketed in the source itself:
 
 `tools/list_local_patches.sh` lists them from the source rather than from a
 document that can drift, and fails if a marker is unpaired or an upstream file
-is modified without one. As of this tip: **18 marked regions across 11 files** (six of them the SWIG 4.5 fix in RNAxplorer),
+is modified without one. As of this tip: **20 marked regions across 12 files** (six of them the SWIG 4.5 fix in RNAxplorer, two its Python install path),
 plus `src/bin/RNAfold.c` which is declared a local patch *whole-file* (it is
 +1 670 lines of driver — a CUDA chunker around upstream's per-record loop — and
 marking each hunk would be noise pretending to be precision).

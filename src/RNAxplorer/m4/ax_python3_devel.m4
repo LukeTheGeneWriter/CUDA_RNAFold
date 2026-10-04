@@ -47,6 +47,18 @@ AC_DEFUN([AX_PYTHON3_DEVEL],[
             # the string concatenation below is just a trick to prevent substitution
             PYTHON3_DIR=`$PYTHON3 -c "import sysconfig; \
                   print(sysconfig.get_path('purelib', vars={'base':'$' '{prefix}'}))"`
+            dnl VRNA-PATCH-BEGIN(debian-local-scheme, DEFECT) -- PORT_LOCAL_PATCHES.md
+            dnl Debian/Ubuntu's default sysconfig scheme, posix_local, has purelib
+            dnl {base}/local/lib/pythonX.Y/dist-packages: it assumes base=/usr and moves
+            dnl the install to /usr/local. Evaluated with base=${prefix} at the DEFAULT
+            dnl prefix /usr/local that is /usr/local/local/..., which is not on sys.path.
+            dnl When the prefix already ends in /local, the scheme's extra /local is dropped.
+            _vrna_py_prefix=$prefix
+            test "x$_vrna_py_prefix" = xNONE && _vrna_py_prefix=$ac_default_prefix
+            case "$_vrna_py_prefix" in
+              */local) PYTHON3_DIR=`echo "$PYTHON3_DIR" | sed 's|^\${prefix}/local/|${prefix}/|'` ;;
+            esac
+            dnl VRNA-PATCH-END(debian-local-scheme)
           fi
           AC_SUBST(python3dir, $PYTHON3_DIR)
           AC_MSG_RESULT([$PYTHON3_DIR])
@@ -56,6 +68,15 @@ AC_DEFUN([AX_PYTHON3_DEVEL],[
           if test -z "$PYTHON3_EXECDIR" ; then
             PYTHON3_EXECDIR=`$PYTHON3 -c "import sysconfig; \
                   print(sysconfig.get_path('platlib', vars={'platbase':'$' '{exec_prefix}'}))"`
+            dnl VRNA-PATCH-BEGIN(debian-local-scheme-exec, DEFECT) -- PORT_LOCAL_PATCHES.md
+            dnl The same for platlib and exec_prefix (which defaults to the prefix).
+            _vrna_py_eprefix=$exec_prefix
+            test "x$_vrna_py_eprefix" = xNONE && _vrna_py_eprefix=$prefix
+            test "x$_vrna_py_eprefix" = xNONE && _vrna_py_eprefix=$ac_default_prefix
+            case "$_vrna_py_eprefix" in
+              */local) PYTHON3_EXECDIR=`echo "$PYTHON3_EXECDIR" | sed 's|^\${exec_prefix}/local/|${exec_prefix}/|'` ;;
+            esac
+            dnl VRNA-PATCH-END(debian-local-scheme-exec)
           fi
           AC_SUBST(py3execdir, $PYTHON3_EXECDIR)
           AC_MSG_RESULT([$PYTHON3_EXECDIR])

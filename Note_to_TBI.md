@@ -80,12 +80,12 @@ thousand lines of CUDA to locate three hundred:
 /* VRNA-PATCH-END(<id>) */
 ```
 
-**18 marked regions across 11 files**: the 12 below in the eight library files, and six in RNAxplorer's SWIG interface (§2.1). The classes are separated because they have
+**20 marked regions across 12 files**: the 12 below in the eight library files, six in RNAxplorer's SWIG interface, and two in its Python install macro (§2.1). The classes are separated because they have
 very different odds and should be judged separately:
 
 | class | meaning | standalone? | count |
 |---|---|---|---|
-| **DEFECT** | an upstream bug we fixed, with a reproducer | **yes** — stands whether or not any CUDA work is accepted | 1, plus 6 regions of the SWIG 4.5 fix in RNAxplorer |
+| **DEFECT** | an upstream bug we fixed, with a reproducer | **yes** — stands whether or not any CUDA work is accepted | 1, plus 6 regions of the SWIG 4.5 fix and 2 of the Python install path in RNAxplorer |
 | **SEAM** | an attachment point we need that upstream lacks; shaped to be useful on CPU with no GPU at all | yes, as a feature proposal | 7 |
 | **REACH** | a capability upstream **already has** that its public API cannot reach | yes — usually the hardest to argue against | 4 |
 
@@ -168,6 +168,20 @@ quirk, kept: the list-of-strings typemap tests for *bytes*, so it never accepts 
 3 `str`. They are marked `swig45-py3-aliases` (six regions). Verified with the default
 line: a fresh clone, bare `./configure` with no `--without-*`, `make` and `make install`
 both succeed under SWIG 4.5.0, and `RNA` and `RNAxplorer` both import from the install.
+
+**The Python module installed where Python does not look, found 2026-10-04.** On Debian and
+Ubuntu the default `sysconfig` scheme is `posix_local`, whose purelib and platlib are
+`{base}/local/lib/pythonX.Y/dist-packages`. It assumes `base=/usr` and moves the install to
+`/usr/local`. `ax_python3_devel.m4` evaluates it with `base=${prefix}`, so at the **default**
+prefix `/usr/local` the module goes to `/usr/local/local/lib/…`, which is not on `sys.path`,
+and a plain `./configure && make && sudo make install` ends with `import RNA` failing.
+Reproducer: that sequence on a fresh Ubuntu 24.04. When the prefix already ends in `/local`,
+the scheme's extra `/local` is now dropped. Any other prefix, and an explicit
+`PYTHON3_DIR`/`PYTHON3_EXECDIR`, is untouched, and configure's summary now says when the
+module will not be on `sys.path`, with the export line. The change is marked
+`debian-local-scheme`/`-exec` in both copies of the macro: `m4/` (outside `src/`, so the
+tool does not count it) and `src/RNAxplorer/m4/` (two regions). Verified on a blank WSL
+distro: after `sudo make install`, `import RNA` works from a new shell with nothing set.
 
 **An eighth, in the same parameter cache: a parameter set loaded after the first fold
 is ignored.** `p_pre_init` is set the first time `vrna_params()` fills the cache and

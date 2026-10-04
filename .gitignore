@@ -55,3 +55,6 @@ configure.bak
 configure.run.rc
 configure_status.txt
 nvcc_paths.txt
+
+# tools/setup_ubuntu.sh
+/setup-logs/
