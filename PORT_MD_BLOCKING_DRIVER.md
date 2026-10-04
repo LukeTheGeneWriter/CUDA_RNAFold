@@ -477,3 +477,51 @@ corners want narrow ones. That is the first thing 3d has to settle. Two candidat
 Until then RNA_MD_BLOCK stays **off by default** (§5's default-on rule needs an A100 win).
 `md_close` stays its own launch; folding it into the corner kernel's epilogue waits for the
 corner design to settle.
+
+**Correction (2026-10-04, same day): the second candidate above is ILLEGAL.** Sharing cor2
+across the block-row's rows needs every row's A (E on J) before any of their md(·, J). But row
+i−1's E on J depends on md(i, J): `md(i,J) → dml → new_c(i−1, j+1) → c → scan(i−1, J)`, and
+`md_close(i,J) → fml_prev → scan(i−1, J)`. So cor2 is a single-row (min,+) matrix-vector product
+per step, about CB²/2 terms, with no reuse to stage. Its share of md is ~CB / (2 × average span):
+blocking can only pay at narrow CB. The tension is resolved by making narrow-CB steps cheap (the
+wavefront: anti-diagonal steps (i, J), (i+1, J+1), … are independent and can share launches),
+not by blocking cor2. Cheaper first: measure cor2 lane counts 4/8/16/32 at CB 512, because
+"4 lanes" was measured on ~64-term corners.
+
+**Lane count and length, measured (2026-10-04, laptop).**
+- **cor2 lanes at CB 512** (47 × 2000; md / int_loop; every lane count byte-identical, int16
+  and int32): per-cell md 0.74–0.77; blocked with 4 lanes 0.88–0.91, 8 lanes 0.82, **16 lanes
+  0.74–0.75**, 32 lanes 0.74–0.75. **Default now 16** (`RNA_MD_BLK_LANES`). The 3c matrix
+  reran 54/54 at 16 lanes, with every control seen.
+- **Long records** (12 × 5000, RB 64, CB 512; the clock held, so these are absolute
+  seconds; byte-identical):
+
+  | arm | md (s) | int_loop (s) | wall (s) |
+  |---|---|---|---|
+  | row path | 6.83 | 6.0 | 15.8 |
+  | tile, md per cell | 8.26–8.39 | 8.3–8.5 | 22.3–22.7 |
+  | tile, blocked md | 7.13–7.20 | 8.2–8.3 | 21.0–21.2 |
+
+  Blocked md is −14 % against per-cell md on the same tiles, but still +5 % against the row
+  path's md. The wall is dominated by **int_loop's tile tax (+38 % on this 20-SM GPU)**, not
+  by md.
+- **Where blocked md's time goes** (`RNA_MD_BLK_PROFILE=1`, event-timed and synchronised):
+  at RB 64 / CB 512 it is UPDATE 1.94 s, corners 2.12 s, md_close 0.46 s. At RB 128 / CB 512
+  it is 2.18 / 2.46 / 0.49, and at RB 64 / CB 256 it is 2.75 / 2.22 / 0.87.
+  - The bulk is ~80 % of md's terms in 1.94 s, against md_cell's 6.8 s for all of them:
+    **~2.5× per term, untuned** (RT 32 × CT 64).
+  - The corners are ~17 % of the terms in 2.12 s: **~1.9× SLOWER per term than md_cell.**
+    The likely cause is cache, not arithmetic. cor2 is J's near-diagonal B triangle,
+    ~256 KB per record at CB 512, re-read by each of the block-row's RB rows in turn.
+    At 12 records that is ~3 MB against this GPU's 2 MB L2. An A100 has 40 MB.
+
+**The wavefront is NOT a free lever.** It conflicts with the right-looking bulk. UPDATE(J)
+needs every row of the block-row done at J, but a wavefront puts the leading row at J+d while
+the trailing rows are at J. So the leading rows' bulk for the last d column blocks is not in
+ACC, and has to be walked per row like cor2. D steps in flight cost a per-row walk of
+~D × CB: the same as a D-times-wider CB. In general, cells that share a launch either share
+a row's column block (walked by cor2) or are in rows mid-block (ACC not ready).
+
+**So the decisive measurement is the A100**, at production length (5601 nt, cor2 ~14 % of
+md), with its 40 MB L2 (the corners' re-read triangle fits). Arms: row, tile per-cell, and
+blocked at CB 256/512/1024 × RB 64/128 × lanes 16/32, plus one `RNA_MD_BLK_PROFILE` arm.

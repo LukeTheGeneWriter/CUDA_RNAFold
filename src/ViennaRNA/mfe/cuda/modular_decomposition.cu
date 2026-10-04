@@ -2202,7 +2202,7 @@ rnafold_md_block_selftest_report(void)
 #define MD_UPD_RT 32    /* UPDATE row tile; a block-row of RB rows takes ceil(RB/RT) */
 #define MD_UPD_CT 64    /* UPDATE column tile */
 #define MD_UPD_KB 32    /* staging depth; divides FML_BLK */
-#define MD_BLK_LANES 4  /* corner lanes per cell -- PORT_MD_BLOCKING_INTEGRATION.md 3.6 */
+#define MD_BLK_LANES 16 /* corner lanes per cell: 16 at CB 512 (laptop: md/il 0.74 vs 4 lanes 0.89, DRIVER.md 13); 4 won only on ~64-term corners */
 #define MD_BLK_RB_MAX 128
 
 typedef struct { const int *r[MD_BLK_RB_MAX]; } md_blk_erows_t;   /* row top-r's E */
@@ -2214,11 +2214,52 @@ static long    g_blk_steps = 0, g_blk_updates = 0, g_blk_rowstarts = 0;
 extern "C" int rnafold_md_tile_cb(void);
 extern "C" int rnafold_md_tile_rb(void);
 
+/* RNA_MD_BLK_PROFILE=1 (diagnostic): GPU time of the blocked md's three parts -- UPDATE,
+ * corners, md_close -- by events around each launch, synchronised, so it serialises the
+ * stream and is for attribution only. */
+static int    g_blk_prof = -1;
+static double g_blk_ms[3] = { 0, 0, 0 };
+static cudaEvent_t g_blk_ev[2];
+
+static int
+md_blk_prof(void)
+{
+  if (g_blk_prof < 0) {
+    const char *e = getenv("RNA_MD_BLK_PROFILE");
+    g_blk_prof = (e && e[0] == '1') ? 1 : 0;
+    if (g_blk_prof) {
+      gpuErrchk( cudaEventCreate(&g_blk_ev[0]) );
+      gpuErrchk( cudaEventCreate(&g_blk_ev[1]) );
+    }
+  }
+  return g_blk_prof;
+}
+
+static void
+md_blk_prof_begin(void)
+{
+  if (md_blk_prof()) gpuErrchk( cudaEventRecord(g_blk_ev[0], ISSUE_STREAM) );
+}
+
+static void
+md_blk_prof_end(const int part)
+{
+  if (!md_blk_prof()) return;
+  float ms = 0.f;
+  gpuErrchk( cudaEventRecord(g_blk_ev[1], ISSUE_STREAM) );
+  gpuErrchk( cudaEventSynchronize(g_blk_ev[1]) );
+  gpuErrchk( cudaEventElapsedTime(&ms, g_blk_ev[0], g_blk_ev[1]) );
+  g_blk_ms[part] += ms;
+}
+
 static void
 md_blk_report(void)
 {
   fprintf(stderr, "%-24s RNA_MD_BLOCK: %ld blocked md steps, %ld UPDATE launches, "
                   "%ld block-rows\n", __FILE__, g_blk_steps, g_blk_updates, g_blk_rowstarts);
+  if (g_blk_prof == 1)
+    fprintf(stderr, "%-24s RNA_MD_BLK_PROFILE (s): UPDATE %.3f  corners %.3f  md_close %.3f\n",
+            __FILE__, g_blk_ms[0] / 1e3, g_blk_ms[1] / 1e3, g_blk_ms[2] / 1e3);
 }
 
 /* RNA_MD_BLOCK=1: blocked md on the tile path. Off by default; refuses (the per-cell md
@@ -2455,11 +2496,34 @@ rnafold_md_blk_update(const int nfiles, const int turn, const int length,
   dim3 grid((unsigned)((length - jhi + MD_UPD_CT - 1) / MD_UPD_CT), (unsigned)nfiles,
             (unsigned)((top - bot + 1 + MD_UPD_RT - 1) / MD_UPD_RT));
   const int TPB = (MD_UPD_RT / 4) * (MD_UPD_CT / 4);
+  md_blk_prof_begin();
   md_blk_update_kernel<MD_UPD_RT, MD_UPD_CT, MD_UPD_KB, 4, 4><<<grid, TPB, 0, ISSUE_STREAM>>>(
       nfiles, turn, top, bot, kmin, kmax, E, d_md_acc, g_row_total,
       d_fml_j, d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, d_tri_off_H, d_row_off_H);
   gpuErrchk( cudaPeekAtLastError() );
   g_blk_updates++;
+  md_blk_prof_end(0);
+}
+
+/* RNA_MD_BLK_LANES: lanes per cell in the corner kernel, one of 4 8 16 32 (default
+ * MD_BLK_LANES). 4 won on ~64-term corners (INTEGRATION.md 3.6); cor2 walks ~CB/2 terms,
+ * so at wide CB the right count is a measurement (DRIVER.md 13). */
+static int
+md_blk_lanes(void)
+{
+  static int v = -1;
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_BLK_LANES");
+    v = MD_BLK_LANES;
+    if (e && e[0]) {
+      const int w = atoi(e);
+      if (w == 4 || w == 8 || w == 16 || w == 32) v = w;
+      else fprintf(stderr, "%-24s ignoring RNA_MD_BLK_LANES=%s (want 4/8/16/32)\n", __FILE__, e);
+    }
+    if (rnafold_md_block())
+      fprintf(stderr, "%-24s RNA_MD_BLK_LANES=%d: corner lanes per cell\n", __FILE__, v);
+  }
+  return v;
 }
 
 /* md for one step on the blocked path: in place of modular_decomposition_i(). */
@@ -2470,16 +2534,27 @@ md_blk_step(const int nfiles, const int i, const int turn, const size_t *side_of
   g_blk_steps++;
   if (total == 0) return;
   bind_row_tables(i);
-  const size_t threads = total * (size_t)MD_BLK_LANES;
+  const int    L       = md_blk_lanes();
+  const size_t threads = total * (size_t)L;
   const int    bs      = 128;
+  md_blk_prof_begin();
   const size_t nb      = (threads + bs - 1) / bs;
-  md_blk_corner_kernel<MD_BLK_LANES><<<(unsigned)nb, bs, 0, ISSUE_STREAM>>>(
-      nfiles, RNA_I_ROW(i), turn, g_blk_top, g_blk_jlo, d_energy_min,
-      d_md_acc + (size_t)(g_blk_top - i) * g_row_total,
-      d_dml, rnafold_circ_fm2_device(),
-      d_fml_j, d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, d_tri_off_H, d_row_off_H,
-      d_side_off_H, total, d_i_H);
+#define MD_BLK_CORNER(LN) \
+  md_blk_corner_kernel<LN><<<(unsigned)nb, bs, 0, ISSUE_STREAM>>>( \
+      nfiles, RNA_I_ROW(i), turn, g_blk_top, g_blk_jlo, d_energy_min, \
+      d_md_acc + (size_t)(g_blk_top - i) * g_row_total, \
+      d_dml, rnafold_circ_fm2_device(), \
+      d_fml_j, d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, d_tri_off_H, d_row_off_H, \
+      d_side_off_H, total, d_i_H)
+  switch (L) {
+    case  8: MD_BLK_CORNER(8);  break;
+    case 16: MD_BLK_CORNER(16); break;
+    case 32: MD_BLK_CORNER(32); break;
+    default: MD_BLK_CORNER(4);  break;
+  }
+#undef MD_BLK_CORNER
   gpuErrchk( cudaPeekAtLastError() );
+  md_blk_prof_end(1);
 }
 
 
@@ -4333,7 +4408,9 @@ md_row_chain(const int nfiles, const int i, const int turn, const int length,
   if(d_md_acc) md_blk_step(nfiles, i, turn, side_off_H);   /* 3c: RNA_MD_BLOCK */
   else         modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
   g_md_tail_now = 0;
+  if(d_md_acc) md_blk_prof_begin();
   md_close_row(nfiles,i,turn,size_off_H);
+  if(d_md_acc) md_blk_prof_end(2);
   g_md_tail_row = i;
 }
 
