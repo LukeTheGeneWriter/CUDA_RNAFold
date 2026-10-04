@@ -30,7 +30,7 @@ upstream's CPU path (`BENCH272_V5_RESULTS.md`).
 
 ## 2. What differs from stock 2.7.2
 
-`git diff --shortstat v2.7.2..Finished_Port` — **166 files, +38 493, −51**. That
+`git diff --shortstat v2.7.2..Finished_Port` — **171 files, +38 994, −56**. That
 headline is misleading on its own, so here is the split that matters:
 
 | | files | lines | what it is |
@@ -38,9 +38,9 @@ headline is misleading on its own, so here is the split that matters:
 | **New CUDA subdirectory** `src/ViennaRNA/mfe/cuda/` | 18 | **+13 389** | ours entirely. Upstream can take it or leave it |
 | **Library files upstream owns** | 8 | **+477 / −7** | the part that needs defending. All marked in-source |
 | **The driver** `src/bin/RNAfold.c` | 1 | **+1 848 / −25** | ours in effect; not part of any proposal |
-| **Build system, README and SWIG interfaces** | 24 | +764 / −19 | the configure summary, the nvcc libtool shim, test wiring, README's GPU section, `setup.py`'s `mfe/cuda` exclusion, the SWIG 4.5 fix, the Python interface to the GPU backend (`interfaces/cuda.i`, `cuda_python.i`), and the same SWIG 4.5 fix in RNAxplorer |
-| **New autoconf macros + tests** | 40 | +5 159 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes, `tests/zeroconf_configure.sh`, `tests/python/test_RNA-cuda.py` |
-| **Project documents and tools** | 75 | +16 856 | not code. Scopes, specs, notebook generators |
+| **Build system, README and SWIG interfaces** | 27 | +860 / −24 | the configure summary, the nvcc libtool shim, test wiring, README's GPU section, `setup.py`'s `mfe/cuda` exclusion, the SWIG 4.5 fix, the Python interface to the GPU backend (`interfaces/cuda.i`, `cuda_python.i`), the same SWIG 4.5 fix in RNAxplorer, and the setup work: README's corrected prerequisites, configure's new messages, the Python install path DEFECT (`Note_to_TBI_setup.md`) |
+| **New autoconf macros + tests** | 40 | +5 175 | `m4/ac_rna_cuda.m4`, the `.ts` suites, `tests/upstream/` probes, `tests/zeroconf_configure.sh`, `tests/python/test_RNA-cuda.py` |
+| **Project documents and tools** | 77 | +17 245 | not code. Scopes, specs, notebook generators, `tools/setup_ubuntu.sh` |
 
 > **These figures are recomputed, and two earlier versions of this section were
 > wrong.** It once read "216 files, +73 162" and "9 files, +2 296 / −20". The

@@ -15,7 +15,7 @@ that is `PORT_UPSTREAM_PROPOSAL.md` — nor restate the measurements, which are 
 
 ## 1. How to read the diff
 
-`git diff --shortstat v2.7.2..Finished_Port` reports **166 files, +38 493, −51**
+`git diff --shortstat v2.7.2..Finished_Port` reports **171 files, +38 994, −56**
 (including this document), after the notebooks and result JSON were untracked.
 Even that is more than the proposal: about half the remaining lines are the
 project's own `PORT_*.md` scope documents and tooling, which are how the port was
@@ -28,15 +28,15 @@ The split that matters:
 |---|---|---|---|
 | **A. Library files upstream owns** | **8** | **+477 / −7** | the part that needs defending |
 | **B. The driver, `src/bin/RNAfold.c`** | 1 | +1 848 / −25 | ours in effect; not proposed |
-| **C. Build system, README, SWIG interfaces** | 24 | +764 / −19 | configure wiring and summary, `.cu` build rules, README's GPU section, the SWIG 4.5 fix, and the Python interface to the GPU backend (two new `.i` files, §4.1), and RNAxplorer's interface (the same SWIG 4.5 fix, §2.1) |
+| **C. Build system, README, SWIG interfaces** | 27 | +860 / −24 | configure wiring and summary, `.cu` build rules, README's GPU section, the SWIG 4.5 fix, and the Python interface to the GPU backend (two new `.i` files, §4.1), and RNAxplorer's interface (the same SWIG 4.5 fix, §2.1), and the setup work (README's corrected prerequisite list, configure's new messages, the Python install path DEFECT, §4.2) |
 | **D. New CUDA backend** `src/ViennaRNA/mfe/cuda/` | 18 | +13 389 | a new subdirectory; take it or leave it |
-| **E. New autoconf macros** | 2 | +411 | `m4/ac_rna_cuda.m4`, `ac_rna_asserts.m4` |
+| **E. New autoconf macros** | 2 | +427 | `m4/ac_rna_cuda.m4`, `ac_rna_asserts.m4` |
 | **F. New tests and fixtures** | 38 | +4 748 | including standalone upstream reproducers |
-| **G. Documents and tools** | 75 | +16 856 | **not code, not proposed** |
+| **G. Documents and tools** | 77 | +17 245 | **not code, not proposed** |
 
-**All 51 deleted lines** are accounted for: 7 in the eight library files, 25 in
+**All 56 deleted lines** are accounted for: 7 in the eight library files, 25 in
 `RNAfold.c`, 4 list-continuations in `tests/Makefile.am`, and 15 in SWIG interface
-files (6 in ViennaRNA's, 9 in RNAxplorer's), each replaced by its Python 3 spelling (§2.1). There is no upstream code removed
+files (6 in ViennaRNA's, 9 in RNAxplorer's), each replaced by its Python 3 spelling (§2.1), and 5 in the setup work: three of README's prerequisite lines and two summary lines in `m4/ac_rna.m4`, each rewritten (§4.2). There is no upstream code removed
 anywhere else in the tree.
 
 > **Corrections to our own earlier numbers, now fixed at source.**
@@ -273,7 +273,7 @@ is backend-agnostic and would serve any batch backend. Built without a CUDA tool
 
 ---
 
-## 4. Part C — build system, README and SWIG interfaces (+764 / −19)
+## 4. Part C — build system, README and SWIG interfaces (+860 / −24)
 
 | file | + / − | what |
 |---|---|---|
@@ -339,6 +339,23 @@ three defects that no CLI bar could reach. All three are fixed here:
 child process because `RNA_FML_INT16` is read once per process; with the old teardown
 it goes red (checked 2026-10-02).
 
+### 4.2 A one-command setup, and three configure messages
+
+Added 2026-10-04, after following the README literally on a blank Ubuntu 24.04 WSL hit seven
+separate stops. Five of them are upstream 2.7.2's own (prerequisite names, texinfo, the
+doxygen rule, python3-dev, SWIG ≥ 4.3 against distribution versions), and one is an upstream
+DEFECT: at the default prefix, `make install` puts the Python module in
+`/usr/local/local/lib/…`, which Python does not search. **`Note_to_TBI_setup.md` has the
+details.** In Part C that means:
+- README's prerequisite list, with current package names (3 lines rewritten), and a quick
+  start for `tools/setup_ubuntu.sh` (a Part G tool);
+- `m4/ac_rna.m4` and `m4/ac_rna_swig.m4`: the summary says why Python is off and what fixes
+  it, and warns when the module will not be on `sys.path` (2 summary lines rewritten);
+- `ax_python3_devel.m4` in `m4/` and in `src/RNAxplorer/m4/`: the `debian-local-scheme`
+  DEFECT fix.
+
+`m4/ac_rna_cuda.m4` (Part E) adds the hint for a visible GPU with no toolkit.
+
 ---
 
 ## 5. Part D — the new CUDA backend, `src/ViennaRNA/mfe/cuda/` (18 files, +13 389)
@@ -391,7 +408,7 @@ taken or left independently of Part A.
 
 ---
 
-## 6. Part E — new autoconf macros (2 files, +411)
+## 6. Part E — new autoconf macros (2 files, +427)
 
 | file | lines | what |
 |---|---|---|
@@ -523,5 +540,6 @@ of it exists in ViennaRNA and none of it ever would. That is why the headline in
 | what should upstream actually be asked for | `PORT_UPSTREAM_PROPOSAL.md` |
 | what the patch classes mean, and each patch's rationale | `PORT_LOCAL_PATCHES.md` |
 | what the tree is, what is accelerated, what is declined | `CUDA_RNAFold_History.md` |
+| how a newcomer builds it, and the upstream install defects that found | `Note_to_TBI_setup.md` |
 | per-option status, and why each was accelerated or declined | `PORT_OPTION_STATUS.md` |
 | earlier merge analysis (partly superseded — read its §0 first) | `MERGING.md` |
