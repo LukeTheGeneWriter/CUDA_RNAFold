@@ -242,6 +242,7 @@ EXECUTABLE_TESTS  = \
                   RNAfold/partfunc \
                   RNAfold/special \
                   RNAfold/long \
+                  RNAfold/gpu_input \
                   RNAcofold/general \
                   RNAcofold/partfunc \
                   RNAalifold/general \
