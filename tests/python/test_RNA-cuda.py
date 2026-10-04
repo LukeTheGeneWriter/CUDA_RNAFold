@@ -1,5 +1,7 @@
+import json
 import os
 import random
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -391,6 +393,96 @@ print("device_batches %d mismatching %d" % (dev, bad))
             ref_structure, ref_energy = cpu(seq, md)
             self.assertEqual(structure, ref_structure)
             self.assertAlmostEqual(energy, ref_energy, 2)
+
+
+# A fresh interpreter: fold on the device first (or not), then fork a Pool. Run as a
+# separate process because the test runner's own process has already used the device,
+# and because a regression here is a HANG, which only a timeout from outside can catch.
+FORK_PROBE = r'''
+import json, multiprocessing as mp, random, sys
+sys.path.insert(0, %r)
+import RNA
+
+def work(seqs):
+    return [tuple(x) for x in RNA.fold(seqs)], RNA.cuda_devices(), RNA.cuda_batches()
+
+if __name__ == "__main__":
+    rng = random.Random(7)
+    jobs = [["".join(rng.choice("ACGU") for _ in range(200)) for _ in range(3)] for _ in range(4)]
+    if %r:
+        RNA.fold(jobs[0])
+    parent_batches = RNA.cuda_batches()
+    with mp.get_context("fork").Pool(2) as pool:
+        out = pool.map_async(work, jobs).get(timeout=120)
+    ok = all(got == [tuple(RNA.fold(s, cpu_only=True)) for s in job]
+             for (got, _, _), job in zip(out, jobs))
+    print("RESULT " + json.dumps({"ok": ok, "parent_batches": parent_batches,
+                                  "child_devices": [d for _, d, _ in out],
+                                  "child_batches": [b for _, _, b in out]}))
+'''
+
+
+def module_dir():
+    return os.path.dirname(os.path.dirname(os.path.abspath(RNA.__file__)))
+
+
+def fork_probe(parent_uses_device):
+    p = subprocess.run([sys.executable, "-c", FORK_PROBE % (module_dir(), parent_uses_device)],
+                       capture_output=True, text=True, timeout=300)
+    for line in p.stdout.splitlines():
+        if line.startswith("RESULT "):
+            return json.loads(line[7:])
+    raise AssertionError("fork probe produced no result (rc %d): %s"
+                         % (p.returncode, (p.stdout + p.stderr)[-800:]))
+
+
+def device_present():
+    # asked in a child, so the answer cannot depend on this process having asked before
+    p = subprocess.run([sys.executable, "-c", "import sys; sys.path.insert(0, %r); import RNA; "
+                        "print(RNA.cuda_devices())" % module_dir()],
+                       capture_output=True, text=True, timeout=120)
+    return p.stdout.strip().endswith(tuple("123456789"))
+
+
+class cuda_forkTest(unittest.TestCase):
+    """fork() after the device was used: the children fold on the host, they do not hang
+
+    Found 2026-10-04 by the binder notebook's dry run. A CUDA context does not survive
+    fork(), so every worker of a fork Pool died at its first fold ("initialization
+    error") and Pool.map waited forever -- after an RNA.fold() in the parent, which uses
+    the device by default. Fork is Linux's default start method up to Python 3.13, so
+    this is what an existing ViennaRNA script does. The engine now lets only the process
+    that first reached CUDA use it; a forked child of that process folds on the host.
+    """
+
+    def test_fork_after_the_device_was_used(self):
+        """Workers forked after a device fold return the CPU's answers, on the host"""
+        if not device_present():
+            self.skipTest("no CUDA device")
+        try:
+            r = fork_probe(True)
+        except subprocess.TimeoutExpired:
+            self.fail("the fork Pool HUNG after the parent used the device")
+        self.assertTrue(r["ok"], "a forked worker's answer differs from the CPU's: %s" % r)
+        self.assertGreater(r["parent_batches"], 0, "the parent never used the device: %s" % r)
+        self.assertEqual(r["child_devices"], [0] * 4, "a forked worker still sees a device: %s" % r)
+        self.assertEqual(r["child_batches"], [r["parent_batches"]] * 4,
+                         "a forked worker folded on the device: %s" % r)
+
+    def test_fork_before_the_device_was_used(self):
+        """Workers forked from a parent that never touched CUDA keep the device"""
+        if not device_present():
+            self.skipTest("no CUDA device")
+        try:
+            r = fork_probe(False)
+        except subprocess.TimeoutExpired:
+            self.fail("the fork Pool HUNG with a parent that never used the device")
+        self.assertTrue(r["ok"], "a forked worker's answer differs from the CPU's: %s" % r)
+        self.assertEqual(r["parent_batches"], 0)
+        self.assertTrue(all(d > 0 for d in r["child_devices"]),
+                        "a worker forked before any CUDA use lost the device: %s" % r)
+        self.assertTrue(all(b > 0 for b in r["child_batches"]),
+                        "a worker forked before any CUDA use did not fold on the device: %s" % r)
 
 
 if __name__ == '__main__':

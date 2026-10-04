@@ -25,7 +25,13 @@
  *   RNA_GPU=0          the host folds everything, as for RNAfold (the batch backend
  *                      declines; RNA.cuda_batches() stops counting)
  *   RNA_GPU_VERBOSE=1  print the backend's diagnostics on stderr, which RNAfold always
- *                      prints and the binding leaves out by default */
+ *                      prints and the binding leaves out by default
+ *
+ * multiprocessing: a CUDA context does not survive fork(), so a worker FORKED after
+ * this process used the GPU folds on the host (the engine's cuda_process_ok()) --
+ * the same answer, without the device, and never a hang. Workers started with
+ * multiprocessing.get_context("spawn") (or "forkserver") have their own context and
+ * use the GPU; so do fork workers whose parent never touched it. */
 
 #ifdef SWIGPYTHON
 %pythoncode %{
@@ -43,6 +49,10 @@ folds it -- the answer is identical). A list of sequences is folded as one GPU b
 which is where the device pays. cpu_only=True never touches the device and calls
 ViennaRNA's own fold(). RNA_GPU=0 in the environment also keeps the fold on the host,
 and RNA_GPU_VERBOSE=1 prints the GPU backend's diagnostics on stderr.
+
+With multiprocessing, workers FORKED after this process used the GPU fold on the host
+(a CUDA context does not survive fork); start them with
+multiprocessing.get_context("spawn") to give each worker the GPU.
 """
     if isinstance(sequence, (list, tuple)):
         if args:

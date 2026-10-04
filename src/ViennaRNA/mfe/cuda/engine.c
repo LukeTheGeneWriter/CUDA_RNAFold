@@ -62,10 +62,65 @@ unsigned int vrna_cuda_device_count(void);
 #define VRNA_CUDA_HAVE_SWEEP 0
 
 
+/*
+ * FORK SAFETY (2026-10-04). A CUDA context does not survive fork(): a child of a
+ * process that has initialised CUDA gets "initialization error" from its first call.
+ * Through the Python binding that was a HANG, not an error: RNA.fold() uses the device
+ * by default, a script then starts a multiprocessing.Pool (fork is Linux's default up to
+ * Python 3.13), every worker dies at its first fold, and Pool.map waits forever. Stock
+ * ViennaRNA scripts do exactly this.
+ *
+ * So the first process to reach CUDA through this engine OWNS it. Any other process --
+ * a forked child -- is told there are no devices, and its batches are declined, which
+ * hands them to vrna_mfe_batch()'s host loop: upstream's own answer, in that child. A
+ * child whose parent never touched CUDA becomes the owner itself and keeps the device,
+ * and spawned processes are unaffected because they start with nothing inherited.
+ */
+#if defined(VRNA_WITH_CUDA) && !defined(_WIN32)
+#include <unistd.h>
+static pid_t cuda_owner_pid = 0;
+
+PRIVATE int
+cuda_process_ok(void)
+{
+  static int  said = 0;
+  pid_t       me   = getpid();
+
+  if (cuda_owner_pid == 0)
+    cuda_owner_pid = me;
+
+  if (cuda_owner_pid == me)
+    return 1;
+
+  if (!said && !vrna_cuda_quiet())
+    fprintf(stderr,
+            "%-24s this process was forked after its parent initialised CUDA, which a "
+            "CUDA context does not survive: it folds on the host\n",
+            "mfe/cuda/engine.c");
+
+  said = 1;
+  return 0;
+}
+
+
+#elif defined(VRNA_WITH_CUDA)   /* Windows: no fork(), so every process may use CUDA */
+PRIVATE int
+cuda_process_ok(void)
+{
+  return 1;
+}
+
+
+#endif
+
+
 PUBLIC unsigned int
 vrna_cuda_devices(void)
 {
 #ifdef VRNA_WITH_CUDA
+  if (!cuda_process_ok())
+    return 0;
+
   return vrna_cuda_device_count();
 #else
   return 0;
@@ -518,6 +573,10 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
    * sets os.environ["RNA_GPU"] mid-run is obeyed from its next call. Declining
    * leaves the batch to vrna_mfe_batch()'s host loop: upstream's own answer. */
   if (vrna_cuda_switched_off())
+    return 0;
+
+  /* a forked child of a process that initialised CUDA: see cuda_process_ok() */
+  if (!cuda_process_ok())
     return 0;
 
   /* Decline the WHOLE batch unless every record is supported. Splitting it
