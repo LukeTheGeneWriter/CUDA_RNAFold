@@ -525,3 +525,59 @@ a row's column block (walked by cor2) or are in rows mid-block (ACC not ready).
 **So the decisive measurement is the A100**, at production length (5601 nt, cor2 ~14 % of
 md), with its 40 MB L2 (the corners' re-read triangle fits). Arms: row, tile per-cell, and
 blocked at CB 256/512/1024 × RB 64/128 × lanes 16/32, plus one `RNA_MD_BLK_PROFILE` arm.
+
+---
+
+## 14. The A100 BlockedMD run (2026-10-04, `cb726218`): the decomposition pays, the tile path does not
+
+**A, correctness.** 6 cases (mixed at int16 and int32, noLP, circ, G-rich `-g`, salt) × 7
+geometries (including 333×33, 64×5 and RB 1) all equal the CPU's structures **and** row1's c and
+fML triangles. The 4 negative controls (BLOCK_NEGCTL at RB 1 and 64, the fused-scan NEGCTL,
+reversed blocks) all change the triangles. In C there is one sha across all 30 runs.
+
+**C, 400 × 5601** (2 reps ABBA, spreads ≤ 1.8 %; every arm ran with `RNA_PHASE_SYNC=1`, see below):
+
+| arm | wall | md | int_loop |
+|---|---|---|---|
+| row1 (single-stream rows) | 66.6 | 31.2 | 16.4 |
+| dflt | 65.6 | 30.7 | 16.2 |
+| tile (CB 512 × RB 64, md per cell) | 92.0 | 38.8 | 24.3 |
+| **b512x64L16** | 80.5 | **27.5** | 24.4 |
+| b1024x64L16 (best wall) | 75.2 | 29.3 | 20.9 |
+| b256x64L16 | 93.2 | 28.6 | 29.6 |
+
+32 lanes is ~1 s worse than 16 everywhere, and RB 128 ≈ RB 64. **The decomposition pays**
+(blocked md −29 % against per-cell md on the same tiles, −12 % against the row path's md), but
+**the tile path does not**. At CB 512 there are 300 663 steps against ~50 k rows: int_loop
++8.0 s and the fused front +5.8 s (9.6 against hp_mb + load_my_c's 3.8), against md −3.7 s.
+That is **~25–30 µs per extra step per kernel, a latency floor, not work.** CB 1024 halves the
+steps and the tax (+4.4 int_loop, +3.7 front), and halves md's gain (−1.9).
+
+**D.** At 3000 × 1200 the best blocked arm is +7.2 % against dflt (rule not met); at 1200 × 2400
+it is +7.3 %.
+
+**B / E, inside blocked md** (CB 512 × RB 64):
+- UPDATE 7.7 s; ncu 489 µs per launch, **DRAM 3.6 %, SM 27 %**: untuned, with room to spare.
+- Corners 15.5 s; ~30 µs per launch, DRAM 11 %, **L2 hit 75 %**. They are latency-bound per
+  step, not L2-bound: the laptop's L2 theory (§13) is wrong for the A100.
+- md_close 3.3 s.
+- md_cell for comparison: 204 µs per launch, DRAM 37 %, L2 hit 33 %.
+
+**The phase-sync confound, measured** (laptop, 12 × 5000, ABBA). `RNA_PHASE_SYNC=1` costs the
+blocked path ~1.7 s (13.5 → 15.3) and the row path ~1–3 s (10.6 → 11.6–13.9). Blocked against
+row is +28 % without it and ~+30 % with it: the C verdict does not depend on it. (The "~0.2 %"
+figure was measured on the row path only; a per-step cost has to be re-measured when the step
+count changes 6×.)
+
+**The ceiling with tuning.** If UPDATE gets 2.5–3× and md_close folds into the corners: CB 512
+gives md ≈ 20 s (−11 against the row path) but +13.7 s of tax; CB 1024 gives md ≈ 23 s (−8)
+against ~+8 s of tax. **Break-even at best.**
+
+The tax is a per-step latency floor, removable only by fewer, fatter steps. Fatter steps shrink
+the blocked share of md, and md's reuse requires column-block-major order (cor2 and the wavefront,
+§13). **Within this sweep design no geometry wins end to end on the A100.** The remaining lever
+is a persistent per-block-row kernel to beat the latency floor, but the megakernel measured 30–109 %
+slower (register-bound).
+
+**Status:** 3a–3c stay in the tree, gated off by default, correct, with their bars and controls.
+The driver is paused pending Luke's decision.
