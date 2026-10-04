@@ -110,6 +110,12 @@ AC_DEFUN([RNA_ENABLE_SWIG_PYTHON],[
         AC_RNA_TEST_FILE([${srcdir}/interfaces/Python/RNA.py],[],[
           with_python="no"
         ])
+        ## Say WHY in the summary, and what fixes it. A git clone has no generated
+        ## wrapper, so an old SWIG silently turns Python off -- Ubuntu 24.04's apt
+        ## SWIG is 4.2.0 -- and the only trace was a WARNING 300 lines up.
+        AS_IF([test "x$with_python" = "xno"],[
+          python_report_why="(needs SWIG >= 4.3.0${swig_version:+, found $swig_version}: e.g. pipx install swig, or tools/setup_ubuntu.sh)"
+        ])
       fi
     ])
   ])
@@ -122,6 +128,9 @@ AC_DEFUN([RNA_ENABLE_SWIG_PYTHON],[
     if test "x$python3_enabled_but_failed" != "x"
     then
       with_python="no"
+      python_report_why="($python3_enabled_but_failed)"
+      AS_CASE([$python3_enabled_but_failed],
+              [*Python.h*], [python_report_why="($python3_enabled_but_failed: install python3-dev, or your system's equivalent)"])
     else
       AC_DEFINE([WITH_PYTHON_INTERFACE], [1], [Create the Python 3.x interface to RNAlib])
       AC_SUBST([PYTHON_INTERFACE], [Python])

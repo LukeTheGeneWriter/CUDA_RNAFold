@@ -92,6 +92,20 @@ under SWIG ≤ 4.4 (`PyLong_FromLong`, `PyUnicode_FromString`, `PyBytes_Check`,
 list-of-strings typemap tests for *bytes*, so it never accepts a Python 3 `str`.
 The quirk is preserved, not fixed here.
 
+**`debian-local-scheme`, `debian-local-scheme-exec`** — `m4/ax_python3_devel.m4` and
+`src/RNAxplorer/m4/ax_python3_devel.m4` (added 2026-10-04, two regions each)
+
+On Debian and Ubuntu the default `sysconfig` scheme is `posix_local`. Its purelib and
+platlib are `{base}/local/lib/pythonX.Y/dist-packages`: the scheme assumes `base=/usr` and
+moves the install to `/usr/local`. The macro evaluates it with `base=${prefix}`, so at the
+**default** prefix `/usr/local` the module installs to `/usr/local/local/lib/…`, which is not
+on `sys.path`. **A plain `./configure && make && sudo make install` then fails on
+`import RNA`.** Reproducer: that sequence on a fresh Ubuntu 24.04 (found 2026-10-04 on a
+blank WSL distro). When the prefix already ends in `/local`, the scheme's extra `/local` is
+dropped; every other prefix, and an explicit `PYTHON3_DIR`/`PYTHON3_EXECDIR`, is untouched.
+The `m4/` copy is outside `src/`, so `tools/list_local_patches.sh` does not scan it, but it
+carries the same markers.
+
 ### REACH
 
 **`bps-backtrack`** — `src/ViennaRNA/mfe/mfe.c`, `src/ViennaRNA/backtrack/global.h`

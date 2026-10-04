@@ -65,3 +65,6 @@ nvcc_paths.txt
 /CUDA_RNAFold_*.ipynb
 /*.json
 /tools/make_nb_*.py
+
+# tools/setup_ubuntu.sh
+/setup-logs/

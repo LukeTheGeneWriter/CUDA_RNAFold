@@ -71,6 +71,7 @@ AC_DEFUN([RNA_ENABLE_CUDA], [
   cuda_report_arch=""
   cuda_report_host=""
   cuda_report_why=""
+  cuda_report_hint=""
 
   RNA_FEATURE_IF_ENABLED([cuda],[
 
@@ -110,6 +111,21 @@ AC_DEFUN([RNA_ENABLE_CUDA], [
 
     AS_IF([test "x$NVCC_BIN" = "xno"],[
       cuda_report_why="no nvcc found on PATH, in CUDA_HOME/CUDA_PATH, or under /usr/local/cuda*"
+      ## A GPU the user can SEE but no toolkit to build for it is the case worth a
+      ## sentence: say how to get the toolkit, not only that it is missing. Under WSL
+      ## the driver comes from Windows, so the advice must be "toolkit only" -- a Linux
+      ## driver package installed inside WSL can shadow WSL's own libcuda.
+      AS_IF([nvidia-smi -L >/dev/null 2>&1 || test -e /proc/driver/nvidia/version],[
+        AS_IF([test -e /dev/dxg || test -d /usr/lib/wsl/lib],[
+          cuda_report_hint="an NVIDIA GPU is visible (WSL) but no CUDA toolkit is installed: install the
+                                TOOLKIT ONLY, never a Linux driver -- tools/setup_ubuntu.sh --cuda does it
+                                (NVIDIA's cuda-toolkit from the wsl-ubuntu repository) -- then re-run ./configure"
+        ],[
+          cuda_report_hint="an NVIDIA GPU is visible but no CUDA toolkit is installed: install one
+                                (Ubuntu: tools/setup_ubuntu.sh --cuda, or sudo apt install nvidia-cuda-toolkit)
+                                and re-run ./configure"
+        ])
+      ])
       enable_cuda=no
     ],[
       cuda_bindir=`AS_DIRNAME(["$NVCC_BIN"])`
