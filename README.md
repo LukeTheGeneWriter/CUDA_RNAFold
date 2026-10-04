@@ -84,6 +84,22 @@ source.
 *See the file [INSTALL][file_install] for a more detailed description of the build
 and installation process.*
 
+### Quick Start on Ubuntu, Debian or WSL (from this git repository)
+
+One command installs the prerequisites, a CUDA toolkit if an NVIDIA GPU is visible, builds,
+and checks that the GPU's answer equals the CPU's:
+```
+git clone https://github.com/lukethegenewriter/CUDA_RNAFold.git
+cd CUDA_RNAFold
+tools/setup_ubuntu.sh --install
+```
+It asks before installing packages (`--yes` skips the question), keeps every log in
+`setup-logs/`, and stops with a sentence saying what to do if something is missing.
+`--no-cuda` builds CPU-only; `--prefix DIR` installs somewhere other than `/usr/local`.
+Under **WSL** the GPU driver comes from Windows: install NVIDIA's Windows driver, and never a
+Linux driver inside WSL. The script installs the CUDA *toolkit* only, choosing the newest
+version your driver supports.
+
 ### Quick Start
 
 Usually you'll simply unpack the distribution tarball, configure and make:
@@ -142,10 +158,17 @@ cd ..
     - `help2man` (to generate the man pages) 
     - `bison` and `flex`` (to generate sources for RNAforester)
     - `vim-common` (for the `xxd` program)
-    - `swig` (to generate the scripting language interfaces)
-    - `liblapacke` (for `RNAxplorer`)
-    - `liblapack`  (for `RNAxplorer`)
+    - `swig` **>= 4.3** (to generate the scripting language interfaces; Ubuntu 24.04's
+      apt has 4.2.0, so use `pipx install swig` there, or the configure summary will say
+      `Python 3.x : no`)
+    - `liblapacke-dev` (for `RNAxplorer`)
+    - `liblapack-dev`  (for `RNAxplorer`)
     - A fortran compiler, e.g. `gfortran` (for `RNAxplorer`)
+    - `texinfo` and `doxygen` (a git checkout builds `RNAlib.info` and needs doxygen
+      even with `--without-doc`; the release tarball ships both outputs prebuilt)
+    - `python3-dev` (for the Python interface)
+
+   `tools/setup_ubuntu.sh` installs all of these (see the Quick Start above).
 
 4. Finally, run the autoconf/automake toolchain:
 ```
@@ -307,15 +330,20 @@ the work is worth the device, measuring the cost of reaching the GPU and account
 for how many cores it would otherwise fold on (`-j`), so small inputs are not made
 slower. Nothing needs to be configured for that either.
 
-If you installed with `--prefix` and `import RNA` cannot find the module, note that on
-Debian-family systems the Python interface installs under the `local` scheme:
+With the default prefix (`/usr/local`), `sudo make install` puts the Python module where
+Python looks, and `import RNA` works with nothing set. (Upstream 2.7.2 installs it to
+`/usr/local/local/lib/…` on Debian and Ubuntu, which Python does not search; this tree
+fixes that.) If you install with `--prefix`, the configure summary's *Install Directories*
+section says whether the module will be on Python's path, and if not, prints the line to
+add, for example:
 
 ```
 export PYTHONPATH=$PREFIX/local/lib/pythonX.Y/dist-packages
 ```
 
-not `$PREFIX/lib/pythonX.Y/site-packages`. (Verified 2026-09-28 on Ubuntu with
-Python 3.14 — see PORT_INSTALL_VERIFIED.md.)
+On Debian-family systems that is the `local` scheme's directory, not
+`$PREFIX/lib/pythonX.Y/site-packages`. (Verified 2026-09-28 on Ubuntu with Python 3.14 —
+see PORT_INSTALL_VERIFIED.md.)
 
 To get stock CPU behaviour from an accelerated build for one run, without
 reconfiguring:
