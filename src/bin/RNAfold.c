@@ -1896,7 +1896,24 @@ build_one(struct gpu_batch *b,
 {
   struct record_data **chunk = b->chunk;
 
-  b->VC[i] = vrna_fold_compound(chunk[i]->sequence, &(opt->md), VRNA_OPTION_DEFAULT);
+  /* THE SEQUENCE process_record() FOLDS, not the one that was read. Found 2026-10-04
+   * by the binder notebook: RNAfold converts T -> U (unless --noconv) and upper-cases
+   * before folding, and this compound was built from the raw input. Every term that
+   * matches sequence strings -- the special hairpins (Tetraloops, Triloops, Hexaloops)
+   * -- then saw 'T' where the CPU saw 'U', so DNA input folded on the GPU gave wrong
+   * structures and energies in both directions: 39 of 200 records at 2000 nt, e.g.
+   * -624.60 against the CPU's -625.00. RNA input never reached it, which is why every
+   * parity bar (all RNA alphabet) passed. The upper-casing is process_record()'s too,
+   * applied here so the two compounds are built from the same string; T -> U is the
+   * part a test has shown to matter (tests/RNAfold/gpu_input). */
+  char *seq = strdup(chunk[i]->sequence);
+
+  if (!opt->noconv)
+    vrna_seq_toRNA(seq);
+
+  vrna_seq_toupper(seq);
+  b->VC[i] = vrna_fold_compound(seq, &(opt->md), VRNA_OPTION_DEFAULT);
+  free(seq);
 
   /* The chunk path builds its OWN fold compounds, so it has to apply every
    * per-record constraint that process_record() would apply to its own. Skip

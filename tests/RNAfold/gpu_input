@@ -1,0 +1,61 @@
+#!/bin/sh
+#
+# RNAfold on the GPU must fold the SAME sequence the CPU folds: T -> U unless --noconv,
+# then upper case. Found 2026-10-04 by the binder notebook: the GPU chunker built its fold
+# compounds from the raw input, so DNA records were folded with 'T' where the CPU folds 'U'.
+# Every term that matches sequence strings (the
+# special hairpins) then differed: 39 of 200 random 2000-nt DNA records came back with a
+# different structure and energy, in both directions. Every other bar used RNA input.
+#
+# Each record embeds known special hairpins (Turner 2004 tetraloops, a triloop and a
+# hexaloop), written in DNA, inside deterministic random flanks, so the test does not
+# depend on luck. Compared: the forced device path against RNA_GPU=0, whole output.
+
+echo 1..4
+
+RETURN=0
+failed () { RETURN=1; echo "not ok - $1"; }
+passed () { echo "ok - $1"; }
+skipped () { echo "ok - $1 # SKIP $2"; }
+
+WORK=gpu_input.$$
+mkdir -p $WORK
+
+# 24 records: random DNA flanks with hairpins whose loops are special in Turner 2004
+awk 'BEGIN {
+  srand(20261004)
+  split("CTTCGG CTACGG CCGAGG CTTTGG CAACGG CCAAGG", tetra, " ")
+  for (r = 0; r < 24; r++) {
+    s = ""
+    for (k = 0; k < 6; k++) {
+      for (i = 0; i < 60; i++) s = s substr("ACGT", int(rand() * 4) + 1, 1)
+      if (k < 4)       s = s "GAGGAC" tetra[(r + k) % 6 + 1] "GTCCTC"   # tetraloop hairpins
+      else if (k == 4) s = s "GCGGC" "CAACG" "GCCGC"                     # a triloop
+      else             s = s "GGACG" "ACAGTACT" "CGTCC"                  # a hexaloop
+    }
+    printf(">dna_%02d\n%s\n", r, s)
+  }
+}' > $WORK/dna.fa
+
+awk '/^>/ { print; next } { print tolower($0) }' $WORK/dna.fa > $WORK/lower.fa
+
+compare () {   # id label file extra-args
+  RNA_GPU_WORK_FLOOR=0 RNAfold --noPS $4 < $3 > $WORK/$1.gpu 2> $WORK/$1.err
+  RNA_GPU=0 RNAfold --noPS $4 < $3 > $WORK/$1.cpu 2> /dev/null
+  if ! grep -q "sweep shape" $WORK/$1.err ; then
+    skipped "$2" "the GPU sweep did not run (a CPU-only build, or no device)"
+  elif cmp -s $WORK/$1.gpu $WORK/$1.cpu ; then
+    passed "$2: the device folds what the CPU folds"
+  else
+    failed "$2: the device output differs from RNA_GPU=0"
+    diff $WORK/$1.gpu $WORK/$1.cpu | head -6
+  fi
+}
+
+compare dna          "DNA input (T -> U)"       $WORK/dna.fa   ""
+compare lower        "lower-case DNA input"     $WORK/lower.fa ""
+compare dna_noconv   "DNA input with --noconv"  $WORK/dna.fa   "--noconv"
+compare lower_noconv "lower-case with --noconv" $WORK/lower.fa "--noconv"
+
+rm -rf $WORK
+exit ${RETURN}
