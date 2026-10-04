@@ -617,6 +617,10 @@ PUBLIC size_t       *rnafold_tile_side_host(void);
 PUBLIC void          rnafold_tile_begin(const int i);
 PUBLIC void          rnafold_tile_end(void);
 PUBLIC int           rnafold_md_tile_cb(void);
+PUBLIC int           rnafold_md_tile_rb(void);        /* stage 3b: rows per block-row */
+PUBLIC int           rnafold_md_tile_reverse(void);   /* stage 3b negative control */
+PUBLIC void          rnafold_md_ring_select(const int i);   /* modular_decomposition.cu */
+PUBLIC void          rnafold_cc_ring_select(const int i, const int fill);   /* hp_mb_loop.cu */
 /* RNA_ROW_FUSE: hp_mb_3p + new_c + load_my_c as one launch. 1 = handled, 0 = run
  * the three phases separately (noLP and RNA_STREAM_OVERLAP are refused). */
 PUBLIC int           row_cells_i(const int nfiles, const vrna_fold_compound_t **VC,

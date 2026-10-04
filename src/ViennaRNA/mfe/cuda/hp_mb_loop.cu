@@ -1544,6 +1544,23 @@ nolp_rotate_cc(void) {
   gpuErrchk( cudaPeekAtLastError() );
 }
 
+/* Stage 3b: cc/cc1 selected BY ROW (see rnafold_md_ring_select()). `fill` on a row's
+ * first step: its slot is refilled with INF, exactly as nolp_rotate_cc() refills the
+ * fresh cc after its swap, so an unevaluated pair leaves INF rather than the slot's
+ * previous occupant. */
+extern "C" void
+rnafold_cc_ring_select(const int i, const int fill)
+{
+  if(g_cc_depth < 2) return;
+  d_cc  = g_cc_ring[i % g_cc_depth];
+  d_cc1 = g_cc_ring[(i + 1) % g_cc_depth];
+  if(fill && g_row_total) {
+    const size_t nb = (g_row_total + 512 - 1)/512;
+    nolp_init_kernel<<<(int)nb,512,0,rnafold_stream_cell()>>>(g_row_total, d_cc);
+    gpuErrchk( cudaPeekAtLastError() );
+  }
+}
+
 // noLP + continuous flow phase C3: put ONE slot's cc/cc1 rows back to the INF a
 // chunk starts from, for a slot that has just been handed to a new record.
 //

@@ -126,7 +126,10 @@ md_close_row_cell(const int nfiles, const int i_row, const int turn,
   const int d  = dml[o+j];
   const int mn = (e < d) ? e : d;
 
-  if(mj == 0) fml_prev[o + (i+turn)] = INF;
+  /* No diagonal-band write here any more (blocked md 3b): the scan treats (i+1, i+turn+1)
+   * as INF itself. Written from row i's FIRST step, this landed in the column block to
+   * the left -- which, in column-block-major order, lower rows had already written with
+   * real values -- and clobbered the lowest row's fML there (failed whenever CB < RB). */
   fml_prev[o+j] = mn;
 
   const int v = (mj >= turn+1) ? mn : e;   // the triangle's rule -- see above

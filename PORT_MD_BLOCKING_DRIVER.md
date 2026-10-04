@@ -331,3 +331,33 @@ fML scan + `md_close` (+ `hp_mb_3p`) turns four or five latency-bound launches i
 unfused cost) → 3b (the schedule and its negative control) → **3e-fuse** (the tile's small
 kernels as one) → 3c (the blocked md) → 3d (tuning). 3a and 3b are unchanged by this: fusion
 needs the column ranges and the order proven first.
+
+---
+
+## 11. Stage 3b, built 2026-10-03
+
+**The sweep is now a sequence of steps** (`fill_arrays_loop.c`), each one (row, column
+block). Without tiles it is one step per row, rows descending: the old loop, the same
+calls in the same order (36/36 configurations byte-identical against the CPU, 45/45 options).
+With `RNA_MD_TILE_CB=N RNA_MD_TILE_RB=RB` it is block-rows of `RB` rows, and for each
+column block, left to right, the block-row's rows top down: column-block major. A row's
+first step does its per-row head and its last step its tail. The rotating rows are
+**selected by row** at every step (`rnafold_md_ring_select`, `rnafold_cc_ring_select`:
+slot = row mod (RB+1)) instead of advanced, because rows interleave. md still runs over
+its whole `k` range, so this stage tests **the order** and nothing else.
+
+**The order bar caught a real order error.** Every geometry with `CB < RB` failed
+(RB33 CB32 failed, RB33 CB33 passed). The cause was the diagonal-band cell. `md_close`
+wrote `fml_prev[i + turn] = INF` from row `i`'s *first* step, for row `i−1` to read.
+When `CB < RB`, an upper row's first step comes in a later column block than the lower
+rows' work on that column, so the late write clobbered the lowest row's real fML there,
+and the next block-row read INF. That cell is INF by definition, so the fix makes the
+scan treat `(i+1, i+turn+1)` as INF itself, and the two band writes are gone. That is
+safe in row order too, where lower rows overwrote that column anyway. §3.1's audit
+missed this read because it listed the *regular* reads. The rule: **audit the
+special-case writes too** (band cells, sentinels, first and last cells), because those
+are the ones whose timing a reordering changes.
+
+**Negative control:** column blocks right to left (`RNA_MD_TILE_REVERSE=1`) changes both
+the structures and the triangles at RB = 1 and RB = 5. The order bar can see an order
+error, and the right-to-left order is the error it sees.

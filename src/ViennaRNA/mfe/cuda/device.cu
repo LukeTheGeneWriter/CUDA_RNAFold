@@ -1064,6 +1064,52 @@ rnafold_md_tile_cb(void)
   return v;
 }
 
+/* RNA_MD_TILE_RB=RB: stage 3b -- RB rows per block-row, visited COLUMN-BLOCK MAJOR: for
+ * each column block, left to right, the block-row's rows top down. md still runs over its
+ * whole k range here (no bulk yet), so this is the stage that tests the ORDER: every
+ * operand must already exist when its step runs (PORT_MD_BLOCKING_DRIVER.md 2, the
+ * read-by-read table). The row buffers that carry across steps are selected by row from
+ * rings of RB+1 (3a.1). Needs RNA_MD_TILE_CB. Default 1 (= 3a'). Capped so the rings
+ * fit MD_RING_MAX (130). */
+extern "C" int
+rnafold_md_tile_rb(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_TILE_RB");
+
+    v = (e && e[0]) ? atoi(e) : 1;
+    if (v < 1)   v = 1;
+    if (v > 128) v = 128;
+    if (rnafold_md_tile_cb() == 0) v = 1;
+    else if (e && e[0])
+      fprintf(stderr, "device.cu                RNA_MD_TILE_RB=%d: %d rows per block-row, "
+                      "column-block major (blocked md stage 3b)\n", v, v);
+  }
+  return v;
+}
+
+/* RNA_MD_TILE_REVERSE=1: stage 3b's NEGATIVE CONTROL -- the column blocks of each
+ * block-row run RIGHT TO LEFT. The order argument says that reads data that does not
+ * exist yet (the fML scan's carry, new_c's j-1, md's B operand in the rows above), so
+ * the answer MUST change; if it does not, the order bar cannot see an order error. */
+extern "C" int
+rnafold_md_tile_reverse(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_TILE_REVERSE");
+
+    v = (e && e[0] && e[0] != '0' && rnafold_md_tile_cb()) ? 1 : 0;
+    if (v)
+      fprintf(stderr, "device.cu                RNA_MD_TILE_REVERSE=1: column blocks run right "
+                      "to left -- a NEGATIVE CONTROL, wrong answers are EXPECTED\n");
+  }
+  return v;
+}
+
 static void
 rowtab_copy(const size_t lo_o, const size_t n_o, const size_t lo_i, const size_t n_i)
 {

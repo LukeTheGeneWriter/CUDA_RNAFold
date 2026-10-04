@@ -165,7 +165,62 @@
  // clock shares megakernel.cu prints are the measurement instead.
  const int md3_probe_n = rnafold_md3_launch_probe();
 
- for (i = mk_done ? 0 : sweep_iters; i >= 1; i--) { /* i,j in [1..length] */
+ /* BLOCKED MD STAGES 3a'/3b (PORT_MD_BLOCKING_DRIVER.md 2, 3.2): the sweep as a sequence
+  * of STEPS, each one (row i, column block from tile_jlo).
+  *
+  *   no tiles (the default)   one step per row, rows descending, the whole row: exactly
+  *                            the old `for (i = sweep_iters; i >= 1; i--)`.
+  *   RNA_MD_TILE_CB=N, RB=1   (3a') each row as N-column blocks, left to right.
+  *   RNA_MD_TILE_RB=RB > 1    (3b) block-rows of RB rows; for each column block, left to
+  *                            right, the block-row's rows top down -- COLUMN-BLOCK MAJOR.
+  *
+  * A row's first step does its per-row head (stats, the launch probe, noLP's cc refill)
+  * and its last step its per-row tail. The rotating rows are SELECTED by row at every
+  * step (rnafold_md_ring_select / rnafold_cc_ring_select) rather than advanced, since
+  * rows interleave. RNA_MD_TILE_REVERSE runs the column blocks right to left: 3b's
+  * negative control, which must give wrong answers. */
+ const int tile_cb  = rnafold_md_tile_cb();
+ const int tile_rb  = tile_cb ? rnafold_md_tile_rb() : 1;
+ const int tile_rev = tile_cb ? rnafold_md_tile_reverse() : 0;
+ long           n_st   = 0;
+ int           *st_i   = NULL, *st_jlo = NULL;
+ unsigned char *st_fl  = NULL;                 /* bit 0: row's first step; bit 1: its last */
+ if(!mk_done && sweep_iters >= 1) {
+   if(!tile_cb) {
+     n_st = sweep_iters;
+   } else {
+     const long cap = (long)sweep_iters * (long)(length / tile_cb + 2);
+     st_i   = (int *)malloc(sizeof(int) * (size_t)cap);
+     st_jlo = (int *)malloc(sizeof(int) * (size_t)cap);
+     st_fl  = (unsigned char *)calloc((size_t)cap, 1);
+     unsigned char *seen = (unsigned char *)calloc((size_t)sweep_iters + 2, 1);
+     if(!st_i || !st_jlo || !st_fl || !seen) {
+       fprintf(stderr, "%-24s tile steps: allocation of %ld steps failed\n", __FILE__, cap);
+       exit(EXIT_FAILURE);
+     }
+     for(int top = sweep_iters; top >= 1; top -= tile_rb) {
+       const int bot = (top - tile_rb + 1 > 1) ? top - tile_rb + 1 : 1;
+       const int j0  = bot + turn + 1;           /* the block-row's leftmost column */
+       const int nJ  = (length >= j0) ? (length - j0) / tile_cb + 1 : 0;
+       for(int q = 0; q < nJ; q++) {
+         const int jlo = j0 + (tile_rev ? (nJ - 1 - q) : q) * tile_cb;
+         for(int r = top; r >= bot; r--) {
+           if(jlo + tile_cb - 1 < r + turn + 1) continue;   /* wholly left of row r */
+           st_i[n_st] = r; st_jlo[n_st] = jlo; n_st++;
+         }
+       }
+     }
+     for(long s = 0; s < n_st; s++)  if(!(seen[st_i[s]] & 1)) { seen[st_i[s]] |= 1; st_fl[s] |= 1; }
+     for(long s = n_st - 1; s >= 0; s--) if(!(seen[st_i[s]] & 2)) { seen[st_i[s]] |= 2; st_fl[s] |= 2; }
+     free(seen);
+   }
+ }
+
+ for (long st = 0; st < n_st; st++) {
+    const int tile_jlo = tile_cb ? st_jlo[st] : 0;
+    const int st_first = tile_cb ? (st_fl[st] & 1) : 1;
+    const int st_last  = tile_cb ? ((st_fl[st] >> 1) & 1) : 1;
+    i = tile_cb ? st_i[st] : sweep_iters - (int)st;   /* i,j in [1..length] */
 
     if(!continuous_flow) for(int H=0;H<nfiles;H++) i_H[H] = i;
 
@@ -201,6 +256,7 @@
       rnafold_rowtab_upload_row(i);
     }
 
+    if(st_first) {   /* per ROW, once, whatever the step order */
     cf_iters++;
     cf_cells += (long long)size_off_H[nfiles];
     if((long long)size_off_H[nfiles] > cf_peak_cells) cf_peak_cells = (long long)size_off_H[nfiles];
@@ -216,19 +272,17 @@
      * stream as the phases; the fold is unchanged and only the wall moves. See
      * device.cu. */
     if(md3_probe_n) rnafold_md3_launch_probe_fire(md3_probe_n, i);
+    }
 
-    /* BLOCKED MD STAGE 3a' (RNA_MD_TILE_CB=N, PORT_MD_BLOCKING_DRIVER.md 3.2): run this
-     * row's cell phases as N-column blocks, left to right, instead of once over the
-     * whole row. Each block gets tables of the row's layout with every record's width
-     * clipped to [jlo, jhi] and the column shift in slot nfiles+1, and rnafold_tile_begin
-     * points row i's lookups at them -- so the phases below run unchanged. What is
-     * per-ROW stays outside this loop: the stats above, and the ring advance and
-     * rotations below. Off (0), the loop body runs once with the row's own tables:
-     * today's path, the same calls in the same order. */
-    const int tile_cb  = rnafold_md_tile_cb();
-    int       tile_jlo = i + turn + 1;
-    for(;;) {
+    /* BLOCKED MD STAGES 3a'/3b (see the step sequence above): this step's column block.
+     * The rotating rows are selected for row i first -- rows interleave in 3b, so they
+     * cannot be advanced -- then the block gets tables of the row's layout with every
+     * record's width clipped to [jlo, jhi] and the column shift in slot nfiles+1, and
+     * rnafold_tile_begin points row i's lookups at them, so the phases below run
+     * unchanged. Without tiles none of this runs: today's path. */
     if(tile_cb) {
+      rnafold_md_ring_select(i);
+      if(noLP) rnafold_cc_ring_select(i, st_first);
       const int jhi = tile_jlo + tile_cb - 1;
       size_t w_so[nfiles], w_sd[nfiles];
       for(int H=0; H<nfiles; H++) {
@@ -523,16 +577,14 @@
       phase_modular_decomp_s += now_seconds() - t0;
     }
 
-    /* Stage 3a': the next column block of this row, or the row is done. */
-    if(!tile_cb) break;
-    tile_jlo += tile_cb;
-    if(tile_jlo > length) {
+    /* Stages 3a'/3b: this step's block is done. The row's tail runs once, after its LAST
+     * step -- in 3b that is after every column block of the whole block-row. */
+    if(tile_cb) {
       rnafold_tile_end();
       size_off_H = rnafold_rowtab_size_host(i);   // the row's own tables again
       side_off_H = rnafold_rowtab_side_host(i);
-      break;
     }
-    } /* end of the stage-3a' column-block loop */
+    if(!st_last) continue;
     // Was my_fml_update_host, which wrote MIN2(energy_min[..j], DMLi[..j])
     // into the fML *triangle* at stride ~j. load_min_fML_kernel had already
     // computed exactly that into d_fml_j a moment earlier on the GPU, and the
@@ -565,6 +617,9 @@
     // this loop should never have been on the host. Runs AFTER the host loop so
     // RNA_ROW_VERIFY has something to compare against; nothing reads d_fml_prev
     // yet, so the sweep's behaviour is unchanged either way.
+    /* tiles: md_close wrote fml_prev for every block already, and in 3b the "last row the
+     * tail closed" is not row i, so this must not run (it would rewrite fml_prev whole). */
+    if(!tile_cb)
     fml_prev_i(nfiles, i, turn,
                rnafold_gpu_sweep() ? NULL : fml_prev,  // no host result to verify against in device mode
                row_off_H, size_off_H, i_H);
@@ -575,7 +630,7 @@
     // Placed here, at exactly the host's rotate point, so the two representations
     // cannot drift. Nothing reads d_dml1 yet -- this is behaviour-neutral, and
     // costs one 3.3 MB device-to-device copy per row (~0.18 s over a whole run).
-    md_snapshot_dml();
+    if(!tile_cb) md_snapshot_dml();   /* tiles: the rings are selected by row, not advanced */
 
     /* RNA_SYNC_PROBE: k extra device syncs per row, to price the per-row
      * barriers this row already carries before building the machinery to
@@ -592,7 +647,7 @@
     // mfe/mfe.c:4460). Placed AFTER the DMLi rotate for the same reason
     // md_snapshot_dml() sits where it does: the two representations of "the
     // previous row" must be published at one point, or they drift.
-    if(noLP)
+    if(noLP && !tile_cb)   /* tiles: cc is selected by row (rnafold_cc_ring_select) */
       nolp_rotate_cc();
 
     // Continuous flow phase B: every active record advances one row; a record
@@ -658,7 +713,8 @@
         i_H[s] = (top >= 1) ? top : 0;
       }
     }
-  } /* end of i-loop */
+  } /* end of the step loop (one step per row without tiles: the old i-loop) */
+ free(st_i); free(st_jlo); free(st_fl);
 
  // Anything still unretired -- a record with no rows of its own, or a slot that
  // emptied on the final iteration -- is retired here, so on_retire() is called

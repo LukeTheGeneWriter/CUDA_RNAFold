@@ -86,7 +86,7 @@ fml_scan_block(const int nfiles, const int i_row, const int turn,
       //
       // fml_tadd() is the INF-safe add already defined above for exactly this.
       const int c_term = fml_tadd(new_e[o+j], e3p00[o+j]);
-      const int e3     = fml_tadd(fml_prev[o+j], en_i);
+      const int e3     = fml_tadd((j == i + turn + 1) ? INF : fml_prev[o+j], en_i);   /* (i+1, i+turn+1) is a diagonal-band cell: INF by definition (3b) */
       a = fml_tmin(c_term, e3);
       // G-quadruplex (G1). extend_fm_3p()'s gquad case is a SIBLING of its
       // c[ij] stem case at the same MIN2, not a modifier of it: fM[i][j] can be
@@ -215,7 +215,7 @@ fml_scan_block2(const int nfiles, const int i_row, const int turn,
       if(k < width) {
         const int j = j0 + (int)k;
         const int c_term = fml_tadd(new_e[o+j], e3p00[o+j]);
-        const int e3     = fml_tadd(fml_prev[o+j], en_i);
+        const int e3     = fml_tadd((j == i + turn + 1) ? INF : fml_prev[o+j], en_i);   /* (i+1, i+turn+1) is a diagonal-band cell: INF by definition (3b) */
         a = fml_tmin(c_term, e3);
         if (gq_row) {
           const int g = gq_row[o+j];

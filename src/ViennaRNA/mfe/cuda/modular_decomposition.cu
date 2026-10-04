@@ -3800,6 +3800,9 @@ rnafold_md_ring_depth(void)
     v = (e && e[0]) ? atoi(e) : 2;
     if (v < 2)           v = 2;
     if (v > MD_RING_MAX) v = MD_RING_MAX;
+    /* stage 3b: column-block-major order with RB rows per block-row reads row i+1's
+     * dml and cc and row i's energy_min from RB+1 distinct rows -- the ring must hold them */
+    if (rnafold_md_tile_cb() && v < rnafold_md_tile_rb() + 1) v = rnafold_md_tile_rb() + 1;
     if (e && e[0])
       fprintf(stderr, "%-24s RNA_MD_RING_DEPTH=%d: the dml and cc rings hold %d rows and "
                       "energy_min's %d (the row path; byte-identical by construction)\n",
@@ -3845,6 +3848,27 @@ md_ring_depth_effective(void)
     return 2;
   }
   return want;
+}
+
+/* Stage 3b: select the rotating rows BY ROW rather than by advancing. In column-block-major
+ * order the rows of a block-row interleave across column blocks, so "the next slot" is
+ * meaningless; what each step needs is fixed by its row: row i's fM2 and fML (written),
+ * row i+1's fM2 (new_c reads it at j-1). Slot = row mod depth, so the RB rows of a
+ * block-row and the row above them occupy RB+1 distinct slots when depth >= RB+1, and a
+ * slot's previous occupant (row i+depth) belongs to a block-row that is finished. Its
+ * stale cells are all overwritten before they are read, by the argument
+ * md_snapshot_dml() makes for depth 2 (row i's range contains every lower row's). */
+extern "C" void
+rnafold_md_ring_select(const int i)
+{
+  if (g_dml_depth < rnafold_md_tile_rb() + 1) {
+    fprintf(stderr, "%-24s md ring depth %d < RB+1 = %d: two rows of a block-row would "
+                    "share a slot\n", __FILE__, g_dml_depth, rnafold_md_tile_rb() + 1);
+    exit(EXIT_FAILURE);
+  }
+  d_dml        = g_dml_ring[i % g_dml_depth];
+  d_dml1       = g_dml_ring[(i + 1) % g_dml_depth];
+  d_energy_min = g_emin_ring[i % g_emin_depth];
 }
 
 /* Is row i's fml_prev already written? fml_prev_i() (hp_mb_loop.cu) asks, and

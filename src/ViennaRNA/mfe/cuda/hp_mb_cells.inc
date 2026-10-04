@@ -228,7 +228,7 @@ fml_prev_cell(const int nfiles, const int i_row, const int turn,
   const int j = mj + i+turn+1;
   const size_t o = row_off_H[H];
 
-  if(mj == 0) fml_prev[o + (i+turn)] = INF;   // the diagonal-band cell, per H
+  /* No diagonal-band write (blocked md 3b): see md_close_row_cell() and the fML scan. */
 
   const int a = energy_min[o+j];
   const int b = dml[o+j];
