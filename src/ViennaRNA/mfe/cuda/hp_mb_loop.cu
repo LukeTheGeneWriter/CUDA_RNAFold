@@ -1350,8 +1350,10 @@ fml_scan_i(const int nfiles, const int i, const int turn,
 // int_loop.cu's d_hccc, which pack_hc_kernel already fills. The outer-pair
 // term is already applied by new_c_kernel, which returns INF unless gate bit 0
 // is set, so it is not re-tested here.
-__global__ void
-stack_row_kernel(const int nfiles, const int i_row, const int turn,
+/* The body is a cell (3e-fuse: tile_front_kernel runs it per cell beside the others);
+ * stack_row_kernel below is its old prologue. */
+__device__ inline void
+stack_row_cell(const int nfiles, const int i_row, const int turn,
                  const short* __restrict__ S,
                  const char*  __restrict__ pair,
                  const cuda_param2_t* __restrict__ P,
@@ -1361,8 +1363,8 @@ stack_row_kernel(const int nfiles, const int i_row, const int turn,
                  const size_t* __restrict__ row_off_H,
                  const size_t* __restrict__ seq_off_H,
                  const size_t* __restrict__ size_off_H, const size_t total,
-                 const int* __restrict__ i_H) {
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+                 const int* __restrict__ i_H,
+               const long long m) {
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const int i = i_H[H];
@@ -1388,6 +1390,23 @@ stack_row_kernel(const int nfiles, const int i_row, const int turn,
     }
   }
   energy_stack_row[row_off_H[H]+j] = e;
+}
+
+__global__ void
+stack_row_kernel(const int nfiles, const int i_row, const int turn,
+                 const short* __restrict__ S,
+                 const char*  __restrict__ pair,
+                 const cuda_param2_t* __restrict__ P,
+                 const unsigned int*  __restrict__ hccc,      //INT_LOOP_ENC
+                 const size_t* __restrict__ hc_off_H,         //int_loop.cu's
+                       int*    __restrict__ energy_stack_row, //out
+                 const size_t* __restrict__ row_off_H,
+                 const size_t* __restrict__ seq_off_H,
+                 const size_t* __restrict__ size_off_H, const size_t total,
+                 const int* __restrict__ i_H) {
+  stack_row_cell(nfiles, i_row, turn, S, pair, P, hccc, hc_off_H, energy_stack_row,
+                 row_off_H, seq_off_H, size_off_H, total, i_H,
+                 (long long)blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 // ====================== GPU-resident sweep: new_c_kernel ======================
@@ -2152,5 +2171,151 @@ row_cells_i(const int nfiles, const vrna_fold_compound_t **VC,
   if(!rnafold_gpu_sweep())
     gpuErrchk( cudaDeviceSynchronize() );
 
+  return 1;
+}
+
+/* ========== Blocked md 3e-fuse: one tile step's c chain + fML scan, ONE launch ==========
+ *
+ * PORT_MD_BLOCKING_DRIVER.md 10 and 12. At a tile's width (one CB-column block of every
+ * record) the step's small kernels are bound by per-launch latency, not work: the A100
+ * priced them at 1.59x their whole-row cost per cell, which would eat the blocked md's
+ * gain. This kernel runs them in one launch, ONE BLOCK PER RECORD:
+ *
+ *   per cell j of the record's block, one thread, in program order:
+ *     hp_mb_3p_cell -> [noLP: stack_row_cell] -> new_c_cell -> load_my_c_cell
+ *   __syncthreads()
+ *   fml_scan_block over the record's block, carry-in from the previous column block
+ *
+ * WHY THE CELLS NEED NO BARRIER: the chain is per cell -- row_cells_kernel's argument.
+ * new_c(j) reads hp_mb's four outputs at its own j and the PREVIOUS row's dml1/cc1 at
+ * j-1, written by an earlier launch; load_my_c(j) reads new_e[j] it just wrote.
+ * WHY THE SCAN NEEDS ONE: it reads new_e and energy_3p00_row at every j of the block,
+ * written by other threads. One block per record makes that a __syncthreads(), which
+ * also orders the global writes for the block. Those two pointers are therefore NOT
+ * __restrict__ here: they are written and read in the same launch, so they must not be
+ * read through the non-coherent path (checked in the SASS when this was built).
+ *
+ * The bodies are the standalone kernels' own cells, so the arithmetic cannot drift.
+ * The -g row expansion (gq_row_kernel) only reads c_gq, so it stays a separate launch
+ * just before this one. The scan is the default Hillis-Steele scan at 256. */
+#define TILE_FRONT_TW FML_SCAN_THREADS
+template<int TW>
+__global__ void
+tile_front_kernel(const int nfiles, const int i_row, const int turn, const int length,
+                  const int noGUclosure,
+                  const short* __restrict__ S,
+                  const char*  __restrict__ seq,
+                  const char*  __restrict__ pair,
+                  const unsigned int* __restrict__ hccc_mb,
+                  const unsigned int* __restrict__ hccc_mbenc,
+                  const unsigned int* __restrict__ hccc_any,
+                  const unsigned int* __restrict__ hccc_gu,
+                  const cuda_param2_t* __restrict__ P,
+                  const int* __restrict__ salt_loop,
+                        int* __restrict__ energy_hp_row,
+                        int* __restrict__ energy_mb_row,
+                        int*              energy_3p00_row,   /* written here, scanned here */
+                       char* __restrict__ gate_row,
+                  const int*  __restrict__ energy_min2,
+                  const int*  __restrict__ dml1,
+                  const int*  __restrict__ up_hp,
+                        int*              new_e,             /* written here, scanned here */
+                  /* noLP: NULL stack_row when off */
+                  const unsigned int* __restrict__ hccc_int,
+                  const size_t* __restrict__ hc_off_H,
+                        int*  __restrict__ stack_row,
+                  const int*  __restrict__ cc1,
+                        int*  __restrict__ cc,
+                  /* the c store */
+                        int*  __restrict__ my_c,
+                  const size_t* __restrict__ tri_off_H,
+                  /* the scan */
+                  const int*  __restrict__ gq_row,
+                  const int*  __restrict__ fml_prev,
+                  const char* __restrict__ up_ml_ok,
+                        int*  __restrict__ energy_min,
+                  /* tables */
+                  const size_t* __restrict__ row_off_H,
+                  const size_t* __restrict__ hc2_off_H,
+                  const size_t* __restrict__ seq_off_H,
+                  const int*    __restrict__ len_H,
+                  const size_t* __restrict__ size_off_H, const size_t total,
+                  const int*    __restrict__ i_H,
+                  const int negctl)
+{
+  const int H = blockIdx.x;
+  if(H >= nfiles) return;   /* uniform per block: no thread reaches a barrier alone */
+  __shared__ int sa[TW];
+  __shared__ int sc[TW];
+
+  /* RNA_MD_TILE_FUSE_NEGCTL=1: the NEGATIVE CONTROL -- the scan runs BEFORE the cells,
+   * so it reads the previous step's c. The bars must go red, or they cannot see this
+   * kernel's internal order. */
+  if(negctl)
+    fml_scan_block<TW>(nfiles, i_row, turn, new_e, energy_3p00_row, gq_row, fml_prev, up_ml_ok,
+                       P, energy_min, row_off_H, seq_off_H, size_off_H, i_H, H, sa, sc);
+
+  const long long hi = (long long)size_off_H[H+1];
+  for(long long m = (long long)size_off_H[H] + threadIdx.x; m < hi; m += TW) {
+    hp_mb_3p_cell(nfiles, i_row, turn, length, S, seq, pair,
+                  hccc_mb, hccc_mbenc, hccc_any, hccc_gu, P, salt_loop,
+                  energy_hp_row, energy_mb_row, energy_3p00_row, gate_row,
+                  row_off_H, hc2_off_H, seq_off_H, len_H, size_off_H, total, i_H, m);
+    if(stack_row)
+      stack_row_cell(nfiles, i_row, turn, S, pair, P, hccc_int, hc_off_H, stack_row,
+                     row_off_H, seq_off_H, size_off_H, total, i_H, m);
+    new_c_cell(nfiles, i_row, turn, noGUclosure, energy_min2,
+               energy_hp_row, energy_mb_row, gate_row, dml1, up_hp, seq_off_H, new_e,
+               stack_row, cc1, cc, row_off_H, size_off_H, total, i_H, m);
+    load_my_c_cell(nfiles, i_row, length, new_e, my_c, tri_off_H, row_off_H,
+                   size_off_H, total, i_H, m);
+  }
+  __syncthreads();
+  if(!negctl)
+    fml_scan_block<TW>(nfiles, i_row, turn, new_e, energy_3p00_row, gq_row, fml_prev, up_ml_ok,
+                       P, energy_min, row_off_H, seq_off_H, size_off_H, i_H, H, sa, sc);
+}
+
+PUBLIC int
+tile_front_i(const int nfiles, const int i, const int turn, const int length,
+             const int noGUclosure, const int noLP, const size_t* size_off_H)
+{
+  if(!rnafold_md_tile_fuse()) return 0;
+  static int negctl = -1;
+  if(negctl < 0) {
+    const char* e = getenv("RNA_MD_TILE_FUSE_NEGCTL");
+    negctl = (e && e[0] == '1') ? 1 : 0;
+    if(negctl)
+      fprintf(stderr, "%-24s RNA_MD_TILE_FUSE_NEGCTL=1: the fused scan runs BEFORE the c chain "
+                      "-- a NEGATIVE CONTROL, wrong answers are EXPECTED\n", __FILE__);
+  }
+  const size_t total = size_off_H[nfiles];
+  if(total == 0) return 1;                 /* nothing to do IS handled */
+
+  bind_row_tables(i);
+
+  int* d_energy_min2_ = NULL; int* d_new_e_ = NULL;
+  int_loop_row_buffers(&d_energy_min2_, &d_new_e_);
+  int* d_dml1_ = NULL; int* d_fml_prev_ = NULL; int* d_energy_min_ = NULL;
+  md_row_buffers(NULL, &d_dml1_, &d_fml_prev_, &d_energy_min_);
+  int* d_my_c_ = NULL; const size_t* d_tri_off_H_ = NULL;
+  int_loop_my_c_buffers(&d_my_c_, &d_tri_off_H_);
+  unsigned int* d_intenc = NULL; const size_t* d_hcoff = NULL;
+  if(noLP) int_loop_hccc_buffers(&d_intenc, &d_hcoff);
+
+  /* the tile path is single-stream (rnafold_md_tile_cb() refuses any overlap), so the
+   * stream events the separate phases record are no-ops there and are not needed */
+  tile_front_kernel<TILE_FRONT_TW><<<nfiles, TILE_FRONT_TW, 0, rnafold_stream_md()>>>(
+      nfiles, RNA_I_ROW(i), turn, length, noGUclosure,
+      d_S2, d_sequence, d_pair2, d_hccc_mb, d_hccc_mbenc, d_hccc_any, d_hccc_gu,
+      d_param2, d_salt_loop,
+      HP_ROW(i), MB_ROW(i), P3P_ROW(i), GATE_ROW(i),
+      d_energy_min2_, d_dml1_, d_up_hp, d_new_e_,
+      d_intenc, d_hcoff, noLP ? d_energy_stack_row : NULL,
+      noLP ? d_cc1 : NULL, noLP ? d_cc : NULL,
+      d_my_c_, d_tri_off_H_,
+      rnafold_gq_row_device(), d_fml_prev_, d_up_ml_ok, d_energy_min_,
+      d_row_off_H, d_hc2_off_H, d_seq_off_H, d_len_H, d_size_off_H, total, d_i_H, negctl);
+  gpuErrchk( cudaPeekAtLastError() );
   return 1;
 }

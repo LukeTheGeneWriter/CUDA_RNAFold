@@ -182,6 +182,7 @@
  const int tile_cb  = rnafold_md_tile_cb();
  const int tile_rb  = tile_cb ? rnafold_md_tile_rb() : 1;
  const int tile_rev = tile_cb ? rnafold_md_tile_reverse() : 0;
+ const int tile_fuse = tile_cb ? rnafold_md_tile_fuse() : 0;   /* 3e-fuse: c chain + fML scan, one launch */
  long           n_st   = 0;
  int           *st_i   = NULL, *st_jlo = NULL;
  unsigned char *st_fl  = NULL;                 /* bit 0: row's first step; bit 1: its last */
@@ -331,8 +332,23 @@
     // separate phases below run instead. Charged to the hp_mb timer, which is the
     // largest of the three, so the phase split stays readable rather than
     // pretending the work moved somewhere new.
-    int row_fused = 0;
-    {
+    // 3e-fuse (hp_mb_loop.cu, tile_front_kernel): on the tile path the step's hp_mb_3p,
+    // stack row, new_c, c store AND fML scan are one launch, one block per record. The
+    // -g row expansion the scan reads goes first. row_fused then skips the separate
+    // phases below exactly as RNA_ROW_FUSE does, and the same hp_mb timer is charged.
+    int tile_fused = 0;
+    if(tile_fuse) {
+      const double t0 = now_seconds();
+      rnafold_gq_fill_row(nfiles, turn,
+                          rnafold_i_H_device(i), rnafold_row_off_device(),
+                          rnafold_size_off_device(i),
+                          size_off_H[nfiles]);
+      tile_fused = tile_front_i(nfiles, i, turn, length, noGUclosure, noLP, size_off_H);
+      rnafold_phase_sync();
+      phase_hp_mb_s += now_seconds() - t0;
+    }
+    int row_fused = tile_fused;
+    if(!tile_fused) {
       const double t0 = now_seconds();
       row_fused = row_cells_i(nfiles,VC,i,turn,length,noGUclosure,noLP,size_off_H,i_H);
       if(row_fused) {
@@ -556,6 +572,7 @@
      * fml_scan_kernel indexes. MUST precede fml_scan_i(), which reads it, and
      * it uses the device offset tables hp_mb_loop.cu already owns rather than
      * re-uploading them. Returns immediately unless a c_gq was uploaded. */
+    if(!tile_fused) {   /* 3e-fuse ran both already */
     rnafold_gq_fill_row(nfiles, turn,
                         rnafold_i_H_device(i), rnafold_row_off_device(),
                         rnafold_size_off_device(i),
@@ -564,6 +581,7 @@
     fml_scan_i(nfiles, i, turn,
                rnafold_gpu_sweep() ? NULL : energy_min,  // no host result to verify against in device mode
                row_off_H, size_off_H, i_H);
+    }
 
     //load_fML + modular_decomposition_i + load_min_fML fused into one CUDA
     //graph capture/replay (no host CPU logic runs between these three calls,

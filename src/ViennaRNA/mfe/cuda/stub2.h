@@ -619,6 +619,12 @@ PUBLIC void          rnafold_tile_end(void);
 PUBLIC int           rnafold_md_tile_cb(void);
 PUBLIC int           rnafold_md_tile_rb(void);        /* stage 3b: rows per block-row */
 PUBLIC int           rnafold_md_tile_reverse(void);   /* stage 3b negative control */
+PUBLIC int           rnafold_md_tile_fuse(void);      /* stage 3e-fuse, device.cu */
+/* 3e-fuse: the step's hp_mb_3p + stack row + new_c + c store + fML scan as one launch
+ * (hp_mb_loop.cu). 1 = handled, 0 = the caller runs the separate phases. */
+PUBLIC int           tile_front_i(const int nfiles, const int i, const int turn,
+                                  const int length, const int noGUclosure, const int noLP,
+                                  const size_t* size_off_H);
 PUBLIC void          rnafold_md_ring_select(const int i);   /* modular_decomposition.cu */
 PUBLIC void          rnafold_cc_ring_select(const int i, const int fill);   /* hp_mb_loop.cu */
 /* RNA_ROW_FUSE: hp_mb_3p + new_c + load_my_c as one launch. 1 = handled, 0 = run

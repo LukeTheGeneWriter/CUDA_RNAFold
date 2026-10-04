@@ -361,3 +361,54 @@ are the ones whose timing a reordering changes.
 **Negative control:** column blocks right to left (`RNA_MD_TILE_REVERSE=1`) changes both
 the structures and the triangles at RB = 1 and RB = 5. The order bar can see an order
 error, and the right-to-left order is the error it sees.
+
+---
+
+## 12. Stage 3e-fuse, built 2026-10-04
+
+**One launch per tile step for the c chain and the fML scan.** `tile_front_kernel`
+(`hp_mb_loop.cu`) runs one block per record over the step's column block. Each thread
+walks its cells through `hp_mb_3p_cell`, `stack_row_cell` (noLP), `new_c_cell` and
+`load_my_c_cell`, which are the standalone kernels' own bodies. Then a `__syncthreads()`
+and `fml_scan_block` with the carry-in. That is five launches (hp_mb_3p, stack row,
+new_c, load_my_c, fml_scan) become one. It is on whenever tiles are (`RNA_MD_TILE_FUSE=1`
+is printed), and `RNA_MD_TILE_FUSE=0` is the separate-kernel arm. The `-g` row expansion
+reads only `c_gq`, so it stays a launch of its own, just before.
+
+**Why the cells need no barrier and the scan needs one.** This is row_cells_kernel's
+argument. Every cell reads its own `j`, or the previous row at `j−1` (an earlier launch).
+The scan reads every `j` of the block, written by other threads, so one block per record
+turns that dependency into a `__syncthreads()`. `new_e` and `energy_3p00_row` are written
+and read in the same launch, so they are not `__restrict__` in this kernel. The SASS
+confirms that the scans read them with coherent `LDG.E`, not `LDG.E.CONSTANT`.
+
+**`md_close` is not fused here, deliberately.** It reads md's output for its own cell,
+so it belongs in md's epilogue, and 3c replaces today's md kernel with the corner
+kernel. It is fused there, in 3c, not into a kernel 3c deletes.
+
+**Bars (laptop, 2026-10-04).**
+- **The 3e matrix: 54/54** (plain RB 1/2/5/33 × CB 7/64/333; `-g`, noLP, circ; int16 and
+  int32). Each arm is checked against the CPU's structures and the row path's c and fML
+  triangles, and each prints `RNA_MD_TILE_FUSE=1`.
+- **`RNA_MD_TILE_FUSE=0`** still runs and gives the same answer.
+- **Negative controls**, all of which must and do change the structures and the
+  triangles:
+  - `RNA_MD_TILE_FUSE_NEGCTL=1` runs the scan before the cells, at RB 1 and RB 5;
+  - reversed column blocks under fusion.
+
+**What it buys on the laptop** (47 × 2000 nt, RB 64, CB 512, single stream, ABBA). The
+clock drifted 60 % through the run, so each arm is normalised by its own int_loop time,
+which fusion does not touch. (c chain + scan + md) / int_loop is:
+
+| arm | ratio |
+|---|---|
+| row path | 0.80–0.82 |
+| tile, unfused | 0.89–0.93 |
+| tile, fused | 0.79–0.87 |
+
+The tile overhead of these phases is gone. What remains of the tile overhead is
+int_loop's own: +12 % here, 1.23× on the A100 (§10). The A100 decides, with §10's E1
+shape: price the fused kernel per cell at 24 k against 130 k.
+
+**Next: 3c.** md becomes `min(ACC, cor1, cor2)` with the right-looking `UPDATE`, and
+`md_close` moves into the corner kernel's epilogue.

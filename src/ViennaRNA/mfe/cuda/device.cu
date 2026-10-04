@@ -1110,6 +1110,29 @@ rnafold_md_tile_reverse(void)
   return v;
 }
 
+/* RNA_MD_TILE_FUSE: stage 3e-fuse -- on the tile path, a step's c chain and fML scan
+ * (hp_mb_3p, noLP's stack row, new_c, the c store, the scan) run as ONE launch, one
+ * block per record (hp_mb_loop.cu, tile_front_kernel). The A100 run priced those
+ * kernels at a tile's width as latency-bound launches (PORT_MD_BLOCKING_DRIVER.md 10).
+ * ON by default whenever tiles are; RNA_MD_TILE_FUSE=0 runs them separately, which
+ * is the comparison arm. Off the tile path it does nothing. */
+extern "C" int
+rnafold_md_tile_fuse(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_TILE_FUSE");
+
+    v = (rnafold_md_tile_cb() && !(e && e[0] == '0')) ? 1 : 0;
+    if (rnafold_md_tile_cb())
+      fprintf(stderr, "device.cu                RNA_MD_TILE_FUSE=%d: %s\n", v,
+              v ? "a step's c chain + fML scan are ONE launch, one block per record"
+                : "the step's c chain and fML scan run as separate kernels");
+  }
+  return v;
+}
+
 static void
 rowtab_copy(const size_t lo_o, const size_t n_o, const size_t lo_i, const size_t n_i)
 {
