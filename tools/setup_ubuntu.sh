@@ -111,15 +111,45 @@ SV=$(swig_ver)
 if [ -n "$SV" ] && ver_ge "$SV" 4.3; then
   ok "SWIG $SV ($(command -v swig))"
 else
-  ok "SWIG ${SV:-none} is too old; installing a current one with pipx (into ~/.local/bin)"
-  pipx install swig > "$LOGS/pipx-swig.log" 2>&1 || pipx upgrade swig >> "$LOGS/pipx-swig.log" 2>&1 \
-    || die "pipx install swig failed -- see $LOGS/pipx-swig.log"
-  hash -r; SV=$(swig_ver)
-  ver_ge "${SV:-0}" 4.3 || die "still no SWIG >= 4.3 after pipx -- see $LOGS/pipx-swig.log"
-  ok "SWIG $SV ($(command -v swig))"
+  # Three routes, in order, because no single one works everywhere (2026-10-04):
+  #   pipx            plain Ubuntu 24.04 (pip itself refuses there: PEP 668)
+  #   python3 -m pip  where Python is not externally managed. Colab: its python3 cannot
+  #                   create a venv (ensurepip fails), so pipx fails there
+  #   from source     SWIG's own release, into ~/.local; needs only what step 1 installed
+  ok "SWIG ${SV:-none} is too old; installing a current one"
+  swig_ok() { hash -r; SV=$(swig_ver); [ -n "$SV" ] && ver_ge "$SV" 4.3; }
+  ROUTE=""
+  if pipx install swig > "$LOGS/swig-pipx.log" 2>&1 || pipx upgrade swig >> "$LOGS/swig-pipx.log" 2>&1; then
+    swig_ok && ROUTE=pipx
+  fi
+  if [ -z "$ROUTE" ]; then
+    ok "pipx could not install it (see $LOGS/swig-pipx.log); trying pip"
+    if python3 -m pip install swig > "$LOGS/swig-pip.log" 2>&1; then swig_ok && ROUTE=pip; fi
+  fi
+  if [ -z "$ROUTE" ]; then
+    SWIG_TAG=v4.5.0      # the version this tree's interfaces are verified with
+    ok "pip could not either (see $LOGS/swig-pip.log); building SWIG $SWIG_TAG from source into ~/.local"
+    tmp=$(mktemp -d)
+    { wget -q -O "$tmp/swig.tar.gz" "https://github.com/swig/swig/archive/refs/tags/$SWIG_TAG.tar.gz" \
+      && tar -xzf "$tmp/swig.tar.gz" -C "$tmp" \
+      && cd "$tmp"/swig-* && ./autogen.sh && ./configure --prefix="$HOME/.local" --without-pcre \
+      && make -j"$JOBS" && make install; } > "$LOGS/swig-source.log" 2>&1
+    cd "$ROOT"; rm -rf "$tmp"
+    swig_ok && ROUTE=source
+  fi
+  [ -n "$ROUTE" ] || die "no route gave SWIG >= 4.3 -- see $LOGS/swig-pipx.log, swig-pip.log and swig-source.log.
+The C library and RNAfold do not need it; re-run with SWIG >= 4.3 on PATH to get the Python interface."
+  ok "SWIG $SV ($(command -v swig), via $ROUTE)"
   # A later ./configure in a NEW shell would find the distribution's old SWIG again and turn
   # Python off without an error, so ~/.local/bin goes on PATH for future shells too.
-  pipx ensurepath >> "$LOGS/pipx-swig.log" 2>&1 && ok "~/.local/bin added to PATH for new shells (pipx ensurepath)"
+  case "$(command -v swig)" in
+    "$HOME/.local/bin/"*)
+      if command -v pipx > /dev/null && pipx ensurepath >> "$LOGS/swig-path.log" 2>&1; then
+        ok "~/.local/bin added to PATH for new shells (pipx ensurepath)"
+      elif ! grep -qs '\.local/bin' "$HOME/.bashrc"; then
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc" && ok "~/.local/bin added to PATH in ~/.bashrc"
+      fi ;;
+  esac
 fi
 
 # ------------------------------------------------------------------ 3. CUDA toolkit
