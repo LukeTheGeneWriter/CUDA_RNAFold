@@ -118,11 +118,11 @@ AC_DEFUN([RNA_ENABLE_CUDA], [
       AS_IF([nvidia-smi -L >/dev/null 2>&1 || test -e /proc/driver/nvidia/version],[
         AS_IF([test -e /dev/dxg || test -d /usr/lib/wsl/lib],[
           cuda_report_hint="an NVIDIA GPU is visible (WSL) but no CUDA toolkit is installed: install the
-                                TOOLKIT ONLY, never a Linux driver -- tools/setup_ubuntu.sh --cuda does it
+                                TOOLKIT ONLY, never a Linux driver -- tools/setup_ubuntu.sh does it
                                 (NVIDIA's cuda-toolkit from the wsl-ubuntu repository) -- then re-run ./configure"
         ],[
           cuda_report_hint="an NVIDIA GPU is visible but no CUDA toolkit is installed: install one
-                                (Ubuntu: tools/setup_ubuntu.sh --cuda, or sudo apt install nvidia-cuda-toolkit)
+                                (Ubuntu: tools/setup_ubuntu.sh, or sudo apt install nvidia-cuda-toolkit)
                                 and re-run ./configure"
         ])
       ])

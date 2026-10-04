@@ -2,7 +2,7 @@
 # tools/setup_ubuntu.sh -- build this tree on Ubuntu or Debian (including WSL), from a git
 # clone, with GPU acceleration when the machine has an NVIDIA GPU.
 #
-#   git clone https://github.com/lukethegenewriter/CUDA_RNAFold.git && cd CUDA_RNAFold
+#   git clone --branch Finished_Port https://github.com/lukethegenewriter/CUDA_RNAFold.git && cd CUDA_RNAFold
 #   tools/setup_ubuntu.sh            # prerequisites, CUDA if a GPU is visible, build, self-check
 #   tools/setup_ubuntu.sh --install  # ... and `sudo make install`, then check `import RNA`
 #
