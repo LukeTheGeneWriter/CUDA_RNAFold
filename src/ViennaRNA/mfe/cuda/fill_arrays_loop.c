@@ -183,6 +183,8 @@
  const int tile_rb  = tile_cb ? rnafold_md_tile_rb() : 1;
  const int tile_rev = tile_cb ? rnafold_md_tile_reverse() : 0;
  const int tile_fuse = tile_cb ? rnafold_md_tile_fuse() : 0;   /* 3e-fuse: c chain + fML scan, one launch */
+ const int md_blk   = tile_cb ? rnafold_md_block() : 0;       /* 3c: blocked md, bulk + corners */
+ int       blk_cur  = -1;                                     /* 3c: the block-row ACC holds */
  long           n_st   = 0;
  int           *st_i   = NULL, *st_jlo = NULL;
  unsigned char *st_fl  = NULL;                 /* bit 0: row's first step; bit 1: its last */
@@ -590,7 +592,20 @@
     {
       const double t0 = now_seconds();
       // side_off_H: built with this row's slot at the top of the iteration.
+      // 3c (RNA_MD_BLOCK): md is min(ACC, corners). A block-row's first step resets its
+      // ACC rows; every step tells md its block-row top and column block.
+      const int blk_top = md_blk ? sweep_iters - ((sweep_iters - i) / tile_rb) * tile_rb : i;
+      const int blk_bot = (blk_top - tile_rb + 1 > 1) ? blk_top - tile_rb + 1 : 1;
+      if(md_blk) {
+        if(blk_top != blk_cur) { rnafold_md_blk_rowstart(blk_top, blk_bot); blk_cur = blk_top; }
+        rnafold_md_blk_set_step(blk_top, tile_jlo);
+      }
       load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H,i_H);
+      // 3c: row blk_bot is the LAST row of this column block in its block-row (rows run
+      // top down and no column block is wholly left of bot), so every row's E for this
+      // block now exists: fold it into ACC for every later column.
+      if(md_blk && i == blk_bot)
+        rnafold_md_blk_update(nfiles, turn, length, blk_top, blk_bot, tile_jlo, tile_jlo + tile_cb - 1);
       rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
       phase_modular_decomp_s += now_seconds() - t0;
     }

@@ -412,3 +412,68 @@ shape: price the fused kernel per cell at 24 k against 130 k.
 
 **Next: 3c.** md becomes `min(ACC, cor1, cor2)` with the right-looking `UPDATE`, and
 `md_close` moves into the corner kernel's epilogue.
+
+---
+
+## 13. Stage 3c, built 2026-10-04: correct, and slower than md per cell at CB 512
+
+**What it is.** `RNA_MD_BLOCK=1` (tile path only; it refuses without `RNA_MD_TILE_CB`) makes
+md at cell (i, j) of column block [jlo, jhi] in block-row [bot, top] equal to
+`min(ACC[i][j], cor1, cor2)`:
+- **The UPDATE** (`md_blk_update_kernel`) is right-looking. After column block J's last
+  row (`bot`), one launch folds k ∈ [max(top, jlo), jhi] into ACC for every later column
+  of every record. Its tiles are RT 32 × CT 64 × KB 32, with 4 × 4 outputs per thread.
+- **The corners** (`md_blk_corner_kernel`) use 4 lanes per cell over [i+turn+1, top−1] and
+  [jlo, j−turn−2], then take the min with ACC. The same kernel does md's epilogue (`d_dml`,
+  and the clamped fM2 under `--circ`).
+- **ACC** is RB rows of the row-buffer layout, reset at each block-row's first step,
+  allocated per chunk, freed by the pointer, and charged in the byte model.
+
+The operands are md_cell's own. A is row i's E from its energy_min ring slot. B is the
+triangle, decoded the same way. The sums are the same unguarded A + B, so the answer is the
+min over the same set: byte-identical by construction.
+
+**A bug the first run caught.** `md_block_product<CB,…>` loops over CB because it assumes
+the staging depth *is* the column count. Stage 2 only ever ran CB = KB = 32, so this never
+showed. At CT 64 / KB 32 it read past the staged rows (an illegal memory access). The
+UPDATE now has its own KB-deep loop. **A shape-coincident test (CB == KB) cannot see a
+depth/width mix-up.**
+
+**Bars (laptop, 2026-10-04).**
+- **The 3c matrix: 54/54** (plain RB 1/2/5/33 × CB 7/64/333; `-g`, noLP, circ; int16 and
+  int32). Each arm is checked against the CPU's structures and the row path's c and fML
+  triangles, prints `RNA_MD_BLOCK=1 ACTIVE`, and runs at least one UPDATE.
+- **Refusal:** without tiles it refuses.
+- **Negative controls:** `RNA_MD_BLOCK_NEGCTL=1` drops k = kmin from each UPDATE. The
+  triangles DIFFER at RB 1, 5 and 33; the structures differ only at RB 5, so the triangle
+  bar is the one that sees it. Reversed column blocks under blocking also DIFFER.
+- **Default path:** the default matrix is 28/28, option parity 45/45, and the binding
+  suite passes.
+
+**What it costs on the laptop** (47 × 2000 nt, RB 64, single stream, fused front; md timer,
+which includes UPDATE, corners and md_close, divided by the same run's int_loop):
+
+| CB | row path | tile, md per cell | tile, blocked md |
+|---|---|---|---|
+| 512 | 0.75–0.79 | 0.74–0.77 | **0.85–0.92** |
+| 64  | 0.67–0.78 | 0.77–0.89 | **0.66–0.76** |
+
+**Why CB 512 loses: cor2 scales with CB.** cor2's range is the current column block, so
+at CB 512 each cell walks ~CB/2 ≈ 256 terms on 4 lanes, with no reuse. The isolated 6.23×
+was measured at CB 64. At CB 64 blocked md beats per-cell md on the same tiles and roughly
+matches the whole row. But CB 64 multiplies the per-step launches (int_loop and the c
+chain), and the wall is far worse (10–12 s against 7 s).
+
+**So CB plays two roles that pull opposite ways:** the physics wants wide tiles, and md's
+corners want narrow ones. That is the first thing 3d has to settle. Two candidates:
+- **Block cor2 inside J.** Split J into CB_md-wide sub-blocks, and run an UPDATE between
+  them within the step sequence's own row order. That needs rows re-ordered per sub-block,
+  so it is a schedule change.
+- **Make cor2 a blocked product too.** Its B rows k+1 > jlo are mostly earlier block-rows
+  (all of them when jlo > top), so for J right of the diagonal, cor2 is a (min,+) product
+  of row i's E on J with a finished B patch. It could be staged and shared across the
+  block-row's RB rows like the bulk. Rows inside the block-row (k+1 ≤ top) remain per cell.
+
+Until then RNA_MD_BLOCK stays **off by default** (§5's default-on rule needs an A100 win).
+`md_close` stays its own launch; folding it into the corner kernel's epilogue waits for the
+corner design to settle.

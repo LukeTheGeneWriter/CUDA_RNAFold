@@ -648,6 +648,12 @@ static int*  g_emin_ring[MD_RING_MAX];     /* g_emin_depth allocations */
 static int   g_dml_depth  = 2;             /* this chunk's: 2 unless RNA_MD_RING_DEPTH took */
 static int   g_emin_depth = 1;             /* always g_dml_depth - 1 */
 static long  g_ring_k     = 0;             /* advances this chunk */
+/* Stage 3c (RNA_MD_BLOCK): the bulk accumulator ACC, RB rows of the row-buffer layout;
+ * row i of the block-row [bot, top] lives at slot top - i. Allocated per chunk, freed by
+ * the pointer. */
+static int*  d_md_acc     = NULL;
+extern "C" int  rnafold_md_block(void);
+extern "C" int* rnafold_circ_fm2_device(void);
 
 extern "C" int rnafold_md_ring_depth(void); /* requested; defined with md_tail_refuse() */
 static int md_ring_depth_effective(void);   /* this chunk's, after refusals */
@@ -872,6 +878,9 @@ init_gpu(const int nfiles, const int length,
     gpuErrchk( cudaMalloc((void **) &g_dml_ring[s], mem_size_len) );
   for (int s = 1; s < g_emin_depth; s++)
     gpuErrchk( cudaMalloc((void **) &g_emin_ring[s], mem_size_len) );
+  /* Stage 3c: ACC, RB rows. Prefilled per block-row (rnafold_md_blk_rowstart). */
+  if (rnafold_md_block())
+    gpuErrchk( cudaMalloc((void **) &d_md_acc, mem_size_len * (size_t)rnafold_md_tile_rb()) );
 
   error = cudaMalloc((void **) &d_fml_prev, mem_size_len);
   if (error != cudaSuccess)  {
@@ -1002,6 +1011,7 @@ teardown_gpu(void) {
   }
   d_dml = d_dml1 = NULL;
   gpuErrchk( cudaFree(d_fml_prev) );
+  if(d_md_acc) { gpuErrchk( cudaFree(d_md_acc) ); d_md_acc = NULL; }   // 3c, by the pointer
   if(d_fml_stage) { gpuErrchk( cudaFree(d_fml_stage) ); d_fml_stage = NULL; }  // by the pointer
   g_stage_n = 0;
   gpuErrchk( cudaFree(d_tri_off_H) );
@@ -1049,6 +1059,10 @@ modular_decomposition_bytes_per_file(const int length) {
    * only make this an over-count, never an under-count. */
   const size_t ring_bytes   = (size_t)(length+1) * sizeof(int) * 2
                               * (size_t)(rnafold_md_ring_depth() - 2);
+  /* Stage 3c: ACC, RB more row-shaped buffers (RNA_MD_BLOCK). Folded into ring_bytes so
+   * both encodings charge it. */
+  const size_t acc_bytes    = rnafold_md_block() ? (size_t)(length+1) * sizeof(int)
+                                                   * (size_t)rnafold_md_tile_rb() : 0;
   if(rnafold_fml_int16()) {
     // x6: the five above plus d_fml_row, which is row-shaped and so is noise
     // beside the triangle. The triangle halves, and the baselines add one int32
@@ -1056,7 +1070,7 @@ modular_decomposition_bytes_per_file(const int length) {
     const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 6;
     const size_t tri16        = cells * sizeof(short);
     const size_t base_bytes   = ((cells + FML_BLK - 1)/FML_BLK + (size_t)length + 2) * sizeof(int);
-    return mem_size_len + tri16 + base_bytes + stage_bytes + ring_bytes
+    return mem_size_len + tri16 + base_bytes + stage_bytes + ring_bytes + acc_bytes
          + (g_circ_expected ? cells * sizeof(int) : 0);   /* fM2_real stays int32 */
   }
   const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 5;
@@ -1064,7 +1078,7 @@ modular_decomposition_bytes_per_file(const int length) {
   /* CIRCULAR costs a SECOND full triangle -- fM2_real, the same extent as
    * d_fml_j. This is the "costs a chunk width" trade PORT_CIRC_SPEC.md names:
    * the arithmetic is free, the memory is not. */
-  return mem_size_len + ijsize_len + stage_bytes + ring_bytes
+  return mem_size_len + ijsize_len + stage_bytes + ring_bytes + acc_bytes
        + (g_circ_expected ? cells * sizeof(int) : 0);
 }
 
@@ -2155,6 +2169,317 @@ rnafold_md_block_selftest_report(void)
   if (bad)
     fprintf(stderr, "%-24s   first mismatch: H=%d i=%d j=%d blocked=%d md=%d\n",
             __FILE__, first[1], first[2], first[3], first[4], first[0]);
+}
+
+/* ===================== Blocked md stage 3c: md on the tile path, BLOCKED ============
+ *
+ * PORT_MD_BLOCKING_DRIVER.md 2 and 13. On the tile path (RNA_MD_TILE_CB, RNA_MD_TILE_RB)
+ * RNA_MD_BLOCK=1 replaces md_cell's per-cell walk over k by the three-piece split, for
+ * cell (i, j) of column block J = [jlo, jhi] in block-row [bot, top]:
+ *
+ *   bulk  k in [top, jlo-1]          ACC[i][j], built by the right-looking UPDATE
+ *   cor1  k in [i+turn+1, top-1]     md_blk_corner_kernel, pass 0
+ *   cor2  k in [jlo, j-turn-2]       md_blk_corner_kernel, pass 1
+ *
+ * The pieces cover [i+turn+1, j-turn-2]; where they overlap (jlo < top) a sum is taken
+ * twice, which min does not see. UPDATE(J) runs once column block J is done for every
+ * row of the block-row, and folds k in [max(top, jlo), jhi] into ACC for every LATER
+ * column of every record -- one wide launch, which is why right-looking was chosen (8).
+ *
+ * THE OPERANDS ARE md_cell's OWN. A is row i's E -- d_energy_min, the fML scan's output,
+ * which md_cell reads as fml_i under RNA_MD_TAIL -- from the row's slot of the energy_min
+ * ring (depth RB: every row of the block-row has its own slot until the block-row ends).
+ * B is fML[k+1][j] from the triangle, int16-decoded exactly as md_cell decodes it. Every
+ * sum is the same unguarded A + B, and min is exact, so the result is the min over the
+ * same set of sums: byte-identical by construction, not by tolerance. Out-of-range terms
+ * in the blocked product carry MD_BLOCK_MASK (md_block.inc's header says why not INF).
+ *
+ * WHAT IS READY WHEN (2's read table): ACC's B rows are > top, earlier block-rows; its A
+ * columns are J, scanned by every row of the block-row before UPDATE(J) is issued. The
+ * corners' B rows inside the block-row are rows ABOVE i at the same column j, which ran
+ * earlier in this J and were closed into the triangle by md_close; their A is row i's
+ * E at k < j, this step's scan or earlier ones. */
+#define MD_UPD_RT 32    /* UPDATE row tile; a block-row of RB rows takes ceil(RB/RT) */
+#define MD_UPD_CT 64    /* UPDATE column tile */
+#define MD_UPD_KB 32    /* staging depth; divides FML_BLK */
+#define MD_BLK_LANES 4  /* corner lanes per cell -- PORT_MD_BLOCKING_INTEGRATION.md 3.6 */
+#define MD_BLK_RB_MAX 128
+
+typedef struct { const int *r[MD_BLK_RB_MAX]; } md_blk_erows_t;   /* row top-r's E */
+
+static int     g_blk_top        = 0;      /* this step's block-row and column block */
+static int     g_blk_jlo        = 0;
+static long    g_blk_steps = 0, g_blk_updates = 0, g_blk_rowstarts = 0;
+
+extern "C" int rnafold_md_tile_cb(void);
+extern "C" int rnafold_md_tile_rb(void);
+
+static void
+md_blk_report(void)
+{
+  fprintf(stderr, "%-24s RNA_MD_BLOCK: %ld blocked md steps, %ld UPDATE launches, "
+                  "%ld block-rows\n", __FILE__, g_blk_steps, g_blk_updates, g_blk_rowstarts);
+}
+
+/* RNA_MD_BLOCK=1: blocked md on the tile path. Off by default; refuses (the per-cell md
+ * runs) without tiles, under RNA_MD_BLOCK_SELFTEST, or beyond MD_BLK_RB_MAX rows. */
+extern "C" int
+rnafold_md_block(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_BLOCK");
+    const char *why = NULL;
+
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+    if (!v) return 0;
+    if (!rnafold_md_tile_cb())                        why = "it needs the tile path (RNA_MD_TILE_CB)";
+    else if (rnafold_md_tile_rb() > MD_BLK_RB_MAX)    why = "RNA_MD_TILE_RB above 128";
+    else if (rnafold_md_block_selftest())             why = "RNA_MD_BLOCK_SELFTEST owns the md rings";
+    if (why) {
+      fprintf(stderr, "%-24s RNA_MD_BLOCK=1 REFUSED: %s -- md runs per cell\n", __FILE__, why);
+      v = 0;
+    } else {
+      fprintf(stderr, "%-24s RNA_MD_BLOCK=1 ACTIVE: md = min(ACC, cor1, cor2), right-looking "
+                      "UPDATE (RT %d CT %d KB %d), %d-lane corners, RB %d CB %d\n", __FILE__,
+              MD_UPD_RT, MD_UPD_CT, MD_UPD_KB, MD_BLK_LANES, rnafold_md_tile_rb(),
+              rnafold_md_tile_cb());
+      atexit(md_blk_report);
+    }
+  }
+  return v;
+}
+
+/* RNA_MD_BLOCK_NEGCTL=1: the NEGATIVE CONTROL -- UPDATE drops its first term k = kmin,
+ * so that term is in no piece. The bars must go red. */
+static int
+md_blk_negctl(void)
+{
+  static int v = -1;
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_BLOCK_NEGCTL");
+    v = (e && e[0] == '1') ? 1 : 0;
+    if (v)
+      fprintf(stderr, "%-24s RNA_MD_BLOCK_NEGCTL=1: UPDATE drops k = kmin -- a NEGATIVE "
+                      "CONTROL, wrong answers are EXPECTED\n", __FILE__);
+  }
+  return v;
+}
+
+/* The right-looking UPDATE for column block J of block-row [bot, top]: for every row of
+ * the block-row and every column j > kmax of every record,
+ *     ACC[i][j] = min(ACC[i][j], min over k in [kmin, kmax] of E_i[k] + fML[k+1][j])
+ * restricted to md's own range (k >= i+turn+1, k <= j-turn-2). One block per (column
+ * tile, record, row tile). */
+template <int RT, int CT, int KB, int RM, int RN>
+__global__ void
+md_blk_update_kernel(const int nfiles, const int turn, const int top, const int bot,
+                     const int kmin, const int kmax, const md_blk_erows_t E,
+                     int *__restrict__ acc, const size_t row_total,
+                     const int   *__restrict__ fml_j,
+                     const short *__restrict__ fml_j16, const int *__restrict__ fml_b,
+                     const size_t *__restrict__ base_off_H, const size_t *__restrict__ colb_off,
+                     const size_t *__restrict__ tri_off_H, const size_t *__restrict__ row_off_H)
+{
+  __shared__ int Xs[KB * (RT + 1)];
+  __shared__ int Ys[KB * (CT + 1)];
+
+  const int H = blockIdx.y;
+  if (H >= nfiles) return;
+  const size_t o     = row_off_H[H];
+  const int    n_len = (int)(row_off_H[H + 1] - o) - 1;   /* this record's length */
+  const int    jc0   = kmax + 1 + (int)blockIdx.x * CT;
+  const int    ihi   = top - (int)blockIdx.z * RT;        /* rows ihi, ihi-1, ... >= bot */
+  /* uniform per block, so no thread skips a barrier alone */
+  if (jc0 > n_len || kmin > n_len || ihi < bot) return;
+
+  const int tid   = threadIdx.x;
+  const int TPB   = (RT / RM) * (CT / RN);
+  const int cbase = (tid % (CT / RN)) * RN;
+  const int rbase = (tid / (CT / RN)) * RM;
+
+  int a[RM][RN];
+#pragma unroll
+  for (int u = 0; u < RM; u++)
+#pragma unroll
+    for (int v = 0; v < RN; v++) a[u][v] = INF;
+
+  /* k-blocks aligned to FML_BLK so one baseline covers a staged column run */
+  for (int k0 = (kmin / FML_BLK) * FML_BLK; k0 <= kmax; k0 += KB) {
+    for (int e = tid; e < KB * RT; e += TPB) {
+      const int t = e / RT, r = e % RT;
+      const int i = ihi - r, k = k0 + t;
+      int v = MD_BLOCK_MASK;
+      if (i >= bot && k >= kmin && k <= kmax && k >= i + turn + 1 && k <= n_len)
+        v = E.r[top - i][o + (size_t)k];
+      Xs[t * (RT + 1) + r] = v;
+    }
+    md_block_stage_col_kb<CT, KB>(H, jc0, k0, n_len, fml_j16, fml_b, fml_j,
+                                  tri_off_H, base_off_H, colb_off, turn, Ys, tid, TPB);
+    __syncthreads();
+    /* NOT md_block_product: that loops t over its CB, i.e. it assumes the staging depth
+     * IS the column count (stage 1's shape; stage 2 only ran CB == KB). Here the depth
+     * is KB and the row stride CT+1, so the product is written out with both. */
+#pragma unroll 4
+    for (int t = 0; t < KB; t++) {
+      int xa[RM], ya[RN];
+#pragma unroll
+      for (int u = 0; u < RM; u++) xa[u] = Xs[t * (RT + 1) + rbase + u];
+#pragma unroll
+      for (int v = 0; v < RN; v++) ya[v] = Ys[t * (CT + 1) + cbase + v];
+#pragma unroll
+      for (int u = 0; u < RM; u++)
+#pragma unroll
+        for (int v = 0; v < RN; v++) {
+          const int s = xa[u] + ya[v];   /* unguarded, as md_cell's */
+          a[u][v] = MIN2(a[u][v], s);
+        }
+    }
+    __syncthreads();
+  }
+
+#pragma unroll
+  for (int u = 0; u < RM; u++)
+#pragma unroll
+    for (int v = 0; v < RN; v++) {
+      const int i = ihi - (rbase + u);
+      const int j = jc0 + cbase + v;
+      if (i < bot || j > n_len || j < i + 2 * (turn + 1) + 1) continue;
+      int *p = &acc[(size_t)(top - i) * row_total + o + (size_t)j];
+      const int old = *p, got = a[u][v];
+      *p = MIN2(old, got);
+    }
+}
+
+/* One step's md: the two corners, LANES lanes per cell, then min with ACC -- and md's
+ * own epilogue: d_dml, and fM2_real (clamped) under --circ. Over the step's SIDE range,
+ * row-local index with the tile's column shift, exactly md_cell's cell map. Every thread
+ * reaches the shuffle; dead lanes carry INF. */
+template <int LANES>
+__global__ void
+md_blk_corner_kernel(const int nfiles, const int i_row, const int turn,
+                     const int top, const int jlo,
+                     const int *__restrict__ E,          /* row i's energy_min slot */
+                     const int *__restrict__ accrow,     /* row i's ACC slot */
+                     int *__restrict__ dml, int *__restrict__ fm2,
+                     const int   *__restrict__ fml_j,
+                     const short *__restrict__ fml_j16, const int *__restrict__ fml_b,
+                     const size_t *__restrict__ base_off_H, const size_t *__restrict__ colb_off,
+                     const size_t *__restrict__ tri_off_H, const size_t *__restrict__ row_off_H,
+                     const size_t *__restrict__ side_off_H, const size_t total,
+                     const int *__restrict__ i_H)
+{
+  const long long g    = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+  const long long m    = g / LANES;
+  const int       lane = (int)(g % LANES);
+  const bool  active   = ((size_t)m < total);
+  int    value = INF;
+  size_t out = 0, fm2_out = 0;
+
+  if (active) {
+    const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
+    const int i = i_H[H];
+    assert(i_row < 0 || i == i_row);
+    const int x = (int)((long long)m - (long long)side_off_H[H]) + (int)side_off_H[nfiles + 1];
+    const int j = x + (i + 2 * (turn + 1)) + 1;
+    const size_t o = row_off_H[H];
+    out = o + (size_t)j;
+    if (fm2) fm2_out = tri_off_H[H] + Indx(i, j);
+
+    const int klo = i + turn + 1, khi = j - turn - 2;
+#pragma unroll 1
+    for (int pass = 0; pass < 2; pass++) {
+      const int lo = pass ? ((jlo > klo) ? jlo : klo) : klo;
+      const int hi = pass ? khi : (((top - 1) < khi) ? (top - 1) : khi);
+      for (int k = lo + lane; k <= hi; k += LANES) {
+        const int    aa = E[o + (size_t)k];
+        const size_t tB = tri_off_H[H] + (size_t)Indx(k + 1, j);
+        const int    bb = fml_j16 ? fml_decode(fml_j16, fml_b, tB,
+                                               fml_bidx(base_off_H, colb_off, H, j, k + 1))
+                                  : fml_j[tB];
+        const int s = aa + bb;     /* unguarded, as md_cell's */
+        value = MIN2(value, s);
+      }
+    }
+  }
+#pragma unroll
+  for (int off = LANES / 2; off > 0; off >>= 1) {
+    const int other = __shfl_down_sync(0xffffffff, value, off, LANES);
+    value = MIN2(value, other);
+  }
+  if (active && lane == 0) {
+    const int ac = accrow[out];
+    value = MIN2(value, ac);
+    dml[out] = value;
+    if (fm2) fm2[fm2_out] = (value > INF / 2) ? INF : value;   /* md_cell's circ clamp */
+  }
+}
+
+/* The block-row starts: its RB ACC rows go back to INF (the bulk of the first column
+ * block is empty, and every later one is built by UPDATE from here). */
+extern "C" void
+rnafold_md_blk_rowstart(const int top, const int bot)
+{
+  if (!d_md_acc) return;
+  const size_t n  = (size_t)(top - bot + 1) * g_row_total;
+  const size_t nb = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  init_fML_kernel<<<(unsigned)nb, BLOCK_SIZE, 0, ISSUE_STREAM>>>(n, d_md_acc);
+  gpuErrchk( cudaPeekAtLastError() );
+  g_blk_rowstarts++;
+}
+
+/* This step's block-row top and column block, for md_row_chain's blocked step. */
+extern "C" void
+rnafold_md_blk_set_step(const int top, const int jlo)
+{
+  g_blk_top = top;
+  g_blk_jlo = jlo;
+}
+
+/* UPDATE(J), after column block [jlo, jhi] is done for every row of block-row [bot, top].
+ * `length` is the chunk's longest record: the grid spans its columns past jhi. */
+extern "C" void
+rnafold_md_blk_update(const int nfiles, const int turn, const int length,
+                      const int top, const int bot, const int jlo, const int jhi)
+{
+  if (!d_md_acc) return;
+  const int kmin = ((top > jlo) ? top : jlo) + (md_blk_negctl() ? 1 : 0);
+  const int kmax = jhi;
+  if (kmax < kmin || length <= jhi) return;
+
+  md_blk_erows_t E;
+  for (int r = 0; r < MD_BLK_RB_MAX; r++)
+    E.r[r] = (top - r >= bot) ? g_emin_ring[(top - r) % g_emin_depth] : NULL;
+
+  dim3 grid((unsigned)((length - jhi + MD_UPD_CT - 1) / MD_UPD_CT), (unsigned)nfiles,
+            (unsigned)((top - bot + 1 + MD_UPD_RT - 1) / MD_UPD_RT));
+  const int TPB = (MD_UPD_RT / 4) * (MD_UPD_CT / 4);
+  md_blk_update_kernel<MD_UPD_RT, MD_UPD_CT, MD_UPD_KB, 4, 4><<<grid, TPB, 0, ISSUE_STREAM>>>(
+      nfiles, turn, top, bot, kmin, kmax, E, d_md_acc, g_row_total,
+      d_fml_j, d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, d_tri_off_H, d_row_off_H);
+  gpuErrchk( cudaPeekAtLastError() );
+  g_blk_updates++;
+}
+
+/* md for one step on the blocked path: in place of modular_decomposition_i(). */
+static void
+md_blk_step(const int nfiles, const int i, const int turn, const size_t *side_off_H)
+{
+  const size_t total = side_off_H[nfiles];
+  g_blk_steps++;
+  if (total == 0) return;
+  bind_row_tables(i);
+  const size_t threads = total * (size_t)MD_BLK_LANES;
+  const int    bs      = 128;
+  const size_t nb      = (threads + bs - 1) / bs;
+  md_blk_corner_kernel<MD_BLK_LANES><<<(unsigned)nb, bs, 0, ISSUE_STREAM>>>(
+      nfiles, RNA_I_ROW(i), turn, g_blk_top, g_blk_jlo, d_energy_min,
+      d_md_acc + (size_t)(g_blk_top - i) * g_row_total,
+      d_dml, rnafold_circ_fm2_device(),
+      d_fml_j, d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, d_tri_off_H, d_row_off_H,
+      d_side_off_H, total, d_i_H);
+  gpuErrchk( cudaPeekAtLastError() );
 }
 
 
@@ -4005,7 +4330,8 @@ md_row_chain(const int nfiles, const int i, const int turn, const int length,
     return;
   }
   g_md_tail_now = 1;
-  modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
+  if(d_md_acc) md_blk_step(nfiles, i, turn, side_off_H);   /* 3c: RNA_MD_BLOCK */
+  else         modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
   g_md_tail_now = 0;
   md_close_row(nfiles,i,turn,size_off_H);
   g_md_tail_row = i;
