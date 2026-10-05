@@ -458,5 +458,60 @@ class cuda_chunkTest(unittest.TestCase):
         self.assertGreaterEqual(chunks, 2, "the batch was not split (%d device chunk(s))" % chunks)
 
 
+# Each host window is its own vrna_mfe_batch() call, so RNA.cuda_batches() counts the
+# windows: the positive evidence that the list was windowed, not just answered.
+WINDOW_PROBE = r'''
+import json, random, sys
+sys.path.insert(0, %r)
+import RNA
+
+rng = random.Random(5)
+seqs = ["".join(rng.choice("ACGU") for _ in range(L)) for L in [400] * 10 + [1200, 400, 1200]]
+got = [tuple(x) for x in RNA.fold(seqs)]
+ref = [tuple(RNA.fold(s, cpu_only=True)) for s in seqs]
+print("RESULT " + json.dumps({"equal": got == ref, "n": len(got), "device_batches": RNA.cuda_batches()}))
+'''
+
+
+class cuda_hostWindowTest(unittest.TestCase):
+    """A list bigger than the HOST is built and folded in windows, not all at once
+
+    Found 2026-10-05 by the binder notebook on a Colab T4 (12.7 GB RAM, 15 GB VRAM):
+    RNA.fold() on 2014 x 2000 nt was SIGKILLed with nothing on stderr. The device side
+    was already chunked; the wrapper built every fold compound (6.2 MB each at 2000 nt)
+    before folding any, ~12.5 GB. It now builds, folds and frees in windows that fit in
+    half of MemAvailable; RNA_HOST_AVAIL_MB pretends a size, as for RNAfold.
+    """
+
+    def probe(self, avail_mb):
+        e = dict(os.environ)
+        e.pop("RNA_HOST_AVAIL_MB", None)
+        if avail_mb is not None:
+            e["RNA_HOST_AVAIL_MB"] = str(avail_mb)
+        p = subprocess.run([sys.executable, "-c", WINDOW_PROBE % module_dir()],
+                           capture_output=True, text=True, timeout=600, env=e)
+        line = [l for l in p.stdout.splitlines() if l.startswith("RESULT ")]
+        self.assertTrue(line, "the window probe crashed (rc %d): %s"
+                        % (p.returncode, (p.stdout + p.stderr)[-800:]))
+        return json.loads(line[-1][7:])
+
+    def test_list_is_windowed_to_fit_the_host(self):
+        """4 MB pretended: several windows, each 1200 nt record alone, CPU answers"""
+        if not device_present():
+            self.skipTest("no CUDA device")
+        r = self.probe(4)
+        self.assertTrue(r["equal"] and r["n"] == 13, "windowed answers differ from the CPU's: %s" % r)
+        # 2 MB budget: ~6 records of 400 nt per window, and a 1200 nt record (2.3 MB) alone
+        self.assertGreaterEqual(r["device_batches"], 4, "the list was not windowed: %s" % r)
+
+    def test_roomy_host_is_one_window(self):
+        """The negative control: with memory to spare the list is still one batch"""
+        if not device_present():
+            self.skipTest("no CUDA device")
+        r = self.probe(None)
+        self.assertTrue(r["equal"], "answers differ from the CPU's: %s" % r)
+        self.assertEqual(r["device_batches"], 1, "a list that fits was split: %s" % r)
+
+
 if __name__ == '__main__':
     unittest.main(testRunner=taprunner.TAPTestRunner())
