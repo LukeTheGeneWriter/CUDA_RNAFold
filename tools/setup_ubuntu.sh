@@ -95,12 +95,33 @@ if [ -n "$MISSING" ]; then
     read -r -p "    install them with apt now? [Y/n] " a; case "$a" in [nN]*) die "prerequisites not installed" ;; esac
   fi
   $SUDO apt-get update > "$LOGS/apt-update.log" 2>&1 || die "apt-get update failed -- see $LOGS/apt-update.log"
+  UPDATED=1
   $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y $MISSING > "$LOGS/apt-install.log" 2>&1 \
     || die "apt-get install failed -- see $LOGS/apt-install.log"
   ok "installed"
 else
   ok "all present"
 fi
+
+# xxd builds the PostScript templates. It was part of vim-common up to Ubuntu 22.04 and is its
+# OWN package from 24.04 (and Debian 12) -- so on Colab's 24.04 image, where vim-common was
+# already installed, configure stopped on "Can't find the postscript hex template" (2026-10-05).
+if ! command -v xxd > /dev/null; then
+  [ -n "${UPDATED:-}" ] || $SUDO apt-get update > "$LOGS/apt-update.log" 2>&1
+  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y xxd >> "$LOGS/apt-install.log" 2>&1 \
+    && ok "installed xxd (its own package on this release)"
+fi
+
+# The packages are a means; these COMMANDS are what the build runs. Checking them by name is
+# what catches a package split like xxd's here, instead of 270 lines into configure.log.
+TMISS=""
+for t in gcc g++ make autoreconf libtoolize pkg-config gengetopt help2man bison flex xxd \
+         makeinfo doxygen gfortran python3 wget; do
+  command -v "$t" > /dev/null || TMISS="$TMISS $t"
+done
+[ -z "$TMISS" ] || die "these commands are still missing after apt:$TMISS
+Install whatever provides them on this system (apt-file search bin/<name>), then re-run."
+ok "every command the build needs is present"
 
 # ------------------------------------------------------------------ 2. SWIG >= 4.3
 say "Step 2: SWIG for the Python interface (needs >= 4.3)"
