@@ -547,6 +547,10 @@ static size_t  g_row_total = 0;
 #define MD_BLK2_RING  (MD_BLK2_RB + 1)
 
 PUBLIC int rnafold_md_block_selftest(void);   /* defined in the selftest section */
+/* RNA_MD_SPARSE (PORT_SPARSE_MD.md), defined in md_sparse.inc */
+static int  md_sparse_selftest(void);
+static void md_sparse_alloc(const int nfiles, const size_t* row_off_H);
+static void md_sparse_free(void);
 
 /* RING copies of the whole row-buffer layout, so a slot is indexed exactly as d_dml
  * is (row_off_H[H] + j) and no per-record stride has to be derived. */
@@ -923,6 +927,8 @@ init_gpu(const int nfiles, const int length,
   if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s fmli_kernel block size %d, modular_decomposition_kernel block size %d (both were hardcoded %d), md tile %d\n",
 	  __FILE__, g_block_size_fmli, g_block_size_md, BLOCK_SIZE, g_md_tile);
 
+  md_sparse_alloc(nfiles, row_off_H);   /* RNA_MD_SPARSE_SELFTEST; no-op otherwise */
+
   stage_ig1_s += rnafold_now_seconds() - _t_ig1;
   first = 0;
   return;
@@ -942,6 +948,7 @@ init_gpu(const int nfiles, const int length,
 PUBLIC void
 teardown_gpu(void) {
   if(first) return; // never initialized (or already torn down) -- nothing to free
+  md_sparse_free();   /* RNA_MD_SPARSE: counters first (a sync), then by the pointer */
   /* Stage 3a.1: by allocation. Slot 0 is the original d_energy_min allocation; once
    * the ring has advanced, d_energy_min may point at any slot. */
   for (int s = 0; s < g_emin_depth; s++) {
@@ -4294,6 +4301,9 @@ md_close_row(const int nfiles, const int i, const int turn, const size_t* size_o
   gpuErrchk( cudaPeekAtLastError() );
 }
 
+/* Sparse multiloop decomposition, PORT_SPARSE_MD.md (stage S1: selftest only). */
+#include "md_sparse.inc"
+
 /* RNA_TRI_CHECKSUM=1: at the end of each chunk's sweep, hash the WHOLE c and fML
  * triangles and print the hashes.
  *
@@ -4397,7 +4407,9 @@ md_row_chain(const int nfiles, const int i, const int turn, const int length,
   if(!tail) {
     load_fML(nfiles,i,turn,length,energy_min,size_off_H);
     modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
+    md_sparse_check(nfiles, i, turn, d_fml_i);            /* RNA_MD_SPARSE_SELFTEST */
     load_min_fML(nfiles,i,turn,length,side_off_H[nfiles]);
+    md_sparse_append(nfiles, i, turn, size_off_H);        /* row i is final */
     // int16: closes the row AFTER both writers, which is the whole ordering
     // constraint this design exists to respect. No-op when the gate is off.
     pack_fml(nfiles,i,turn,length,size_off_H);
@@ -4408,8 +4420,11 @@ md_row_chain(const int nfiles, const int i, const int turn, const int length,
   if(d_md_acc) md_blk_step(nfiles, i, turn, side_off_H);   /* 3c: RNA_MD_BLOCK */
   else         modular_decomposition_i(nfiles,i,turn,length,DMLi,row_off_H,side_off_H,i_H);
   g_md_tail_now = 0;
+  /* RNA_MD_SPARSE_SELFTEST: md read energy_min shifted by i+turn+1 on this path */
+  if(!d_md_acc) md_sparse_check(nfiles, i, turn, d_energy_min + (i + turn + 1));
   if(d_md_acc) md_blk_prof_begin();
   md_close_row(nfiles,i,turn,size_off_H);
+  if(!d_md_acc) md_sparse_append(nfiles, i, turn, size_off_H);   /* row i is final */
   if(d_md_acc) md_blk_prof_end(2);
   g_md_tail_row = i;
 }
@@ -4498,7 +4513,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
      * after md, which is illegal inside a capture ("operation not permitted when
      * stream is capturing", code 900 -- how this was found). It is a diagnostic, so
      * it turns the graph off rather than the graph turning it off. */
-    if(use_graph && rnafold_md_block_selftest()) {
+    if(use_graph && (rnafold_md_block_selftest() || md_sparse_selftest())) {
       use_graph = 0;
       fprintf(stderr,"%-24s RNA_MD_BLOCK_SELFTEST forces CUDA graph capture OFF "
                      "(the selftest cannot run inside a capture)\n", __FILE__);

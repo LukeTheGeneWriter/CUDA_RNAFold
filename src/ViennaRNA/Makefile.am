@@ -923,6 +923,7 @@ mfe/cuda/modular_decomposition.lo: $(srcdir)/mfe/cuda/modular_decomposition.cu \
                                    $(srcdir)/mfe/cuda/md_cell.inc \
                                    $(srcdir)/mfe/cuda/md_chain_cells.inc \
                                    $(srcdir)/mfe/cuda/md_block.inc \
+                                   $(srcdir)/mfe/cuda/md_sparse.inc \
                                    $(srcdir)/mfe/cuda/md_dev.h
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
@@ -993,6 +994,7 @@ endif
 ## non-CUDA build still produces a tarball that can build with it
 EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/md_block.inc \
+              mfe/cuda/md_sparse.inc \
               mfe/cuda/engine.h \
               mfe/cuda/nvcc-libtool.sh \
               mfe/cuda/modular_decomposition.cu \

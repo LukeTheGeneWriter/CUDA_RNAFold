@@ -285,6 +285,10 @@ nolp_init_kernel(const size_t total, int* __restrict__ a) {
   if(m < total) a[m] = INF;
 }
 
+/* The parameter set's MLbase, for md_sparse.inc (another translation unit). */
+static int g_mlbase_host = 0;
+extern "C" int hp_mb_mlbase(void) { return g_mlbase_host; }
+
 void load_param2(const vrna_param_t *P){
   cuda_param2_t* H = (cuda_param2_t*) malloc(sizeof(cuda_param2_t));
 
@@ -294,6 +298,7 @@ void load_param2(const vrna_param_t *P){
   memcpy(H->MLintern,    P->MLintern,    (NBPAIRS+1)*sizeof(int));
   H->MLclosing  = P->MLclosing;
   H->MLbase     = P->MLbase;
+  g_mlbase_host = P->MLbase;
   memcpy(H->rtype,       P->model_details.rtype, 8*sizeof(int));
   H->TerminalAU = P->TerminalAU;
   H->lxc        = (float)P->lxc;
