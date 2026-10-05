@@ -50,6 +50,8 @@
  * guard, so without this the generated code calls _Z17vrna_cuda_devicesv and
  * the module fails to load with an undefined symbol -- at import time, not at
  * link time, which is the expensive way to find out. */
+#include <stdio.h>
+#include <stdlib.h>
 extern "C" {
 #include <ViennaRNA/mfe/cuda/engine.h>
 #include <ViennaRNA/mfe/global.h>
@@ -96,6 +98,54 @@ extern "C" {
   }
 
 
+  /* Host memory available right now, in bytes; 0 when it cannot be known.
+   * MemAvailable, as RNAfold's build pipeline reads it, with the same
+   * RNA_HOST_AVAIL_MB test hook: without it the windowing in my_cuda_fold() is
+   * unreachable on any machine that can run the test suite. */
+  static size_t
+  rnafold_py_host_avail_bytes(void)
+  {
+    const char  *e  = getenv("RNA_HOST_AVAIL_MB");
+    size_t      kb  = 0;
+    char        line[256];
+    FILE        *f;
+
+    if (e && e[0] && (atol(e) >= 0))
+      return (size_t)atol(e) * (size_t)1048576;
+
+    if ((f = fopen("/proc/meminfo", "r")) != NULL) {
+      while (fgets(line, sizeof(line), f)) {
+        unsigned long v;
+
+        if (sscanf(line, "MemAvailable: %lu kB", &v) == 1) {
+          kb = (size_t)v;
+          break;
+        }
+      }
+
+      fclose(f);
+    }
+
+    return kb * (size_t)1024;
+  }
+
+
+  /* Host bytes one MFE fold compound holds before it is folded: the dense
+   * (L+1)^2 hard-constraint matrix plus the triangular ptype, 1.5 L^2. MEASURED
+   * through this wrapper at L = 2000: 6.15 MB per compound (peak RSS, 50 -> 100
+   * compounds), and RNA.fold() on a list grows at the same 6.17 MB per record, so
+   * the fold adds no per-record host cost on top. RNAfold.c's
+   * rnafold_compound_bytes() charges 1.0 L^2, which fits the CLI's measured chunk
+   * difference but is 1.5x short here, so this uses the structural bound. */
+  static size_t
+  rnafold_py_compound_bytes(size_t len)
+  {
+    const size_t L = len + 1;
+
+    return (3 * L * L) / 2 + 128 * L;
+  }
+
+
   std::vector<std::pair<std::string, float> >
   my_cuda_fold(std::vector<std::string>  sequences,
                vrna_md_t                *md)
@@ -115,20 +165,54 @@ extern "C" {
     vrna_fold_compound_t  **fcs        = (vrna_fold_compound_t **)vrna_alloc(sizeof(vrna_fold_compound_t *) * n);
     char                  **structures = (char **)vrna_alloc(sizeof(char *) * n);
     float                  *energies   = (float *)vrna_alloc(sizeof(float) * n);
+    int                     ok         = 1;
 
-    for (size_t i = 0; i < n; i++) {
-      fcs[i]        = vrna_fold_compound(sequences[i].c_str(), md, VRNA_OPTION_MFE);
+    for (size_t i = 0; i < n; i++)
       structures[i] = (char *)vrna_alloc(sizeof(char) * (sequences[i].size() + 1));
-    }
 
-    int ok = vrna_mfe_batch(fcs, n, structures, energies);
+    /* Build, fold and free in WINDOWS that fit in half of the host memory
+     * available as each window starts. Every compound used to be built before any
+     * was folded: on a 12.7 GB Colab T4, 2014 x 2000 nt is ~12.5 GB of compounds,
+     * and the kernel's OOM killer ended the process (SIGKILL, nothing on stderr)
+     * although vrna_mfe_batch() already splits a batch to fit the DEVICE. Half, as
+     * RNAfold's pipeline bar: the other half covers the fold side, Python's lists
+     * and the rest of the machine. A window always takes at least one record, and
+     * an unknown MemAvailable means one window, the old behaviour. Windows are
+     * independent batches, so the answer cannot depend on where they fall. */
+    for (size_t start = 0; start < n; ) {
+      const size_t  avail   = rnafold_py_host_avail_bytes();
+      size_t        end     = start;
+      size_t        need    = 0;
+
+      while (end < n) {
+        const size_t b = rnafold_py_compound_bytes(sequences[end].size());
+
+        if ((avail > 0) && (end > start) && (need + b > avail / 2))
+          break;
+
+        need += b;
+        end++;
+      }
+
+      for (size_t i = start; i < end; i++)
+        fcs[i] = vrna_fold_compound(sequences[i].c_str(), md, VRNA_OPTION_MFE);
+
+      if (!vrna_mfe_batch(fcs + start, end - start, structures + start, energies + start))
+        ok = 0;
+
+      for (size_t i = start; i < end; i++) {
+        vrna_fold_compound_free(fcs[i]);
+        fcs[i] = NULL;
+      }
+
+      start = end;
+    }
 
     for (size_t i = 0; i < n; i++) {
       if (ok)
         out.push_back(std::make_pair(std::string(structures[i]), energies[i]));
 
       free(structures[i]);
-      vrna_fold_compound_free(fcs[i]);
     }
 
     free(structures);
