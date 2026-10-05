@@ -52,6 +52,7 @@ static size_t              g_sp_bytes_max = 0;
 static int                 g_sp_chunks = 0;
 
 extern "C" int hp_mb_mlbase(void);   /* hp_mb_loop.cu: the parameter set's MLbase */
+static int md_sparse_on(void);       /* S2, below */
 
 static int
 md_sparse_selftest(void)
@@ -100,6 +101,15 @@ static void
 md_sparse_report(void)
 {
   const unsigned long long *t = g_sp_tot;
+  if (md_sparse_on()) {
+    fprintf(stderr, "%-24s RNA_MD_SPARSE%s: %d chunk(s); %llu candidates of %llu finite fML(k,j) (%.2f %%); "
+                    "%llu column(s) overflowed at rho %.2f, %llu md cell(s) took the dense fallback; "
+                    "lists %.1f MB\n",
+            __FILE__, md_sparse_negctl() ? " (NEGCTL)" : "", g_sp_chunks, t[3], t[4],
+            t[4] ? 100.0 * (double)t[3] / (double)t[4] : 0.0, t[2], md_sparse_rho(), t[5],
+            (double)g_sp_bytes_max / 1048576.0);
+    return;
+  }
   fprintf(stderr, "%-24s RNA_MD_SPARSE_SELFTEST%s: %d chunk(s), %llu cells compared, %llu MISMATCHING; "
                   "%llu candidates of %llu finite fML(k,j) (%.2f %%); %llu column(s) overflowed at "
                   "rho %.2f, %llu cell(s) took the dense fallback; lists %.1f MB\n",
@@ -116,18 +126,25 @@ static void
 md_sparse_alloc(const int nfiles, const size_t* row_off_H)
 {
   g_sp_on = 0;
-  if (!md_sparse_selftest()) return;
+  if (!md_sparse_selftest() && !md_sparse_on()) return;
 
   const char *why = NULL;
+  const char *knob = md_sparse_on() ? "RNA_MD_SPARSE" : "RNA_MD_SPARSE_SELFTEST";
   if (rnafold_continuous_flow())      why = "continuous flow (records on different rows)";
   else if (rnafold_slot_flow())       why = "slot flow (slots are handed over mid-sweep)";
   else if (rnafold_megakernel())      why = "the megakernel (its own fused md)";
   else if (rnafold_md_prune())        why = "RNA_MD_PRUNE (a different dense-skipping scheme)";
   else if (rnafold_md_block())        why = "the blocked md (RNA_MD_BLOCK)";
+  else if (rnafold_md_tile_cb() > 0)  why = "the tile path (RNA_MD_TILE_CB)";
   if (why) {
     static int said = 0;
-    if (!said) { said = 1; fprintf(stderr, "%-24s RNA_MD_SPARSE_SELFTEST REFUSED: %s\n", __FILE__, why); }
+    if (!said) { said = 1; fprintf(stderr, "%-24s %s REFUSED: %s -- the dense md runs\n", __FILE__, knob, why); }
     return;
+  }
+  if (md_sparse_on() && md_sparse_selftest()) {
+    static int said = 0;
+    if (!said) { said = 1; fprintf(stderr, "%-24s RNA_MD_SPARSE_SELFTEST IGNORED: with RNA_MD_SPARSE=1 there "
+                                           "is no dense md to compare with\n", __FILE__); }
   }
 
   int maxlen = 0;
@@ -177,9 +194,14 @@ md_sparse_alloc(const int nfiles, const size_t* row_off_H)
   if (!said) {
     said = 1;
     atexit(md_sparse_report);
-    fprintf(stderr, "%-24s RNA_MD_SPARSE_SELFTEST ACTIVE: candidate lists built every row and the "
-                    "sparse split compared with the dense md, cell for cell (rho %.2f%s)\n",
-            __FILE__, md_sparse_rho(), md_sparse_negctl() ? ", NEGCTL: scan term dropped" : "");
+    if (md_sparse_on())
+      fprintf(stderr, "%-24s RNA_MD_SPARSE ACTIVE: md reads only candidate split points (lists rebuilt "
+                      "every row) plus a row scan, in place of the dense md (rho %.2f%s)\n",
+              __FILE__, md_sparse_rho(), md_sparse_negctl() ? ", NEGCTL: scan term dropped -- WRONG ANSWERS EXPECTED" : "");
+    else
+      fprintf(stderr, "%-24s RNA_MD_SPARSE_SELFTEST ACTIVE: candidate lists built every row and the "
+                      "sparse split compared with the dense md, cell for cell (rho %.2f%s)\n",
+              __FILE__, md_sparse_rho(), md_sparse_negctl() ? ", NEGCTL: scan term dropped" : "");
   }
 }
 
@@ -344,7 +366,7 @@ md_sparse_selftest_kernel(const int nfiles, const int turn, const int mlbase, co
 static void
 md_sparse_check(const int nfiles, const int i, const int turn, const int* fml_i)
 {
-  if (!g_sp_on) return;
+  if (!g_sp_on || md_sparse_on()) return;   /* with RNA_MD_SPARSE there is no dense md to check */
   rnafold_mk_ptrs_t p;
   memset(&p, 0, sizeof(p));
   hp_mb_mk_ptrs(&p);
@@ -368,5 +390,195 @@ md_sparse_append(const int nfiles, const int i, const int turn, const size_t* si
   md_sparse_append_kernel<<<nblocks, BLOCK_SIZE, 0, ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn,
       hp_mb_mlbase(), d_energy_min, d_dml, d_sp_prev, d_sp_len, d_sp_k, d_sp_v, d_sp_col, d_sp_base,
       d_row_off_H, d_size_off_H, total, d_i_H, p.up_ml_ok, p.seq_off_H, d_sp_stat);
+  gpuErrchk( cudaPeekAtLastError() );
+}
+
+/* ======================================================================================
+ * STAGE S2: the sparse md REPLACES the dense one (RNA_MD_SPARSE=1).
+ *
+ * Two kernels per row, in place of modular_decomposition_kernel:
+ *   md_sparse_cell_kernel   one warp per cell: the min over its column's candidates of
+ *                           A(i,k-1) + fML(k,j), into dml. An overflowed column computes the
+ *                           dense value instead, reading the triangle exactly as md reads B.
+ *   md_sparse_scan_kernel   one block per record: DMLi(i,j) = min(DMLi(i,j-1) + c_j, best_j)
+ *                           as a parallel prefix. Each step is the map x -> min(x + c_j, b_j),
+ *                           c_j = MLbase where up_ml(j) and INF elsewhere, and the maps compose
+ *                           associatively: (c1,b1) then (c2,b2) = (c1+c2, min(b1+c2, b2)).
+ *                           Writes dml, and fm2 for circular folds.
+ * Sums are INF-guarded, so a cell with no finite decomposition is exactly INF -- what upstream
+ * stores -- where the dense md left a near-INF artefact (the clamp note in md_cell.inc).
+ * ====================================================================================== */
+
+static int
+md_sparse_on(void)
+{
+  static int v = -1;
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_SPARSE");
+    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+  }
+  return v;
+}
+
+__device__ __forceinline__ int
+md_sp_add(const int a, const int b)
+{
+  return (a >= INF/2 || b >= INF/2) ? INF : a + b;
+}
+
+__global__ void
+md_sparse_cell_kernel(const int nfiles, const int turn,
+                      const int* __restrict__ fml_i,
+                      const int* __restrict__ fml_j,
+                      const short* __restrict__ fml_j16, const int* __restrict__ fml_b,
+                      const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
+                      const int* __restrict__ sp_len, const int* __restrict__ sp_k,
+                      const int* __restrict__ sp_v,
+                      const size_t* __restrict__ sp_col, const size_t* __restrict__ sp_base,
+                      const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                      const size_t* __restrict__ side_off_H, const size_t total,
+                      const int* __restrict__ i_H,
+                      int* __restrict__ best_out,
+                      unsigned long long* __restrict__ stat)
+{
+  const long long gtid = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+  const size_t    m    = (size_t)(gtid >> 5);
+  const int       lane = (int)(gtid & 31);
+  if (m >= total) return;                 /* a whole warp per cell, so whole warps leave */
+
+  const int H  = flatten_index_to_H(m, side_off_H, nfiles);
+  const int x  = (int)((long long)m - (long long)side_off_H[H]);
+  const int i  = i_H[H];
+  const int j  = x + i + 2*(turn+1) + 1;
+  const int lo = i + turn + 2;
+  const size_t o = row_off_H[H];
+  const int n  = sp_len[o + j];
+  int best = INF;
+
+  if (n >= 0) {
+    const size_t at = sp_base[H] + sp_col[j];
+    for (int e = lane; e < n; e += 32) {
+      const int k = sp_k[at + e];
+      if (k < lo) continue;
+      const int s = md_sp_add(fml_i[o + (size_t)(k - lo)], sp_v[at + e]);
+      best = s < best ? s : best;
+    }
+  } else {
+    /* overflowed column: md's own dense loop, B from the triangle */
+    const long long ij0 = Indx(i, j) + (turn + 1) + 1;
+    if (fml_j16) {
+      const size_t bcell = base_off_H[H] + colb_off[j];
+      for (int y = lane; y <= x; y += 32) {
+        const int b = fml_decode(fml_j16, fml_b, tri_off_H[H] + (size_t)(ij0 + y),
+                                 bcell + (size_t)((unsigned)(lo + y - 1) / FML_BLK));
+        const int s = md_sp_add(fml_i[o + (size_t)y], b);
+        best = s < best ? s : best;
+      }
+    } else {
+      for (int y = lane; y <= x; y += 32) {
+        const int s = md_sp_add(fml_i[o + (size_t)y], fml_j[tri_off_H[H] + (size_t)(ij0 + y)]);
+        best = s < best ? s : best;
+      }
+    }
+    if (lane == 0) atomicAdd(&stat[5], 1ULL);
+  }
+  for (int off = 16; off > 0; off >>= 1) {
+    const int other = __shfl_down_sync(0xffffffffu, best, off);
+    best = other < best ? other : best;
+  }
+  if (lane == 0) best_out[o + j] = best;
+}
+
+#define MD_SP_SCAN_T 256
+
+__device__ __forceinline__ void
+md_sp_compose(int &c1, int &b1, const int c2, const int b2)
+{
+  /* (c1,b1) then (c2,b2) */
+  const int nb = md_sp_add(b1, c2);
+  b1 = nb < b2 ? nb : b2;
+  c1 = md_sp_add(c1, c2);
+}
+
+__global__ void
+md_sparse_scan_kernel(const int nfiles, const int turn, const int mlbase, const int negctl,
+                      int* __restrict__ dml,                   /* in: best_j, out: DMLi */
+                      int* __restrict__ fm2,                   /* circular, or NULL */
+                      const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                      const size_t* __restrict__ side_off_H, const int* __restrict__ i_H,
+                      const char* __restrict__ up_ml_ok, const size_t* __restrict__ seq_off_H)
+{
+  __shared__ int sc[MD_SP_SCAN_T], sb[MD_SP_SCAN_T];
+  const int H = blockIdx.x, t = threadIdx.x;
+  if (H >= nfiles) return;
+  const long long width = (long long)side_off_H[H+1] - (long long)side_off_H[H];
+  if (width <= 0) return;                         /* uniform across the block */
+  const int    i   = i_H[H];
+  const int    j0  = i + 2*(turn+1) + 1;
+  const size_t o   = row_off_H[H];
+  const size_t sq  = seq_off_H[H];
+  const long long per = (width + MD_SP_SCAN_T - 1) / MD_SP_SCAN_T;
+  const long long x0  = (long long)t * per;
+  const long long x1  = (x0 + per < width) ? x0 + per : width;
+
+  /* this thread's segment as one map */
+  int c = 0, b = INF;
+  for (long long x = x0; x < x1; x++) {
+    const int j  = (int)x + j0;
+    const int cj = (!negctl && up_ml_ok[sq + j]) ? mlbase : INF;
+    md_sp_compose(c, b, cj, dml[o + j]);
+  }
+  sc[t] = c; sb[t] = b;
+  __syncthreads();
+  /* inclusive Hillis-Steele over the segments, earlier then later */
+  for (int off = 1; off < MD_SP_SCAN_T; off <<= 1) {
+    int pc = 0, pb = INF;
+    const int have = (t >= off);
+    if (have) { pc = sc[t - off]; pb = sb[t - off]; }
+    __syncthreads();
+    if (have) {
+      md_sp_compose(pc, pb, sc[t], sb[t]);
+      sc[t] = pc; sb[t] = pb;
+    }
+    __syncthreads();
+  }
+  /* DMLi just before this segment: everything before it applied to INF, i.e. that map's b */
+  int xv = (t == 0) ? INF : sb[t - 1];
+  for (long long x = x0; x < x1; x++) {
+    const int j  = (int)x + j0;
+    const int cj = (!negctl && up_ml_ok[sq + j]) ? mlbase : INF;
+    const int s  = md_sp_add(xv, cj);
+    const int bj = dml[o + j];
+    xv = s < bj ? s : bj;
+    dml[o + j] = xv;
+    if (fm2) fm2[tri_off_H[H] + Indx(i, j)] = (xv > INF/2) ? INF : xv;
+  }
+}
+
+static int
+md_sparse_live(void)
+{
+  return g_sp_on && md_sparse_on();
+}
+
+/* modular_decomposition_cuda()'s replacement for its dense launch. */
+static void
+md_sparse_md(const int nfiles, const int turn, const int* fml_i, const size_t total)
+{
+  rnafold_mk_ptrs_t p;
+  memset(&p, 0, sizeof(p));
+  hp_mb_mk_ptrs(&p);
+  {
+    const size_t nthreads = total * 32;
+    const int    bs       = 256;
+    const int    nb       = (int)((nthreads + bs - 1) / bs);
+    md_sparse_cell_kernel<<<nb, bs, 0, ISSUE_STREAM>>>(nfiles, turn, fml_i, d_fml_j, d_fml_j16, d_fml_b,
+        d_base_off_H, d_colb_off, d_sp_len, d_sp_k, d_sp_v, d_sp_col, d_sp_base,
+        d_tri_off_H, d_row_off_H, d_side_off_H, total, d_i_H, d_dml, d_sp_stat);
+    gpuErrchk( cudaPeekAtLastError() );
+  }
+  md_sparse_scan_kernel<<<nfiles, MD_SP_SCAN_T, 0, ISSUE_STREAM>>>(nfiles, turn, hp_mb_mlbase(),
+      md_sparse_negctl(), d_dml, rnafold_circ_fm2_device(), d_tri_off_H, d_row_off_H, d_side_off_H,
+      d_i_H, p.up_ml_ok, p.seq_off_H);
   gpuErrchk( cudaPeekAtLastError() );
 }

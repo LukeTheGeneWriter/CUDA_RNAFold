@@ -549,8 +549,11 @@ static size_t  g_row_total = 0;
 PUBLIC int rnafold_md_block_selftest(void);   /* defined in the selftest section */
 /* RNA_MD_SPARSE (PORT_SPARSE_MD.md), defined in md_sparse.inc */
 static int  md_sparse_selftest(void);
+static int  md_sparse_on(void);
 static void md_sparse_alloc(const int nfiles, const size_t* row_off_H);
 static void md_sparse_free(void);
+static void md_sparse_md(const int nfiles, const int turn, const int* fml_i, const size_t total);
+static int  md_sparse_live(void);   /* RNA_MD_SPARSE=1 and this chunk's lists exist */
 
 /* RING copies of the whole row-buffer layout, so a slot is indexed exactly as d_dml
  * is (row_off_H[H] + j) and no per-record stride has to be derived. */
@@ -3051,6 +3054,9 @@ void modular_decomposition_cuda(const int nfiles,
     else \
       modular_decomposition_kernel<T><<<nblocks,block_size,0,ISSUE_STREAM>>>(MD_ARGS); \
   } while(0)
+  /* RNA_MD_SPARSE: candidates + a row scan in place of the dense launch (md_sparse.inc) */
+  if(md_sparse_live()) md_sparse_md(nfiles, turn, md_fml_i, total);
+  else
   switch(g_md_tile) {
     case  1: MD_LAUNCH(1);  break;
     case  2: MD_LAUNCH(2);  break;
