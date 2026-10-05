@@ -385,6 +385,9 @@ typedef int (*vrna_gr_engine_f)(vrna_fold_compound_t  *fc,
  *  @return             Non-zero on success, 0 on error or if an engine is
  *                      already bound to @p fc
  */
+#ifdef __cplusplus
+extern "C"
+#endif
 unsigned int
 vrna_gr_set_inside_engine(vrna_fold_compound_t    *fc,
                           vrna_gr_engine_f        cb,
