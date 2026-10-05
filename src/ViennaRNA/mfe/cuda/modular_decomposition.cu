@@ -884,7 +884,7 @@ pack_fml_kernel(const int nfiles, const int i_row, const int turn, const int len
                 const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
                 const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) {
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
@@ -936,21 +936,21 @@ pack_fml_kernel(const int nfiles, const int i_row, const int turn, const int len
 __global__ void
 init_fML_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
 		int* __restrict__ fml_j) { //out d_fml_j
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
+  const size_t m = (size_t)blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
   if(m>=ijsize) return;
   fml_j[m] = INF;
 }
 
 __global__ void
 init_fml16_kernel(const size_t ijsize, short* __restrict__ j16) {
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x;
+  const size_t m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if(m>=ijsize) return;
   j16[m] = FML_INF16;
 }
 
 __global__ void
 init_base_kernel(const size_t n, int* __restrict__ b) {
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x;
+  const size_t m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if(m>=n) return;
   b[m] = FML_BASE_UNSET;
 }
@@ -1081,7 +1081,7 @@ load_fML_kernel(const int nfiles, const int i_row, const int turn, const int len
   // (size_off_H), replacing the old uniform m/nfiles split. j is guaranteed
   // <= length by size_off_H's own construction (built from
   // length_H[H]-i-turn, clamped >=0) -- no bound check needed here anymore.
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
@@ -1172,7 +1172,7 @@ load_min_fML_kernel(const int nfiles, const int i_row, const int turn, const int
 		    const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
 		    const size_t* __restrict__ side_off_H, const size_t total,
 		    const int* __restrict__ i_H) {
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj = (long long)m - (long long)side_off_H[H];
@@ -1226,7 +1226,7 @@ fmli_kernel(
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H) {
 
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj = (long long)m - (long long)side_off_H[H];

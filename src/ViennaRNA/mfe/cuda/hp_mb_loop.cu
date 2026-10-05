@@ -1031,7 +1031,7 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
                  const int* __restrict__ len_H,   //continuous flow phase C1
                  const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) {
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
@@ -1609,7 +1609,7 @@ stack_row_kernel(const int nfiles, const int i_row, const int turn,
                  const size_t* __restrict__ seq_off_H,
                  const size_t* __restrict__ size_off_H, const size_t total,
                  const int* __restrict__ i_H) {
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const int i = i_H[H];
@@ -1686,7 +1686,7 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
              const size_t* __restrict__ row_off_H,    //in
              const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) { //in
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
@@ -1952,7 +1952,7 @@ fml_prev_kernel(const int nfiles, const int i_row, const int turn,
                 const size_t* __restrict__ row_off_H, //in
                 const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) { //in
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   // PHASE A (continuous flow): the row index is PER-RECORD now. It equals

@@ -289,7 +289,7 @@ inline void Assert_(bool test, const char *file, const int line) {
 __global__ void
 init_my_c_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
 		 int* __restrict__ my_c) {
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
+  const size_t m = (size_t)blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
   if(m>=ijsize) return;
   my_c[m] = INF;
 }
@@ -862,7 +862,7 @@ load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const in
 		 const size_t* __restrict__ row_off_H, //in
 		 const size_t* __restrict__ size_off_H, const size_t total, //in
 		 const int* __restrict__ i_H) { //in
-  const long long m = blockIdx.x*blockDim.x+threadIdx.x;
+  const long long m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
