@@ -57,6 +57,22 @@ Tools are in the session scratchpad `lit/` and move into `tools/` at S0.
 **Negative control:** with the scan term dropped, **591,944 of 897,000 differ**. This was checked with the
 full left operand. The GPU's nosplit operand relies on the same inequality, and S0 re-checks it in that form.
 
+**S0 done (2026-10-05): `tools/md_sparse_equiv.sh BUILD_DIR`.** It runs 11 option cases, each with
+upstream's full fML row as the left operand and with a synthetic row that has the chain property and nothing
+else. That second form is what speaks for the GPU's nosplit operand. Cases:
+- plain, `--noLP`, `--circ`, `-d0`, salt 0.2, `-T 25`, `--maxBPspan 150`;
+- `-g` on G-rich input;
+- `-C` with `|` positions, with and without `--enforce`;
+- `-C --enforce` with an outer pair and `x` stretches.
+
+**All 22 hold, 0 cells differ,** against both stock 2.7.2 and LFB's own build. The negative controls bite:
+- scan term dropped: **717,263 of 1,022,175** cells wrong;
+- `up_ml` ignored: **168,086 / 177,190 of 279,400** wrong (full / chain operand).
+
+Trap found on the way: **without `--enforceConstraint`, upstream does not apply `|` at all** (`up_ml` stays
+full), so a `-C` fixture that omits `--enforce` cannot reach the hc clause. Forced pairs make md denser:
+6.8× fewer terms instead of 15–18×.
+
 ## 4. GPU design
 
 **4.1 Candidate lists.** There is one append-only list per (record, column `j`) of `(k, fML(k,j))` entries.
