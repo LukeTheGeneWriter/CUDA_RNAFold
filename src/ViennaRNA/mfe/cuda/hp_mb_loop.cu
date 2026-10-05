@@ -1041,7 +1041,7 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
                 const int* __restrict__ i_H) {
   // The arithmetic lives in hp_mb_cells.inc so the megakernel runs exactly this code.
   hp_mb_3p_cell(nfiles, i_row, turn, length, S, seq, pair, hccc_mb, hccc_mbenc, hccc_any, hccc_gu, P, salt_loop, energy_hp_row, energy_mb_row, energy_3p00_row, gate_row, row_off_H, hc2_off_H, seq_off_H, len_H, size_off_H, total, i_H,
-                blockIdx.x*blockDim.x+threadIdx.x);
+                (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 
@@ -1465,7 +1465,7 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
                 const int* __restrict__ i_H) {
   // The arithmetic lives in hp_mb_cells.inc so the megakernel runs exactly this code.
   new_c_cell(nfiles, i_row, turn, noGUclosure, energy_min2, energy_hp_row, energy_mb_row, gate_row, dml1, up_hp, seq_off_H, new_e, stack_row, cc1, cc, row_off_H, size_off_H, total, i_H,
-             blockIdx.x*blockDim.x+threadIdx.x);
+             (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 /* RNA_NEW_C_STORE -- defined after the int_loop_cells.inc include below, because
@@ -1764,7 +1764,7 @@ fml_prev_kernel(const int nfiles, const int i_row, const int turn,
                 const int* __restrict__ i_H) {
   // The arithmetic lives in hp_mb_cells.inc so the megakernel runs exactly this code.
   fml_prev_cell(nfiles, i_row, turn, energy_min, dml, fml_prev, row_off_H, size_off_H, total, i_H,
-                blockIdx.x*blockDim.x+threadIdx.x);
+                (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 // Launches fml_prev_kernel, and -- while RNA_ROW_VERIFY is set -- checks it

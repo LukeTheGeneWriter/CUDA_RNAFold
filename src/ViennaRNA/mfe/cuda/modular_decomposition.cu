@@ -1204,7 +1204,7 @@ pack_fml_kernel(const int nfiles, const int i_row, const int turn, const int len
                 const int* __restrict__ i_H) {
   // The arithmetic lives in md_chain_cells.inc so the megakernel runs exactly this code.
   pack_fml_cell(nfiles, i_row, turn, length, fml_row, fml_j16, fml_b, tri_off_H, row_off_H, base_off_H, colb_off, size_off_H, total, i_H,
-                blockIdx.x*blockDim.x+threadIdx.x);
+                (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 /* RNA_MD_TAIL: load_fML + load_min_fML + pack_fml + fml_prev as one launch.
@@ -1224,7 +1224,7 @@ md_close_row_kernel(const int nfiles, const int i_row, const int turn,
                           int* __restrict__ stage) {   // RNA_ROW_BATCH slot, or NULL
   md_close_row_cell(nfiles, i_row, turn, energy_min, dml, fml_prev, fml_j, fml_j16, fml_b,
                     tri_off_H, row_off_H, base_off_H, colb_off, size_off_H, total, i_H,
-                    blockIdx.x*blockDim.x+threadIdx.x, stage);
+                    (size_t)blockIdx.x*blockDim.x+threadIdx.x, stage);
 }
 
 /* RNA_ROW_BATCH: write `npend` staged rows -- i_new (the newest, smallest i) up to
@@ -1449,7 +1449,7 @@ __global__ void
 fml_imin_kernel(const size_t n, const size_t nblk,
                 const int* __restrict__ fml_i, int* __restrict__ out)
 {
-  const size_t b = blockIdx.x*blockDim.x+threadIdx.x;
+  const size_t b = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
 
   if (b >= nblk) return;
   {
@@ -1466,7 +1466,7 @@ fml_imin_kernel(const size_t n, const size_t nblk,
 __global__ void
 init_fml_jmin_kernel(const size_t n, int* __restrict__ s)
 {
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x;
+  const size_t m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
 
   if (m >= n) return;
   s[m] = INF;
@@ -1515,21 +1515,21 @@ md_prune_alloc(const size_t ijsize)
 __global__ void
 init_fML_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
 		int* __restrict__ fml_j) { //out d_fml_j
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
+  const size_t m = (size_t)blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
   if(m>=ijsize) return;
   fml_j[m] = INF;
 }
 
 __global__ void
 init_fml16_kernel(const size_t ijsize, short* __restrict__ j16) {
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x;
+  const size_t m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if(m>=ijsize) return;
   j16[m] = FML_INF16;
 }
 
 __global__ void
 init_base_kernel(const size_t n, int* __restrict__ b) {
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x;
+  const size_t m = (size_t)blockIdx.x*blockDim.x+threadIdx.x;
   if(m>=n) return;
   b[m] = FML_BASE_UNSET;
 }
@@ -1648,7 +1648,7 @@ load_fML_kernel(const int nfiles, const int i_row, const int turn, const int len
 		      int* __restrict__ fml_jmin) {
   // The arithmetic lives in md_chain_cells.inc so the megakernel runs exactly this code.
   load_fML_cell(nfiles, i_row, turn, length, energy_min, fml_j, fml_row, tri_off_H, row_off_H, size_off_H, total, i_H,
-                blockIdx.x*blockDim.x+threadIdx.x, fml_jmin);
+                (size_t)blockIdx.x*blockDim.x+threadIdx.x, fml_jmin);
 }
 
 PUBLIC void
@@ -1702,7 +1702,7 @@ band_fill_kernel(const int nfiles, const int i_row, const int turn, const int K,
                  const size_t* __restrict__ size_off_H, const int* __restrict__ i_H,
                        int* __restrict__ band)
 {
-  const int gid = (int)(blockIdx.x*blockDim.x + threadIdx.x);
+  const int gid = (int)((size_t)blockIdx.x*blockDim.x + threadIdx.x);
   const int H   = gid / K;
   const int off = gid - H*K;
 
@@ -1777,7 +1777,7 @@ load_min_fML_kernel(const int nfiles, const int i_row, const int turn, const int
 		    const int* __restrict__ i_H) {
   // The arithmetic lives in md_chain_cells.inc so the megakernel runs exactly this code.
   load_min_fML_cell(nfiles, i_row, turn, length, energy_min, dml, fml_j, fml_row, tri_off_H, row_off_H, side_off_H, total, i_H,
-                    blockIdx.x*blockDim.x+threadIdx.x);
+                    (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 PUBLIC void
@@ -1818,7 +1818,7 @@ fmli_kernel(
   const int* __restrict__ i_H) {
   // The arithmetic lives in md_chain_cells.inc so the megakernel runs exactly this code.
   fmli_cell(nfiles, i_row, turn, length, fml_i, fml_j, fml_row, tri_off_H, row_off_H, side_off_H, total, i_H,
-            blockIdx.x*blockDim.x+threadIdx.x);
+            (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 //Use __restrict__ to give compiler best chance

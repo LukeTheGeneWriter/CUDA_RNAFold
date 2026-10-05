@@ -213,7 +213,7 @@ inline void Assert_(bool test, const char *file, const int line) {
 __global__ void
 init_my_c_kernel(const size_t ijsize, // 32-bit signed integer overflow bug fix
 		 int* __restrict__ my_c) {
-  const size_t m = blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
+  const size_t m = (size_t)blockIdx.x*blockDim.x+threadIdx.x; // 32-bit signed integer overflow bug fix
   if(m>=ijsize) return;
   my_c[m] = INF;
 }
@@ -817,7 +817,7 @@ load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const in
 		 const int* __restrict__ i_H) {
   // The arithmetic lives in int_loop_cells.inc so the megakernel runs exactly this code.
   load_my_c_cell(nfiles, i_row, length, new_e, my_c, tri_off_H, row_off_H, size_off_H, total, i_H,
-                 blockIdx.x*blockDim.x+threadIdx.x);
+                 (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
 
 /* ===================== RNA_C_RING: the c triangle, batched =====================
