@@ -3242,6 +3242,23 @@ process_record(struct record_data *record)
      * branch needs nothing from it. */
     strncpy(mfe_structure, record->prefolded_structure, strlen(record->sequence) + 1);
     min_en = (double)record->prefolded_energy;
+
+    /* THE STATE vrna_mfe() WOULD HAVE LEFT. Found 2026-10-04: upstream's own test
+     * (tests/RNAfold/special, "Command file - Constraints and Ligand motifs") SEGFAULTED
+     * on any machine with a GPU, intermittently -- 10 to 90 % of runs. -v reports the
+     * unstructured-domain motifs in the MFE structure through vrna_ud_motifs_MFE(vc),
+     * which reads the motif lists and energies that vrna_mfe() builds -- and on this
+     * branch vrna_mfe() never runs on THIS compound: the record was folded in the chunk's
+     * own compound. default_energy_hp_motif() then read data->motif_list_hp, which was
+     * never filled. vrna_mfe() does two things before it fills the matrices, and these
+     * are exactly those two, in its order: vrna_fold_compound_prepare() (mfe.c, the top of
+     * vrna_mfe) and the domains' production rule (mfe.c, the top of the fill). The fold
+     * itself is not repeated. */
+    if ((vc) && (vc->domains_up)) {
+      (void)vrna_fold_compound_prepare(vc, VRNA_OPTION_MFE);
+      if (vc->domains_up->prod_cb)
+        vc->domains_up->prod_cb(vc, vc->domains_up->data);
+    }
   } else {
     min_en = (double)vrna_mfe(vc, mfe_structure);
   }
