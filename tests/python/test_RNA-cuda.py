@@ -415,5 +415,48 @@ class cuda_forkTest(unittest.TestCase):
                         "a worker forked before any CUDA use did not fold on the device: %s" % r)
 
 
+# A fresh interpreter with a tiny VRAM budget, so the batch has to be split -- and one
+# record cannot fit at all -- on any GPU. RNA_GPU_VERBOSE=1 makes each device chunk print
+# its init_gpu() line, which is the positive evidence that splitting happened.
+CHUNK_PROBE = r'''
+import json, random, sys
+sys.path.insert(0, %r)
+import RNA
+
+rng = random.Random(2)
+seqs = ["".join(rng.choice("ACGU") for _ in range(L)) for L in (400, 1200, 400, 400, 400, 1200, 400)]
+got = [tuple(x) for x in RNA.fold(seqs)]
+ref = [tuple(RNA.fold(s, cpu_only=True)) for s in seqs]
+print("RESULT " + json.dumps({"equal": got == ref, "device_batches": RNA.cuda_batches()}))
+'''
+
+
+class cuda_chunkTest(unittest.TestCase):
+    """A batch bigger than the device is split to fit it, not handed over whole
+
+    Found 2026-10-04 by the binder notebook: RNA.fold() on 300 x 3000 nt killed the
+    Python process on a 4 GB card ("CUDA error: out of memory", exit 2). RNAfold chunks
+    by the VRAM budget before it calls the backend; the library's batch path handed the
+    whole list to the device. cuda_batch_cb() now chunks with the same model, and folds
+    on the host a record that does not fit even alone.
+    """
+
+    def test_batch_is_split_to_fit_the_device(self):
+        """A 1 MB budget: several device chunks, an oversized record on the host, CPU answers"""
+        if not device_present():
+            self.skipTest("no CUDA device")
+        e = dict(os.environ, RNA_GPU_VRAM_BUDGET_MB="1", RNA_GPU_VERBOSE="1")
+        p = subprocess.run([sys.executable, "-c", CHUNK_PROBE % module_dir()],
+                           capture_output=True, text=True, timeout=600, env=e)
+        line = [l for l in p.stdout.splitlines() if l.startswith("RESULT ")]
+        self.assertTrue(line, "the chunk probe crashed (rc %d): %s"
+                        % (p.returncode, (p.stdout + p.stderr)[-800:]))
+        r = json.loads(line[-1][7:])
+        self.assertTrue(r["equal"], "a chunked batch's answers differ from the CPU's: %s" % r)
+        self.assertEqual(r["device_batches"], 1, "the batch never reached the device: %s" % r)
+        chunks = p.stderr.count("init_gpu(")
+        self.assertGreaterEqual(chunks, 2, "the batch was not split (%d device chunk(s))" % chunks)
+
+
 if __name__ == '__main__':
     unittest.main(testRunner=taprunner.TAPTestRunner())

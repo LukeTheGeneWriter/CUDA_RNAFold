@@ -544,6 +544,11 @@ par_mfe(const int                     nfiles,
 extern void teardown_gpu(void);
 extern void teardown_gpu2(void);
 extern void teardown_gpu3(void);
+/* The VRAM model RNAfold.c chunks with (modular_decomposition.cu), for the same reason */
+extern size_t gpu_bytes_per_file(const int length);
+extern size_t compute_gpu_usable_bytes(void);
+extern void   rnafold_circ_expect(const int circ);
+extern int    rnafold_slot_flow(void);
 #endif
 
 
@@ -588,9 +593,76 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
       return 0;
   }
 
-  par_mfe((int)n, (const vrna_fold_compound_t **)fcs,
-          (const char **)structures, energies, 0);
-  device_batches++;   /* vrna_cuda_device_batches(): the device really folded this one */
+  /*
+   * CHUNKED TO FIT THE DEVICE (2026-10-04). This handed all n records to par_mfe() at
+   * once, so a batch bigger than the GPU's memory died in cudaMalloc -- "CUDA error: out
+   * of memory" and exit(), which took the caller's process with it: RNA.fold() on 300 x
+   * 3000 nt killed Python on a 4 GB card (found by the binder notebook). RNAfold never hit
+   * it because its driver chunks before calling the backend.
+   *
+   * So the chunking happens here too, with the same VRAM model RNAfold.c uses:
+   * gpu_bytes_per_file() per record against compute_gpu_usable_bytes() (free VRAM x 0.85,
+   * capped by RNA_GPU_VRAM_BUDGET_MB), queried after each chunk's teardown so it sees
+   * genuinely free memory. Records keep their order and their slots in structures[] and
+   * energies[]. A record that does not fit even alone is folded by the host, exactly as
+   * vrna_mfe_batch()'s own loop would fold it -- a capacity fact, not a decline of the
+   * whole batch.
+   */
+  {
+    int circ = 0;
+
+    for (i = 0; i < n; i++)
+      if (fcs[i]->params->model_details.circ)
+        circ = 1;
+
+    rnafold_circ_expect(circ);   /* fM2_real costs a triangle per record: count it */
+  }
+
+  {
+    size_t  start   = 0;
+    int     devused = 0;
+    /* RNA_SLOT_FLOW shares slots between records, so RNAfold prices its chunks by slot,
+     * below this per-record sum: re-splitting them here would quietly change that mode.
+     * It is RNAfold's experimental knob and RNAfold sizes those chunks itself. */
+    const int     whole   = (rnafold_slot_flow() >= 1);
+
+    while (start < n) {
+      const size_t  usable  = whole ? (size_t)-1 : compute_gpu_usable_bytes();
+      size_t        end     = start;
+      size_t        bytes   = 0;
+
+      while (end < n) {
+        const size_t b = gpu_bytes_per_file((int)fcs[end]->length);
+
+        if (bytes + b > usable)
+          break;
+
+        bytes += b;
+        end++;
+      }
+
+      if (end == start) {
+        /* this record alone is bigger than the device: the host folds it */
+        energies[start] = vrna_mfe(fcs[start], structures[start]);
+        start++;
+        continue;
+      }
+
+      par_mfe((int)(end - start), (const vrna_fold_compound_t **)(fcs + start),
+              (const char **)(structures + start), energies + start, 0);
+      devused = 1;
+
+      /* this chunk's device state, released before the next chunk sizes its own (below) */
+      teardown_gpu();
+      teardown_gpu2();
+      teardown_gpu3();
+      start = end;
+    }
+
+    /* vrna_cuda_device_batches(): one per batch the device folded any of */
+    if (devused)
+      device_batches++;
+  }
 
   /*
    * Release the device state this batch sized, before the next batch sizes its
