@@ -1,0 +1,310 @@
+/* ly_selftest.inc -- Lyngsø interior loops, stage S1 (PORT_LYNGSO_INTLOOP.md).
+ *
+ * The Lyngsø form of the interior-loop term is computed BESIDE the dense int_loop kernel and compared
+ * with it, cell for cell, every row. Nothing reads the Lyngsø result -- the dense kernel stays
+ * authoritative -- so this stage cannot change any output. It proves, on the device and on the
+ * device's own c (triangle or ring), what tools/lyngso_equiv.c proved on upstream's matrices.
+ *
+ *   RNA_INT_LOOP_LYNGSO_SELFTEST=1   run it (counters and the first mismatches printed at exit)
+ *   RNA_INT_LOOP_LYNGSO_NEGCTL=1     drop the carry from (i+1,j-1) -- must go red
+ *
+ * THE FORM. A generic interior loop -- short side >= 2, not 2x2 / 2x3 / 3x2 -- costs
+ *     internal_loop[u] + mismatchI[type][S(i+1)][S(j-1)]                       (outer, per cell)
+ *   + mismatchI[type_2][S(q+1)][S(p-1)] + MIN2(max_ninio, |u1-u2| ninio) + c(p,q)   (inner, "entry")
+ *   + SaltLoop[u+2]
+ * (interior_loopx.h's generic branch exactly). The entry does not depend on (i,j), so
+ *     G(i,j,u) = min( G(i+1,j-1,u-2) if up_int[i+1] >= 1 && up_int[j-1] >= 1 ,
+ *                     fresh entries at (i,j): short side exactly 2, and 3x3 / 3x4 / 4x3 )
+ * and the cell is min( DIRECT loops through Energy() -- stacks, bulges, 1xn, 2x2, 2x3, 3x2 --
+ *                       min_u G(i,j,u) + internal_loop[u] + mismatchI(outer) + SaltLoop[u+2] ).
+ * Generic u runs 6..30 (3x3 and 2x4 are the smallest). Entries obey the same hard-constraint, pair
+ * type (0 -> 7, then rtype) and --noClosingGU rules as Energy(), which is what S0 established.
+ *
+ * G is maintained for EVERY column of the row, not only for the cells the dense kernel computes:
+ * a cell's carry source (i+1,j-1) must hold a value for that very row, never one left two rows ago
+ * in the same ping-pong buffer. */
+
+#define LY_U0   6
+#define LY_NU   (MAXLOOP - LY_U0 + 1)            /* 25 planes: u = 6..30 */
+#define LY_NSTAT 6   /* 0 cells compared, 1 mismatches, 2 live cells, 3 fresh entries, 4 carried entries, 5 direct evals */
+#define LY_NBAD  4
+
+static int*                d_ly_G[2] = { NULL, NULL };   /* [LY_NU][g_row_total], rows of parity 0/1 */
+static unsigned long long* d_ly_stat = NULL;
+static int*                d_ly_bad  = NULL;
+static int                 g_ly_on   = 0;
+static unsigned long long  g_ly_tot[LY_NSTAT];
+static int                 g_ly_badh[LY_NBAD * 5];
+static int                 g_ly_nbadh = 0, g_ly_chunks = 0;
+
+static int
+ly_selftest(void)
+{
+  static int v = -1;
+  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_SELFTEST"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  return v;
+}
+
+static int
+ly_negctl(void)
+{
+  static int v = -1;
+  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_NEGCTL"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  return v;
+}
+
+static void
+ly_report(void)
+{
+  const unsigned long long *t = g_ly_tot;
+  fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST%s: %d chunk(s), %llu cells compared (%llu live), %llu MISMATCHING; "
+                  "entries %llu fresh + %llu carried, %llu direct evaluations\n",
+          __FILE__, ly_negctl() ? " (NEGCTL: carry dropped)" : "", g_ly_chunks, t[0], t[2], t[1], t[3], t[4], t[5]);
+  for (int b = 0; b < g_ly_nbadh; b++)
+    fprintf(stderr, "%-24s   mismatch H=%d i=%d j=%d dense %d lyngso %d\n", __FILE__,
+            g_ly_badh[5*b], g_ly_badh[5*b+1], g_ly_badh[5*b+2], g_ly_badh[5*b+3], g_ly_badh[5*b+4]);
+}
+
+__global__ void
+ly_fill_kernel(int* __restrict__ a, const size_t n)
+{
+  const size_t m = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+  if (m < n) a[m] = INF;
+}
+
+/* init_gpu2(): one pair of G row buffers for the chunk. Refused where records are not on one row. */
+static void
+ly_alloc(void)
+{
+  g_ly_on = 0;
+  if (!ly_selftest()) return;
+  const char *why = NULL;
+  if (rnafold_continuous_flow())      why = "continuous flow (records on different rows)";
+  else if (rnafold_slot_flow() >= 1)  why = "slot flow (slots are handed over mid-sweep)";
+  else if (rnafold_megakernel())      why = "the megakernel (its own fused int_loop)";
+  if (why) {
+    static int said = 0;
+    if (!said) { said = 1; fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST REFUSED: %s\n", __FILE__, why); }
+    return;
+  }
+  const size_t n = (size_t)LY_NU * g_row_total;
+  for (int b = 0; b < 2; b++) {
+    gpuErrchk( cudaMalloc((void **)&d_ly_G[b], sizeof(int) * (n ? n : 1)) );
+    if (n) { ly_fill_kernel<<<(unsigned)((n + 255) / 256), 256>>>(d_ly_G[b], n); gpuErrchk( cudaPeekAtLastError() ); }
+  }
+  gpuErrchk( cudaMalloc((void **)&d_ly_stat, sizeof(unsigned long long) * LY_NSTAT) );
+  gpuErrchk( cudaMalloc((void **)&d_ly_bad,  sizeof(int) * LY_NBAD * 5) );
+  gpuErrchk( cudaMemset(d_ly_stat, 0, sizeof(unsigned long long) * LY_NSTAT) );
+  g_ly_on = 1;
+  g_ly_chunks++;
+  static int said = 0;
+  if (!said) {
+    said = 1; atexit(ly_report);
+    fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST ACTIVE: the Lyngsø carry form computed beside the dense "
+                    "int_loop and compared cell for cell (G %.1f MB%s)\n", __FILE__,
+            2.0 * (double)n * sizeof(int) / 1048576.0, ly_negctl() ? ", NEGCTL: carry dropped" : "");
+  }
+}
+
+/* teardown_gpu2(): counters first, then free by the pointer. */
+static void
+ly_free(void)
+{
+  if (d_ly_stat) {
+    unsigned long long s[LY_NSTAT]; int b[LY_NBAD * 5];
+    gpuErrchk( cudaMemcpy(s, d_ly_stat, sizeof(s), cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaMemcpy(b, d_ly_bad,  sizeof(b), cudaMemcpyDeviceToHost) );
+    for (int t = 0; t < LY_NSTAT; t++) g_ly_tot[t] += s[t];
+    for (unsigned long long m = 0; m < s[1] && m < LY_NBAD && g_ly_nbadh < LY_NBAD; m++, g_ly_nbadh++)
+      memcpy(&g_ly_badh[5 * g_ly_nbadh], &b[5 * m], 5 * sizeof(int));
+  }
+  for (int k = 0; k < 2; k++) if (d_ly_G[k]) { gpuErrchk( cudaFree(d_ly_G[k]) ); d_ly_G[k] = NULL; }
+  if (d_ly_stat) { gpuErrchk( cudaFree(d_ly_stat) ); d_ly_stat = NULL; }
+  if (d_ly_bad)  { gpuErrchk( cudaFree(d_ly_bad) );  d_ly_bad  = NULL; }
+  g_ly_on = 0;
+}
+
+/* The pair type Energy() uses: raw ptype 0 promoted to 7 (cell_invariants()), and for an inner
+ * pair rtype[] applied AFTER the promotion. */
+__device__ __forceinline__ int
+ly_type(const unsigned int* __restrict__ S, const char* __restrict__ pair_, const int H, const int s_stride,
+        const int a, const int b)
+{
+  const unsigned char t = Ptype(S, pair_, H, s_stride, a, b);
+  return (t == 0) ? 7 : (int)t;
+}
+
+/* The c reader the dense kernel would use for this record: the triangle, or the 32-row ring. */
+__device__ __forceinline__ c_tri_reader
+ly_reader(c_tri_reader*, const int* my_c, const int*, const size_t, const size_t tri, const size_t)
+{
+  c_tri_reader r; r.base = my_c + tri; return r;
+}
+
+__device__ __forceinline__ c_ring_reader
+ly_reader(c_ring_reader*, const int*, const int* ring, const size_t stride, const size_t, const size_t o)
+{
+  c_ring_reader r; r.base = ring + o; r.stride = stride; return r;
+}
+
+/* Row i: G for every column j in (i, len_H], one thread per row-layout slot. */
+template<class CREAD>
+__global__ void
+ly_carry_kernel(const int nfiles, const int i, const int length, const int negctl,
+                const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
+                const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
+                const unsigned char* __restrict__ up_int,
+                const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
+                const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                const size_t* __restrict__ hc_off_H, const size_t row_total,
+                const int* __restrict__ Gp, int* __restrict__ Gc,
+                unsigned long long* __restrict__ stat)
+{
+  const size_t m = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+  if (m >= row_total) return;
+  const int    H = flatten_index_to_H(m, row_off_H, nfiles);
+  const size_t o = row_off_H[H];
+  const int    j = (int)(m - o);
+  const int  len = (int)(row_off_H[H + 1] - o) - 1;
+  if (j <= i || j > len) { for (int u = 0; u < LY_NU; u++) Gc[(size_t)u * row_total + m] = INF; return; }
+
+  const CREAD cr = ly_reader((CREAD *)0, my_c, c_ring, c_ring_stride, tri_off_H[H], o);
+
+  const unsigned int*  hc_H = &hccc[hc_off_H[H]];
+  const unsigned char* up   = up_int ? &up_int[o] : NULL;
+  const int s_stride = S_STRIDE(length);
+  const int carry_ok = !negctl && j - 1 > i + 1 && (!up || (up[i + 1] >= 1 && up[j - 1] >= 1));
+  unsigned long long nfresh = 0, ncarry = 0;
+
+  for (int u = LY_U0; u <= MAXLOOP; u++) {
+    int g = INF;
+    if (carry_ok && u - 2 >= LY_U0) {
+      g = Gp[(size_t)(u - 2 - LY_U0) * row_total + (o + (size_t)(j - 1))];
+      if (g < INF) ncarry++;
+    }
+    /* fresh at (i,j): (2,u-2) and (u-2,2) for u >= 6, plus (3,3) at 6 and (3,4),(4,3) at 7 */
+    int f1[4], f2[4], nf = 0;
+    f1[nf] = 2;     f2[nf] = u - 2; nf++;
+    f1[nf] = u - 2; f2[nf] = 2;     nf++;
+    if (u == 6) { f1[nf] = 3; f2[nf] = 3; nf++; }
+    if (u == 7) { f1[nf] = 3; f2[nf] = 4; nf++; f1[nf] = 4; f2[nf] = 3; nf++; }
+    for (int t = 0; t < nf; t++) {
+      const int u1 = f1[t], u2 = f2[t];
+      if (t == 1 && u1 == u2) continue;                 /* (2,2) is never here; guard the duplicate anyway */
+      const int k = i + u1 + 1, l = j - u2 - 1;
+      if (l - k < 1) continue;
+      if (up && ((int)up[i + 1] < u1 || (int)up[l + 1] < u2)) continue;
+      if (!Hc(Indx(k, l), hc_H)) continue;
+      const int c = cr(k, l);
+      if (c >= INF) continue;
+      const int t2 = P->rtype[ly_type(S, pair_, H, s_stride, k, l)];
+      if (P->noGUclosure && (t2 == 3 || t2 == 4)) continue;
+      const int d  = u1 > u2 ? u1 - u2 : u2 - u1;
+      const int v  = c + P->mismatchI[t2][unpack(S, H, s_stride, l + 1)][unpack(S, H, s_stride, k - 1)]
+                       + MIN2(P->max_ninio, d * P->ninio2);
+      nfresh++;
+      if (v < g) g = v;
+    }
+    Gc[(size_t)(u - LY_U0) * row_total + m] = g;
+  }
+  if (nfresh) atomicAdd(&stat[3], nfresh);
+  if (ncarry) atomicAdd(&stat[4], ncarry);
+}
+
+/* Row i: the cells the dense kernel computes (its own enumeration), one thread each. */
+template<class CREAD>
+__global__ void
+ly_check_kernel(const int nfiles, const int i, const int length,
+                const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
+                const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
+                const unsigned char* __restrict__ up_int,
+                const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
+                const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                const size_t* __restrict__ hc_off_H, const size_t* __restrict__ size_off_H,
+                const size_t row_total, const int* __restrict__ Gc,
+                const int* __restrict__ energy_min,
+                unsigned long long* __restrict__ stat, int* __restrict__ bad)
+{
+  const size_t m = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+  if (m >= size_off_H[nfiles]) return;
+  const int    H = flatten_index_to_H(m, size_off_H, nfiles);
+  const size_t local = m - size_off_H[H];
+  const int    j = (int)local + i + turn + 1 + (int)size_off_H[nfiles + 1];   /* int_loop_cell.inc's j */
+  const size_t o = row_off_H[H];
+  const unsigned int* hc_H = &hccc[hc_off_H[H]];
+  const int dense = energy_min[o + j];
+  int ly = INF;
+  unsigned long long ndirect = 0;
+
+  if (Hc(Indx(i, j), hc_H)) {
+    const CREAD cr = ly_reader((CREAD *)0, my_c, c_ring, c_ring_stride, tri_off_H[H], o);
+    const int s_stride = S_STRIDE(length);
+    const cell_inv_t ci = cell_invariants(S, pair_, H, s_stride, i, j);
+    const unsigned char* up = up_int ? &up_int[o] : NULL;
+    /* DIRECT: short side <= 1 (stacks, bulges, 1xn) and 2x2 / 2x3 / 3x2, through Energy() itself */
+    for (int u1 = 0; u1 <= MAXLOOP; u1++)
+      for (int u2 = 0; u1 + u2 <= MAXLOOP; u2++) {
+        const int s = u1 < u2 ? u1 : u2, l_ = u1 > u2 ? u1 : u2;
+        const int generic = (s >= 2) && !(s == 2 && l_ <= 3);
+        if (generic) continue;
+        const int p = i + u1 + 1, q = j - u2 - 1;
+        if (q - p < 1) continue;
+        if (!Hc(Indx(p, q), hc_H)) continue;
+        const int e = Energy(H, s_stride, i, j, q, p, ci, cr, up, S, pair_, P,
+                             P->TerminalAU, P->ninio2, P->bulge, P->internal_loop, P->lxc,
+                             P->mismatchI, P->mismatch1nI, P->mismatch23I, P->stack,
+                             P->int11, P->int21, P->int22);
+        ndirect++;
+        if (e < ly) ly = e;
+      }
+    /* the carried generic loops, used once per u; the outer pair's --noClosingGU gate */
+    if (!(P->noGUclosure && (ci.type == 3 || ci.type == 4))) {
+      const int outer = P->mismatchI[ci.type][ci.si1][ci.sj1];
+      for (int u = LY_U0; u <= MAXLOOP; u++) {
+        const int g = Gc[(size_t)(u - LY_U0) * row_total + (o + (size_t)j)];
+        if (g >= INF) continue;
+        const int e = g + P->internal_loop[u] + outer + P->SaltLoop[u + 2];
+        if (e < ly) ly = e;
+      }
+    }
+    atomicAdd(&stat[2], 1ULL);
+  }
+  atomicAdd(&stat[0], 1ULL);
+  if (ndirect) atomicAdd(&stat[5], ndirect);
+  const int same = (ly >= INF && dense >= INF) || ly == dense;
+  if (!same) {
+    const unsigned long long b = atomicAdd(&stat[1], 1ULL);
+    if (b < LY_NBAD) { bad[5*b] = H; bad[5*b+1] = i; bad[5*b+2] = j; bad[5*b+3] = dense; bad[5*b+4] = ly; }
+  }
+}
+
+/* int_loop_cuda()'s tail: after the dense kernel for row i, on the same stream. */
+static void
+ly_selftest_row(const int nfiles, const int i, const int length)
+{
+  if (!g_ly_on) return;
+  int* Gc = d_ly_G[i & 1];
+  const int* Gp = d_ly_G[(i + 1) & 1];
+  const size_t rt = g_row_total;
+  const int nbr = (int)((rt + 127) / 128);
+  if (g_c_ring_on)
+    ly_carry_kernel<c_ring_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
+        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, d_ly_stat);
+  else
+    ly_carry_kernel<c_tri_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
+        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, d_ly_stat);
+  gpuErrchk( cudaPeekAtLastError() );
+  size_t cells = 0;
+  gpuErrchk( cudaMemcpy(&cells, &d_size_off_H[nfiles], sizeof(size_t), cudaMemcpyDeviceToHost) );   /* selftest: a sync is fine */
+  if (cells == 0) return;
+  const int nbc = (int)((cells + 127) / 128);
+  if (g_c_ring_on)
+    ly_check_kernel<c_ring_reader><<<nbc, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, d_param, d_pair, d_S, d_hccc,
+        d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, d_size_off_H, rt, Gc,
+        d_energy_min2, d_ly_stat, d_ly_bad);
+  else
+    ly_check_kernel<c_tri_reader><<<nbc, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, d_param, d_pair, d_S, d_hccc,
+        d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, d_size_off_H, rt, Gc,
+        d_energy_min2, d_ly_stat, d_ly_bad);
+  gpuErrchk( cudaPeekAtLastError() );
+}

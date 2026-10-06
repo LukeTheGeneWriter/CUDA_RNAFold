@@ -114,6 +114,33 @@ call, as with sparse md.
 | S4 | laptop ncu: per-launch time and instruction counts, both kernels against dense, at 600–5601 | per-launch numbers |
 | S5 | A100 notebook: the matrix + **the flagged c-ring K-over-row-width test, on the new kernel** + the `RNA_INT_LOOP_UNROLL=2` re-test → default decision | by eye |
 
+**S1 done (2026-10-06, laptop RTX 3050).** `ly_selftest.inc`, under `RNA_INT_LOOP_LYNGSO_SELFTEST=1`:
+- **`ly_carry_kernel`** maintains G over every column of every row, ping-ponging two `[u][row_total]`
+  buffers (u = 6..30, 25 planes), so no stale value survives.
+- **`ly_check_kernel`** recomputes each cell the dense kernel computes, as the direct loops through `Energy()`
+  itself plus the 25 G uses, reading the same c (ring or triangle) through the same reader types. It compares
+  with the dense `energy_min2`.
+
+Results on 8 records of 300–1700 nt (plus G-rich and enforced `|`), 4.8 M cells, **0 MISMATCHING** on all 12
+configurations:
+- **options:** plain, `--noLP`, `--circ`, `-d0`, salt 0.2, `-T 25`, `--maxBPspan 150`, `-g`,
+  `-C --enforceConstraint`, `--noClosingGU`;
+- **settings:** c ring off, int32.
+- **NEGCTL** (carry dropped): **129,208 mismatching**.
+- **Default path untouched:** output equal to `RNA_GPU=0`, no Lyngsø output at all. Refused under slot and
+  continuous flow, with a reason.
+
+**Work on the plain fixture:**
+
+| | dense | Lyngsø |
+|---|---|---|
+| full interior-loop evaluations (`Energy()`) | 319.0 M | **78.3 M (4.1× fewer)** |
+| fresh entries (a c read plus two lookups each) | | 91.9 M |
+| carried copies | | 103.8 M |
+| uses (25 adds per live cell, 1.79 M live cells) | | 44.8 M |
+
+The expensive evaluations are what shrinks. S2 decides whether the cheap ones are cheap enough on the device.
+
 ## 6. Expected size
 
 CPU counting says 1.85× fewer evaluations. If the kernel stays issue-bound, `int_loop` drops from 16.5 s

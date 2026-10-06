@@ -345,6 +345,10 @@ static int g_refill2 = 0;
 static int g_slot_only = 0;
 #define SLOT_ALLOC(pp, sz) do { if(!g_refill2) TIMED_CUDAMALLOC(pp, sz); } while(0)
 
+/* Lyngsø S1 selftest (ly_selftest.inc, included further down). */
+static void ly_alloc(void);
+static void ly_free(void);
+
 PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* tri_off_H, const size_t* row_off_H, //in, nfiles+1 entries each, mfe_cuda.c
@@ -627,6 +631,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   size = nfiles*length*sizeof(int);
   SLOT_ALLOC(&d_buf, size);
   */
+  ly_alloc();   /* RNA_INT_LOOP_LYNGSO_SELFTEST; no-op otherwise */
   stage_ig2_s += rnafold_now_seconds() - _t_ig2;
   first2 = 0;
 }
@@ -683,6 +688,7 @@ refill_slot2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
 PUBLIC void
 teardown_gpu2(void) {
   if(first2) return; // never initialized (or already torn down) -- nothing to free
+  ly_free();          // RNA_INT_LOOP_LYNGSO_SELFTEST: counters first (a sync), then by the pointer
   gpuErrchk( cudaFree(d_hccc) );
   if(d_up_int) { gpuErrchk( cudaFree(d_up_int) ); d_up_int = NULL; }
   gpuErrchk( cudaFree(d_S) );
@@ -1969,6 +1975,9 @@ static void il_work_end(void) {
 }
 
 
+/* Lyngsø interior loops, S1: the selftest beside the dense kernel (PORT_LYNGSO_INTLOOP.md). */
+#include "ly_selftest.inc"
+
 //Host (ie non-GPU) code
 PRIVATE void
 int_loop_cuda(const int nfiles,
@@ -2191,6 +2200,7 @@ int_loop_cuda(const int nfiles,
 
   gpuErrchk( cudaPeekAtLastError() );
   if(work_stats) il_work_end();
+  ly_selftest_row(nfiles, i, length);   /* RNA_INT_LOOP_LYNGSO_SELFTEST; no-op otherwise */
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
   if(!rnafold_gpu_sweep())
