@@ -543,3 +543,109 @@ of it exists in ViennaRNA and none of it ever would. That is why the headline in
 | how a newcomer builds it, and the upstream install defects that found | `Note_to_TBI_setup.md` |
 | per-option status, and why each was accelerated or declined | `PORT_OPTION_STATUS.md` |
 | earlier merge analysis (partly superseded — read its §0 first) | `MERGING.md` |
+| the performance branch, the literature behind it, and cache on the CPU side | §11 below; on `Lukes_Flow_Batching`, `PORT_SPARSE_MD.md`, `PORT_LYNGSO_INTLOOP.md`, `PORT_BACKTRACK_PIPELINE.md` |
+
+---
+
+## 11. What is coming: the performance branch (`Lukes_Flow_Batching`)
+
+*Added 2026-10-06. Everything in §1–§10 describes `Finished_Port`, which is what
+we propose. This section is a progress report on the development branch,
+`Lukes_Flow_Batching` (LFB). LFB is not yet proposed. Making it the default
+branch needs its own write-up and test campaign, and that is the plan.*
+
+**Where it stands.** On an A100-80GB, against `Finished_Port` and with identical
+output, LFB passes a promotion bar we registered before measuring:
+
+| input | `Finished_Port` | LFB | change |
+|---|---|---|---|
+| 400 × 5601 nt | 83.6 s | 43.7 s | **−48 %** |
+| 3000 × 1200 nt | 21.3 s | 17.6 s | **−17 %** |
+| 2400 mixed-length records | 151.0 s | 94.0 s | **−38 %** (outputs agree) |
+
+One correction from the same campaign also reached `Finished_Port`:
+- **a grid-index overflow:** any chunk past 2^32 triangle cells gave wrong co-optimal structures;
+- **the fix is confirmed at scale** against 2.7.2 on every record that crosses the boundary.
+
+### 11.1 Strategies taken from the literature
+
+We surveyed the published work on fast MFE folding before choosing the next
+levers. Every idea was first proven **exact against 2.7.2's own matrices and
+loop routines** on the CPU, with negative controls that must fail. It was then
+kept only if it measured well on the device.
+
+- **Sparse multiloop decomposition: adopted, now LFB's default.** From Wexler et
+  al. (2007), Backofen et al. (JDA 2011) and Will & Jabbari's SparseMFEFold (AMB
+  2016), the latter, as it happens, from your own building in Leipzig.
+  - **The idea:** most split points of the multiloop recursion can never be
+    optimal, so only "candidates" need evaluating.
+  - **Adaptation:** our device md uses a row-local left operand, so we
+    re-derived the rule to need one inequality only, plus `up_ml` clauses that
+    keep hard constraints exact.
+  - **On the device:** candidate lists are built from row buffers alone, with a
+    parallel prefix scan along each row. A column that overflows its list falls
+    back to the dense computation.
+  - **Result:** about 7 % of split points are candidates. That holds on random
+    input, on the Rfam seeds in 2.7.2's own `tests/data` and on E. coli genome
+    windows: **14–16× fewer terms, md 2.45× faster, −29 % wall** at 400 ×
+    5601 nt. Repeat-rich worst cases (`(GC)n`, `(AU)n`) are still 5 % faster.
+    It is exact on every option the backend accelerates.
+- **Lyngsø, Zuker & Pedersen (1999), the interior-loop carry: in progress.**
+  - **The idea:** a generic interior loop's energy separates into an outer and
+    an inner part. The best inner part for each loop size can be carried
+    diagonally from (i+1, j−1) to (i, j) instead of re-enumerating every inner
+    pair.
+  - **Exactness:** proven against `vrna_mfe_internal()` under hard constraints,
+    `--noClosingGU`, `-g`, `--noLP` and salt. The proof made two rules explicit:
+    1. a carry is valid only if the two newly unpaired bases may be unpaired
+       (`up_int`);
+    2. a pair the constraints allow but the pair table does not takes type 7,
+       as `vrna_get_ptype()` does.
+  - **Size:** about 1.85× fewer evaluations, aimed at the interior-loop kernel,
+    which is instruction-bound and now the largest GPU phase.
+- **Rizk & Lavenier (2009), tiled min-plus GPU Zuker: built, measured,
+  retired.** A legal blocked md needed a three-way split of the decomposition.
+  It cut md's own time by 12 %, but the per-tile launch overhead lost end to
+  end, and sparse md beat it by 41 %. It stays in the tree, switched off.
+- **Li, Ranka & Sahni (2014), transposed access:** already in place, as the
+  row-buffer layout the kernels read.
+- **Langdon & Lorenz (CUDA RNAfold, and the AVX-512 genetic-improvement
+  work):** the starting point and baseline of this port.
+- **Looked at and set aside:**
+  - NVIDIA's DPX min-plus instructions (hardware only on H100);
+  - Four-Russians and Valiant-style bounds (theoretical);
+  - LinearFold (approximate; this backend is exact by design).
+
+### 11.2 The CPU side, and cache
+
+At our meeting Ronny mentioned an interest in getting more out of the cache.
+Several things we found on the GPU side bear on that for the CPU fold, so we
+note them here in case they are useful. Nothing on the CPU side is planned or
+built:
+
+1. **Sparse md** is SparseMFEFold's own (CPU) setting. It removes ~93 % of the
+   multiloop split points, and with them most of md's reads of the fML matrix.
+   That is the stream that does not fit in cache at long lengths. Our exactness
+   tool (`tools/md_sparse_equiv.c`) runs the rule against 2.7.2's matrices.
+2. **The Lyngsø carry** turns the interior-loop window (up to 30 × 30 reads of
+   `c` per cell) into a short per-cell table carried along the diagonal. It is
+   checked by `tools/lyngso_equiv.c`.
+3. **Polyhedral cache tiling** of the folding loop nest, after Palkowski &
+   Bielecki (MDPI, 12(5):728), which is aimed squarely at cache reuse.
+
+We would be glad to hear whether any of these looks interesting from
+upstream's side.
+
+### 11.3 What comes next on LFB
+
+| next | why | expected |
+|---|---|---|
+| the Lyngsø carry on the device | interior loops are now 34 % of the wall | −12 to −16 % |
+| overlap backtracking with the next chunk's sweep | traceback runs while the GPU idles: 27 % of the wall | up to −24 % |
+| smaller md refinements (lanes per row, fused launches) | md is latency-bound once sparse | a few % |
+
+Taken together, these could bring 400 × 5601 nt from ~44 s into the mid-20s.
+Those are estimates until measured. Each lands only with the same bars:
+- byte-identical output against 2.7.2's CPU path across the option surface;
+- negative controls that must fail;
+- an A100 measurement.
