@@ -180,6 +180,14 @@ md_sparse_refusal(void)
   return NULL;
 }
 
+/* Will the sparse md run on this configuration? Asked by the int16 AUTO decision: if not, the
+ * dense md streams the fML triangle and int16 pays (DRAM pressure). */
+static int
+md_sparse_planned(void)
+{
+  return md_sparse_on() && !md_sparse_refusal();
+}
+
 /* Bytes per record, for chunk admission. Mirrors md_sparse_alloc(): the slots, the
  * baselines (ENTRY=4), the row buffers (d_sp_len, d_sp_prev, and d_sp_last for ENTRY=4) and the column tables.
  * The column tables are per chunk, not per record; charging them per record over-counts,

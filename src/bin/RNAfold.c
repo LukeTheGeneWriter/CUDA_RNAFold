@@ -100,6 +100,8 @@ extern size_t gpu_bytes_per_file(const int length);
  * chunk is sized against it. See modular_decomposition.cu. */
 extern void   rnafold_circ_expect(const int circ);
 extern size_t compute_gpu_usable_bytes(void);
+/* int16 AUTO prices a full-cap chunk: it needs the cap this file admits by (modular_decomposition.cu). */
+extern void   rnafold_set_chunk_cells_cap(const unsigned long long cap_cells);
 /* The four stage counters that mfe_cuda.c PRINTS but nothing incremented until
  * 2026-09-08. They cover work that happens in this file rather than in the CUDA
  * layer -- building and freeing fold compounds, device teardown, and output --
@@ -2943,6 +2945,7 @@ process_input(FILE            *input_stream,
         /* Query AFTER the flush: flush_gpu_chunk() tears the device state down,
          * so this sees free VRAM rather than counting the previous chunk's
          * buffers as unavailable. */
+        rnafold_set_chunk_cells_cap(rnafold_gpu_chunk_cells());   /* before the first query: int16 AUTO */
         chunk_usable_bytes = compute_gpu_usable_bytes();
         chunk_started      = 1;
 

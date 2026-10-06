@@ -176,6 +176,7 @@ rnafold_gpu_sweep(void) {
 // shut for the rest of the process, because the tables are global and a later
 // batch cannot un-load them.
 static int g_fml_int16_unsafe = 0;
+static int g_fml_int16_auto   = -1;   /* -1 undecided; see rnafold_fml_int16_auto_decide() */
 
 // DEFAULT ON since 2026-09-27. Measured on an A100 at 5601 nt, byte-identical at
 // every shape: md -8.8 % at 8 records, -15.5 % at 32, -17.7 % at 96, -18.4 % at
@@ -250,14 +251,46 @@ rnafold_fml_int16(void) {
                        "set RNA_FML_INT16=1 to make this combination an error.)\n",
                 __FILE__, why);
       v = 0;
-    } else if (!vrna_cuda_quiet()) {
-      fprintf(stderr,"%-24s fml_j is %s (%s)\n", __FILE__,
-              v ? "16-bit offsets from a per-64 baseline" : "full int32",
-              (e && e[0]) ? "RNA_FML_INT16 set explicitly" : "default since 2026-09-27");
+    } else if (!vrna_cuda_quiet() && e && e[0]) {
+      /* explicit; AUTO says what it chose in rnafold_fml_int16_auto_decide() */
+      fprintf(stderr,"%-24s fml_j is %s (RNA_FML_INT16 set explicitly)\n", __FILE__,
+              v ? "16-bit offsets from a per-64 baseline" : "full int32");
     }
   }
 
-  return v && !g_fml_int16_unsafe;
+  /* AUTO (unset) defers to rnafold_fml_int16_auto_decide(); until it has run, on. */
+  return v && !g_fml_int16_unsafe && (rnafold_fml_int16_explicit() || g_fml_int16_auto != 0);
+}
+
+/* AUTO, REFINED 2026-10-06 (Luke: "make the int32/16 switch based on VRAM limitation and DRAM
+ * pressure"), on the A100 N2 run: under sparse md, int32 is 1.3-2.7 % FASTER than int16 --
+ * md no longer streams the fML triangle, so int16's pack and decode are pure cost -- and
+ * int16's VRAM saving buys nothing while the cell cap, not VRAM, sizes the chunks.
+ *
+ * So, unset, int16 is kept only where it pays:
+ *   DRAM pressure  the dense md will run (sparse md off or refused), and it streams the
+ *                  triangle: int16 halves those bytes (md -20.7 % at 400 x 5601, 10-03).
+ *   VRAM limit     chunks are sized by VRAM -- no cell cap (the library path), or a full-cap
+ *                  chunk would not fit in int32 (a 4 GB card at the default cap).
+ * Otherwise int32. Decided ONCE, from the first compute_gpu_usable_bytes() of the run, which
+ * both admission paths call before they price a record: the device buffers differ between
+ * the modes, so it cannot change per chunk. Reads before the decision see int16; that can only
+ * UNDER-state a record's bytes when int32 is then chosen, and int32 is only chosen when a whole
+ * full-cap chunk fits with room to spare, so admission stays safe. */
+PUBLIC void
+rnafold_fml_int16_auto_decide(const size_t usable_bytes, const unsigned long long cap_cells,
+                              const size_t full_cap_bytes32, const int dense_md)
+{
+  if (g_fml_int16_auto >= 0) return;
+  const char *why;
+  if (dense_md)             { g_fml_int16_auto = 1; why = "the dense md streams the fML triangle (DRAM pressure)"; }
+  else if (cap_cells == 0)  { g_fml_int16_auto = 1; why = "chunks are sized by VRAM (no cell cap)"; }
+  else if (full_cap_bytes32 > usable_bytes) { g_fml_int16_auto = 1; why = "a full-cap chunk would not fit in VRAM as int32"; }
+  else                      { g_fml_int16_auto = 0; why = "sparse md, and a full-cap chunk fits in VRAM as int32"; }
+  if (!rnafold_fml_int16_explicit() && getenv("RNA_FML_INT16") == NULL && !vrna_cuda_quiet())
+    fprintf(stderr, "%-24s fml_j AUTO: %s -- %s (full-cap chunk %.1f GB as int32, %.1f GB usable)\n",
+            __FILE__, g_fml_int16_auto ? "int16" : "int32", why,
+            (double)full_cap_bytes32 / 1073741824.0, (double)usable_bytes / 1073741824.0);
 }
 
 /* A DEFAULT that cannot be honoured steps aside; an EXPLICIT request does not.

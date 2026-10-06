@@ -311,7 +311,8 @@ rnafold_stream_overlap(void)
      * through the H stress soak. "0" still forces the old single-stream
      * schedule, and is the control every sha comparison is made against.
      *
-     * DEFAULT CHANGED 2026-10-03 to 2, with CUDA graphs off at that level (Luke's call,
+     * DEFAULT CHANGED 2026-10-03 to 2, with CUDA graphs off at that level (graphs ON again since
+     * 2026-10-06, see the capture decision in modular_decomposition.cu) (Luke's call,
      * on the A100 Queue run's pre-registered rule, section D): -1.9 % at 400 x 5601
      * (arm spreads 0.4 / 0.8 %), -0.7 % at 3000 x 1200 (within its spread), and every
      * arm against the CPU -- 16 arms x 5 option cases, and a 600-record mixed-length

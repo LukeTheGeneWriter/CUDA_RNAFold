@@ -555,6 +555,9 @@ static void md_sparse_free(void);
 static void md_sparse_md(const int nfiles, const int turn, const int* fml_i, const size_t total);
 static int  md_sparse_live(void);   /* RNA_MD_SPARSE=1 and this chunk's lists exist */
 static size_t md_sparse_bytes_per_file(const int length);   /* the lists, for chunk admission */
+static int    md_sparse_planned(void);   /* sparse md will run: no DRAM pressure from the triangle */
+/* RNAfold's admission cell cap (RNAfold.c sets it); 0 on the library path, which sizes by VRAM. */
+static unsigned long long g_chunk_cells_cap = 0;
 
 /* RING copies of the whole row-buffer layout, so a slot is indexed exactly as d_dml
  * is (row_off_H[H] + j) and no per-record stride has to be derived. */
@@ -1054,8 +1057,17 @@ rnafold_circ_expect(const int circ)
 }
 
 
+static size_t md_bytes_per_file_mode(const int length, const int i16);
+
 PUBLIC size_t
 modular_decomposition_bytes_per_file(const int length) {
+  return md_bytes_per_file_mode(length, rnafold_fml_int16());
+}
+
+/* The same model with the fML encoding given, so the int16 AUTO decision can price int32
+ * before the gate has been decided. */
+static size_t
+md_bytes_per_file_mode(const int length, const int i16) {
   // x5, not x3: d_energy_min, d_fml_i, d_dml, and (GPU-resident sweep step 1)
   // d_dml1 + d_fml_prev. This number drives RNAfold.c's chunk admission, so
   // under-counting it does not merely mis-report -- it lets a chunk be
@@ -1074,7 +1086,7 @@ modular_decomposition_bytes_per_file(const int length) {
    * both encodings charge it. */
   const size_t acc_bytes    = rnafold_md_block() ? (size_t)(length+1) * sizeof(int)
                                                    * (size_t)rnafold_md_tile_rb() : 0;
-  if(rnafold_fml_int16()) {
+  if(i16) {
     // x6: the five above plus d_fml_row, which is row-shaped and so is noise
     // beside the triangle. The triangle halves, and the baselines add one int32
     // per FML_BLK entries -- 1.6% at B=64, against the 50% saved.
@@ -1172,7 +1184,33 @@ compute_gpu_usable_bytes(void) {
               __FILE__, env_budget);
     }
   }
+  /* int16 AUTO (mfe_cuda.c): decided on the first query, before any record is priced for
+   * real. A full-cap chunk is priced in int32 at the WORST bytes per cell of three lengths
+   * (row buffers weigh most at short lengths), so the estimate errs towards int16, the side
+   * that cannot run out of VRAM. */
+  {
+    static int decided = 0;
+    if (!decided) {
+      decided = 1;
+      double per_cell = 0.0;
+      const int Ls[3] = { 600, 2000, 5601 };
+      for (int t = 0; t < 3; t++) {
+        const double cells = (double)(Ls[t] + 1) * (double)(Ls[t] + 2) / 2.0;
+        const double b = (double)(md_bytes_per_file_mode(Ls[t], 0) + int_loop_bytes_per_file(Ls[t])
+                                  + hp_mb_loop_bytes_per_file(Ls[t])) / cells;
+        if (b > per_cell) per_cell = b;
+      }
+      const size_t full32 = (size_t)(per_cell * (double)g_chunk_cells_cap);
+      rnafold_fml_int16_auto_decide(usable, g_chunk_cells_cap, full32, !md_sparse_planned());
+    }
+  }
   return usable;
+}
+
+extern "C" void
+rnafold_set_chunk_cells_cap(const unsigned long long cap_cells)
+{
+  g_chunk_cells_cap = cap_cells;
 }
 
 // ---------------------------------------------------------------------------
@@ -4513,11 +4551,13 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
   static int use_graph = -1;
   if(use_graph == -1) {
     const char* env = getenv("RNA_CUDA_GRAPH");
-    /* An explicit RNA_CUDA_GRAPH wins. Unset, capture follows the overlap level: OFF at
-     * level 2, the default since 2026-10-03 (the A100 Queue run's rule was written for
-     * level 2 without graphs; with them it measured the same, see rnafold_stream_overlap()),
-     * and on below it, as before. */
-    use_graph = (env && env[0]) ? (env[0] != '0') : (rnafold_stream_overlap() >= 2 ? 0 : 1);
+    /* An explicit RNA_CUDA_GRAPH wins. Unset, capture is ON at every overlap level since
+     * 2026-10-06 (Luke's call on the A100 N2 run): with sparse md -- three launches per row
+     * where there was one -- level 2 with graphs measured -0.5 % at 400 x 5601 and -2.2 % at
+     * 3000 x 1200 (beyond spread), one output across every arm. It was off at level 2 from
+     * 2026-10-03, when the A100 Queue run's rule was written for level 2 without graphs and
+     * graphs measured the same there. */
+    use_graph = (env && env[0]) ? (env[0] != '0') : 1;
     /* The blocked-primitive selftest synchronises and reads device symbols right
      * after md, which is illegal inside a capture ("operation not permitted when
      * stream is capturing", code 900 -- how this was found). It is a diagnostic, so
