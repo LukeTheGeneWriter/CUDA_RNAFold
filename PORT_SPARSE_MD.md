@@ -358,6 +358,70 @@ diagonal; it is the first latency-cut knob. 4-B entries refuse it, because their
 The kernel is templated on L. Dead groups clamp to a real cell and write nothing, so the full-warp shuffles
 stay legal. N2 section L measures it.
 
+**N2 done (2026-10-06): A100-SXM4-80GB, LFB `8d3deef3` (sparse md default) against FP `209a978d`.**
+`CUDA_RNAFold_N2.ipynb`. Every arm in every section gave one output per fixture.
+
+- **G, gates: PASS.** The default equals the dense md and `RNA_GPU=0` on mixed, G-rich `-g`, enforced and
+  10,076 natural Rfam seeds (density 7.76 %).
+- **P, LFB promotion bar (pre-registered in the re-baseline): ALL MET.**
+
+  | | FP | LFB | change | spread |
+  |---|---|---|---|---|
+  | 400 × 5601 | 83.64 s | 43.68 s | **−47.8 %** | 0.2 / 0.6 % |
+  | 3000 × 1200 | 21.29 s | 17.64 s | **−17.1 %** | 1.1 / 0.5 % |
+  | soak | 151.0 s | 94.0 s | **−37.7 %** | outputs agree |
+
+- **K1, int16 under sparse md:** int32 is now slightly faster, −1.3 % at 400 × 5601 (beyond spread) and
+  −2.7 % at 3000 × 1200 (borderline). md no longer streams the triangle, so int16's decode and pack are pure
+  cost, and its VRAM saving buys nothing while the chunk cap binds.
+- **K2, overlap and graphs:**
+  - overlap 2 + graphs: −0.5 % (400 × 5601) and −2.2 % (3000 × 1200, beyond spread);
+  - overlap 1: +3.5 %; overlap 0: +4.6 %.
+- **K3, chunk cap:** 1× is best. 0.5× is +6.7 %, 1.5× +0.6 %, 2× +2.1 %, 3× +5.8 % and uncapped
+  **+32 %**. The soak at 2× is +10 %.
+- **L, lanes per cell:** length-dependent.
+
+  | | L16 | L8 |
+  |---|---|---|
+  | 400 × 5601 | −0.2 % | +2.6 % |
+  | 3000 × 1200 | −4.1 % | −5.5 % |
+  | 600 × 3000 | −1.3 % | −4.1 % |
+
+  Short lists want fewer lanes, so the choice should be made per row from the expected list length. That is
+  free and exact.
+- **W, worst case** (240 × 3000 of `(GC)n`, `(AU)n`, `(CAG)n` and GC-only random):
+  - **sparse is still faster** than dense: −5.1 % at rho 0.25, with 450 K overflowed columns and 300 M
+    fallback cells;
+  - −5.8 % at rho 0.50, where density is 33 % and only 594 columns overflow.
+
+  No input found yet makes the default slower.
+- **N, natural genome** (400 × 5601 windows of E. coli K-12):
+  - **−28.7 % wall**, md(P) 30.98 → 12.74 s;
+  - density 7.50 %;
+  - 8 records equal to `RNA_GPU=0`.
+- **E, ncu per launch,** 44 × 5601, row 2800:
+
+  | kernel | time | DRAM | SM | occupancy | active lanes | registers |
+  |---|---|---|---|---|---|---|
+  | `int_loop` | 363 µs | 5 % | 62 % | 38 % | 25.8/32 | 61 |
+  | md cell, L32 | 169 µs | 37 % | 44 % | | | |
+  | md cell, L16 | 153 µs | | | | | |
+
+  - `int_loop` is **issue-bound, not memory-bound**, so Lyngsø's 1.85× fewer evaluations should mostly
+    translate into time.
+  - md cell: L16 is −9.5 % per launch, but the wall is unchanged at 5601. Gaps are the rest.
+
+**New finding: backtracking is EXPOSED, and it is the cheapest big lever left.**
+- **Size:** at 400 × 5601 LFB spends 8.3 s backtracking plus 3.3 s fetching, **26.6 % of the wall**. FP spends
+  5.5 s plus 6.7 s.
+- **Why it is exposed:** workers fetch each record's triangles from the device, so chunk k+1 cannot start until
+  chunk k is traced. The P-pass phases sum to the wall with the backtrack in it.
+- **The fix:** per chunk, GPU work is about 3.5 s and backtracking about 1.3 s. Double-buffering the device
+  matrices lets chunk k be traced while chunk k+1 sweeps. VRAM is free under the cap: a chunk uses a fraction
+  of 80 GB.
+- **What it hides:** nearly all of the 11.6 s, without device backtracking. That makes device backtracking
+  (N5) a lower priority on the A100.
+
 **LATER: the latency cut (Luke, 2026-10-06: "note the latency cut possibility for later").** Not started.
 It waits for S5's A100 numbers, which say whether sparse md is latency-bound there too. Candidates, in rough
 order of expected yield:
