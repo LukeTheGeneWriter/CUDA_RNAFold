@@ -579,5 +579,16 @@ the blocked share of md, and md's reuse requires column-block-major order (cor2 
 is a persistent per-block-row kernel to beat the latency floor, but the megakernel measured 30–109 %
 slower (register-bound).
 
+**RETIRED 2026-10-06** (PORT_SPARSE_MD.md S5, decision 9.4). On the A100, sparse md (`RNA_MD_SPARSE=1`) beats
+the best blocked arm (b1024x64L16) beyond spread:
+
+| | sparse md | b1024x64L16 | change |
+|---|---|---|---|
+| 400 × 5601 | 43.09 s | 72.61 s | −40.7 % |
+| 3000 × 1200 | 17.43 s | 20.29 s | −14.1 % |
+
+Sparse md skips about 93 % of the terms that blocking only streams more cheaply. The code stays in the tree,
+gated off, with its bars and controls, as a record.
+
 **Status:** 3a–3c stay in the tree, gated off by default, correct, with their bars and controls.
 The driver is paused pending Luke's decision.

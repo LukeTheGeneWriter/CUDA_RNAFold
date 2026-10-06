@@ -258,6 +258,66 @@ CB 1024 × RB 64, `RNA_MD_BLOCK=1`, 16 lanes).
 `run()` asserts every arm's banners and the absence of refusals and admission warnings. Every fixture must
 give one output across all arms. A full local smoke run passed (shrunk fixtures).
 
+**S5 done (2026-10-06): A100-SXM4-80GB, LFB `7555a713`.**
+
+**Correctness, all gates MET:**
+- **Section A:** 14 cases, in both formats, equal to `RNA_GPU=0`.
+- **Selftest at 8 × 5601:** 125,104,224 cells, 0 mismatching in each format. NEGCTL gives 88.9 M
+  mismatching.
+- **One output per fixture across every arm,** in B, C and D (all 4 arms in C).
+- **No refusal and no admission warning anywhere.**
+
+**Retirement test, C** (3 alternating reps without phase sync, plus one P pass with phase sync):
+
+| | 400 × 5601 wall (spread) | md (P) | 3000 × 1200 wall (spread) | md (P) |
+|---|---|---|---|---|
+| dflt | 60.99 s (0.1 %) | 30.92 s | 18.85 s (1.2 %) | 3.98 s |
+| **S8** | **43.09 s (0.3 %), −29.3 %** | **12.61 s, 2.45×** | **17.43 s (1.1 %), −7.5 %** | 2.60 s, 1.53× |
+| S4 | 46.48 s (0.3 %), −23.8 % | 15.94 s, 1.94× | 17.68 s (2.2 %), −6.2 % | 2.82 s, 1.41× |
+| B1024 | 72.61 s (1.2 %), +19.1 % | 29.69 s, 1.04× | 20.29 s (0.3 %), +7.6 % | 4.78 s, 0.83× |
+
+**D:** 1200 × 1200 is −5.6 % (S8) and −5.1 % (S4). The 2400-record soak goes 116.9 → **94.9 s (−18.8 %,
+S8)** and 97.8 s (−16.4 %, S4). The soak has 18 chunks in every arm.
+
+**B, md (P) speedup by length,** S8 / S4 at rho 0.25:
+
+| | 600 × 3000 | 1200 × 1200 | 2400 × 300 | 5601 × 80 |
+|---|---|---|---|---|
+| S8 | 1.29× | 1.51× | 1.86× | 2.42× |
+| S4 | 1.24× | 1.40× | 1.63× | 1.90× |
+
+- rho 0.50 equals rho 0.25 within noise.
+- rho 0.10 is slower: hundreds of thousands of columns overflow to the dense path.
+
+**E, ncu per launch,** 44 × 5601 (one production chunk), row 2800:
+
+| | time per row | DRAM read per row | rates |
+|---|---|---|---|
+| dense md | 517 µs | 372 MB | 720 GB/s, DRAM 36.7 %, SM 53 % |
+| S8 | 210 µs (2.46×) | 114.5 MB (3.25× fewer) | cell kernel 650 GB/s, DRAM 36.9 %, SM 42 %, L2 hit 42 % |
+| S4 | 273 µs (1.89×) | 65.5 MB (5.68× fewer) | cell kernel 267 GB/s |
+
+The rate cross-check holds:
+- **Dense:** 517 µs × 5601 rows × 9 chunks = 26 s, against md(P) 30.9 s.
+- **S8:** 210 µs gives 10.6 s against md(P) 12.6 s. The gap, about 2 s, is launch gaps across 3 launches
+  per row.
+
+**Decisions this settles:**
+1. **9.4, the blocked md driver: RETIRED.** Sparse md beats B1024 beyond spread at both scales: −40.7 % at
+   400 × 5601 and −14.1 % at 3000 × 1200. Per the rule, the driver stays in the tree, gated off
+   (`RNA_MD_BLOCK`, `RNA_MD_TILE_*`). The variable-K window and `RNA_MD_PRUNE` follow it.
+2. **9.1, entry format: 8 B.**
+   - It is faster everywhere: md is 1.26× faster than 4 B at 400 × 5601, and wall is 3.4 s lower.
+   - The 4-B form's 47 % smaller lists bought **no chunks** at any scale: 9, 3, 2 and 18 chunks in both
+     formats. Chunk count is set by the residency/cells cap, not by VRAM.
+   - 4 B stays selectable. It would matter only if VRAM ever became the binding limit.
+3. **The latency cut is justified on the A100.** The cell kernel runs at 37 % DRAM and 42 % SM, with 2 s of
+   launch gaps per 12.6 s. Neither bandwidth nor compute binds.
+
+**Still needed before `RNA_MD_SPARSE=1` becomes the default:**
+- bars 6 and 7 (adversarial density and natural sequences);
+- the full default-path bars (45-option parity, the default matrix, the binding suite).
+
 **LATER: the latency cut (Luke, 2026-10-06: "note the latency cut possibility for later").** Not started.
 It waits for S5's A100 numbers, which say whether sparse md is latency-bound there too. Candidates, in rough
 order of expected yield:
