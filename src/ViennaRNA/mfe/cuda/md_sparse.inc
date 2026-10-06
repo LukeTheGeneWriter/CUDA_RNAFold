@@ -6,6 +6,7 @@
  * prove, on the device and on the GPU's own left operand, what tools/md_sparse_equiv.c
  * proved on upstream's matrices.
  *
+ *   RNA_MD_SPARSE=0|1          the sparse md (S2, below); DEFAULT ON since S5, =0 restores the dense md
  *   RNA_MD_SPARSE_SELFTEST=1   build the lists and compare (forces CUDA graph capture off)
  *   RNA_MD_SPARSE_NEGCTL=1     drop the scan term from the sparse side -- must go red
  *   RNA_MD_SPARSE_RHO=r        list capacity per column, min(j, ceil(r*j)+8); default 0.25
@@ -81,6 +82,7 @@ static int                 g_sp_chunks = 0;
 
 extern "C" int hp_mb_mlbase(void);   /* hp_mb_loop.cu: the parameter set's MLbase */
 static int md_sparse_on(void);       /* S2, below */
+static int md_sparse_explicit(void); /* S5: RNA_MD_SPARSE set by the user */
 
 static int
 md_sparse_selftest(void)
@@ -209,6 +211,7 @@ md_sparse_report(void)
   if (md_sparse_entry() == 4)
     snprintf(fmt, sizeof(fmt), "4-B entries, %llu slot(s) padded, %llu column(s) past a 16-bit k", t[7], t[6]);
   if (md_sparse_on()) {
+    if (vrna_cuda_quiet()) return;   /* the default path: a library caller asked for silence */
     fprintf(stderr, "%-24s RNA_MD_SPARSE%s: %d chunk(s); %llu candidates of %llu finite fML(k,j) (%.2f %%); "
                     "%llu column(s) overflowed at rho %.2f (%s), %llu md cell(s) took the dense fallback; "
                     "lists %.1f MB (admission charged %.1f MB)\n",
@@ -240,8 +243,11 @@ md_sparse_alloc(const int nfiles, const size_t* row_off_H)
   const char *knob = md_sparse_on() ? "RNA_MD_SPARSE" : "RNA_MD_SPARSE_SELFTEST";
   const char *why  = md_sparse_refusal();
   if (why) {
+    /* Said when the user ASKED for it. By default these configurations simply keep the dense md. */
     static int said = 0;
-    if (!said) { said = 1; fprintf(stderr, "%-24s %s REFUSED: %s -- the dense md runs\n", __FILE__, knob, why); }
+    if (!said && (md_sparse_explicit() || md_sparse_selftest())) {
+      said = 1; fprintf(stderr, "%-24s %s REFUSED: %s -- the dense md runs\n", __FILE__, knob, why);
+    }
     return;
   }
   if (md_sparse_on() && md_sparse_selftest()) {
@@ -324,12 +330,13 @@ md_sparse_alloc(const int nfiles, const size_t* row_off_H)
   if (!said) {
     said = 1;
     atexit(md_sparse_report);
-    if (md_sparse_on())
+    if (md_sparse_on()) {
+      if (!vrna_cuda_quiet())
       fprintf(stderr, "%-24s RNA_MD_SPARSE ACTIVE: md reads only candidate split points (lists rebuilt "
                       "every row) plus a row scan, in place of the dense md (rho %.2f, %d-B entries%s)\n",
               __FILE__, md_sparse_rho(), md_sparse_entry(),
               md_sparse_negctl() ? ", NEGCTL: scan term dropped -- WRONG ANSWERS EXPECTED" : "");
-    else
+    } else
       fprintf(stderr, "%-24s RNA_MD_SPARSE_SELFTEST ACTIVE: candidate lists built every row and the "
                       "sparse split compared with the dense md, cell for cell (rho %.2f, %d-B entries%s)\n",
               __FILE__, md_sparse_rho(), md_sparse_entry(), md_sparse_negctl() ? ", NEGCTL: scan term dropped" : "");
@@ -606,13 +613,24 @@ md_sparse_append(const int nfiles, const int i, const int turn, const size_t* si
  * stores -- where the dense md left a near-INF artefact (the clamp note in md_cell.inc).
  * ====================================================================================== */
 
+/* DEFAULT ON since S5 (A100: -29.3 % wall at 400 x 5601, exact on every bar). RNA_MD_SPARSE=0
+ * restores the dense md. RNA_MD_SPARSE_SELFTEST=1 without an explicit RNA_MD_SPARSE means the
+ * selftest (dense md authoritative, sparse computed beside it), as before the flip. */
+static int
+md_sparse_explicit(void)
+{
+  const char *e = getenv("RNA_MD_SPARSE");
+  return (e && e[0]) ? 1 : 0;
+}
+
 static int
 md_sparse_on(void)
 {
   static int v = -1;
   if (v < 0) {
     const char *e = getenv("RNA_MD_SPARSE");
-    v = (e && e[0] && e[0] != '0') ? 1 : 0;
+    if (e && e[0]) v = (e[0] != '0') ? 1 : 0;
+    else           v = md_sparse_selftest() ? 0 : 1;
   }
   return v;
 }
@@ -623,6 +641,11 @@ md_sp_add(const int a, const int b)
   return (a >= INF/2 || b >= INF/2) ? INF : a + b;
 }
 
+/* L lanes per cell (RNA_MD_SPARSE_LANES, 32 by default): 32/L cells share a warp, so short
+ * lists near the diagonal stop leaving most of a warp idle. ENTRY=4 needs L = 32 (its decode
+ * is a whole-warp scan over one 32-slot segment). No thread returns early: the reduction's
+ * shuffles name the whole warp, so cells past `total` ride along and write nothing. */
+template <int L>
 __global__ void
 md_sparse_cell_kernel(const int nfiles, const int turn,
                       const int* __restrict__ fml_i,
@@ -640,9 +663,10 @@ md_sparse_cell_kernel(const int nfiles, const int turn,
                       unsigned long long* __restrict__ stat)
 {
   const long long gtid = (long long)blockIdx.x * blockDim.x + threadIdx.x;
-  const size_t    m    = (size_t)(gtid >> 5);
-  const int       lane = (int)(gtid & 31);
-  if (m >= total) return;                 /* a whole warp per cell, so whole warps leave */
+  const size_t    mm   = (size_t)(gtid / L);
+  const int       lane = (int)(gtid % L);
+  const int       live = mm < total;
+  const size_t    m    = live ? mm : total - 1;   /* a dead group computes a real cell, unwritten */
 
   const int H  = flatten_index_to_H(m, side_off_H, nfiles);
   const int x  = (int)((long long)m - (long long)side_off_H[H]);
@@ -655,7 +679,7 @@ md_sparse_cell_kernel(const int nfiles, const int turn,
 
   if (n >= 0) {
     const size_t at = sp_base[H] + sp_col[j];
-    for (int s0 = 0; s0 < n; s0 += 32) {   /* warp-uniform: md_sp_step shuffles */
+    for (int s0 = 0; s0 < n; s0 += L) {    /* uniform per group; L = 32 for ENTRY=4's shuffles */
       int k = 0, b = INF;
       if (!md_sp_step(sp_k, sp_v, sp_kv4, sp_vb, at, n, s0, lane, k, b)) continue;
       if (k < lo) continue;
@@ -667,25 +691,48 @@ md_sparse_cell_kernel(const int nfiles, const int turn,
     const long long ij0 = Indx(i, j) + (turn + 1) + 1;
     if (fml_j16) {
       const size_t bcell = base_off_H[H] + colb_off[j];
-      for (int y = lane; y <= x; y += 32) {
+      for (int y = lane; y <= x; y += L) {
         const int b = fml_decode(fml_j16, fml_b, tri_off_H[H] + (size_t)(ij0 + y),
                                  bcell + (size_t)((unsigned)(lo + y - 1) / FML_BLK));
         const int s = md_sp_add(fml_i[o + (size_t)y], b);
         best = s < best ? s : best;
       }
     } else {
-      for (int y = lane; y <= x; y += 32) {
+      for (int y = lane; y <= x; y += L) {
         const int s = md_sp_add(fml_i[o + (size_t)y], fml_j[tri_off_H[H] + (size_t)(ij0 + y)]);
         best = s < best ? s : best;
       }
     }
-    if (lane == 0) atomicAdd(&stat[5], 1ULL);
+    if (lane == 0 && live) atomicAdd(&stat[5], 1ULL);
   }
-  for (int off = 16; off > 0; off >>= 1) {
-    const int other = __shfl_down_sync(0xffffffffu, best, off);
+  for (int off = L / 2; off > 0; off >>= 1) {
+    const int other = __shfl_down_sync(0xffffffffu, best, off, L);
     best = other < best ? other : best;
   }
-  if (lane == 0) best_out[o + j] = best;
+  if (lane == 0 && live) best_out[o + j] = best;
+}
+
+/* RNA_MD_SPARSE_LANES: lanes per cell, 8, 16 or 32 (default). */
+static int
+md_sparse_lanes(void)
+{
+  static int v = -1;
+  if (v < 0) {
+    const char *e = getenv("RNA_MD_SPARSE_LANES");
+    v = (e && e[0]) ? atoi(e) : 32;
+    if (v != 8 && v != 16 && v != 32) {
+      fprintf(stderr, "%-24s ignoring RNA_MD_SPARSE_LANES=%s (want 8, 16 or 32); using 32\n", __FILE__, e);
+      v = 32;
+    }
+    if (v != 32 && md_sparse_entry() == 4) {
+      fprintf(stderr, "%-24s RNA_MD_SPARSE_LANES=%d REFUSED: 4-B entries decode a whole 32-slot segment "
+                      "per warp -- using 32\n", __FILE__, v);
+      v = 32;
+    }
+    if (v != 32 && !vrna_cuda_quiet())
+      fprintf(stderr, "%-24s RNA_MD_SPARSE_LANES=%d: %d cells per warp\n", __FILE__, v, 32 / v);
+  }
+  return v;
 }
 
 #define MD_SP_SCAN_T 256
@@ -767,13 +814,19 @@ md_sparse_md(const int nfiles, const int turn, const int* fml_i, const size_t to
   rnafold_mk_ptrs_t p;
   memset(&p, 0, sizeof(p));
   hp_mb_mk_ptrs(&p);
+  if (total == 0) return;   /* no cell this row (and the kernel's dead groups clamp to total - 1) */
   {
-    const size_t nthreads = total * 32;
+    const int    L        = md_sparse_lanes();
+    const size_t nthreads = total * (size_t)L;
     const int    bs       = 256;
     const int    nb       = (int)((nthreads + bs - 1) / bs);
-    md_sparse_cell_kernel<<<nb, bs, 0, ISSUE_STREAM>>>(nfiles, turn, fml_i, d_fml_j, d_fml_j16, d_fml_b,
-        d_base_off_H, d_colb_off, d_sp_len, d_sp_k, d_sp_v, d_sp_kv4, d_sp_vb, d_sp_col, d_sp_base,
-        d_tri_off_H, d_row_off_H, d_side_off_H, total, d_i_H, d_dml, d_sp_stat);
+#define MD_SP_CELL(LL) md_sparse_cell_kernel<LL><<<nb, bs, 0, ISSUE_STREAM>>>(nfiles, turn, fml_i, d_fml_j, \
+        d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, d_sp_len, d_sp_k, d_sp_v, d_sp_kv4, d_sp_vb, d_sp_col, \
+        d_sp_base, d_tri_off_H, d_row_off_H, d_side_off_H, total, d_i_H, d_dml, d_sp_stat)
+    if (L == 8)       MD_SP_CELL(8);
+    else if (L == 16) MD_SP_CELL(16);
+    else              MD_SP_CELL(32);
+#undef MD_SP_CELL
     gpuErrchk( cudaPeekAtLastError() );
   }
   md_sparse_scan_kernel<<<nfiles, MD_SP_SCAN_T, 0, ISSUE_STREAM>>>(nfiles, turn, hp_mb_mlbase(),

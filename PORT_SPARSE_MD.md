@@ -318,6 +318,46 @@ The rate cross-check holds:
 - bars 6 and 7 (adversarial density and natural sequences);
 - the full default-path bars (45-option parity, the default matrix, the binding suite).
 
+**N1: DEFAULT ON (2026-10-06, Luke: "Start N1 now").** `RNA_MD_SPARSE` unset now means sparse md, with 8-B
+entries and rho 0.25.
+- `RNA_MD_SPARSE=0` restores the dense md.
+- `RNA_MD_SPARSE_SELFTEST=1` without an explicit `RNA_MD_SPARSE` still means the selftest.
+- Refusals print only when the user asked for sparse md; by default those configurations simply keep the dense
+  md, like the other default features' refusals.
+- The ACTIVE banner and the exit report are silent under `vrna_cuda_quiet()`, the Python binding.
+
+**Bars,** laptop, on the default-on build:
+
+- **Positive evidence:**
+  - the default prints the banner and the report;
+  - `=0` prints neither;
+  - both equal `RNA_GPU=0`;
+  - the Python fold prints 0 md_sparse lines.
+- **Bar 6, adversarial input** (polyA, `(GC)n`, `(AU)n`, `(GU)n`, `(CAG)n`, `(CUG)n`, two hairpin arrays,
+  `CG`×1500, `(GGCC)n` with and without `-g`, GC-only random, G-rich with and without `-g`):
+  - **every case equals both the CPU and the dense md;**
+  - density runs from 0 % (polyA) and 0.05 % (G-rich) up to **26.3 % for `(GC)n`/`(AU)n`**, 25.6 % for
+    `CG`×1500 and 22.4 % for GC-only random;
+  - there the overflow fallback takes over: 529 K cells in `(GC)n` and 2.18 M in `CG`×1500;
+  - the cost of those cases at scale is N2 section W.
+- **Bar 7, natural input:** 10,082 de-gapped Rfam seeds plus the 16S/riboswitch sequences from upstream's
+  test data. All are equal to the CPU. Density is **7.78 %**, and 8.24 % on the two ≥ 1000-nt rRNAs, close to
+  random's 7 %.
+- **Default-path bars, all green:**
+  - `verify_option_parity`: the option surface matches the CPU;
+  - `verify_option_matrix`: 36/36 pairs;
+  - `verify_gpu_cli` at budgets 4/8/16/32 MB: frozen references byte for byte;
+  - the Python binding suite: 20/20.
+
+**Trap found while flipping the default:** every harness whose "dense" reference arm left `RNA_MD_SPARSE`
+unset now runs sparse against sparse. The S3 bar's arm is now pinned to `=0`; S5's `dflt` arm would need the
+same. Pin the reference, never inherit the default.
+
+**`RNA_MD_SPARSE_LANES=8|16|32` (default 32)** puts 4 or 2 cells in a warp, for the short lists near the
+diagonal; it is the first latency-cut knob. 4-B entries refuse it, because their decode is a whole-warp scan.
+The kernel is templated on L. Dead groups clamp to a real cell and write nothing, so the full-warp shuffles
+stay legal. N2 section L measures it.
+
 **LATER: the latency cut (Luke, 2026-10-06: "note the latency cut possibility for later").** Not started.
 It waits for S5's A100 numbers, which say whether sparse md is latency-bound there too. Candidates, in rough
 order of expected yield:
