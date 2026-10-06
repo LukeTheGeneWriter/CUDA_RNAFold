@@ -195,6 +195,53 @@ Compatible: int16 storage (no longer read by md), `ROW_BATCH`, the c ring, strea
 - **Binding suite:** 20/20 with the dense md and with each format. The binding reaches the sparse md
   (banner seen, equal to `fold_compound`).
 
+**S4 done (2026-10-06),** laptop RTX 3050 (4 GB, power-capped). Random sequences, one chunk per run,
+`RNA_PHASE_SYNC=1`. The headline trio ran in ABCCBA order (dense, 8 B, 4 B at rho 0.25) and is reported as
+pair means. **Every arm's output equals the dense md's** at every length.
+
+| L × records | md dense | md 8 B | md 4 B | wall dense | wall 8 B | wall 4 B |
+|---|---|---|---|---|---|---|
+| 600 × 400 | 0.635 s | 0.440 s (1.44×) | 0.477 s (1.33×) | 2.98 s | 2.71 s (−9 %) | 2.66 s (−11 %) |
+| 1200 × 120 | 0.975 s | 0.569 s (1.71×) | 0.614 s (1.59×) | 3.65 s | 3.17 s (−13 %) | 3.21 s (−12 %) |
+| 2400 × 32 | 1.589 s | 0.741 s (2.14×) | 0.813 s (1.95×) | 4.82 s | 3.86 s (−20 %) | 3.92 s (−19 %) |
+| 5601 × 8 | 4.47 s | 1.634 s (2.74×) | 1.848 s (2.42×) | 10.16 s | 6.76 s (−33 %) | 6.95 s (−32 %) |
+
+- **5601 drifted:** the SM clock fell from 1732 to 1357 MHz, and the second dense run's `int_loop` rose from
+  2.98 to 3.57 s. Normalised by `int_loop`, md is **2.28× (8 B) and 2.01× (4 B)** faster. The true figure
+  lies between that and the raw ratio.
+- **`int_loop` is not a perfectly independent control here.** It is 4–8 % lower in every sparse arm at
+  600–2400 nt, where nothing drifted, plausibly because the dense md no longer evicts its data from L2.
+
+**ncu per launch,** 5601 × 8, row i ≈ 2800, three launches each, means:
+
+| | DRAM read | time | effective rate |
+|---|---|---|---|
+| dense `modular_decomposition_kernel` | 66.5 MB | 0.815 ms | 82 GB/s |
+| 8 B: cell + scan + append | 19.0 + 0.12 + 0.36 = 19.5 MB (**3.4× fewer**) | 0.215 + 0.016 + 0.026 = **0.257 ms (3.2×)** | cell 88 GB/s |
+| 4 B: cell + scan + append | 10.4 + 0.12 + 0.39 = 10.9 MB (**6.1× fewer**) | 0.313 + 0.016 + 0.027 = **0.356 ms (2.3×)** | cell 33 GB/s |
+
+The byte ratios are what section 4.6 predicted (3.6× and ~7×). The DRAM bytes check out against the list
+lengths: about 0.07 × 1400 entries × 8 B × 22.4 K cells ≈ 17.5 MB.
+
+**Findings:**
+1. **Sparse md wins at every length, and the win grows with length.** md is 1.44× faster at 600 nt and
+   2.3–2.7× faster at 5601 nt. Wall drops 9 % to 33 %.
+2. **8 B is faster than 4 B everywhere** on this card, by 7–12 % in md. Once sparse, the cell kernel is no
+   longer bandwidth-bound, so the 4-B form's warp decode costs more than the bytes it saves. The 4-B form's
+   value is VRAM: its lists are 47 % smaller (128 MB against 243 MB at 5601 × 8), which buys batch width.
+   S5 decides which matters more on the A100.
+3. **rho:**
+   - 0.10 is slower: 2.19 s against 1.63 s at 5601 (8 B), because 11,794 columns overflow to the dense
+     path.
+   - 0.50 is no faster than 0.25 and doubles the lists (482 MB against 243 MB).
+   - **0.25 stays the default.** Density is 6.5–7.2 % at every length.
+4. **The gap to the 14× term count** comes from latency, not bandwidth:
+   - one warp per cell, with short lists near the diagonal that leave lanes idle;
+   - three launches per row instead of one;
+   - the per-record scan (16 µs per row).
+
+   These are S5+ candidates if the A100 agrees.
+
 ## 8. Risks
 
 - **Density on the real workload.** Random sequences give 7 %. Structured or repetitive input could be far
