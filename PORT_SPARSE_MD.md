@@ -242,6 +242,36 @@ lengths: about 0.07 × 1400 entries × 8 B × 22.4 K cells ≈ 17.5 MB.
 
    These are S5+ candidates if the A100 agrees.
 
+**S5 notebook written (2026-10-06): `CUDA_RNAFold_SparseMD.ipynb`** (repo root, gitignored like the others;
+generator `make_nb_sparse.py` in the session scratchpad). Arms: dflt, S8, S4, and B1024 (the tile path with
+CB 1024 × RB 64, `RNA_MD_BLOCK=1`, 16 lanes).
+
+| section | content |
+|---|---|
+| A | 14 option and fallback cases against `RNA_GPU=0`; selftest and NEGCTL at 8 × 5601 |
+| B | the entry × rho matrix at 600 × 3000, 1200 × 1200, 2400 × 300 and 5601 × 80, phase-synced |
+| C | retirement test at 400 × 5601 and 3000 × 1200: 3 alternating reps plus a phase-synced pass per arm |
+| D | 1200 × 1200 and the re-baseline's 2400-record soak |
+| E | ncu per launch at 44 × 5601, row 2800 |
+| V | gates, the retirement comparison, entry format against chunk count |
+
+`run()` asserts every arm's banners and the absence of refusals and admission warnings. Every fixture must
+give one output across all arms. A full local smoke run passed (shrunk fixtures).
+
+**LATER: the latency cut (Luke, 2026-10-06: "note the latency cut possibility for later").** Not started.
+It waits for S5's A100 numbers, which say whether sparse md is latency-bound there too. Candidates, in rough
+order of expected yield:
+- **Pack cells by list length,** instead of one warp per cell. Short lists near the diagonal leave most of
+  a warp idle. Options: a warp splits across several short-list cells, or a sub-warp group (8 or 16 lanes)
+  is sized to the list.
+- **Fuse the three launches per row** (cell, scan, append) where the order allows. The scan needs every
+  cell's best, so it is a grid-wide dependency. The append can join the next row's chain, and graph
+  capture already hides some launch cost.
+- **Scan with more parallelism per record:** a warp-level scan over the row in place of 256 threads × a
+  serial segment. The scan is 16 µs per row at 5601 nt.
+- **Cheaper 4-B decode,** if the 4-B form wins S5 on chunk width: the 5-step shuffle scan per warp step is
+  what made it slower than 8 B.
+
 ## 8. Risks
 
 - **Density on the real workload.** Random sequences give 7 %. Structured or repetitive input could be far
