@@ -554,6 +554,7 @@ static void md_sparse_alloc(const int nfiles, const size_t* row_off_H);
 static void md_sparse_free(void);
 static void md_sparse_md(const int nfiles, const int turn, const int* fml_i, const size_t total);
 static int  md_sparse_live(void);   /* RNA_MD_SPARSE=1 and this chunk's lists exist */
+static size_t md_sparse_bytes_per_file(const int length);   /* the lists, for chunk admission */
 
 /* RING copies of the whole row-buffer layout, so a slot is indexed exactly as d_dml
  * is (row_off_H[H] + j) and no per-record stride has to be derived. */
@@ -1081,6 +1082,7 @@ modular_decomposition_bytes_per_file(const int length) {
     const size_t tri16        = cells * sizeof(short);
     const size_t base_bytes   = ((cells + FML_BLK - 1)/FML_BLK + (size_t)length + 2) * sizeof(int);
     return mem_size_len + tri16 + base_bytes + stage_bytes + ring_bytes + acc_bytes
+         + md_sparse_bytes_per_file(length)
          + (g_circ_expected ? cells * sizeof(int) : 0);   /* fM2_real stays int32 */
   }
   const size_t mem_size_len = (size_t)(length+1) * sizeof(int) * 5;
@@ -1089,6 +1091,7 @@ modular_decomposition_bytes_per_file(const int length) {
    * d_fml_j. This is the "costs a chunk width" trade PORT_CIRC_SPEC.md names:
    * the arithmetic is free, the memory is not. */
   return mem_size_len + ijsize_len + stage_bytes + ring_bytes + acc_bytes
+       + md_sparse_bytes_per_file(length)
        + (g_circ_expected ? cells * sizeof(int) : 0);
 }
 

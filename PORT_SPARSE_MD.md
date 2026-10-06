@@ -107,6 +107,20 @@ against int16's 2 B, about 3.6× fewer bytes. Packed, 4 B (`uint16 k` + int16 de
 per-64-row baselines), is about 7× fewer. Selected by `RNA_MD_SPARSE_ENTRY=8|4`. The 4-B form also needs
 `L < 65536`; longer records use 8 B.
 
+**As built (S3), the 4-B form differs from that sketch:**
+- **Its own baselines, not int16 storage's `d_fml_b`.** Those are written when the triangle is packed, and
+  `RNA_ROW_BATCH` delays that past the append.
+- **One baseline per 32 slots of a list,** which is one warp step of the readers.
+- **Each entry stores its step from the previous entry,** and the reader decodes with a warp prefix sum.
+  Deltas from the baseline did not fit: 32 candidates span hundreds of rows of `k`, and plain 1700-nt input
+  overflowed int16 in about 300 columns.
+- **A step that still does not fit closes the segment early.** A column's first candidates sit next to `j`
+  (fML about +300), and the next can be about −35,000. The rest of the segment is padded with `k = 0`, which
+  is never a split point.
+- **Capacity is counted in slots.** A column gets its capacity rounded up to 32, padding included. It
+  overflows when the slots run out.
+- **`k > 65535` overflows only that column,** not the whole chunk, so the byte model stays per record.
+
 **4.7 What stays.** The fML triangle stays in v1, because backtracking (`fetch_mx`) and the dense fallback
 need it. Since md would no longer read it, a later stage could stream fML rows to the host instead. That frees
 VRAM for wider chunks and synergises with C3 (device backtracking).
@@ -160,6 +174,26 @@ Compatible: int16 storage (no longer read by md), `ROW_BATCH`, the c ring, strea
 | S4 | laptop matrix: entry × rho × length | ncu bytes per launch, md time |
 | S5 | A100 notebook: the matrix + the blocked-driver retirement test → default decision | section 6, by eye |
 | S6 (C3) | md stops needing the device fML triangle; stream rows to the host | wider chunks |
+
+**S3 done (2026-10-06),** laptop, 8 records of 300–1700 nt (plus G-rich and enforced `|` fixtures):
+
+- **Both formats are exact everywhere.** Output equals the dense md and `RNA_GPU=0`, and the c/fML triangle
+  hashes equal the dense md's. The cases are plain, noLP, circ, d0, salt 0.2, T25, maxBPspan 150, `-g`,
+  int32, `ROW_BATCH`, overlap 1, graphs, and rho 0 / 0.02 / 0.50.
+  - Under `-C --enforceConstraint` the output is exact. The triangle hashes still differ, from the dense
+    md's near-INF artefacts, as in S2.
+- **Forced fallbacks are byte-identical.** At rho 0, 4,556 (8 B) and 2,723 (4 B) columns overflow. With
+  `RNA_MD_SPARSE_DELTA_MAX=50` and `=0` (test only), 5,506 and 5,619 columns overflow.
+- **Selftests:** 4,772,288 cells, 0 mismatching in either format. NEGCTL gives 3,421,290 / 3,421,310
+  mismatching, and output and triangles change.
+- **Overflowed columns at rho 0.25:** 39 with 8-B entries against 13 with 4-B entries, plus 828 padded slots.
+  Rounding to whole segments gives the 4-B form spare slots.
+- **Lists at 8 records, 1700 nt max:** 9.8 MB with 8-B entries, 5.6 MB with 4-B entries.
+- **Admission:** `gpu_bytes_per_file()` charges the lists. Every chunk compares its allocation with the
+  charge and warns on a shortfall. Allocation is at most the charge for one chunk, budget-forced chunks and
+  single-record chunks, in both formats. A halved charge fires the warning.
+- **Binding suite:** 20/20 with the dense md and with each format. The binding reaches the sparse md
+  (banner seen, equal to `fold_compound`).
 
 ## 8. Risks
 
