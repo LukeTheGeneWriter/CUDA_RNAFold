@@ -604,3 +604,26 @@ alone; **v2e** = S6a′ + S6b):
 **Reading:**
 - On the laptop, the narrow-row loss has gone at every width tried. v2e beats dense by 23–41 %.
 - The rule's PT choice matches forced PT = 5 within noise wherever both ran.
+
+**Smoke ncu (laptop, tiny fixtures), the carry per launch:**
+
+| fixture | v1 | v2e | occupancy v1 → v2e | instructions v1 → v2e |
+|---|---|---|---|---|
+| 4 × 1500 | 118.5 µs | **22.0 µs** | 13 → 81 % | 0.83 → 0.56 M |
+| 60 × 200 | 133.6 µs | **41.6 µs** | 27 → 78 % | 2.06 → 1.01 M |
+
+- **Local-memory loads are equal in both** (1.2 MB and 2.8 MB), so §10.8's `f1`/`f2` spill hypothesis is
+  **wrong**.
+- The gain is fill plus fewer instructions: the diagonal-start grid, no record search, and one e load per
+  entry.
+- The eval kernel is unchanged, as it should be: 66 µs both ways.
+
+**A100 notebook S8 (`CUDA_RNAFold_LyngsoS8.ipynb`, generator `make_nb_s8.py`):**
+- **G:** v2e exactness. The dense arm of the multi-chunk case charges the e ring, so the partitions match.
+  The selftest counts must equal v1's, and NEGCTL 1 and 2 must bite.
+- **T:** dense / v1 / v2e at 4 fixtures, plus the soak × 3, judged by the pre-registered E0–E2.
+- **R:** widths, with PT forced 5 / 1.
+- **I:** interplay.
+- **E:** ncu, carry and eval.
+
+The laptop smoke passed end to end.
