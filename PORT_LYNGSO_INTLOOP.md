@@ -194,10 +194,41 @@ evidence: the ACTIVE banner printed. All green so far:
 - `verify_option_matrix`: 36/36 pairs agree, on the route they claim;
 - `verify_gpu_cli` budgets 4/8/16/32 MB: byte for byte against the frozen references;
 - Python binding suite: 20 pass, 0 fail;
-- bar 6 (adversarial density): 14 cases logged (polyA … Grich -g), all `vsCPU=SAME vsDense=SAME swept=1`.
+- bar 6 (adversarial density): all 14 cases (12 fixtures + 2 under `-g`), `vsCPU=SAME vsDense=SAME swept=1`.
 
-**Not run:** Claude Code reaped the run for host memory pressure during bar 6, so bar 6's remaining cases
-and bar 7 (natural set) are still open. Re-run `ly_s3.sh` from bar 6 when the host has the memory.
+**Not run:** Claude Code reaped the run for host memory pressure after bar 6, so bar 7 (the natural set) is
+still open on the laptop. The S5 notebook's G section runs the natural set with Lyngsø on.
+
+**S5 notebook written (2026-10-07): `CUDA_RNAFold_LyngsoS5.ipynb`** (gitignored; generator `make_nb_s5.py`).
+Sections:
+- **G:** exactness, which stops the run on any failure.
+- **T:** dense vs Lyngsø at 400 × 5601, 800 × 2400, 3000 × 1200 and 3000 × 600, plus the soak, judged by the
+  pre-registered rule D0–D2.
+- **U:** the UNROLL=2 re-test, with a ring-off control.
+- **I:** interplay.
+- **R:** the flagged c-ring K over row widths, on the Lyngsø kernel.
+- **E:** ncu per launch, plus the per-row ring/carry cost.
+- **V:** the report.
+
+The laptop smoke passed end to end. Two harness lessons from it:
+- **The triangle checksums are per chunk.** The G buffers are charged to admission, so under a 16 MB budget
+  Lyngsø splits into 9 chunks against dense's 6. The multi-chunk case now gives the dense arm
+  `RNA_INT_LOOP_LYNGSO_SELFTEST=1` (same charge, so the same partition, and 0 MISMATCHING required) and
+  requires an identical partition before comparing triangles.
+- **The natural set includes the 16S/riboswitch files** (2 records ≥ 1000 nt).
+
+**Smoke hint, to be confirmed on the A100:** `ly_carry_kernel` is not free on narrow rows. On the laptop
+(power-capped, tiny fixtures):
+
+| fixture | `ly_carry_kernel` | warp kernel saving | occupancy |
+|---|---|---|---|
+| 4 × 1500 | 106 µs per launch | 52 µs (118 → 66 µs) | 13 % |
+| 60 × 200 | 123 µs | 110 µs | |
+
+At 5 records × 400 nt, the Lyngsø `int_loop` phase was +54 % against dense. The carry's cost is per row,
+almost regardless of width, so few-record chunks lose. R and E measure this on the A100. If it holds, the
+default wants a **row-width gate** (cells per row), not a length gate, and the carry kernel wants more
+parallelism (one thread per (u, cell) instead of a loop over u).
 
 ## 6. Expected size
 
