@@ -230,6 +230,101 @@ almost regardless of width, so few-record chunks lose. R and E measure this on t
 default wants a **row-width gate** (cells per row), not a length gate, and the carry kernel wants more
 parallelism (one thread per (u, cell) instead of a loop over u).
 
+### S5 results (2026-10-07, A100-SXM4-80GB, LFB 5f4ece9a)
+
+**Pre-registered outcome: DEFAULT ON** (D0, D1, D2 all met). One output per fixture in every arm.
+
+**G (exactness) PASS in full:**
+- the 20-case matrix: output = dense = `RNA_GPU=0`; triangles equal under the same partition, including
+  9 chunks at 16 MB;
+- 14 adversarial cases;
+- 10,082 natural records, including the long ones;
+- device selftest: 0 of 10.57 M cells mismatching; its NEGCTL gives 278,079;
+- production NEGCTL bites in both the output and the triangles;
+- both refusals print.
+
+**T (wall: median of 3, ABBA; int_loop: phase-synced pass):**
+
+| fixture | dense | Lyngsø | wall | `int_loop` (P) |
+|---|---|---|---|---|
+| 400 × 5601 | 41.32 s | 39.40 s | **−4.6 %** (beyond spread) | 16.54 → 16.77 s (+1.4 %) |
+| 800 × 2400 | 14.93 | 14.38 | **−3.7 %** (beyond) | −7.1 % |
+| 3000 × 1200 | 16.54 | 15.83 | **−4.3 %** (beyond) | −10.3 % |
+| 3000 × 600 | 5.44 | 5.28 | −2.8 % (within) | −8.0 % |
+| soak 2400 (1 rep) | 90.78 | 92.40 | **+1.8 %** | |
+
+**The soak is the caveat.** It is one rep each, so there is no spread. D2's soak tolerance was 2 %,
+fixed in the notebook before the run, so +1.8 % passes it narrowly.
+
+**What the numbers say:**
+
+1. **At 5601 the work saving is ~0, and the wall gain is borne by overlap.** ncu at 44 × 5601:
+
+   | kernel | time | instructions |
+   |---|---|---|
+   | dense `int_loop` | 365 µs | 97 M |
+   | Lyngsø eval | 175 µs | 42 M |
+   | `ly_carry_kernel` | **191 µs** | 44 M |
+
+   The carry costs what the eval saves. At 3000 × 600 it is 2361 µs dense against 1159 + 991 µs (−9 %). The
+   phase-synced runs agree: synced wall at 400 × 5601 is 47.78 dense against 48.18 Lyngsø. Yet production
+   (overlap 2) is −4.6 %. The carry overlaps md/hp_mb on the other streams, which shortens the dependent
+   chain. I (below) confirms it: with Lyngsø, overlap 0 and 1 cost +11.5 % and +10.2 %, against +4.6 % and
+   +3.5 % dense in N2.
+2. **Narrow rows lose, as the smoke hinted** (R, phase-synced `int_loop`, Lyngsø K16 against dense K16):
+
+   | width | `int_loop` | wall |
+   |---|---|---|
+   | 25 × 1200 | +59 % | +3.4 % |
+   | 100 × 1200 | +17 % | |
+   | 400 × 1200 | −4.5 % | |
+   | 1500 × 1200 | −7.5 % | |
+   | 3000 × 1200 | −7.9 % | |
+   | 8 × 5601 | +42 % | +7.5 % |
+   | 48 × 5601 | +11 % | |
+   | 200 × 5601 | +2.9 % | |
+
+   The carry is a per-row cost over every cell, dead ones included (§8 risk 1). A mixed-length chunk has
+   narrow rows at the top of its sweep, where only the long records are active. That is the likely soak
+   penalty.
+
+**U (`RNA_INT_LOOP_UNROLL=2`): retire it.**
+- 400 × 5601: +3.8 %; 3000 × 1200: +3.0 %.
+- That is worse than ring-off alone (+2.4 % and +2.3 %), so the unroll itself loses too.
+
+**I (Lyngsø on, 400 × 5601, 1 rep each), relative to the Lyngsø default:**
+
+| arm | wall |
+|---|---|
+| overlap 1 | +10.2 % |
+| overlap 0 | +11.5 % |
+| graphs off | 0.0 % |
+| cells per warp 1 | +6.5 % |
+| cells per warp 8 | −0.6 % |
+| int32 | −0.1 % |
+| int16 | +0.9 % |
+
+The defaults stand.
+
+**R (the flagged c-ring K over row widths): CLOSED, K16 stays.**
+- K is flat at every width: ≤ 0.6 %, except K8 at 3000 × 1200 (−2.2 %, within its 4.3 % spread).
+- E's per-row sums differ by ≤ 1 % across K, early and late in the sweep, narrow and wide.
+- The ring itself pays everywhere: ring-off costs +4.4 to +18.8 % of `int_loop`.
+
+**Next levers (proposals, need sign-off):**
+- **S6, carry v2:**
+  - Precompute the fresh-entry value once per (k, l): `e(k,l) = c(k,l) + mismatchI[...]`. It does not depend
+    on the outer pair, and the ninio term depends on u alone.
+  - The carry then reads e from contiguous row and column segments that neighbouring cells share 24 of 25 of
+    (tile through shared memory), instead of ~55 c reads plus lookups per cell.
+  - Target: make the work saving real at 5601, where it is ~0 today.
+- **S7, a mid-sweep switch:**
+  - Run dense while a row is narrow.
+  - At the first row whose active cells per row cross a threshold, initialise G once with one dense-style
+    generic-loop row, then carry.
+  - This aims straight at the soak's narrow rows. A per-row on/off is not possible, because G must be
+    carried through every row once started.
+
 ## 6. Expected size
 
 CPU counting says 1.85× fewer evaluations. If the kernel stays issue-bound, `int_loop` drops from 16.5 s
