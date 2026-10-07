@@ -931,7 +931,7 @@ mfe/cuda/modular_decomposition.lo: $(srcdir)/mfe/cuda/modular_decomposition.cu \
 	  -c $(srcdir)/mfe/cuda/modular_decomposition.cu -o mfe/cuda/modular_decomposition.lo
 
 mfe/cuda/int_loop.lo: $(srcdir)/mfe/cuda/int_loop.cu \
-                      $(srcdir)/mfe/cuda/ly_selftest.inc \
+                      $(srcdir)/mfe/cuda/int_loop_lyngso.inc \
                       $(srcdir)/mfe/cuda/gquad_dev.h \
                       $(srcdir)/mfe/cuda/stub2.h \
                       $(srcdir)/mfe/cuda/interior_loopx.h \
@@ -996,7 +996,7 @@ endif
 EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/md_block.inc \
               mfe/cuda/md_sparse.inc \
-              mfe/cuda/ly_selftest.inc \
+              mfe/cuda/int_loop_lyngso.inc \
               mfe/cuda/engine.h \
               mfe/cuda/nvcc-libtool.sh \
               mfe/cuda/modular_decomposition.cu \

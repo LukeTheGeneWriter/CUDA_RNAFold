@@ -1,4 +1,10 @@
-/* ly_selftest.inc -- Lyngsø interior loops, stage S1 (PORT_LYNGSO_INTLOOP.md).
+/* int_loop_lyngso.inc -- Lyngsø interior loops (PORT_LYNGSO_INTLOOP.md).
+ *
+ * S2: RNA_INT_LOOP_LYNGSO=1 replaces the dense enumeration. Per row, ly_carry_kernel (below) builds
+ * G(i,·,u) for every column, then the warp kernel's LY variant (int_loop_cell.inc) enumerates only
+ * the direct loops and adds the 25 G uses. Off by default until its bars and the A100 say otherwise.
+ *
+ * S1, the selftest that proved it, follows:
  *
  * The Lyngsø form of the interior-loop term is computed BESIDE the dense int_loop kernel and compared
  * with it, cell for cell, every row. Nothing reads the Lyngsø result -- the dense kernel stays
@@ -24,8 +30,10 @@
  * a cell's carry source (i+1,j-1) must hold a value for that very row, never one left two rows ago
  * in the same ping-pong buffer. */
 
+#ifndef LY_U0                                     /* also defined by int_loop_cell.inc */
 #define LY_U0   6
 #define LY_NU   (MAXLOOP - LY_U0 + 1)            /* 25 planes: u = 6..30 */
+#endif
 #define LY_NSTAT 6   /* 0 cells compared, 1 mismatches, 2 live cells, 3 fresh entries, 4 carried entries, 5 direct evals */
 #define LY_NBAD  4
 
@@ -42,6 +50,16 @@ ly_selftest(void)
 {
   static int v = -1;
   if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_SELFTEST"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  return v;
+}
+
+/* S2: RNA_INT_LOOP_LYNGSO=1 -- the warp kernel's LY variant REPLACES the dense enumeration. */
+static int g_ly_eval = 0;   /* this chunk */
+static int
+ly_eval_knob(void)
+{
+  static int v = -1;
+  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
   return v;
 }
 
@@ -77,16 +95,28 @@ static void
 ly_alloc(void)
 {
   g_ly_on = 0;
-  if (!ly_selftest()) return;
+  g_ly_eval = 0;
+  if (!ly_selftest() && !ly_eval_knob()) return;
+  const char *knob = ly_eval_knob() ? "RNA_INT_LOOP_LYNGSO" : "RNA_INT_LOOP_LYNGSO_SELFTEST";
   const char *why = NULL;
   if (rnafold_continuous_flow())      why = "continuous flow (records on different rows)";
   else if (rnafold_slot_flow() >= 1)  why = "slot flow (slots are handed over mid-sweep)";
   else if (rnafold_megakernel())      why = "the megakernel (its own fused int_loop)";
+  else if (ly_eval_knob() && rnafold_int_loop_unroll() > 1)
+                                      why = "RNA_INT_LOOP_UNROLL > 1 (the LY variant is instantiated at U = 1)";
+  else if (ly_eval_knob() && !rnafold_int_loop_warp())
+                                      why = "the block-per-cell int_loop kernel (LY lives in the warp kernel)";
   if (why) {
     static int said = 0;
-    if (!said) { said = 1; fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST REFUSED: %s\n", __FILE__, why); }
+    if (!said) { said = 1; fprintf(stderr, "%-24s %s REFUSED: %s -- the dense int_loop runs\n", __FILE__, knob, why); }
     return;
   }
+  if (ly_eval_knob() && ly_selftest()) {
+    static int said = 0;
+    if (!said) { said = 1; fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST IGNORED: with RNA_INT_LOOP_LYNGSO=1 "
+                                           "there is no dense int_loop to compare with\n", __FILE__); }
+  }
+  g_ly_eval = ly_eval_knob();
   const size_t n = (size_t)LY_NU * g_row_total;
   for (int b = 0; b < 2; b++) {
     gpuErrchk( cudaMalloc((void **)&d_ly_G[b], sizeof(int) * (n ? n : 1)) );
@@ -99,10 +129,19 @@ ly_alloc(void)
   g_ly_chunks++;
   static int said = 0;
   if (!said) {
-    said = 1; atexit(ly_report);
-    fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST ACTIVE: the Lyngsø carry form computed beside the dense "
-                    "int_loop and compared cell for cell (G %.1f MB%s)\n", __FILE__,
-            2.0 * (double)n * sizeof(int) / 1048576.0, ly_negctl() ? ", NEGCTL: carry dropped" : "");
+    said = 1;
+    if (g_ly_eval) {
+      if (!vrna_cuda_quiet())
+        fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO ACTIVE: int_loop enumerates the direct loops only; generic "
+                        "interior loops come from the carried table (G %.1f MB%s)\n", __FILE__,
+                2.0 * (double)n * sizeof(int) / 1048576.0,
+                ly_negctl() ? ", NEGCTL: carry dropped -- WRONG ANSWERS EXPECTED" : "");
+    } else {
+      atexit(ly_report);
+      fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST ACTIVE: the Lyngsø carry form computed beside the dense "
+                      "int_loop and compared cell for cell (G %.1f MB%s)\n", __FILE__,
+              2.0 * (double)n * sizeof(int) / 1048576.0, ly_negctl() ? ", NEGCTL: carry dropped" : "");
+    }
   }
 }
 
@@ -166,7 +205,9 @@ ly_carry_kernel(const int nfiles, const int i, const int length, const int negct
   const size_t o = row_off_H[H];
   const int    j = (int)(m - o);
   const int  len = (int)(row_off_H[H + 1] - o) - 1;
-  if (j <= i || j > len) { for (int u = 0; u < LY_NU; u++) Gc[(size_t)u * row_total + m] = INF; return; }
+  /* slots j <= i (and past the record) are never read: a reader at row r takes (r+1, j-1) only for
+   * j-1 > r+1, and a cell of row i only its own j > i. So nothing is written there. */
+  if (j <= i || j > len) return;
 
   const CREAD cr = ly_reader((CREAD *)0, my_c, c_ring, c_ring_stride, tri_off_H[H], o);
 
@@ -207,8 +248,8 @@ ly_carry_kernel(const int nfiles, const int i, const int length, const int negct
     }
     Gc[(size_t)(u - LY_U0) * row_total + m] = g;
   }
-  if (nfresh) atomicAdd(&stat[3], nfresh);
-  if (ncarry) atomicAdd(&stat[4], ncarry);
+  if (stat && nfresh) atomicAdd(&stat[3], nfresh);   /* stat NULL in production (S2) */
+  if (stat && ncarry) atomicAdd(&stat[4], ncarry);
 }
 
 /* Row i: the cells the dense kernel computes (its own enumeration), one thread each. */
@@ -278,22 +319,38 @@ ly_check_kernel(const int nfiles, const int i, const int length,
   }
 }
 
-/* int_loop_cuda()'s tail: after the dense kernel for row i, on the same stream. */
+/* One row of G, on the cell stream. stat: the selftest counters, or NULL. */
 static void
-ly_selftest_row(const int nfiles, const int i, const int length)
+ly_carry_row(const int nfiles, const int i, const int length, unsigned long long* stat)
 {
-  if (!g_ly_on) return;
   int* Gc = d_ly_G[i & 1];
   const int* Gp = d_ly_G[(i + 1) & 1];
   const size_t rt = g_row_total;
   const int nbr = (int)((rt + 127) / 128);
   if (g_c_ring_on)
     ly_carry_kernel<c_ring_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
-        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, d_ly_stat);
+        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, stat);
   else
     ly_carry_kernel<c_tri_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
-        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, d_ly_stat);
+        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, stat);
   gpuErrchk( cudaPeekAtLastError() );
+}
+
+/* S2: int_loop_cuda() calls this BEFORE the warp kernel, so the LY cells read this row's G.
+ * Same stream, so stream order is the only synchronisation needed. */
+static void
+ly_eval_row(const int nfiles, const int i, const int length)
+{
+  if (g_ly_on && g_ly_eval) ly_carry_row(nfiles, i, length, NULL);
+}
+
+static void
+ly_selftest_row(const int nfiles, const int i, const int length)
+{
+  if (!g_ly_on || g_ly_eval) return;
+  int* Gc = d_ly_G[i & 1];
+  const size_t rt = g_row_total;
+  ly_carry_row(nfiles, i, length, d_ly_stat);
   size_t cells = 0;
   gpuErrchk( cudaMemcpy(&cells, &d_size_off_H[nfiles], sizeof(size_t), cudaMemcpyDeviceToHost) );   /* selftest: a sync is fine */
   if (cells == 0) return;

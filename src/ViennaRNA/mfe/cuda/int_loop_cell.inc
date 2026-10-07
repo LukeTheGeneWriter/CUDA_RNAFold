@@ -18,7 +18,24 @@
  * searches and two accumulators. See the comment on the loop below for why that is
  * the lever the stall mix points at. Defaulted so every existing caller -- including
  * the megakernel -- keeps today's code with no edit. */
-template<class CREAD, int U = 1>
+/* LYNGSO (PORT_LYNGSO_INTLOOP.md, S2): generic interior loops -- short side >= 2, not 2x2/2x3/3x2 --
+ * come from the carried table G(i,j,u), u = LY_U0..MAXLOOP, built by int_loop_lyngso.inc's carry
+ * kernel. This cell then enumerates only the DIRECT loops. Bit u1 of a column's mask is the inner
+ * pair at p = i+1+u1, and the column's u2 is fixed, so the direct rows of a column are: */
+#ifndef LY_U0
+#define LY_U0   6
+#define LY_NU   (MAXLOOP - LY_U0 + 1)            /* 25 planes: u = 6..30 */
+#endif
+__device__ __forceinline__ unsigned int
+ly_direct_mask(const int u2)
+{
+  return (u2 <= 1) ? 0xffffffffu        /* stacks, bulges, 1xn: every u1           */
+       : (u2 == 2) ? 0xfu               /* u1 0..3: bulge, 1x2, 2x2, 3x2 (special) */
+       : (u2 == 3) ? 0x7u               /* u1 0..2: bulge, 1x3, 2x3 (special)      */
+       :             0x3u;              /* u1 0..1: bulge, 1xn                     */
+}
+
+template<class CREAD, int U = 1, bool LY = false>
 __device__ inline void
 int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -37,7 +54,9 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
                    /* RNA_INT_LOOP_WORK_STATS: per-cell candidate count, or NULL. One
                     * store per CELL, so it costs nothing measurable and it is the only
                     * way to see the work DISTRIBUTION rather than its average. */
-                   int* __restrict__ work_out = NULL) {
+                   int* __restrict__ work_out = NULL,
+                   /* LY: G's planes for this row ([u - LY_U0][row_total]) and row_total */
+                   const int* __restrict__ ly_G = NULL, const size_t ly_rt = 0) {
   const int i = i_H[H];
   assert(i_row < 0 || i == i_row);
   const int j = (int)local + i + turn + 1 + (int)size_off_H[nfiles + 1];
@@ -66,6 +85,7 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
     int          popc    = 0;
     if(lane <= maxcol) {
       my_mask = decode_column(p0,q0,lane,hccc_H);
+      if(LY) my_mask &= ly_direct_mask((j - 1 - q0) - lane);   /* this column's u2 */
       popc    = __popc(my_mask);
     }
 
@@ -182,6 +202,16 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
     }
 #pragma unroll
     for(int u = 0; u < U; u++) energy = MIN2(energy, acc[u]);
+    /* LY: lane l uses G's plane u = LY_U0 + l -- the generic loops, outer pair gated once
+     * (--noClosingGU), salt by backbones u+2 exactly as IntLoop_X's generic branch. */
+    if(LY && lane < LY_NU && !(P->noGUclosure && (ci.type == 3 || ci.type == 4))) {
+      const int g = ly_G[(size_t)lane * ly_rt + row_off_H[H] + (size_t)j];
+      if(g < INF) {
+        const int e = g + P->internal_loop[lane + LY_U0] + P->mismatchI[ci.type][ci.si1][ci.sj1]
+                        + P->SaltLoop[lane + LY_U0 + 2];
+        energy = MIN2(energy, e);
+      }
+    }
     if(work_out && lane == 0) work_out[row_off_H[H]+j] = total;
   }
 
@@ -221,7 +251,7 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
  *  The triangle-backed form, which is what every standalone kernel calls: same
  *  signature it has always had, so those call sites are untouched.
  */
-template<int U = 1>
+template<int U = 1, bool LY = false>
 __device__ inline void
 int_loop_warp_cell(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -241,11 +271,12 @@ int_loop_warp_cell(const int nfiles, const int i_row, const int length,
                    /* RNA_INT_LOOP_WORK_STATS: per-cell candidate count, or NULL. One
                     * store per CELL, so it costs nothing measurable and it is the only
                     * way to see the work DISTRIBUTION rather than its average. */
-                   int* __restrict__ work_out = NULL) {
+                   int* __restrict__ work_out = NULL,
+                   const int* __restrict__ ly_G = NULL, const size_t ly_rt = 0) {
   c_tri_reader cread;
 
   cread.base = &my_c[tri_off_H[H]];
-  int_loop_warp_cell_r<c_tri_reader, U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
+  int_loop_warp_cell_r<c_tri_reader, U, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                        pair_, S, hccc, up_int, cread, row_off_H, hc_off_H,
-                       size_off_H, i_H, energy_min, H, local, lane, work_out);
+                       size_off_H, i_H, energy_min, H, local, lane, work_out, ly_G, ly_rt);
 }

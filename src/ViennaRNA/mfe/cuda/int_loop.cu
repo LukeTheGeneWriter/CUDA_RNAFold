@@ -345,9 +345,11 @@ static int g_refill2 = 0;
 static int g_slot_only = 0;
 #define SLOT_ALLOC(pp, sz) do { if(!g_refill2) TIMED_CUDAMALLOC(pp, sz); } while(0)
 
-/* Lyngsø S1 selftest (ly_selftest.inc, included further down). */
+/* Lyngsø S1 selftest (int_loop_lyngso.inc, included further down). */
 static void ly_alloc(void);
 static void ly_free(void);
+static int  ly_selftest(void);
+static int  ly_eval_knob(void);
 
 PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
@@ -722,7 +724,11 @@ int_loop_bytes_per_file(const int length) {
   // RNA_C_RING: 32 row slots. Charged when ASKED, not when granted -- the refusals
   // are decided per chunk, after the budget, and over-estimating is the safe side.
   const size_t c_ring_bytes       = c_ring_asked() ? (size_t)32*(length+1)*sizeof(int) : 0;
-  return hccc_bytes + s_bytes + my_c_bytes + new_e_bytes + energy_min2_bytes + c_ring_bytes;
+  // RNA_INT_LOOP_LYNGSO (or its selftest): two row buffers of G, 25 planes each (u = 6..30,
+  // MAXLOOP - 5 of them). Charged when asked, like the ring, for the same reason.
+  const size_t ly_bytes           = (ly_eval_knob() || ly_selftest())
+                                    ? (size_t)2*(MAXLOOP - 5)*(length+1)*sizeof(int) : 0;
+  return hccc_bytes + s_bytes + my_c_bytes + new_e_bytes + energy_min2_bytes + c_ring_bytes + ly_bytes;
 }
 
 // Copies the GPU's my_c triangle back into each record's own
@@ -1299,7 +1305,7 @@ __constant__ int* c_il_work = NULL;
 
 /* U: candidates in flight per lane. 1 = the shape this kernel has always had.
  * See int_loop_cell.inc for the stall measurement that motivates U>1. */
-template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH, int U = 1, bool RING = false>
+template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH, int U = 1, bool RING = false, bool LY = false>
 __global__ void
 int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -1321,7 +1327,9 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const size_t c_ring_stride = 0,
                 /* RNA_INT_LOOP_CELLS_PER_WARP: G consecutive cells per warp, 1..32.
                  * 1 = one warp per cell, exactly the code below the packed block. */
-                const int G = 1) {
+                const int G = 1,
+                /* RNA_INT_LOOP_LYNGSO: G's planes for this row and row_total (int_loop_lyngso.inc) */
+                const int* __restrict__ ly_G = NULL, const size_t ly_rt = 0) {
   static_assert(CELLS_PER_BLOCK >= 1 && CELLS_PER_BLOCK <= 32,
                 "one warp per cell; blockDim.x must be CELLS_PER_BLOCK*32");
 
@@ -1376,12 +1384,12 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
         c_ring_reader rr;
         rr.base   = c_ring + row_off_H[H];
         rr.stride = c_ring_stride;
-        int_loop_warp_cell_r<c_ring_reader, U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
+        int_loop_warp_cell_r<c_ring_reader, U, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                              pair_, S, hccc, up_int, rr, row_off_H, hc_off_H,
-                             size_off_H, i_H, energy_min, H, local, lane, c_il_work);
+                             size_off_H, i_H, energy_min, H, local, lane, c_il_work, ly_G, ly_rt);
       } else
-      int_loop_warp_cell<U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
-                         H, local, lane, c_il_work);
+      int_loop_warp_cell<U, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
+                         H, local, lane, c_il_work, ly_G, ly_rt);
     }
     return;
   }
@@ -1412,12 +1420,12 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
     c_ring_reader rr;
     rr.base   = c_ring + row_off_H[H];
     rr.stride = c_ring_stride;
-    int_loop_warp_cell_r<c_ring_reader, U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
+    int_loop_warp_cell_r<c_ring_reader, U, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                          pair_, S, hccc, up_int, rr, row_off_H, hc_off_H,
-                         size_off_H, i_H, energy_min, H, local, lane, c_il_work);
+                         size_off_H, i_H, energy_min, H, local, lane, c_il_work, ly_G, ly_rt);
   } else
-  int_loop_warp_cell<U>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
-                     H, local, lane, c_il_work);
+  int_loop_warp_cell<U, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
+                     H, local, lane, c_il_work, ly_G, ly_rt);
 }
 
 // H6: WHICH RECORD IS THIS CELL IN? -- asked once per cell, answered with a
@@ -1976,7 +1984,7 @@ static void il_work_end(void) {
 
 
 /* Lyngsø interior loops, S1: the selftest beside the dense kernel (PORT_LYNGSO_INTLOOP.md). */
-#include "ly_selftest.inc"
+#include "int_loop_lyngso.inc"
 
 //Host (ie non-GPU) code
 PRIVATE void
@@ -1996,6 +2004,7 @@ int_loop_cuda(const int nfiles,
   if(flat_nblocks==0) return;
 
   bind_row_tables(i);
+  ly_eval_row(nfiles, i, length);   /* RNA_INT_LOOP_LYNGSO: this row's G, before the LY cells read it */
 
   dim3 blocks((unsigned int)flat_nblocks);
 
@@ -2084,15 +2093,19 @@ int_loop_cuda(const int nfiles,
       }
     }
 
-#define IL_WARP_LAUNCH_R(C, G, W, GRID, RG) int_loop_warp_kernel<C,G,W,1,RG><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
+#define IL_WARP_LAUNCH_R(C, G, W, GRID, RG, LYV) int_loop_warp_kernel<C,G,W,1,RG,LYV><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
-        d_size_off_H, d_i_H, d_energy_min2, d_c_ring, g_row_total, il_G)
+        d_size_off_H, d_i_H, d_energy_min2, d_c_ring, g_row_total, il_G, \
+        (LYV) ? (const int*)d_ly_G[i & 1] : (const int*)NULL, (LYV) ? g_row_total : (size_t)0)
 /* RNA_C_RING picks the reader at the launch; the U=2 path never has the ring
- * (c_ring_refuse() refuses that pairing). */
+ * (c_ring_refuse() refuses that pairing). RNA_INT_LOOP_LYNGSO picks LY: the direct
+ * loops here, the generic ones from the carried table (int_loop_lyngso.inc). */
 #define IL_WARP_LAUNCH(C, G, W, GRID) \
-        do { if(g_c_ring_on) IL_WARP_LAUNCH_R(C, G, W, GRID, true); \
-             else            IL_WARP_LAUNCH_R(C, G, W, GRID, false); } while(0)
+        do { if(g_ly_eval) { if(g_c_ring_on) IL_WARP_LAUNCH_R(C, G, W, GRID, true, true); \
+                             else            IL_WARP_LAUNCH_R(C, G, W, GRID, false, true); } \
+             else if(g_c_ring_on) IL_WARP_LAUNCH_R(C, G, W, GRID, true, false); \
+             else                 IL_WARP_LAUNCH_R(C, G, W, GRID, false, false); } while(0)
 /* RNA_INT_LOOP_UNROLL=2: the same kernel with two candidates in flight per lane.
  * int_loop_cell.inc carries the stall measurement that motivates it and the laptop
  * NULL that keeps it off by default. A separate macro rather than another dimension

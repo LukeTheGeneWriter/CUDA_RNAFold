@@ -141,6 +141,53 @@ configurations:
 
 The expensive evaluations are what shrinks. S2 decides whether the cheap ones are cheap enough on the device.
 
+**S2 done (2026-10-07, laptop).** `RNA_INT_LOOP_LYNGSO=1` (off by default).
+
+**As built, simpler than §3.1's separate eval kernel:**
+- **`int_loop_lyngso.inc`'s carry kernel** runs first each row, on the cell stream.
+- **The existing warp kernel's `LY` variant** (`int_loop_cell.inc`) is the evaluation. Each lane ANDs its
+  column's hard-constraint mask with the direct rows for that column's u2:
+  - u2 ≤ 1: all u1;
+  - u2 = 2: u1 ≤ 3;
+  - u2 = 3: u1 ≤ 2;
+  - otherwise: u1 ≤ 1.
+
+  So the warp scan enumerates only stacks, bulges, 1×n and the specials. Lanes 0–24 then add one G use each
+  before the warp reduction.
+- **What comes for free:** dead-warp packing, the c ring reader, the 2-D grid and the warp search, all
+  unchanged.
+- **Unread slots are not written:** the carry kernel skips slots j ≤ i, which no reader touches.
+- **Admission:** the G buffers are charged in `int_loop_bytes_per_file()`.
+- **Refused, with a reason:** `RNA_INT_LOOP_UNROLL > 1`, the block-per-cell kernel, slot and continuous flow,
+  and the megakernel.
+
+**Bar (`ly_s2.sh`): output AND c/fML triangle checksums equal the dense kernel's and `RNA_GPU=0`'s on 19
+cases:**
+- **options:** plain, noLP, circ, d0, salt 0.2, T25, maxBPspan 150, `-g`, `-C --enforceConstraint`,
+  `--noClosingGU`;
+- **settings:**
+  - c ring off;
+  - cells per warp 1 and 8;
+  - overlap 0 and 1;
+  - graphs off;
+  - int32;
+  - dense md;
+  - a 16 MB budget (multi-chunk).
+
+Both refusals print, and the production NEGCTL (carry dropped) changes the output (8 lines) and the triangles.
+
+**Laptop timing,** ABBA, `RNA_PHASE_SYNC=1`, same sha in every pair. The GPU sat in a ~12 W power cap at
+1057 MHz, so the absolute times are ~4× this morning's, but both arms ran under the same cap. Graphs on/off
+were checked and are not the cause (12.2 / 11.9 / 12.1 s).
+
+| L × records | `int_loop` dense → Lyngsø | wall |
+|---|---|---|
+| 1200 × 120 | 8.10 → 6.02 s (**−25.7 %**) | −17.7 % |
+| 2400 × 32 | 8.92 → 6.87 s (**−23.0 %**) | −15.3 % |
+| 5601 × 8 | 12.54 → 10.05 s (**−19.9 %**) | −10.6 % |
+
+The carry kernel is inside the `int_loop` phase, so these are net. The A100 (S5) decides the default.
+
 ## 6. Expected size
 
 CPU counting says 1.85× fewer evaluations. If the kernel stays issue-bound, `int_loop` drops from 16.5 s
@@ -176,6 +223,10 @@ additive (N5a hides host work, N3 shrinks GPU work).
 5. **Non-standard types (§2):** the new helpers must call the same type code as `Energy()`.
 
 ## 9. Decisions for Luke
+
+**SIGNED OFF 2026-10-07** (Luke: "I sign off on the N3 plan"). The two-kernel design, the v1 refusals, the
+S5 ring-K grid and N3-before-N5a stand as written below.
+
 
 1. **Sign-off on the two-kernel design** (§3.1), which keeps dead-warp packing.
 2. **v1 refusals** (§3.4): slot and continuous flow, the megakernel, UNROLL > 1. OK?
