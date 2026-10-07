@@ -486,3 +486,57 @@ latency, which S6a attacks directly.
    until its bars pass, then becomes the Lyngsø path.
 2. **The e ring's memory:** charged to admission, the same size as the c ring (~34 MB at 48 × 5601, ~150 MB at 1000 × 1200). OK?
 3. **One A100 notebook after S6b** (not after each stage), to save A100 hours.
+
+### 10.7 S6a results (2026-10-07, laptop RTX 3050 at full clocks, 25 W / 1725 MHz)
+
+`RNA_INT_LOOP_LYNGSO_V2=1` (off by default). One `ly_carry_u()` serves both kernels, so the arithmetic is
+shared by construction.
+
+**Exact:**
+- The device selftest gives 0 MISMATCHING with **identical entry counts to v1** (fresh, carried and direct,
+  to the unit) on mix, G-rich, `--noLP`, `-C --enforceConstraint` and `--circ`.
+- V2 + NEGCTL bites: 129,208 and 24,127 mismatching.
+- `ly_s2.sh` with V2 exported: all 19 cases equal dense and the CPU in output and triangles.
+- Refusals print; the production NEGCTL changes 8 lines and the triangles.
+
+**Slower on the laptop.**
+
+Phase-synced `int_loop` (s), 2 runs each in ABBA order, one output per fixture:
+
+| width | v1 | v2 | dense |
+|---|---|---|---|
+| 25 × 1200 | 0.37 | 0.44 (+20 %) | 0.35 |
+| 100 × 1200 | 1.32 | 1.75 (+33 %) | 1.31 |
+| 400 × 1200 | 5.30 | 7.17 (+35 %) | 5.39 |
+
+ncu, `ly_carry_kernel` per launch:
+
+| fixture | v1 | v2 | instructions v1 → v2 | occupancy v1 → v2 |
+|---|---|---|---|---|
+| 25 × 1200 | 211 µs | 247 µs | 4.3 → 7.2 M | 56 → 85 % |
+| 8 × 5601 | 610 µs | 583 µs (−4 %) | 6.3 → 9.8 M | 73 → 90 % |
+| 400 × 1200 | 2918 µs | 4370 µs | 69.8 → 134.9 M | 72 → 88 % |
+
+**Reading:**
+- **The per-thread prologue is the cost.** It is the record search (`flatten_index_to_H`), the offsets, the
+  reader and the up_int gate, and v2 repeats it 25×. Instructions grow 1.6–1.9×. Where the GPU was already
+  full, that is pure loss.
+- **§10.1's diagnosis was half right.** The u loop's iterations are independent, so v1 is not one serial
+  chain. The narrow-row penalty is **under-occupancy**, not chain length.
+- **The laptop is the wrong instrument for narrow rows.** A 3050 has 20 SMs × 48 warps (~30 k threads), so 25
+  records × 1200 already nearly fills it. That is why v1 is within ~5 % of dense here, against +59 % on the
+  A100.
+- **The one under-filled laptop case is the one v2 wins.** At 8 × 5601, v2 is −4 %. An A100 (108 SMs × 64
+  warps, ~221 k threads) is under-filled by every row narrower than ~220 k active slots. That covers all of
+  R's losing widths.
+
+**Proposed S6a′, an adaptive split** (needs sign-off, since it changes S6a's design):
+- **Planes per thread from the row's fill:** Pt ∈ {25, 5, 1}. The host computes active slots,
+  Σ_H max(0, len_H − i), from its own lengths.
+  - Pt = 25 (v1) when active slots ≥ device thread capacity;
+  - Pt = 5 when 5 × active ≥ capacity;
+  - else Pt = 1 (v2).
+- **Grid:** shrunk to the active slots, so slots j ≤ i launch nothing.
+- **Capacity:** the SM count × max threads per SM, queried once.
+- **Bars:** the same exactness bars. A laptop check that wide rows equal v1 and 8 × 5601 equals or beats v2.
+  The narrow-row verdict goes to the S6 A100 notebook.

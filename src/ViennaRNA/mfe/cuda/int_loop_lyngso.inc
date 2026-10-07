@@ -86,6 +86,18 @@ ly_negctl(void)
   return v;
 }
 
+/* S6a (PORT_LYNGSO_INTLOOP.md 10.2): RNA_INT_LOOP_LYNGSO_V2=1 runs the carry as one thread per
+ * (u, slot) instead of one thread walking u = 6..30. The 25 planes are independent, so this is the
+ * same arithmetic (ly_carry_u(), shared by both kernels) with a ~25x shorter dependent-load chain
+ * per thread -- the narrow-row latency the A100 R sweep showed. Off until its bars pass. */
+static int
+ly_v2(void)
+{
+  static int v = -1;
+  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_V2"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  return v;
+}
+
 static void
 ly_report(void)
 {
@@ -148,6 +160,8 @@ ly_alloc(void)
   static int said = 0;
   if (!said) {
     said = 1;
+    if (ly_v2())   /* asked for: always said (positive evidence for the S6a bars) */
+      fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_V2 ACTIVE: the carry runs one thread per (u, slot)\n", __FILE__);
     if (g_ly_eval) {
       if (!vrna_cuda_quiet())
         fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO ACTIVE: int_loop enumerates the direct loops only; generic "
@@ -204,8 +218,51 @@ ly_reader(c_ring_reader*, const int*, const int* ring, const size_t stride, cons
   c_ring_reader r; r.base = ring + o; r.stride = stride; return r;
 }
 
-/* Row i: G for every column j in (i, len_H], one thread per row-layout slot. */
+/* One plane u of G at (i, j): the carry from (i+1, j-1) and this cell's fresh entries. Shared by the
+ * u-loop kernel (v1) and the one-thread-per-(u, slot) kernel (S6a), so both run the same arithmetic. */
 template<class CREAD>
+__device__ __forceinline__ int
+ly_carry_u(const int u, const int i, const int j, const int H, const size_t o, const int s_stride,
+           const int carry_ok, const CREAD& cr, const unsigned int* __restrict__ hc_H,
+           const unsigned char* __restrict__ up, const cuda_param_t* __restrict__ P,
+           const char* __restrict__ pair_, const unsigned int* __restrict__ S,
+           const size_t row_total, const int* __restrict__ Gp,
+           unsigned long long& nfresh, unsigned long long& ncarry)
+{
+  int g = INF;
+  if (carry_ok && u - 2 >= LY_U0) {
+    g = Gp[(size_t)(u - 2 - LY_U0) * row_total + (o + (size_t)(j - 1))];
+    if (g < INF) ncarry++;
+  }
+  /* fresh at (i,j): (2,u-2) and (u-2,2) for u >= 6, plus (3,3) at 6 and (3,4),(4,3) at 7 */
+  int f1[4], f2[4], nf = 0;
+  f1[nf] = 2;     f2[nf] = u - 2; nf++;
+  f1[nf] = u - 2; f2[nf] = 2;     nf++;
+  if (u == 6) { f1[nf] = 3; f2[nf] = 3; nf++; }
+  if (u == 7) { f1[nf] = 3; f2[nf] = 4; nf++; f1[nf] = 4; f2[nf] = 3; nf++; }
+  for (int t = 0; t < nf; t++) {
+    const int u1 = f1[t], u2 = f2[t];
+    if (t == 1 && u1 == u2) continue;                 /* (2,2) is never here; guard the duplicate anyway */
+    const int k = i + u1 + 1, l = j - u2 - 1;
+    if (l - k < 1) continue;
+    if (up && ((int)up[i + 1] < u1 || (int)up[l + 1] < u2)) continue;
+    if (!Hc(Indx(k, l), hc_H)) continue;
+    const int c = cr(k, l);
+    if (c >= INF) continue;
+    const int t2 = P->rtype[ly_type(S, pair_, H, s_stride, k, l)];
+    if (P->noGUclosure && (t2 == 3 || t2 == 4)) continue;
+    const int d  = u1 > u2 ? u1 - u2 : u2 - u1;
+    const int v  = c + P->mismatchI[t2][unpack(S, H, s_stride, l + 1)][unpack(S, H, s_stride, k - 1)]
+                     + MIN2(P->max_ninio, d * P->ninio2);
+    nfresh++;
+    if (v < g) g = v;
+  }
+  return g;
+}
+
+/* Row i: G for every column j in (i, len_H], one thread per row-layout slot, all 25 planes (v1).
+ * V2: blockIdx.y is the plane, so one thread per (u, slot); a warp is 32 slots of one plane. */
+template<class CREAD, bool V2>
 __global__ void
 ly_carry_kernel(const int nfiles, const int i, const int length, const int negctl,
                 const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
@@ -235,36 +292,14 @@ ly_carry_kernel(const int nfiles, const int i, const int length, const int negct
   const int carry_ok = !negctl && j - 1 > i + 1 && (!up || (up[i + 1] >= 1 && up[j - 1] >= 1));
   unsigned long long nfresh = 0, ncarry = 0;
 
-  for (int u = LY_U0; u <= MAXLOOP; u++) {
-    int g = INF;
-    if (carry_ok && u - 2 >= LY_U0) {
-      g = Gp[(size_t)(u - 2 - LY_U0) * row_total + (o + (size_t)(j - 1))];
-      if (g < INF) ncarry++;
-    }
-    /* fresh at (i,j): (2,u-2) and (u-2,2) for u >= 6, plus (3,3) at 6 and (3,4),(4,3) at 7 */
-    int f1[4], f2[4], nf = 0;
-    f1[nf] = 2;     f2[nf] = u - 2; nf++;
-    f1[nf] = u - 2; f2[nf] = 2;     nf++;
-    if (u == 6) { f1[nf] = 3; f2[nf] = 3; nf++; }
-    if (u == 7) { f1[nf] = 3; f2[nf] = 4; nf++; f1[nf] = 4; f2[nf] = 3; nf++; }
-    for (int t = 0; t < nf; t++) {
-      const int u1 = f1[t], u2 = f2[t];
-      if (t == 1 && u1 == u2) continue;                 /* (2,2) is never here; guard the duplicate anyway */
-      const int k = i + u1 + 1, l = j - u2 - 1;
-      if (l - k < 1) continue;
-      if (up && ((int)up[i + 1] < u1 || (int)up[l + 1] < u2)) continue;
-      if (!Hc(Indx(k, l), hc_H)) continue;
-      const int c = cr(k, l);
-      if (c >= INF) continue;
-      const int t2 = P->rtype[ly_type(S, pair_, H, s_stride, k, l)];
-      if (P->noGUclosure && (t2 == 3 || t2 == 4)) continue;
-      const int d  = u1 > u2 ? u1 - u2 : u2 - u1;
-      const int v  = c + P->mismatchI[t2][unpack(S, H, s_stride, l + 1)][unpack(S, H, s_stride, k - 1)]
-                       + MIN2(P->max_ninio, d * P->ninio2);
-      nfresh++;
-      if (v < g) g = v;
-    }
-    Gc[(size_t)(u - LY_U0) * row_total + m] = g;
+  if (V2) {
+    const int u = LY_U0 + (int)blockIdx.y;
+    Gc[(size_t)(u - LY_U0) * row_total + m] =
+      ly_carry_u(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, nfresh, ncarry);
+  } else {
+    for (int u = LY_U0; u <= MAXLOOP; u++)
+      Gc[(size_t)(u - LY_U0) * row_total + m] =
+        ly_carry_u(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, nfresh, ncarry);
   }
   if (stat && nfresh) atomicAdd(&stat[3], nfresh);   /* stat NULL in production (S2) */
   if (stat && ncarry) atomicAdd(&stat[4], ncarry);
@@ -345,12 +380,18 @@ ly_carry_row(const int nfiles, const int i, const int length, unsigned long long
   const int* Gp = d_ly_G[(i + 1) & 1];
   const size_t rt = g_row_total;
   const int nbr = (int)((rt + 127) / 128);
-  if (g_c_ring_on)
-    ly_carry_kernel<c_ring_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
-        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, stat);
-  else
-    ly_carry_kernel<c_tri_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
-        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, stat);
+#define LY_CARRY_LAUNCH(CR, V2_, GRID) \
+  ly_carry_kernel<CR, V2_><<<GRID, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair, \
+      d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, stat)
+  if (ly_v2()) {
+    const dim3 grid((unsigned)nbr, (unsigned)LY_NU);   /* S6a: y = the plane u - LY_U0 */
+    if (g_c_ring_on) LY_CARRY_LAUNCH(c_ring_reader, true, grid);
+    else             LY_CARRY_LAUNCH(c_tri_reader,  true, grid);
+  } else {
+    if (g_c_ring_on) LY_CARRY_LAUNCH(c_ring_reader, false, nbr);
+    else             LY_CARRY_LAUNCH(c_tri_reader,  false, nbr);
+  }
+#undef LY_CARRY_LAUNCH
   gpuErrchk( cudaPeekAtLastError() );
 }
 
