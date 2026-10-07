@@ -633,7 +633,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   size = nfiles*length*sizeof(int);
   SLOT_ALLOC(&d_buf, size);
   */
-  ly_alloc();   /* RNA_INT_LOOP_LYNGSO_SELFTEST; no-op otherwise */
+  ly_alloc();   /* Lyngsø G buffers (default on; RNA_INT_LOOP_LYNGSO=0 or a refusal -> no-op) */
   stage_ig2_s += rnafold_now_seconds() - _t_ig2;
   first2 = 0;
 }

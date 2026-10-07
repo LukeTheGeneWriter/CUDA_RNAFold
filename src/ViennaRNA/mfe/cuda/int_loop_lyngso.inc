@@ -2,7 +2,7 @@
  *
  * S2: RNA_INT_LOOP_LYNGSO=1 replaces the dense enumeration. Per row, ly_carry_kernel (below) builds
  * G(i,·,u) for every column, then the warp kernel's LY variant (int_loop_cell.inc) enumerates only
- * the direct loops and adds the 25 G uses. Off by default until its bars and the A100 say otherwise.
+ * the direct loops and adds the 25 G uses. Default on since S5 (RNA_INT_LOOP_LYNGSO=0 turns it off).
  *
  * S1, the selftest that proved it, follows:
  *
@@ -53,13 +53,28 @@ ly_selftest(void)
   return v;
 }
 
-/* S2: RNA_INT_LOOP_LYNGSO=1 -- the warp kernel's LY variant REPLACES the dense enumeration. */
+/* S2: the warp kernel's LY variant REPLACES the dense enumeration. DEFAULT ON since S5 (2026-10-07,
+ * A100: exact on the 20-case matrix, 14 adversarial and 10,082 natural records; wall -4.6 % at
+ * 400x5601, -4.3 % at 3000x1200; PORT_LYNGSO_INTLOOP.md). RNA_INT_LOOP_LYNGSO=0 restores the dense
+ * int_loop. Unset, the selftest knob alone keeps it off, so the selftest still has a dense kernel to
+ * compare with. */
 static int g_ly_eval = 0;   /* this chunk */
+static int
+ly_eval_explicit(void)      /* RNA_INT_LOOP_LYNGSO set by the user: refusals are said aloud */
+{
+  const char *e = getenv("RNA_INT_LOOP_LYNGSO");
+  return (e && e[0]) ? 1 : 0;
+}
+
 static int
 ly_eval_knob(void)
 {
   static int v = -1;
-  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  if (v < 0) {
+    const char *e = getenv("RNA_INT_LOOP_LYNGSO");
+    if (e && e[0]) v = (e[0] != '0') ? 1 : 0;
+    else           v = ly_selftest() ? 0 : 1;
+  }
   return v;
 }
 
@@ -108,7 +123,10 @@ ly_alloc(void)
                                       why = "the block-per-cell int_loop kernel (LY lives in the warp kernel)";
   if (why) {
     static int said = 0;
-    if (!said) { said = 1; fprintf(stderr, "%-24s %s REFUSED: %s -- the dense int_loop runs\n", __FILE__, knob, why); }
+    /* asked for (or the selftest) -> always said; the default -> said unless quiet, like the other banners */
+    if (!said && (ly_selftest() || ly_eval_explicit() || !vrna_cuda_quiet())) {
+      said = 1; fprintf(stderr, "%-24s %s REFUSED: %s -- the dense int_loop runs\n", __FILE__, knob, why);
+    }
     return;
   }
   if (ly_eval_knob() && ly_selftest()) {

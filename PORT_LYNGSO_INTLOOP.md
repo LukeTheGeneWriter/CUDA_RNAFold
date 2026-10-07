@@ -372,3 +372,117 @@ S5 ring-K grid and N3-before-N5a stand as written below.
 4. **Order relative to N5a:** both plans are ready. N5a is host-side and touches the library API (its §9.1).
    N3 is device-side and self-contained. My suggestion: **build N3 S1–S3 first**. It needs no API decision,
    and its laptop bars are well-trodden. N5a P1 follows once its seam question (9.1 there) is decided.
+
+## 10. S6 and S7: making the carry pay (plan for sign-off, 2026-10-07)
+
+**State.** Lyngsø has been the default since S5. The pre-registered rule said so, and Luke agreed. At 5601
+nt it saves almost no GPU work: the carry kernel (191 µs per row) costs what the eval kernel saves (365 →
+175 µs). The −4.6 % wall comes from overlap. Narrow rows lose: +59 % `int_loop` at 25 × 1200, +42 % at
+8 × 5601. The soak is +1.8 %.
+
+### 10.1 Why the carry costs what it does
+
+`ly_carry_kernel` runs one thread per row slot, and each thread walks u = 6…30 serially. Per u, it computes
+up to 4 fresh entries, and each entry is a chain of dependent loads:
+- `Hc`;
+- `c(k,l)`;
+- `Ptype` (two loads from S);
+- two `unpack`s;
+- `mismatchI`.
+
+That is roughly 25 × (2–4) × 5 loads on one thread's critical path. **On a narrow row there are too few
+threads to hide that latency, so the kernel's time is one thread's chain.** That is the fixed per-row cost
+the R sweep shows (~35 µs per row at 25 × 1200). On a wide row the same chain is work: 44 M instructions
+per launch at 44 × 5601, as much as the eval kernel.
+
+Two facts make both costs avoidable:
+1. **The 25 u planes are independent.** `G(i,j,u)` reads `G(i+1,j-1,u-2)` and fresh entries of size u only.
+   Nothing couples u to u′ inside a row.
+2. **A fresh entry's expensive part does not depend on the outer pair.**
+
+   `e(k,l) = c(k,l) + mismatchI[rtype(type(k,l))][S(l+1)][S(k-1)]`
+
+   It is INF when `Hc(k,l)` forbids the pair, `c ≥ INF`, or noClosingGU rejects the type. The ninio term
+   depends on u alone, and the up_int gates on (i, u1) and (l, u2). So every outer pair that uses (k,l)
+   recomputes the same e: up to 25 × 2 times.
+
+### 10.2 S6a: one thread per (u, slot)
+
+- **Grid:** 25 × row_total threads, u-major, so a warp is 32 consecutive slots of one u plane. The reads of
+  `Gp`, the writes of `Gc` and the c reads along a row stay coalesced, as today.
+- **Chain:** each thread does one carry load plus at most 4 fresh entries, so the critical path shrinks
+  ~25×.
+- **Exactness:** exact by construction, since this is the same arithmetic split across threads.
+- **Expected:** most of the narrow-row penalty goes; wide rows unchanged or slightly better (more memory
+  parallelism, same instructions).
+- **Cost:** about 40 lines; the kernel signature is unchanged.
+
+### 10.3 S6b: an e ring (precomputed entries)
+
+- **What it is:** a 32-row ring of `e(k,l)`, laid out like the c ring (row_off_H + l, slot k & 31), held
+  whether the c ring is on or off.
+- **Who writes it:** `carry(i)` writes `e(i+1, ·)` for its columns as a side job.
+- **Why that is safe:**
+  - Row i+1's c is final by then. The carry is on the cell stream, launched after the same waits as
+    `int_loop(i)`, whose stacks read `c(i+1,·)`. **To verify in code before building:** the event waits
+    must be enqueued before `ly_eval_row()`.
+  - `carry(i)` reads e rows i+3 … i+29 only, all written by earlier carries, so the kernel never reads
+    what it writes.
+- **The fresh entry becomes:**
+
+  `e(k,l) + MIN2(max_ninio, |u1-u2|·ninio2)`, gated by `up[i+1] ≥ u1 && up[l+1] ≥ u2`
+
+  That is one load (plus up_int, which is cached) instead of about 6 dependent ones.
+- **Admission:** the e ring is charged like the c ring: 32 × row_total × 4 B, the same size as the c ring. That
+  is ~34 MB at a 48 × 5601 chunk and ~150 MB at a 1000 × 1200 chunk, a few % of the chunk. It costs records per chunk only on small GPUs.
+- **Expected:** the carry's instructions fall from 44 M to roughly 8–12 M per launch at 44 × 5601, so
+  Lyngsø's work saving becomes real on long records: `int_loop` per row ~365 → ~230 µs, against ~366 µs
+  today.
+
+### 10.4 S7: switch on mid-sweep (only if S6 leaves narrow rows losing)
+
+**Mechanism:**
+- Run dense while a row is narrow.
+- At the first row i0 (sweeping down) whose active cells per row, Σ_H max(0, len_H − i), cross a
+  threshold T, run a one-off `ly_init_kernel`. It computes `G(i0, j, u)` directly: the min over every
+  generic loop of size u with outer (i0, j), the dense enumeration restricted to generic loops, for one
+  row.
+- Carry from i0 − 1 onward.
+
+**Why per row, not per chunk:** G must be carried through every row once started, but it can start late.
+A chunk's narrow rows are at the top of its sweep, which is where the soak loses.
+
+**Exactness:** `G(i0)` from the init must equal what the carry would hold. That is S0's equivalence
+(lyngso_equiv), which the selftest checks on the device.
+
+**Bars:**
+- a forced switch row `RNA_INT_LOOP_LYNGSO_FROM=<row>` at several rows: output and triangles equal dense;
+- the selftest at the switch row;
+- a NEGCTL that skips the init: it must go red.
+
+T comes from the laptop R sweep and is confirmed on the A100.
+
+**Skip S7 if S6a+b brings 25 × 1200 and 8 × 5601 within spread of dense.** Most of the narrow-row cost is
+latency, which S6a attacks directly.
+
+### 10.5 Bars for S6 (pre-registered)
+
+1. **Exactness:**
+   - `ly_s2.sh` (the 19 cases) plus the multi-chunk case;
+   - the device selftest at 0 MISMATCHING with its NEGCTL red;
+   - the production NEGCTL red;
+   - S6b: a NEGCTL that drops the e ring write must go red (stale e).
+2. **Laptop, ABBA, phase-synced `int_loop`:** an R-style width sweep at 1200 (25, 100, 400 records) and 5601
+   (8, 48), S6 against S5 Lyngsø against dense, plus ncu per launch for the carry at 44 × 5601 and 4 × 1500.
+3. **A100 notebook S8:**
+   - T again, with the soak repeated 3 times;
+   - the R widths;
+   - the decision on S7.
+4. **Default-path bars** after each stage: parity, matrix, gpu_cli budgets, binding suite.
+
+### 10.6 Decisions for Luke
+
+1. **Order:** S6a, measure, then S6b, measure, then decide S7. Each lands behind `RNA_INT_LOOP_LYNGSO_V2=1`
+   until its bars pass, then becomes the Lyngsø path.
+2. **The e ring's memory:** charged to admission, the same size as the c ring (~34 MB at 48 × 5601, ~150 MB at 1000 × 1200). OK?
+3. **One A100 notebook after S6b** (not after each stage), to save A100 hours.
