@@ -627,3 +627,87 @@ alone; **v2e** = S6a′ + S6b):
 - **E:** ncu, carry and eval.
 
 The laptop smoke passed end to end.
+
+### 10.10 S8 A100 results (2026-10-07, A100-SXM4-80GB, build c628ff01): v2e becomes the Lyngsø path
+
+**E0, exactness: PASS everywhere.**
+- The 20-case matrix, the 14 adversarial fixtures, and 10,082 + 2 long natural records match dense.
+- Selftest over 10,569,924 cells: 0 mismatches for both v1 and v2e, and v2e's entry counts equal v1's.
+- The negative controls bite: NEGCTL=1 gives 278,079 mismatches and changes both output and triangles;
+  NEGCTL=2 gives 512,557.
+- The UNROLL and SLOT_FLOW refusals still fire.
+
+**T, wall (median of 3, one sha per fixture).** v1 is the S5 default; v2e is S6a′ + S6b.
+
+| fixture | dense | v1 | **v2e** | spread | v2e vs v1 | v2e vs dense | int_loop (P) dense / v1 / v2e |
+|---|---|---|---|---|---|---|---|
+| 400 × 5601 | 41.19 | 39.59 | **35.87** | ≤ 0.7 % | **−9.4 %** | −12.9 % | 16.78 / 17.22 / **11.04** |
+| 800 × 2400 | 14.88 | 14.32 | **13.14** | ≤ 1.3 % | −8.2 % | −11.7 % | 5.51 / 5.46 / **3.72** |
+| 3000 × 1200 | 16.22 | 15.85 | **14.68** | ≤ 1.6 % | **−7.4 %** | −9.5 % | 4.88 / 4.57 / **3.25** |
+| 3000 × 600 | 5.38 | 5.33 | **5.08** | ≤ 1.8 % | −4.7 % | −5.6 % | 1.16 / 1.08 / **0.79** |
+| soak (× 3) | 93.64 | 91.89 | **84.12** | 6.3 / 0.3 / 3.5 % | −8.5 % | −10.2 % | |
+
+- **E1 is met:** −9.4 % and −7.4 %, each far outside the spread.
+- **E2 is met:** v2e is not slower anywhere, in T, in R or in the soak.
+- **The soak question S5 left open is answered.** v1 was +1.8 % against dense in one S5 rep; v2e is
+  −10.2 % against dense here. The dense arm's spread is 6.3 %, but every v2e rep beats every dense rep.
+
+**R, phase-synced `int_loop` over widths (s):**
+
+| fixture | dense | v1 | v2 | **v2e** | p5e | p1e | v2e vs dense | v2e vs v1 |
+|---|---|---|---|---|---|---|---|---|
+| 25 × 1200 | 0.071 | 0.119 | 0.067 | **0.059** | 0.060 | 0.059 | −16 % | −50 % |
+| 100 × 1200 | 0.201 | 0.241 | 0.178 | **0.145** | 0.145 | 0.148 | −28 % | −40 % |
+| 400 × 1200 | 0.669 | 0.650 | 0.569 | **0.452** | 0.452 | 0.474 | −33 % | −31 % |
+| 1500 × 1200 | 2.440 | 2.290 | 2.089 | **1.637** | 1.643 | 1.728 | −33 % | −29 % |
+| 3000 × 1200 | 4.883 | 4.581 | 4.226 | **3.264** | 3.290 | 3.464 | −33 % | −29 % |
+| 8 × 5601 | 0.442 | 0.658 | 0.395 | **0.337** | 0.344 | 0.336 | −24 % | −49 % |
+| 48 × 5601 | 1.991 | 2.296 | 1.756 | **1.387** | 1.407 | 1.419 | −30 % | −40 % |
+| 200 × 5601 | 8.219 | 8.843 | 7.194 | **5.736** | 5.641 | 5.835 | −30 % | −35 % |
+
+- **The narrow-row loss is gone on the A100.** At 25 × 1200 and 8 × 5601, v1 was +69 % and +49 %
+  against dense; v2e is −16 % and −24 %. **S7 (switch on mid-sweep) is not needed: closed.**
+- **The PT rule** (5, or 1 when 5 cannot fill) is within 2 % of the better forced PT everywhere. The
+  largest gap is 200 × 5601, where forced 5 is 1.7 % faster than the rule (spread 0.6 %). That is
+  not worth a rule change.
+- **S6a′ and S6b each pay on their own.** v2 alone is −8 to −40 % against v1; the e ring takes a further
+  −12 to −23 % off v2.
+
+**I, interplay at 400 × 5601 (v2e, single run):**
+- default: 35.93 s.
+- overlap 1: 37.93 s (+5.6 %).
+- overlap 0: 38.48 s (+7.1 %).
+- graphs off: 36.05 s (+0.3 %).
+
+The defaults stay as they are.
+
+**E, ncu per launch (3 launches each):**
+
+| | v1 carry | **v2e carry** | eval (v1 = v2e) | dense int_loop |
+|---|---|---|---|---|
+| 44 × 5601 time | 194.8 µs | **63.0 µs** | 173.5 µs | 364.0 µs |
+| occupancy | 49.6 % | 84.7 % | 39 % | 38 % |
+| instructions | 46.6 M | 16.6 M | 41.7 M | 97.5 M |
+| registers | 39 | 32 | 64 | 61 |
+| local-ld | 0 | **52.4 MB** | 0 | 0 |
+| 3000 × 600 time | 1033 µs | **410 µs** | 1162 µs | 2376 µs |
+
+- **The carry is 3.1× faster** (2.5× at 3000 × 600). At 5601, carry plus eval is 236 µs against dense's
+  364 µs, a 35 % saving that no longer depends on overlap. In S5 the carry had cost as much as the eval
+  saved.
+- **On the A100 build the v2e carry reads local memory** (52 MB per launch at 44 × 5601, 393 MB at
+  3000 × 600), at exactly 32 registers; v1 reads none. On the laptop this read was equal in both, so the
+  laptop could not see it. The carry is now 27 % of int_loop at 5601, so this is the next lever: find
+  the source with an ncu source-level view or `-Xptxas -v` at sm_80. It is not a reason to hold the flip.
+
+**V, the pre-registered rule: E0, E1 and E2 are all met. v2e becomes the Lyngsø path.**
+- V2 and ERING are default on.
+- `RNA_INT_LOOP_LYNGSO_V2=0 RNA_INT_LOOP_LYNGSO_ERING=0` restores v1, and `RNA_INT_LOOP_LYNGSO=0`
+  restores dense.
+- The banners print unless quiet, or always when a knob is set explicitly.
+
+**Laptop bars on the flipped default (knobs unset):**
+- The output equals v1, dense and the CPU.
+- The selftest gives 0 mismatches, with entry counts identical to v1's (mix and grich).
+- NEGCTL=1 gives 129,208 mismatches and NEGCTL=2 gives 236,068.
+- ly_s2 is 19/19 SAME (output and triangles), and both refusals fire.

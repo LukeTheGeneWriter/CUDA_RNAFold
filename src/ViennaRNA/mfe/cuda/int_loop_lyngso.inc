@@ -87,14 +87,29 @@ ly_negctl(void)
   return v;   /* 1: the carry dropped; 2 (S6b): the e-ring writes dropped */
 }
 
-/* S6b (PORT_LYNGSO_INTLOOP.md 10.3): RNA_INT_LOOP_LYNGSO_ERING=1 -- fresh entries read e(k,l) from
- * a 32-row ring that carry(i) fills for row i+1, instead of recomputing c + Hc + type + mismatch
- * up to ~50 times per (k,l). Off until its bars pass. */
+/* S6b (PORT_LYNGSO_INTLOOP.md 10.3): fresh entries read e(k,l) from a 32-row ring that carry(i)
+ * fills for row i+1, instead of recomputing c + Hc + type + mismatch up to ~50 times per (k,l).
+ * DEFAULT ON since S8 (2026-10-07, A100: exact, wall -9.4 % vs v1 at 400x5601; 10.10).
+ * RNA_INT_LOOP_LYNGSO_ERING=0 restores the recomputed entries. */
+static int
+ly_knob_default_on(const char *name)
+{
+  const char *e = getenv(name);
+  return (e && e[0]) ? (e[0] != '0') : 1;
+}
+
+static int
+ly_knob_explicit(const char *name)   /* set by the user: its banner is said aloud */
+{
+  const char *e = getenv(name);
+  return (e && e[0]) ? 1 : 0;
+}
+
 static int
 ly_ering(void)
 {
   static int v = -1;
-  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_ERING"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  if (v < 0) v = ly_knob_default_on("RNA_INT_LOOP_LYNGSO_ERING");
   return v;
 }
 
@@ -104,15 +119,16 @@ ly_ering(void)
  * from the row's active slots against the device's thread capacity: a full row keeps one thread
  * per slot (25 planes each), an under-filled one splits the planes to fill the GPU. S6a measured
  * the fixed split (PT = 1 always): exact, but 1.6-1.9x the instructions where the GPU was already
- * full. RNA_INT_LOOP_LYNGSO_PT=25|5|1 forces one PT (the bars and the sweeps). Off until its bars
- * pass; ly_carry_u() is shared with v1, so the arithmetic is the same by construction. */
+ * full. RNA_INT_LOOP_LYNGSO_PT=25|5|1 forces one PT (the bars and the sweeps); a forced PT implies
+ * V2. DEFAULT ON since S8 (2026-10-07, with ERING; 10.10); RNA_INT_LOOP_LYNGSO_V2=0 runs the v1
+ * carry. ly_carry_u() is shared with v1, so the arithmetic is the same by construction. */
 static int
 ly_v2(void)
 {
   static int v = -1;
   if (v < 0) {
-    const char *e = getenv("RNA_INT_LOOP_LYNGSO_V2"), *p = getenv("RNA_INT_LOOP_LYNGSO_PT");
-    v = ((e && e[0] && e[0] != '0') || (p && p[0])) ? 1 : 0;
+    const char *p = getenv("RNA_INT_LOOP_LYNGSO_PT");
+    v = (p && p[0]) ? 1 : ly_knob_default_on("RNA_INT_LOOP_LYNGSO_V2");
   }
   return v;
 }
@@ -225,10 +241,12 @@ ly_alloc(const int nfiles, const size_t* row_off_H)
   static int said = 0;
   if (!said) {
     said = 1;
-    if (ly_ering())   /* asked for: always said */
+    const int loud = !vrna_cuda_quiet();
+    if (ly_ering() && (loud || ly_knob_explicit("RNA_INT_LOOP_LYNGSO_ERING")))   /* asked for: always said */
       fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_ERING ACTIVE: fresh entries read a 32-row e ring (%.1f MB)\n",
               __FILE__, 32.0 * (double)g_row_total * sizeof(int) / 1048576.0);
-    if (ly_v2())   /* asked for: always said (positive evidence for the S6a' bars) */
+    if (ly_v2() && (loud || ly_knob_explicit("RNA_INT_LOOP_LYNGSO_V2") || ly_knob_explicit("RNA_INT_LOOP_LYNGSO_PT")))
+                   /* asked for: always said (positive evidence for the S6a' bars) */
       fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_V2 ACTIVE: 3-D carry grid, planes per thread %s (capacity %ld threads)\n",
               __FILE__, ly_pt_forced() ? (ly_pt_forced() == 25 ? "forced 25" : ly_pt_forced() == 5 ? "forced 5" : "forced 1")
                                        : "per row (5, or 1 when 5 cannot fill)", ly_capacity());
@@ -253,7 +271,8 @@ ly_alloc(const int nfiles, const size_t* row_off_H)
 static void
 ly_free(void)
 {
-  if (g_ly_on && ly_v2())   /* positive evidence: which split each row ran */
+  if (g_ly_on && ly_v2() && (!vrna_cuda_quiet() || ly_knob_explicit("RNA_INT_LOOP_LYNGSO_V2")
+                             || ly_knob_explicit("RNA_INT_LOOP_LYNGSO_PT")))   /* which split each row ran */
     fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:%ld 5:%ld 1:%ld\n",
             __FILE__, g_ly_rows_pt[0], g_ly_rows_pt[1], g_ly_rows_pt[2]);
   if (d_ly_stat) {
