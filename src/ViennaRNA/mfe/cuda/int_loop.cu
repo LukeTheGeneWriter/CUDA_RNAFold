@@ -346,10 +346,11 @@ static int g_slot_only = 0;
 #define SLOT_ALLOC(pp, sz) do { if(!g_refill2) TIMED_CUDAMALLOC(pp, sz); } while(0)
 
 /* Lyngsø S1 selftest (int_loop_lyngso.inc, included further down). */
-static void ly_alloc(void);
+static void ly_alloc(const int nfiles, const size_t* row_off_H);
 static void ly_free(void);
 static int  ly_selftest(void);
 static int  ly_eval_knob(void);
+static int  ly_ering(void);
 
 PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
@@ -633,7 +634,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   size = nfiles*length*sizeof(int);
   SLOT_ALLOC(&d_buf, size);
   */
-  ly_alloc();   /* Lyngsø G buffers (default on; RNA_INT_LOOP_LYNGSO=0 or a refusal -> no-op) */
+  ly_alloc(nfiles, row_off_H);   /* Lyngsø G buffers (default on; RNA_INT_LOOP_LYNGSO=0 or a refusal -> no-op) */
   stage_ig2_s += rnafold_now_seconds() - _t_ig2;
   first2 = 0;
 }
@@ -728,7 +729,10 @@ int_loop_bytes_per_file(const int length) {
   // MAXLOOP - 5 of them). Charged when asked, like the ring, for the same reason.
   const size_t ly_bytes           = (ly_eval_knob() || ly_selftest())
                                     ? (size_t)2*(MAXLOOP - 5)*(length+1)*sizeof(int) : 0;
-  return hccc_bytes + s_bytes + my_c_bytes + new_e_bytes + energy_min2_bytes + c_ring_bytes + ly_bytes;
+  // S6b: RNA_INT_LOOP_LYNGSO_ERING's 32-row e ring, the c ring's size.
+  const size_t ly_e_bytes         = (ly_ering() && (ly_eval_knob() || ly_selftest()))
+                                    ? (size_t)32*(length+1)*sizeof(int) : 0;
+  return hccc_bytes + s_bytes + my_c_bytes + new_e_bytes + energy_min2_bytes + c_ring_bytes + ly_bytes + ly_e_bytes;
 }
 
 // Copies the GPU's my_c triangle back into each record's own

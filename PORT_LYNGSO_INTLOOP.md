@@ -540,3 +540,67 @@ ncu, `ly_carry_kernel` per launch:
 - **Capacity:** the SM count × max threads per SM, queried once.
 - **Bars:** the same exactness bars. A laptop check that wide rows equal v1 and 8 × 5601 equals or beats v2.
   The narrow-row verdict goes to the S6 A100 notebook.
+
+### 10.8 S6a′ results (2026-10-07, laptop; GPU mostly power-capped, 12–17 W)
+
+`RNA_INT_LOOP_LYNGSO_V2=1`: a 3-D carry grid (z the record, x the columns j > i, y a group of PT planes), so
+there is no record search and no thread below the diagonal. `RNA_INT_LOOP_LYNGSO_PT=25|5|1` forces a split;
+a tally at teardown says which split each row ran.
+
+**Exact:**
+- Every split (25, 5, 1, adaptive) gives 0 MISMATCHING with v1's entry counts to the unit, on mix, G-rich,
+  `--noLP`, `-C` and `--circ`.
+- NEGCTL gives 129,208.
+- `ly_s2.sh` with V2: 19/19, plus the refusals and the production NEGCTL.
+
+**Phase-synced `int_loop` (s), ABBA, median of 2, one output per fixture:**
+
+| fixture | v1 | adaptive (first rule) | PT 25 | **PT 5** | PT 1 | dense |
+|---|---|---|---|---|---|---|
+| 2 × 5601 | 0.85 | 0.69 | 0.82 | 0.70 | 0.69 | 0.78 |
+| 8 × 5601 | 4.19 | 4.03 | 4.49 | **3.34** | 3.57 | 3.90 |
+| 48 × 5601 | 28.66 | 29.49 | 30.16 | **21.76** | 21.94 | 28.53 |
+| 25 × 1200 | 0.56 | 0.56 | 0.56 | **0.52** | 0.54 | 0.65 |
+| 100 × 1200 | 2.05 | 2.16 | 2.16 | **1.90** | 1.97 | 2.66 |
+| 400 × 1200 | 7.70 | 8.37 | 8.41 | **7.46** | 7.73 | 10.36 |
+| 1500 × 600 | 7.20 | 6.96 | 6.97 | **6.92** | 7.27 | 9.43 |
+
+**Reading:**
+- **PT = 5 is best or tied at every width.** At 48 × 5601 it is −24 % against v1 and −24 % against dense,
+  where v1 had only tied dense (as on the A100 at 44 × 5601).
+- PT = 25 on the 3-D grid loses even on full rows. The likely cause: with the u loop not unrolled, the
+  per-u fresh tables (`f1[4]`/`f2[4]`) are indexed dynamically and live in local memory. With PT = 5
+  unrolled, each u is a compile-time constant. ncu's local-load bytes will confirm.
+- **The rule is now PT = 5, or 1 when 5 × active slots cannot fill the device.** PT = 25 stays reachable
+  only through the forcing knob.
+
+### 10.9 S6b results (2026-10-07, laptop; GPU power-capped, 12.9 W / 1057 MHz)
+
+`RNA_INT_LOOP_LYNGSO_ERING=1`: fresh entries read `e(k,l)` from a 32-row ring, which `carry(i)` writes for
+row i+1 (the y = 0 group in the 3-D kernel). `RNA_INT_LOOP_LYNGSO_NEGCTL=2` skips the ring writes.
+
+**Exact:**
+- Every arm gives 0 MISMATCHING with v1's entry counts to the unit: the ring alone, the ring with the
+  adaptive split, and the ring with PT forced to 25, 5 or 1.
+- The fixtures: mix, G-rich, `--noLP`, `-C`, `--circ`, `--noClosingGU`, `-d0` and salt 0.2.
+- NEGCTL=2 gives 236,068 mismatching (no fresh entries survive).
+- `ly_s2.sh` 19/19 with V2 + ERING and with ERING alone, plus the refusals.
+- The production NEGCTL=2 changes 8 output lines and the triangles.
+
+**Phase-synced `int_loop` (s), ABBA, median of 2, one output per fixture** (v1 = the S5 default; ad = S6a′
+alone; **v2e** = S6a′ + S6b):
+
+| fixture | v1 | ad | **v2e** | p5e | dense | v2e vs v1 | v2e vs dense |
+|---|---|---|---|---|---|---|---|
+| 2 × 5601 | 0.92 | 0.75 | **0.62** | 0.62 | 0.81 | −32 % | −23 % |
+| 8 × 5601 | 4.99 | 3.78 | **2.96** | 2.95 | 4.91 | −41 % | −40 % |
+| 25 × 1200 | 0.65 | 0.56 | **0.46** | 0.47 | 0.74 | −29 % | −37 % |
+| 100 × 1200 | 2.19 | 1.96 | **1.60** | 1.60 | 2.67 | −27 % | −40 % |
+| 400 × 1200 | 8.30 | 7.59 | **6.17** | 6.18 | 10.38 | −26 % | −41 % |
+| 1500 × 600 | 7.24 | 7.01 | **5.82** | 5.80 | 9.43 | −20 % | −38 % |
+
+48 × 5601 was not run: Claude Code reaped the run for host memory. The A100 notebook covers it.
+
+**Reading:**
+- On the laptop, the narrow-row loss has gone at every width tried. v2e beats dense by 23–41 %.
+- The rule's PT choice matches forced PT = 5 within noise wherever both ran.

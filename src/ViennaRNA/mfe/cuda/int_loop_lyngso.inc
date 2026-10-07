@@ -38,6 +38,7 @@
 #define LY_NBAD  4
 
 static int*                d_ly_G[2] = { NULL, NULL };   /* [LY_NU][g_row_total], rows of parity 0/1 */
+static int*                d_ly_E    = NULL;             /* S6b: [32][g_row_total], e(k,l) at slot k & 31 */
 static unsigned long long* d_ly_stat = NULL;
 static int*                d_ly_bad  = NULL;
 static int                 g_ly_on   = 0;
@@ -82,20 +83,71 @@ static int
 ly_negctl(void)
 {
   static int v = -1;
-  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_NEGCTL"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_NEGCTL"); v = (e && e[0]) ? atoi(e) : 0; if (v < 0 || v > 2) v = 1; }
+  return v;   /* 1: the carry dropped; 2 (S6b): the e-ring writes dropped */
+}
+
+/* S6b (PORT_LYNGSO_INTLOOP.md 10.3): RNA_INT_LOOP_LYNGSO_ERING=1 -- fresh entries read e(k,l) from
+ * a 32-row ring that carry(i) fills for row i+1, instead of recomputing c + Hc + type + mismatch
+ * up to ~50 times per (k,l). Off until its bars pass. */
+static int
+ly_ering(void)
+{
+  static int v = -1;
+  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_ERING"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
   return v;
 }
 
-/* S6a (PORT_LYNGSO_INTLOOP.md 10.2): RNA_INT_LOOP_LYNGSO_V2=1 runs the carry as one thread per
- * (u, slot) instead of one thread walking u = 6..30. The 25 planes are independent, so this is the
- * same arithmetic (ly_carry_u(), shared by both kernels) with a ~25x shorter dependent-load chain
- * per thread -- the narrow-row latency the A100 R sweep showed. Off until its bars pass. */
+/* S6a' (PORT_LYNGSO_INTLOOP.md 10.7): RNA_INT_LOOP_LYNGSO_V2=1 runs the carry on a 3-D grid --
+ * z the record, x the columns j > i, y a group of PT planes -- so there is no per-thread record
+ * search and no thread below the diagonal. PT (planes per thread, 25 | 5 | 1) is chosen PER ROW
+ * from the row's active slots against the device's thread capacity: a full row keeps one thread
+ * per slot (25 planes each), an under-filled one splits the planes to fill the GPU. S6a measured
+ * the fixed split (PT = 1 always): exact, but 1.6-1.9x the instructions where the GPU was already
+ * full. RNA_INT_LOOP_LYNGSO_PT=25|5|1 forces one PT (the bars and the sweeps). Off until its bars
+ * pass; ly_carry_u() is shared with v1, so the arithmetic is the same by construction. */
 static int
 ly_v2(void)
 {
   static int v = -1;
-  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_V2"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  if (v < 0) {
+    const char *e = getenv("RNA_INT_LOOP_LYNGSO_V2"), *p = getenv("RNA_INT_LOOP_LYNGSO_PT");
+    v = ((e && e[0] && e[0] != '0') || (p && p[0])) ? 1 : 0;
+  }
   return v;
+}
+
+static int
+ly_pt_forced(void)          /* 0 = adaptive */
+{
+  static int v = -1;
+  if (v < 0) {
+    const char *p = getenv("RNA_INT_LOOP_LYNGSO_PT");
+    v = (p && p[0]) ? atoi(p) : 0;
+    if (v != 0 && v != 1 && v != 5 && v != 25) v = 0;
+  }
+  return v;
+}
+
+/* Host side of the per-row choice: each record's length (from row_off_H), and the device's
+ * resident-thread capacity, queried once. */
+static int*  g_ly_len   = NULL;
+static int   g_ly_n     = 0, g_ly_lmax = 0;
+static long  g_ly_cap   = 0;
+static long  g_ly_rows_pt[3] = { 0, 0, 0 };   /* rows launched at PT 25 / 5 / 1, this chunk */
+
+static long
+ly_capacity(void)
+{
+  if (g_ly_cap == 0) {
+    int dev = 0, sms = 0, tps = 0;
+    cudaGetDevice(&dev);
+    cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, dev);
+    cudaDeviceGetAttribute(&tps, cudaDevAttrMaxThreadsPerMultiProcessor, dev);
+    g_ly_cap = (long)sms * (long)tps;
+    if (g_ly_cap <= 0) g_ly_cap = 1;
+  }
+  return g_ly_cap;
 }
 
 static void
@@ -104,7 +156,7 @@ ly_report(void)
   const unsigned long long *t = g_ly_tot;
   fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST%s: %d chunk(s), %llu cells compared (%llu live), %llu MISMATCHING; "
                   "entries %llu fresh + %llu carried, %llu direct evaluations\n",
-          __FILE__, ly_negctl() ? " (NEGCTL: carry dropped)" : "", g_ly_chunks, t[0], t[2], t[1], t[3], t[4], t[5]);
+          __FILE__, ly_negctl() == 1 ? " (NEGCTL: carry dropped)" : ly_negctl() == 2 ? " (NEGCTL: e ring not written)" : "", g_ly_chunks, t[0], t[2], t[1], t[3], t[4], t[5]);
   for (int b = 0; b < g_ly_nbadh; b++)
     fprintf(stderr, "%-24s   mismatch H=%d i=%d j=%d dense %d lyngso %d\n", __FILE__,
             g_ly_badh[5*b], g_ly_badh[5*b+1], g_ly_badh[5*b+2], g_ly_badh[5*b+3], g_ly_badh[5*b+4]);
@@ -119,7 +171,7 @@ ly_fill_kernel(int* __restrict__ a, const size_t n)
 
 /* init_gpu2(): one pair of G row buffers for the chunk. Refused where records are not on one row. */
 static void
-ly_alloc(void)
+ly_alloc(const int nfiles, const size_t* row_off_H)
 {
   g_ly_on = 0;
   g_ly_eval = 0;
@@ -152,27 +204,47 @@ ly_alloc(void)
     gpuErrchk( cudaMalloc((void **)&d_ly_G[b], sizeof(int) * (n ? n : 1)) );
     if (n) { ly_fill_kernel<<<(unsigned)((n + 255) / 256), 256>>>(d_ly_G[b], n); gpuErrchk( cudaPeekAtLastError() ); }
   }
+  if (ly_ering()) {
+    const size_t ne = (size_t)32 * g_row_total;
+    gpuErrchk( cudaMalloc((void **)&d_ly_E, sizeof(int) * (ne ? ne : 1)) );
+    if (ne) { ly_fill_kernel<<<(unsigned)((ne + 255) / 256), 256>>>(d_ly_E, ne); gpuErrchk( cudaPeekAtLastError() ); }
+  }
   gpuErrchk( cudaMalloc((void **)&d_ly_stat, sizeof(unsigned long long) * LY_NSTAT) );
   gpuErrchk( cudaMalloc((void **)&d_ly_bad,  sizeof(int) * LY_NBAD * 5) );
   gpuErrchk( cudaMemset(d_ly_stat, 0, sizeof(unsigned long long) * LY_NSTAT) );
   g_ly_on = 1;
   g_ly_chunks++;
+  /* S6a': the record lengths, for the per-row active-slot count */
+  free(g_ly_len); g_ly_len = (int *)malloc(sizeof(int) * (nfiles > 0 ? nfiles : 1));
+  g_ly_n = nfiles; g_ly_lmax = 0;
+  for (int H = 0; H < nfiles; H++) {
+    g_ly_len[H] = (int)(row_off_H[H + 1] - row_off_H[H]) - 1;
+    if (g_ly_len[H] > g_ly_lmax) g_ly_lmax = g_ly_len[H];
+  }
+  g_ly_rows_pt[0] = g_ly_rows_pt[1] = g_ly_rows_pt[2] = 0;
   static int said = 0;
   if (!said) {
     said = 1;
-    if (ly_v2())   /* asked for: always said (positive evidence for the S6a bars) */
-      fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_V2 ACTIVE: the carry runs one thread per (u, slot)\n", __FILE__);
+    if (ly_ering())   /* asked for: always said */
+      fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_ERING ACTIVE: fresh entries read a 32-row e ring (%.1f MB)\n",
+              __FILE__, 32.0 * (double)g_row_total * sizeof(int) / 1048576.0);
+    if (ly_v2())   /* asked for: always said (positive evidence for the S6a' bars) */
+      fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_V2 ACTIVE: 3-D carry grid, planes per thread %s (capacity %ld threads)\n",
+              __FILE__, ly_pt_forced() ? (ly_pt_forced() == 25 ? "forced 25" : ly_pt_forced() == 5 ? "forced 5" : "forced 1")
+                                       : "per row (5, or 1 when 5 cannot fill)", ly_capacity());
     if (g_ly_eval) {
       if (!vrna_cuda_quiet())
         fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO ACTIVE: int_loop enumerates the direct loops only; generic "
                         "interior loops come from the carried table (G %.1f MB%s)\n", __FILE__,
                 2.0 * (double)n * sizeof(int) / 1048576.0,
-                ly_negctl() ? ", NEGCTL: carry dropped -- WRONG ANSWERS EXPECTED" : "");
+                ly_negctl() == 1 ? ", NEGCTL: carry dropped -- WRONG ANSWERS EXPECTED"
+                                : ly_negctl() == 2 ? ", NEGCTL: e ring not written -- WRONG ANSWERS EXPECTED" : "");
     } else {
       atexit(ly_report);
       fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST ACTIVE: the Lyngsø carry form computed beside the dense "
                       "int_loop and compared cell for cell (G %.1f MB%s)\n", __FILE__,
-              2.0 * (double)n * sizeof(int) / 1048576.0, ly_negctl() ? ", NEGCTL: carry dropped" : "");
+              2.0 * (double)n * sizeof(int) / 1048576.0,
+              ly_negctl() == 1 ? ", NEGCTL: carry dropped" : ly_negctl() == 2 ? ", NEGCTL: e ring not written" : "");
     }
   }
 }
@@ -181,6 +253,9 @@ ly_alloc(void)
 static void
 ly_free(void)
 {
+  if (g_ly_on && ly_v2())   /* positive evidence: which split each row ran */
+    fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:%ld 5:%ld 1:%ld\n",
+            __FILE__, g_ly_rows_pt[0], g_ly_rows_pt[1], g_ly_rows_pt[2]);
   if (d_ly_stat) {
     unsigned long long s[LY_NSTAT]; int b[LY_NBAD * 5];
     gpuErrchk( cudaMemcpy(s, d_ly_stat, sizeof(s), cudaMemcpyDeviceToHost) );
@@ -190,6 +265,7 @@ ly_free(void)
       memcpy(&g_ly_badh[5 * g_ly_nbadh], &b[5 * m], 5 * sizeof(int));
   }
   for (int k = 0; k < 2; k++) if (d_ly_G[k]) { gpuErrchk( cudaFree(d_ly_G[k]) ); d_ly_G[k] = NULL; }
+  if (d_ly_E) { gpuErrchk( cudaFree(d_ly_E) ); d_ly_E = NULL; }
   if (d_ly_stat) { gpuErrchk( cudaFree(d_ly_stat) ); d_ly_stat = NULL; }
   if (d_ly_bad)  { gpuErrchk( cudaFree(d_ly_bad) );  d_ly_bad  = NULL; }
   g_ly_on = 0;
@@ -218,15 +294,34 @@ ly_reader(c_ring_reader*, const int*, const int* ring, const size_t stride, cons
   c_ring_reader r; r.base = ring + o; r.stride = stride; return r;
 }
 
+/* S6b: the expensive part of a fresh entry, independent of the outer pair (PORT_LYNGSO_INTLOOP.md 10.3):
+ *     e(k,l) = c(k,l) + mismatchI[rtype(type(k,l))][S(l+1)][S(k-1)],
+ * INF where Hc forbids (k,l), c is INF, or --noClosingGU rejects the inner type. The ninio term
+ * (u alone) and the up_int gates (i, u1 / l, u2) stay with the use. */
+template<class CREAD>
+__device__ __forceinline__ int
+ly_entry(const int k, const int l, const int H, const int s_stride, const CREAD& cr,
+         const unsigned int* __restrict__ hc_H, const cuda_param_t* __restrict__ P,
+         const char* __restrict__ pair_, const unsigned int* __restrict__ S)
+{
+  if (!Hc(Indx(k, l), hc_H)) return INF;
+  const int c = cr(k, l);
+  if (c >= INF) return INF;
+  const int t2 = P->rtype[ly_type(S, pair_, H, s_stride, k, l)];
+  if (P->noGUclosure && (t2 == 3 || t2 == 4)) return INF;
+  return c + P->mismatchI[t2][unpack(S, H, s_stride, l + 1)][unpack(S, H, s_stride, k - 1)];
+}
+
 /* One plane u of G at (i, j): the carry from (i+1, j-1) and this cell's fresh entries. Shared by the
- * u-loop kernel (v1) and the one-thread-per-(u, slot) kernel (S6a), so both run the same arithmetic. */
+ * u-loop kernel (v1) and the 3-D kernel (S6a'), so both run the same arithmetic. Er (S6b): the e
+ * ring, 32 rows of e(k,l) at (k & 31) * row_total + o + l, or NULL to compute e in place. */
 template<class CREAD>
 __device__ __forceinline__ int
 ly_carry_u(const int u, const int i, const int j, const int H, const size_t o, const int s_stride,
            const int carry_ok, const CREAD& cr, const unsigned int* __restrict__ hc_H,
            const unsigned char* __restrict__ up, const cuda_param_t* __restrict__ P,
            const char* __restrict__ pair_, const unsigned int* __restrict__ S,
-           const size_t row_total, const int* __restrict__ Gp,
+           const size_t row_total, const int* __restrict__ Gp, const int* Er,
            unsigned long long& nfresh, unsigned long long& ncarry)
 {
   int g = INF;
@@ -246,23 +341,34 @@ ly_carry_u(const int u, const int i, const int j, const int H, const size_t o, c
     const int k = i + u1 + 1, l = j - u2 - 1;
     if (l - k < 1) continue;
     if (up && ((int)up[i + 1] < u1 || (int)up[l + 1] < u2)) continue;
-    if (!Hc(Indx(k, l), hc_H)) continue;
-    const int c = cr(k, l);
-    if (c >= INF) continue;
-    const int t2 = P->rtype[ly_type(S, pair_, H, s_stride, k, l)];
-    if (P->noGUclosure && (t2 == 3 || t2 == 4)) continue;
-    const int d  = u1 > u2 ? u1 - u2 : u2 - u1;
-    const int v  = c + P->mismatchI[t2][unpack(S, H, s_stride, l + 1)][unpack(S, H, s_stride, k - 1)]
-                     + MIN2(P->max_ninio, d * P->ninio2);
+    const int e = Er ? Er[(size_t)(k & 31) * row_total + o + (size_t)l]
+                     : ly_entry(k, l, H, s_stride, cr, hc_H, P, pair_, S);
+    if (e >= INF) continue;
+    const int d = u1 > u2 ? u1 - u2 : u2 - u1;
+    const int v = e + MIN2(P->max_ninio, d * P->ninio2);
     nfresh++;
     if (v < g) g = v;
   }
   return g;
 }
 
-/* Row i: G for every column j in (i, len_H], one thread per row-layout slot, all 25 planes (v1).
- * V2: blockIdx.y is the plane, so one thread per (u, slot); a warp is 32 slots of one plane. */
-template<class CREAD, bool V2>
+/* S6b: row i+1's e, for column j, into the ring. Row i+1's c is final: it was written on this
+ * stream before int_loop(i), whose stacks read it. carry(i) reads e rows i+3 .. i+29 only, so a
+ * kernel never reads the row it writes. negctl 2 skips the write: stale e, must go red. */
+template<class CREAD>
+__device__ __forceinline__ void
+ly_entry_store(int* Er, const int negctl, const int i, const int j, const int H, const size_t o,
+               const int s_stride, const CREAD& cr, const unsigned int* __restrict__ hc_H,
+               const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
+               const unsigned int* __restrict__ S, const size_t row_total)
+{
+  const int k = i + 1;
+  if (!Er || negctl == 2 || j <= k) return;
+  Er[(size_t)(k & 31) * row_total + o + (size_t)j] = ly_entry(k, j, H, s_stride, cr, hc_H, P, pair_, S);
+}
+
+/* Row i: G for every column j in (i, len_H], one thread per row-layout slot, all 25 planes (v1). */
+template<class CREAD>
 __global__ void
 ly_carry_kernel(const int nfiles, const int i, const int length, const int negctl,
                 const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
@@ -271,7 +377,7 @@ ly_carry_kernel(const int nfiles, const int i, const int length, const int negct
                 const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
                 const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
                 const size_t* __restrict__ hc_off_H, const size_t row_total,
-                const int* __restrict__ Gp, int* __restrict__ Gc,
+                const int* __restrict__ Gp, int* __restrict__ Gc, int* Er,
                 unsigned long long* __restrict__ stat)
 {
   const size_t m = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
@@ -289,19 +395,55 @@ ly_carry_kernel(const int nfiles, const int i, const int length, const int negct
   const unsigned int*  hc_H = &hccc[hc_off_H[H]];
   const unsigned char* up   = up_int ? &up_int[o] : NULL;
   const int s_stride = S_STRIDE(length);
-  const int carry_ok = !negctl && j - 1 > i + 1 && (!up || (up[i + 1] >= 1 && up[j - 1] >= 1));
+  const int carry_ok = negctl != 1 && j - 1 > i + 1 && (!up || (up[i + 1] >= 1 && up[j - 1] >= 1));
   unsigned long long nfresh = 0, ncarry = 0;
 
-  if (V2) {
-    const int u = LY_U0 + (int)blockIdx.y;
+  for (int u = LY_U0; u <= MAXLOOP; u++)
     Gc[(size_t)(u - LY_U0) * row_total + m] =
-      ly_carry_u(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, nfresh, ncarry);
-  } else {
-    for (int u = LY_U0; u <= MAXLOOP; u++)
-      Gc[(size_t)(u - LY_U0) * row_total + m] =
-        ly_carry_u(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, nfresh, ncarry);
-  }
+      ly_carry_u(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, Er, nfresh, ncarry);
+  ly_entry_store(Er, negctl, i, j, H, o, s_stride, cr, hc_H, P, pair_, S, row_total);
   if (stat && nfresh) atomicAdd(&stat[3], nfresh);   /* stat NULL in production (S2) */
+  if (stat && ncarry) atomicAdd(&stat[4], ncarry);
+}
+
+/* S6a': the same row on a 3-D grid. z = the record H (no search), x = j - (i + 1) (no thread
+ * below the diagonal), y = a group of PT planes starting at LY_U0 + y * PT. The y = 0 group
+ * writes the e row (S6b). */
+template<class CREAD, int PT>
+__global__ void
+ly_carry3_kernel(const int i, const int length, const int negctl,
+                 const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
+                 const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
+                 const unsigned char* __restrict__ up_int,
+                 const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
+                 const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                 const size_t* __restrict__ hc_off_H, const size_t row_total,
+                 const int* __restrict__ Gp, int* __restrict__ Gc, int* Er,
+                 unsigned long long* __restrict__ stat)
+{
+  const int    H   = (int)blockIdx.z;
+  const size_t o   = row_off_H[H];
+  const int    len = (int)(row_off_H[H + 1] - o) - 1;
+  const int    j   = i + 1 + (int)(blockIdx.x * blockDim.x + threadIdx.x);
+  if (j > len) return;
+  const size_t m = o + (size_t)j;
+
+  const CREAD cr = ly_reader((CREAD *)0, my_c, c_ring, c_ring_stride, tri_off_H[H], o);
+  const unsigned int*  hc_H = &hccc[hc_off_H[H]];
+  const unsigned char* up   = up_int ? &up_int[o] : NULL;
+  const int s_stride = S_STRIDE(length);
+  const int carry_ok = negctl != 1 && j - 1 > i + 1 && (!up || (up[i + 1] >= 1 && up[j - 1] >= 1));
+  unsigned long long nfresh = 0, ncarry = 0;
+
+  const int u0 = LY_U0 + (int)blockIdx.y * PT;
+#pragma unroll 5
+  for (int t = 0; t < PT; t++) {
+    const int u = u0 + t;
+    Gc[(size_t)(u - LY_U0) * row_total + m] =
+      ly_carry_u(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, Er, nfresh, ncarry);
+  }
+  if (blockIdx.y == 0) ly_entry_store(Er, negctl, i, j, H, o, s_stride, cr, hc_H, P, pair_, S, row_total);
+  if (stat && nfresh) atomicAdd(&stat[3], nfresh);
   if (stat && ncarry) atomicAdd(&stat[4], ncarry);
 }
 
@@ -378,20 +520,36 @@ ly_carry_row(const int nfiles, const int i, const int length, unsigned long long
 {
   int* Gc = d_ly_G[i & 1];
   const int* Gp = d_ly_G[(i + 1) & 1];
+  int* Er = d_ly_E;                                   /* S6b, or NULL */
   const size_t rt = g_row_total;
   const int nbr = (int)((rt + 127) / 128);
-#define LY_CARRY_LAUNCH(CR, V2_, GRID) \
-  ly_carry_kernel<CR, V2_><<<GRID, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair, \
-      d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, stat)
-  if (ly_v2()) {
-    const dim3 grid((unsigned)nbr, (unsigned)LY_NU);   /* S6a: y = the plane u - LY_U0 */
-    if (g_c_ring_on) LY_CARRY_LAUNCH(c_ring_reader, true, grid);
-    else             LY_CARRY_LAUNCH(c_tri_reader,  true, grid);
+  if (ly_v2() && nfiles <= 65535 && nfiles == g_ly_n) {
+    /* S6a': this row's active slots decide the split */
+    long act = 0;
+    for (int H = 0; H < g_ly_n; H++) if (g_ly_len[H] > i) act += g_ly_len[H] - i;
+    if (act == 0) return;                      /* nothing to carry: no record reaches past i */
+    const long cap = ly_capacity();
+    int pt = ly_pt_forced();
+    /* laptop sweep (10-07): PT 5 is best or tied at every width, 25 loses even on full rows
+     * (-24 % vs v1 at 48x5601); 1 only where 5 cannot fill the device */
+    if (!pt) pt = (act * 5 >= cap) ? 5 : 1;
+    g_ly_rows_pt[pt == 25 ? 0 : pt == 5 ? 1 : 2]++;
+    const int  w   = g_ly_lmax - i;                              /* widest record's columns past i */
+    const int  bx  = w >= 128 ? 128 : ((w + 31) / 32) * 32;     /* narrow rows: no idle 128-blocks */
+    const dim3 grid((unsigned)((w + bx - 1) / bx), (unsigned)(LY_NU / pt), (unsigned)nfiles);
+#define LY_CARRY3(CR, PT_) \
+    ly_carry3_kernel<CR, PT_><<<grid, bx, 0, rnafold_stream_cell()>>>(i, length, ly_negctl(), d_param, d_pair, \
+        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, Er, stat)
+    if (g_c_ring_on) { if (pt == 25) LY_CARRY3(c_ring_reader, 25); else if (pt == 5) LY_CARRY3(c_ring_reader, 5); else LY_CARRY3(c_ring_reader, 1); }
+    else             { if (pt == 25) LY_CARRY3(c_tri_reader,  25); else if (pt == 5) LY_CARRY3(c_tri_reader,  5); else LY_CARRY3(c_tri_reader,  1); }
+#undef LY_CARRY3
+  } else if (g_c_ring_on) {
+    ly_carry_kernel<c_ring_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
+        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, Er, stat);
   } else {
-    if (g_c_ring_on) LY_CARRY_LAUNCH(c_ring_reader, false, nbr);
-    else             LY_CARRY_LAUNCH(c_tri_reader,  false, nbr);
+    ly_carry_kernel<c_tri_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
+        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, Er, stat);
   }
-#undef LY_CARRY_LAUNCH
   gpuErrchk( cudaPeekAtLastError() );
 }
 
