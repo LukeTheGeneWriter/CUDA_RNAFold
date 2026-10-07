@@ -188,6 +188,17 @@ were checked and are not the cause (12.2 / 11.9 / 12.1 s).
 
 The carry kernel is inside the `int_loop` phase, so these are net. The A100 (S5) decides the default.
 
+**S3 partial (2026-10-07, laptop, `ly_s3.sh`, `RNA_INT_LOOP_LYNGSO=1` exported for every arm).** Positive
+evidence: the ACTIVE banner printed. All green so far:
+- `verify_option_parity`: the CUDA build matches the CPU build across the option surface;
+- `verify_option_matrix`: 36/36 pairs agree, on the route they claim;
+- `verify_gpu_cli` budgets 4/8/16/32 MB: byte for byte against the frozen references;
+- Python binding suite: 20 pass, 0 fail;
+- bar 6 (adversarial density): 14 cases logged (polyA … Grich -g), all `vsCPU=SAME vsDense=SAME swept=1`.
+
+**Not run:** Claude Code reaped the run for host memory pressure during bar 6, so bar 6's remaining cases
+and bar 7 (natural set) are still open. Re-run `ly_s3.sh` from bar 6 when the host has the memory.
+
 ## 6. Expected size
 
 CPU counting says 1.85× fewer evaluations. If the kernel stays issue-bound, `int_loop` drops from 16.5 s
