@@ -711,3 +711,66 @@ The defaults stay as they are.
 - The selftest gives 0 mismatches, with entry counts identical to v1's (mix and grich).
 - NEGCTL=1 gives 129,208 mismatches and NEGCTL=2 gives 236,068.
 - ly_s2 is 19/19 SAME (output and triangles), and both refusals fire.
+
+### 10.11 The carry's local-memory frame (2026-10-07, laptop + ptxas sm_80; S9 A100 notebook)
+
+**Cause.** S8's ncu found the v2e carry on the A100 build reading local memory: 52 MB per launch at 44 × 5601,
+at exactly 32 registers.
+- `ptxas -v` showed **0 spill bytes but a 32-byte stack frame** in every carry kernel. That frame is
+  `ly_carry_u()`'s `int f1[4], f2[4]` list of fresh entries, indexed in a runtime loop.
+- §10.8 had named this array; §10.9 "refuted" it because the laptop's local loads were equal in v1 and v2e.
+  Both carried the frame, so that comparison could not see it. A v1-vs-v2e control cannot test what both
+  contain; the right arm is the same kernel without the frame.
+
+**Fix.**
+- Each fresh entry is a straight-line call, `ly_fresh<CREAD, RING>(u1, u2, …)`.
+- The e ring is a template choice: 1 = ring only, 0 = recompute only, 2 = run-time (unused now). The v2
+  kernels no longer carry the dead recompute path.
+- The v1 kernel is templated on the ring too: 92 → 48 registers. It is the fallback beyond 65,535 records per
+  chunk.
+- Arithmetic and order are unchanged; the guard `(t == 1 && u1 == u2)` becomes `u - 2 != 2`.
+
+**ptxas sm_80, production kernel (c ring reader, PT 5, ring on):**
+
+| build | registers | stack frame | spills |
+|---|---|---|---|
+| de804f63 | 32 | 32 B | 0 |
+| fix, default | 40 | 0 | 0 |
+| fix, `RNA_INT_LOOP_LYNGSO_LB=1` (`__launch_bounds__(128, 16)`) | 32 | 0 | 0 |
+
+- `__launch_bounds__(128, 1)` is **not** neutral: it raised the default from 40 to 55. So LB is a second
+  kernel over a shared `ly_carry3_body`, not a template argument on one kernel.
+- LB needs the A100. On the laptop (1536 threads/SM) 40 registers already fill the SM, and ptxas there
+  gives LB 37 registers.
+  On the A100 (2048 threads/SM) 40 registers cap occupancy at 75 %.
+
+**Measurement arm:** `RNA_INT_LOOP_LYNGSO_FRAME=1` runs de804f63's carry verbatim (`ly_carry3_frame_kernel`).
+On the laptop it reproduces the saved de804f63 binary: 243.9 vs 244.3 µs, identical instructions and local
+loads. Retire it after S9.
+
+**Laptop exactness:**
+- Selftest: 0 mismatches with identical entry counts across 9 arms (frame, new, lb, v1, v2, e1, PT 1, PT 25,
+  LB + PT 1) on mix and grich.
+- Six options × {new, lb, v1}: all 0 mismatches.
+- NEGCTL 1 and 2 bite in new, lb and frame.
+- ly_s2 19/19 SAME for both the default and LB=1; the refusals fire.
+
+**Laptop ncu, the carry per launch:**
+
+| fixture | frame | **new** | lb | instructions frame → new | local-ld frame → new |
+|---|---|---|---|---|---|
+| 48 × 5601 | 243.9 µs | **195.2 µs (−20 %)** | 195.7 | 7.50 → 6.29 M | 23.8 MB → 0 |
+| 400 × 1200 | 1025.9 µs | **828.5 µs (−19 %)** | 824.9 | 32.40 → 27.17 M | 103.1 MB → 0 |
+| 8 × 5601 | 105.1 µs | **84.0 µs (−20 %)** | 83.9 | 3.00 → 2.52 M | 9.5 MB → 0 |
+
+**Laptop phase-synced `int_loop`** (power-capped, 712 MHz, so only the wide rows are readable): 400 × 1200
+6.17 → 5.91 s (−4 %), 1500 × 600 5.79 → 5.57 s (−4 %).
+
+**Pre-registered rule for S9 (`CUDA_RNAFold_LyngsoS9.ipynb`):**
+- **F0:** G passes in full. That covers S8's G on the new default; selftest counts equal across v1, default,
+  LB and frame; NEGCTL 1 and 2 bite (LB too); and production LB and frame runs equal dense and the CPU.
+- **F1, the fix stays:** new is not slower than frame beyond spread at any T fixture (400 × 5601,
+  800 × 2400, 3000 × 1200, 3000 × 600) or on the soak (× 3). Otherwise the frame code is restored.
+- **F2, LB becomes the default:** lb is faster than new beyond spread at 400 × 5601 **and** 3000 × 1200, and
+  not slower than new beyond spread anywhere.
+- **Reported:** R (widths, synced `int_loop`) and E (ncu for the three carry kernels).

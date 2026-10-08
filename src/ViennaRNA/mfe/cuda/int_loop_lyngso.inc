@@ -133,6 +133,25 @@ ly_v2(void)
   return v;
 }
 
+/* 10.11: RNA_INT_LOOP_LYNGSO_LB=1 launches the ring carry at __launch_bounds__(128, 16) (32 registers).
+ * Off until the A100 says which wins; the laptop (1536 threads/SM) is full at either count. */
+static int
+ly_lb(void)
+{
+  static int v = -1;
+  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_LB"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  return v;
+}
+
+/* 10.11 measurement arm: RNA_INT_LOOP_LYNGSO_FRAME=1 runs the de804f63 carry (with its local frame). */
+static int
+ly_frame(void)
+{
+  static int v = -1;
+  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_FRAME"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
+  return v;
+}
+
 static int
 ly_pt_forced(void)          /* 0 = adaptive */
 {
@@ -250,6 +269,10 @@ ly_alloc(const int nfiles, const size_t* row_off_H)
       fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_V2 ACTIVE: 3-D carry grid, planes per thread %s (capacity %ld threads)\n",
               __FILE__, ly_pt_forced() ? (ly_pt_forced() == 25 ? "forced 25" : ly_pt_forced() == 5 ? "forced 5" : "forced 1")
                                        : "per row (5, or 1 when 5 cannot fill)", ly_capacity());
+    if (ly_frame() && ly_v2())   /* asked for: always said */
+      fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_FRAME ACTIVE: the de804f63 carry (f1/f2 local frame), measurement arm\n", __FILE__);
+    if (ly_lb() && ly_v2() && ly_ering() && !ly_frame())   /* asked for: always said */
+      fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_LB ACTIVE: ring carry at __launch_bounds__(128, 16)\n", __FILE__);
     if (g_ly_eval) {
       if (!vrna_cuda_quiet())
         fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO ACTIVE: int_loop enumerates the direct loops only; generic "
@@ -331,12 +354,198 @@ ly_entry(const int k, const int l, const int H, const int s_stride, const CREAD&
   return c + P->mismatchI[t2][unpack(S, H, s_stride, l + 1)][unpack(S, H, s_stride, k - 1)];
 }
 
+/* One fresh entry (u1, u2) of G(i, j): the interior loop (i,j) -> (k,l), k = i+u1+1, l = j-u2-1.
+ * A call per entry, not a loop over an f1[]/f2[] array: the runtime-indexed array was a 32-byte
+ * local-memory frame that the sm_80 carry read 52 MB per launch (S8 10.10, 10.11). RING: 1 = e from
+ * the ring only, 0 = computed only, 2 = Er decides at run time (v1). A compile-time choice keeps the
+ * unused path, and its registers, out of the v2 kernels. */
+template<class CREAD, int RING>
+__device__ __forceinline__ void
+ly_fresh(const int u1, const int u2, const int i, const int j, const int H, const size_t o,
+         const int s_stride, const CREAD& cr, const unsigned int* __restrict__ hc_H,
+         const unsigned char* __restrict__ up, const cuda_param_t* __restrict__ P,
+         const char* __restrict__ pair_, const unsigned int* __restrict__ S,
+         const size_t row_total, const int* Er, int& g, unsigned long long& nfresh)
+{
+  const int k = i + u1 + 1, l = j - u2 - 1;
+  if (l - k < 1) return;
+  if (up && ((int)up[i + 1] < u1 || (int)up[l + 1] < u2)) return;
+  const int e = (RING == 1 || (RING == 2 && Er)) ? Er[(size_t)(k & 31) * row_total + o + (size_t)l]
+                                                  : ly_entry(k, l, H, s_stride, cr, hc_H, P, pair_, S);
+  if (e >= INF) return;
+  const int d = u1 > u2 ? u1 - u2 : u2 - u1;
+  const int v = e + MIN2(P->max_ninio, d * P->ninio2);
+  nfresh++;
+  if (v < g) g = v;
+}
+
 /* One plane u of G at (i, j): the carry from (i+1, j-1) and this cell's fresh entries. Shared by the
  * u-loop kernel (v1) and the 3-D kernel (S6a'), so both run the same arithmetic. Er (S6b): the e
  * ring, 32 rows of e(k,l) at (k & 31) * row_total + o + l, or NULL to compute e in place. */
-template<class CREAD>
+template<class CREAD, int RING>
 __device__ __forceinline__ int
 ly_carry_u(const int u, const int i, const int j, const int H, const size_t o, const int s_stride,
+           const int carry_ok, const CREAD& cr, const unsigned int* __restrict__ hc_H,
+           const unsigned char* __restrict__ up, const cuda_param_t* __restrict__ P,
+           const char* __restrict__ pair_, const unsigned int* __restrict__ S,
+           const size_t row_total, const int* __restrict__ Gp, const int* Er,
+           unsigned long long& nfresh, unsigned long long& ncarry)
+{
+  int g = INF;
+  if (carry_ok && u - 2 >= LY_U0) {
+    g = Gp[(size_t)(u - 2 - LY_U0) * row_total + (o + (size_t)(j - 1))];
+    if (g < INF) ncarry++;
+  }
+  /* fresh at (i,j): (2,u-2) and (u-2,2) for u >= 6, plus (3,3) at 6 and (3,4),(4,3) at 7 */
+  ly_fresh<CREAD, RING>(2, u - 2, i, j, H, o, s_stride, cr, hc_H, up, P, pair_, S, row_total, Er, g, nfresh);
+  if (u - 2 != 2)                                     /* (2,2) is never here; guard the duplicate anyway */
+    ly_fresh<CREAD, RING>(u - 2, 2, i, j, H, o, s_stride, cr, hc_H, up, P, pair_, S, row_total, Er, g, nfresh);
+  if (u == 6)
+    ly_fresh<CREAD, RING>(3, 3, i, j, H, o, s_stride, cr, hc_H, up, P, pair_, S, row_total, Er, g, nfresh);
+  if (u == 7) {
+    ly_fresh<CREAD, RING>(3, 4, i, j, H, o, s_stride, cr, hc_H, up, P, pair_, S, row_total, Er, g, nfresh);
+    ly_fresh<CREAD, RING>(4, 3, i, j, H, o, s_stride, cr, hc_H, up, P, pair_, S, row_total, Er, g, nfresh);
+  }
+  return g;
+}
+
+/* S6b: row i+1's e, for column j, into the ring. Row i+1's c is final: it was written on this
+ * stream before int_loop(i), whose stacks read it. carry(i) reads e rows i+3 .. i+29 only, so a
+ * kernel never reads the row it writes. negctl 2 skips the write: stale e, must go red. */
+template<class CREAD>
+__device__ __forceinline__ void
+ly_entry_store(int* Er, const int negctl, const int i, const int j, const int H, const size_t o,
+               const int s_stride, const CREAD& cr, const unsigned int* __restrict__ hc_H,
+               const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
+               const unsigned int* __restrict__ S, const size_t row_total)
+{
+  const int k = i + 1;
+  if (!Er || negctl == 2 || j <= k) return;
+  Er[(size_t)(k & 31) * row_total + o + (size_t)j] = ly_entry(k, j, H, s_stride, cr, hc_H, P, pair_, S);
+}
+
+/* Row i: G for every column j in (i, len_H], one thread per row-layout slot, all 25 planes (v1). */
+template<class CREAD, int RING>
+__global__ void
+ly_carry_kernel(const int nfiles, const int i, const int length, const int negctl,
+                const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
+                const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
+                const unsigned char* __restrict__ up_int,
+                const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
+                const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                const size_t* __restrict__ hc_off_H, const size_t row_total,
+                const int* __restrict__ Gp, int* __restrict__ Gc, int* Er,
+                unsigned long long* __restrict__ stat)
+{
+  const size_t m = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+  if (m >= row_total) return;
+  const int    H = flatten_index_to_H(m, row_off_H, nfiles);
+  const size_t o = row_off_H[H];
+  const int    j = (int)(m - o);
+  const int  len = (int)(row_off_H[H + 1] - o) - 1;
+  /* slots j <= i (and past the record) are never read: a reader at row r takes (r+1, j-1) only for
+   * j-1 > r+1, and a cell of row i only its own j > i. So nothing is written there. */
+  if (j <= i || j > len) return;
+
+  const CREAD cr = ly_reader((CREAD *)0, my_c, c_ring, c_ring_stride, tri_off_H[H], o);
+
+  const unsigned int*  hc_H = &hccc[hc_off_H[H]];
+  const unsigned char* up   = up_int ? &up_int[o] : NULL;
+  const int s_stride = S_STRIDE(length);
+  const int carry_ok = negctl != 1 && j - 1 > i + 1 && (!up || (up[i + 1] >= 1 && up[j - 1] >= 1));
+  unsigned long long nfresh = 0, ncarry = 0;
+
+#pragma unroll 1
+  for (int u = LY_U0; u <= MAXLOOP; u++)
+    Gc[(size_t)(u - LY_U0) * row_total + m] =
+      ly_carry_u<CREAD, RING>(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, Er, nfresh, ncarry);
+  ly_entry_store(Er, negctl, i, j, H, o, s_stride, cr, hc_H, P, pair_, S, row_total);
+  if (stat && nfresh) atomicAdd(&stat[3], nfresh);   /* stat NULL in production (S2) */
+  if (stat && ncarry) atomicAdd(&stat[4], ncarry);
+}
+
+/* S6a': the same row on a 3-D grid. z = the record H (no search), x = j - (i + 1) (no thread
+ * below the diagonal), y = a group of PT planes starting at LY_U0 + y * PT. The y = 0 group
+ * writes the e row (S6b). RING: 1 when the e ring is on (Er non-NULL), else 0. The body is shared
+ * by two kernels (10.11): ly_carry3_kernel, unbounded, and ly_carry3_lb_kernel, the ring carry at
+ * __launch_bounds__(128, 16), i.e. 32 registers (full A100 occupancy, no spill at sm_80) where ptxas
+ * picks 38-40 unbounded. A (128, 1) bound is NOT neutral (40 -> 55), hence two kernels.
+ * RNA_INT_LOOP_LYNGSO_LB=1 picks the bounded one. */
+template<class CREAD, int PT, int RING>
+__device__ __forceinline__ void
+ly_carry3_body(const int i, const int length, const int negctl,
+                 const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
+                 const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
+                 const unsigned char* __restrict__ up_int,
+                 const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
+                 const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                 const size_t* __restrict__ hc_off_H, const size_t row_total,
+                 const int* __restrict__ Gp, int* __restrict__ Gc, int* Er,
+                 unsigned long long* __restrict__ stat)
+{
+  const int    H   = (int)blockIdx.z;
+  const size_t o   = row_off_H[H];
+  const int    len = (int)(row_off_H[H + 1] - o) - 1;
+  const int    j   = i + 1 + (int)(blockIdx.x * blockDim.x + threadIdx.x);
+  if (j > len) return;
+  const size_t m = o + (size_t)j;
+
+  const CREAD cr = ly_reader((CREAD *)0, my_c, c_ring, c_ring_stride, tri_off_H[H], o);
+  const unsigned int*  hc_H = &hccc[hc_off_H[H]];
+  const unsigned char* up   = up_int ? &up_int[o] : NULL;
+  const int s_stride = S_STRIDE(length);
+  const int carry_ok = negctl != 1 && j - 1 > i + 1 && (!up || (up[i + 1] >= 1 && up[j - 1] >= 1));
+  unsigned long long nfresh = 0, ncarry = 0;
+
+  const int u0 = LY_U0 + (int)blockIdx.y * PT;
+#pragma unroll 1
+  for (int t = 0; t < PT; t++) {
+    const int u = u0 + t;
+    Gc[(size_t)(u - LY_U0) * row_total + m] =
+      ly_carry_u<CREAD, RING>(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, Er, nfresh, ncarry);
+  }
+  if (blockIdx.y == 0) ly_entry_store(Er, negctl, i, j, H, o, s_stride, cr, hc_H, P, pair_, S, row_total);
+  if (stat && nfresh) atomicAdd(&stat[3], nfresh);
+  if (stat && ncarry) atomicAdd(&stat[4], ncarry);
+}
+
+template<class CREAD, int PT, int RING>
+__global__ void
+ly_carry3_kernel(const int i, const int length, const int negctl,
+                 const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
+                 const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
+                 const unsigned char* __restrict__ up_int,
+                 const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
+                 const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                 const size_t* __restrict__ hc_off_H, const size_t row_total,
+                 const int* __restrict__ Gp, int* __restrict__ Gc, int* Er,
+                 unsigned long long* __restrict__ stat)
+{
+  ly_carry3_body<CREAD, PT, RING>(i, length, negctl, P, pair_, S, hccc, up_int, my_c, c_ring, c_ring_stride, tri_off_H, row_off_H, hc_off_H, row_total, Gp, Gc, Er, stat);
+}
+
+template<class CREAD, int PT>
+__global__ void
+__launch_bounds__(128, 16)
+ly_carry3_lb_kernel(const int i, const int length, const int negctl,
+                 const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
+                 const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
+                 const unsigned char* __restrict__ up_int,
+                 const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
+                 const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
+                 const size_t* __restrict__ hc_off_H, const size_t row_total,
+                 const int* __restrict__ Gp, int* __restrict__ Gc, int* Er,
+                 unsigned long long* __restrict__ stat)
+{
+  ly_carry3_body<CREAD, PT, 1>(i, length, negctl, P, pair_, S, hccc, up_int, my_c, c_ring, c_ring_stride, tri_off_H, row_off_H, hc_off_H, row_total, Gp, Gc, Er, stat);
+}
+
+/* 10.11 MEASUREMENT ARM, to retire after S9: the carry exactly as de804f63 shipped it -- the f1/f2
+ * array (a 32-byte local frame at sm_80), unroll 5, the ring chosen at run time. RNA_INT_LOOP_LYNGSO_FRAME=1
+ * runs it in place of ly_carry3_kernel, so the A100 compares the frame against its removal in one binary. */
+template<class CREAD>
+__device__ __forceinline__ int
+ly_carry_u_frame(const int u, const int i, const int j, const int H, const size_t o, const int s_stride,
            const int carry_ok, const CREAD& cr, const unsigned int* __restrict__ hc_H,
            const unsigned char* __restrict__ up, const cuda_param_t* __restrict__ P,
            const char* __restrict__ pair_, const unsigned int* __restrict__ S,
@@ -371,66 +580,9 @@ ly_carry_u(const int u, const int i, const int j, const int H, const size_t o, c
   return g;
 }
 
-/* S6b: row i+1's e, for column j, into the ring. Row i+1's c is final: it was written on this
- * stream before int_loop(i), whose stacks read it. carry(i) reads e rows i+3 .. i+29 only, so a
- * kernel never reads the row it writes. negctl 2 skips the write: stale e, must go red. */
-template<class CREAD>
-__device__ __forceinline__ void
-ly_entry_store(int* Er, const int negctl, const int i, const int j, const int H, const size_t o,
-               const int s_stride, const CREAD& cr, const unsigned int* __restrict__ hc_H,
-               const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
-               const unsigned int* __restrict__ S, const size_t row_total)
-{
-  const int k = i + 1;
-  if (!Er || negctl == 2 || j <= k) return;
-  Er[(size_t)(k & 31) * row_total + o + (size_t)j] = ly_entry(k, j, H, s_stride, cr, hc_H, P, pair_, S);
-}
-
-/* Row i: G for every column j in (i, len_H], one thread per row-layout slot, all 25 planes (v1). */
-template<class CREAD>
-__global__ void
-ly_carry_kernel(const int nfiles, const int i, const int length, const int negctl,
-                const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
-                const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
-                const unsigned char* __restrict__ up_int,
-                const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
-                const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-                const size_t* __restrict__ hc_off_H, const size_t row_total,
-                const int* __restrict__ Gp, int* __restrict__ Gc, int* Er,
-                unsigned long long* __restrict__ stat)
-{
-  const size_t m = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
-  if (m >= row_total) return;
-  const int    H = flatten_index_to_H(m, row_off_H, nfiles);
-  const size_t o = row_off_H[H];
-  const int    j = (int)(m - o);
-  const int  len = (int)(row_off_H[H + 1] - o) - 1;
-  /* slots j <= i (and past the record) are never read: a reader at row r takes (r+1, j-1) only for
-   * j-1 > r+1, and a cell of row i only its own j > i. So nothing is written there. */
-  if (j <= i || j > len) return;
-
-  const CREAD cr = ly_reader((CREAD *)0, my_c, c_ring, c_ring_stride, tri_off_H[H], o);
-
-  const unsigned int*  hc_H = &hccc[hc_off_H[H]];
-  const unsigned char* up   = up_int ? &up_int[o] : NULL;
-  const int s_stride = S_STRIDE(length);
-  const int carry_ok = negctl != 1 && j - 1 > i + 1 && (!up || (up[i + 1] >= 1 && up[j - 1] >= 1));
-  unsigned long long nfresh = 0, ncarry = 0;
-
-  for (int u = LY_U0; u <= MAXLOOP; u++)
-    Gc[(size_t)(u - LY_U0) * row_total + m] =
-      ly_carry_u(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, Er, nfresh, ncarry);
-  ly_entry_store(Er, negctl, i, j, H, o, s_stride, cr, hc_H, P, pair_, S, row_total);
-  if (stat && nfresh) atomicAdd(&stat[3], nfresh);   /* stat NULL in production (S2) */
-  if (stat && ncarry) atomicAdd(&stat[4], ncarry);
-}
-
-/* S6a': the same row on a 3-D grid. z = the record H (no search), x = j - (i + 1) (no thread
- * below the diagonal), y = a group of PT planes starting at LY_U0 + y * PT. The y = 0 group
- * writes the e row (S6b). */
 template<class CREAD, int PT>
 __global__ void
-ly_carry3_kernel(const int i, const int length, const int negctl,
+ly_carry3_frame_kernel(const int i, const int length, const int negctl,
                  const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
                  const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
                  const unsigned char* __restrict__ up_int,
@@ -459,7 +611,7 @@ ly_carry3_kernel(const int i, const int length, const int negctl,
   for (int t = 0; t < PT; t++) {
     const int u = u0 + t;
     Gc[(size_t)(u - LY_U0) * row_total + m] =
-      ly_carry_u(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, Er, nfresh, ncarry);
+      ly_carry_u_frame(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, Er, nfresh, ncarry);
   }
   if (blockIdx.y == 0) ly_entry_store(Er, negctl, i, j, H, o, s_stride, cr, hc_H, P, pair_, S, row_total);
   if (stat && nfresh) atomicAdd(&stat[3], nfresh);
@@ -556,17 +708,26 @@ ly_carry_row(const int nfiles, const int i, const int length, unsigned long long
     const int  w   = g_ly_lmax - i;                              /* widest record's columns past i */
     const int  bx  = w >= 128 ? 128 : ((w + 31) / 32) * 32;     /* narrow rows: no idle 128-blocks */
     const dim3 grid((unsigned)((w + bx - 1) / bx), (unsigned)(LY_NU / pt), (unsigned)nfiles);
-#define LY_CARRY3(CR, PT_) \
-    ly_carry3_kernel<CR, PT_><<<grid, bx, 0, rnafold_stream_cell()>>>(i, length, ly_negctl(), d_param, d_pair, \
+#define LY_CARRY3K(...) \
+    __VA_ARGS__<<<grid, bx, 0, rnafold_stream_cell()>>>(i, length, ly_negctl(), d_param, d_pair, \
         d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, Er, stat)
+#define LY_CARRY3(CR, PT_) do { if (ly_frame())          LY_CARRY3K(ly_carry3_frame_kernel<CR, PT_>);   \
+                                     else if (Er && ly_lb()) LY_CARRY3K(ly_carry3_lb_kernel<CR, PT_>); \
+                                     else if (Er)        LY_CARRY3K(ly_carry3_kernel<CR, PT_, 1>);     \
+                                     else                LY_CARRY3K(ly_carry3_kernel<CR, PT_, 0>); } while (0)
     if (g_c_ring_on) { if (pt == 25) LY_CARRY3(c_ring_reader, 25); else if (pt == 5) LY_CARRY3(c_ring_reader, 5); else LY_CARRY3(c_ring_reader, 1); }
     else             { if (pt == 25) LY_CARRY3(c_tri_reader,  25); else if (pt == 5) LY_CARRY3(c_tri_reader,  5); else LY_CARRY3(c_tri_reader,  1); }
 #undef LY_CARRY3
+#undef LY_CARRY3K
   } else if (g_c_ring_on) {
-    ly_carry_kernel<c_ring_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
+    if (Er) ly_carry_kernel<c_ring_reader, 1><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
+        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, Er, stat);
+    else    ly_carry_kernel<c_ring_reader, 0><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
         d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, Er, stat);
   } else {
-    ly_carry_kernel<c_tri_reader><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
+    if (Er) ly_carry_kernel<c_tri_reader, 1><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
+        d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, Er, stat);
+    else    ly_carry_kernel<c_tri_reader, 0><<<nbr, 128, 0, rnafold_stream_cell()>>>(nfiles, i, length, ly_negctl(), d_param, d_pair,
         d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, Er, stat);
   }
   gpuErrchk( cudaPeekAtLastError() );
