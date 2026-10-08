@@ -1400,30 +1400,24 @@ rnafold_md3_launch_probe_fire(const int n, const int row)
 }
 
 
-/* ---- RNA_INT_LOOP_UNROLL: candidates in flight per lane in int_loop's warp kernel.
+/* ---- RNA_INT_LOOP_UNROLL: RETIRED, 2026-10-08.
  *
- * 1 (default) is the shape it has always had. 2 runs two independent column searches
- * and two min accumulators, aimed at the `wait` stall that dominates it -- see
- * int_loop_cell.inc for the ncu numbers and for the laptop NULL that keeps this off.
- *
- * RETIRED as a lever, 2026-10-03: a null on the A100 too (Queue run, section B), the
- * device it was expected to help. int_loop +4.3..4.5 % per row against the same
- * configuration with the ring off (which U2 needs), and the wall equal to it. Kept
- * as a knob; not a candidate. */
-extern "C" int
-rnafold_int_loop_unroll(void)
+ * It kept two candidates in flight per lane in int_loop's warp kernel (two search
+ * chains, two accumulators), aimed at the `wait` stall. A laptop null, then a loss on
+ * the A100 twice: int_loop +4.3..4.5 % against ring-off (Queue run, 2026-10-03), and
+ * wall +3.8 % / +3.0 % at 400x5601 / 3000x1200 with Lyngso on (PORT_LYNGSO_INTLOOP.md
+ * S5). The U=2 instantiations, the dispatch and the two refusals it needed are gone;
+ * int_loop_cell.inc keeps the stall numbers. Setting it now says so, once. */
+extern "C" void
+rnafold_int_loop_unroll_retired(void)
 {
-  static int v = -1;
+  static int said = 0;
 
-  if (v < 0) {
+  if (!said) {
+    said = 1;
     const char *e = getenv("RNA_INT_LOOP_UNROLL");
-
-    v = (e && e[0]) ? atoi(e) : 1;
-    if (v != 2) v = 1;
-    if (v == 2)
-      fprintf(stderr, "%-24s RNA_INT_LOOP_UNROLL=2: int_loop keeps TWO candidates in "
-                      "flight per lane (two search chains, two accumulators)\n", __FILE__);
+    if (e && e[0])
+      fprintf(stderr, "%-24s RNA_INT_LOOP_UNROLL=%s IGNORED: retired 2026-10-08 (a loss on "
+                      "the A100); int_loop keeps one candidate in flight per lane\n", __FILE__, e);
   }
-
-  return v;
 }

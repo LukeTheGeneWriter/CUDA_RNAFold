@@ -900,7 +900,6 @@ rnafold_c_ring(void)
   else if(rnafold_slot_flow())            why = "slot flow refills a record's triangle mid-sweep";
   else if(!rnafold_gpu_sweep())           why = "off the GPU-resident sweep the host path owns new_C";
   else if(!rnafold_int_loop_warp())       why = "the block-per-cell int_loop twin reads the triangle";
-  else if(rnafold_int_loop_unroll() == 2) why = "RNA_INT_LOOP_UNROLL=2 has no ring reader";
   else if(c_env_on("RNA_NEW_C_STORE"))    why = "RNA_NEW_C_STORE writes the triangle from new_c";
   else if(c_env_on("RNA_ROW_FUSE"))       why = "RNA_ROW_FUSE writes the triangle from its fused kernel";
   else if(rnafold_megakernel())           why = "the megakernel reads the triangle";
@@ -1307,9 +1306,7 @@ flatten_index_to_H_warp(const size_t idx, const size_t* __restrict__ flat_off_H,
  * change; it is warp-uniform, so the read is one broadcast from the constant cache. */
 __constant__ int* c_il_work = NULL;
 
-/* U: candidates in flight per lane. 1 = the shape this kernel has always had.
- * See int_loop_cell.inc for the stall measurement that motivates U>1. */
-template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH, int U = 1, bool RING = false, bool LY = false>
+template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH, bool RING = false, bool LY = false>
 __global__ void
 int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -1388,11 +1385,11 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
         c_ring_reader rr;
         rr.base   = c_ring + row_off_H[H];
         rr.stride = c_ring_stride;
-        int_loop_warp_cell_r<c_ring_reader, U, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
+        int_loop_warp_cell_r<c_ring_reader, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                              pair_, S, hccc, up_int, rr, row_off_H, hc_off_H,
                              size_off_H, i_H, energy_min, H, local, lane, c_il_work, ly_G, ly_rt);
       } else
-      int_loop_warp_cell<U, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
+      int_loop_warp_cell<LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
                          H, local, lane, c_il_work, ly_G, ly_rt);
     }
     return;
@@ -1424,11 +1421,11 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
     c_ring_reader rr;
     rr.base   = c_ring + row_off_H[H];
     rr.stride = c_ring_stride;
-    int_loop_warp_cell_r<c_ring_reader, U, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
+    int_loop_warp_cell_r<c_ring_reader, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                          pair_, S, hccc, up_int, rr, row_off_H, hc_off_H,
                          size_off_H, i_H, energy_min, H, local, lane, c_il_work, ly_G, ly_rt);
   } else
-  int_loop_warp_cell<U, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
+  int_loop_warp_cell<LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
                      H, local, lane, c_il_work, ly_G, ly_rt);
 }
 
@@ -2049,6 +2046,7 @@ int_loop_cuda(const int nfiles,
   const int work_stats = rnafold_int_loop_warp() && il_work_stats();
   if(work_stats) il_work_begin();
 
+  rnafold_int_loop_unroll_retired();
   if(rnafold_int_loop_warp()) {
     const int    cpb = block_size / 32;
     // G cells per warp (RNA_INT_LOOP_CELLS_PER_WARP): the grid counts WARPS, each
@@ -2097,37 +2095,19 @@ int_loop_cuda(const int nfiles,
       }
     }
 
-#define IL_WARP_LAUNCH_R(C, G, W, GRID, RG, LYV) int_loop_warp_kernel<C,G,W,1,RG,LYV><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
+#define IL_WARP_LAUNCH_R(C, G, W, GRID, RG, LYV) int_loop_warp_kernel<C,G,W,RG,LYV><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
         d_size_off_H, d_i_H, d_energy_min2, d_c_ring, g_row_total, il_G, \
         (LYV) ? (const int*)d_ly_G[i & 1] : (const int*)NULL, (LYV) ? g_row_total : (size_t)0)
-/* RNA_C_RING picks the reader at the launch; the U=2 path never has the ring
- * (c_ring_refuse() refuses that pairing). RNA_INT_LOOP_LYNGSO picks LY: the direct
+/* RNA_C_RING picks the reader at the launch. RNA_INT_LOOP_LYNGSO picks LY: the direct
  * loops here, the generic ones from the carried table (int_loop_lyngso.inc). */
 #define IL_WARP_LAUNCH(C, G, W, GRID) \
         do { if(g_ly_eval) { if(g_c_ring_on) IL_WARP_LAUNCH_R(C, G, W, GRID, true, true); \
                              else            IL_WARP_LAUNCH_R(C, G, W, GRID, false, true); } \
              else if(g_c_ring_on) IL_WARP_LAUNCH_R(C, G, W, GRID, true, false); \
              else                 IL_WARP_LAUNCH_R(C, G, W, GRID, false, false); } while(0)
-/* RNA_INT_LOOP_UNROLL=2: the same kernel with two candidates in flight per lane.
- * int_loop_cell.inc carries the stall measurement that motivates it and the laptop
- * NULL that keeps it off by default. A separate macro rather than another dimension
- * of the switch below, because U only ever takes two values and doubling a 4-way
- * dispatch to instantiate a knob nobody has shown to pay is object code for nothing. */
-#define IL_WARP_LAUNCH_U2(C, G, W, GRID) int_loop_warp_kernel<C,G,W,2><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
-        nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
-        d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
-        d_size_off_H, d_i_H, d_energy_min2, NULL, 0, il_G)
 #define IL_WARP_DISPATCH(G, W, GRID) \
-    if(rnafold_int_loop_unroll() == 2) { \
-      switch(cpb) { \
-        case 8: IL_WARP_LAUNCH_U2(8, G, W, GRID); break; \
-        case 4: IL_WARP_LAUNCH_U2(4, G, W, GRID); break; \
-        case 2: IL_WARP_LAUNCH_U2(2, G, W, GRID); break; \
-        default: IL_WARP_LAUNCH_U2(1, G, W, GRID); break; \
-      } \
-    } else \
     switch(cpb) { \
       case 8: IL_WARP_LAUNCH(8, G, W, GRID); break; \
       case 4: IL_WARP_LAUNCH(4, G, W, GRID); break; \

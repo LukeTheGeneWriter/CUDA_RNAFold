@@ -341,7 +341,7 @@ additive (N5a hides host work, N3 shrinks GPU work).
 | Lyngsø + c ring | SYNERGY: fresh entries read rows i+3 … i+29, inside the ring. The ring-K test must run on the new access pattern (ORDERING: after S2). |
 | Lyngsø + sparse md | ADDITIVE: different kernels, nothing shared |
 | Lyngsø + N5a backtrack pipelining | ADDITIVE. A shorter sweep per chunk still covers ~1.3 s of backtrack until the sweep drops below ~1.5 s per chunk. |
-| Lyngsø + `RNA_INT_LOOP_UNROLL` | to re-measure (S5): fewer candidates per cell may change the latency balance U=2 was for |
+| Lyngsø + `RNA_INT_LOOP_UNROLL` | re-measured in S5: a loss (+3.8 % / +3.0 %). **The knob is retired (§10.12)** |
 | Lyngsø + the megakernel | refused (dead branch, register-bound) |
 | G buffers vs chunk width | negligible VRAM (~1.2 MB per record); the cap binds anyway |
 
@@ -774,3 +774,105 @@ loads. Retire it after S9.
 - **F2, LB becomes the default:** lb is faster than new beyond spread at 400 × 5601 **and** 3000 × 1200, and
   not slower than new beyond spread anywhere.
 - **Reported:** R (widths, synced `int_loop`) and E (ncu for the three carry kernels).
+
+### 10.12 S9 A100 results (2026-10-08, A100-SXM4-80GB, build 4d2499f0); FRAME and UNROLL retired
+
+**F0, exactness: PASS everywhere.**
+- The 20-case matrix, the 14 adversarial fixtures, and 10,082 + 2 long natural records match dense.
+- Selftest over 10,569,924 cells: 0 mismatches for v1, the default, LB and frame, with equal entry counts.
+- The negative controls bite: NEGCTL=1 gives 278,079 mismatches; NEGCTL=2 gives 512,557, LB included.
+- Production LB and frame runs (mix, G-rich `-g`, `--noLP`) equal dense and the CPU.
+
+**T, wall (median of 3, one sha per fixture):**
+
+| fixture | frame | **new** | lb | spread (max) | new vs frame | lb vs new |
+|---|---|---|---|---|---|---|
+| 400 × 5601 | 35.79 | **35.72** | 35.64 | 0.4 % | −0.2 % | −0.2 % |
+| 800 × 2400 | 13.07 | **13.12** | 13.04 | 1.3 % | +0.3 % | −0.6 % |
+| 3000 × 1200 | 14.80 | **14.73** | 14.67 | 1.0 % | −0.5 % | −0.4 % |
+| 3000 × 600 | 5.08 | **5.03** | 5.03 | 2.0 % | −1.0 % | 0.0 % |
+| soak (× 3) | 85.38 | **83.96** | 82.81 | 7.3 % | −1.7 % | −1.4 % |
+
+Every difference is within its spread. R (phase-synced `int_loop` over 6 widths) agrees: all three arms within
+±3.4 %.
+
+**E, ncu, the carry per launch (3 launches each):**
+
+| | frame | **new** | lb |
+|---|---|---|---|
+| 44 × 5601 time | 62.1 µs | **59.0 µs (−5.0 %)** | 56.9 µs (−8.4 %) |
+| 3000 × 600 time | 409.7 µs | **437.3 µs (+6.7 %)** | 393.9 µs (−3.9 %) |
+| registers | 32 | 40 | 32 |
+| occupancy | 85–88 % | **65 %** | 84–88 % |
+| instructions (44 × 5601) | 16.6 M | 13.4 M | 14.4 M |
+| local-ld (44 × 5601 / 3000 × 600) | 52.4 / 393.5 MB | 0 / 0 | 4.0 / 29.7 MB |
+
+**Reading:**
+- On the A100 the fix trades the frame for occupancy. At 40 registers the carry runs at 65 % occupancy, so
+  it is faster at 44 × 5601 but slower at 3000 × 600. The laptop could not show this, because its SMs were
+  already full at either register count.
+- LB is the fastest carry at both sizes. On the A100 build it reads a little local memory at 32 registers
+  (4 MB and 30 MB, against frame's 52 MB and 393 MB). ptxas sm_80 on the laptop's CUDA 12.4 showed none, so
+  the A100's toolkit spills there; its version is not in the results.
+- The carry is about a quarter of `int_loop`, and the kernels differ by ≤ 8 %. That is ≤ 2 % of `int_loop`
+  and below every wall spread.
+
+**V, the pre-registered rule:**
+- **F0** met.
+- **F1** met: new is nowhere slower than frame beyond spread. The fix stays.
+- **F2** not met: LB is not faster than new beyond spread at 400 × 5601 (−0.2 %, spread 0.4 %) or
+  3000 × 1200 (−0.4 %, spread 1.0 %). **LB stays a knob** (`RNA_INT_LOOP_LYNGSO_LB=1`).
+
+**FRAME retired.** `RNA_INT_LOOP_LYNGSO_FRAME`, `ly_carry3_frame_kernel` and `ly_carry_u_frame` are gone.
+SASS for every other int_loop and megakernel kernel is unchanged at sm_80 and sm_86 (82/82 and 9/9); only
+the 6 frame instantiations drop out.
+- Laptop bars:
+  - Output equals the CPU for the default, `FRAME=1` (now silent) and `LB=1`.
+  - Selftest: 0 mismatches with identical entry counts for default, LB and v1, on mix and grich.
+  - NEGCTL 1 and 2 give 129,208 and 236,068 mismatches.
+  - ly_s2 is 19/19 SAME, and the production NEGCTL bites.
+
+**`RNA_INT_LOOP_UNROLL` retired (S5 U: +3.8 % / +3.0 % wall with Lyngsø; the Queue run: `int_loop`
++4.3…4.5 %).**
+- The U template parameter, the 12 U=2 kernel instantiations, the U=2 dispatch, and the two refusals it
+  needed (c ring, Lyngsø) are gone.
+- Setting the variable prints one `IGNORED: retired 2026-10-08` line and changes nothing else.
+- SASS for every surviving int_loop and megakernel kernel is identical to before at sm_80 and sm_86
+  (88/88 and 9/9).
+- Laptop bars:
+  - `RNA_INT_LOOP_UNROLL=2` gives the same output and triangles as unset and as the CPU, with Lyngsø on
+    and off. Nothing is refused, and the ring runs.
+  - ly_s2 is 19/19 SAME; the slot-flow refusal fires; the production NEGCTL bites (8 lines, triangles).
+  - `verify_option_parity` matches; `verify_option_matrix` is 36/36; `verify_gpu_cli` budgets 4/8/16/32
+    match byte for byte; the binding suite is 20/0.
+
+## 11. Design-choice ledger (2026-10-08)
+
+Every choice this plan posed, whether it was tried, and what came of it. "Built" means it is in the code;
+"not tried" means superseded or closed by another result before anyone built it.
+
+| § | choice posed | tried? | result |
+|---|---|---|---|
+| 3.1 | Split G maintenance (all cells) from evaluation (live cells) to keep dead-warp packing | **built, simpler** | One carry kernel plus an `LY` variant of the existing warp kernel instead of a new eval kernel. Packing, the c-ring reader, the 2-D grid and the warp search came for free. Exact (S1/S2). |
+| 3.2 | G as two ping-pong `[u][row]` buffers, 25 planes, charged to admission | built | Exact. The charge changes chunk partitions (9 vs 6 chunks at 16 MB), so the multi-chunk bar compares under the same partition. |
+| 3.3 | Fresh and use terms as new helpers sharing `Energy()`'s type code | built | Exact across the S1/S2 option matrix (salt, `-C --enforceConstraint`, `--noClosingGU`, `-g`, `--noLP`, `--circ`, `-d0`, `-T 25`, `--maxBPspan`). |
+| 3.4 | Off until the bars pass; default is Luke's call | done | S5 D0–D2 met → default on. S8 E0–E2 met → v2e default (`de804f63`). |
+| 3.4 / 9.2 | v1 refusals: slot/continuous flow, megakernel, `UNROLL > 1`, block-per-cell | built | All fire with a reason. The UNROLL refusal went with the knob (§10.12). |
+| 7 | Lyngsø + c ring as a synergy; re-test ring K on the new access pattern | **run (S5 R)** | K flat at every width; K16 stays. The ring pays +4.4…18.8 % of `int_loop`. Closed. |
+| 7 / S5 | Re-test `RNA_INT_LOOP_UNROLL=2` on Lyngsø | **run (S5 U)** | +3.8 % / +3.0 %, worse than ring-off alone. **Retired 10-08** (§10.12). |
+| 7 | Interplay: overlap 0/1/2, graphs, cells per warp, int16/int32 | run (S5 I, S8 I) | Defaults stand. Lyngsø leans on overlap more than dense (ov0 +7.1 %, ov1 +5.6 % on v2e). |
+| 8.1 | Length gate if the carry outweighs the saving | **not tried** | S5 showed it is a row-width effect, not length; S6a′ + S6b removed the narrow-row loss, so no gate is needed. |
+| 8.2 | Register pressure of the 25-term use loop | measured | Eval 64 registers vs dense 61, occupancy 39 vs 38 %: no penalty. |
+| 8.3 | Salt beyond MAXLOOP+1 | covered | Salt 0.2 exact in S0, S1, S2, S6b. |
+| 9.4 | N3 before N5a | done | N5a still waits on its own 9.1 (the public seam). |
+| S5 | S6: precompute e(k,l) once, tile it **through shared memory** | **built as a global ring, not shared** | S6b's e ring (32 rows, L1/global) took a further −12…−23 % off v2 on the A100. A shared-memory tile was never built; with the carry now 63 µs of 236 at 44 × 5601 it is a small target. |
+| S5 / 10.4 | S7: switch Lyngsø on mid-sweep for narrow rows | **not tried** | Closed by S8: v2e beats dense at 25 × 1200 (−16 %) and 8 × 5601 (−24 %). |
+| 10.2 | S6a: one thread per (u, slot) | built | Exact, but +20…+35 % on the laptop: the per-thread prologue repeated 25×. Diagnosis corrected: under-occupancy, not chain length. Superseded by S6a′. |
+| 10.7 | S6a′: 3-D grid, planes per thread PT ∈ {25, 5, 1} from row fill | built | PT 5 best or tied everywhere; rule = 5, or 1 when 5 cannot fill. A100: within 2 % of the best forced PT. |
+| 10.8 | PT 25 on the 3-D grid | built (knob only) | Loses even on full rows; reachable through `RNA_INT_LOOP_LYNGSO_PT` only. |
+| 10.3 / 10.6.2 | S6b: e ring, charged like the c ring | built | Signed off. A100: −9.4 % wall vs v1 at 400 × 5601, −8.5 % soak, exact. |
+| 10.6.3 | One A100 notebook after S6b | done (S8) | E0–E2 met → v2e default. |
+| 10.8 → 10.9 → 10.11 | Is the carry's local-memory traffic the `f1`/`f2` array? | **built (fix)** | §10.9's "refuted" was wrong (both arms had the frame). It was a 32-byte stack frame; straight-line calls remove it. Laptop carry −20 %, 0 local loads, exact. A100 (S9): F1 met, wall-neutral; the carry is −5 % at 44 × 5601 but +6.7 % at 3000 × 600 (40 registers, 65 % occupancy). Kept. |
+| 10.11 | 32-register `__launch_bounds__(128, 16)` carry (LB) | built (knob) | Exact; the fastest carry on the A100 (−8.4 % / −3.9 % vs frame), but the wall gain is within spread, so S9 F2 is not met. Stays a knob. |
+| 10.11 | `__launch_bounds__(128, 1)` as a template argument on one kernel | tried in ptxas | 40 → 55 registers: rejected; LB is a second kernel over a shared body. |
+| 10.11 | FRAME measurement arm (de804f63's carry verbatim) | built, **retired 10-08** | Reproduced de804f63 to 0.4 µs on the laptop; served S9; removed. |

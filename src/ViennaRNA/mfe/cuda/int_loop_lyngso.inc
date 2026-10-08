@@ -143,15 +143,6 @@ ly_lb(void)
   return v;
 }
 
-/* 10.11 measurement arm: RNA_INT_LOOP_LYNGSO_FRAME=1 runs the de804f63 carry (with its local frame). */
-static int
-ly_frame(void)
-{
-  static int v = -1;
-  if (v < 0) { const char *e = getenv("RNA_INT_LOOP_LYNGSO_FRAME"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
-  return v;
-}
-
 static int
 ly_pt_forced(void)          /* 0 = adaptive */
 {
@@ -216,8 +207,6 @@ ly_alloc(const int nfiles, const size_t* row_off_H)
   if (rnafold_continuous_flow())      why = "continuous flow (records on different rows)";
   else if (rnafold_slot_flow() >= 1)  why = "slot flow (slots are handed over mid-sweep)";
   else if (rnafold_megakernel())      why = "the megakernel (its own fused int_loop)";
-  else if (ly_eval_knob() && rnafold_int_loop_unroll() > 1)
-                                      why = "RNA_INT_LOOP_UNROLL > 1 (the LY variant is instantiated at U = 1)";
   else if (ly_eval_knob() && !rnafold_int_loop_warp())
                                       why = "the block-per-cell int_loop kernel (LY lives in the warp kernel)";
   if (why) {
@@ -269,9 +258,7 @@ ly_alloc(const int nfiles, const size_t* row_off_H)
       fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_V2 ACTIVE: 3-D carry grid, planes per thread %s (capacity %ld threads)\n",
               __FILE__, ly_pt_forced() ? (ly_pt_forced() == 25 ? "forced 25" : ly_pt_forced() == 5 ? "forced 5" : "forced 1")
                                        : "per row (5, or 1 when 5 cannot fill)", ly_capacity());
-    if (ly_frame() && ly_v2())   /* asked for: always said */
-      fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_FRAME ACTIVE: the de804f63 carry (f1/f2 local frame), measurement arm\n", __FILE__);
-    if (ly_lb() && ly_v2() && ly_ering() && !ly_frame())   /* asked for: always said */
+    if (ly_lb() && ly_v2() && ly_ering())   /* asked for: always said */
       fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_LB ACTIVE: ring carry at __launch_bounds__(128, 16)\n", __FILE__);
     if (g_ly_eval) {
       if (!vrna_cuda_quiet())
@@ -540,84 +527,6 @@ ly_carry3_lb_kernel(const int i, const int length, const int negctl,
   ly_carry3_body<CREAD, PT, 1>(i, length, negctl, P, pair_, S, hccc, up_int, my_c, c_ring, c_ring_stride, tri_off_H, row_off_H, hc_off_H, row_total, Gp, Gc, Er, stat);
 }
 
-/* 10.11 MEASUREMENT ARM, to retire after S9: the carry exactly as de804f63 shipped it -- the f1/f2
- * array (a 32-byte local frame at sm_80), unroll 5, the ring chosen at run time. RNA_INT_LOOP_LYNGSO_FRAME=1
- * runs it in place of ly_carry3_kernel, so the A100 compares the frame against its removal in one binary. */
-template<class CREAD>
-__device__ __forceinline__ int
-ly_carry_u_frame(const int u, const int i, const int j, const int H, const size_t o, const int s_stride,
-           const int carry_ok, const CREAD& cr, const unsigned int* __restrict__ hc_H,
-           const unsigned char* __restrict__ up, const cuda_param_t* __restrict__ P,
-           const char* __restrict__ pair_, const unsigned int* __restrict__ S,
-           const size_t row_total, const int* __restrict__ Gp, const int* Er,
-           unsigned long long& nfresh, unsigned long long& ncarry)
-{
-  int g = INF;
-  if (carry_ok && u - 2 >= LY_U0) {
-    g = Gp[(size_t)(u - 2 - LY_U0) * row_total + (o + (size_t)(j - 1))];
-    if (g < INF) ncarry++;
-  }
-  /* fresh at (i,j): (2,u-2) and (u-2,2) for u >= 6, plus (3,3) at 6 and (3,4),(4,3) at 7 */
-  int f1[4], f2[4], nf = 0;
-  f1[nf] = 2;     f2[nf] = u - 2; nf++;
-  f1[nf] = u - 2; f2[nf] = 2;     nf++;
-  if (u == 6) { f1[nf] = 3; f2[nf] = 3; nf++; }
-  if (u == 7) { f1[nf] = 3; f2[nf] = 4; nf++; f1[nf] = 4; f2[nf] = 3; nf++; }
-  for (int t = 0; t < nf; t++) {
-    const int u1 = f1[t], u2 = f2[t];
-    if (t == 1 && u1 == u2) continue;                 /* (2,2) is never here; guard the duplicate anyway */
-    const int k = i + u1 + 1, l = j - u2 - 1;
-    if (l - k < 1) continue;
-    if (up && ((int)up[i + 1] < u1 || (int)up[l + 1] < u2)) continue;
-    const int e = Er ? Er[(size_t)(k & 31) * row_total + o + (size_t)l]
-                     : ly_entry(k, l, H, s_stride, cr, hc_H, P, pair_, S);
-    if (e >= INF) continue;
-    const int d = u1 > u2 ? u1 - u2 : u2 - u1;
-    const int v = e + MIN2(P->max_ninio, d * P->ninio2);
-    nfresh++;
-    if (v < g) g = v;
-  }
-  return g;
-}
-
-template<class CREAD, int PT>
-__global__ void
-ly_carry3_frame_kernel(const int i, const int length, const int negctl,
-                 const cuda_param_t* __restrict__ P, const char* __restrict__ pair_,
-                 const unsigned int* __restrict__ S, const unsigned int* __restrict__ hccc,
-                 const unsigned char* __restrict__ up_int,
-                 const int* __restrict__ my_c, const int* __restrict__ c_ring, const size_t c_ring_stride,
-                 const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-                 const size_t* __restrict__ hc_off_H, const size_t row_total,
-                 const int* __restrict__ Gp, int* __restrict__ Gc, int* Er,
-                 unsigned long long* __restrict__ stat)
-{
-  const int    H   = (int)blockIdx.z;
-  const size_t o   = row_off_H[H];
-  const int    len = (int)(row_off_H[H + 1] - o) - 1;
-  const int    j   = i + 1 + (int)(blockIdx.x * blockDim.x + threadIdx.x);
-  if (j > len) return;
-  const size_t m = o + (size_t)j;
-
-  const CREAD cr = ly_reader((CREAD *)0, my_c, c_ring, c_ring_stride, tri_off_H[H], o);
-  const unsigned int*  hc_H = &hccc[hc_off_H[H]];
-  const unsigned char* up   = up_int ? &up_int[o] : NULL;
-  const int s_stride = S_STRIDE(length);
-  const int carry_ok = negctl != 1 && j - 1 > i + 1 && (!up || (up[i + 1] >= 1 && up[j - 1] >= 1));
-  unsigned long long nfresh = 0, ncarry = 0;
-
-  const int u0 = LY_U0 + (int)blockIdx.y * PT;
-#pragma unroll 5
-  for (int t = 0; t < PT; t++) {
-    const int u = u0 + t;
-    Gc[(size_t)(u - LY_U0) * row_total + m] =
-      ly_carry_u_frame(u, i, j, H, o, s_stride, carry_ok, cr, hc_H, up, P, pair_, S, row_total, Gp, Er, nfresh, ncarry);
-  }
-  if (blockIdx.y == 0) ly_entry_store(Er, negctl, i, j, H, o, s_stride, cr, hc_H, P, pair_, S, row_total);
-  if (stat && nfresh) atomicAdd(&stat[3], nfresh);
-  if (stat && ncarry) atomicAdd(&stat[4], ncarry);
-}
-
 /* Row i: the cells the dense kernel computes (its own enumeration), one thread each. */
 template<class CREAD>
 __global__ void
@@ -711,8 +620,7 @@ ly_carry_row(const int nfiles, const int i, const int length, unsigned long long
 #define LY_CARRY3K(...) \
     __VA_ARGS__<<<grid, bx, 0, rnafold_stream_cell()>>>(i, length, ly_negctl(), d_param, d_pair, \
         d_S, d_hccc, d_up_int, d_my_c, d_c_ring, g_row_total, d_tri_off_H, d_row_off_H, d_hc_off_H, rt, Gp, Gc, Er, stat)
-#define LY_CARRY3(CR, PT_) do { if (ly_frame())          LY_CARRY3K(ly_carry3_frame_kernel<CR, PT_>);   \
-                                     else if (Er && ly_lb()) LY_CARRY3K(ly_carry3_lb_kernel<CR, PT_>); \
+#define LY_CARRY3(CR, PT_) do { if (Er && ly_lb())       LY_CARRY3K(ly_carry3_lb_kernel<CR, PT_>);     \
                                      else if (Er)        LY_CARRY3K(ly_carry3_kernel<CR, PT_, 1>);     \
                                      else                LY_CARRY3K(ly_carry3_kernel<CR, PT_, 0>); } while (0)
     if (g_c_ring_on) { if (pt == 25) LY_CARRY3(c_ring_reader, 25); else if (pt == 5) LY_CARRY3(c_ring_reader, 5); else LY_CARRY3(c_ring_reader, 1); }
