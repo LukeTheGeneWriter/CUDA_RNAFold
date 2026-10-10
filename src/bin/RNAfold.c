@@ -99,6 +99,8 @@ extern size_t gpu_bytes_per_file(const int length);
 /* CIRCULAR: tell the VRAM model that fM2_real will be allocated, before any
  * chunk is sized against it. See modular_decomposition.cu. */
 extern void   rnafold_circ_expect(const int circ);
+/* N5a P0: per-chunk spans beside the RNA_RECORD_TRACE file, on its clock. */
+extern void   rnafold_chunk_trace_open(const char *record_path, const double base);
 extern size_t compute_gpu_usable_bytes(void);
 /* int16 AUTO prices a full-cap chunk: it needs the cap this file admits by (modular_decomposition.cu). */
 extern void   rnafold_set_chunk_cells_cap(const unsigned long long cap_cells);
@@ -1034,6 +1036,10 @@ get_output_stream(unsigned int    init_size,
  *           record this is its CHUNK's window, because a batch has no per-record
  *           device window unless slot flow is on.
  *   out_t   when the formatted result was handed to the output stream.
+ *
+ * With the CUDA backend, <path>.chunks.csv gets one line per GPU chunk on the
+ * same time axis: device init, sweep and backtrack spans (mfe_cuda.c,
+ * rnafold_chunk_trace_open()). That is where a chunk's idle GPU shows.
  */
 static FILE  *g_trace_fp   = NULL;
 static double g_trace_base = 0.0;
@@ -1071,6 +1077,10 @@ trace_open(void)
   fprintf(g_trace_fp, "idx,length,route,fold_t0,fold_t1,out_t\n");
   fprintf(stderr, "%-24s RNA_RECORD_TRACE: per-record events to %s\n",
           "bin/RNAfold.c", path);
+#ifdef VRNA_WITH_CUDA
+  /* <path>.chunks.csv: one line per GPU chunk, same time base as this file. */
+  rnafold_chunk_trace_open(path, g_trace_base);
+#endif
 }
 
 static double

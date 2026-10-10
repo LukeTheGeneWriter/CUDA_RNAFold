@@ -663,6 +663,7 @@ PUBLIC void          rnafold_rowtab_upload_all(void);
 PUBLIC void          rnafold_rowtab_upload_row(const int i);
 
 PUBLIC void rnafold_phase_sync(void);
+PUBLIC void rnafold_chunk_trace_open(const char *record_path, const double base); /* N5a P0, mfe_cuda.c */
 PUBLIC int  rnafold_sync_probe(void);       /* RNA_SYNC_PROBE, negative control */
 PUBLIC void rnafold_sync_probe_tick(void);
 PUBLIC void rnafold_device_drain(void);     /* cudaDeviceSynchronize, device.cu */

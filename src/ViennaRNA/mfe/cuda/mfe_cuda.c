@@ -553,6 +553,77 @@ double rnafold_now_seconds(void) {
   return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
+/* N5a P0 (PORT_BACKTRACK_PIPELINE.md §5): one line per chunk beside the
+ * RNA_RECORD_TRACE file, so the GPU's idle time between sweeps is read off
+ * chunk by chunk instead of inferred from the run's totals. RNAfold opens it
+ * with its own clock base, so the two files share a time axis.
+ *
+ * Under it, the sweep's end is a device drain. Without one, sweep_t1 would be
+ * when the last launch was ISSUED, and the backtrack's first synchronous fetch
+ * would absorb the sweep's tail and be blamed for it. The drain costs nothing
+ * the fetch was not about to wait for anyway.
+ *
+ * CSV: chunk,nrec,max_len,cells,enter,init_t1,sweep_t1,bt_t1,exit,
+ *      bt_threads,fetch_worker_s,busy_worker_s
+ *   enter..init_t1    device allocation and upload (stage_gpuinit_s)
+ *   init_t1..sweep_t1 the sweep, GPU busy
+ *   sweep_t1..bt_t1   fetch + trace on the host, GPU IDLE -- N5a's prize
+ *   exit -> next enter, from the other file's view: teardown, free, output
+ *                     dispatch and any wait for the builder, GPU idle too
+ * Times are seconds on CLOCK_MONOTONIC minus RNAfold's trace base. Slot flow
+ * interleaves sweep and trace, so its sweep_t1/bt_t1 are left empty. */
+static FILE  *g_chunk_fp    = NULL;
+static double g_chunk_base  = 0.0;
+static int    g_chunk_k     = 0;
+static double g_bt_fetch_ws = 0.0;   /* the last backtrack_all()'s worker sums */
+static double g_bt_busy_ws  = 0.0;
+static int    g_bt_threads  = 0;
+
+PUBLIC void
+rnafold_chunk_trace_open(const char *record_path, const double base) {
+  char *p;
+
+  if(g_chunk_fp || !record_path || !record_path[0])
+    return;
+  p = vrna_strdup_printf("%s.chunks.csv", record_path);
+  g_chunk_fp = fopen(p, "w");
+  if(!g_chunk_fp) {
+    fprintf(stderr, "%-24s RNA_RECORD_TRACE: cannot open %s -- no chunk spans\n",
+            __FILE__, p);
+  } else {
+    g_chunk_base = base;
+    fprintf(g_chunk_fp, "chunk,nrec,max_len,cells,enter,init_t1,sweep_t1,bt_t1,exit,"
+                        "bt_threads,fetch_worker_s,busy_worker_s\n");
+  }
+  free(p);
+}
+
+/* a span edge, or an empty field when the schedule has no such edge */
+PRIVATE void
+chunk_trace_t(const double t) {
+  if(t > 0.0) fprintf(g_chunk_fp, ",%.6f", t - g_chunk_base);
+  else        fprintf(g_chunk_fp, ",");
+}
+
+PRIVATE void
+chunk_trace_line(const int nrec, const int max_len, const size_t cells,
+                 const double enter, const double init_t1, const double sweep_t1,
+                 const double bt_t1) {
+  const double t_exit = rnafold_now_seconds();
+
+  fprintf(g_chunk_fp, "%d,%d,%d,%zu", g_chunk_k++, nrec, max_len, cells);
+  chunk_trace_t(enter);
+  chunk_trace_t(init_t1);
+  chunk_trace_t(sweep_t1);
+  chunk_trace_t(bt_t1);
+  chunk_trace_t(t_exit);
+  if(bt_t1 > 0.0)
+    fprintf(g_chunk_fp, ",%d,%.6f,%.6f\n", g_bt_threads, g_bt_fetch_ws, g_bt_busy_ws);
+  else
+    fprintf(g_chunk_fp, ",,,\n");
+  fflush(g_chunk_fp);   /* a handful of lines; never lose them to an abort */
+}
+
 PRIVATE void
 print_stage_timing_stats(void) {
   if (vrna_cuda_quiet())
@@ -1532,6 +1603,9 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
     stage_btpin_worker_s   += pool[t].pin_s;
     stage_btfetch_worker_s += pool[t].fetch_s;
   }
+  g_bt_fetch_ws = fetch_worker_s;   /* N5a P0 chunk spans */
+  g_bt_busy_ws  = busy_worker_s;
+  g_bt_threads  = n_bt_threads;
   /* the pool is kept: see bt_pool_get() */
   const double bt_phase_s = rnafold_now_seconds() - t_bt;
   double fetch_this_chunk = (busy_worker_s > 0.0)
@@ -1549,6 +1623,10 @@ par_mfe(const int nfiles,
 	const char** Structure,
 	float* EN, //out
 	const int cpu_queue_threads) {
+
+  /* N5a P0 chunk spans; see rnafold_chunk_trace_open() */
+  const double tr_enter = rnafold_now_seconds();
+  double       tr_init  = 0.0, tr_sweep = 0.0, tr_bt = 0.0;
 
   //start GPU as early as possible so allow maximise overlap GPU with CPU
   // Staggered_Row_Batching Phase 6c/6d: the length handed to init_gpu*() sizes
@@ -1790,7 +1868,8 @@ par_mfe(const int nfiles,
    * after the device exists and before any row is issued. A no-op at the
    * default, where every launch stays on the NULL stream. */
   rnafold_streams_init();
-  stage_gpuinit_s += rnafold_now_seconds() - t_gpuinit;
+  tr_init = rnafold_now_seconds();
+  stage_gpuinit_s += tr_init - t_gpuinit;
 
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {
     int i;
@@ -1889,8 +1968,14 @@ par_mfe(const int nfiles,
       stage_backtrack_s += bt_phase_s - (fs > bt_phase_s ? bt_phase_s : fs);
     } else {
     par_fill_arrays(nfiles,VC,energy,NULL);
+    if(g_chunk_fp) {
+      rnafold_device_drain();   /* sweep_t1 = the device finished, not the last issue */
+      tr_sweep = rnafold_now_seconds();
+    }
 
     backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads);
+    if(g_chunk_fp)
+      tr_bt = rnafold_now_seconds();
     }
 
     // Continuous flow phase C2: the slot-turnover self-check. See
@@ -1943,6 +2028,8 @@ par_mfe(const int nfiles,
       for(i=0;i<nfiles;i++) { free(Str1[i]); free(Str2[i]); }
       free(Str1); free(Str2); free(EN1); free(EN2); free(energy2); free(VC2);
     }
+    if(g_chunk_fp)
+      chunk_trace_line(nfiles, length, tri_off_H[nslots], tr_enter, tr_init, tr_sweep, tr_bt);
   } else {
   /* PORT TO 2.7.2 -- WIRED THROUGH THE SEAM.
    *

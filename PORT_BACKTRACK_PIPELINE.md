@@ -197,3 +197,29 @@ and on another thread. The bars make sure the construction holds.
    in P4 and changed only if the measurement says so.
 
 **Next after N5a (Luke, 2026-10-10):** the device-side backtracking experiment (N5).
+
+## 10. Results
+
+### 10.1 P0, laptop (RTX 3050 4 GB, 2026-10-10)
+
+`RNA_RECORD_TRACE=<path>` now also writes `<path>.chunks.csv`: one line per GPU chunk with device init, sweep
+and backtrack spans, on the record trace's time axis (`rnafold_chunk_trace_open()`, mfe_cuda.c). The sweep's
+end is a device drain, taken only while tracing. Output is byte-identical with the trace off, on, and on with
+a forced cap (`A_longseq_smallbatch`, 60 × 2000, one sha across all three).
+
+| fixture | chunk | sweep (s) | GPU idle in backtrack (s) | fetch / busy (worker-s) | gap to next chunk (s) |
+|---|---|---|---|---|---|
+| C400 (40 × 5601) | 0 (21 rec) | 8.64 | **1.97** | 14.35 / 20.65 | 0.20 |
+| | 1 (19 rec) | 7.83 | **0.57** | 3.15 / 5.82 | — |
+| 60 × 2000, cap 2e7 | 0–6 (5–20 rec) | 0.48–0.64 | 0.03–0.11 | — | 0.004–0.010 |
+
+- **The gap is where §1 says:** after each sweep the GPU idles for the whole fetch + trace. The time between
+  chunks (teardown, free, waiting for the builder) is small, because the build pipeline has the next chunk
+  ready.
+- **On this laptop the prize is small:** 2.5 s of 23.1 s at 40 × 5601. The A100's sweeps are about 2.3× shorter (~3.5 s per
+  chunk, §1) against a similar host backtrack, which is why §1 measured 23 % there.
+- **New: the first chunk's fetch costs 4.6× the second's** (14.35 vs 3.15 worker-s), for a similar number of
+  records. That fits the first touch of the persistent scratch (T2a). Under N5a, chunk 0's backtrack
+  overlaps chunk 1's sweep, so this is hidden as well. It also means a one-chunk run cannot gain anything.
+- **The A100 half of P0** is folded into P4: its `RNA_BT_PIPELINE=0` arm carries the chunk trace, which is
+  the same measurement, so it costs no separate GPU session.
