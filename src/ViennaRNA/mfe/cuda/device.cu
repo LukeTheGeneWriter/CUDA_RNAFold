@@ -1358,14 +1358,42 @@ rt_bt_negctl(void)
   if (v < 0) {
     const char *e = getenv("RNA_BT_PIPELINE_NEGCTL");
 
-    v = (e && e[0] && strcmp(e, "0")) ? 1 : 0;
-    if (v)
+    v = (e && e[0]) ? atoi(e) : 0;
+    if (v == 1)
       fprintf(stderr, "device.cu                RNA_BT_PIPELINE_NEGCTL=1: the retained c "
                       "triangle is ZEROED before the fetch -- output MUST change "
                       "(negative control)\n");
+    else if (v == 2)
+      fprintf(stderr, "device.cu                RNA_BT_PIPELINE_NEGCTL=2: a handed-off "
+                      "chunk's retained set is FREED at hand-off, so the next chunk may "
+                      "reuse it mid-trace -- output MUST change or the fetch MUST fail "
+                      "(negative control)\n");
+    else
+      v = 0;
   }
 
   return v;
+}
+
+/* NEGCTL=2 (P2): what retention exists to prevent. Frees the set's buffers but
+ * keeps its pointers, so the trace thread fetches from memory the next chunk's
+ * init_gpu*() may already have been handed. */
+extern "C" int
+rnafold_bt_negctl(void)
+{
+  return rt_bt_negctl();
+}
+
+extern "C" void
+rnafold_retired_negctl_free(rnafold_retired_t *r)
+{
+  if (r->d_my_c)       cudaFree(r->d_my_c);
+  if (r->d_fml_j)      cudaFree(r->d_fml_j);
+  if (r->d_fml_j16)    cudaFree(r->d_fml_j16);
+  if (r->d_fml_b)      cudaFree(r->d_fml_b);
+  if (r->d_base_off_H) cudaFree(r->d_base_off_H);
+  if (r->d_fm2)        cudaFree(r->d_fm2);
+  r->negctl_freed = 1;
 }
 
 extern "C" rnafold_retired_t *
@@ -1395,7 +1423,7 @@ rnafold_retire_chunk(const int nslots, const size_t *tri_off_H)
     exit(EXIT_FAILURE);
   }
 
-  if (rt_bt_negctl())
+  if (rt_bt_negctl() == 1)
     rt_check(cudaMemset(r->d_my_c, 0, r->cells * sizeof(int)), "retire: negctl");
 
   return r;
@@ -1406,6 +1434,11 @@ rnafold_retired_release(rnafold_retired_t *r)
 {
   if (!r)
     return;
+
+  if (r->negctl_freed) {   /* NEGCTL=2 freed them at hand-off */
+    free(r);
+    return;
+  }
 
   if (r->d_my_c)       rt_check(cudaFree(r->d_my_c),       "release c");
   if (r->d_fml_j)      rt_check(cudaFree(r->d_fml_j),      "release fML");

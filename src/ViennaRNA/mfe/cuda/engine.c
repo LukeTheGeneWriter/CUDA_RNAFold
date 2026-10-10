@@ -542,6 +542,9 @@ par_mfe(const int                     nfiles,
 /* The device state a batch sizes for itself, released below. Declared in
  * stub2.h; repeated here for the same reason par_mfe() is. */
 extern void teardown_gpu(void);
+/* N5a P2: may this par_mfe() hand its backtrack to a trace thread? Only the
+ * last piece of a batch, and only for a driver that attached (mfe_cuda.c). */
+extern void rnafold_bt_async_allow(const int ok);
 extern void teardown_gpu2(void);
 extern void teardown_gpu3(void);
 /* The VRAM model RNAfold.c chunks with (modular_decomposition.cu), for the same reason */
@@ -648,8 +651,10 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
         continue;
       }
 
+      rnafold_bt_async_allow(end == n);
       par_mfe((int)(end - start), (const vrna_fold_compound_t **)(fcs + start),
               (const char **)(structures + start), energies + start, 0);
+      rnafold_bt_async_allow(0);
       devused = 1;
 
       /* this chunk's device state, released before the next chunk sizes its own (below) */

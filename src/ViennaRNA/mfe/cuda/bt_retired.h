@@ -23,6 +23,7 @@ typedef struct {
   int    *d_fml_b;       /* int16 baselines */
   size_t *d_base_off_H;  /* per-record start in d_fml_b */
   int    *d_fm2;         /* circular only, else NULL */
+  int     negctl_freed;  /* RNA_BT_PIPELINE_NEGCTL=2 freed the buffers at hand-off */
 } rnafold_retired_t;
 
 #ifdef __cplusplus
@@ -32,6 +33,8 @@ extern "C" {
 /* device.cu: drain the device, detach the fetch set, and later free it. */
 rnafold_retired_t *rnafold_retire_chunk(const int nslots, const size_t *tri_off_H);
 void  rnafold_retired_release(rnafold_retired_t *r);
+int   rnafold_bt_negctl(void);                           /* RNA_BT_PIPELINE_NEGCTL, 0/1/2 */
+void  rnafold_retired_negctl_free(rnafold_retired_t *r); /* NEGCTL=2 only */
 
 /* The owners' halves of the detach: each NULLs its globals, so its teardown
  * skips them. int_loop.cu, modular_decomposition.cu. */

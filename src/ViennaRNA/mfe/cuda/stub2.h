@@ -671,6 +671,12 @@ PUBLIC void          rnafold_rowtab_upload_row(const int i);
 
 PUBLIC void rnafold_phase_sync(void);
 PUBLIC void rnafold_chunk_trace_open(const char *record_path, const double base); /* N5a P0, mfe_cuda.c */
+/* N5a P2 driver hooks (mfe_cuda.c), internal: see bt_async_join() */
+PUBLIC void rnafold_bt_pipeline_attach(void (*done)(void *ctx));
+PUBLIC void rnafold_bt_pipeline_ctx(void *ctx);
+PUBLIC int  rnafold_bt_pipeline_went_async(void);
+PUBLIC void rnafold_bt_pipeline_drain(void);
+PUBLIC void rnafold_bt_async_allow(const int ok);
 PUBLIC int  rnafold_sync_probe(void);       /* RNA_SYNC_PROBE, negative control */
 PUBLIC void rnafold_sync_probe_tick(void);
 PUBLIC void rnafold_device_drain(void);     /* cudaDeviceSynchronize, device.cu */

@@ -101,6 +101,13 @@ extern size_t gpu_bytes_per_file(const int length);
 extern void   rnafold_circ_expect(const int circ);
 /* N5a P0: per-chunk spans beside the RNA_RECORD_TRACE file, on its clock. */
 extern void   rnafold_chunk_trace_open(const char *record_path, const double base);
+/* N5a P2: a batch's backtrack may run beside the next sweep. Internal hooks,
+ * mfe_cuda.c -- vrna_mfe_batch() itself is unchanged (decision 9.1). */
+extern int    rnafold_bt_pipeline(void);
+extern void   rnafold_bt_pipeline_attach(void (*done)(void *ctx));
+extern void   rnafold_bt_pipeline_ctx(void *ctx);
+extern int    rnafold_bt_pipeline_went_async(void);
+extern void   rnafold_bt_pipeline_drain(void);
 extern size_t compute_gpu_usable_bytes(void);
 /* int16 AUTO prices a full-cap chunk: it needs the cap this file admits by (modular_decomposition.cu). */
 extern void   rnafold_set_chunk_cells_cap(const unsigned long long cap_cells);
@@ -1729,6 +1736,7 @@ struct gpu_batch {
   char                  **Str;
   float                  *EN;
   int                     built;
+  double                  t_fold0;  /* N5a: the fold window's start, for a handed-off batch */
 };
 
 
@@ -1978,12 +1986,15 @@ build_one(struct gpu_batch *b,
 }
 
 
-/* Fold a built batch, hand the answers back to the records, release the device
- * and dispatch the output. Everything here that touches the GPU lives on ONE
- * thread; build_gpu_batch() is the half that may run beside it. */
+/* Hand a folded batch's answers back to its records, free its compounds and
+ * dispatch the output. Called right after the fold, or -- for a batch whose
+ * backtrack was handed to the trace thread (N5a, RNA_BT_PIPELINE) -- from
+ * bt_chunk_done() when the backend joins that trace. Either way on the main
+ * thread. */
 static void
-fold_gpu_batch(struct gpu_batch *b,
-               struct options   *opt)
+finish_gpu_batch(struct gpu_batch *b,
+                 const double      trace_fold_a,
+                 const double      trace_fold_b)
 {
   struct record_data    **chunk = b->chunk;
   int                     n     = b->n;
@@ -1992,23 +2003,7 @@ fold_gpu_batch(struct gpu_batch *b,
   float                  *EN    = b->EN;
   int                     i;
 
-  /* THE SEAM. Not par_mfe(): the driver asks the LIBRARY to fold a batch, and
-   * the library uses whatever backend is registered -- the CUDA one here, or
-   * a plain loop over vrna_mfe() if none is. Nothing below this line, and
-   * nothing in this function, is CUDA-specific.
-   *
-   * That is what makes the diff presentable: the accelerator is a backend, not
-   * a fork of the driver, and removing it leaves a correct program. */
-  /* RNA_RECORD_TRACE: the device window for every record in this chunk. A batch
-   * has no per-record device window -- that only exists under slot flow, where
-   * the retire pool knows each record's own span -- so the chunk's window is the
-   * honest answer here, and the reader treats a shared window as exactly that. */
-  const double trace_fold_a = trace_now();
-
-  vrna_mfe_batch(VC, (size_t)n, Str, EN);
-
   {
-    const double trace_fold_b = trace_now();
     int ti;
 
     for (ti = 0; ti < n; ti++) {
@@ -2027,14 +2022,6 @@ fold_gpu_batch(struct gpu_batch *b,
     vrna_fold_compound_free(VC[i]);
   }
   stage_free_s += rnafold_now_seconds() - t_free;
-
-  /* Release the device state this chunk sized, before the next chunk sizes its
-   * own. Without this the second chunk inherits dirty buffers. */
-  const double t_teardown = rnafold_now_seconds();
-  teardown_gpu();
-  teardown_gpu2();
-  teardown_gpu3();
-  stage_teardown_s += rnafold_now_seconds() - t_teardown;
 
   /* dispatch only once every record in the chunk has its answer.
    * stage_output_s covers process_record(): formatting, the PS/DP plots when
@@ -2057,6 +2044,125 @@ fold_gpu_batch(struct gpu_batch *b,
   free(Str);
   free(EN);
   b->VC = NULL; b->Str = NULL; b->EN = NULL; b->built = 0;
+}
+
+
+#ifdef VRNA_WITH_CUDA
+/* N5a P2 (PORT_BACKTRACK_PIPELINE.md §3.3): may this batch's backtrack run
+ * beside the next sweep? Its output is then dispatched one chunk later, so the
+ * order must come from the ostream slots (not --unordered), and nothing on the
+ * output path may build compounds of its own (the build pipeline's rule). */
+static int
+bt_pipeline_wanted(struct options *opt)
+{
+  static int said = 0;
+
+  if (!rnafold_bt_pipeline())
+    return 0;
+
+  if ((!opt->keep_order) || (output_needs_compound(opt))) {
+    if (!said) {
+      said = 1;
+      fprintf(stderr, "%-24s RNA_BT_PIPELINE: backtracks stay sequential -- %s\n",
+              "bin/RNAfold.c", (!opt->keep_order)
+              ? "--unordered output has no ostream to keep the order"
+              : "the output path builds compounds of its own");
+    }
+
+    return 0;
+  }
+
+  return 1;
+}
+
+
+/* The backend joined a handed-off batch's trace: its answers are in. */
+static void
+bt_chunk_done(void *ctx)
+{
+  struct gpu_batch *ab = (struct gpu_batch *)ctx;
+
+  finish_gpu_batch(ab, ab->t_fold0, trace_now());
+  free(ab->chunk);
+  free(ab);
+}
+#endif
+
+
+/* Fold a built batch, release the device and finish it (finish_gpu_batch()).
+ * Everything here that touches the GPU lives on ONE thread; build_gpu_batch()
+ * is the half that may run beside it. */
+static void
+fold_gpu_batch(struct gpu_batch *b,
+               struct options   *opt)
+{
+  int                     n     = b->n;
+  vrna_fold_compound_t  **VC    = b->VC;
+  char                  **Str   = b->Str;
+  float                  *EN    = b->EN;
+
+  /* THE SEAM. Not par_mfe(): the driver asks the LIBRARY to fold a batch, and
+   * the library uses whatever backend is registered -- the CUDA one here, or
+   * a plain loop over vrna_mfe() if none is. Nothing below this line, and
+   * nothing in this function, is CUDA-specific.
+   *
+   * That is what makes the diff presentable: the accelerator is a backend, not
+   * a fork of the driver, and removing it leaves a correct program. */
+  /* RNA_RECORD_TRACE: the device window for every record in this chunk. A batch
+   * has no per-record device window -- that only exists under slot flow, where
+   * the retire pool knows each record's own span -- so the chunk's window is the
+   * honest answer here, and the reader treats a shared window as exactly that. */
+  const double trace_fold_a = trace_now();
+
+#ifdef VRNA_WITH_CUDA
+  /* N5a P2: offer the backend a context it may finish later. It owns a copy of
+   * the batch -- the caller reuses `b` and, on the unpipelined path, its chunk
+   * array -- and comes back through bt_chunk_done() at the join. */
+  struct gpu_batch *ab = NULL;
+
+  if (bt_pipeline_wanted(opt)) {
+    ab          = (struct gpu_batch *)vrna_alloc(sizeof(*ab));
+    *ab         = *b;
+    ab->chunk   = (struct record_data **)vrna_alloc(sizeof(void *) * n);
+    memcpy(ab->chunk, b->chunk, sizeof(void *) * n);
+    ab->t_fold0 = trace_fold_a;
+    rnafold_bt_pipeline_ctx(ab);
+  }
+#else
+  (void)opt;
+#endif
+
+  vrna_mfe_batch(VC, (size_t)n, Str, EN);
+
+  const double trace_fold_b = trace_now();
+
+  /* Release the device state this chunk sized, before the next chunk sizes its
+   * own. Without this the second chunk inherits dirty buffers. A handed-off
+   * chunk's backtrack buffers were retired out of the globals and are not
+   * touched here. */
+  const double t_teardown = rnafold_now_seconds();
+  teardown_gpu();
+  teardown_gpu2();
+  teardown_gpu3();
+  stage_teardown_s += rnafold_now_seconds() - t_teardown;
+
+#ifdef VRNA_WITH_CUDA
+  if (ab) {
+    const int went = rnafold_bt_pipeline_went_async();
+
+    rnafold_bt_pipeline_ctx(NULL);   /* nothing left to hand off */
+    if (went) {
+      /* the answers arrive at the join; `ab` owns the arrays now */
+      b->VC = NULL; b->Str = NULL; b->EN = NULL; b->built = 0;
+      return;
+    }
+
+    free(ab->chunk);
+    free(ab);
+  }
+#endif
+
+  finish_gpu_batch(b, trace_fold_a, trace_fold_b);
 }
 
 
@@ -2809,6 +2915,10 @@ process_input(FILE            *input_stream,
        * because fM2_real is a second full triangle per record. */
       rnafold_circ_expect(opt->md.circ);
       vrna_cuda_register_batch_backend();
+      /* N5a: RNA_BT_PIPELINE=1 lets a chunk's backtrack run beside the next
+       * sweep; its answers come back through bt_chunk_done(). */
+      if (rnafold_bt_pipeline())
+        rnafold_bt_pipeline_attach(&bt_chunk_done);
     }
   }
 #endif
@@ -3046,6 +3156,8 @@ process_input(FILE            *input_stream,
      * there was no following chunk to overlap it with. Nothing else drains it,
      * and skipping this loses the tail silently rather than loudly. */
     pipeline_drain(opt);
+    /* N5a: and the last handed-off backtrack, for the same reason. */
+    rnafold_bt_pipeline_drain();
 
     if (g_pipelined_n > 0)
       fprintf(stderr,

@@ -608,9 +608,10 @@ chunk_trace_t(const double t) {
 PRIVATE void
 chunk_trace_line(const int nrec, const int max_len, const size_t cells,
                  const double enter, const double init_t1, const double sweep_t1,
-                 const double bt_t1) {
-  const double t_exit = rnafold_now_seconds();
-
+                 const double bt_t1, const double t_exit,
+                 const int bt_threads, const double fetch_ws, const double busy_ws) {
+  /* Under RNA_BT_PIPELINE a chunk's line is written when its trace is JOINED,
+   * so bt_t1 can come after exit: that gap is the overlap itself. */
   fprintf(g_chunk_fp, "%d,%d,%d,%zu", g_chunk_k++, nrec, max_len, cells);
   chunk_trace_t(enter);
   chunk_trace_t(init_t1);
@@ -618,7 +619,7 @@ chunk_trace_line(const int nrec, const int max_len, const size_t cells,
   chunk_trace_t(bt_t1);
   chunk_trace_t(t_exit);
   if(bt_t1 > 0.0)
-    fprintf(g_chunk_fp, ",%d,%.6f,%.6f\n", g_bt_threads, g_bt_fetch_ws, g_bt_busy_ws);
+    fprintf(g_chunk_fp, ",%d,%.6f,%.6f\n", bt_threads, fetch_ws, busy_ws);
   else
     fprintf(g_chunk_fp, ",,,\n");
   fflush(g_chunk_fp);   /* a handful of lines; never lose them to an abort */
@@ -627,9 +628,9 @@ chunk_trace_line(const int nrec, const int max_len, const size_t cells,
 /* N5a (PORT_BACKTRACK_PIPELINE.md): RNA_BT_PIPELINE=1 retires each chunk's
  * backtrack buffers into a rnafold_retired_t (bt_retired.h) when its sweep
  * ends, and fetches from there on non-blocking copy streams. Opt-in until the
- * A100 run (decision 9.2). Stage P1: still SEQUENTIAL -- retire, backtrack,
- * release, then teardown as before -- so it may not change one byte of output.
- * The overlap with the next sweep is P2. */
+ * A100 run (decision 9.2). For a driver that attached (RNAfold) the trace then
+ * runs beside the next chunk's sweep (P2, bt_async_join()); for anyone else it
+ * runs in today's order (P1). Neither may change one byte of output. */
 PUBLIC int
 rnafold_bt_pipeline(void) {
   static int v = -1;
@@ -637,8 +638,8 @@ rnafold_bt_pipeline(void) {
     const char *e = getenv("RNA_BT_PIPELINE");
     v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
     if(v) fprintf(stderr,"%-24s RNA_BT_PIPELINE=1: each chunk's backtrack buffers are "
-                         "retired at the end of its sweep and fetched from there "
-                         "(stage P1: still sequential)\n", __FILE__);
+                         "retired at the end of its sweep and, for RNAfold, traced "
+                         "beside the next chunk's sweep\n", __FILE__);
   }
   return v;
 }
@@ -646,13 +647,161 @@ rnafold_bt_pipeline(void) {
 /* positive evidence: chunks that went through retire -> backtrack -> release */
 static int g_bt_retired_n = 0;
 
+/* ===================== N5a P2: the trace runs beside the next sweep ==========
+ *
+ * PORT_BACKTRACK_PIPELINE.md §3.3/§3.4. With RNA_BT_PIPELINE=1 and a driver that
+ * has attached a "chunk done" callback (RNAfold, rnafold_bt_pipeline_attach()),
+ * par_mfe() retires the chunk at the end of its sweep, starts its backtrack on
+ * a trace thread and RETURNS: the caller tears down, builds and sweeps the next
+ * chunk while this one is traced. vrna_mfe_batch() itself is unchanged
+ * (decision 9.1); only a driver that attached knows the answers come later.
+ *
+ * The rules, each one load-bearing:
+ *   - ONE backtrack at a time. The scratch pool (bt_pool_get) and the copy
+ *     streams are shared, so every par_mfe() joins the pending trace after its
+ *     own sweep and before any backtrack of its own. At most two triangle sets
+ *     are on the device: the one being traced and the one being swept.
+ *   - The callback runs on the MAIN thread, at the join -- never on the trace
+ *     thread. It frees fold compounds and dispatches output, and RNAfold's
+ *     output guards only lock under -j, so it must not run beside the driver.
+ *     Output for chunk k therefore appears after sweep k+1; its ORDER is kept by
+ *     the ostream slots reserved at read time.
+ *   - The release (cudaFree, which synchronises the device) also happens at the
+ *     join, where the sweep has just drained anyway.
+ *   - Only a call the engine marks as allowed may hand off: one whose records
+ *     are the last piece of its vrna_mfe_batch() (rnafold_bt_async_allow()).
+ *   - A driver that has handed off must call rnafold_bt_pipeline_drain() before
+ *     it reads the last answers or exits. */
+typedef void (*rnafold_bt_done_fn)(void *ctx);
+
+static rnafold_bt_done_fn g_bt_done_cb    = NULL;
+static void              *g_bt_next_ctx   = NULL;
+static int                g_bt_async_ok   = 0;
+static int                g_bt_went_async = 0;
+
+typedef struct {
+  pthread_t                    th;
+  int                          live;
+  rnafold_retired_t           *ret;
+  int                          nfiles, length, cpu_queue_threads;
+  size_t                       cells;
+  const vrna_fold_compound_t **VC;
+  const char                 **Structure;
+  float                       *EN;
+  int                         *energy;     /* heap: par_mfe()'s is a VLA */
+  size_t                      *tri_off_H;  /* heap copy, nfiles+1 */
+  void                        *ctx;
+  double                       enter, init_t1, sweep_t1, exit_t, t_start, bt_t1;
+  int                          bt_threads;
+  double                       fetch_ws, busy_ws;
+} bt_async_t;
+
+static bt_async_t g_bt_async;
+static int        g_bt_async_n      = 0;     /* chunks traced beside a sweep */
+static double     g_bt_traced_s     = 0.0;   /* their trace wall, summed */
+static double     g_bt_wait_s       = 0.0;   /* waited for a trace at a join */
+static double     g_bt_drain_wait_s = 0.0;   /* waited for the last one at the end */
+
+PUBLIC void
+rnafold_bt_pipeline_attach(rnafold_bt_done_fn done) {
+  g_bt_done_cb = done;
+}
+
+/* The driver's context for the NEXT batch. Cleared on hand-off; a batch that
+ * did not go async leaves rnafold_bt_pipeline_went_async() at 0. */
+PUBLIC void
+rnafold_bt_pipeline_ctx(void *ctx) {
+  g_bt_next_ctx   = ctx;
+  g_bt_went_async = 0;
+}
+
+PUBLIC int
+rnafold_bt_pipeline_went_async(void) {
+  return g_bt_went_async;
+}
+
+/* engine.c: may the coming par_mfe() call hand its trace off? */
+PUBLIC void
+rnafold_bt_async_allow(const int ok) {
+  g_bt_async_ok = ok;
+}
+
+PRIVATE void
+backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
+              const char **Structure, int *energy, float *EN,
+              const size_t *tri_off_H, const int cpu_queue_threads,
+              const rnafold_retired_t *ret);
+
+PRIVATE void *
+bt_async_main(void *p) {
+  bt_async_t *a = (bt_async_t *)p;
+
+  a->t_start = rnafold_now_seconds();
+  backtrack_all(a->nfiles, a->VC, a->Structure, a->energy, a->EN, a->tri_off_H,
+                a->cpu_queue_threads, a->ret);
+  a->bt_t1      = rnafold_now_seconds();
+  /* backtrack_all() leaves these for the chunk trace; copy them while they
+   * are still this chunk's -- the join reads them from here */
+  a->bt_threads = g_bt_threads;
+  a->fetch_ws   = g_bt_fetch_ws;
+  a->busy_ws    = g_bt_busy_ws;
+  return NULL;
+}
+
+/* Wait for the pending trace, write its chunk line, release its retired set,
+ * then hand its answers to the driver -- on this, the main, thread. */
+PRIVATE void
+bt_async_join(const int at_drain) {
+  bt_async_t   *a = &g_bt_async;
+  double        t0, w;
+  void         *ctx;
+
+  if(!a->live)
+    return;
+
+  t0 = rnafold_now_seconds();
+  pthread_join(a->th, NULL);
+  w  = rnafold_now_seconds() - t0;
+  if(at_drain) g_bt_drain_wait_s += w;
+  else         g_bt_wait_s       += w;
+  g_bt_traced_s += a->bt_t1 - a->t_start;
+
+  if(g_chunk_fp)
+    chunk_trace_line(a->nfiles, a->length, a->cells, a->enter, a->init_t1, a->sweep_t1,
+                     a->bt_t1, a->exit_t, a->bt_threads, a->fetch_ws, a->busy_ws);
+
+  rnafold_retired_release(a->ret);
+  free(a->energy);
+  free(a->tri_off_H);
+  ctx     = a->ctx;
+  a->live = 0;
+  g_bt_retired_n++;
+
+  if(g_bt_done_cb)
+    g_bt_done_cb(ctx);
+}
+
+PUBLIC void
+rnafold_bt_pipeline_drain(void) {
+  bt_async_join(1);
+}
+
+PRIVATE void
+rnafold_bt_pipeline_report(void) {
+  const double hidden = g_bt_traced_s - g_bt_wait_s - g_bt_drain_wait_s;
+
+  fprintf(stderr, "%-24s backtrack pipeline: %d chunk(s) retired, %d traced beside the "
+                  "next sweep: traced %.3f s, waited %.3f s at joins + %.3f s at the end, "
+                  "OVERLAPPED %.3f s\n", __FILE__, g_bt_retired_n, g_bt_async_n,
+          g_bt_traced_s, g_bt_wait_s, g_bt_drain_wait_s, hidden > 0.0 ? hidden : 0.0);
+}
+
 PRIVATE void
 print_stage_timing_stats(void) {
   if (vrna_cuda_quiet())
     return;
   if (rnafold_bt_pipeline())
-    fprintf(stderr, "%-24s backtrack pipeline: %d chunk(s) retired and backtracked "
-                    "from the retired set (P1, sequential)\n", __FILE__, g_bt_retired_n);
+    rnafold_bt_pipeline_report();
   fprintf(stderr,
     "%-24s backtrack scratch (worker-s): alloc=%.3f fetch=%.3f\n",
     __FILE__, stage_btpin_worker_s, stage_btfetch_worker_s);
@@ -1672,6 +1821,7 @@ par_mfe(const int nfiles,
   /* N5a P0 chunk spans; see rnafold_chunk_trace_open() */
   const double tr_enter = rnafold_now_seconds();
   double       tr_init  = 0.0, tr_sweep = 0.0, tr_bt = 0.0;
+  int          bt_handed = 0;   /* N5a P2: this call's trace went to the trace thread */
 
   //start GPU as early as possible so allow maximise overlap GPU with CPU
   // Staggered_Row_Batching Phase 6c/6d: the length handed to init_gpu*() sizes
@@ -2018,14 +2168,56 @@ par_mfe(const int nfiles,
       tr_sweep = rnafold_now_seconds();
     }
 
+    /* N5a P2: one backtrack at a time (the scratch pool is shared), so the
+     * previous chunk's trace is joined HERE -- after this sweep, which it has
+     * been running beside, and before anything of this chunk's is traced. */
+    bt_async_join(0);
+
     if(rnafold_bt_pipeline() && !rnafold_slot_turnover()) {
-      /* N5a P1: retire, backtrack from the retired set, release -- in that
-       * order and on this thread, so the schedule is today's. The turnover
+      /* N5a P1: retire, then backtrack from the retired set. The turnover
        * self-check refolds these same buffers and keeps the old path. */
       rnafold_retired_t *ret = rnafold_retire_chunk(nfiles, tri_off_H);
-      backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, ret);
-      rnafold_retired_release(ret);
-      g_bt_retired_n++;
+      bt_async_t        *a   = &g_bt_async;
+
+      if(g_bt_done_cb && g_bt_async_ok && g_bt_next_ctx) {
+        /* P2: hand the trace off and return; the caller sweeps the next chunk */
+        a->ret               = ret;
+        a->nfiles            = nfiles;
+        a->length            = length;
+        a->cpu_queue_threads = cpu_queue_threads;
+        a->cells             = tri_off_H[nslots];
+        a->VC                = VC;
+        a->Structure         = Structure;
+        a->EN                = EN;
+        a->energy            = (int *) vrna_alloc(sizeof(int) * nfiles);
+        a->tri_off_H         = (size_t *) vrna_alloc(sizeof(size_t) * (nfiles + 1));
+        memcpy(a->tri_off_H, tri_off_H, sizeof(size_t) * (nfiles + 1));
+        a->ctx               = g_bt_next_ctx;
+        a->enter             = tr_enter;
+        a->init_t1           = tr_init;
+        a->sweep_t1          = tr_sweep;
+        a->exit_t            = 0.0;
+
+        if(pthread_create(&a->th, NULL, bt_async_main, a) == 0) {
+          a->live         = 1;
+          bt_handed       = 1;
+          if(rnafold_bt_negctl() == 2)   /* negative control: give the set away */
+            rnafold_retired_negctl_free(ret);
+          g_bt_next_ctx   = NULL;
+          g_bt_went_async = 1;
+          g_bt_async_n++;
+        } else {
+          /* no thread to be had: P1's sequential order, still correct */
+          free(a->energy);
+          free(a->tri_off_H);
+        }
+      }
+
+      if(!a->live || (a->ret != ret)) {
+        backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, ret);
+        rnafold_retired_release(ret);
+        g_bt_retired_n++;
+      }
     } else {
       backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, NULL);
     }
@@ -2083,8 +2275,13 @@ par_mfe(const int nfiles,
       for(i=0;i<nfiles;i++) { free(Str1[i]); free(Str2[i]); }
       free(Str1); free(Str2); free(EN1); free(EN2); free(energy2); free(VC2);
     }
-    if(g_chunk_fp)
-      chunk_trace_line(nfiles, length, tri_off_H[nslots], tr_enter, tr_init, tr_sweep, tr_bt);
+    if(bt_handed) {
+      /* handed off: the line is written when the trace is joined */
+      g_bt_async.exit_t = rnafold_now_seconds();
+    } else if(g_chunk_fp) {
+      chunk_trace_line(nfiles, length, tri_off_H[nslots], tr_enter, tr_init, tr_sweep, tr_bt,
+                       rnafold_now_seconds(), g_bt_threads, g_bt_fetch_ws, g_bt_busy_ws);
+    }
   } else {
   /* PORT TO 2.7.2 -- WIRED THROUGH THE SEAM.
    *

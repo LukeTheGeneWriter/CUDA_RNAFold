@@ -255,3 +255,42 @@ Negative control `RNA_BT_PIPELINE_NEGCTL=1` zeroes the retained c triangle befor
 
 The C_mixed fixture has no G-quadruplex, so the `-g` case shows the `-g` path folds through the retired set,
 not that a G-quad structure survives it. The `-g` fixtures in the gpu_cli bar cover that.
+
+### 10.3 P2, laptop (2026-10-10): the trace runs beside the next sweep
+
+Built, with no public API (decision 9.1):
+- **Backend (mfe_cuda.c):** with `RNA_BT_PIPELINE=1` and a driver that has attached a "chunk done" callback,
+  `par_mfe()` retires the chunk, starts its backtrack on a trace thread and returns. Every `par_mfe()` joins the
+  pending trace after its own sweep and before any backtrack of its own, so only one backtrack runs at a time
+  (the scratch pool and copy streams are shared) and at most two triangle sets are on the device. The join
+  releases the retired set (cudaFree synchronises, and the device has just drained) and calls the driver back
+  **on the main thread**.
+- **Engine (engine.c):** only the last piece of a `vrna_mfe_batch()` call may hand off.
+- **Driver (RNAfold.c):** `fold_gpu_batch()` offers a heap copy of the batch as the context; if the backend
+  took it, the answers arrive in `bt_chunk_done()` -> `finish_gpu_batch()`, which is today's post-fold code
+  moved into one function. Output for chunk k is dispatched after sweep k+1; its order comes from the ostream
+  slots. `rnafold_bt_pipeline_drain()` at end of input. Refused, with a reason printed once:
+  `--unordered` (no ostream to keep the order) and output paths that build compounds of their own.
+- **Report:** `backtrack pipeline: N chunk(s) retired, M traced beside the next sweep: traced X s, waited Y s at
+  joins + Z s at the end, OVERLAPPED W s`. The chunk trace writes a handed-off chunk's line at its join, so
+  `bt_t1 > exit` is the overlap, chunk by chunk.
+- **NEGCTL=2:** the retained set is freed at hand-off (what retention exists to prevent).
+
+| bar (all with `RNA_BT_PIPELINE=1`) | result |
+|---|---|
+| self-check, 9 cases × CPU / off / on / NEGCTL 1 / NEGCTL 2: multi-chunk int32 (7 chunks), one chunk int16, mixed, `-c`, `--noLP`, `-g`, `--salt`, `-j4`, **heterogeneous** (`-j4` + CPU slice + build pipeline) | **9/9**: one sha per case across CPU, off and on; every multi-chunk case traced chunks beside a sweep with OVERLAPPED > 0 and **0.000 s waited at joins**; NEGCTL 1 changes the output in all 9; NEGCTL 2 fails all 9 with `invalid argument` on the fetch from freed memory |
+| `-j4 --unordered` | refused, says so, 0 chunks traced beside a sweep; sorted output = CPU |
+| `verify_option_parity` | option surface = CPU |
+| `verify_option_matrix` | 36/36 |
+| `verify_gpu_cli` budgets 4/8/16/32 | byte for byte (F_extreme 12 sweeps) |
+| binding suite | 20/20 |
+
+Notes:
+- **NEGCTL=2 bit loudly, not silently.** On the laptop, freed device memory was not handed straight to the next
+  chunk, so the fetch failed (`invalid argument`) rather than reading the next chunk's data. That shows the fetch
+  reads the retained set and that losing it is caught; it does not show what a silent reuse would look like.
+- **The laptop gain is small by construction**: 7 small chunks hide 0.41 s. The A100 numbers come from P4.
+- **The trace-thread count is today's backtrack default** (hardware threads). Decision 9.4's formula gives 1
+  wherever the builder defaults to nproc; P4 sweeps it under full heterogeneous load (§6).
+- **The bar run was once reaped for host memory** (a coverage build was running beside it); the rerun of the
+  remaining bars is the one recorded here.
