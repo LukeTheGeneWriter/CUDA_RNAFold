@@ -1,7 +1,8 @@
-# Backtrack pipelining (N5a): plan for sign-off
+# Backtrack pipelining (N5a): plan, signed off 2026-10-10
 
 Roadmap N5a, opened 2026-10-06 by the A100 N2 run (`CUDA_RNAFold_N2.ipynb`; numbers in PORT_SPARSE_MD.md "N2
-done"). **Status: PLAN, awaiting Luke's sign-off.** Nothing here is built.
+done"). **Status: SIGNED OFF by Luke 2026-10-10** with the decisions in section 9. §3.3 and §3.7 were
+rewritten to match decision 9.1: no new public API. P0 is in progress.
 
 ## 1. Why
 
@@ -66,18 +67,25 @@ fetch never reads a global the next sweep is rewriting.
 the (pinned) worker scratch, followed by a synchronise of that stream only. The sweep's kernels keep running
 on theirs. Risk 8.1 covers legacy default-stream semantics.
 
-**3.3 An asynchronous seam.** RNAfold folds through the library (`vrna_mfe_batch()`, "THE SEAM"), so the
-overlap needs a split call:
+**3.3 The seam: unchanged (decision 9.1).** No `vrna_mfe_batch_begin`/`_finish`. The overlap is built from
+infrastructure that already exists, and work still goes to the GPU in **batches**, never record by record:
 
-```c
-vrna_cuda_batch_t *vrna_mfe_batch_begin(fcs, n);              /* sweep; triangles retained on the device */
-void               vrna_mfe_batch_finish(h, structures, mfes); /* fetch + trace + release; any thread      */
-```
-
-- `vrna_mfe_batch()` becomes `begin` then `finish`, back to back, so its behaviour is unchanged.
-- Without the CUDA backend, `begin` folds on the host and `finish` only copies out. The CPU-only build stays
-  correct, and the API is symmetric.
-- This is library-facing API, so it is decision 9.1.
+- **`vrna_mfe_batch()` keeps its signature and stays synchronous** to its caller. The public headers and the
+  SWIG interface do not change, so TBI's review surface does not grow.
+- **The overlap lives inside the CUDA backend.** It retains chunk *k*'s triangles (§3.1) and hands *k*'s
+  records to the existing retire-pool machinery: `backtrack_fetch_slot` (device to host, on the fetch
+  stream) and `backtrack_finish_slot` (pure host work, on worker threads). Meanwhile chunk *k+1*'s sweep runs.
+- **Results leave through the existing ordered output.** RNAfold already reserves each record's slot in
+  `vrna_ostream_t` at read time and provides it when the result is ready. A small internal (non-public) hook,
+  in the style of `rnafold_circ_expect()`, tells the driver "record *r* is finished", and the driver
+  dispatches it through its existing `-j` pool (`RUN_IN_PARALLEL`). Output order is unchanged.
+- **Slot flow is not revived.** Per-record admission (`RNA_SLOT_FLOW`) is off by default and has no A100
+  performance case. Admission stays chunk by chunk under the cell cap; only retirement of a finished chunk
+  overlaps the next sweep.
+- **Without the CUDA backend nothing changes:** `vrna_mfe_batch()` loops over `vrna_mfe()` as it does today.
+- **What it costs the driver:** the build pipeline must stay one chunk ahead of the backend, not one chunk
+  ahead of the call, and the driver must not free a chunk's fold compounds until the hook has released every
+  record in it.
 
 **3.4 The driver schedule** (RNAfold.c, the pipelined path):
 
@@ -111,8 +119,9 @@ builder:  [build(k+1)]            [build(k+2)]
 **3.6 Thread split.** The trace pool and the builder share the host. Default: trace threads =
 `hw − builder threads`, at least 1. Measured, not assumed (section 6).
 
-**3.7 Library callers** (stage P3). `engine.c` already splits a big list into VRAM-sized chunks. The same
-begin/finish overlap applies there, so `RNA.fold(list)` gains too. Separate stage, separate bar.
+**3.7 Library callers** (stage P3, in this campaign per decision 9.3). `engine.c` already splits a big list
+into VRAM-sized chunks. Because the overlap lives in the backend (§3.3), the same schedule serves
+`RNA.fold(list)`: the CLI and the library share one schedule. Separate stage, separate bar.
 
 ## 4. Correctness
 
@@ -138,7 +147,7 @@ and on another thread. The bars make sure the construction holds.
 | stage | content | bar |
 |---|---|---|
 | P0 | instrument per-chunk sweep / fetch / trace spans (`RNA_RECORD_TRACE`), laptop and A100 | the gap is where §1 says |
-| P1 | `retired_chunk_t`, fetch variants, async fetch stream, `begin`/`finish` with `vrna_mfe_batch()` = both | byte-identical, sequential; NEGCTL bites |
+| P1 | `retired_chunk_t`, fetch variants, async fetch stream, backend-internal retire of a retained chunk | byte-identical, sequential; NEGCTL bites |
 | P2 | RNAfold driver overlap, AUTO gate, report, refusals | §4 bars 1–4, forced multi-chunk |
 | P3 | `engine.c` overlap for library lists | binding suite + `RNA.fold(list)` multi-chunk |
 | P4 | A100 notebook: 400 × 5601, 3000 × 1200, soak; ABBA × 3 + P passes; trace-thread sweep | by eye (no threshold, as 9.5) |
@@ -171,15 +180,20 @@ and on another thread. The bars make sure the construction holds.
    measure it.
 3. **Global device pointers.** The sweep uses globals across three files. Retention must move exactly the
    fetch set and nothing else; asserts guard it.
-4. **Library API surface.** `begin`/`finish` is new public API in a library meant for upstream. It needs
-   Luke's call (9.1) and possibly TBI's view.
+4. **Library API surface.** Settled by 9.1: none added. The risk moves to the internal driver hook, which must
+   stay out of the public headers.
 5. **Error paths.** A CUDA error during `finish(k)` while `begin(k+1)` runs. Today's `gpuErrchk` exits the
    process; that stays the behaviour, but the message must say which chunk.
 
-## 9. Decisions for Luke
+## 9. Decisions (signed off by Luke, 2026-10-10)
 
-1. **The seam:** new public `vrna_mfe_batch_begin`/`_finish`, or keep them internal to RNAfold + engine (P3
-   only) and leave the public API as it is?
-2. **Default:** AUTO on (VRAM + host-memory gated, like the build pipeline), or opt-in until P4 is measured?
-3. **Order:** P3 (library lists) in this campaign, or after N3?
-4. **The thread split** default (§3.6), to be measured in P4.
+1. **The seam: no new public API.** Use the infrastructure that exists: `vrna_mfe_batch()` as is, the retire
+   pool's fetch/finish split, `vrna_ostream_t` ordering and the `-j` pool. Batches go to the GPU, not
+   individual sequences; slot flow stays off. Written up in §3.3.
+2. **Default: opt-in** (`RNA_BT_PIPELINE=1`) until the P4 A100 run is measured; then AUTO, gated on VRAM and
+   host memory like the build pipeline.
+3. **Order: P3 (library lists) is in this campaign.**
+4. **Thread split:** trace threads = hardware threads − builder threads, at least 1. Swept at 4 / 8 / 12 / auto
+   in P4 and changed only if the measurement says so.
+
+**Next after N5a (Luke, 2026-10-10):** the device-side backtracking experiment (N5).
