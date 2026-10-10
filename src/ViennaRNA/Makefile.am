@@ -912,7 +912,8 @@ NVCC_COMPILE = $(SHELL) $(srcdir)/mfe/cuda/nvcc-libtool.sh $(NVCC_BIN)
 NVCC_ALL_FLAGS = -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) $(NVCC_ASSERT_FLAGS) \
 	  -I$(top_srcdir)/src -I$(top_builddir)/src -I$(srcdir)/mfe/cuda
 
-mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu
+mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu \
+                    $(srcdir)/mfe/cuda/bt_retired.h
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
@@ -920,6 +921,7 @@ mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu
 
 mfe/cuda/modular_decomposition.lo: $(srcdir)/mfe/cuda/modular_decomposition.cu \
                                    $(srcdir)/mfe/cuda/stub2.h \
+                                   $(srcdir)/mfe/cuda/bt_retired.h \
                                    $(srcdir)/mfe/cuda/md_cell.inc \
                                    $(srcdir)/mfe/cuda/md_chain_cells.inc \
                                    $(srcdir)/mfe/cuda/md_block.inc \
@@ -934,6 +936,7 @@ mfe/cuda/int_loop.lo: $(srcdir)/mfe/cuda/int_loop.cu \
                       $(srcdir)/mfe/cuda/int_loop_lyngso.inc \
                       $(srcdir)/mfe/cuda/gquad_dev.h \
                       $(srcdir)/mfe/cuda/stub2.h \
+                      $(srcdir)/mfe/cuda/bt_retired.h \
                       $(srcdir)/mfe/cuda/interior_loopx.h \
                       $(srcdir)/mfe/cuda/nth.h \
                       $(srcdir)/mfe/cuda/int_loop_kernel_body.inc \
@@ -1019,6 +1022,7 @@ EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/interior_loopx.h \
               mfe/cuda/nth.h \
               mfe/cuda/stub2.h \
+              mfe/cuda/bt_retired.h \
               mfe/cuda/gquad.c \
               mfe/cuda/fill_arrays.c \
               mfe/cuda/fill_arrays_loop.c \

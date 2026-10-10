@@ -2861,6 +2861,23 @@ rnafold_circ_free(void)
 }
 
 
+/* N5a (bt_retired.h): hand this chunk's fML -- whichever layout was ALLOCATED,
+ * read off the pointers, never off rnafold_fml_int16() -- and, circular, its
+ * fM2_real to a retired set. NULLed here, so teardown_gpu() and the next
+ * rnafold_circ_alloc() skip them. d_colb_off stays: the host decode recomputes
+ * the column offsets and never reads it. */
+extern "C" void
+rnafold_fml_detach(rnafold_retired_t *r)
+{
+  r->d_fml_j      = d_fml_j;      d_fml_j      = NULL;
+  r->d_fml_j16    = d_fml_j16;    d_fml_j16    = NULL;
+  r->d_fml_b      = d_fml_b;      d_fml_b      = NULL;
+  r->d_base_off_H = d_base_off_H; d_base_off_H = NULL;
+  r->d_fm2        = d_fm2;        d_fm2        = NULL;
+  g_fm2_cells = 0;
+}
+
+
 /* Allocate and prefill. `circ` 0 frees and returns 0; returns 1 on success,
  * -1 on failure. Prefill is INF because upstream prefills fM2_real to INF and
  * the kernel only writes cells with j >= i+2*turn+3 -- every shorter span has
@@ -2907,6 +2924,16 @@ fetch_fm2_one_w(int *dst, const size_t tri_lo, const size_t cells, const int w)
   }
 
   d2h_w(dst, &d_fm2[tri_lo], cells*sizeof(int), w);
+}
+
+void rnafold_d2h_nb_w(void* dst, const void* src, const size_t bytes, const int w);
+
+extern "C" void
+rnafold_retired_fetch_fm2_w(const rnafold_retired_t *r, int *dst,
+                            const size_t tri_lo, const size_t cells, const int w)
+{
+  assert(r && r->d_fm2 && (tri_lo + cells <= r->cells));
+  rnafold_d2h_nb_w(dst, &r->d_fm2[tri_lo], cells*sizeof(int), w);
 }
 
 extern "C" void
@@ -3416,23 +3443,31 @@ fetch_fML_one(int* dst, const size_t tri_lo, const size_t cells) {
 // backtrack pool, off the critical path, and a kernel would need a scratch
 // int32 triangle on the device -- which is exactly the allocation this whole
 // change exists to remove.
-extern "C" /*PUBLIC*/ void
-fetch_fML_one_Hw(int* dst, const size_t tri_lo, const size_t cells, const int H, const int w) {
-  if(!rnafold_fml_int16()) { d2h_w(dst, &d_fml_j[tri_lo], cells*sizeof(int), w); return; }
+//
+// N5a: the body takes its buffers and its copy as ARGUMENTS, so the live chunk
+// (globals, g_xfer[]) and a retired one (bt_retired.h, g_xfer_nb[]) share every
+// line of the decode. `j16` non-NULL selects the int16 layout.
+typedef void (*fml_d2h_t)(void*, const void*, const size_t, const int);
+
+static void
+fml_fetch_decode(int* dst, const size_t tri_lo, const size_t cells, const int H, const int w,
+                 const int* j32, const short* j16, const int* fb, const size_t* boff,
+                 fml_d2h_t d2h) {
+  if(!j16) { d2h(dst, &j32[tri_lo], cells*sizeof(int), w); return; }
 
   static __thread short*  h16  = NULL;
   static __thread size_t  h16n = 0;
   if(h16n < cells) { free(h16); h16 = (short*)malloc(cells*sizeof(short)); h16n = cells; }
 
-  d2h_w(h16, &d_fml_j16[tri_lo], cells*sizeof(short), w);
+  d2h(h16, &j16[tri_lo], cells*sizeof(short), w);
 
   // The baselines for this record, and the column offsets, both small.
   size_t base_lo = 0, base_n = 0;
-  d2h_w(&base_lo, &d_base_off_H[H], sizeof(size_t), w);
-  { size_t hi; d2h_w(&hi, &d_base_off_H[H+1], sizeof(size_t), w);
+  d2h(&base_lo, &boff[H], sizeof(size_t), w);
+  { size_t hi; d2h(&hi, &boff[H+1], sizeof(size_t), w);
     base_n = hi - base_lo; }
   int* hb = (int*)malloc((base_n?base_n:1)*sizeof(int));
-  if(base_n) d2h_w(hb, &d_fml_b[base_lo], base_n*sizeof(int), w);
+  if(base_n) d2h(hb, &fb[base_lo], base_n*sizeof(int), w);
 
   // n from the triangle size: cells == (n+1)(n+2)/2
   int n = 0; while(((size_t)(n+1)*(n+2))/2 < cells) n++;
@@ -3477,6 +3512,22 @@ fetch_fML_one_Hw(int* dst, const size_t tri_lo, const size_t cells, const int H,
     }
   }
   free(hb); free(colb);
+}
+
+extern "C" /*PUBLIC*/ void
+fetch_fML_one_Hw(int* dst, const size_t tri_lo, const size_t cells, const int H, const int w) {
+  fml_fetch_decode(dst, tri_lo, cells, H, w, d_fml_j,
+                   rnafold_fml_int16() ? d_fml_j16 : NULL, d_fml_b, d_base_off_H,
+                   rnafold_d2h_w);
+}
+
+extern "C" void
+rnafold_retired_fetch_fml_w(const rnafold_retired_t *r, int *dst,
+                            const size_t tri_lo, const size_t cells,
+                            const int H, const int w) {
+  assert(r && (r->d_fml_j || r->d_fml_j16) && (tri_lo + cells <= r->cells) && (H < r->nslots));
+  fml_fetch_decode(dst, tri_lo, cells, H, w, r->d_fml_j, r->d_fml_j16, r->d_fml_b,
+                   r->d_base_off_H, rnafold_d2h_nb_w);
 }
 
 extern "C" /*PUBLIC*/ void

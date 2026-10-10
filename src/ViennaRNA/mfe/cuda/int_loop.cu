@@ -755,6 +755,25 @@ fetch_my_c_one_w(int* dst, const size_t tri_lo, const size_t cells, const int w)
   d2h_w(dst, &d_my_c[tri_lo], cells*sizeof(int), w);
 }
 
+// N5a (bt_retired.h): hand this chunk's c triangle to a retired set. NULLing the
+// global is what keeps teardown_gpu2() off it (cudaFree(NULL) is a no-op), and
+// the next init_gpu2() allocates a fresh one.
+void rnafold_d2h_nb_w(void* dst, const void* src, const size_t bytes, const int w);
+
+extern "C" int *
+rnafold_my_c_detach(void) {
+  int *p = d_my_c;
+  d_my_c = NULL;
+  return p;
+}
+
+extern "C" void
+rnafold_retired_fetch_my_c_w(const rnafold_retired_t *r, int *dst,
+                             const size_t tri_lo, const size_t cells, const int w) {
+  assert(r && r->d_my_c && (tri_lo + cells <= r->cells));
+  rnafold_d2h_nb_w(dst, &r->d_my_c[tri_lo], cells*sizeof(int), w);
+}
+
 extern "C" /*PUBLIC*/ void
 fetch_my_c_one(int* dst, const size_t tri_lo, const size_t cells) {
   fetch_my_c_one_w(dst, tri_lo, cells, -1);

@@ -624,10 +624,35 @@ chunk_trace_line(const int nrec, const int max_len, const size_t cells,
   fflush(g_chunk_fp);   /* a handful of lines; never lose them to an abort */
 }
 
+/* N5a (PORT_BACKTRACK_PIPELINE.md): RNA_BT_PIPELINE=1 retires each chunk's
+ * backtrack buffers into a rnafold_retired_t (bt_retired.h) when its sweep
+ * ends, and fetches from there on non-blocking copy streams. Opt-in until the
+ * A100 run (decision 9.2). Stage P1: still SEQUENTIAL -- retire, backtrack,
+ * release, then teardown as before -- so it may not change one byte of output.
+ * The overlap with the next sweep is P2. */
+PUBLIC int
+rnafold_bt_pipeline(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_BT_PIPELINE");
+    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
+    if(v) fprintf(stderr,"%-24s RNA_BT_PIPELINE=1: each chunk's backtrack buffers are "
+                         "retired at the end of its sweep and fetched from there "
+                         "(stage P1: still sequential)\n", __FILE__);
+  }
+  return v;
+}
+
+/* positive evidence: chunks that went through retire -> backtrack -> release */
+static int g_bt_retired_n = 0;
+
 PRIVATE void
 print_stage_timing_stats(void) {
   if (vrna_cuda_quiet())
     return;
+  if (rnafold_bt_pipeline())
+    fprintf(stderr, "%-24s backtrack pipeline: %d chunk(s) retired and backtracked "
+                    "from the retired set (P1, sequential)\n", __FILE__, g_bt_retired_n);
   fprintf(stderr,
     "%-24s backtrack scratch (worker-s): alloc=%.3f fetch=%.3f\n",
     __FILE__, stage_btpin_worker_s, stage_btfetch_worker_s);
@@ -981,6 +1006,10 @@ typedef struct {
   int                           nfiles;
   int                          *next_i; /* shared work-claim counter */
   const size_t                *tri_off_H;
+  /* N5a: when set, the triangles are fetched from this retired chunk, never
+   * from the live globals; ret_id is the chunk the caller believes it is. */
+  const rnafold_retired_t     *ret;
+  int                           ret_id;
 } backtrack_pool_args_t;
 
 typedef struct {
@@ -1022,6 +1051,19 @@ backtrack_fetch_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt
     vc->matrices->fM2_real = sc->fM2;
 
   const double t0 = rnafold_now_seconds();
+  if(a->ret) {
+    /* N5a: a retired chunk. The id check is what catches a set handed to the
+     * wrong chunk's records once P2 has two sets alive at once. */
+    if(a->ret->id != a->ret_id) {
+      fprintf(stderr,"%-24s RETIRED SET MISMATCH: record %d expects chunk %d, "
+                     "set is chunk %d\n", __FILE__, idx, a->ret_id, a->ret->id);
+      exit(EXIT_FAILURE);
+    }
+    rnafold_retired_fetch_my_c_w(a->ret, sc->c,   lo, cells, sc->w);
+    rnafold_retired_fetch_fml_w(a->ret,  sc->fML, lo, cells, slot, sc->w);
+    if(vc->params->model_details.circ)
+      rnafold_retired_fetch_fm2_w(a->ret, sc->fM2, lo, cells, sc->w);
+  } else {
   fetch_my_c_one_w(sc->c,   lo, cells, sc->w);
   // _H, not the bare form: the int16 path needs the record index to find its
   // baselines. Widening happens here, at the device boundary -- the host's fML
@@ -1032,6 +1074,7 @@ backtrack_fetch_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt
    * indexing. */
   if(vc->params->model_details.circ)
     fetch_fm2_one_w(sc->fM2, lo, cells, sc->w);
+  }
   sc->fetch_s += rnafold_now_seconds() - t0;
 }
 
@@ -1539,7 +1582,8 @@ retire_pool_drain(retire_ctx_t *r) {
 PRIVATE void
 backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
               const char **Structure, int *energy, float *EN,
-              const size_t *tri_off_H, const int cpu_queue_threads) {
+              const size_t *tri_off_H, const int cpu_queue_threads,
+              const rnafold_retired_t *ret) {
   int i;
   // Post-processing. Each record now gets its triangles fetched into a
   // pooled scratch pair, its exterior loop finished and its MFE read, then
@@ -1549,7 +1593,8 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
   const double t_bt = rnafold_now_seconds();
   const int n_bt_threads = backtrack_thread_count(nfiles, cpu_queue_threads);
   int next_i = 0;
-  backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H };
+  backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H,
+                                 ret, ret ? ret->id : -1 };
   bt_scratch_t *pool = bt_pool_get(n_bt_threads);   /* T2a: persistent, maybe pinned */
   bt_pool_prepare(pool, n_bt_threads, nfiles, VC);  /* serially, before any worker */
   if(n_bt_threads <= 1) {
@@ -1973,7 +2018,17 @@ par_mfe(const int nfiles,
       tr_sweep = rnafold_now_seconds();
     }
 
-    backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads);
+    if(rnafold_bt_pipeline() && !rnafold_slot_turnover()) {
+      /* N5a P1: retire, backtrack from the retired set, release -- in that
+       * order and on this thread, so the schedule is today's. The turnover
+       * self-check refolds these same buffers and keeps the old path. */
+      rnafold_retired_t *ret = rnafold_retire_chunk(nfiles, tri_off_H);
+      backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, ret);
+      rnafold_retired_release(ret);
+      g_bt_retired_n++;
+    } else {
+      backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, NULL);
+    }
     if(g_chunk_fp)
       tr_bt = rnafold_now_seconds();
     }
@@ -2010,7 +2065,7 @@ par_mfe(const int nfiles,
       refill_gpu3(nfiles, VC2, turn, length, 512, row_off_H, cap_H, -1);
 
       par_fill_arrays(nfiles, VC2, energy2, NULL);
-      backtrack_all(nfiles, VC2, (const char **) Str2, energy2, EN2, tri_off_H, cpu_queue_threads);
+      backtrack_all(nfiles, VC2, (const char **) Str2, energy2, EN2, tri_off_H, cpu_queue_threads, NULL);
 
       int bad = 0;
       for(i=0;i<nfiles;i++) {

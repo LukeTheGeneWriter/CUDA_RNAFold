@@ -13,6 +13,8 @@
 #include <string.h>
 #include <cuda_runtime.h>
 
+#include "bt_retired.h"   /* N5a: the retired chunk */
+
 /* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
  * asked for the routine diagnostics below to be left out; errors still print. */
 extern "C" int vrna_cuda_quiet(void);
@@ -1192,6 +1194,13 @@ rnafold_rowtab_upload_row(const int i)
  */
 #define RT_XFER_MAX 256
 static cudaStream_t g_xfer[RT_XFER_MAX];
+/* N5a: the same workers' copy streams for a RETIRED chunk, created NON-BLOCKING.
+ * g_xfer[] are ordinary streams, so a copy on one waits for whatever the legacy
+ * default stream has queued -- harmless while the GPU is idle during backtrack,
+ * and a serialisation the moment the next chunk's sweep runs beside the fetch
+ * (PORT_BACKTRACK_PIPELINE.md risk 8.1). A retired chunk is drained when it is
+ * retired, so these need no ordering against the sweep at all. */
+static cudaStream_t g_xfer_nb[RT_XFER_MAX];
 static void        *g_xfer_stage[RT_XFER_MAX];
 static int          g_xfer_stage_pin[RT_XFER_MAX];
 static int          g_xfer_n = 0;
@@ -1261,6 +1270,8 @@ rnafold_xfer_begin(const int n)
 
   while (g_xfer_n < want) {
     rt_check(cudaStreamCreate(&g_xfer[g_xfer_n]), "copy stream create");
+    rt_check(cudaStreamCreateWithFlags(&g_xfer_nb[g_xfer_n], cudaStreamNonBlocking),
+             "copy stream create (non-blocking)");
     g_xfer_stage[g_xfer_n] = rnafold_xfer_pin_scratch()
                              ? NULL    /* the scratch is pinned; no stage needed */
                              : rt_pinned_alloc(rt_stage_bytes(), &g_xfer_stage_pin[g_xfer_n]);
@@ -1273,9 +1284,12 @@ rnafold_xfer_begin(const int n)
 }
 
 /* Device-to-host for backtrack worker w. w < 0 is the old blocking copy on the
- * default stream. Otherwise: slices through w's pinned stage, on w's stream. */
-extern "C++" void
-rnafold_d2h_w(void *dst, const void *src, const size_t bytes, const int w)
+ * default stream. Otherwise: slices through w's pinned stage, on w's stream --
+ * from `streams`, which is g_xfer[] for the live chunk and g_xfer_nb[] for a
+ * retired one. A worker uses one set at a time, so the stage is shared. */
+static void
+rt_d2h(void *dst, const void *src, const size_t bytes, const int w,
+       const cudaStream_t *streams)
 {
   if (w < 0) {
     rt_check(cudaMemcpy(dst, src, bytes, cudaMemcpyDeviceToHost), "fetch");
@@ -1287,7 +1301,7 @@ rnafold_d2h_w(void *dst, const void *src, const size_t bytes, const int w)
 
   {
     const int          k     = w % g_xfer_n;
-    const cudaStream_t s     = g_xfer[k];
+    const cudaStream_t s     = streams[k];
     const size_t       slice = rt_stage_bytes();
     size_t             off;
 
@@ -1308,6 +1322,100 @@ rnafold_d2h_w(void *dst, const void *src, const size_t bytes, const int w)
     }
   }
 }
+
+extern "C++" void
+rnafold_d2h_w(void *dst, const void *src, const size_t bytes, const int w)
+{
+  rt_d2h(dst, src, bytes, w, g_xfer);
+}
+
+/* N5a: the retired-chunk copy. Never the w < 0 default-stream form: that one
+ * would order the fetch behind the next chunk's sweep. */
+extern "C++" void
+rnafold_d2h_nb_w(void *dst, const void *src, const size_t bytes, const int w)
+{
+  rt_d2h(dst, src, bytes, (w < 0) ? 0 : w, g_xfer_nb);
+}
+
+
+/* ===================== N5a: the retired chunk =================================
+ *
+ * PORT_BACKTRACK_PIPELINE.md §3.1. When a chunk's sweep ends, the buffers its
+ * backtrack reads -- c, fML (int32, or int16 + baselines) and, circular, fM2 --
+ * are DETACHED from the globals into a rnafold_retired_t. The next teardown and
+ * init_gpu*() then neither free nor reuse them; everything else is torn down
+ * as before. The fetch reads the retired set through g_xfer_nb[], and
+ * rnafold_retired_release() frees it by the pointer.
+ *
+ * P1 still runs it sequentially -- retire, backtrack, release, then teardown
+ * -- so the answer cannot change, and the bars prove the plumbing before P2
+ * overlaps it with the next sweep. */
+static int
+rt_bt_negctl(void)
+{
+  static int v = -1;
+
+  if (v < 0) {
+    const char *e = getenv("RNA_BT_PIPELINE_NEGCTL");
+
+    v = (e && e[0] && strcmp(e, "0")) ? 1 : 0;
+    if (v)
+      fprintf(stderr, "device.cu                RNA_BT_PIPELINE_NEGCTL=1: the retained c "
+                      "triangle is ZEROED before the fetch -- output MUST change "
+                      "(negative control)\n");
+  }
+
+  return v;
+}
+
+extern "C" rnafold_retired_t *
+rnafold_retire_chunk(const int nslots, const size_t *tri_off_H)
+{
+  static int          next_id = 0;
+  rnafold_retired_t  *r       = (rnafold_retired_t *)calloc(1, sizeof(rnafold_retired_t));
+
+  if (!r) {
+    fprintf(stderr, "device.cu                retire: out of host memory\n");
+    exit(EXIT_FAILURE);
+  }
+
+  /* The sweep's kernels run on non-blocking streams and the fetch will too, so
+   * nothing else orders them: drain here, once, so every retained cell is final. */
+  rt_check(cudaDeviceSynchronize(), "retire: sweep drain");
+
+  r->id     = next_id++;
+  r->nslots = nslots;
+  r->cells  = tri_off_H[nslots];
+  r->d_my_c = rnafold_my_c_detach();
+  rnafold_fml_detach(r);
+
+  if ((!r->d_my_c) || ((!r->d_fml_j) && (!r->d_fml_j16))) {
+    fprintf(stderr, "device.cu                retire: chunk %d has no %s to retain\n",
+            r->id, r->d_my_c ? "fML" : "c");
+    exit(EXIT_FAILURE);
+  }
+
+  if (rt_bt_negctl())
+    rt_check(cudaMemset(r->d_my_c, 0, r->cells * sizeof(int)), "retire: negctl");
+
+  return r;
+}
+
+extern "C" void
+rnafold_retired_release(rnafold_retired_t *r)
+{
+  if (!r)
+    return;
+
+  if (r->d_my_c)       rt_check(cudaFree(r->d_my_c),       "release c");
+  if (r->d_fml_j)      rt_check(cudaFree(r->d_fml_j),      "release fML");
+  if (r->d_fml_j16)    rt_check(cudaFree(r->d_fml_j16),    "release fML16");
+  if (r->d_fml_b)      rt_check(cudaFree(r->d_fml_b),      "release fML baselines");
+  if (r->d_base_off_H) rt_check(cudaFree(r->d_base_off_H), "release baseline offsets");
+  if (r->d_fm2)        rt_check(cudaFree(r->d_fm2),        "release fM2");
+  free(r);
+}
+
 
 /* Worker w's stream. A worker beyond the pool shares one by index, which is
  * still correct: each copy is followed by a sync of its own stream. */

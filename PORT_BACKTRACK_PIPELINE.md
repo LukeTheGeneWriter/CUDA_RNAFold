@@ -155,7 +155,17 @@ and on another thread. The bars make sure the construction holds.
 ## 6. Measurement
 
 - **A100:** `RNA_BT_PIPELINE` 0 / 1 at 400 × 5601, 3000 × 1200, 1200 × 1200 and the soak, three
-  alternating reps, with P passes. Trace threads at 4 / 8 / 12 / auto.
+  alternating reps, with P passes. Trace threads at 4 / 8 / 12 / auto, plus the 9.4 formula
+  (hw − builder threads) as its own arm.
+- **The thread sweep runs under FULL heterogeneous load (Luke, 2026-10-10).** The CPU slice
+  (`RNA_CPU_SLICE` + `-j`) folds records while the builder builds, the device sweeps and the trace pool
+  traces, so the four compete for the host as they will in production. Record per arm: wall, OVERLAPPED
+  seconds, the wait at each join, builder span, CPU-slice share, and the host's run-queue/CPU utilisation.
+  Find the split where they stop stealing from each other. An unloaded sweep alone would pick the wrong
+  sweet spot.
+- **9.4 as signed off yields one trace thread** wherever the builder defaults to nproc
+  (`RNA_BUILD_THREADS` auto), which would serialise the trace. Until P4 decides, the trace pool keeps
+  today's backtrack default (hardware threads, overlapping the builder as the build pipeline already does).
 - **The prize is the exposed backtrack.** Report wall, the OVERLAPPED seconds, and the residual backtrack:
   the last chunk's, plus any wait at `begin(k+2)`.
 - **Laptop:** correctness only. A 4 GB card declines by the VRAM gate unless forced with a small cap.
@@ -223,3 +233,25 @@ a forced cap (`A_longseq_smallbatch`, 60 × 2000, one sha across all three).
   overlaps chunk 1's sweep, so this is hidden as well. It also means a one-chunk run cannot gain anything.
 - **The A100 half of P0** is folded into P4: its `RNA_BT_PIPELINE=0` arm carries the chunk trace, which is
   the same measurement, so it costs no separate GPU session.
+
+### 10.2 P1, laptop (2026-10-10): retire, fetch from the retired set, release -- sequential
+
+Built: `bt_retired.h` (`rnafold_retired_t`); `rnafold_retire_chunk()` drains the device and DETACHES c, fML
+(int32, or int16 + baselines, chosen by the pointer that was allocated) and fM2 from the live globals, so
+teardown and the next init neither free nor reuse them; `rnafold_retired_fetch_*_w()` read them on new
+NON-blocking copy streams (`g_xfer_nb[]`, risk 8.1); `rnafold_retired_release()` frees by the pointer. The fML
+decode is one body (`fml_fetch_decode()`) shared by the live and retired fetches. `RNA_BT_PIPELINE=1` routes
+`par_mfe()`'s batch path through it, still in today's order; slot flow and the turnover self-check keep the
+old path. Every fetch checks the set's chunk id. Positive evidence: `backtrack pipeline: N chunk(s) retired`.
+Negative control `RNA_BT_PIPELINE_NEGCTL=1` zeroes the retained c triangle before the fetch.
+
+| bar (all with `RNA_BT_PIPELINE=1`) | result |
+|---|---|
+| self-check, 8 cases × CPU / off / on / NEGCTL: multi-chunk (7 chunks, int32), one chunk (int16), mixed, `-c`, `--noLP`, `-g`, `--salt`, `-j4` | **8/8**: one sha per case across CPU, off and on; triangle checksums equal; retired count ≥ 1; **NEGCTL changes the output in all 8** |
+| `verify_option_parity` | option surface = CPU |
+| `verify_option_matrix` | 36/36 |
+| `verify_gpu_cli` budgets 4/8/16/32 | byte for byte (F_extreme 12 sweeps) |
+| binding suite | 20/20, and 20/20 with the knob off |
+
+The C_mixed fixture has no G-quadruplex, so the `-g` case shows the `-g` path folds through the retired set,
+not that a G-quad structure survives it. The `-g` fixtures in the gpu_cli bar cover that.

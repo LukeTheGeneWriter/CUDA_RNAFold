@@ -397,6 +397,13 @@ extern "C" {
 void  fetch_my_c_one_w(int* dst, const size_t tri_lo, const size_t cells, const int w);
 void  fetch_fML_one_Hw(int* dst, const size_t tri_lo, const size_t cells, const int H, const int w);
 void  fetch_fm2_one_w(int *dst, const size_t tri_lo, const size_t cells, const int w);
+#ifdef __cplusplus
+}
+#endif
+#include "bt_retired.h"   /* N5a: the same fetches from a retired chunk */
+#ifdef __cplusplus
+extern "C" {
+#endif
 void  rnafold_xfer_begin(const int n);
 // RNA_XFER_STAGE_MB: 0 = pin the worker scratch and copy straight into it; N =
 // an N-MB pinned stage per worker to memcpy out of; UNSET = AUTO, which times
