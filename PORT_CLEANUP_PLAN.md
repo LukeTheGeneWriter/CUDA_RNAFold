@@ -40,8 +40,10 @@ port, not its history.
    default, so it is treated as hot).
 
 Raw data: `cov2.csv` (GPU default, per instance), `covcpu.csv` (CPU arm), `stems.txt`
-(cold stems) — in the session scratchpad; regenerate with `covbuild4.sh`, `covpart.sh`,
-`covsum.py`, `stems.py` (to be moved into `tools/coverage/` in phase C0).
+(cold stems) — kept outside the repo; regenerate with `tools/coverage/` (C0):
+`build.sh` (gcc-13 throughout), `part.sh` (one workload piece per job),
+`summarize.py` (gcov → CSV), `stems.py` (group by length prefix; reproduces the
+original `stems.txt` byte for byte).
 
 ---
 
@@ -165,10 +167,15 @@ Two families need a decision rather than a deletion:
   reference in `RNA_MD_SPARSE_SELFTEST`. No option in the parity sweep made sparse
   refuse. 12 template instances (6 tile widths × plain/smem), none hot. → D1.
 - **`int_loop_warp_kernel` — LIVE.** Exactly **1 of its 48 instances**
-  (`<1, false, false, true, true>`) runs on the default path, i.e. some record/option in
-  the workload is declined by Lyngsø and folds through the warp kernel. It is a real
-  fallback, not just a selftest reference. C0 pins which input reaches it (so the bar
-  covers it); D2 is then whether the other 47 instances can go.
+  (`<1, false, false, true, true>`) runs on the default path. *Corrected in C0:* this is
+  not a Lyngsø-declined fallback — the template is `<CELLS_PER_BLOCK, GRIDY, WSEARCH,
+  RING, LY>` and `LY = true` **is** Lyngsø; the warp kernel is the default int_loop
+  kernel, every record, every input. The 48 are 4 cpb × 3 grid/search × 2 ring × 2 LY,
+  and each axis is a knob: cpb > 1 only from `RNA_INT_LOOP_BLOCK_SIZE` (T4), GRIDY /
+  WSEARCH only from `RNA_INT_LOOP_GRIDY` / `_WSEARCH` (T4), RING from `RNA_C_RING` (T3),
+  LY from `RNA_INT_LOOP_LYNGSO` (T3). D2 therefore keeps **4** instances,
+  `<1, false, false, {ring}, {LY}>`, and the bar pins the three off-default ones with
+  `RNA_C_RING=0` and/or `RNA_INT_LOOP_LYNGSO=0` (C5).
 
 The **fetch/finish split** in mfe_cuda.c (`backtrack_fetch_slot` / finish) was built for
 slot flow and is **reused by N5a P1/P2** — it survives the slot-flow deletion; only the
@@ -223,7 +230,27 @@ delete (D6). Any script that sets a T4 knob is archived with that knob.
 | C8 | Docs archive, `REVIEW_GUIDE.md`, tools/tests/results prune | none |
 | C9 | Stamp the post-cleanup commit into the D4 fusion flag; tag `post-cleanup` | none |
 
-**Bars after every phase** (all must pass, same as N5a):
+**C0 record (2026-10-11).** `pre-cleanup` = 6123cebe. References frozen from that tree
+(WSL `~/pyq`, laptop RTX 3050) into `~/cleanup_ref` by `tools/coverage/refcheck.sh
+freeze`; every one rc 0 and `-j4` byte-identical:
+
+| Fixture | Sweeps | sha256 (16) |
+|---|---|---|
+| C_mixed | 1 | 316dd8a88db079be |
+| C_control | 1 | 64682fa0020055f4 |
+| asc | 1 | 871e271d384a7b8e |
+| desc | 1 | be952e53be2c129d |
+| extreme | 1 | 4558eae00a24edeb |
+| A_longseq_smallbatch | 1 | baae6086e8dc7a10 |
+| constrained (no `-C`: CPU path) | 0 | fcd12cfff84dac90 |
+| F_lite @ 64 MB | 7 | c4389886294474bf |
+| C400_lite @ 256 MB | 12 | e4320d5b914367b8 |
+
+`refcheck.sh check` re-folds plain and `-j4` and requires both byte-identical to the
+frozen output **and** the same sweep count (so a chunk-loop change cannot hide).
+Negative control: one `(` → `[` in the frozen C_mixed structure → FAIL, exit 1.
+
+**Bars after every phase** (all must pass, same as N5a): `refcheck.sh check` on all nine,
 CUDA build + CPU-only build (`tests/zeroconf_configure.sh`), option parity, option
 matrix 36/36, `verify_gpu_cli.sh` at 4/8/16/32 MB, binding 20/20, N5a P2 self-check,
 plus `grep` proof that no retired knob name remains outside `docs/archive/`. Speed:
@@ -262,6 +289,7 @@ end of C6 confirms 400×5601 and the soak are unchanged.
   sparse selftest's reference; delete the other 11 instances (C6).
 - **D2 — warp int_loop:** C0 pins which inputs reach which instances; keep the instances a
   pinned input or selftest reaches, add those inputs to the bar, delete the rest (C6).
+  *C0 result:* 4 of 48 kept (§4); they are reached by knobs, not inputs.
 - **D3 — RNAfold.c:** split. The GPU batching and pipeline functions move to
   `src/bin/gpu_batch.c`; `RNAfold.c` keeps only the hooks. Own phase (C6b), move only, bars.
 - **D4 — md tile CB / row fusion:** **keep and flag.** It stays (T3, not T4) pending final
