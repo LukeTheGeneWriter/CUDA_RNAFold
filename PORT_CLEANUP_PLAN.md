@@ -1,6 +1,6 @@
 # PORT_CLEANUP_PLAN.md — pre-review cleanup of Lukes_Flow_Batching
 
-**Status: DRAFT for Luke's sign-off, 2026-10-11.** Nothing below has been deleted yet.
+**Status: SIGNED OFF by Luke 2026-10-11 (decisions in §8).** Nothing below has been deleted yet.
 Process as always: plan → sign-off → implement phase by phase → bars → self-review.
 
 The goal is to hand TBI a tree whose every line is either (a) on a default path, (b) a
@@ -219,7 +219,9 @@ delete (D6). Any script that sets a T4 knob is archived with that knob.
 | C5 | Delete old int_loop block kernels + probes; hp_mb experiments per D4/D5 | none |
 | C6 | RNAfold.c: drop `rnafold_min_gpu_batch` (if dead), guard trace stamps; trim instances per D1/D2 | none |
 | C7 | Knob docs: README T1 table, `TESTING_KNOBS.md` T2/T3; any retired knob set by a user prints "retired, ignored" once | none |
+| C6b | D3: move GPU batching/pipeline from RNAfold.c to `src/bin/gpu_batch.c` (move only) | none |
 | C8 | Docs archive, `REVIEW_GUIDE.md`, tools/tests/results prune | none |
+| C9 | Stamp the post-cleanup commit into the D4 fusion flag; tag `post-cleanup` | none |
 
 **Bars after every phase** (all must pass, same as N5a):
 CUDA build + CPU-only build (`tests/zeroconf_configure.sh`), option parity, option
@@ -254,19 +256,24 @@ end of C6 confirms 400×5601 and the soak are unchanged.
 
 ---
 
-## 8. Decisions for Luke
+## 8. Decisions (Luke, 2026-10-11)
 
-- **D1 — dense md:** keep all 12 instances / keep one tile width as the fallback and
-  selftest reference / delete (sparse never refused in the option sweep).
-- **D2 — warp int_loop:** it is live (1 instance of 48 runs by default). Keep only the
-  instances a pinned input or selftest reaches, or keep all.
-- **D3 — RNAfold.c:** leave the +2 412 lines in place, or move the GPU batching and
-  pipeline (≈1 700 lines of new functions) into `src/bin/gpu_batch.c` so the upstream
-  file's diff shrinks to the hooks.
-- **D4 — md tile CB / row fusion:** the record says fusion wins but cannot run at the
-  default stream-overlap level. Retire it, or keep it for a later overlap-level study?
-- **D5 — `RNA_ROW_BATCH=0` escape:** keep it (and with it the fML scan kernels) or retire
-  both.
-- **D6 — archive or delete** retired docs/tools (`git mv` keeps history either way).
-- **D7 — H5 layout lock:** price it under `-j` with plots on now, or accept it as a crash
-  fix and send it upstream as a defect.
+- **D1 — dense md:** keep **one** tile width as the `RNA_MD_SPARSE=0` fallback and the
+  sparse selftest's reference; delete the other 11 instances (C6).
+- **D2 — warp int_loop:** C0 pins which inputs reach which instances; keep the instances a
+  pinned input or selftest reaches, add those inputs to the bar, delete the rest (C6).
+- **D3 — RNAfold.c:** split. The GPU batching and pipeline functions move to
+  `src/bin/gpu_batch.c`; `RNAfold.c` keeps only the hooks. Own phase (C6b), move only, bars.
+- **D4 — md tile CB / row fusion:** **keep and flag.** It stays (T3, not T4) pending final
+  tests; if it does not pay it is canned then. The source carries a comment at the fusion
+  code naming the commit before this cleanup (`pre-cleanup` tag) and the commit after it
+  (stamped by the last phase, C9), so it can be removed or revived against a known tree.
+- **D5 — `RNA_ROW_BATCH=0`:** keep (T3); the scan kernels it relies on are hot anyway.
+- **D6 — archive:** `git mv` to `docs/archive/` and `tools/archive/`; nothing deleted.
+- **D7 — H5 layout lock:** price it (laptop, `-j4` plots on vs `--noPS`, ABBA), then offer
+  it upstream as a defect fix.
+
+Phase changes from these: C5 no longer touches md tile CB / fusion (`RNA_MD_TILE_CB`,
+`_FUSE`, `_RB`, `_REVERSE`, `RNA_ROW_FUSE` move from T4 to T3, flagged); a new **C6b** does
+the D3 split; a new **C9** stamps the post-cleanup commit into the D4 flag comment and tags
+`post-cleanup`.
