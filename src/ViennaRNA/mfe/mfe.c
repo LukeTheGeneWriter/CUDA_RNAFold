@@ -205,7 +205,8 @@ BT_fms3_split(vrna_fold_compound_t  *fc,
  #################################
  */
 /* VRNA-PATCH-BEGIN(batch-backend-state, SEAM) -- PORT_LOCAL_PATCHES.md
- * Process-wide registry for a batch MFE backend.
+ * Process-wide registry for a batch MFE backend, and the two public functions
+ * over it: vrna_mfe_batch_backend_set() and vrna_mfe_batch().
  */
 /*
  * The batch MFE backend. Process-wide and at most one, because a batch is not a
@@ -214,7 +215,6 @@ BT_fms3_split(vrna_fold_compound_t  *fc,
  */
 PRIVATE vrna_mfe_batch_f  batch_backend       = NULL;
 PRIVATE void              *batch_backend_data = NULL;
-/* VRNA-PATCH-END(batch-backend-state) */
 
 
 PUBLIC unsigned int
@@ -264,6 +264,7 @@ vrna_mfe_batch(vrna_fold_compound_t **fcs,
 
   return 1;
 }
+/* VRNA-PATCH-END(batch-backend-state) */
 
 
 
@@ -308,7 +309,9 @@ vrna_mfe(vrna_fold_compound_t *fc,
 {
   char              *ss;
   unsigned int      length;
+/* VRNA-PATCH-BEGIN(inside-engine-hook, SEAM) -- `handled` is the engine's verdict */
   int               energy, handled;
+/* VRNA-PATCH-END(inside-engine-hook) */
   float             mfe;
   vrna_bts_t        bt_stack; /* stack of partial structures for backtracking */
   vrna_bps_t        bp;

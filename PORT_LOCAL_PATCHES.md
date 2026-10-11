@@ -154,7 +154,8 @@ Everything after that point — backtracking, circular post-processing, output �
 unchanged. An engine that declines leaves upstream's own path untouched.
 
 Plus two for many-at-once folding: `batch-backend-api` (`mfe/global.h`) and
-`batch-backend-state` (`mfe/mfe.c`). `vrna_mfe_batch()` is useful to upstream on
+`batch-backend-state` (`mfe/mfe.c` — the registry **and** `vrna_mfe_batch_backend_set()`
+and `vrna_mfe_batch()`, which until 2026-10-11 sat outside the block). `vrna_mfe_batch()` is useful to upstream on
 CPU on its own — it is a place to put *any* many-at-once folder, threaded or not.
 
 ### DRIVER
@@ -175,9 +176,17 @@ and why" with a command instead of a diff read.
 ## Verification
 
 ```
-tools/list_local_patches.sh          # inventory + pairing + unmarked-file check
+tools/list_local_patches.sh          # inventory + pairing + unmarked-file + unmarked-LINE check
 tools/list_local_patches.sh --check  # exit non-zero only
 ```
+
+**Marked per line, not per file (2026-10-11).** The file-level check passed while 81
+changed lines sat outside every block — `vrna_mfe_batch()` itself, every lock call
+in `params.c`, two END markers mid-statement. The tool now also requires every
+added non-blank line (vs `v2.7.2`) to lie inside a BEGIN..END block and every pure
+deletion to touch one. An id may span several blocks in one file
+(`params-cache-race` ×3, `inside-engine-hook` ×2, `inside-engine-prepare` ×2); each
+block is listed.
 
 The markers are comments in eight C files and headers, so the real bar is that
 they compile: **`make check` 152/152** with every marker in place. Two of them

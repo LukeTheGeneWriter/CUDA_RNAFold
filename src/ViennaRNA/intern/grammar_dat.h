@@ -96,10 +96,14 @@ init_aux_grammar(vrna_fold_compound_t *fc)
     fc->aux_grammar->serialize_bp_prepare_data  = NULL;
     fc->aux_grammar->serialize_bp_free_data     = NULL;
 
+/* VRNA-PATCH-BEGIN(inside-engine-slots, SEAM) -- PORT_LOCAL_PATCHES.md
+ * The four slots start empty: no engine bound.
+ */
     fc->aux_grammar->engine                     = NULL;
     fc->aux_grammar->engine_data                = NULL;
     fc->aux_grammar->engine_prepare_data        = NULL;
     fc->aux_grammar->engine_free_data           = NULL;
+/* VRNA-PATCH-END(inside-engine-slots) */
   }
 }
 

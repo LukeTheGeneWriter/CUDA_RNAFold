@@ -232,7 +232,6 @@ vrna_gr_set_inside_engine(vrna_fold_compound_t    *fc,
       fc->aux_grammar->engine_data          = data;
       fc->aux_grammar->engine_prepare_data  = prepare_cb;
       fc->aux_grammar->engine_free_data     = free_cb;
-/* VRNA-PATCH-END(inside-engine-bind) */
 
       ret = 1;
     }
@@ -240,3 +239,4 @@ vrna_gr_set_inside_engine(vrna_fold_compound_t    *fc,
 
   return ret;
 }
+/* VRNA-PATCH-END(inside-engine-bind) */

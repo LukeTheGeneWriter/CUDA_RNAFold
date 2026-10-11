@@ -77,8 +77,8 @@ vrna_mfe(vrna_fold_compound_t *fc,
  * never returns through mfe.c's per-fold path and so cannot reach the private
  * postprocess_circular().
  *
- * Requires fM2 to be filled, which is why this project does not call it yet;
- * see the definition in mfe.c.
+ * Requires fM2 to be filled. The CUDA backend fills fM2_real on the device for
+ * every circular record and calls this for each one; see the definition in mfe.c.
  */
 int
 vrna_mfe_postprocess_circular(vrna_fold_compound_t  *fc,

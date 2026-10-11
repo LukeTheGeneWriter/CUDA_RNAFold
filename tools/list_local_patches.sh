@@ -122,7 +122,36 @@ if git rev-parse --verify -q "$BASE" > /dev/null 2>&1; then
     esac
     [ -f "$f" ] || continue
     if grep -q "VRNA-PATCH-BEGIN(" "$f"; then
-      printf '  %-46s marked\n' "$f"
+      # Marked per FILE is not marked per LINE: on 2026-10-11 81 changed lines
+      # sat outside every block, vrna_mfe_batch() itself among them. Every added
+      # non-blank line must lie inside a BEGIN..END block, and every pure
+      # deletion must touch one.
+      out=$(git diff -U0 --ignore-cr-at-eol "$BASE" -- "$f" | awk '
+        /^@@/ {
+          match($0, /^@@ -[0-9]+(,([0-9]+))? \+([0-9]+)(,([0-9]+))? @@/, m)
+          old = (m[2] == "") ? 1 : m[2]; s = m[3]; n = (m[5] == "") ? 1 : m[5]
+          for (k = 0; k < n; k++) print "A", s + k
+          if (n == 0 && old > 0) print "D", s
+        }' | awk '
+        NR == FNR { kind[NR] = $1; at[NR] = $2; nk = NR; next }
+        { src[FNR] = $0
+          if ($0 ~ /VRNA-PATCH-BEGIN\(/) inside = 1
+          if (inside) mk[FNR] = 1
+          if ($0 ~ /VRNA-PATCH-END\(/) inside = 0 }
+        END {
+          for (k = 1; k <= nk; k++) {
+            a = at[k]
+            if (kind[k] == "A" && !mk[a] && src[a] ~ /[^ \t]/) printf "%d: %s\n", a, substr(src[a], 1, 70)
+            if (kind[k] == "D" && !mk[a] && !mk[a + 1]) printf "%d: (deletion)\n", a
+          }
+        }' - <(tr -d '\r' < "$f"))
+      if [ -z "$out" ]; then
+        printf '  %-46s marked\n' "$f"
+      else
+        printf '  %-46s *** %d line(s) outside markers ***\n' "$f" "$(echo "$out" | wc -l)"
+        echo "$out" | sed 's/^/        /'
+        fail=1
+      fi
     elif grep -q "VRNA-PATCH-FILE(" "$f"; then
       # A WHOLE-FILE declaration, for files we effectively rewrote rather
       # than patched. src/bin/RNAfold.c is +1333 lines of driver;

@@ -142,13 +142,13 @@ PRIVATE pthread_mutex_t   p_pre_mtx  = PTHREAD_MUTEX_INITIALIZER;
 PRIVATE pthread_mutex_t   pf_pre_mtx = PTHREAD_MUTEX_INITIALIZER;
 # define PARAM_CACHE_LOCK(m)    pthread_mutex_lock(&(m))
 # define PARAM_CACHE_UNLOCK(m)  pthread_mutex_unlock(&(m))
-/* VRNA-PATCH-END(params-cache-race) */
 # define PARAM_CACHE_USABLE     1
 #else
 # define PARAM_CACHE_LOCK(m)    do {} while (0)
 # define PARAM_CACHE_UNLOCK(m)  do {} while (0)
 # define PARAM_CACHE_USABLE     0
 #endif
+/* VRNA-PATCH-END(params-cache-race) */
 
 #endif
 
@@ -198,6 +198,9 @@ vrna_params(vrna_md_t *md_p)
   }
 
 #if SPEEDUP_PARAMS
+/* VRNA-PATCH-BEGIN(params-cache-race, DEFECT) -- PORT_LOCAL_PATCHES.md
+ * Every read and write of the cache under its lock; the miss computes outside it.
+ */
   if (!PARAM_CACHE_USABLE)
     return get_scaled_params(md_p);
 
@@ -229,6 +232,7 @@ vrna_params(vrna_md_t *md_p)
   memcpy(&p_pre, cp, sizeof(vrna_param_t));
   p_pre_init = (unsigned char)1;
   PARAM_CACHE_UNLOCK(p_pre_mtx);
+/* VRNA-PATCH-END(params-cache-race) */
 
   return cp;
 #else
@@ -249,6 +253,7 @@ vrna_exp_params(vrna_md_t *md_p)
   }
 
 #if SPEEDUP_PARAMS
+/* VRNA-PATCH-BEGIN(params-cache-race, DEFECT) -- PORT_LOCAL_PATCHES.md */
   /* Same shape as vrna_params() above -- see the long note at the cache. */
   if (!PARAM_CACHE_USABLE)
     return get_scaled_exp_params(md_p, -1.0);
@@ -277,6 +282,7 @@ vrna_exp_params(vrna_md_t *md_p)
   memcpy(&pf_pre, cp, sizeof(vrna_exp_param_t));
   pf_pre_init = (unsigned char)1;
   PARAM_CACHE_UNLOCK(pf_pre_mtx);
+/* VRNA-PATCH-END(params-cache-race) */
 
   return cp;
 #else

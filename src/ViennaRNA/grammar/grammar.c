@@ -91,9 +91,9 @@ vrna_gr_prepare(vrna_fold_compound_t  *fc,
         (fc->aux_grammar->engine_prepare_data))
       ret &= fc->aux_grammar->engine_prepare_data(fc,
                                                   fc->aux_grammar->engine_data,
-/* VRNA-PATCH-END(inside-engine-prepare) */
                                                   options,
                                                   NULL);
+/* VRNA-PATCH-END(inside-engine-prepare) */
   }
 
   return ret;
@@ -242,8 +242,12 @@ vrna_gr_reset(vrna_fold_compound_t *fc)
     if (fc->aux_grammar->serialize_bp_free_data)
       fc->aux_grammar->serialize_bp_free_data(fc->aux_grammar->serialize_bp_data);
 
+/* VRNA-PATCH-BEGIN(inside-engine-prepare, SEAM) -- PORT_LOCAL_PATCHES.md
+ * ...and the free half of that lifecycle.
+ */
     if (fc->aux_grammar->engine_free_data)
       fc->aux_grammar->engine_free_data(fc->aux_grammar->engine_data);
+/* VRNA-PATCH-END(inside-engine-prepare) */
 
     /* release memory for aux grammar structure itself */
     free(fc->aux_grammar);
