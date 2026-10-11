@@ -1,7 +1,6 @@
-/* hp_mb_dev.h -- device helpers shared with the fused per-record megakernel.
+/* hp_mb_dev.h -- device helpers, moved verbatim out of hp_mb_loop.cu.
  *
- * Moved verbatim out of hp_mb_loop.cu. The megakernel calls the same
- * arithmetic the standalone kernels do, and device code cannot cross a
+ * Shared by every kernel that needs them; device code cannot cross a
  * translation unit in this build. -rdc would allow the call but would stop it
  * INLINING, and these run in the innermost loops of an O(n^3) sweep.
  */

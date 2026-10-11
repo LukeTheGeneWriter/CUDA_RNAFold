@@ -1,7 +1,6 @@
 /* md_chain_cells.inc -- per-cell bodies lifted out of the kernels in modular_decomposition.cu.
  *
- * The fused per-record megakernel and the standalone kernels must run the
- * SAME arithmetic; device code cannot cross a translation unit in this build
+ * Every kernel that runs one of these cells must run the SAME arithmetic; device code cannot cross a translation unit in this build
  * (no -rdc), so a header is the only way to share it. The bodies are copied
  * verbatim -- only the thread-index prologue became a parameter.
  */

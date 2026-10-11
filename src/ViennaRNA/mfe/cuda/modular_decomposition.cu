@@ -61,11 +61,9 @@
 
 /* Moved ABOVE the kernel forward declarations: fml_corner_t is now one of
  * their parameters, so the type has to exist before they are declared. */
-/* The device helpers below moved to md_dev.h so the fused megakernel
- * can call exactly this code; see the header. */
+/* The device helpers below live in md_dev.h; see the header. */
 #include "md_dev.h"
 
-#include "megakernel.h"
 //#include "stub.h"
 //#endif /*STUB*/
 
@@ -1230,7 +1228,7 @@ rnafold_set_chunk_cells_cap(const unsigned long long cap_cells)
 // Closes row i: the two writers have both run, so d_fml_row now holds this
 // row's FINAL values and they can be packed. Launch shape mirrors
 // load_fML_kernel's (size_off_H), which is the superset of the two write ranges.
-// The md chain cells, shared with the fused per-record megakernel: the
+// The md chain cells, shared through a header: the
 // kernels below are wrappers around exactly this code.
 #include "md_chain_cells.inc"
 
@@ -1243,7 +1241,7 @@ pack_fml_kernel(const int nfiles, const int i_row, const int turn, const int len
                 const size_t* __restrict__ base_off_H, const size_t* __restrict__ colb_off,
                 const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) {
-  // The arithmetic lives in md_chain_cells.inc so the megakernel runs exactly this code.
+  // The arithmetic lives in md_chain_cells.inc.
   pack_fml_cell(nfiles, i_row, turn, length, fml_row, fml_j16, fml_b, tri_off_H, row_off_H, base_off_H, colb_off, size_off_H, total, i_H,
                 (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
@@ -1687,7 +1685,7 @@ load_fML_kernel(const int nfiles, const int i_row, const int turn, const int len
 		const int* __restrict__ i_H,
 		/* RNA_MD_PRUNE: the block-minimum summary, or NULL */
 		      int* __restrict__ fml_jmin) {
-  // The arithmetic lives in md_chain_cells.inc so the megakernel runs exactly this code.
+  // The arithmetic lives in md_chain_cells.inc.
   load_fML_cell(nfiles, i_row, turn, length, energy_min, fml_j, fml_row, tri_off_H, row_off_H, size_off_H, total, i_H,
                 (size_t)blockIdx.x*blockDim.x+threadIdx.x, fml_jmin);
 }
@@ -1816,7 +1814,7 @@ load_min_fML_kernel(const int nfiles, const int i_row, const int turn, const int
 		    const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
 		    const size_t* __restrict__ side_off_H, const size_t total,
 		    const int* __restrict__ i_H) {
-  // The arithmetic lives in md_chain_cells.inc so the megakernel runs exactly this code.
+  // The arithmetic lives in md_chain_cells.inc.
   load_min_fML_cell(nfiles, i_row, turn, length, energy_min, dml, fml_j, fml_row, tri_off_H, row_off_H, side_off_H, total, i_H,
                     (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
@@ -1857,7 +1855,7 @@ fmli_kernel(
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H) {
-  // The arithmetic lives in md_chain_cells.inc so the megakernel runs exactly this code.
+  // The arithmetic lives in md_chain_cells.inc.
   fmli_cell(nfiles, i_row, turn, length, fml_i, fml_j, fml_row, tri_off_H, row_off_H, side_off_H, total, i_H,
             (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
@@ -1896,7 +1894,7 @@ fmli_kernel(
 // adjacent j (different cells) and so read fml_j at a stride; now adjacent
 // lanes hold adjacent y within one cell, making both fml_i[row_off_H[H]+y]
 // and fml_j[tri_off_H[H]+y+ij0] unit-stride across the tile.
-// One cell of this kernel, shared with the fused megakernel (see the header).
+// One cell of this kernel, shared through a header (see the header).
 #include "md_cell.inc"
 /* Stage 1 of blocked Zuker: the tile primitive. A header for the same reason
  * md_cell.inc is one -- device code cannot cross a translation unit here. */
@@ -2626,7 +2624,7 @@ modular_decomposition_kernel(
   const int* __restrict__ dml_prev,    /* RNA_MD_PRUNE=2 probe; NULL = mode 1 */
   const int* __restrict__ fml_imin) {  /* RNA_MD_PRUNE: the row summary */
   // The cell/lane split is the only thing that stays here; the arithmetic
-  // lives in md_cell.inc so the megakernel runs exactly this code.
+  // lives in md_cell.inc.
   const long long gtid = (long long)blockIdx.x*blockDim.x + threadIdx.x;
   md_cell<TILE>(nfiles, i_row, turn, length, fml_i, fml_j, fml_j16, fml_b,
                 base_off_H, colb_off, dml, fm2, tri_off_H, row_off_H,
@@ -4326,8 +4324,8 @@ rnafold_md_ring_depth_now(void)
 
 /* This chunk's depth: the requested one only where every reader of the rotating rows
  * fetches them per launch, which is exactly where the collapsed md tail runs. Anywhere
- * else the rows are copied rather than rotated (md_snapshot_dml()'s other branch), or
- * read through a pointer captured once (the megakernel), so depth 2 is kept and said. */
+ * else the rows are copied rather than rotated (md_snapshot_dml()'s other branch), so
+ * depth 2 is kept and said. */
 static int
 md_ring_depth_effective(void)
 {
@@ -4339,7 +4337,6 @@ md_ring_depth_effective(void)
   else if (!rnafold_gpu_sweep())                       why = "off the GPU-resident sweep the host rotates DMLi itself";
   else if (rnafold_continuous_flow())                  why = "continuous flow puts records on different rows";
   else if (rnafold_slot_flow() >= 1)                   why = "slot flow refills records mid-sweep";
-  else if (rnafold_megakernel())                       why = "the megakernel captures the row pointers once";
   else if (rnafold_md_prune() || rnafold_md_prune_stats()) why = "RNA_MD_PRUNE refuses the collapsed tail";
   else if (rnafold_md_band() > 0)                      why = "RNA_MD_BAND refuses the collapsed tail";
   else if (rnafold_md_block_selftest())                why = "RNA_MD_BLOCK_SELFTEST refuses the collapsed tail";
@@ -4724,29 +4721,3 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 }
 
 
-/* ---- the fused megakernel's view of this file's buffers ------------------ */
-extern "C" void
-md_mk_ptrs(rnafold_mk_ptrs_t *p)
-{
-  p->fml_i      = d_fml_i;
-  p->fml_j      = d_fml_j;
-  p->dml        = d_dml;
-  p->dml1       = d_dml1;
-  p->fml_prev   = d_fml_prev;
-  p->energy_min = d_energy_min;
-  p->fm2        = rnafold_circ_fm2_device();   /* NULL unless circular */
-  p->fml_band   = d_fml_band;                 /* NULL unless RNA_MD_BAND */
-  p->band_k     = g_band_K;
-  p->band_stride = g_band_stride;
-
-  /* int16: allocated only when the gate is on, so these stay NULL otherwise
-   * and every cell takes its int32 branch. d_fml_j is itself NULL under int16
-   * -- the packed triangle replaces it -- which is why both are handed over. */
-  if(rnafold_fml_int16()) {
-    p->fml_row    = d_fml_row;
-    p->fml_j16    = d_fml_j16;
-    p->fml_b      = d_fml_b;
-    p->base_off_H = d_base_off_H;
-    p->colb_off   = d_colb_off;
-  }
-}

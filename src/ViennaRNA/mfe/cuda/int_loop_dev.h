@@ -1,7 +1,6 @@
-/* int_loop_dev.h -- device helpers shared with the fused per-record megakernel.
+/* int_loop_dev.h -- device helpers, moved verbatim out of int_loop.cu.
  *
- * Moved verbatim out of int_loop.cu. The megakernel calls the same
- * arithmetic the standalone kernels do, and device code cannot cross a
+ * Shared by every kernel that evaluates the recurrence; device code cannot cross a
  * translation unit in this build. -rdc would allow the call but would stop it
  * INLINING, and these run in the innermost loops of an O(n^3) sweep.
  */
@@ -231,9 +230,8 @@ cell_invariants(const unsigned int* __restrict__ S, const char* __restrict__ pai
  *  Energy() reads it in exactly ONE place, so which memory that read lands in
  *  is a property of this one type rather than of the recurrence. The default
  *  below is the triangle in VRAM, which is what every standalone kernel uses
- *  and which inlines to the same LDG the code had before. The megakernel
- *  substitutes a reader backed by a shared-memory window over the same cells
- *  (MAXLOOP bounds the lookback to 31 rows, so a window can hold all of them).
+ *  and which inlines to the same LDG the code had before; RNA_C_RING's ring is
+ *  the other reader.
  *
  *  A TYPE rather than a flag on purpose: a runtime branch would sit in the
  *  innermost loop of the hottest kernel, and two copies of the recurrence
@@ -269,34 +267,6 @@ struct c_ring_reader {
 };
 
 //interface to interior_loopx.h via IntLoop_X()
-/*
- *  Stage 1b: the same read, served out of a shared-memory window.
- *
- *  MAXLOOP bounds an interior loop to 30 unpaired bases, so cell (i,j) reads
- *  c(p,q) only for p in [i+1, i+31] and q in [j-31, j-1]. Thirty-one rows of
- *  the block's own column span therefore hold EVERY c value the block can ask
- *  for, which is what makes a window possible at all.
- *
- *  The ring has 32 slots indexed by `p & 31` rather than 31 indexed by a
- *  modulo: the 31 live rows p in [i+1, i+31] are distinct mod 32, and so is
- *  the row being evicted (i+32 lands on i&31), so a power-of-two ring is both
- *  correct and a mask instead of a division.
- *
- *  Rows advance by ONE per sweep row, so only row i+1 is fetched per row --
- *  the other thirty are already on chip. That is the part only a resident
- *  kernel can do, and the reason this belongs to the megakernel.
- */
-struct c_win_reader {
-  const int *sm;        /* 32 rows x `stride` columns                     */
-  int        q0;        /* absolute column of the window's first entry    */
-  int        stride;    /* columns per ring slot                          */
-
-  __device__ __forceinline__ int
-  operator()(const int p, const int q) const {
-    return sm[((p & 31) * stride) + (q - q0)];
-  }
-};
-
 template<class CREAD>
 __device__ inline int
 Energy(const int H, const int s_stride, const int i, const int j, const int q, const int p,

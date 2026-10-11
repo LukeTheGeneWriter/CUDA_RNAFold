@@ -1,7 +1,7 @@
 /* md_cell.inc -- one cell of modular_decomposition, as a device function.
  *
- * Lifted verbatim out of modular_decomposition_kernel so that the fused
- * per-record megakernel and the standalone kernel run THE SAME arithmetic.
+ * Lifted verbatim out of modular_decomposition_kernel (for the per-record
+ * megakernel, retired 2026-10-11) so that every caller runs THE SAME arithmetic.
  * Device code cannot cross a translation unit in this build (no -rdc), so a
  * header is the only way to share it, and sharing it is not optional: two
  * copies of this recurrence would drift, and a drifted copy here produces a

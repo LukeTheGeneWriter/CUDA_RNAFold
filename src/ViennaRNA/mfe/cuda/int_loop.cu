@@ -61,7 +61,6 @@
 #include           "interior_loopx.h"
 
 #include "stub2.h"
-#include "megakernel.h"
 #include "gquad_dev.h"
 #include <assert.h>
 
@@ -89,8 +88,7 @@ int first2 = 1; //avoid id clash with modular_decomposition.cu
 
 //cf ViennaRNA-2.3.0/src/ViennaRNA/params.h
 //ensure contents follow multiple of 128 bytes
-/* The device helpers below moved to int_loop_dev.h so the fused megakernel
- * can call exactly this code; see the header. */
+/* The device helpers below live in int_loop_dev.h; see the header. */
 #include "int_loop_dev.h"
 
 
@@ -839,7 +837,7 @@ bind_row_tables(const int i) {
 }
 
 //perhaps this can be combined with other kernels?
-// load_my_c's cell, shared with the fused per-record megakernel.
+// load_my_c's cell, shared through a header (device code cannot cross a translation unit).
 #include "int_loop_cells.inc"
 
 __global__ void
@@ -850,7 +848,7 @@ load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const in
 		 const size_t* __restrict__ row_off_H, //in
 		 const size_t* __restrict__ size_off_H, const size_t total, //in
 		 const int* __restrict__ i_H) {
-  // The arithmetic lives in int_loop_cells.inc so the megakernel runs exactly this code.
+  // The arithmetic lives in int_loop_cells.inc.
   load_my_c_cell(nfiles, i_row, length, new_e, my_c, tri_off_H, row_off_H, size_off_H, total, i_H,
                  (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
@@ -868,7 +866,7 @@ load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const in
  * -- starting with the row just written. So int_loop must READ the ring
  * (c_ring_reader, int_loop_dev.h), and the ring must hold every row it can reach;
  * those 31 rows are distinct mod 32. The triangle then has no reader during the
- * sweep at all (md reads c from row buffers; the twin kernel, the megakernel, row
+ * sweep at all (md reads c from row buffers; the twin kernel, row
  * fusion and RNA_NEW_C_STORE do read or write it, and are refused below), so the
  * flush only has to beat the ring's own overwrite: row r's slot is reused by row
  * r-32, and with K <= 32 every flush lands, in cell-stream order, before that.
@@ -921,7 +919,6 @@ rnafold_c_ring(void)
   else if(!rnafold_int_loop_warp())       why = "the block-per-cell int_loop twin reads the triangle";
   else if(c_env_on("RNA_NEW_C_STORE"))    why = "RNA_NEW_C_STORE writes the triangle from new_c";
   else if(c_env_on("RNA_ROW_FUSE"))       why = "RNA_ROW_FUSE writes the triangle from its fused kernel";
-  else if(rnafold_megakernel())           why = "the megakernel reads the triangle";
   static int said = 0;
   if(!said) {
     said = 1;
@@ -1316,7 +1313,7 @@ flatten_index_to_H_warp(const size_t idx, const size_t* __restrict__ flat_off_H,
 #define INT_LOOP_WARP_KERNEL_NAME2(cpb) int_loop_warp_kernel_##cpb
 #define INT_LOOP_WARP_KERNEL_NAME(cpb) INT_LOOP_WARP_KERNEL_NAME2(cpb)
 
-// The interior-loop cell, shared with the fused per-record megakernel: the
+// The interior-loop cell, shared through a header: the
 // kernel below is a wrapper around exactly this code.
 #include "int_loop_cell.inc"
 
@@ -1434,8 +1431,7 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
     local = cell - size_off_H[H];
   }
 
-  // The arithmetic lives in int_loop_cell.inc so the megakernel runs
-  // exactly this code; only the cell derivation above is kernel-specific.
+  // The arithmetic lives in int_loop_cell.inc; only the cell derivation above is kernel-specific.
   if(RING) {
     c_ring_reader rr;
     rr.base   = c_ring + row_off_H[H];
@@ -2507,27 +2503,6 @@ E_int_loop( const vrna_fold_compound_t *vc,
   }
 
   return e;
-}
-
-
-/* ---- the fused megakernel's view of this file's buffers -------------------
- * Ownership does not change: the pointers are handed over for the duration of
- * a sweep and this file still allocates and frees them. Valid only between
- * init_gpu2() and teardown_gpu2(). */
-extern "C" void
-int_loop_mk_ptrs(rnafold_mk_ptrs_t *p)
-{
-  p->param       = (const void *)d_param;
-  p->pair        = d_pair;
-  p->S           = d_S;
-  p->hccc        = d_hccc;
-  p->up_int      = d_up_int;      /* NULL unless a record carries a depot */
-  p->my_c        = d_my_c;
-  p->tri_off_H   = d_tri_off_H;
-  p->row_off_H   = d_row_off_H;
-  p->hc_off_H    = d_hc_off_H;
-  p->new_e       = d_new_e;
-  p->energy_min2 = d_energy_min2;
 }
 
 

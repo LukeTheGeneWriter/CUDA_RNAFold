@@ -2,11 +2,10 @@
  *
  * Not a per-cell lift. This is a block-cooperative Hillis-Steele scan along j
  * (affine min-plus maps composed left to right), launched one block per record
- * and carrying state across tiles in shared memory. The fused megakernel runs
- * it on one designated block per record, which is the same shape the standalone
- * kernel has today.
+ * and carrying state across tiles in shared memory. The retired megakernel
+ * ran it on one designated block per record, the standalone kernel's shape.
  *
- * H and the two shared tiles are parameters: the megakernel picks the record
+ * H and the two shared tiles are parameters: the caller picks the record
  * and owns its shared memory. __syncthreads() inside a function that only some
  * blocks call is still correct -- it synchronises the CALLING block, and every
  * thread of that block enters together.
@@ -41,7 +40,7 @@ fml_scan_block(const int nfiles, const int i_row, const int turn,
   const int MLbase = P->MLbase;
   const int en_i   = up_ml_ok[so + (size_t)i] ? MLbase : INF;
 
-  // sa/sc are supplied by the caller: the megakernel owns its shared memory.
+  // sa/sc are supplied by the caller, which owns its shared memory.
 
   /* E[j0-1]. A whole row starts at the diagonal, where it is INF (the host's `j == i+turn+1`
    * special case). A column block (blocked md 3a.2: a nonzero shift) continues the row

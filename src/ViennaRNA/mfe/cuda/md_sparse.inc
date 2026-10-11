@@ -81,6 +81,7 @@ static size_t              g_sp_charged_max = 0;   /* what admission charged, sa
 static int                 g_sp_chunks = 0;
 
 extern "C" int hp_mb_mlbase(void);   /* hp_mb_loop.cu: the parameter set's MLbase */
+extern "C" void hp_mb_md_sparse_buffers(const char **up_ml_ok, const size_t **seq_off_H);   /* hp_mb_loop.cu */
 static int md_sparse_on(void);       /* S2, below */
 static int md_sparse_explicit(void); /* S5: RNA_MD_SPARSE set by the user */
 
@@ -173,7 +174,6 @@ md_sparse_refusal(void)
 {
   if (rnafold_continuous_flow())      return "continuous flow (records on different rows)";
   if (rnafold_slot_flow())            return "slot flow (slots are handed over mid-sweep)";
-  if (rnafold_megakernel())           return "the megakernel (its own fused md)";
   if (rnafold_md_prune())             return "RNA_MD_PRUNE (a different dense-skipping scheme)";
   if (rnafold_md_block())             return "the blocked md (RNA_MD_BLOCK)";
   if (rnafold_md_tile_cb() > 0)       return "the tile path (RNA_MD_TILE_CB)";
@@ -578,12 +578,11 @@ static void
 md_sparse_check(const int nfiles, const int i, const int turn, const int* fml_i)
 {
   if (!g_sp_on || md_sparse_on()) return;   /* with RNA_MD_SPARSE there is no dense md to check */
-  rnafold_mk_ptrs_t p;
-  memset(&p, 0, sizeof(p));
-  hp_mb_mk_ptrs(&p);
+  const char *up_ml_ok; const size_t *seq_off_H;
+  hp_mb_md_sparse_buffers(&up_ml_ok, &seq_off_H);
   md_sparse_selftest_kernel<<<nfiles, 32, 0, ISSUE_STREAM>>>(nfiles, turn, hp_mb_mlbase(),
       md_sparse_negctl(), fml_i, d_dml, d_sp_len, d_sp_k, d_sp_v, d_sp_kv4, d_sp_vb, d_sp_col, d_sp_base,
-      d_row_off_H, d_side_off_H, d_i_H, p.up_ml_ok, p.seq_off_H, d_sp_stat, d_sp_bad);
+      d_row_off_H, d_side_off_H, d_i_H, up_ml_ok, seq_off_H, d_sp_stat, d_sp_bad);
   gpuErrchk( cudaPeekAtLastError() );
   (void)i;
 }
@@ -594,14 +593,13 @@ md_sparse_append(const int nfiles, const int i, const int turn, const size_t* si
   if (!g_sp_on) return;
   const size_t total = size_off_H[nfiles];
   if (total == 0) return;
-  rnafold_mk_ptrs_t p;
-  memset(&p, 0, sizeof(p));
-  hp_mb_mk_ptrs(&p);
+  const char *up_ml_ok; const size_t *seq_off_H;
+  hp_mb_md_sparse_buffers(&up_ml_ok, &seq_off_H);
   const int nblocks = (int)((total + BLOCK_SIZE - 1) / BLOCK_SIZE);
   md_sparse_append_kernel<<<nblocks, BLOCK_SIZE, 0, ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn,
       hp_mb_mlbase(), md_sparse_delta_max(), d_energy_min, d_dml, d_sp_prev, d_sp_len, d_sp_k, d_sp_v, d_sp_kv4, d_sp_vb,
       d_sp_last, d_sp_cap, d_sp_col, d_sp_base,
-      d_row_off_H, d_size_off_H, total, d_i_H, p.up_ml_ok, p.seq_off_H, d_sp_stat);
+      d_row_off_H, d_size_off_H, total, d_i_H, up_ml_ok, seq_off_H, d_sp_stat);
   gpuErrchk( cudaPeekAtLastError() );
 }
 
@@ -819,9 +817,8 @@ md_sparse_live(void)
 static void
 md_sparse_md(const int nfiles, const int turn, const int* fml_i, const size_t total)
 {
-  rnafold_mk_ptrs_t p;
-  memset(&p, 0, sizeof(p));
-  hp_mb_mk_ptrs(&p);
+  const char *up_ml_ok; const size_t *seq_off_H;
+  hp_mb_md_sparse_buffers(&up_ml_ok, &seq_off_H);
   if (total == 0) return;   /* no cell this row (and the kernel's dead groups clamp to total - 1) */
   {
     const int    L        = md_sparse_lanes();
@@ -839,6 +836,6 @@ md_sparse_md(const int nfiles, const int turn, const int* fml_i, const size_t to
   }
   md_sparse_scan_kernel<<<nfiles, MD_SP_SCAN_T, 0, ISSUE_STREAM>>>(nfiles, turn, hp_mb_mlbase(),
       md_sparse_negctl(), d_dml, rnafold_circ_fm2_device(), d_tri_off_H, d_row_off_H, d_side_off_H,
-      d_i_H, p.up_ml_ok, p.seq_off_H);
+      d_i_H, up_ml_ok, seq_off_H);
   gpuErrchk( cudaPeekAtLastError() );
 }

@@ -206,7 +206,6 @@ ly_alloc(const int nfiles, const size_t* row_off_H)
   const char *why = NULL;
   if (rnafold_continuous_flow())      why = "continuous flow (records on different rows)";
   else if (rnafold_slot_flow() >= 1)  why = "slot flow (slots are handed over mid-sweep)";
-  else if (rnafold_megakernel())      why = "the megakernel (its own fused int_loop)";
   else if (ly_eval_knob() && !rnafold_int_loop_warp())
                                       why = "the block-per-cell int_loop kernel (LY lives in the warp kernel)";
   if (why) {

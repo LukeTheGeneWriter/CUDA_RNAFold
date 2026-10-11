@@ -1,13 +1,13 @@
 /* int_loop_cell.inc -- one cell of the interior-loop sweep, as a device function.
  *
- * Lifted verbatim out of int_loop_warp_kernel so the fused per-record
- * megakernel runs THE SAME arithmetic (device code cannot cross a translation
+ * Lifted verbatim out of int_loop_warp_kernel (for the per-record megakernel,
+ * retired 2026-10-11) so every caller runs THE SAME arithmetic (device code cannot cross a translation
  * unit here: no -rdc, no device link).
  *
  * The kernel's template parameters -- CELLS_PER_BLOCK, GRIDY, WSEARCH -- exist
  * only to DERIVE the cell (H, local) and to take the early returns. Nothing
  * below that point uses them, so this function takes the cell identity as
- * parameters and needs no template. The megakernel has its own mapping.
+ * parameters and needs no template.
  *
  * One warp per cell: every lane of the warp must call this together, and `lane`
  * is that lane. The reduction at the end names all 32.
@@ -186,8 +186,8 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
   // and the lanes reach this point from divergent branches above (Hc, and the
   // per-lane  inside the candidate loop). The standalone kernel gets away
   // without this because the cell IS the kernel body -- one warp, one cell, and
-  // the compiler reconverges at the return. Inlined into the megakernel's
-  //  loop that guarantee is gone, and
+  // the compiler reconverges at the return. Inlined into a
+  //  loop (the retired megakernel did this) that guarantee is gone, and
   // under independent thread scheduling the lanes STRANDED at different
   // unrolled shuffles: measured lane 0 at off=1, lane 1 finished, lanes 2-31 at
   // off=4, each waiting for a mask that can never assemble.
@@ -200,8 +200,8 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
      * execute the second shuffle only if its own comparison came out false.
      * Lanes then run DIFFERENT numbers of full-mask shuffles and the warp
      * deadlocks. It survived for a year because the compiler CSEs the two
-     * identical calls in the standalone kernels; inlined into the fused
-     * megakernel it does not, and the warp stranded mid-reduction (measured:
+     * identical calls in the standalone kernels; inlined into the (retired)
+     * fused megakernel it did not, and the warp stranded mid-reduction (measured:
      * lane 0 at off=1, lane 1 finished, lanes 2-31 at off=4). */
     const int other = __shfl_down_sync(0xffffffff, energy, off);
 

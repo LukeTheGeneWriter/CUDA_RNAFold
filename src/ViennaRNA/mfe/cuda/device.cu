@@ -856,9 +856,7 @@ rt_check(const cudaError_t rc, const char *what)
  * COLUMN SHIFT (blocked md stage 3a.2, PORT_MD_BLOCKING_DRIVER.md 3.2). Every kernel
  * that turns a flat index into a column adds slot[nfiles+1], so a table describing
  * only columns [jlo, jhi] of a row needs no other change anywhere. A row's own slots
- * carry 0 (the memset below), so whole rows are what they always were. The
- * megakernel walks these tables on the device too, and takes the stride from
- * rnafold_rowtab_stride() rather than repeating it. */
+ * carry 0 (the memset below), so whole rows are what they always were. */
 #define RT_STRIDE(n) ((size_t)(n) + 2)
 
 static size_t *g_rt_size_h = NULL, *g_rt_side_h = NULL;   /* host, pinned */
@@ -1015,12 +1013,11 @@ rnafold_tile_end(void)
  * It refuses -- with the reason, and the row path runs -- wherever something holds a
  * whole row across the row's phases: the c ring and RNA_ROW_BATCH flush whole rows on
  * their own schedule; stream overlap > 0 and CUDA graphs publish or capture per row;
- * the flow modes put records on different rows; the megakernel and RNA_ROW_FUSE own a
+ * the flow modes put records on different rows; RNA_ROW_FUSE owns a
  * whole row; RNA_MD_TAIL=0 runs the old seven-step chain. */
 extern "C" int rnafold_continuous_flow(void);
 extern "C" int rnafold_slot_flow(void);
 extern "C" int rnafold_gpu_sweep(void);
-extern "C" int rnafold_megakernel(void);
 
 static int
 env_is(const char *name, const char *want)
@@ -1053,7 +1050,6 @@ rnafold_md_tile_cb(void)
     else if (!rnafold_gpu_sweep())             why = "off the GPU-resident sweep the host owns the row";
     else if (rnafold_continuous_flow())        why = "continuous flow puts records on different rows";
     else if (rnafold_slot_flow() >= 1)         why = "slot flow refills records mid-sweep";
-    else if (rnafold_megakernel())             why = "the megakernel owns a whole row";
 
     if (why) {
       fprintf(stderr, "device.cu                RNA_MD_TILE_CB=%d REFUSED: %s -- whole rows\n",
@@ -1475,16 +1471,6 @@ rnafold_pinned_ints_free(int *p, const int pinned)
 {
   rt_pinned_free(p, pinned);
 }
-
-
-/* ---- row-table bases, for the fused megakernel ---------------------------
- * The per-row accessors above hand out one row's slot; the megakernel holds the
- * base and strides by (nfiles+1) itself, because it walks every row inside one
- * launch and never returns to the host to be told where the next one is. */
-extern "C" const size_t *rnafold_rowtab_size_base(void) { return g_rt_size_d; }
-extern "C" const size_t *rnafold_rowtab_side_base(void) { return g_rt_side_d; }
-extern "C" size_t        rnafold_rowtab_stride(void)    { return RT_STRIDE(g_rt_nfiles); }
-extern "C" const int    *rnafold_rowtab_ih_base(void)   { return g_rt_ih_d; }
 
 
 /* ---- RNA_MD3_LAUNCH_PROBE: what does stage 3's launch multiple actually cost? ----

@@ -41,7 +41,6 @@
 #define MIN2(x,y) min(x,y)
 
 #include "stub2.h"
-#include "megakernel.h"
 
 #define BLOCK_SIZE 512
 
@@ -69,8 +68,7 @@ int first3 = 1; //avoid id clash with int_loop.cu's first2 / modular_decompositi
 //(>=0,>=0), so the one-sided cases belong exclusively to d1/d3. Those are
 //declined at vrna_cuda_engine_supports() and tripwired in fill_arrays.c, so
 //the tables would be dead weight in a struct that is memcpy'd per batch.
-/* The device helpers below moved to hp_mb_dev.h so the fused megakernel
- * can call exactly this code; see the header. */
+/* The device helpers below live in hp_mb_dev.h; see the header. */
 #include "hp_mb_dev.h"
 
 /* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
@@ -1014,8 +1012,7 @@ hp_mb_loop_bytes_per_file(const int length) {
 
 
 
-// The hairpin/multibranch, new_c and fml_prev cells, shared with the fused
-// per-record megakernel: the kernels below are wrappers around this code.
+// The hairpin/multibranch, new_c and fml_prev cells, shared through a header:// the kernels below are wrappers around this code.
 #include "hp_mb_cells.inc"
 
 __global__ void
@@ -1039,7 +1036,7 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
                  const int* __restrict__ len_H,   //continuous flow phase C1
                  const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) {
-  // The arithmetic lives in hp_mb_cells.inc so the megakernel runs exactly this code.
+  // The arithmetic lives in hp_mb_cells.inc.
   hp_mb_3p_cell(nfiles, i_row, turn, length, S, seq, pair, hccc_mb, hccc_mbenc, hccc_any, hccc_gu, P, salt_loop, energy_hp_row, energy_mb_row, energy_3p00_row, gate_row, row_off_H, hc2_off_H, seq_off_H, len_H, size_off_H, total, i_H,
                 (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
@@ -1105,7 +1102,7 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
 #define FML_SCAN_THREADS 256
 
 
-// The fML row scan, shared with the fused per-record megakernel.
+// The fML row scan, shared through a header (device code cannot cross a translation unit).
 #include "fml_scan_block.inc"
 
 template<int TW>
@@ -1122,8 +1119,7 @@ fml_scan_kernel(const int nfiles, const int i_row, const int turn,
                 const size_t* __restrict__ seq_off_H,
                 const size_t* __restrict__ size_off_H,
                 const int* __restrict__ i_H) {
-  // The scan lives in fml_scan_block.inc so the megakernel runs exactly this
-  // code; the block-per-record mapping and its shared tiles stay here.
+  // The scan lives in fml_scan_block.inc; the block-per-record mapping and its shared tiles stay here.
   const int H = blockIdx.x;
   if(H >= nfiles) return;
   __shared__ int sa[TW];
@@ -1463,7 +1459,7 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
              const size_t* __restrict__ row_off_H,    //in
              const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) {
-  // The arithmetic lives in hp_mb_cells.inc so the megakernel runs exactly this code.
+  // The arithmetic lives in hp_mb_cells.inc.
   new_c_cell(nfiles, i_row, turn, noGUclosure, energy_min2, energy_hp_row, energy_mb_row, gate_row, dml1, up_hp, seq_off_H, new_e, stack_row, cc1, cc, row_off_H, size_off_H, total, i_H,
              (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
@@ -1762,7 +1758,7 @@ fml_prev_kernel(const int nfiles, const int i_row, const int turn,
                 const size_t* __restrict__ row_off_H, //in
                 const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) {
-  // The arithmetic lives in hp_mb_cells.inc so the megakernel runs exactly this code.
+  // The arithmetic lives in hp_mb_cells.inc.
   fml_prev_cell(nfiles, i_row, turn, energy_min, dml, fml_prev, row_off_H, size_off_H, total, i_H,
                 (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
@@ -1917,34 +1913,13 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
 }
 
 
-/* ---- the fused megakernel's view of this file's buffers ------------------ */
+/* ---- sparse md (md_sparse.inc) reads two of this file's buffers ----------
+ * Same validity window as the buffers themselves: init_gpu*() to teardown_gpu*(). */
 extern "C" void
-hp_mb_mk_ptrs(rnafold_mk_ptrs_t *p)
+hp_mb_md_sparse_buffers(const char **up_ml_ok, const size_t **seq_off_H)
 {
-  p->param2           = (const void *)d_param2;
-  p->pair2            = d_pair2;
-  p->S2               = d_S2;
-  p->sequence         = d_sequence;
-  p->hccc_mb          = d_hccc_mb;
-  p->hccc_mbenc       = d_hccc_mbenc;
-  p->hccc_any         = d_hccc_any;
-  p->hccc_gu          = d_hccc_gu;
-  p->hc2_off_H        = d_hc2_off_H;
-  p->seq_off_H        = d_seq_off_H;
-  p->len_H            = d_len_H;
-  p->salt_loop        = d_salt_loop;
-  p->up_ml_ok         = d_up_ml_ok;
-  p->up_hp            = d_up_hp;   /* NULL unless a record carries a depot */
-  /* The UNPARITIED row buffers: the parity doubles exist only for
-   * RNA_STREAM_OVERLAP=2, which the megakernel refuses -- it owns the schedule
-   * itself, so there is no second chain to keep out of the way of. */
-  p->energy_hp_row    = d_energy_hp_row;
-  p->energy_mb_row    = d_energy_mb_row;
-  p->energy_3p00_row  = d_energy_3p00_row;
-  p->gate_row         = d_gate_row;
-  p->energy_stack_row = d_energy_stack_row;   /* noLP only; refused in v1 */
-  p->cc               = d_cc;
-  p->cc1              = d_cc1;
+  *up_ml_ok  = d_up_ml_ok;
+  *seq_off_H = d_seq_off_H;
 }
 
 
@@ -1992,8 +1967,7 @@ hp_mb_mk_ptrs(rnafold_mk_ptrs_t *p)
  * half-supported.
  */
 /* load_my_c_cell lives on the int_loop side and its body uses int_loop.cu's
- * "#define turn 3" macro rather than a parameter. Bracket the include exactly as
- * megakernel.cu does, because THIS file uses `turn` as a parameter name all over
+ * "#define turn 3" macro rather than a parameter. Bracket the include, because THIS file uses `turn` as a parameter name all over
  * and the macro would rewrite those into a literal. The macro is expanded where
  * the inline body is defined, so undef'ing it straight after is correct. */
 #define turn 3

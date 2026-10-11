@@ -114,55 +114,6 @@
    rnafold_rowtab_upload_all();
  }
 
- // ---- RNA_MEGAKERNEL: the whole row chain as one cooperative kernel per
- // record (megakernel.cu). SAME arithmetic -- every phase calls the same
- // *_cell() the per-phase kernels do, out of the shared headers -- so this is a
- // different SCHEDULE, not a different recurrence, and the sha must not move.
- //
- // Why it lives here rather than in engine.c's routing guard: that guard
- // answers "can the CUDA backend do this at all", and there is no way there to
- // say "supported, but not by the fused kernel". So the decision is taken at
- // the sweep, and anything refused simply runs the loop below.
- int mk_done = 0;
- if(rnafold_megakernel()) {
-   int depot = 0;
-   const char *why;
-   for(int H=0; H<nfiles; H++)
-     if(VC[H]->hc && VC[H]->hc->depot) { depot = 1; break; }
-   why = rnafold_megakernel_refuse(nfiles,
-                                   P->model_details.circ, P->model_details.gquad,
-                                   noLP, uniq_ML, depot, P->model_details.dangles,
-                                   continuous_flow);
-   if(why) {
-     fprintf(stderr,"%-24s RNA_MEGAKERNEL declined: %s -- running the per-phase sweep\n",
-             __FILE__, why);
-   } else {
-     int *slots = (int*)malloc((size_t)nfiles*sizeof(int));
-     int *lens  = (int*)malloc((size_t)nfiles*sizeof(int));
-     double t0;
-     int rc;
-     for(int H=0; H<nfiles; H++) { slots[H] = H; lens[H] = (int)VC[H]->length; }
-     t0 = now_seconds();
-     rc = rnafold_megakernel_sweep(nfiles, slots, nfiles, turn, length, lens,
-                                   noGUclosure, P->TerminalAU, P->ninio[2],
-                                   (float)P->lxc);
-     free(slots); free(lens);
-     if(rc == 0) {
-       mk_done = 1;
-       fprintf(stderr,"%-24s megakernel wall=%.3f s for %d records\n",
-               __FILE__, now_seconds() - t0, nfiles);
-     } else {
-       fprintf(stderr,"%-24s megakernel could not launch -- running the per-phase sweep\n",
-               __FILE__);
-     }
-   }
- }
-
- // mk_done starts the loop at 0 so its body never runs, while everything AFTER
- // it -- slot retirement, the row-table release, the shape line -- still happens
- // exactly once. Under the fused path the per-phase timers stay at zero by
- // construction: there are no phases on the host to time, and the device-side
- // clock shares megakernel.cu prints are the measurement instead.
  const int md3_probe_n = rnafold_md3_launch_probe();
 
  /* BLOCKED MD STAGES 3a'/3b (PORT_MD_BLOCKING_DRIVER.md 2, 3.2): the sweep as a sequence
@@ -188,7 +139,7 @@
  long           n_st   = 0;
  int           *st_i   = NULL, *st_jlo = NULL;
  unsigned char *st_fl  = NULL;                 /* bit 0: row's first step; bit 1: its last */
- if(!mk_done && sweep_iters >= 1) {
+ if(sweep_iters >= 1) {
    if(!tile_cb) {
      n_st = sweep_iters;
    } else {
