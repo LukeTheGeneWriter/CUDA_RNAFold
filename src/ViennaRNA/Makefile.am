@@ -923,7 +923,6 @@ mfe/cuda/modular_decomposition.lo: $(srcdir)/mfe/cuda/modular_decomposition.cu \
                                    $(srcdir)/mfe/cuda/bt_retired.h \
                                    $(srcdir)/mfe/cuda/md_cell.inc \
                                    $(srcdir)/mfe/cuda/md_chain_cells.inc \
-                                   $(srcdir)/mfe/cuda/md_block.inc \
                                    $(srcdir)/mfe/cuda/md_sparse.inc \
                                    $(srcdir)/mfe/cuda/md_dev.h
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
@@ -978,7 +977,6 @@ endif
 ## distributed whether or not CUDA is enabled, so `make dist` from a
 ## non-CUDA build still produces a tarball that can build with it
 EXTRA_DIST += mfe/cuda/device.cu \
-              mfe/cuda/md_block.inc \
               mfe/cuda/md_sparse.inc \
               mfe/cuda/int_loop_lyngso.inc \
               mfe/cuda/engine.h \

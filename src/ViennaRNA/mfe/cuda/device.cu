@@ -175,62 +175,6 @@ rnafold_phase_sync_enabled(void)
 }
 
 
-/* RNA_SYNC_PROBE=k -- add k EXTRA cudaDeviceSynchronize() calls per sweep row.
- *
- * A NEGATIVE CONTROL, and the cheapest way to price a change before building
- * it. PORT_STREAM_OVERLAP_SCOPE.md wants the per-row barriers gone, which needs
- * double-buffered pinned staging and an event per slot. Before writing any of
- * that: if ADDING a barrier per row costs nothing, REMOVING one cannot pay, and
- * the whole of stage 1 is dead for the price of a five-line probe.
- *
- * The slope (seconds of wall per extra sync per row) times the number of
- * barriers a row already carries is the prize, estimated without touching a
- * single correctness-bearing line. It cannot change an answer -- a sync is a
- * wait, not a write -- so this is measurable on any arm, including one whose
- * sha we care about.
- */
-extern "C" int
-rnafold_sync_probe(void)
-{
-  static int v = -1;
-
-  if (v < 0) {
-    const char *e = getenv("RNA_SYNC_PROBE");
-
-    v = (e && e[0]) ? atoi(e) : 0;
-    if (v < 0)
-      v = 0;
-
-    if (v)
-      fprintf(stderr,
-              "device.cu                RNA_SYNC_PROBE=%d: %d EXTRA device syncs "
-              "per sweep row (a negative control -- this can only make the run "
-              "SLOWER)\n", v, v);
-  }
-
-  return v;
-}
-
-
-extern "C" void
-rnafold_sync_probe_tick(void)
-{
-  const int k = rnafold_sync_probe();
-  int       s;
-
-  for (s = 0; s < k; s++) {
-    const cudaError_t rc = cudaDeviceSynchronize();
-
-    if (rc != cudaSuccess) {
-      fprintf(stderr, "device.cu                RNA_SYNC_PROBE sync failed: %s\n",
-              cudaGetErrorString(rc));
-      cudaGetLastError();
-      return;
-    }
-  }
-}
-
-
 /* load_my_c()'s per-row cudaDeviceSynchronize (see int_loop.cu for why it existed).
  * DEFAULT OFF since 2026-09-30: the A100 priced it at -1.0 % alone and -3.0 % with
  * md's row sync also gone, byte-identical in every arm (PORT_LUKES_FLOW_BATCHING.md
@@ -1470,60 +1414,6 @@ extern "C" void
 rnafold_pinned_ints_free(int *p, const int pinned)
 {
   rt_pinned_free(p, pinned);
-}
-
-
-/* ---- RNA_MD3_LAUNCH_PROBE: what does stage 3's launch multiple actually cost? ----
- *
- * Blocked Zuker stage 3 runs the per-cell physics once per (row, COLUMN BLOCK) instead
- * of once per row, so its launch count multiplies by about n/(2*CB) -- 22x at CB=128.
- * md saves at most ~24 s of its 33.7 s at 400x5601, so if 22x the launches costs more
- * than that, the schedule cannot win and the DESIGN has to change rather than be tuned.
- *
- * That is worth knowing BEFORE the driver exists, and it is measurable without it:
- * issue k extra launches per sweep row, in the same stream, and read the slope. The
- * kernel does nothing, so the slope is pure per-launch cost -- which is the quantity
- * the design question turns on.
- *
- * This is deliberately NOT a null kernel with an empty body: nvcc is entitled to
- * discard a launch whose kernel provably does nothing. It writes one int to a device
- * global, which cannot be elided.
- */
-__device__ int g_md3_probe_sink = 0;
-
-__global__ void
-md3_probe_kernel(const int tag)
-{
-  if (threadIdx.x == 0 && blockIdx.x == 0) g_md3_probe_sink = tag;
-}
-
-extern "C" int
-rnafold_md3_launch_probe(void)
-{
-  static int v = -1;
-
-  if (v < 0) {
-    const char *e = getenv("RNA_MD3_LAUNCH_PROBE");
-
-    v = (e && e[0]) ? atoi(e) : 0;
-    if (v < 0) v = 0;
-    if (v > 256) v = 256;
-    if (v)
-      fprintf(stderr, "%-24s RNA_MD3_LAUNCH_PROBE=%d: %d extra no-op launches per sweep "
-                      "row, to price stage 3's launch multiple. The fold is unchanged; "
-                      "only the wall moves.\n", __FILE__, v, v);
-  }
-
-  return v;
-}
-
-extern "C" void
-rnafold_md3_launch_probe_fire(const int n, const int row)
-{
-  for (int t = 0; t < n; t++)
-    md3_probe_kernel<<<1, 32>>>(row * 1000 + t);   /* the default stream, which is
-                                                   * where the phases run unless
-                                                   * RNA_STREAM_OVERLAP is set */
 }
 
 

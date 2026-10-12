@@ -301,6 +301,18 @@ end of C6 confirms 400×5601 and the soak are unchanged.
 - **D7 — H5 layout lock:** price it (laptop, `-j4` plots on vs `--noPS`, ABBA), then offer
   it upstream as a defect fix.
 
+**Reclassified while implementing (C3, 2026-10-11).**
+- `RNA_MD_ROW_SYNC` and `RNA_LOAD_MY_C_SYNC` are **T3, not T4**: each is the escape
+  hatch for a default that was priced and changed (−5.3 % together on the A100,
+  PORT_LUKES_FLOW_BATCHING.md 9.12), and the row sync is forced on off the
+  GPU-resident sweep. Both stay.
+- `RNA_MD_SMEM`, `RNA_MD_BAND`, `RNA_MD_PRUNE` (`_STATS`, `_UNSAFE`) move from C3 to
+  **C6**: they are threaded through the dense md kernel's signature and `md_cell`,
+  which D1 cuts to one width there anyway, and the C6 bar adds a `RNA_MD_SPARSE=0`
+  arm that reaches that kernel. C3 = blocked md + the standalone probes
+  (`RNA_SYNC_PROBE`, `RNA_MD3_LAUNCH_PROBE`, `RNA_MD_INF_STATS`,
+  `RNA_MD_STREAM_STATS`, `RNA_MD_L2_*`).
+
 Phase changes from these: C5 no longer touches md tile CB / fusion (`RNA_MD_TILE_CB`,
 `_FUSE`, `_RB`, `_REVERSE`, `RNA_ROW_FUSE` move from T4 to T3, flagged); a new **C6b** does
 the D3 split; a new **C9** stamps the post-cleanup commit into the D4 flag comment and tags

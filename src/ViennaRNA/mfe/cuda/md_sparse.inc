@@ -175,7 +175,6 @@ md_sparse_refusal(void)
   if (rnafold_continuous_flow())      return "continuous flow (records on different rows)";
   if (rnafold_slot_flow())            return "slot flow (slots are handed over mid-sweep)";
   if (rnafold_md_prune())             return "RNA_MD_PRUNE (a different dense-skipping scheme)";
-  if (rnafold_md_block())             return "the blocked md (RNA_MD_BLOCK)";
   if (rnafold_md_tile_cb() > 0)       return "the tile path (RNA_MD_TILE_CB)";
   return NULL;
 }

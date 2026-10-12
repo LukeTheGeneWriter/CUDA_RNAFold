@@ -114,8 +114,6 @@
    rnafold_rowtab_upload_all();
  }
 
- const int md3_probe_n = rnafold_md3_launch_probe();
-
  /* BLOCKED MD STAGES 3a'/3b (PORT_MD_BLOCKING_DRIVER.md 2, 3.2): the sweep as a sequence
   * of STEPS, each one (row i, column block from tile_jlo).
   *
@@ -134,8 +132,6 @@
  const int tile_rb  = tile_cb ? rnafold_md_tile_rb() : 1;
  const int tile_rev = tile_cb ? rnafold_md_tile_reverse() : 0;
  const int tile_fuse = tile_cb ? rnafold_md_tile_fuse() : 0;   /* 3e-fuse: c chain + fML scan, one launch */
- const int md_blk   = tile_cb ? rnafold_md_block() : 0;       /* 3c: blocked md, bulk + corners */
- int       blk_cur  = -1;                                     /* 3c: the block-row ACC holds */
  long           n_st   = 0;
  int           *st_i   = NULL, *st_jlo = NULL;
  unsigned char *st_fl  = NULL;                 /* bit 0: row's first step; bit 1: its last */
@@ -220,12 +216,6 @@
       cf_rows += active;
       if(active > cf_peak_rows) cf_peak_rows = active;
     }
-
-    /* RNA_MD3_LAUNCH_PROBE: price blocked-Zuker stage 3's launch multiple before
-     * building the driver that would pay it. Extra no-op launches per row, same
-     * stream as the phases; the fold is unchanged and only the wall moves. See
-     * device.cu. */
-    if(md3_probe_n) rnafold_md3_launch_probe_fire(md3_probe_n, i);
     }
 
     /* BLOCKED MD STAGES 3a'/3b (see the step sequence above): this step's column block.
@@ -543,20 +533,7 @@
     {
       const double t0 = now_seconds();
       // side_off_H: built with this row's slot at the top of the iteration.
-      // 3c (RNA_MD_BLOCK): md is min(ACC, corners). A block-row's first step resets its
-      // ACC rows; every step tells md its block-row top and column block.
-      const int blk_top = md_blk ? sweep_iters - ((sweep_iters - i) / tile_rb) * tile_rb : i;
-      const int blk_bot = (blk_top - tile_rb + 1 > 1) ? blk_top - tile_rb + 1 : 1;
-      if(md_blk) {
-        if(blk_top != blk_cur) { rnafold_md_blk_rowstart(blk_top, blk_bot); blk_cur = blk_top; }
-        rnafold_md_blk_set_step(blk_top, tile_jlo);
-      }
       load_fML_modular_decomposition_load_min_fML(nfiles,i,turn,length,energy_min,DMLi,row_off_H,size_off_H,side_off_H,i_H);
-      // 3c: row blk_bot is the LAST row of this column block in its block-row (rows run
-      // top down and no column block is wholly left of bot), so every row's E for this
-      // block now exists: fold it into ACC for every later column.
-      if(md_blk && i == blk_bot)
-        rnafold_md_blk_update(nfiles, turn, length, blk_top, blk_bot, tile_jlo, tile_jlo + tile_cb - 1);
       rnafold_phase_sync();   // RNA_PHASE_SYNC: charge this phase its OWN GPU time
       phase_modular_decomp_s += now_seconds() - t0;
     }
@@ -615,11 +592,6 @@
     // cannot drift. Nothing reads d_dml1 yet -- this is behaviour-neutral, and
     // costs one 3.3 MB device-to-device copy per row (~0.18 s over a whole run).
     if(!tile_cb) md_snapshot_dml();   /* tiles: the rings are selected by row, not advanced */
-
-    /* RNA_SYNC_PROBE: k extra device syncs per row, to price the per-row
-     * barriers this row already carries before building the machinery to
-     * remove them. See PORT_STREAM_OVERLAP_SCOPE.md stage 0. */
-    rnafold_sync_probe_tick();
 
     {
       int *FF; /* rotate the auxilliary arrays */

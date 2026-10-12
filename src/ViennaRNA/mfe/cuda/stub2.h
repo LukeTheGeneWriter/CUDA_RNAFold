@@ -641,13 +641,6 @@ PUBLIC int           rnafold_md_tile_cb(void);
 PUBLIC int           rnafold_md_tile_rb(void);        /* stage 3b: rows per block-row */
 PUBLIC int           rnafold_md_tile_reverse(void);   /* stage 3b negative control */
 PUBLIC int           rnafold_md_tile_fuse(void);      /* stage 3e-fuse, device.cu */
-/* Stage 3c, RNA_MD_BLOCK (modular_decomposition.cu): blocked md on the tile path. */
-PUBLIC int           rnafold_md_block(void);
-PUBLIC void          rnafold_md_blk_rowstart(const int top, const int bot);
-PUBLIC void          rnafold_md_blk_set_step(const int top, const int jlo);
-PUBLIC void          rnafold_md_blk_update(const int nfiles, const int turn, const int length,
-                                           const int top, const int bot,
-                                           const int jlo, const int jhi);
 /* 3e-fuse: the step's hp_mb_3p + stack row + new_c + c store + fML scan as one launch
  * (hp_mb_loop.cu). 1 = handled, 0 = the caller runs the separate phases. */
 PUBLIC int           tile_front_i(const int nfiles, const int i, const int turn,
@@ -661,9 +654,6 @@ PUBLIC int           row_cells_i(const int nfiles, const vrna_fold_compound_t **
                                  const int i, const int turn, const int length,
                                  const int noGUclosure, const int noLP,
                                  const size_t* size_off_H, const int* i_H);
-/* RNA_MD3_LAUNCH_PROBE: prices blocked-Zuker stage 3.s launch multiple. See device.cu. */
-PUBLIC int           rnafold_md3_launch_probe(void);
-PUBLIC void          rnafold_md3_launch_probe_fire(const int n, const int row);
 /* RNA_INT_LOOP_UNROLL: RETIRED 2026-10-08; says so once if set, and is otherwise ignored. */
 PUBLIC void          rnafold_int_loop_unroll_retired(void);
 PUBLIC void          rnafold_rowtab_upload_all(void);
@@ -677,8 +667,6 @@ PUBLIC void rnafold_bt_pipeline_ctx(void *ctx);
 PUBLIC int  rnafold_bt_pipeline_went_async(void);
 PUBLIC void rnafold_bt_pipeline_drain(void);
 PUBLIC void rnafold_bt_async_allow(const int ok);
-PUBLIC int  rnafold_sync_probe(void);       /* RNA_SYNC_PROBE, negative control */
-PUBLIC void rnafold_sync_probe_tick(void);
 PUBLIC void rnafold_device_drain(void);     /* cudaDeviceSynchronize, device.cu */
 PUBLIC void rnafold_tri_checksum(void);     /* RNA_TRI_CHECKSUM, modular_decomposition.cu */
 PUBLIC void rnafold_c_ring_end(const int nfiles); /* RNA_C_RING final flush, int_loop.cu */
