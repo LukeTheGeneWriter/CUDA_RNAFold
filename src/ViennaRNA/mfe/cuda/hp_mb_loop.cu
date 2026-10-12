@@ -1122,8 +1122,8 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   // record's row has to stay inside one block.
   //
   // Dispatched on a runtime tile width rather than launched at a fixed one.
-  // The instantiate-a-few-and-switch shape follows int_loop_kernel's 32/64/
-  // 128/256 precedent, and the env override follows RNA_MD_TILE's.
+  // The instantiate-a-few-and-switch shape follows the old int_loop_kernel's
+  // 32/64/128/256 and the dense md's tile widths (both deleted in the cleanup).
 #define FML_SCAN_LAUNCH(TW) \
   fml_scan_kernel<TW><<<nfiles,TW,0,rnafold_stream_md()>>>(nfiles, i, turn, \
                                      d_new_e_, P3P_ROW(i), \

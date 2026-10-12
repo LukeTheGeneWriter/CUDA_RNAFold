@@ -609,8 +609,8 @@ PUBLIC int           row_cells_i(const int nfiles, const vrna_fold_compound_t **
                                  const int i, const int turn, const int length,
                                  const int noGUclosure, const int noLP,
                                  const size_t* size_off_H, const int* i_H);
-/* RNA_INT_LOOP_UNROLL: RETIRED 2026-10-08; says so once if set, and is otherwise ignored. */
-PUBLIC void          rnafold_int_loop_unroll_retired(void);
+/* Retired knobs (device.cu): each one that is set says so, once, and is otherwise ignored. */
+PUBLIC void          rnafold_retired_knobs(void);
 PUBLIC void          rnafold_rowtab_upload_all(void);
 
 PUBLIC void rnafold_phase_sync(void);

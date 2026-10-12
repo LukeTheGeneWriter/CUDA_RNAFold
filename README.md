@@ -379,6 +379,32 @@ batches the device actually folded, if you need to prove which path ran.
 diagnostics, which `RNAfold` prints on stderr, are left out from Python unless
 `RNA_GPU_VERBOSE=1` is set.
 
+#### Run-time settings
+
+None of these is needed; the defaults are what was measured fastest. Answers never
+depend on them: every setting below folds byte-identical output, except
+`RNA_ENGINE_ALLOW`, which exists to step outside that guarantee.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `RNA_GPU` | on | `0` folds everything on the CPU (stock behaviour from an accelerated build) |
+| `RNA_GPU_VERBOSE` | off | Python only: `1` prints the backend's diagnostics, which `RNAfold` always prints |
+| `RNA_BUILD_THREADS` | `auto` (nproc) | threads that build the next chunk's fold compounds; `N` for exactly N |
+| `RNA_BACKTRACK_THREADS` | `auto` | threads tracing structures back after a sweep; `0` serial, `N` exactly N |
+| `RNA_BUILD_PIPELINE` | auto | build chunk k+1 while k folds, when host memory allows; `0` off, `1` on regardless of memory |
+| `RNA_GPU_VRAM_BUDGET_MB` | 85 % of free VRAM | caps the device memory a chunk may plan for (smaller chunks, never a different answer) |
+| `RNA_GPU_CHUNK` | `0` | at most N records per chunk; `0` lets the memory budget decide |
+| `RNA_FML_INT16` | auto | stores the fML triangle as 16-bit offsets where that pays (the dense md, or a chunk that would not fit in VRAM as int32); `0` int32, `1` int16, and an error where it cannot apply (e.g. `--noLP`) |
+| `RNA_MD_SPARSE` | on | the sparse multiloop decomposition; `0` restores the dense one |
+| `RNA_CPU_SLICE` | off | with `-j`, `1` holds some records of each chunk back for the CPU pool while the GPU folds the rest |
+| `RNA_CPU_SLICE_CAP` | `33` | the most of a chunk, in percent (0–90), that `RNA_CPU_SLICE` may hold back |
+| `RNA_BT_PIPELINE` | off | `1` traces chunk k's structures while chunk k+1 sweeps (opt-in until measured on an A100) |
+| `RNA_ENGINE_ALLOW` | unset | comma-separated engine ids to run on the GPU although the routing guard declines them; for measurement only, **answers from such a run are not trusted** |
+
+Variables for verification, diagnostics and tuning on new hardware are listed in
+[TESTING_KNOBS.md](TESTING_KNOBS.md). Variables retired with the code they controlled
+are ignored, and the GPU backend says so on stderr when one is set.
+
 ----
 
 ## Executable Programs

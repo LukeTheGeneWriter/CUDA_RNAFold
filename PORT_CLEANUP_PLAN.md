@@ -373,3 +373,12 @@ laptop ABBA** (C400, `--noPS`, pre-cleanup `~/pyq` = A vs C4 `~/pyqc` = B, 8 run
   binding 20/20, N5a P2, noLP all green; knobarms 18/18 (`sparse0` sweeps 5 chunks, not 7, on
   F_lite @ 64 MB -- int16 AUTO turns on with the dense md and halves the triangle; same
   output); dense md under `-c` equals upstream with int16 on and off.
+
+**C7 record (2026-10-12).** One table of retired knobs in device.cu (`g_retired`, 46 names
+in 7 families, replacing the single RNA_INT_LOOP_UNROLL notice): each one set prints
+`IGNORED: retired with <family>` once; checked with four set (one line each, output
+unchanged) and none set (no line). README gains the T1 table; TESTING_KNOBS.md carries
+T2/T3, with the D4 knobs as a "flagged" group. All bars green, and **the zeroconf CPU-only
+bar passes (first run in the cleanup, 22/22)**, on a copy of ~/pyqc. Retired-name grep:
+in src only deletion notes remain; three tools still SET retired knobs
+(`int_loop_lookup_bar.sh`, `nb_dryrun.py`, `intloop2_addendum.py`) and go to the archive in C8.

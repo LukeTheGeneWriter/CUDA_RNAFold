@@ -1396,24 +1396,91 @@ rnafold_pinned_ints_free(int *p, const int pinned)
 }
 
 
-/* ---- RNA_INT_LOOP_UNROLL: RETIRED, 2026-10-08.
+/* ---- RETIRED KNOBS: setting one says so, once, and is otherwise ignored.
  *
- * It kept two candidates in flight per lane in int_loop's warp kernel (two search
- * chains, two accumulators), aimed at the `wait` stall. A laptop null, then a loss on
- * the A100 twice: int_loop +4.3..4.5 % against ring-off (Queue run, 2026-10-03), and
- * wall +3.8 % / +3.0 % at 400x5601 / 3000x1200 with Lyngso on (PORT_LYNGSO_INTLOOP.md
- * S5). The U=2 instantiations, the dispatch and the two refusals it needed are gone;
- * int_loop_cell.inc keeps the stall numbers. Setting it now says so, once. */
+ * Each of these gated code that has been deleted -- a measured negative or a finished
+ * experiment. RNA_INT_LOOP_UNROLL went on 2026-10-08 (int_loop +4.3..4.5 % against
+ * ring-off on the A100 Queue run, wall +3.8 % / +3.0 % at 400x5601 / 3000x1200 with
+ * Lyngso on, PORT_LYNGSO_INTLOOP.md S5; int_loop_cell.inc keeps the stall numbers). The
+ * rest went in the 2026-10-11 cleanup (PORT_CLEANUP_PLAN.md: section 3's T4 table cites
+ * each family's record; the code is at the `pre-cleanup` tag).
+ *
+ * A retired knob cannot change the answer, since nothing reads it. It is announced anyway
+ * because a script that still sets one is measuring something that no longer exists. */
+static const char *const g_retired_what[] = {
+  "int_loop's two-candidates-in-flight unroll, retired 2026-10-08 (a loss on the A100)",
+  "the per-record megakernel (cleanup C2)",
+  "blocked md, superseded by the sparse md (cleanup C3)",
+  "a standalone md/launch/sync probe (cleanup C3)",
+  "slot / continuous flow (cleanup C4)",
+  "the old int_loop block kernels and fML/c-store experiments (cleanup C5)",
+  "a dense-md variant; the dense md is one width now (cleanup C6)",
+};
+
+static const struct {
+  const char *name;
+  int         what;   /* index into g_retired_what */
+} g_retired[] = {
+  { "RNA_INT_LOOP_UNROLL", 0 },
+  { "RNA_MEGAKERNEL", 1 },
+  { "RNA_MK_BPSM", 1 },
+  { "RNA_MK_CORNER", 1 },
+  { "RNA_MK_CORNER_K", 1 },
+  { "RNA_MK_CWIN", 1 },
+  { "RNA_MK_FORCE_OWNS", 1 },
+  { "RNA_MK_MAXROWS", 1 },
+  { "RNA_MK_OWN_MASK", 1 },
+  { "RNA_MK_RECORDS", 1 },
+  { "RNA_MK_SKEW", 1 },
+  { "RNA_MK_SKIP", 1 },
+  { "RNA_MK_SMEM_KB", 1 },
+  { "RNA_MK_THREADS", 1 },
+  { "RNA_MK_TILE", 1 },
+  { "RNA_MK_TIMEOUT", 1 },
+  { "RNA_MD_BLOCK", 2 },
+  { "RNA_MD_BLOCK_NEGCTL", 2 },
+  { "RNA_MD_BLOCK_SELFTEST", 2 },
+  { "RNA_MD_BLK_LANES", 2 },
+  { "RNA_MD_BLK_PROFILE", 2 },
+  { "RNA_SYNC_PROBE", 3 },
+  { "RNA_MD3_LAUNCH_PROBE", 3 },
+  { "RNA_MD_INF_STATS", 3 },
+  { "RNA_MD_STREAM_STATS", 3 },
+  { "RNA_MD_L2_HITRATIO", 3 },
+  { "RNA_MD_L2_MISS", 3 },
+  { "RNA_MD_L2_PERSIST", 3 },
+  { "RNA_SLOT_FLOW", 4 },
+  { "RNA_SLOT_CAPACITY", 4 },
+  { "RNA_SLOT_TURNOVER", 4 },
+  { "RNA_CONTINUOUS_FLOW", 4 },
+  { "RNA_INT_LOOP_WARP", 5 },
+  { "RNA_INT_LOOP_BLOCK_SIZE", 5 },
+  { "RNA_INT_LOOP_GRIDY", 5 },
+  { "RNA_INT_LOOP_WSEARCH", 5 },
+  { "RNA_INT_LOOP_WORK_STATS", 5 },
+  { "RNA_FML_SCAN", 5 },
+  { "RNA_FML_SCAN_K", 5 },
+  { "RNA_NEW_C_STORE", 5 },
+  { "RNA_MD_TILE", 6 },
+  { "RNA_MD_SMEM", 6 },
+  { "RNA_MD_BAND", 6 },
+  { "RNA_MD_PRUNE", 6 },
+  { "RNA_MD_PRUNE_STATS", 6 },
+  { "RNA_MD_PRUNE_UNSAFE", 6 },
+};
+
 extern "C" void
-rnafold_int_loop_unroll_retired(void)
+rnafold_retired_knobs(void)
 {
   static int said = 0;
 
   if (!said) {
     said = 1;
-    const char *e = getenv("RNA_INT_LOOP_UNROLL");
-    if (e && e[0])
-      fprintf(stderr, "%-24s RNA_INT_LOOP_UNROLL=%s IGNORED: retired 2026-10-08 (a loss on "
-                      "the A100); int_loop keeps one candidate in flight per lane\n", __FILE__, e);
+    for (size_t k = 0; k < sizeof(g_retired) / sizeof(g_retired[0]); k++) {
+      const char *e = getenv(g_retired[k].name);
+      if (e && e[0])
+        fprintf(stderr, "%-24s %s=%s IGNORED: retired with %s\n", __FILE__,
+                g_retired[k].name, e, g_retired_what[g_retired[k].what]);
+    }
   }
 }

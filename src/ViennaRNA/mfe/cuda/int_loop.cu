@@ -1543,7 +1543,7 @@ int_loop_cuda(const int nfiles,
   // apart is the entire point (STRESS272_RESULTS.md 20.4).
   rnafold_launch_stats_begin();
 
-  rnafold_int_loop_unroll_retired();
+  rnafold_retired_knobs();
   {
     // One warp per block, G cells per warp (RNA_INT_LOOP_CELLS_PER_WARP): the grid
     // counts WARPS, each owning G consecutive cells, so G = 1 is one per cell.
