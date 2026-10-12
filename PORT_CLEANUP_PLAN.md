@@ -382,3 +382,18 @@ T2/T3, with the D4 knobs as a "flagged" group. All bars green, and **the zerocon
 bar passes (first run in the cleanup, 22/22)**, on a copy of ~/pyqc. Retired-name grep:
 in src only deletion notes remain; three tools still SET retired knobs
 (`int_loop_lookup_bar.sh`, `nb_dryrun.py`, `intloop2_addendum.py`) and go to the archive in C8.
+
+**C6b record (2026-10-12).** D3, move only: RNAfold.c 4031 -> 2012 lines; `src/bin/gpu_batch.c`
+(2046) holds the GPU chunk path; `src/bin/RNAfold_gpu.h` (private) holds `struct options`,
+`struct record_data` and the seam. process_input()'s three CUDA sections are
+`gpu_batch_begin/offer/end`, its accumulator locals are file statics reset per input stream,
+and `RUN_IN_PARALLEL(process_record, r)` is `rnafold_dispatch_record(r)` -- parallel_helpers.h
+DEFINES the pool's globals, so only RNAfold.c may include it. Six functions lost `static` to
+cross the seam (apply_constraints, add_ligand_motif, trace_now, trace_open,
+output_needs_compound, cpu_slice_finished; no libRNA symbol collides). Lossless check: every
+old line not in the new files is one of those rewrites. Bars all green incl. zeroconf, plus
+move arms that ASSERT their path: CPU slice (A_longseq, -j4 / -j8: 2 / 4 records sliced),
+too-big (1 MB budget: GPU on, 0 sweeps, all 60 records via the old `continue`), build
+pipeline 0/1, backtrack pipeline -j4, two input files (begin resets: 2 sweeps, 2 ON lines).
+The first slice and too-big arms took neither path (C400_lite chunks are one record; a 1 MB
+budget still fits short records) -- caught by their stderr counters and rerun.

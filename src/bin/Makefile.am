@@ -142,6 +142,8 @@ maintainer-clean-local:
 RNAfold_SOURCES = \
     RNAfold_cmdl.c \
     RNAfold_cmdl.h \
+    RNAfold_gpu.h \
+    gpu_batch.c \
     RNAfold.c
 
 RNAsubopt_SOURCES = \
