@@ -1147,44 +1147,6 @@ bind_row_tables(const int i) {
 // instantiated compile-time constants -- hence an explicit allow-list, and an
 // invalid value warns and falls back rather than silently picking something
 // that was never instantiated.
-/* RNA_FML_SCAN=2: K consecutive elements per thread -- see fml_scan_block2. */
-template<int TW, int K>
-__global__ void
-fml_scan2_kernel(const int nfiles, const int i_row, const int turn,
-                 const int*  __restrict__ new_e, const int*  __restrict__ e3p00,
-                 const int*  __restrict__ gq_row, const int*  __restrict__ fml_prev,
-                 const char* __restrict__ up_ml_ok, const cuda_param2_t* __restrict__ P,
-                       int*  __restrict__ energy_min,
-                 const size_t* __restrict__ row_off_H, const size_t* __restrict__ seq_off_H,
-                 const size_t* __restrict__ size_off_H, const int* __restrict__ i_H) {
-  const int H = blockIdx.x;
-  if(H >= nfiles) return;
-  __shared__ int sa[TW*K + (TW*K)/32];
-  __shared__ int sc[TW*K + (TW*K)/32];
-  __shared__ int wa[TW/32], wc[TW/32], sE;
-  fml_scan_block2<TW,K>(nfiles, i_row, turn, new_e, e3p00, gq_row, fml_prev, up_ml_ok, P,
-                        energy_min, row_off_H, seq_off_H, size_off_H, i_H, H,
-                        sa, sc, wa, wc, &sE);
-}
-
-/* 1 = the Hillis-Steele tile scan (default); 2 = K per thread. RNA_FML_SCAN_K picks K
- * from {4, 8, 16}, default 8. Read once and announced, so an arm can prove it ran. */
-static int
-fml_scan_version(int* k_out) {
-  static int v = -1, k = 8;
-  if(v < 0) {
-    const char* e = getenv("RNA_FML_SCAN");
-    v = (e && e[0] == '2') ? 2 : 1;
-    const char* ek = getenv("RNA_FML_SCAN_K");
-    if(ek && ek[0]) { const int w = atoi(ek); if(w == 4 || w == 8 || w == 16) k = w; }
-    if(v == 2)
-      fprintf(stderr,"%-24s RNA_FML_SCAN=2 ACTIVE: %d elements per thread, 256 threads, "
-                     "tile %d (was 256 with 16 barriers)\n", __FILE__, k, 256*k);
-  }
-  if(k_out) *k_out = k;
-  return v;
-}
-
 static int
 fml_scan_tile(void) {
   static int v = -1;
@@ -1250,19 +1212,6 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   // to be TOLD that row i's c is written -- program order no longer says it.
   // The tables it reads are row i's own slot, which nothing overwrites.
   rnafold_stream_md_wait_cell();
-  int scan_k = 8;
-  if(fml_scan_version(&scan_k) == 2) {
-#define FML_SCAN2_LAUNCH(K) \
-    fml_scan2_kernel<256,K><<<nfiles,256,0,rnafold_stream_md()>>>(nfiles, RNA_I_ROW(i), turn, \
-        d_new_e_, P3P_ROW(i), rnafold_gq_row_device(), d_fml_prev_, d_up_ml_ok, d_param2, \
-        d_energy_min_, d_row_off_H, d_seq_off_H, d_size_off_H, d_i_H)
-    switch(scan_k) {
-      case  4: FML_SCAN2_LAUNCH(4);  break;
-      case 16: FML_SCAN2_LAUNCH(16); break;
-      default: FML_SCAN2_LAUNCH(8);  break;
-    }
-#undef FML_SCAN2_LAUNCH
-  } else
   switch(fml_scan_tile()) {
     case   32: FML_SCAN_LAUNCH(  32); break;
     case   64: FML_SCAN_LAUNCH(  64); break;
@@ -1464,53 +1413,8 @@ new_c_kernel(const int nfiles, const int i_row, const int turn, const int noGUcl
              (size_t)blockIdx.x*blockDim.x+threadIdx.x);
 }
 
-/* RNA_NEW_C_STORE -- defined after the int_loop_cells.inc include below, because
- * it calls load_my_c_cell(). */
-__global__ void
-new_c_store_kernel(const int nfiles, const int i_row, const int turn, const int length,
-                   const int noGUclosure,
-                   const int*  __restrict__ energy_min2, const int* __restrict__ energy_hp_row,
-                   const int*  __restrict__ energy_mb_row, const char* __restrict__ gate_row,
-                   const int*  __restrict__ dml1, const int* __restrict__ up_hp,
-                   const size_t* __restrict__ seq_off_H, int* __restrict__ new_e,
-                   const int*  __restrict__ stack_row, const int* __restrict__ cc1,
-                   int* __restrict__ cc, int* __restrict__ my_c,
-                   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
-                   const size_t* __restrict__ size_off_H, const size_t total,
-                   const int* __restrict__ i_H);
 extern "C" void int_loop_my_c_buffers(int** my_c_out, const size_t** tri_off_H_out);
 
-/* RNA_NEW_C_STORE=1: new_c writes row i of the c triangle itself, and load_my_c()
- * skips its kernel. Row the store happened for, or -1 -- asked by load_my_c() of
- * the code that did it, the same positive-evidence shape as RNA_MD_TAIL. */
-static int g_new_c_stored_row = -1;
-
-static int
-rnafold_new_c_store(void)
-{
-  static int v = -1;
-
-  if(v < 0) {
-    const char* e = getenv("RNA_NEW_C_STORE");
-    v = (e && e[0] && e[0] != '0') ? 1 : 0;
-    if(v && !rnafold_gpu_sweep()) {
-      fprintf(stderr,"%-24s RNA_NEW_C_STORE REFUSED: off the GPU-resident sweep "
-                     "load_my_c uploads the host's new_C -- the separate kernels run\n",
-              __FILE__);
-      v = 0;
-    } else if(v)
-      fprintf(stderr,"%-24s RNA_NEW_C_STORE ACTIVE: new_c writes the c triangle; "
-                     "load_my_c's kernel is skipped (its sync and event are kept)\n",
-              __FILE__);
-  }
-  return v;
-}
-
-extern "C" int
-rnafold_new_c_stored_row(const int i)
-{
-  return g_new_c_stored_row == i;
-}
 
 // noLP: build this row's vrna_eval_stack() values. Called from new_c_i() only
 // when noLP is set, so nothing here runs on the default path.
@@ -1656,19 +1560,6 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
   // Level 2: DMLi1 is published by snapshot(i+1) on the md stream, which is
   // running concurrently with this row's int_loop and hp_mb.
   rnafold_stream_wait_md();
-  if(rnafold_new_c_store()) {
-    int* d_my_c_ = NULL; const size_t* d_tri_off_H_ = NULL;
-    int_loop_my_c_buffers(&d_my_c_, &d_tri_off_H_);
-    new_c_store_kernel<<<(int)nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i),
-        turn, /* length: load_my_c_cell reads it only in asserts */ 0, noGUclosure,
-        d_energy_min2_, HP_ROW(i), MB_ROW(i), GATE_ROW(i), d_dml1_,
-        d_up_hp, d_seq_off_H, d_new_e_,
-        noLP ? d_energy_stack_row : NULL, noLP ? d_cc1 : NULL, noLP ? d_cc : NULL,
-        d_my_c_, d_tri_off_H_, d_row_off_H, d_size_off_H, total, d_i_H);
-    gpuErrchk( cudaPeekAtLastError() );
-    g_new_c_stored_row = i;
-    return;   // the verify tail below is host-path only, which this refuses
-  }
   new_c_kernel<<<(int)nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), turn, noGUclosure,
                                             d_energy_min2_, HP_ROW(i), MB_ROW(i),
                                             GATE_ROW(i), d_dml1_,
@@ -2030,40 +1921,6 @@ row_cells_kernel(const int nfiles, const int i_row, const int turn, const int le
                  size_off_H, total, i_H, m);
 }
 
-/* RNA_NEW_C_STORE: new_c + load_my_c, and nothing else. Unlike row_cells_kernel it
- * leaves hp_mb_3p alone -- so hp_mb keeps its own stream and this works at EVERY
- * overlap level, where the row fusion refuses. new_c and load_my_c were already
- * back to back on the cell stream, over the same size range, one thread per cell;
- * load_my_c only copied the row new_c had just written. Here the same thread reads
- * back its own store, so program order is the whole synchronisation. */
-__global__ void
-new_c_store_kernel(const int nfiles, const int i_row, const int turn, const int length,
-                   const int noGUclosure,
-                   const int*  __restrict__ energy_min2,
-                   const int*  __restrict__ energy_hp_row,
-                   const int*  __restrict__ energy_mb_row,
-                   const char* __restrict__ gate_row,
-                   const int*  __restrict__ dml1,
-                   const int*  __restrict__ up_hp,
-                   const size_t* __restrict__ seq_off_H,
-                         int*  __restrict__ new_e,
-                   const int*  __restrict__ stack_row,
-                   const int*  __restrict__ cc1,
-                         int*  __restrict__ cc,
-                         int*  __restrict__ my_c,
-                   const size_t* __restrict__ tri_off_H,
-                   const size_t* __restrict__ row_off_H,
-                   const size_t* __restrict__ size_off_H, const size_t total,
-                   const int* __restrict__ i_H)
-{
-  const long long m = (long long)blockIdx.x*blockDim.x + threadIdx.x;
-
-  new_c_cell(nfiles, i_row, turn, noGUclosure, energy_min2, energy_hp_row, energy_mb_row,
-             gate_row, dml1, up_hp, seq_off_H, new_e, stack_row, cc1, cc,
-             row_off_H, size_off_H, total, i_H, m);
-  load_my_c_cell(nfiles, i_row, length, new_e, my_c, tri_off_H, row_off_H,
-                 size_off_H, total, i_H, m);
-}
 
 /* Returns 1 if this row was handled by the fused kernel, 0 if the caller must run
  * the three phases separately. Refusing is the whole interface: a half-supported

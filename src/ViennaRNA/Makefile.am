@@ -903,7 +903,7 @@ vrna_mfecuda_HEADERS = mfe/cuda/engine.h
 NVCC_COMPILE = $(SHELL) $(srcdir)/mfe/cuda/nvcc-libtool.sh $(NVCC_BIN)
 
 ## -I$(srcdir)/mfe/cuda so the kernels find their own private headers
-## (stub2.h, interior_loopx.h, nth.h, int_loop_kernel_body.inc).
+## (stub2.h, interior_loopx.h, nth.h, int_loop_cell.inc).
 ## $(NVCC_ASSERT_FLAGS) carries -DNDEBUG for release builds and is empty under
 ## --enable-asserts. Kept separate from NVCC_FLAGS because appending to that
 ## inside the asserts macro lands on the wrong side of RNA_ENABLE_CUDA's own
@@ -937,7 +937,6 @@ mfe/cuda/int_loop.lo: $(srcdir)/mfe/cuda/int_loop.cu \
                       $(srcdir)/mfe/cuda/bt_retired.h \
                       $(srcdir)/mfe/cuda/interior_loopx.h \
                       $(srcdir)/mfe/cuda/nth.h \
-                      $(srcdir)/mfe/cuda/int_loop_kernel_body.inc \
                       $(srcdir)/mfe/cuda/int_loop_cell.inc \
                       $(srcdir)/mfe/cuda/int_loop_cells.inc \
                       $(srcdir)/mfe/cuda/int_loop_dev.h
@@ -986,7 +985,6 @@ EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/hp_mb_loop.cu \
               mfe/cuda/gquad_dev.h \
               mfe/cuda/gquad.cu \
-              mfe/cuda/int_loop_kernel_body.inc \
               mfe/cuda/md_cell.inc \
               mfe/cuda/md_chain_cells.inc \
               mfe/cuda/int_loop_cell.inc \

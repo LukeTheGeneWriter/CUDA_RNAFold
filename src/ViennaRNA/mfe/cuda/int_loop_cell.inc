@@ -4,10 +4,8 @@
  * retired 2026-10-11) so every caller runs THE SAME arithmetic (device code cannot cross a translation
  * unit here: no -rdc, no device link).
  *
- * The kernel's template parameters -- CELLS_PER_BLOCK, GRIDY, WSEARCH -- exist
- * only to DERIVE the cell (H, local) and to take the early returns. Nothing
- * below that point uses them, so this function takes the cell identity as
- * parameters and needs no template.
+ * The kernel only DERIVES the cell (H, local) and takes the early returns;
+ * this function takes the cell identity as parameters.
  *
  * One warp per cell: every lane of the warp must call this together, and `lane`
  * is that lane. The reduction at the end names all 32.
@@ -46,10 +44,6 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
                 const int* __restrict__ i_H,
                       int* __restrict__ energy_min,
                    const int H, const size_t local, const int lane,
-                   /* RNA_INT_LOOP_WORK_STATS: per-cell candidate count, or NULL. One
-                    * store per CELL, so it costs nothing measurable and it is the only
-                    * way to see the work DISTRIBUTION rather than its average. */
-                   int* __restrict__ work_out = NULL,
                    /* LY: G's planes for this row ([u - LY_U0][row_total]) and row_total */
                    const int* __restrict__ ly_G = NULL, const size_t ly_rt = 0) {
   const int i = i_H[H];
@@ -58,11 +52,6 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
 
   const long long ij = Indx(i,j);
   int energy = INF;
-
-  /* Every launched cell writes, so a cell hc rules out shows as 0 work -- it
-   * still cost a warp -- and an untouched slot (the caller pre-fills -1) is a
-   * row position that is not a cell at all. */
-  if(work_out && lane == 0) work_out[row_off_H[H]+j] = 0;
 
   if(Hc(ij,&hccc[hc_off_H[H]])) {
     const int p0 = i+1;
@@ -177,7 +166,6 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
         energy = MIN2(energy, e);
       }
     }
-    if(work_out && lane == 0) work_out[row_off_H[H]+j] = total;
   }
 
   // Warp-wide min. No shared memory and no __syncthreads() at any block size --
@@ -233,15 +221,11 @@ int_loop_warp_cell(const int nfiles, const int i_row, const int length,
                 const int* __restrict__ i_H,
                       int* __restrict__ energy_min,
                    const int H, const size_t local, const int lane,
-                   /* RNA_INT_LOOP_WORK_STATS: per-cell candidate count, or NULL. One
-                    * store per CELL, so it costs nothing measurable and it is the only
-                    * way to see the work DISTRIBUTION rather than its average. */
-                   int* __restrict__ work_out = NULL,
                    const int* __restrict__ ly_G = NULL, const size_t ly_rt = 0) {
   c_tri_reader cread;
 
   cread.base = &my_c[tri_off_H[H]];
   int_loop_warp_cell_r<c_tri_reader, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                        pair_, S, hccc, up_int, cread, row_off_H, hc_off_H,
-                       size_off_H, i_H, energy_min, H, local, lane, work_out, ly_G, ly_rt);
+                       size_off_H, i_H, energy_min, H, local, lane, ly_G, ly_rt);
 }

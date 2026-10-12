@@ -605,7 +605,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   SLOT_ALLOC(&d_new_e, size);
 
   // Staggered_Row_Batching Phase 2d: table-driven total (row_off_H[nfiles]),
-  // matching int_loop_kernel_body.inc's row_off_H[H]+j write below -- equals
+  // matching the int_loop kernel's row_off_H[H]+j write -- equals
   // the old uniform nfiles*(length+1) exactly while chunks stay uniform-length,
   // diverges once they don't.
   SLOT_ALLOC(&d_energy_min2, g_row_total*sizeof(int));
@@ -866,8 +866,8 @@ load_my_c_kernel(const int nfiles, const int i_row, /*const int turn,*/ const in
  * -- starting with the row just written. So int_loop must READ the ring
  * (c_ring_reader, int_loop_dev.h), and the ring must hold every row it can reach;
  * those 31 rows are distinct mod 32. The triangle then has no reader during the
- * sweep at all (md reads c from row buffers; the twin kernel, row
- * fusion and RNA_NEW_C_STORE do read or write it, and are refused below), so the
+ * sweep at all (md reads c from row buffers; row fusion does write it, and is
+ * refused below), so the
  * flush only has to beat the ring's own overwrite: row r's slot is reused by row
  * r-32, and with K <= 32 every flush lands, in cell-stream order, before that.
  *
@@ -904,7 +904,6 @@ c_env_on(const char* name)
   return (e && e[0] && e[0] != '0') ? 1 : 0;
 }
 
-PUBLIC int rnafold_int_loop_warp(void);
 
 /* This chunk's decision. Every refusal is silent in the answer (the triangle path
  * is byte-identical), so say which, once. */
@@ -916,8 +915,6 @@ rnafold_c_ring(void)
   if(rnafold_continuous_flow())           why = "continuous flow puts records on different rows";
   else if(rnafold_slot_flow())            why = "slot flow refills a record's triangle mid-sweep";
   else if(!rnafold_gpu_sweep())           why = "off the GPU-resident sweep the host path owns new_C";
-  else if(!rnafold_int_loop_warp())       why = "the block-per-cell int_loop twin reads the triangle";
-  else if(c_env_on("RNA_NEW_C_STORE"))    why = "RNA_NEW_C_STORE writes the triangle from new_c";
   else if(c_env_on("RNA_ROW_FUSE"))       why = "RNA_ROW_FUSE writes the triangle from its fused kernel";
   static int said = 0;
   if(!said) {
@@ -1042,13 +1039,6 @@ load_my_c(const int nfiles,
   if(rnafold_load_my_c_sync())
     gpuErrchk( cudaDeviceSynchronize() );
 #endif
-  // RNA_NEW_C_STORE: new_c already wrote row i into d_my_c. The sync above and the
-  // event below are KEPT, so this knob prices the deleted launch alone and does not
-  // silently absorb RNA_LOAD_MY_C_SYNC's effect -- the confound the row fusion has.
-  if(rnafold_new_c_stored_row(i)) {
-    rnafold_stream_cell_done();
-    return;
-  }
   //for simplicity transfer all new_e, even though only need H * [start:length]
   // GPU-resident sweep: in device mode new_c_kernel has already written d_new_e
   // directly, so uploading the host's copy over it is exactly the round trip
@@ -1135,8 +1125,6 @@ Max_p(const int i, const int j, const int q,
 // BLOCK_SIZE=32 below is a placeholder for the shared device helpers only --
 // Hc()/decode_column()/Energy() below are compiled once and used by every
 // instantiation regardless of block size, so its value is irrelevant to them.
-// It is NOT the default any more: that is INT_LOOP_DEFAULT_BLOCK_SIZE (64),
-// named beside the four instantiations further down.
 #define BLOCK_SIZE 32
 
 
@@ -1170,31 +1158,11 @@ Max_p(const int i, const int j, const int q,
   path through IntLoop_X(), superseded by int_loop_kernel below and never
   called. Restore from git history (2f35ecc or earlier) if needed.*/
 
-// Four instantiations of int_loop_kernel, one per candidate block size --
-// see int_loop_kernel_body.inc for why this is a repeated #include rather
-// than a single definition or a C++ template.
-#define BLOCK_SIZE 32
-#include "int_loop_kernel_body.inc"
-#undef BLOCK_SIZE
-
-#define BLOCK_SIZE 64
-#include "int_loop_kernel_body.inc"
-#undef BLOCK_SIZE
-
-#define BLOCK_SIZE 128
-#include "int_loop_kernel_body.inc"
-#undef BLOCK_SIZE
-
-#define BLOCK_SIZE 256
-#include "int_loop_kernel_body.inc"
-#undef BLOCK_SIZE
-
-// ============ RNA_INT_LOOP_WARP: one WARP per cell, no shared, no barrier ====
+// ============ int_loop_warp_kernel: one WARP per cell, no shared, no barrier ====
 //
-// A SEPARATE KERNEL, for the third time and the same reason (gq_internal_kernel,
-// modular_decomposition_smem_kernel): int_loop_kernel is 20-30% of GPU time and
-// has a recorded history of regressions from being edited. This is an
-// experiment. It is byte-identical to its twin or it is wrong.
+// THE int_loop kernel since 2026-09-12. It replaced a block-per-cell kernel (the
+// "twin" below; retired 2026-10-11 with RNA_INT_LOOP_WARP, see the pre-cleanup
+// tag) and was byte-identical to it in every arm.
 //
 // WHAT THE MEASUREMENT SAID, and this kernel is the shape it pointed at.
 // STRESS272_RESULTS.md 22.5 profiled int_loop_kernel's warp stalls at three
@@ -1245,84 +1213,12 @@ Max_p(const int i, const int j, const int q,
 // associative and commutative over exact ints, and this enumerates the SAME set
 // of (p,q) candidates in a different order.
 
-// H7: THE SAME QUESTION, ASKED 32 WAYS AT ONCE.
-//
-// H6 removed flatten_index_to_H()'s nine-deep dependent chain by deleting the
-// FLAT GRID. But the flat grid is not what costs -- the SEARCH is. Flattening
-// is what lets records have ragged widths (a retired record has width 0, so
-// raggedness is not an edge case, it is what continuous flow does every row)
-// and it is what lifts the gridDim.y <= 65535 cap. Those are worth keeping.
-//
-// So keep the flat index and change only the lookup. A warp has 32 lanes and,
-// at this point in the kernel, nothing for them to do: every lane already
-// shares `idx`. Probe 32 points of the interval at once and the search becomes
-// 32-ary instead of binary -- ceil(log32(nfiles)) DEPENDENT steps rather than
-// ceil(log2(nfiles)):
-//
-//     nfiles <=    32   1 step   (was 5)
-//     nfiles <=  1024   2 steps  (was 10)
-//     nfiles <= 32768   3 steps  (was 15)
-//
-// It reads more BYTES per step -- 32 strided 8-byte probes instead of one --
-// but flat_off_H is nfiles+1 size_t (3.2 KB at nfiles=400), read by every warp,
-// so it is L1-resident after the first. Bytes are not what this kernel is short
-// of; the dependency chain is (STRESS272_RESULTS.md 26.6, 28.5).
-//
-// NO SHUFFLES ARE NEEDED. Each probe position is a pure function of
-// (lo, span, lane), so once the ballot names the winning lane every lane can
-// recompute that lane's position -- and the next one's -- arithmetically.
-//
-// The trip count is WARP-UNIFORM: `idx` is shared by the warp and `nfiles` by
-// the whole grid, so every lane runs the same number of iterations and every
-// __ballot_sync names all 32 lanes. (A divergent ballot is undefined, which is
-// the same trap the 5-step binary search in the work loop is written around.)
-__device__ inline int
-flatten_index_to_H_warp(const size_t idx, const size_t* __restrict__ flat_off_H,
-                        const int nfiles, const int lane) {
-  int lo = 0;
-  int hi = nfiles;
-
-  while(hi - lo > 1) {
-    const int span = hi - lo;
-
-    // Lane k probes lo + floor(span*k/32). For span < 32 the tail lanes
-    // duplicate the last position, which is harmless: a duplicate can only
-    // re-elect a position already known to satisfy the predicate.
-    const int pk = lo + (int)(((long long)span * lane) >> 5);
-    const unsigned int vote =
-        __ballot_sync(0xffffffff, flat_off_H[pk] <= idx);
-
-    // flat_off_H[lo] <= idx is the loop invariant, so lane 0 always votes and
-    // `vote` is never 0.
-    const int win = 31 - __clz((int)vote);
-
-    const int newlo = lo + (int)(((long long)span * win) >> 5);
-    const int newhi = (win == 31) ? hi
-                                  : lo + (int)(((long long)span * (win+1)) >> 5);
-
-    // PROGRESS IS GUARANTEED, and this guard is belt-and-braces. If win < 31
-    // then p(win+1) > p(win) strictly -- equal positions would have made lane
-    // win+1 vote the same way, so win would not be the highest. If win == 31
-    // then p(31) <= lo+span-1 < hi. Either way the interval strictly shrinks.
-    lo = newlo;
-    hi = (newhi > newlo) ? newhi : (newlo + 1);
-  }
-
-  return lo;
-}
-#define INT_LOOP_WARP_KERNEL_NAME2(cpb) int_loop_warp_kernel_##cpb
-#define INT_LOOP_WARP_KERNEL_NAME(cpb) INT_LOOP_WARP_KERNEL_NAME2(cpb)
 
 // The interior-loop cell, shared through a header: the
 // kernel below is a wrapper around exactly this code.
 #include "int_loop_cell.inc"
 
-/* RNA_INT_LOOP_WORK_STATS: the per-cell candidate-count buffer, NULL when off.
- * __constant__ rather than another kernel parameter so none of the launch macros
- * change; it is warp-uniform, so the read is one broadcast from the constant cache. */
-__constant__ int* c_il_work = NULL;
-
-template <int CELLS_PER_BLOCK, bool GRIDY, bool WSEARCH, bool RING = false, bool LY = false>
+template <bool RING = false, bool LY = false>
 __global__ void
 int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const int TerminalAU, const int ninio2,
@@ -1347,15 +1243,13 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
                 const int G = 1,
                 /* RNA_INT_LOOP_LYNGSO: G's planes for this row and row_total (int_loop_lyngso.inc) */
                 const int* __restrict__ ly_G = NULL, const size_t ly_rt = 0) {
-  static_assert(CELLS_PER_BLOCK >= 1 && CELLS_PER_BLOCK <= 32,
-                "one warp per cell; blockDim.x must be CELLS_PER_BLOCK*32");
-
+  /* ONE WARP PER BLOCK (blockDim.x == 32, INT_LOOP_WARP_BLOCK_SIZE): blockIdx.x
+   * numbers the warp. */
   const int lane = (int)(threadIdx.x & 31u);
-  const int wib  = (int)(threadIdx.x >> 5);             // warp within the block
 
   /* DEAD CELLS DO NOT GET A WARP (G >= 2).
    *
-   * RNA_INT_LOOP_WORK_STATS measured 62.6 % of the cells at 400x5601 with ZERO
+   * RNA_INT_LOOP_WORK_STATS (since deleted) measured 62.6 % of the cells at 400x5601 with ZERO
    * candidates: hc says (i,j) cannot pair -- 1 - 6/16 on random ACGU -- so the warp
    * reads one hc bit, fails it, and still runs the 5-shuffle reduction to store INF.
    * Live cells are uniform (5-7 passes, 92 % lane efficiency), so the waste is whole
@@ -1369,27 +1263,22 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
    * same as at G = 1; only which warp writes them changes. `todo` comes from a
    * ballot, so the loop is warp-uniform and every shuffle inside still names all 32. */
   if(G > 1) {
-    int    Hu  = 0;
-    size_t lim;
-    const size_t base = ((size_t)blockIdx.x * CELLS_PER_BLOCK + wib) * (size_t)G;
-    if(GRIDY) { Hu = (int)blockIdx.y; lim = size_off_H[Hu+1] - size_off_H[Hu]; }
-    else      lim = size_off_H[nfiles];
+    const size_t base = (size_t)blockIdx.x * (size_t)G;
+    const size_t lim  = size_off_H[nfiles];
     if(base >= lim) return;                              // warp-uniform
 
     const size_t mine  = base + (size_t)lane;
-    int          myH   = Hu;
+    int          myH   = 0;
     size_t       myloc = mine;
     bool         live  = false;
     if(lane < G && mine < lim) {
       // The flat grid may straddle records within G cells: each lane finds its own.
-      if(!GRIDY) { myH = flatten_index_to_H(mine, size_off_H, nfiles); myloc = mine - size_off_H[myH]; }
+      myH = flatten_index_to_H(mine, size_off_H, nfiles); myloc = mine - size_off_H[myH];
       const int i = i_H[myH];
       const int j = (int)myloc + i + turn + 1 + (int)size_off_H[nfiles + 1];
       live = Hc(Indx(i,j), &hccc[hc_off_H[myH]]);
-      if(!live) {
+      if(!live)
         energy_min[row_off_H[myH]+j] = INF;
-        if(c_il_work) c_il_work[row_off_H[myH]+j] = 0;
-      }
     }
     unsigned int todo = __ballot_sync(0xffffffffu, live);
     while(todo) {
@@ -1403,33 +1292,20 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
         rr.stride = c_ring_stride;
         int_loop_warp_cell_r<c_ring_reader, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                              pair_, S, hccc, up_int, rr, row_off_H, hc_off_H,
-                             size_off_H, i_H, energy_min, H, local, lane, c_il_work, ly_G, ly_rt);
+                             size_off_H, i_H, energy_min, H, local, lane, ly_G, ly_rt);
       } else
       int_loop_warp_cell<LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
-                         H, local, lane, c_il_work, ly_G, ly_rt);
+                         H, local, lane, ly_G, ly_rt);
     }
     return;
   }
 
-  // Whole-warp exit in both grids: every lane of this warp shares the cell, so
-  // no lane is left behind to be named by a shuffle mask below. This is the one
-  // thing the block-per-cell twin could not do (its warps straddle cells).
-  int    H;
-  size_t local;                                          // cell within record H
-
-  if(GRIDY) {
-    // H6: blockIdx.y IS the record. Two adjacent size_off_H reads give the
-    // record's width; no search, and the reads below do not queue behind one.
-    H     = (int)blockIdx.y;
-    local = (size_t)blockIdx.x * CELLS_PER_BLOCK + wib;
-    if(local >= size_off_H[H+1] - size_off_H[H]) return; // the padding blocks
-  } else {
-    const size_t cell = (size_t)blockIdx.x * CELLS_PER_BLOCK + wib;
-    if(cell >= size_off_H[nfiles]) return;
-    H     = WSEARCH ? flatten_index_to_H_warp(cell, size_off_H, nfiles, lane)
-                    : flatten_index_to_H(cell, size_off_H, nfiles);
-    local = cell - size_off_H[H];
-  }
+  // Whole-warp exit: every lane of this warp shares the cell, so no lane is left
+  // behind to be named by a shuffle mask below.
+  const size_t cell = (size_t)blockIdx.x;
+  if(cell >= size_off_H[nfiles]) return;
+  const int    H     = flatten_index_to_H(cell, size_off_H, nfiles);
+  const size_t local = cell - size_off_H[H];             // cell within record H
 
   // The arithmetic lives in int_loop_cell.inc; only the cell derivation above is kernel-specific.
   if(RING) {
@@ -1438,83 +1314,10 @@ int_loop_warp_kernel(const int nfiles, const int i_row, const int length,
     rr.stride = c_ring_stride;
     int_loop_warp_cell_r<c_ring_reader, LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc,
                          pair_, S, hccc, up_int, rr, row_off_H, hc_off_H,
-                         size_off_H, i_H, energy_min, H, local, lane, c_il_work, ly_G, ly_rt);
+                         size_off_H, i_H, energy_min, H, local, lane, ly_G, ly_rt);
   } else
   int_loop_warp_cell<LY>(nfiles, i_row, length, TerminalAU, ninio2, P, lxc, pair_, S, hccc, up_int, my_c, tri_off_H, row_off_H, hc_off_H, size_off_H, i_H, energy_min,
-                     H, local, lane, c_il_work, ly_G, ly_rt);
-}
-
-// H6: WHICH RECORD IS THIS CELL IN? -- asked once per cell, answered with a
-// NINE-DEEP CHAIN OF DEPENDENT GLOBAL LOADS.
-//
-// The grid is flat (one index over every cell of every record), so every warp
-// opens by running flatten_index_to_H()'s binary search over size_off_H[] --
-// 12 SASS instructions and ONE dependent LDG per iteration, ceil(log2(nfiles))
-// iterations, nothing else able to issue behind it because each probe address
-// depends on the previous probe's value. That is the prologue of a kernel whose
-// stalls are now 44.4% `long_scoreboard` (STRESS272_RESULTS.md 27.5).
-//
-// The host already knows the answer. It knew it before the flattening: the
-// comment in int_loop_cuda() records that this WAS a dim3(nblocks,nfiles) grid,
-// and was flattened in Staggered_Row_Batching Phase 5 to allow ragged per-record
-// widths and to lift an nfiles<=65535 limit. That bought generality and paid a
-// dependent chain per cell.
-//
-// GRIDY restores blockIdx.y == H, so H is free and the five per-record table
-// reads (i_H, tri_off_H, row_off_H, hc_off_H, size_off_H) become INDEPENDENT
-// loads that issue together instead of queueing behind a search. The cost is
-// blocks launched past a short record's width, which exit on one comparison --
-// so the host picks the grid per launch and only takes it when the waste is
-// small. See rnafold_int_loop_gridy() and int_loop_cuda().
-// NOTE ON THE BANNER: int_loop_cuda() calls this UNCONDITIONALLY, before it
-// decides which grid to use, so the knob announces itself even on a run where
-// every launch takes the 2-D grid and this lookup is never reached. It was
-// originally read inside the flat arm only, which meant asking for both knobs
-// on a uniform workload produced no WSEARCH banner at all -- and a harness that
-// checks "the knob I asked for engaged" would have failed that arm for telling
-// the truth. A knob that cannot announce itself cannot be asserted on.
-//
-// RNA_INT_LOOP_WSEARCH=1 -- keep the flat grid, replace the per-cell binary
-// search with the warp-cooperative 32-ary one above. Orthogonal to
-// RNA_INT_LOOP_GRIDY, which deletes the search by deleting the flat grid; when
-// both are asked for, the 2-D grid wins on the launches where its waste guard
-// accepts and this covers the rest.
-PUBLIC int
-rnafold_int_loop_wsearch(void)
-{
-  static int v = -1;
-
-  if (v < 0) {
-    const char *e = getenv("RNA_INT_LOOP_WSEARCH");
-
-    v = (e && e[0] && e[0] != '0') ? 1 : 0;
-
-    if (v)
-      fprintf(stderr, "%-24s RNA_INT_LOOP_WSEARCH=1: 32-ary warp-cooperative cell "
-                      "-> record lookup, flat grid kept (experimental; sha must not "
-                      "move)\n", __FILE__);
-  }
-
-  return v;
-}
-
-PUBLIC int
-rnafold_int_loop_gridy(void)
-{
-  static int v = -1;
-
-  if (v < 0) {
-    const char *e = getenv("RNA_INT_LOOP_GRIDY");
-
-    v = (e && e[0] && e[0] != '0') ? 1 : 0;
-
-    if (v)
-      fprintf(stderr, "%-24s RNA_INT_LOOP_GRIDY=1: blockIdx.y is the record, no "
-                      "per-cell binary search (experimental; sha must not move)\n",
-              __FILE__);
-  }
-
-  return v;
+                     H, local, lane, ly_G, ly_rt);
 }
 
 /* RNA_INT_LOOP_CELLS_PER_WARP=G|auto (1..32; DEFAULT auto since 2026-10-02): each
@@ -1603,25 +1406,8 @@ rnafold_int_loop_cpw_for(const size_t cells)
   return G;
 }
 
-// Waste budget for the 2-D grid: a ragged chunk launches nfiles*ceil(maxw/cpb)
-// blocks against sum(w_H)/cpb cells of real work, and the excess blocks exit on
-// one comparison. 25% is a guess and is MEANT to be one -- the length-sorted
-// chunker makes near-uniform widths the common case, and the fallback exists so
-// that a chunk which is not near-uniform simply keeps today's flat grid rather
-// than paying for the generality. If a workload ever trips it often, measure
-// before widening it.
-#define INT_LOOP_GRIDY_WASTE_NUM 5
-#define INT_LOOP_GRIDY_WASTE_DEN 4
-
-// The default, named here beside the instantiations so it cannot drift away
-// from them. 64 since 2026-09-11; see the block-size history immediately below.
-#define INT_LOOP_DEFAULT_BLOCK_SIZE 64
-
-// AND A SEPARATE DEFAULT FOR THE WARP KERNEL, because the knob means a
-// DIFFERENT QUANTITY there: for the twin it is threads cooperating on ONE cell,
-// for the warp kernel it is 32 x the number of INDEPENDENT cells in a block.
-// 64 being right for one says nothing about the other, which is why it was
-// swept separately (A100, 400 x 5601, int_loop):
+// ONE WARP PER BLOCK. A block of this kernel is 32 x the number of INDEPENDENT
+// cells it holds, and the sweep (A100, 400 x 5601, int_loop) put the best at one:
 //
 //     32 threads = 1 cell   20.65 s    <-- best
 //     64         = 2        20.86 s   +1.0%
@@ -1638,7 +1424,7 @@ rnafold_int_loop_cpw_for(const size_t cells)
 // (The occupancy ceiling is identical either way -- at 58 regs/thread sm_80
 // allows 32 blocks x 1 warp or 16 blocks x 2 warps, 32 warps both times. The
 // difference is scheduling granularity, not capacity.)
-#define INT_LOOP_WARP_DEFAULT_BLOCK_SIZE 32
+#define INT_LOOP_WARP_BLOCK_SIZE 32   /* the kernel assumes it: blockIdx.x is the warp */
 
 // int_loop_warp_kernel -- one (H,j) cell per WARP instead of per block.
 //
@@ -1657,81 +1443,6 @@ rnafold_int_loop_cpw_for(const size_t cells)
 // whole cell, so col_mask[] and prefix[] live in registers. Measured on the
 // A100: barrier 0.933 -> 0.000 cycles per issue, EXACTLY zero, and
 // short_scoreboard 1.167 -> 0.710. See STRESS272_RESULTS.md 27.
-//
-// RNA_INT_LOOP_WARP=0 restores the block-per-cell twin, which is kept as the
-// reference implementation and as the A/B.
-PUBLIC int
-rnafold_int_loop_warp(void)
-{
-  static int v = -1;
-
-  if (v < 0) {
-    const char *e = getenv("RNA_INT_LOOP_WARP");
-
-    v = (e && e[0]) ? (e[0] != '0') : 1;
-
-    if (!vrna_cuda_quiet()) fprintf(stderr, "%-24s int_loop kernel: %s%s\n", __FILE__,
-            v ? "warp-per-cell" : "block-per-cell (twin)",
-            (e && e[0]) ? " (from RNA_INT_LOOP_WARP)" : " (the measured default)");
-  }
-
-  return v;
-}
-
-// Block-size history: int_loop_choose_block_size() (timed microbenchmark,
-// tried the occupancy API before that) was removed after both proved
-// actively harmful -- they only ever sampled the kernel's first
-// (always-tiny, nblocks=1) launch, so they couldn't see that aggregate
-// scanning work in the old setpq()-based search scaled with BLOCK_SIZE
-// instead of staying flat (confirmed via NCU: the timed benchmark picked
-// BLOCK_SIZE=256, and total measured GPU time came out 2.3-2.9x worse than
-// plain BLOCK_SIZE=32). That per-thread incremental scan is gone now --
-// setpq() was replaced by decode_column() plus the cooperative
-// decode/prefix-sum/lookup in int_loop_kernel_body.inc (see the
-// "Cooperative Column Scan" design doc).
-//
-// Re-measured 2026-08-20 (local RTX 3050, CC 8.6, ncu --set basic,
-// RNA_INT_LOOP_BLOCK_SIZE=32 vs 256, grids from ~40 blocks to ~54000):
-// BLOCK_SIZE=256 was slower at every grid size tested -- 1.07x at small grids,
-// 2.35x at grid~500, ~1.09x even at grid~54000 -- despite occupancy rising from
-// 5-33% to 36-62%. That conclusion still stands and is reproduced below.
-//
-// THE STOPGAP IS RETIRED, 2026-09-11, AND THE DEFAULT IS NOW 64. The 08-20
-// sweep compared 32 against 256 and never tried 64, so the conclusion it drew
-// ("real occupancy gains come from more BLOCKS, not bigger blocks") was
-// generalised from the two ends of the range. It is wrong in the middle.
-//
-// Measured at 400 x 5601 on a T4, phase-synced, i32 (STRESS272_RESULTS.md 20.1):
-//
-//     block size     int_loop      modular_decomp (control)     wall
-//         32         102.95 s            215.4 s               523.9 s
-//       * 64  *       91.80 s            216.3 s               512.4 s
-//        128         110.31 s            216.1 s               528.2 s
-//        256         153.56 s            215.7 s               572.5 s
-//
-// modular_decomp cannot be touched by this knob and is flat to 0.34% across all
-// four arms, so it is a free control for device drift -- and there was none.
-// The wall delta (-11.5 s) and the phase delta (-11.15 s) agree to 0.4 s, which
-// is the real evidence: two independently measured quantities moved together.
-//
-// REPLICATED ON A SECOND ARCHITECTURE before this default changed, because
-// int16's value turned out to be machine-dependent and the 16-blocks/SM limit
-// that makes 64 pay is an sm_75 number. RTX 3050 (sm_86), 60 x 2400, ABBA
-// within each pass so a monotone drift cancels: -18.0%, -16.4%, -13.3% across
-// three passes. Output sha identical in all 12 local and all 12 Colab arms.
-//
-// WHY 64 AND NOT MORE, which is the part the old comment had half-right. NCU
-// (the kernel's first profile ever, 20.3) puts it at 44-48% occupancy -- exactly
-// the >=50% ceiling that 16 blocks/SM x 1 warp implies -- with DRAM at 4.2-5.2%
-// of peak and SM throughput at 40-44%. It is latency-bound with too few warps
-// resident, NOT bandwidth-bound, so lifting the block-count ceiling pays. But
-// each (H,j) cell's search space is bounded by MAXLOOP=30, so past 64 threads a
-// block is mostly idle and pays the cross-warp combine (#if BLOCK_SIZE > 32) for
-// nothing. 64 is where occupancy doubles before the work runs out.
-//
-// Use RNA_INT_LOOP_BLOCK_SIZE to re-test 32/128/256 on new hardware without
-// reintroducing an in-process benchmark -- which is what caused the last two
-// regressions.
 
 
 // ===================== G-quadruplex G2: the interior-loop term ==============
@@ -1907,98 +1618,6 @@ gq_internal_i(const int nfiles, const int i, const int turn_, const size_t* size
 }
 
 
-/* RNA_INT_LOOP_WORK_STATS=1: how the int_loop work is DISTRIBUTED over cells.
- *
- * Every cell gets a warp, and the warp runs ceil(total/32) passes of the candidate
- * loop, so the averages ncu reports (83 % lane efficiency) cannot say whether the
- * waste sits in a few near-empty cells or is spread evenly -- and those want
- * different fixes (packing several small cells into one warp vs. nothing). This
- * records `total` for every cell of every row, histograms it on the host and prints
- * once at exit. It synchronises and copies after EVERY launch, so it is a
- * diagnostic only: never read a wall with it on. Warp kernel only (the default);
- * the block-per-cell kernels ignore it. */
-static int il_work_stats(void) {
-  static int v = -1;
-  if(v < 0) { const char* e = getenv("RNA_INT_LOOP_WORK_STATS"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
-  return v;
-}
-
-#define IL_WORK_HIST 18                 /* iters 0..16, then 17+ */
-static int*      d_il_work   = NULL;
-static int*      h_il_work   = NULL;
-static size_t    il_work_cap = 0;
-static long long il_cells = 0, il_zero = 0, il_le8 = 0, il_le16 = 0, il_lt32 = 0;
-static long long il_cand  = 0, il_slots = 0, il_launches = 0;
-static long long il_hist[IL_WORK_HIST];
-static int       il_max   = 0;
-
-static void il_work_report(void) {
-  if(!il_cells) return;
-  fprintf(stderr, "%-24s RNA_INT_LOOP_WORK_STATS: %lld launches, %lld cells, %lld candidates\n",
-          __FILE__, il_launches, il_cells, il_cand);
-  fprintf(stderr, "%-24s   lane efficiency %.1f %% (candidates / 32*passes), mean %.1f, max %d per cell\n",
-          __FILE__, il_slots ? 100.0 * (double)il_cand / (double)il_slots : 0.0,
-          (double)il_cand / (double)il_cells, il_max);
-  fprintf(stderr, "%-24s   cells with 0: %.1f %%  1-8: %.1f %%  9-16: %.1f %%  17-31: %.1f %%\n",
-          __FILE__, 100.0 * il_zero / il_cells, 100.0 * il_le8 / il_cells,
-          100.0 * il_le16 / il_cells, 100.0 * il_lt32 / il_cells);
-  fprintf(stderr, "%-24s   passes  cells%%   share of passes%%\n", __FILE__);
-  long long passes = 0;
-  for(int k = 1; k < IL_WORK_HIST; k++) passes += il_hist[k] * (long long)k;
-  for(int k = 0; k < IL_WORK_HIST; k++) {
-    if(!il_hist[k]) continue;
-    fprintf(stderr, "%-24s   %s%-5d %6.2f   %6.2f\n", __FILE__,
-            k == IL_WORK_HIST - 1 ? ">=" : "  ", k, 100.0 * il_hist[k] / il_cells,
-            passes ? 100.0 * (double)(il_hist[k] * (long long)k) / (double)passes : 0.0);
-  }
-}
-
-/* Before the launch: point the kernel at a buffer pre-filled with -1, so an
- * untouched slot is "not a cell" and a 0 is "a cell with no candidates". */
-static void il_work_begin(void) {
-  if(il_work_cap < g_row_total) {
-    if(d_il_work) { gpuErrchk( cudaFree(d_il_work) ); }
-    free(h_il_work);
-    gpuErrchk( cudaMalloc(&d_il_work, g_row_total * sizeof(int)) );
-    h_il_work = (int*)malloc(g_row_total * sizeof(int));
-    assert(h_il_work);
-    il_work_cap = g_row_total;
-    static int registered = 0;
-    if(!registered) { atexit(il_work_report); registered = 1; }
-  }
-  gpuErrchk( cudaMemsetAsync(d_il_work, 0xff, g_row_total * sizeof(int), rnafold_stream_cell()) );
-  gpuErrchk( cudaMemcpyToSymbolAsync(c_il_work, &d_il_work, sizeof(int*), 0,
-                                     cudaMemcpyHostToDevice, rnafold_stream_cell()) );
-}
-
-/* After the launch: read the row back and fold it into the histogram, then
- * switch the kernel back off so no other launch writes into a stale buffer. */
-static void il_work_end(void) {
-  int* const off = NULL;
-
-  gpuErrchk( cudaMemcpyAsync(h_il_work, d_il_work, g_row_total * sizeof(int),
-                             cudaMemcpyDeviceToHost, rnafold_stream_cell()) );
-  gpuErrchk( cudaMemcpyToSymbolAsync(c_il_work, &off, sizeof(int*), 0,
-                                     cudaMemcpyHostToDevice, rnafold_stream_cell()) );
-  gpuErrchk( cudaStreamSynchronize(rnafold_stream_cell()) );
-  il_launches++;
-  for(size_t x = 0; x < g_row_total; x++) {
-    const int t = h_il_work[x];
-    if(t < 0) continue;
-    const int it = (t + 31) >> 5;
-    il_cells++;
-    il_cand  += t;
-    il_slots += (long long)it * 32;
-    il_hist[it < IL_WORK_HIST - 1 ? it : IL_WORK_HIST - 1]++;
-    if(t == 0)       il_zero++;
-    else if(t <= 8)  il_le8++;
-    else if(t <= 16) il_le16++;
-    else if(t < 32)  il_lt32++;
-    if(t > il_max) il_max = t;
-  }
-}
-
-
 /* Lyngsø interior loops, S1: the selftest beside the dense kernel (PORT_LYNGSO_INTLOOP.md). */
 #include "int_loop_lyngso.inc"
 
@@ -2022,202 +1641,42 @@ int_loop_cuda(const int nfiles,
   bind_row_tables(i);
   ly_eval_row(nfiles, i, length);   /* RNA_INT_LOOP_LYNGSO: this row's G, before the LY cells read it */
 
-  dim3 blocks((unsigned int)flat_nblocks);
-
-  // Default 64, MEASURED on two architectures -- see the block-size history
-  // above this kernel's four #include instantiations. Still a fixed constant
-  // rather than an in-process benchmark: auto-tuning this kernel caused the last
-  // two regressions, because it only ever sampled the first (always-tiny)
-  // launch. RNA_INT_LOOP_BLOCK_SIZE forces any of the four candidates for a
-  // re-test on new hardware, same pattern as this file's other RNA_*- knobs.
-  static int block_size = 0;
-  if(!block_size) {
-    block_size = rnafold_int_loop_warp() ? INT_LOOP_WARP_DEFAULT_BLOCK_SIZE
-                                         : INT_LOOP_DEFAULT_BLOCK_SIZE;
-    const char* env = getenv("RNA_INT_LOOP_BLOCK_SIZE");
-    if(env) {
-      const int requested = atoi(env);
-      if(requested==32 || requested==64 || requested==128 || requested==256) {
-	block_size = requested;
-      } else {
-	fprintf(stderr,"%-24s RNA_INT_LOOP_BLOCK_SIZE=%s not one of 32/64/128/256 -- ignoring, using %d\n",
-		__FILE__, env, block_size);
-      }
-    }
-    if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s int_loop_kernel block size %d%s\n",
-	    __FILE__, block_size,
-	    env ? " (from RNA_INT_LOOP_BLOCK_SIZE)" : " (measured default -- see comment above)");
-  }
-
   // RNA_LAUNCH_STATS: bracket the kernel ALONE -- not the two offset uploads
   // above, which belong to the phase but not to the kernel. Splitting those two
   // apart is the entire point (STRESS272_RESULTS.md 20.4).
   rnafold_launch_stats_begin();
 
-  // RNA_INT_LOOP_WARP: one warp per cell, so the grid is sized in WARPS rather
-  // than in cells and block_size selects how many independent cells share a
-  // block. Same launch-stats bracket, same grid quantity reported, so the
-  // per-launch numbers stay comparable between the two kernels.
-  const int work_stats = rnafold_int_loop_warp() && il_work_stats();
-  if(work_stats) il_work_begin();
-
   rnafold_int_loop_unroll_retired();
-  if(rnafold_int_loop_warp()) {
-    const int    cpb = block_size / 32;
-    // G cells per warp (RNA_INT_LOOP_CELLS_PER_WARP): the grid counts WARPS, each
-    // owning G consecutive cells, so G = 1 is the old sizing exactly.
-    const int    il_G = rnafold_int_loop_cpw_for(flat_nblocks);   /* NOT `G`: the launch macros below take a parameter named G (GRIDY) */
-    const size_t nw  = (flat_nblocks + (size_t)il_G - 1)/(size_t)il_G;
-    const size_t nb  = (nw + (size_t)cpb - 1)/(size_t)cpb;
+  {
+    // One warp per block, G cells per warp (RNA_INT_LOOP_CELLS_PER_WARP): the grid
+    // counts WARPS, each owning G consecutive cells, so G = 1 is one per cell.
+    const int    il_G = rnafold_int_loop_cpw_for(flat_nblocks);
+    const size_t nb   = (flat_nblocks + (size_t)il_G - 1)/(size_t)il_G;
     assert(nb <= 2147483647u);
-
-    // H6: take the 2-D grid only when it is nearly free. `maxw` is the widest
-    // record in this chunk, so the 2-D grid launches nfiles*ceil(maxw/cpb)
-    // blocks where the flat grid launches `nb`; the excess exit on one
-    // comparison, but they are still blocks to schedule. gridDim.y is capped
-    // at 65535 -- the sub-limit the flattening lifted -- so the flat grid is
-    // not a fallback of convenience, it is still the general case.
-    size_t maxw = 0;
-    for(int H = 0; H < nfiles; H++) {
-      const size_t w = size_off_H[H+1] - size_off_H[H];
-      if(w > maxw) maxw = w;
-    }
-    const size_t nbx   = ((maxw + (size_t)il_G - 1)/(size_t)il_G + (size_t)cpb - 1)/(size_t)cpb;
-    const int    wsearch = rnafold_int_loop_wsearch();   // read UNCONDITIONALLY:
-                                                        // see the banner note
-    const int    gridy = rnafold_int_loop_gridy() &&
-                         nfiles > 0 && nfiles <= 65535 && maxw > 0 &&
-                         ((size_t)nfiles * nbx) * INT_LOOP_GRIDY_WASTE_DEN
-                           <= nb * INT_LOOP_GRIDY_WASTE_NUM;
-
-    // WHICH GRID DID IT ACTUALLY TAKE? The knob only says what was ASKED;
-    // the waste guard decides, and a bar that checks the knob rather than
-    // the decision is the shape of check this project keeps catching. Print
-    // on every CHANGE of decision, so one line proves the 2-D grid ran and a
-    // second proves the fallback is reachable.
-    if(rnafold_int_loop_gridy()) {
-      static int last_decision = -1;
-
-      if(gridy != last_decision) {
-        fprintf(stderr,
-                "%-24s int_loop grid: %s, lookup: %s "
-                "(nfiles %d, maxw %llu, blocks %llu vs flat %llu)\n",
-                __FILE__, gridy ? "2-D, blockIdx.y = record" : "flat (waste guard declined)",
-                gridy ? "none" : (wsearch ? "32-ary warp" : "binary"),
-                nfiles, (unsigned long long)maxw,
-                (unsigned long long)((size_t)nfiles * nbx), (unsigned long long)nb);
-        last_decision = gridy;
-      }
-    }
-
-#define IL_WARP_LAUNCH_R(C, G, W, GRID, RG, LYV) int_loop_warp_kernel<C,G,W,RG,LYV><<<GRID, 32*(C), 0, rnafold_stream_cell()>>>( \
+    const dim3   grid((unsigned int)nb);
+#define IL_WARP_LAUNCH(RG, LYV) int_loop_warp_kernel<RG,LYV><<<grid, INT_LOOP_WARP_BLOCK_SIZE, 0, rnafold_stream_cell()>>>( \
         nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
         d_size_off_H, d_i_H, d_energy_min2, d_c_ring, g_row_total, il_G, \
         (LYV) ? (const int*)d_ly_G[i & 1] : (const int*)NULL, (LYV) ? g_row_total : (size_t)0)
-/* RNA_C_RING picks the reader at the launch. RNA_INT_LOOP_LYNGSO picks LY: the direct
- * loops here, the generic ones from the carried table (int_loop_lyngso.inc). */
-#define IL_WARP_LAUNCH(C, G, W, GRID) \
-        do { if(g_ly_eval) { if(g_c_ring_on) IL_WARP_LAUNCH_R(C, G, W, GRID, true, true); \
-                             else            IL_WARP_LAUNCH_R(C, G, W, GRID, false, true); } \
-             else if(g_c_ring_on) IL_WARP_LAUNCH_R(C, G, W, GRID, true, false); \
-             else                 IL_WARP_LAUNCH_R(C, G, W, GRID, false, false); } while(0)
-#define IL_WARP_DISPATCH(G, W, GRID) \
-    switch(cpb) { \
-      case 8: IL_WARP_LAUNCH(8, G, W, GRID); break; \
-      case 4: IL_WARP_LAUNCH(4, G, W, GRID); break; \
-      case 2: IL_WARP_LAUNCH(2, G, W, GRID); break; \
-      default: IL_WARP_LAUNCH(1, G, W, GRID); break; \
-    }
-    // WSEARCH only exists on the flat side -- the 2-D grid has no search left
-    // to speed up -- so the 2-D arm instantiates it false and does not double
-    // the object code for nothing.
-    if(gridy) {
-      const dim3 g2((unsigned int)nbx, (unsigned int)nfiles);
-      IL_WARP_DISPATCH(true, false, g2);
-    } else {
-      const dim3 g1((unsigned int)nb);
-      if(wsearch) IL_WARP_DISPATCH(false, true,  g1)
-      else                           IL_WARP_DISPATCH(false, false, g1)
-    }
-#undef IL_WARP_DISPATCH
+    /* RNA_C_RING picks the reader at the launch. RNA_INT_LOOP_LYNGSO picks LY: the direct
+     * loops here, the generic ones from the carried table (int_loop_lyngso.inc). These
+     * four are the only instances (PORT_CLEANUP_PLAN.md D2). */
+    if(g_ly_eval) { if(g_c_ring_on) IL_WARP_LAUNCH(true, true);
+                    else            IL_WARP_LAUNCH(false, true); }
+    else if(g_c_ring_on) IL_WARP_LAUNCH(true, false);
+    else                 IL_WARP_LAUNCH(false, false);
 #undef IL_WARP_LAUNCH
-#undef IL_WARP_LAUNCH_R
-#undef IL_WARP_LAUNCH_U2
-  } else
-  // NOT an early return: the tail of this function still owns the launch-stats
-  // end, the error check, the optional sync and -- in non-GPU-resident mode --
-  // the D2H of energy_min. Returning here would have skipped that copy and left
-  // the host reading a stale row, which is a wrong answer rather than a crash.
-  switch(block_size) {
-    case 256: int_loop_kernel_256<<<blocks,256,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
-						  P->TerminalAU,P->ninio[2],
-						  d_param,P->lxc,
-						  d_pair,
-						  d_S,
-						  d_hccc,
-						  d_up_int,
-						  d_my_c,
-						  d_tri_off_H,
-						  d_row_off_H,
-						  d_hc_off_H,
-						  d_size_off_H,
-						  d_i_H,
-						  d_energy_min2); break; //Out
-    case 128: int_loop_kernel_128<<<blocks,128,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
-						  P->TerminalAU,P->ninio[2],
-						  d_param,P->lxc,
-						  d_pair,
-						  d_S,
-						  d_hccc,
-						  d_up_int,
-						  d_my_c,
-						  d_tri_off_H,
-						  d_row_off_H,
-						  d_hc_off_H,
-						  d_size_off_H,
-						  d_i_H,
-						  d_energy_min2); break; //Out
-    case  64: int_loop_kernel_64<<<blocks, 64,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
-						  P->TerminalAU,P->ninio[2],
-						  d_param,P->lxc,
-						  d_pair,
-						  d_S,
-						  d_hccc,
-						  d_up_int,
-						  d_my_c,
-						  d_tri_off_H,
-						  d_row_off_H,
-						  d_hc_off_H,
-						  d_size_off_H,
-						  d_i_H,
-						  d_energy_min2); break; //Out
-    default:  int_loop_kernel_32<<<blocks, 32,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
-						  P->TerminalAU,P->ninio[2],
-						  d_param,P->lxc,
-						  d_pair,
-						  d_S,
-						  d_hccc,
-						  d_up_int,
-						  d_my_c,
-						  d_tri_off_H,
-						  d_row_off_H,
-						  d_hc_off_H,
-						  d_size_off_H,
-						  d_i_H,
-						  d_energy_min2); break; //Out
   }
 
   rnafold_launch_stats_end((unsigned int)flat_nblocks);
 
   gpuErrchk( cudaPeekAtLastError() );
-  if(work_stats) il_work_end();
   ly_selftest_row(nfiles, i, length);   /* RNA_INT_LOOP_LYNGSO_SELFTEST; no-op otherwise */
   // Step 5b: pointless once the D2H is gone; stream order already covers it.
   // Full rationale on rnafold_gpu_sweep() in stub2.h.
   if(!rnafold_gpu_sweep())
     gpuErrchk( cudaDeviceSynchronize() );
-  //printf("int_loop_kernel<<<%d.%d,%d>>>(i=%d...) ok\n",blocks.x,blocks.y,block_size,i);
 
   // GPU-resident sweep: in device mode new_c_kernel reads d_energy_min2 in
   // place, so this copy has no reader. It is one of the six per-row transfers

@@ -178,12 +178,12 @@ int Hc(const int ij, const unsigned int* __restrict__ hccc){
 // STOPGAP comment below and the "Cooperative Column Scan" design doc).
 //
 // decode_column() is the same per-column bit-extraction setpq() used to do
-// lazily/incrementally, but now called cooperatively: int_loop_kernel_body
-// .inc has up to MAXLOOP+1 (<=31, always within one warp) threads each
-// decode exactly one column, once, into shared memory, then builds a
-// shared prefix-sum-of-popcounts table. Every thread's rank lookup then
-// becomes stateless -- binary-search-free linear scan over that small
-// shared table (<=31 entries) to find its column, then a single
+// lazily/incrementally, but now called cooperatively: in the warp kernel
+// (int_loop_cell.inc) up to MAXLOOP+1 (<=31, always within one warp) lanes
+// each decode exactly one column, once, then build a prefix sum of the
+// popcounts in registers with a shuffle scan. Every lane's rank lookup then
+// becomes stateless -- a search over that small table (<=31 entries) to
+// find its column, then a single
 // find_nth_set_bit() call -- with no per-thread incremental state (mask/
 // row_start/done) left to carry between iterations at all.
 __device__ inline
