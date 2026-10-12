@@ -93,8 +93,7 @@ extern void teardown_gpu3(void);
  *   gpu_bytes_per_file(len)      device bytes one record of that length needs
  *   compute_gpu_usable_bytes()   free VRAM * 0.85, capped by
  *                                RNA_GPU_VRAM_BUDGET_MB (which can only lower
- *                                it, never raise it)
- * and the slot-flow knobs the projection has to respect. */
+ *                                it, never raise it). */
 extern size_t gpu_bytes_per_file(const int length);
 /* CIRCULAR: tell the VRAM model that fM2_real will be allocated, before any
  * chunk is sized against it. See modular_decomposition.cu. */
@@ -120,65 +119,8 @@ extern void   rnafold_set_chunk_cells_cap(const unsigned long long cap_cells);
  * See PROFILE272_DEEP_RESULTS.md. */
 extern double stage_build_s, stage_output_s, stage_teardown_s, stage_free_s;
 extern double rnafold_now_seconds(void);
-extern int    rnafold_slot_flow(void);
-extern int    rnafold_slot_capacity_max(void);
 
 
-/* What a chunk of these lengths would cost on the device, with `cand` added.
- *
- * Ported from the 2.3.0 driver unchanged in substance. The subtlety is slot
- * flow: under RNA_SLOT_FLOW=k, k records SHARE a slot and only the slots are
- * allocated, so the cost is not a sum over records. par_mfe() deals records
- * round-robin in descending length order, so slot s holds the s-th longest
- * record and the footprint is the sum of gpu_bytes_per_file() over the top
- * ceil(n/k) lengths. At k == 1 that degenerates to "sum over every record".
- *
- * RNA_SLOT_CAPACITY=max sizes every slot to the chunk maximum instead of its
- * own occupant's length, so the projection has to follow that too -- the two
- * disagreed when C1 shipped (budget from real lengths, allocation from the
- * capacity rule), which is the kind of mismatch that OOMs only on the inputs
- * you did not test.
- *
- * `sorted_desc` holds the accepted lengths in descending order; cand < 0 means
- * "no candidate, just price what is already here".
- */
-static size_t
-projected_chunk_bytes(const int *sorted_desc,
-                      int        n,
-                      int        cand,
-                      int        k,
-                      int        cap_max)
-{
-  const int total = n + ((cand >= 0) ? 1 : 0);
-  const int slots = (k > 0) ? ((total + k - 1) / k) : total;
-  size_t    sum   = 0;
-  int       i     = 0;
-  int       used  = (cand < 0);
-  int       taken;
-
-  if (cap_max) {
-    int mx = (n > 0) ? sorted_desc[0] : -1;
-    if (cand > mx)
-      mx = cand;
-
-    return (mx < 0) ? 0 : (size_t)slots * gpu_bytes_per_file(mx);
-  }
-
-  for (taken = 0; taken < slots; taken++) {
-    int len;
-    if ((!used) && ((i >= n) || (cand >= sorted_desc[i]))) {
-      len  = cand;
-      used = 1;
-    } else if (i < n) {
-      len = sorted_desc[i++];
-    } else {
-      break;
-    }
-    sum += gpu_bytes_per_file(len);
-  }
-
-  return sum;
-}
 #endif
 
 #include "RNAfold_cmdl.h"
@@ -261,8 +203,8 @@ struct record_data {
 
   /* RNA_RECORD_TRACE: when this record's MATRICES were filled, in seconds since
    * the first traced event. For a GPU record the window is its CHUNK's -- the
-   * device folds a batch, so a per-record device window does not exist unless
-   * slot flow is on. For a CPU record process_record() stamps its own fold.
+   * device folds a batch, so a per-record device window does not exist. For a
+   * CPU record process_record() stamps its own fold.
    * Zero means "not stamped", which is how the reader tells the two apart. */
   double          trace_fold_t0, trace_fold_t1;
 #endif
@@ -1041,7 +983,7 @@ get_output_stream(unsigned int    init_size,
  *   route   gpu | cpu
  *   fold_*  matrix-fill window, seconds from the first traced event. For a GPU
  *           record this is its CHUNK's window, because a batch has no per-record
- *           device window unless slot flow is on.
+ *           device window.
  *   out_t   when the formatted result was handed to the output stream.
  *
  * With the CUDA backend, <path>.chunks.csv gets one line per GPU chunk on the
@@ -2109,9 +2051,8 @@ fold_gpu_batch(struct gpu_batch *b,
    * That is what makes the diff presentable: the accelerator is a backend, not
    * a fork of the driver, and removing it leaves a correct program. */
   /* RNA_RECORD_TRACE: the device window for every record in this chunk. A batch
-   * has no per-record device window -- that only exists under slot flow, where
-   * the retire pool knows each record's own span -- so the chunk's window is the
-   * honest answer here, and the reader treats a shared window as exactly that. */
+   * has no per-record device window, so the chunk's window is the honest answer
+   * here, and the reader treats a shared window as exactly that. */
   const double trace_fold_a = trace_now();
 
 #ifdef VRNA_WITH_CUDA
@@ -2786,16 +2727,11 @@ process_input(FILE            *input_stream,
    *
    * chunk_usable_bytes is queried ONCE PER CHUNK, after the previous chunk's
    * teardown, so it sees genuinely free VRAM rather than counting the last
-   * chunk's still-resident buffers as unavailable. len_desc holds the accepted
-   * lengths in descending order, which is what projected_chunk_bytes() needs
-   * to price slot flow. */
+   * chunk's still-resident buffers as unavailable. chunk_bytes is what the
+   * accepted records cost: one buffer set per record, gpu_bytes_per_file() each. */
   size_t                chunk_usable_bytes = 0;
   int                   chunk_started      = 0;
-  int                  *len_desc           = NULL;
-  int                   len_desc_n         = 0;
-  int                   len_desc_cap       = 0;
-  const int             slot_flow_k        = (rnafold_slot_flow() >= 1) ? rnafold_slot_flow() : 1;
-  const int             slot_cap_max       = rnafold_slot_capacity_max();
+  size_t                chunk_bytes        = 0;
 
   {
     /* GATE 3 IS GONE (2026-09-27). It used to read
@@ -3031,14 +2967,14 @@ process_input(FILE            *input_stream,
       if ((gpu_chunk_n > 0) && (this_len != gpu_chunk_len) &&
           (getenv("RNA_GPU_UNIFORM_CHUNKS"))) {
         pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
-        gpu_chunk_n = len_desc_n = 0;
+        gpu_chunk_n = 0;
+        chunk_bytes = 0;
         gpu_chunk_cells = 0;
         chunk_started = 0;
       }
 
       /* Would this record still fit the chunk's VRAM budget? */
-      bytes_projected = projected_chunk_bytes(len_desc, len_desc_n, (int)this_len,
-                                              slot_flow_k, slot_cap_max);
+      bytes_projected = chunk_bytes + gpu_bytes_per_file((int)this_len);
 
       need_flush = (!chunk_started) || (bytes_projected > chunk_usable_bytes);
 
@@ -3059,7 +2995,8 @@ process_input(FILE            *input_stream,
 
       if (need_flush) {
         pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
-        gpu_chunk_n = len_desc_n = 0;
+        gpu_chunk_n = 0;
+        chunk_bytes = 0;
         gpu_chunk_cells = 0;
 
         /* Query AFTER the flush: flush_gpu_chunk() tears the device state down,
@@ -3098,21 +3035,7 @@ process_input(FILE            *input_stream,
         gpu_chunk     = (struct record_data **)vrna_realloc(gpu_chunk,
                                                             sizeof(void *) * gpu_chunk_cap);
       }
-      if (len_desc_n == len_desc_cap) {
-        len_desc_cap = len_desc_cap ? len_desc_cap * 2 : 64;
-        len_desc     = (int *)vrna_realloc(len_desc, sizeof(int) * len_desc_cap);
-      }
-
-      /* keep len_desc sorted descending: projected_chunk_bytes() walks it in
-       * that order to decide which records own slots */
-      {
-        int p = len_desc_n++;
-        while ((p > 0) && (len_desc[p - 1] < (int)this_len)) {
-          len_desc[p] = len_desc[p - 1];
-          p--;
-        }
-        len_desc[p] = (int)this_len;
-      }
+      chunk_bytes += gpu_bytes_per_file((int)this_len);
 
       gpu_chunk_len            = this_len;
       gpu_chunk[gpu_chunk_n++] = record;
@@ -3174,7 +3097,6 @@ process_input(FILE            *input_stream,
               (opt->jobs > 1) ? "" : "  <-- -j not set, so the slice stayed 0");
 
     free(gpu_chunk);
-    free(len_desc);
   }
 #endif
 

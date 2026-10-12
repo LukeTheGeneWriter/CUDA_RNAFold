@@ -61,13 +61,6 @@ ly_selftest(void)
  * compare with. */
 static int g_ly_eval = 0;   /* this chunk */
 static int
-ly_eval_explicit(void)      /* RNA_INT_LOOP_LYNGSO set by the user: refusals are said aloud */
-{
-  const char *e = getenv("RNA_INT_LOOP_LYNGSO");
-  return (e && e[0]) ? 1 : 0;
-}
-
-static int
 ly_eval_knob(void)
 {
   static int v = -1;
@@ -202,18 +195,6 @@ ly_alloc(const int nfiles, const size_t* row_off_H)
   g_ly_on = 0;
   g_ly_eval = 0;
   if (!ly_selftest() && !ly_eval_knob()) return;
-  const char *knob = ly_eval_knob() ? "RNA_INT_LOOP_LYNGSO" : "RNA_INT_LOOP_LYNGSO_SELFTEST";
-  const char *why = NULL;
-  if (rnafold_continuous_flow())      why = "continuous flow (records on different rows)";
-  else if (rnafold_slot_flow() >= 1)  why = "slot flow (slots are handed over mid-sweep)";
-  if (why) {
-    static int said = 0;
-    /* asked for (or the selftest) -> always said; the default -> said unless quiet, like the other banners */
-    if (!said && (ly_selftest() || ly_eval_explicit() || !vrna_cuda_quiet())) {
-      said = 1; fprintf(stderr, "%-24s %s REFUSED: %s -- the dense int_loop runs\n", __FILE__, knob, why);
-    }
-    return;
-  }
   if (ly_eval_knob() && ly_selftest()) {
     static int said = 0;
     if (!said) { said = 1; fprintf(stderr, "%-24s RNA_INT_LOOP_LYNGSO_SELFTEST IGNORED: with RNA_INT_LOOP_LYNGSO=1 "

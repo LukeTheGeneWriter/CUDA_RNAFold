@@ -55,8 +55,7 @@ void min_fml(const int i, const int j, const int* my_fML, const int* DMLi, const
 #define Indx(H,i,j)            (VC[H]->jindx[j]+i)
 
 PRIVATE void
-par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
-                const rnafold_schedule_t *sched) {
+par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) {
 
   {
     static int phase_timing_registered = 0;
@@ -110,10 +109,6 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
   length            = 0;
   for(int H=0; H<nfiles; H++)
     if((int)VC[H]->length > length) length = (int)VC[H]->length;
-  // Continuous flow phase C3: with a schedule, a slot's later occupants can be
-  // longer than its first, and `length` sizes buffers and bounds asserts for the
-  // WHOLE chunk -- so take the schedule's own maximum, not this pass's.
-  if(sched && sched->length > length) length = sched->length;
 //ptype             = vc->ptype;
 //indx              = vc->jindx;
   P                 = VC[0]->params;
@@ -123,13 +118,8 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
   // unchanged, and the cost is negligible (O(nfiles)). fill_arrays_loop.c
   // (#include'd below) uses these directly, same function scope.
   size_t row_off_H[nfiles+1], tri_off_H[nfiles+1];
-  // Continuous flow phase C1: same capacity rule as par_mfe(), from the same
-  // function -- these tables address the device buffers par_mfe() allocated, so
-  // the two must not be able to disagree.
-  // Phase C1/C2: the chunk's capacity table comes from par_mfe(), which
-  // allocated the device buffers from it. Recomputing it here would be wrong
-  // under slot turnover, where a slot's capacity covers both of its occupants
-  // and so cannot be derived from this pass's records alone.
+  // The chunk's capacity table comes from par_mfe(), which allocated the device
+  // buffers from it, so the two cannot disagree.
   const size_t* cap_H = rnafold_chunk_capacities(nfiles);
   compute_batch_offsets(nfiles, cap_H, row_off_H, tri_off_H);
   // The GPU-accelerated hairpin/multibranch energy precompute (hp_mb_3p_i(),
@@ -223,10 +213,8 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
   // PORT_NOLP_SPEC.md.
   noLP              = P->model_details.noLP;
 
-  // noLP + RNA_FML_INT16 is REFUSED, same shape and same reason as
-  // RNA_FML_INT16 + RNA_SLOT_FLOW (modular_decomposition.cu): an invariant the
-  // encoding depends on does not hold, so the pairing is declined rather than
-  // approximated.
+  // noLP + RNA_FML_INT16 is REFUSED: an invariant the encoding depends on does
+  // not hold, so the pairing is declined rather than approximated.
   //
   // Measured 2026-09-07, and the existing range guard is what found it:
   //   RNA_FML_INT16 range: H=56 (i=894,j=900) value 220 baseline 9999810

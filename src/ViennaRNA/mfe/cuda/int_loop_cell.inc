@@ -47,7 +47,7 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
                    /* LY: G's planes for this row ([u - LY_U0][row_total]) and row_total */
                    const int* __restrict__ ly_G = NULL, const size_t ly_rt = 0) {
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);
+  assert(i == i_row);
   const int j = (int)local + i + turn + 1 + (int)size_off_H[nfiles + 1];
 
   const long long ij = Indx(i,j);

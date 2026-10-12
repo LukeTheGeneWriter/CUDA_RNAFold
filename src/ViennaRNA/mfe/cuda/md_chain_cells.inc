@@ -68,7 +68,7 @@ pack_fml_cell(const int nfiles, const int i_row, const int turn, const int lengt
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);
+  assert(i == i_row);
   const int j = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
   pack_fml_value(fml_row[row_off_H[H]+j], H, i, j, fml_j16, fml_b, tri_off_H,
@@ -117,7 +117,7 @@ md_close_row_cell(const int nfiles, const int i_row, const int turn,
    * the ROW, so the column shift goes into mj itself, not only into j */
   const long long mj = (long long)m - (long long)size_off_H[H] + (long long)size_off_H[nfiles + 1];
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);
+  assert(i == i_row);
   const int j = mj + i+turn+1;
   const size_t o = row_off_H[H];
 
@@ -159,11 +159,10 @@ load_fML_cell(const int nfiles, const int i_row, const int turn, const int lengt
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
-  // Continuous flow phase A2: this record's own row index. Identical to the old
-  // shared scalar i_row today, and the assert checks that at RUNTIME, because it
-  // is precisely the property phase B stops holding.
+  // This record's own row index. Identical to i_row, and the assert checks that
+  // at RUNTIME, so a divergent table traps.
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
+  assert(i == i_row);
   const long long j  = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
   assert(H >= 0 && H < nfiles);
@@ -199,8 +198,8 @@ load_min_fML_cell(const int nfiles, const int i_row, const int turn, const int l
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj = (long long)m - (long long)side_off_H[H];
-  const int i = i_H[H];   // continuous flow phase A2 -- see load_fML_kernel
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
+  const int i = i_H[H];
+  assert(i == i_row);
 
   const int j  = mj + (i + 2*(turn+1)) + 1 + (int)side_off_H[nfiles + 1];
   const long long ij = Indx(i,j);
@@ -227,8 +226,8 @@ fmli_cell(
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
   const long long mj = (long long)m - (long long)side_off_H[H];
-  const int i = i_H[H];   // continuous flow phase A2 -- see load_fML_kernel
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
+  const int i = i_H[H];
+  assert(i == i_row);
   // `start` moved below the flatten: it depends on i, which is per-record now
   // and so is not known until H is.
   const int start = i+turn+1;

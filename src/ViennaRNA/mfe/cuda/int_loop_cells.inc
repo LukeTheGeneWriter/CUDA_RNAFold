@@ -18,13 +18,11 @@ load_my_c_cell(const int nfiles, const int i_row, /*const int turn,*/ const int 
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
-  // Continuous flow phase A2: the row index is now this record's own. Every
-  // entry equals the old shared scalar i_row today, and the assert proves that
-  // at RUNTIME rather than by argument -- it is exactly the property that stops
-  // holding in phase B, so a divergent table traps instead of folding silently
-  // wrong.
+  // The row index is read per record (i_H). Every entry equals i_row, and the
+  // assert proves that at RUNTIME, so a divergent table traps instead of
+  // folding silently wrong.
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
+  assert(i == i_row);
   const long long j  = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
   const long long ij = Indx(i,j);

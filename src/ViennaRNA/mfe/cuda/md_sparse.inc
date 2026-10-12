@@ -172,8 +172,6 @@ md_sparse_slots(const int j)
 static const char*
 md_sparse_refusal(void)
 {
-  if (rnafold_continuous_flow())      return "continuous flow (records on different rows)";
-  if (rnafold_slot_flow())            return "slot flow (slots are handed over mid-sweep)";
   if (rnafold_md_prune())             return "RNA_MD_PRUNE (a different dense-skipping scheme)";
   if (rnafold_md_tile_cb() > 0)       return "the tile path (RNA_MD_TILE_CB)";
   return NULL;
@@ -449,7 +447,7 @@ md_sparse_append_kernel(const int nfiles, const int i_row, const int turn, const
   const int H = flatten_index_to_H(m, size_off_H, nfiles);
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);
+  assert(i == i_row);
   const int j = (int)mj + i + turn + 1;
   const size_t o = row_off_H[H];
 
@@ -595,7 +593,7 @@ md_sparse_append(const int nfiles, const int i, const int turn, const size_t* si
   const char *up_ml_ok; const size_t *seq_off_H;
   hp_mb_md_sparse_buffers(&up_ml_ok, &seq_off_H);
   const int nblocks = (int)((total + BLOCK_SIZE - 1) / BLOCK_SIZE);
-  md_sparse_append_kernel<<<nblocks, BLOCK_SIZE, 0, ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn,
+  md_sparse_append_kernel<<<nblocks, BLOCK_SIZE, 0, ISSUE_STREAM>>>(nfiles, i, turn,
       hp_mb_mlbase(), md_sparse_delta_max(), d_energy_min, d_dml, d_sp_prev, d_sp_len, d_sp_k, d_sp_v, d_sp_kv4, d_sp_vb,
       d_sp_last, d_sp_cap, d_sp_col, d_sp_base,
       d_row_off_H, d_size_off_H, total, d_i_H, up_ml_ok, seq_off_H, d_sp_stat);

@@ -319,7 +319,7 @@ __global__ void fmli_kernel(
   const int* __restrict__ fml_row,   // int16 path, NULL when off
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
-  const int* __restrict__ i_H);   // continuous flow phase A2
+  const int* __restrict__ i_H);   // per-record row index
 // TILE = how many threads cooperate on one output cell's y-reduction; see the
 // kernel's own comment further down for why that split exists at all. TILE=1
 // is exactly the pre-2026-08-22 one-thread-per-cell kernel, kept reachable
@@ -334,7 +334,7 @@ __global__ void modular_decomposition_kernel(
   int* __restrict__ fm2,          // CIRCULAR: triangular fM2_real, or NULL
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
-  const int* __restrict__ i_H,    // continuous flow phase A2
+  const int* __restrict__ i_H,   // per-record row index
   const fml_corner_t band,        // RNA_MD_BAND; .sm==NULL disables
   const int* __restrict__ fml_jmin,   // RNA_MD_PRUNE; NULL disables
   const int* __restrict__ dml_prev,   // RNA_MD_PRUNE=2 probe; NULL = mode 1
@@ -742,17 +742,6 @@ init_gpu(const int nfiles, const int length,
   	     ijsize_len, cudaGetErrorString(error), error, __LINE__);
         exit(EXIT_FAILURE);}
   } else {
-    // Slot flow hands a slot to a new occupant MID-SWEEP, and reset_slot_md()
-    // cannot put that slot's baselines back to UNSET from the tri_lo/tri_n it
-    // is given. Encoding the new occupant against the old one's baselines is a
-    // silent wrong answer, so the pairing is refused rather than approximated.
-    if(rnafold_slot_flow() >= 1) {
-      fprintf(stderr,"%-24s RNA_FML_INT16 and RNA_SLOT_FLOW cannot be combined yet: "
-                     "a slot handover would leave stale baselines. Unset one.\n",
-              __FILE__);
-      exit(EXIT_FAILURE);
-    }
-
     // colb_off is built to the LONGEST record; every shorter one indexes a
     // prefix of it, exactly as the triangular Indx() already does.
     int maxlen = 0;
@@ -1346,11 +1335,9 @@ md_flush_rows_kernel(const int nfiles, const int turn, const int i_new, const in
  * Kept, default off, because the traffic measurement is worth keeping and the
  * next attempt should start from this diagnosis rather than rediscover it.
  *
- * REFUSALS, both because a stale summary is a silent wrong answer:
+ * REFUSAL, because a stale summary is a silent wrong answer:
  *   RNA_FML_INT16  -- the triangle is packed shorts with per-block baselines, so
  *                     a plain int32 min over raw storage is meaningless.
- *   RNA_SLOT_FLOW  -- a slot handover would leave the previous occupant's minima
- *                     in place, and reset_slot_md() has no way to reach them.
  */
 
 PUBLIC int
@@ -1382,12 +1369,6 @@ rnafold_md_prune(void)
         fprintf(stderr, "%-24s RNA_MD_PRUNE and RNA_FML_INT16 cannot be combined: the "
                         "packed triangle has per-block baselines, so a raw int32 "
                         "minimum over it is meaningless. Unset one.\n", __FILE__);
-        exit(EXIT_FAILURE);
-      }
-      if (rnafold_slot_flow() >= 1) {
-        fprintf(stderr, "%-24s RNA_MD_PRUNE and RNA_SLOT_FLOW cannot be combined: a slot "
-                        "handover would leave the previous occupant's block minima in "
-                        "place. Unset one.\n", __FILE__);
         exit(EXIT_FAILURE);
       }
       if (g_md_tile != 32) {
@@ -1560,44 +1541,6 @@ init_fML(const int nfiles, const int length,
 #endif
 }
 
-// Continuous flow phase A2: content-compared upload of the per-record row
-// index, the twin of int_loop.cu/hp_mb_loop.cu's.
-//
-// Continuous flow phase C3: put ONE slot's sweep state back to the state a
-// chunk starts in, so the slot can take a new record mid-sweep. Exactly the
-// buffers init_fML() fills for the whole chunk, restricted to this slot's own
-// ranges by pointer offset -- the neighbours are mid-recursion and must not be
-// touched.
-PUBLIC void
-reset_slot_md(const size_t tri_lo, const size_t tri_n,
-              const size_t row_lo, const size_t row_n) {
-  if(tri_n) {
-    const size_t nb = (tri_n + BLOCK_SIZE - 1)/BLOCK_SIZE;
-    if(!rnafold_fml_int16()) {
-      init_fML_kernel<<<nb,BLOCK_SIZE>>>(tri_n, d_fml_j + tri_lo);
-    } else {
-      // Resetting the offsets to the INF sentinel is not sufficient on its own:
-      // the slot's BASELINES have to go back to UNSET too, or the new occupant's
-      // first packed entry in each block would be encoded against the previous
-      // occupant's baseline. That is a silent wrong answer, not a crash.
-      init_fml16_kernel<<<nb,BLOCK_SIZE>>>(tri_n, d_fml_j16 + tri_lo);
-      gpuErrchk( cudaPeekAtLastError() );
-      // The slot's baseline range is not derivable from tri_lo/tri_n here, so
-      // this path is refused rather than approximated -- see the guard in
-      // init_gpu(). RNA_SLOT_FLOW + RNA_FML_INT16 is not a supported pairing yet.
-    }
-    gpuErrchk( cudaPeekAtLastError() );
-  }
-  if(row_n) {
-    const size_t nb = (row_n + BLOCK_SIZE - 1)/BLOCK_SIZE;
-    init_fML_kernel<<<nb,BLOCK_SIZE>>>(row_n, d_dml      + row_lo);
-    init_fML_kernel<<<nb,BLOCK_SIZE>>>(row_n, d_dml1     + row_lo);
-    init_fML_kernel<<<nb,BLOCK_SIZE>>>(row_n, d_fml_prev + row_lo);
-    gpuErrchk( cudaPeekAtLastError() );
-  }
-  gpuErrchk( cudaDeviceSynchronize() );
-}
-
 //perhaps this can be combined with fmli_kernel?
 __global__ void
 load_fML_kernel(const int nfiles, const int i_row, const int turn, const int length,
@@ -1641,7 +1584,7 @@ load_fML(const int nfiles,
 
   /* Setup execution parameters for helper kernel */
   const int nblocks = (total + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  load_fML_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn, length,
+  load_fML_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, i, turn, length,
 					  d_energy_min,  //in
 					  d_fml_j,  //out
 					  d_fml_row, //out, int16 path (NULL when off)
@@ -1706,7 +1649,7 @@ band_fill(const int nfiles, const int i, const int turn, const size_t* size_off_
     const int n = nfiles * g_band_K;
     const int nb = (n + BLOCK_SIZE - 1)/BLOCK_SIZE;
 
-    band_fill_kernel<<<nb,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn,
+    band_fill_kernel<<<nb,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, i, turn,
         g_band_K, g_band_stride, d_energy_min, d_fml_row, d_fml_j,
         d_tri_off_H, d_row_off_H, d_size_off_H, d_i_H, d_fml_band);
     gpuErrchk( cudaPeekAtLastError() );
@@ -1721,7 +1664,7 @@ pack_fml(const int nfiles, const int i, const int turn, const int length,
   if(total==0) return;
   bind_row_tables(i);
   const size_t nblocks = (total + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  pack_fml_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn, length,
+  pack_fml_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, i, turn, length,
                         d_fml_row, d_fml_j16, d_fml_b,
                         d_tri_off_H, d_row_off_H,
                         d_base_off_H, d_colb_off,
@@ -1757,7 +1700,7 @@ load_min_fML(const int nfiles,
 
 /* Setup execution parameters for helper kernel */
   const int nblocks = (total + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  load_min_fML_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn, length,
+  load_min_fML_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, i, turn, length,
 					  d_energy_min,  //in
 					  d_dml,    //in
 					  d_fml_j,  //out
@@ -1963,7 +1906,7 @@ modular_decomposition_smem_kernel(
     const int H  = flatten_index_to_H((size_t)m, side_off_H, nfiles);
     const long long mj = (long long)m - (long long)side_off_H[H];
     const int i  = i_H[H];
-    assert(i_row < 0 || i == i_row);
+    assert(i == i_row);
     x   = (int)mj + (int)side_off_H[nfiles + 1];   /* ROW-local (3a.2) */
     const int j = x + (i + 2*(turn+1)) + 1;
     ij0  = Indx(i,j) + (turn+1) + 1;
@@ -2165,7 +2108,7 @@ void modular_decomposition_cuda(const int nfiles,
 				      int* DMLi,
 				const size_t* row_off_H,
 				const size_t* side_off_H,
-				const int* i_H) { //in, nfiles entries -- continuous flow phase B
+				const int* i_H) { //in, nfiles entries -- per-record row index
   //printf("\nmodular_decomposition_cuda(%d,%d,%d,indx,my_fML)\n",
   //	 i,turn,length);
 
@@ -2184,9 +2127,8 @@ void modular_decomposition_cuda(const int nfiles,
     // per-H length is recovered from the table itself rather than threading a
     // new parameter through modular_decomposition_i()'s public signature.
     const int len_H = (int)(row_off_H[H+1] - row_off_H[H]) - 1;
-    // Continuous flow phase B: this record's own row, and skip it entirely once
-    // it has retired (i_H[H] < 1) -- its row buffer must keep the values its
-    // last row left there. Identical to i while every record shares a row.
+    // This record's own row (i_H, equal to i); a record with no row (i_H[H] < 1)
+    // is skipped so its row buffer keeps what its last row left there.
     const int i_h = i_H[H];
     if(i_h < 1) continue;
     for (int j = i_h+turn+1; j <= len_H; j++) {
@@ -2273,7 +2215,7 @@ void modular_decomposition_cuda(const int nfiles,
     // declarations near the top of this file for why.
     const int block_size = g_block_size_fmli;
     const int nblocks = (total + block_size - 1)/block_size;
-    fmli_kernel<<<nblocks,block_size,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn, length,
+    fmli_kernel<<<nblocks,block_size,0,ISSUE_STREAM>>>(nfiles, i, turn, length,
 					d_fml_i,  //Out
 					d_fml_j,  //In
 					d_fml_row, //In, int16 path (NULL when off)
@@ -2322,7 +2264,7 @@ void modular_decomposition_cuda(const int nfiles,
 
 // The two kernels take identical arguments by construction -- one macro feeds
 // both, so a parameter added to one cannot be forgotten in the other.
-#define MD_ARGS nfiles, RNA_I_ROW(i), turn, length, \
+#define MD_ARGS nfiles, i, turn, length, \
                 md_fml_i, d_fml_j, \
                 d_fml_j16, d_fml_b, d_base_off_H, d_colb_off, \
                 d_dml,   /*Out*/ \
@@ -2422,7 +2364,7 @@ modular_decomposition_i(const int nfiles,
 			int* DMLi,         //Out
 			const size_t* row_off_H,
 			const size_t* side_off_H,
-			const int* i_H) {  //in, nfiles entries -- continuous flow phase B
+			const int* i_H) {  //in, nfiles entries -- per-record row index
   //const int max_ij_len = length - 2*(turn+1) - 1;
   //const int ijsize_min = max_ij_len*(max_ij_len+1)/2;
   //if(first) init_gpu(length);
@@ -2531,7 +2473,7 @@ md_snapshot_dml(void) {
   // overwrites d_dml. Swapping gives exactly that PROVIDED md(i-1) writes every
   // cell a later reader takes from d_dml, and it does: a row's side range
   // contains the previous row's, cells below it are never written (INF in both
-  // buffers from init_fML/reset_slot_md), and a record outside the sweep has
+  // buffers from init_fML), and a record outside the sweep has
   // width 0 until it joins. Readers fetch both pointers per launch through
   // md_row_buffers().
   if(g_md_tail_row >= 0) {
@@ -2958,9 +2900,8 @@ static const char*
 md_tail_refuse(const int nfiles, const int i, const int* i_H)
 {
   if(!rnafold_gpu_sweep())        return "off the GPU-resident sweep the host rotates DMLi itself";
-  if(rnafold_continuous_flow())   return "continuous flow puts records on different rows";
   for(int H = 0; H < nfiles; H++)
-    if(i_H[H] != i)               return "records are on different rows (slot flow)";
+    if(i_H[H] != i)               return "records are on different rows";
   if(rnafold_md_prune() || rnafold_md_prune_stats())
                                   return "RNA_MD_PRUNE reads fml_i and maintains fml_jmin in load_fML";
   if(d_fml_band)                  return "RNA_MD_BAND reads d_fml_row";
@@ -3012,8 +2953,6 @@ md_ring_depth_effective(void)
   if (want == 2)                                       return 2;
   if (!rnafold_md_tail())                              why = "RNA_MD_TAIL=0 copies DMLi instead of rotating it";
   else if (!rnafold_gpu_sweep())                       why = "off the GPU-resident sweep the host rotates DMLi itself";
-  else if (rnafold_continuous_flow())                  why = "continuous flow puts records on different rows";
-  else if (rnafold_slot_flow() >= 1)                   why = "slot flow refills records mid-sweep";
   else if (rnafold_md_prune() || rnafold_md_prune_stats()) why = "RNA_MD_PRUNE refuses the collapsed tail";
   else if (rnafold_md_band() > 0)                      why = "RNA_MD_BAND refuses the collapsed tail";
   if (why) {
@@ -3065,7 +3004,7 @@ md_close_row(const int nfiles, const int i, const int turn, const size_t* size_o
   bind_row_tables(i);
   const int nblocks = (int)((total + BLOCK_SIZE - 1)/BLOCK_SIZE);
   int* stage = (g_stage_K >= 2) ? d_fml_stage + (size_t)(i % g_stage_K) * g_row_total : NULL;
-  md_close_row_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, RNA_I_ROW(i), turn,
+  md_close_row_kernel<<<nblocks,BLOCK_SIZE,0,ISSUE_STREAM>>>(nfiles, i, turn,
       d_energy_min, d_dml, d_fml_prev, d_fml_j, d_fml_j16, d_fml_b,
       d_tri_off_H, d_row_off_H, d_base_off_H, d_colb_off,
       d_size_off_H, total, d_i_H, stage);
@@ -3206,7 +3145,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 					     const size_t* row_off_H,
 					     const size_t* size_off_H,
 					     const size_t* side_off_H,
-					     const int* i_H) {      //in, nfiles entries -- continuous flow phase A2
+					     const int* i_H) {      //in, nfiles entries -- per-record row index
   // Row i's tables were uploaded with the chunk (device.cu), so nothing is
   // copied here and nothing host-side is captured into the graph.
   bind_row_tables(i);

@@ -175,10 +175,9 @@ static size_t  g_row_total = 0;
 // reasoning as int_loop.cu's d_hc_off_H.
 static size_t* d_hc2_off_H;
 static size_t* d_seq_off_H;
-// Continuous flow phase C1: the OCCUPANT's own length, per record. Two kernels
-// in this file used to recover it as seq_off_H[H+1]-seq_off_H[H]-2 -- the slot's
-// STRIDE. That is only the record's length while a slot is sized to its own
-// first and only occupant, and one of the two uses is the S_H[length_H] wrap
+// The record's own length. Two kernels in this file used to recover it as
+// seq_off_H[H+1]-seq_off_H[H]-2 -- the buffer's STRIDE, which was not the
+// record's length under slot flow (deleted in the cleanup, C4) -- and one of the two uses is the S_H[length_H] wrap
 // read that produced the OOB bug fixed in 00d1e07. A real table, uploaded once
 // per chunk beside the offset tables, is what makes an over-sized slot safe.
 static int*    d_len_H;
@@ -333,7 +332,7 @@ pack_hc_kernel(const int nfiles, const int turn,
                const size_t* __restrict__ hc2_off_H,
                const size_t* __restrict__ hc_off_H,
                const size_t* __restrict__ seq_off_H,
-               const int* __restrict__ len_H,   //continuous flow phase C1
+               const int* __restrict__ len_H,   //per-record length
                      unsigned int* __restrict__ mb,
                      unsigned int* __restrict__ mbenc,
                      unsigned int* __restrict__ any,
@@ -379,37 +378,12 @@ pack_hc_kernel(const int nfiles, const int turn,
   intenc[hc_off_H[H] + wH] = m_int;
 }
 
-// Continuous flow phase C2: SLOT REFILL, this file's half. Same reasoning as
-// int_loop.cu's -- the sequence-derived content here (d_S2, d_sequence,
-// d_up_ml_ok, d_len_H and the pack_hc_kernel-derived bitmasks) is redone by
-// re-entering init_gpu3() with the allocations suppressed, so there is exactly
-// one copy of the packing code and no way for a duplicate to drift.
-static int g_refill3 = 0;
-// Which slot a refill is for, or -1 for "the whole batch".
-//
-// WHY THIS EXISTS (2026-09-27). refill_gpu3() took no slot argument, so every
-// slot handover re-ran pack_hc_kernel over the ENTIRE batch's words. The cost was
-// O(refills x slots) = O(n^2 (1-1/k)/k), and the `pack` counter fitted that
-// exactly: predicted/measured ratio 1.800/1.776 at 600x300 and 1.772/1.772 at
-// 100x1200. At 10000 x 500 with k=2 that is 2.5e7 units, 278x the 600x300 probe,
-// which is why that shape lost 4.2x on an A100 while 400x5601 lost only 1.2x.
-//
-// And the device work slot flow does is IDENTICAL to batching: `cells` and
-// `active record-rows` from the sweep-shape line match byte for byte across every
-// k, and GPU+transfer time is flat. The whole measured penalty was this repack.
-//
-// Scoping is safe because these buffers are indexed by GLOBAL word offset: slot s
-// owns [hc2_off_H[s], hc2_off_H[s+1]) and nothing else reads or writes there.
-// d_len_H/d_span_H for slot s are rebuilt before the pack, so the incoming record
-// is packed against its own length and span, and the other slots' masks were
-// packed against theirs and have not gone stale.
-static int g_refill3_slot = -1;
-#define SLOT_ALLOC(pp, sz) do { if(!g_refill3) TIMED_CUDAMALLOC(pp, sz); } while(0)
+#define SLOT_ALLOC(pp, sz) TIMED_CUDAMALLOC(pp, sz)
 
 PUBLIC void
 init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* row_off_H, //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
-          const size_t* cap_H) { //in, nfiles slot capacities in nt -- continuous flow phase C1
+          const size_t* cap_H) { //in, nfiles record capacities in nt
   if(!first3) return;
   const double _t_ig3 = rnafold_now_seconds();
   if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s init_gpu3(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
@@ -531,7 +505,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   SLOT_ALLOC(&d_seq_off_H, (size_t)(nfiles+1)*sizeof(size_t));
   gpuErrchk( cudaMemcpy(d_seq_off_H, seq_off_H, (size_t)(nfiles+1)*sizeof(size_t), cudaMemcpyHostToDevice) );
   {
-    int len_H[nfiles];   // continuous flow phase C1, see d_len_H above
+    int len_H[nfiles];   // see d_len_H above
     for(int H=0;H<nfiles;H++) len_H[H] = (int)VC[H]->length;
     SLOT_ALLOC(&d_len_H, (size_t)nfiles*sizeof(int));
     gpuErrchk( cudaMemcpy(d_len_H, len_H, (size_t)nfiles*sizeof(int), cudaMemcpyHostToDevice) );
@@ -570,9 +544,7 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 
   // RNA_HP_TABLE: the hairpin length term, per size, built here in DOUBLE with
   // upstream's literal expression (eval/hairpin.h:369, mfe/fold.c:441) -- see the
-  // hp_len field in hp_mb_dev.h. Same extent and lifetime as d_salt_loop. On a
-  // refill SLOT_ALLOC keeps the buffer, and it is rewritten and re-attached because
-  // load_param2() above just reset the pointer.
+  // hp_len field in hp_mb_dev.h. Same extent and lifetime as d_salt_loop.
   if(rnafold_hp_table()) {
     const vrna_param_t *Pp = VC[0]->params;
     const size_t n = (size_t)length + 2;
@@ -687,9 +659,8 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   SLOT_ALLOC(&d_cc1, size);
   /* Stage 3a.1: the cc ring, rotating in step with modular_decomposition.cu's dml ring
    * (see nolp_rotate_cc()). Slots 0 and 1 ARE d_cc and d_cc1, so depth 2 allocates
-   * nothing. Not on a refill: slot flow refuses depth > 2, and a refill must not
-   * re-own the allocations it is reusing. */
-  if(!g_refill3) {
+   * nothing. */
+  {
     g_cc_depth   = rnafold_md_ring_depth_now();
     g_cc_k       = 0;
     g_cc_ring[0] = d_cc;
@@ -698,34 +669,8 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
       gpuErrchk( cudaMalloc((void **) &g_cc_ring[s], size) );
   }
   {
-    // `!g_refill3` is load-bearing, and it is the whole of the --noLP +
-    // RNA_SLOT_FLOW defect (found 2026-09-08, see PORT_FEATURE_AUDIT.md).
-    //
-    // SLOT_ALLOC skips the malloc on a refill, but a KERNEL LAUNCH in this
-    // function still runs on one -- which is correct for the sequence-derived
-    // content a refill exists to refresh, and wrong for SWEEP STATE. cc/cc1
-    // are the only sweep state prefilled here, which is exactly why no other
-    // option ever noticed.
-    //
-    // refill_gpu3() is called at EVERY slot handover, and it USED TO take no
-    // slot argument, so without this guard each handover INF-filled cc/cc1 for
-    // the WHOLE batch -- wiping the mid-recursion cc1 of every record still
-    // running in every other slot, not just the incoming one.
-    //
-    // It takes a slot now (2026-09-27, g_refill3_slot), which is the fix this
-    // guard was standing in for. The guard STAYS: cc/cc1 are SWEEP STATE, and the
-    // incoming record's own rows are reset by reset_slot_nolp() rather than here,
-    // so "do not touch them on a refill" is correct however narrowly the
-    // sequence-derived content is scoped. That is why the
-    // corrupted records included eleven that had already retired before their
-    // own slot was ever reset, and why the error was one-sided: c[ij] receives
-    // cc1[j-1]+stackEnergy, so an INF cc1 FORBIDS pairs rather than mispricing
-    // them, and the fold can only come out worse.
-    //
-    // On a refill the incoming record's own rows are put back to INF by
-    // reset_slot_nolp(), which is scoped to that ONE slot.
     const size_t nb = (g_row_total + 512 - 1)/512;
-    if(g_row_total && !g_refill3) {
+    if(g_row_total) {
       nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc);
       nolp_init_kernel<<<(int)nb,512>>>(g_row_total, d_cc1);
       for(int s = 2; s < g_cc_depth; s++)      /* stage 3a.1: extra slots, INF like cc1 */
@@ -744,10 +689,8 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     int_loop_hccc_buffers(&d_intenc, &d_hcoff);   //init_gpu2 already ran
     assert(d_intenc && d_hcoff);
     const vrna_md_t* md_ = &(VC[0]->params->model_details);
-    // One slot on a scoped refill, the whole batch otherwise. See g_refill3_slot.
-    const int    scoped = (g_refill3 && g_refill3_slot >= 0 && g_refill3_slot < nfiles);
-    const size_t w_lo = scoped ? hc2_off_H[g_refill3_slot]     : (size_t)0;
-    const size_t w_hi = scoped ? hc2_off_H[g_refill3_slot + 1] : hc2_off_H[nfiles];
+    const size_t w_lo = 0;
+    const size_t w_hi = hc2_off_H[nfiles];
     const int    bs  = 256;
     const size_t nbl = (w_hi - w_lo + bs - 1)/bs;
     assert(nbl <= 2147483647u);
@@ -771,10 +714,6 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     // they are READ (j-i >= turn+1); this proves every word matches, including
     // cells nothing looks at today, so widening a read range later cannot
     // quietly expose a wrong bit. Slow by design -- diagnostics only.
-    // Deliberately NOT scoped: it recomputes every record's masks on the host
-    // and compares all of them, so it still catches a slot whose words were not
-    // repacked when they should have been -- which is the one failure mode
-    // scoping the launch above could introduce.
     if(getenv("RNA_HC_VERIFY")) {
       const size_t nw2 = hc2_off_H[nfiles];
       unsigned int* h_mb    = (unsigned int*) calloc(nw2,sizeof(unsigned int));
@@ -883,23 +822,6 @@ init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 
   stage_ig3_s += rnafold_now_seconds() - _t_ig3;
   first3 = 0;
-}
-
-// Continuous flow phase C2: re-run init_gpu3()'s CONTENT for a chunk whose
-// slots have taken new occupants. Same nfiles, same capacity table, same
-// buffers -- only the records differ. first3 is forced back on so the body
-// runs; SLOT_ALLOC is what stops it reallocating over the live pointers.
-PUBLIC void
-refill_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
-            const int length, const int block_size,
-            const size_t* row_off_H, const size_t* cap_H, const int slot) {
-  assert(!first3);            // must be a live chunk, not a fresh one
-  g_refill3      = 1;
-  g_refill3_slot = slot;      // -1 = every occupant changed, so repack the batch
-  first3         = 1;
-  init_gpu3(nfiles, VC, turn_, length, block_size, row_off_H, cap_H);
-  g_refill3_slot = -1;
-  g_refill3      = 0;
 }
 
 // Frees the 7 nfiles/length-scaled device buffers allocated by init_gpu3()
@@ -1033,7 +955,7 @@ hp_mb_3p_kernel(const int nfiles, const int i_row, const int turn, const int len
                  const size_t* __restrict__ row_off_H,
                  const size_t* __restrict__ hc2_off_H,
                  const size_t* __restrict__ seq_off_H,
-                 const int* __restrict__ len_H,   //continuous flow phase C1
+                 const int* __restrict__ len_H,   //per-record length
                  const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H) {
   // The arithmetic lives in hp_mb_cells.inc.
@@ -1203,7 +1125,7 @@ fml_scan_i(const int nfiles, const int i, const int turn,
   // The instantiate-a-few-and-switch shape follows int_loop_kernel's 32/64/
   // 128/256 precedent, and the env override follows RNA_MD_TILE's.
 #define FML_SCAN_LAUNCH(TW) \
-  fml_scan_kernel<TW><<<nfiles,TW,0,rnafold_stream_md()>>>(nfiles, RNA_I_ROW(i), turn, \
+  fml_scan_kernel<TW><<<nfiles,TW,0,rnafold_stream_md()>>>(nfiles, i, turn, \
                                      d_new_e_, P3P_ROW(i), \
                                      rnafold_gq_row_device(), d_fml_prev_, \
                                      d_up_ml_ok, d_param2, d_energy_min_, \
@@ -1250,10 +1172,7 @@ fml_scan_i(const int nfiles, const int i, const int turn,
     const size_t o     = row_off_H[H];
     const size_t width = size_off_H[H+1] - size_off_H[H];
     if(width == 0) continue;
-    // Continuous flow phase B: index by THIS RECORD's row, not the shared loop
-    // counter -- they diverge under RNA_CONTINUOUS_FLOW, and comparing at the
-    // wrong offset would invent mismatches (or hide real ones). Identical to i
-    // off the flow path.
+    // Index by THIS RECORD's row (i_H), the same table the kernels read.
     const int i_h = i_H[H];
     for(size_t k=0; k<width; k++) {
       const size_t idx = o + (size_t)(i_h+turn+1) + k;
@@ -1318,7 +1237,7 @@ stack_row_cell(const int nfiles, const int i_row, const int turn,
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);
+  assert(i == i_row);
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int j = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
@@ -1436,7 +1355,7 @@ stack_row_i(const int nfiles, const int i, const int turn,
   }
 
   const size_t nblocks = (total + block_size - 1)/block_size;
-  stack_row_kernel<<<(int)nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), turn,
+  stack_row_kernel<<<(int)nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, i, turn,
                                                 d_S2, d_pair2, d_param2,
                                                 d_intenc, d_hcoff,
                                                 d_energy_stack_row,
@@ -1485,37 +1404,6 @@ rnafold_cc_ring_select(const int i, const int fill)
   }
 }
 
-// noLP + continuous flow phase C3: put ONE slot's cc/cc1 rows back to the INF a
-// chunk starts from, for a slot that has just been handed to a new record.
-//
-// WHY THIS EXISTS. reset_slot_md() resets "exactly the buffers init_fML()
-// fills" -- d_fml_j, d_dml, d_dml1, d_fml_prev. noLP added two more row-shaped
-// buffers after that was written, and nothing added them here, so a slot
-// handover left the incoming record reading the OUTGOING record's cc1. Found
-// 2026-09-08 by tools/verify_option_matrix.sh: --noLP and RNA_SLOT_FLOW are
-// each correct alone, and together disagree with the CPU route on 17 of 30
-// records. The structures stay SELF-CONSISTENT and are worse on 17, better on
-// 0 -- one-sided, because c[ij] receives cc1[j-1]+stackEnergy, so a stale cc1
-// FORBIDS pairs rather than mispricing them. See PORT_FEATURE_AUDIT.md.
-//
-// BOTH buffers, for the reason the host side already gives about the three
-// DMLi generations: they rotate, so whichever becomes cc1 on the next row must
-// read INF for a record that has no previous row yet. Resetting only the
-// current cc1 would leave the answer depending on whether nolp_rotate_cc() ran
-// between the handover and the incoming record's first row.
-//
-// This lives here rather than in reset_slot_md() because d_cc/d_cc1 belong to
-// this file, per its convention of not sharing device state with
-// int_loop.cu/modular_decomposition.cu.
-PUBLIC void
-reset_slot_nolp(const size_t row_lo, const size_t row_n) {
-  if(row_n == 0) return;
-  const size_t nb = (row_n + 512 - 1)/512;
-  nolp_init_kernel<<<(int)nb,512>>>(row_n, d_cc  + row_lo);
-  nolp_init_kernel<<<(int)nb,512>>>(row_n, d_cc1 + row_lo);
-  gpuErrchk( cudaPeekAtLastError() );
-}
-
 // Launches new_c_kernel and, under RNA_ROW_VERIFY, checks it cell-for-cell
 // against the host loop still running beside it.
 //
@@ -1560,7 +1448,7 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
   // Level 2: DMLi1 is published by snapshot(i+1) on the md stream, which is
   // running concurrently with this row's int_loop and hp_mb.
   rnafold_stream_wait_md();
-  new_c_kernel<<<(int)nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), turn, noGUclosure,
+  new_c_kernel<<<(int)nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, i, turn, noGUclosure,
                                             d_energy_min2_, HP_ROW(i), MB_ROW(i),
                                             GATE_ROW(i), d_dml1_,
                                             d_up_hp, d_seq_off_H, d_new_e_,
@@ -1595,7 +1483,7 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
     const size_t o     = row_off_H[H];
     const size_t width = size_off_H[H+1] - size_off_H[H];
     if(width == 0) continue;   // not joined the sweep yet
-    const int i_h = i_H[H];    // continuous flow phase B -- this record's own row
+    const int i_h = i_H[H];
     for(size_t k=0; k<width; k++) {
       const size_t idx = o + (size_t)(i_h+turn+1) + k;
       checked++;
@@ -1693,7 +1581,7 @@ fml_prev_i(const int nfiles, const int i, const int turn,
   bind_row_tables(i);
 
   const size_t nblocks = (total + block_size - 1)/block_size;
-  fml_prev_kernel<<<(int)nblocks,block_size,0,rnafold_stream_md()>>>(nfiles, RNA_I_ROW(i), turn,
+  fml_prev_kernel<<<(int)nblocks,block_size,0,rnafold_stream_md()>>>(nfiles, i, turn,
                                                d_energy_min_, d_dml_, d_fml_prev_,
                                                d_row_off_H, d_size_off_H, total, d_i_H);
   gpuErrchk( cudaPeekAtLastError() );
@@ -1725,7 +1613,7 @@ fml_prev_i(const int nfiles, const int i, const int turn,
     const size_t o     = row_off_H[H];
     const size_t width = size_off_H[H+1] - size_off_H[H];
     if(width == 0) continue;   // this H has not joined the sweep yet
-    const int i_h = i_H[H];    // continuous flow phase B -- this record's own row
+    const int i_h = i_H[H];
     // width+1 cells: the diagonal-band cell at i+turn plus [i+turn+1, len_H].
     for(size_t k=0; k<=width; k++) {
       const size_t idx = o + (size_t)(i_h+turn) + k;
@@ -1773,7 +1661,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
   // earlier has finished reading it. The hp stream has no other waits, so
   // without this the host queues it arbitrarily far ahead.
   rnafold_stream_wait_scan(i);
-  hp_mb_3p_kernel<<<nblocks,block_size,0,rnafold_stream_hp()>>>(nfiles, RNA_I_ROW(i), turn, length,
+  hp_mb_3p_kernel<<<nblocks,block_size,0,rnafold_stream_hp()>>>(nfiles, i, turn, length,
                                           d_S2, d_sequence, d_pair2,
                                           d_hccc_mb, d_hccc_mbenc,
                                           d_hccc_any, d_hccc_gu, d_param2, d_salt_loop,
@@ -1993,7 +1881,7 @@ row_cells_i(const int nfiles, const vrna_fold_compound_t **VC,
 
   const int nblocks = (int)((total + block_size - 1)/block_size);
 
-  row_cells_kernel<<<nblocks,block_size>>>(nfiles, RNA_I_ROW(i), turn, length,
+  row_cells_kernel<<<nblocks,block_size>>>(nfiles, i, turn, length,
                                            noGUclosure,
                                            d_S2, d_sequence, d_pair2,
                                            d_hccc_mb, d_hccc_mbenc,
@@ -2142,7 +2030,7 @@ tile_front_i(const int nfiles, const int i, const int turn, const int length,
   /* the tile path is single-stream (rnafold_md_tile_cb() refuses any overlap), so the
    * stream events the separate phases record are no-ops there and are not needed */
   tile_front_kernel<TILE_FRONT_TW><<<nfiles, TILE_FRONT_TW, 0, rnafold_stream_md()>>>(
-      nfiles, RNA_I_ROW(i), turn, length, noGUclosure,
+      nfiles, i, turn, length, noGUclosure,
       d_S2, d_sequence, d_pair2, d_hccc_mb, d_hccc_mbenc, d_hccc_any, d_hccc_gu,
       d_param2, d_salt_loop,
       HP_ROW(i), MB_ROW(i), P3P_ROW(i), GATE_ROW(i),

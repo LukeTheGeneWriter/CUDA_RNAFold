@@ -26,12 +26,12 @@ fml_scan_block(const int nfiles, const int i_row, const int turn,
                 const size_t* __restrict__ size_off_H,
                 const int* __restrict__ i_H,
                const int H, int* sa, int* sc) {
-  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
-  // i_row today, and the assert proves that at RUNTIME rather than by
+  // The row index is read per record (i_H). It equals
+  // i_row, and the assert proves that at RUNTIME rather than by
   // argument -- .cu files never see -DNDEBUG, so a table that ever
   // disagrees traps instead of folding silently wrong.
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
+  assert(i == i_row);
   const long long width = (long long)size_off_H[H+1] - (long long)size_off_H[H];
   if(width <= 0) return;                  // has not joined the sweep -- whole block returns
   const size_t o  = row_off_H[H];

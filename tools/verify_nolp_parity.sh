@@ -45,12 +45,14 @@ for fa in u900 u2000; do
 
   # noLP + int16 must REFUSE, not silently disagree: noLP puts near-INF
   # finite values into fML that the 16-bit per-block offsets cannot
-  # represent. The existing range guard is what found it.
+  # represent. The existing range guard is what found it. Since int16 AUTO
+  # (069981ff) the refusal comes from the stand-down in mfe_cuda.c ("cannot be
+  # honoured"), before fill_arrays.c's own check ("cannot be combined").
   RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_FML_INT16=1 \
       $GPU --noPS --noLP -i $F > $W/$fa.i16 2> $W/$fa.i16.err
   rc16=$?
   say "$fa: --noLP + RNA_FML_INT16 refuses at init" \
-      "$( [ $rc16 -ne 0 ] && grep -q "cannot be combined" $W/$fa.i16.err && echo ok || echo FAIL)"
+      "$( [ $rc16 -ne 0 ] && grep -qE "RNA_FML_INT16.*cannot be (combined|honoured)" $W/$fa.i16.err && echo ok || echo FAIL)"
 
   # --noLP + RNA_ROW_VERIFY must refuse too, and for a different reason: the
   # host new_c loop does not implement noLP, so the verifier both reports ~11%
@@ -75,27 +77,15 @@ for fa in u900 u2000; do
 done
 
 # --------------------------------------------------------------------------
-# noLP + RNA_SLOT_FLOW: a slot handover must not move the answer.
+# noLP on a MIXED-LENGTH fixture.
 #
-# THE FIXTURE HAS TO BE MIXED-LENGTH, and that is the whole reason this arm
-# sits outside the u900/u2000 loop above with a file of its own.
-#
-# The defect (2026-09-08, found by tools/verify_option_matrix.sh): refill_gpu3()
-# runs at EVERY slot handover and takes no slot argument, so the unguarded
-# cc/cc1 prefill inside init_gpu3() INF-filled them for the WHOLE batch, wiping
-# the mid-recursion cc1 of every record still running in every OTHER slot.
-#
-# With UNIFORM lengths every slot holds records of equal row count, so every
-# slot retires on the same iteration -- the global wipe lands when all the
-# neighbours are themselves starting fresh, and is harmless. Measured on the
-# broken binary: u900 (one distinct length) disagreed on 0 of 60 records, while
-# a 30-length mixed file disagreed on 17 of 30. An arm built on u900/u2000
-# therefore CANNOT fail on this bug, and the first version of this check was
-# exactly that arm -- green against a binary with the fix deliberately removed.
-#
-# Both properties it depends on are asserted below rather than assumed, because
-# a fixture that quietly stopped being mixed, or a run that quietly stopped
-# sharing slots, would put this check straight back into that state.
+# This arm was built for --noLP + RNA_SLOT_FLOW (the 2026-09-08 defect: a slot
+# handover INF-filled cc/cc1 for the whole batch), which only a mixed file could
+# expose -- with uniform lengths every slot retired on the same iteration and the
+# wipe was harmless (u900: 0 of 60 wrong; mixed: 17 of 30). Slot flow was deleted
+# in the cleanup (C4); the arm stays because mixed lengths are still where per-
+# record row state (cc/cc1 rows of different widths) is exercised, and the
+# fixture is asserted to be mixed rather than assumed.
 MIX=$W/mixed.fa
 python3 - "$MIX" <<'PY'
 import random, sys
@@ -111,17 +101,11 @@ say "mixed: the fixture really is mixed-length ($nlen distinct in $nrec)" \
     "$([ "$nlen" -gt 10 ] && echo ok || echo FAIL)"
 
 $CPU --noPS --noLP -i $MIX 2>/dev/null > $W/mix.cpu
-RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 RNA_SLOT_FLOW=2 \
+RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 \
     $GPU --noPS --noLP -i $MIX 2> $W/mix.err > $W/mix.gpu
-peak=$(grep -o 'peak/iteration [0-9]* records' $W/mix.err | head -1 | awk '{print $2}')
-# Slot flow with as many slots as records never hands a slot over, and would
-# pass the comparison below without once exercising the path it exists to test.
-# `peak` counts RESIDENT records, so peak < nrec is the proof slots were shared
-# -- it is a PEAK and not a total, which is why it is not compared to the
-# record count anywhere else in this project.
-say "mixed: the slot-flow arm really shared slots (peak ${peak:-0} < $nrec)" \
-    "$([ "${peak:-0}" -gt 0 ] && [ "${peak:-0}" -lt "$nrec" ] && echo ok || echo FAIL)"
-say "mixed: --noLP + RNA_SLOT_FLOW identical to upstream" \
+say "mixed: the GPU arm really swept ($(grep -c 'sweep shape:' $W/mix.err) sweep(s))" \
+    "$(grep -q 'sweep shape:' $W/mix.err && echo ok || echo FAIL)"
+say "mixed: --noLP identical to upstream" \
     "$(cmp -s $W/mix.cpu $W/mix.gpu && echo ok || echo FAIL)"
 # Every returned structure was SELF-CONSISTENT when this bug was live -- the
 # energies matched their own structures, they were merely suboptimal. So only a

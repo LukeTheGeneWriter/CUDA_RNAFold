@@ -82,7 +82,7 @@ modular_decomposition_i(const int nfiles,
 			int* DMLi,
 			const size_t* row_off_H,  //in, nfiles+1 entries -- see compute_batch_offsets()
 			const size_t* side_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 4, see compute_flatten_offsets()
-			const int* i_H); //in, nfiles entries -- continuous flow phase B, per-record row index
+			const int* i_H); //in, nfiles entries -- per-record row index
 
 // CUDA-graph-captured fusion of load_fML() + modular_decomposition_i() +
 // load_min_fML() -- see definition in modular_decomposition.cu for why these
@@ -99,7 +99,7 @@ load_fML_modular_decomposition_load_min_fML(const int nfiles,
 					     const size_t* row_off_H,  //in, nfiles+1 entries
 					     const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 4
 					     const size_t* side_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 4
-					     const int* i_H); //in, nfiles entries -- continuous flow phase A2, per-record row index
+					     const int* i_H); //in, nfiles entries -- per-record row index
 
 PUBLIC int
 extend_fm_3p( const int i,
@@ -122,41 +122,7 @@ PUBLIC void
 #endif
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* tri_off_H, const size_t* row_off_H, //in, both nfiles+1 entries -- see compute_batch_offsets()
-          const size_t* cap_H); //in, nfiles slot capacities in nt -- continuous flow phase C1
-
-// Continuous flow phase C2: redo init_gpu2()'s sequence-derived CONTENT for a
-// chunk whose slots have taken new occupants -- same nfiles, same capacities,
-// same buffers, no reallocation. Only valid between init_gpu2()/teardown_gpu2().
-#ifdef __cplusplus
-extern "C" /*PUBLIC*/ void
-#else
-PUBLIC void
-#endif
-refill_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
-            const int length, const int block_size,
-            const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H);
-
-// Continuous flow phase C3: the same refill restricted to ONE slot, for use
-// mid-sweep while every other slot is still mid-recursion.
-#ifdef __cplusplus
-extern "C" /*PUBLIC*/ void
-#else
-PUBLIC void
-#endif
-refill_slot2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
-             const int length, const int block_size,
-             const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H,
-             const int slot);
-
-// Continuous flow phase C3: reset one slot's sweep state (its fML triangle and
-// its DMLi/DMLi1/fml_prev rows) to the INF a chunk starts from.
-#ifdef __cplusplus
-extern "C" /*PUBLIC*/ void
-#else
-PUBLIC void
-#endif
-reset_slot_md(const size_t tri_lo, const size_t tri_n,
-              const size_t row_lo, const size_t row_n);
+          const size_t* cap_H); //in, nfiles record capacities in nt
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -165,17 +131,7 @@ PUBLIC void
 #endif
 init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* row_off_H, //in, nfiles+1 entries -- see compute_batch_offsets()
-          const size_t* cap_H); //in, nfiles slot capacities in nt -- continuous flow phase C1
-
-// Continuous flow phase C2: the init_gpu3() half of the same refill.
-#ifdef __cplusplus
-extern "C" /*PUBLIC*/ void
-#else
-PUBLIC void
-#endif
-refill_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
-            const int length, const int block_size,
-            const size_t* row_off_H, const size_t* cap_H, const int slot);
+          const size_t* cap_H); //in, nfiles record capacities in nt
 
 // teardown_gpu()/teardown_gpu2()/teardown_gpu3(): free the nfiles/length-
 // scaled device buffers allocated by init_gpu()/init_gpu2()/init_gpu3() and
@@ -266,7 +222,7 @@ hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
 	   int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row, //all out
 	   char* gate_row, //out -- bit0 = hc->matrix[ij]!=0, bit1 = ptype[ij] is GU/UG
 	   const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
-           const int* i_H); //in, nfiles entries -- continuous flow phase A, per-record row index
+           const int* i_H); //in, nfiles entries -- per-record row index
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -277,7 +233,7 @@ load_my_c(const int nfiles,
 	  const int i, const int turn, const int length,
 	  const int* min_e, //in
 	  const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
-	  const int* i_H); //in, nfiles entries -- continuous flow phase A2, per-record row index
+	  const int* i_H); //in, nfiles entries -- per-record row index
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -291,7 +247,7 @@ int_loop_i(const int nfiles,
 	   const char* hard_constraints, const int* my_c,*/
 	   int* energy_min, //out
 	   const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
-	   const int* i_H); //in, nfiles entries -- continuous flow phase A3, per-record row index
+	   const int* i_H); //in, nfiles entries -- per-record row index
 
 
 PUBLIC void
@@ -320,14 +276,14 @@ extern "C" /*PUBLIC*/ void
 PUBLIC void
 #endif
 compute_slot_capacities(const int nfiles, const vrna_fold_compound_t **VC,
-                        const int length, size_t* cap_H); //out, nfiles slot capacities in nt -- continuous flow phase C1
+                        const int length, size_t* cap_H); //out, nfiles record capacities in nt
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-compute_batch_offsets(const int nfiles, const size_t* cap_H, //in, nfiles slot capacities in nt -- continuous flow phase C1
+compute_batch_offsets(const int nfiles, const size_t* cap_H, //in, nfiles record capacities in nt
                        size_t* row_off_H, size_t* tri_off_H); //out, both nfiles+1
 
 // Staggered_Row_Batching Phase 4: host-side builder for
@@ -617,8 +573,7 @@ PUBLIC void rnafold_stream_wait_scan(int i);
 
 // The chunk's row tables (device.cu): size_off_H, side_off_H and i_H for every
 // sweep row, one slot per row indexed by the iteration i, written once each.
-// Lock-step uploads them all before row 1; flow uploads each slot as its row is
-// built. Replaces the per-row uploads over shared buffers, which is what raced
+// They all go up in one upload before row 1. Replaces the per-row uploads over shared buffers, which is what raced
 // at RNA_STREAM_OVERLAP=2. Budgeted by rnafold_rowtab_bytes().
 PUBLIC size_t        rnafold_rowtab_bytes(const int nfiles, const int iters);
 PUBLIC void          rnafold_rowtab_begin(const int nfiles, const int iters);
@@ -657,7 +612,6 @@ PUBLIC int           row_cells_i(const int nfiles, const vrna_fold_compound_t **
 /* RNA_INT_LOOP_UNROLL: RETIRED 2026-10-08; says so once if set, and is otherwise ignored. */
 PUBLIC void          rnafold_int_loop_unroll_retired(void);
 PUBLIC void          rnafold_rowtab_upload_all(void);
-PUBLIC void          rnafold_rowtab_upload_row(const int i);
 
 PUBLIC void rnafold_phase_sync(void);
 PUBLIC void rnafold_chunk_trace_open(const char *record_path, const double base); /* N5a P0, mfe_cuda.c */
@@ -688,55 +642,12 @@ PUBLIC void rnafold_launch_stats_begin(void);
 PUBLIC void rnafold_launch_stats_end(unsigned int grid);
 PUBLIC void rnafold_launch_stats_report(void);
 
-// Continuous flow phase B (RNA_CONTINUOUS_FLOW, default off) -- see the
-// definition in mfe_cuda.c.
-PUBLIC int rnafold_continuous_flow(void);
-
-// Continuous flow phase C1 (RNA_SLOT_CAPACITY=max, test mode) -- see mfe_cuda.c.
 // Host mirror of int_loop.cu's d_hc_off_H, for RNA_HC_VERIFY. NULL if not built.
 PUBLIC const size_t* int_loop_hc_off_host(int* n_out);
 
-PUBLIC int rnafold_slot_capacity_max(void);
-
-// Continuous flow phase C2 (RNA_SLOT_TURNOVER=1, test mode) -- see mfe_cuda.c.
-PUBLIC int rnafold_slot_turnover(void);
-
-// Continuous flow phase C3 (RNA_SLOT_FLOW=k) -- see mfe_cuda.c. k>1 also turns
-// continuous flow on, because a slot can only take its next record early if
-// records are on their own rows.
-PUBLIC int rnafold_slot_flow(void);
-
-// Continuous flow phase C3: the chunk's admission SCHEDULE. Each slot owns a
-// queue of records, run back to back: slot s holds queue[qoff[s] .. qoff[s+1]),
-// one record at a time, and takes the next as soon as the current one reaches
-// its last row. The whole timeline follows from the lengths, so this is computed
-// once before the sweep -- there is no allocator and nothing to defragment.
-//
-// on_retire() is called for every record when its last row is done, INCLUDING
-// each slot's final occupant at the end of the sweep, so it is the single place
-// a finished record is fetched and backtracked. It is handed the SLOT because
-// that, not the record index, is where the record's triangles live.
-typedef struct rnafold_schedule_s {
-  int          slots;      //== the nfiles the sweep runs with
-  int          length;     //max length over the WHOLE chunk, not just the first occupants
-  const int   *qoff;       //slots+1 prefix offsets into queue[]
-  const int   *queue;      //record indices, grouped by slot
-  const vrna_fold_compound_t **VC_all;  //every record in the chunk, indexed by record
-  void       (*on_retire)(void *ctx, int slot, int record);
-  void        *ctx;
-} rnafold_schedule_t;
-
-// The chunk's slot capacity table, owned by par_mfe(). par_fill_arrays() must
-// read THIS rather than recompute: a slot's capacity covers every occupant its
-// queue will hold, which is a property of the chunk, not of one pass.
+// The chunk's capacity table, owned by par_mfe(). par_fill_arrays() reads THIS
+// rather than recomputing it, so the two cannot disagree.
 PUBLIC const size_t *rnafold_chunk_capacities(const int nfiles);
-
-// The scalar row index the kernels assert their table entry against. Under
-// continuous flow different records sit on DIFFERENT rows, so there is no single
-// value to compare with: -1 tells the kernel-side assert "unchecked". The host
-// wrappers keep using the real loop counter for everything else (the
-// RNA_ROW_VERIFY comparisons index by i_H[H], and the i==1 end-of-run summary).
-#define RNA_I_ROW(i) (rnafold_continuous_flow() ? -1 : (i))
 
 #ifdef __cplusplus
 extern "C" /*PUBLIC*/ void
@@ -804,7 +715,7 @@ PUBLIC void
 fml_prev_i(const int nfiles, const int i, const int turn,
            const int* fml_prev_host,
            const size_t* row_off_H, const size_t* size_off_H,
-           const int* i_H); //in, nfiles entries -- continuous flow phase A, per-record row index
+           const int* i_H); //in, nfiles entries -- per-record row index
 
 // GPU-resident sweep, step 3: the device twin of new_c_host, the largest of the
 // three per-row host loops. Elementwise, no recurrence over j.
@@ -824,7 +735,7 @@ new_c_i(const int nfiles, const int i, const int turn, const int noGUclosure,
         const int noLP,
         const int* new_C_host,
         const size_t* row_off_H, const size_t* size_off_H,
-           const int* i_H); //in, nfiles entries -- continuous flow phase A, per-record row index
+           const int* i_H); //in, nfiles entries -- per-record row index
 
 // noLP (--noLP): upstream's rotate_aux_arrays() (mfe/mfe.c:4460) for the
 // device's cc/cc1 row buffers -- swap, then refill cc with INF. Call at
@@ -837,17 +748,6 @@ extern "C" /*PUBLIC*/ void
 PUBLIC void
 #endif
 nolp_rotate_cc(void);
-
-// noLP + continuous flow phase C3: reset ONE slot's cc/cc1 rows to the INF a
-// chunk starts from. The noLP half of reset_slot_md(), which resets only the
-// buffers that existed when it was written. Called only when noLP is set.
-// See PORT_FEATURE_AUDIT.md for the defect this closes.
-#ifdef __cplusplus
-extern "C" /*PUBLIC*/ void
-#else
-PUBLIC void
-#endif
-reset_slot_nolp(const size_t row_lo, const size_t row_n);
 
 // GPU-resident sweep, step 4: the device twin of fml_host -- the one loop of
 // the three that is a recurrence along j rather than elementwise. Implemented
@@ -867,7 +767,7 @@ PUBLIC void
 fml_scan_i(const int nfiles, const int i, const int turn,
            const int* energy_min_host,
            const size_t* row_off_H, const size_t* size_off_H,
-           const int* i_H); //in, nfiles entries -- continuous flow phase A, per-record row index
+           const int* i_H); //in, nfiles entries -- per-record row index
 
 // gpuinit attribution (mfe_cuda.c). See there for why.
 #ifdef __cplusplus
@@ -941,8 +841,7 @@ rnafold_pinned_free(void *p, int pinned) {
 #endif
 
 PRIVATE void
-par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy,
-                const rnafold_schedule_t *sched); //NULL == one record per slot, as before
+par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy);
 
 int
 mb_loop_fast( vrna_fold_compound_t *vc,

@@ -199,9 +199,8 @@ rnafold_load_my_c_sync(void)
 
 
 /* Every stream, including the non-blocking ones the legacy stream does not
- * order against. For the host-side points that READ what the sweep wrote
- * mid-sweep (slot flow's retire fetch): they used to be covered by the md
- * chain's per-row host sync, which RNA_MD_ROW_SYNC=0 removes. */
+ * order against. For the host-side points that need the sweep FINISHED, not
+ * just issued (the N5a chunk trace's sweep end). */
 extern "C" void
 rnafold_device_drain(void)
 {
@@ -744,11 +743,7 @@ rnafold_launch_stats_report(void)
  * a slot is written exactly once per chunk. Nothing is ever overwritten under a
  * queued reader, whatever stream it is on and however far the host runs ahead.
  *
- *   lock-step (default)  every slot filled on the host, ONE upload before row 1
- *   continuous flow /    the row is only known when its iteration arrives
- *   a schedule           (slots turn over mid-sweep), so each slot is uploaded
- *                        as its row is built -- still a fresh slot, so still
- *                        race-free by construction.
+ * Every slot is filled on the host and goes up in ONE upload before row 1.
  *
  * The host half is pinned, so the one big upload goes at the pinned rate, and
  * it is the host's own source of truth for the row: fill_arrays_loop.c reads its
@@ -957,10 +952,7 @@ rnafold_tile_end(void)
  * It refuses -- with the reason, and the row path runs -- wherever something holds a
  * whole row across the row's phases: the c ring and RNA_ROW_BATCH flush whole rows on
  * their own schedule; stream overlap > 0 and CUDA graphs publish or capture per row;
- * the flow modes put records on different rows; RNA_ROW_FUSE owns a
- * whole row; RNA_MD_TAIL=0 runs the old seven-step chain. */
-extern "C" int rnafold_continuous_flow(void);
-extern "C" int rnafold_slot_flow(void);
+ * RNA_ROW_FUSE owns a whole row; RNA_MD_TAIL=0 runs the old seven-step chain. */
 extern "C" int rnafold_gpu_sweep(void);
 
 static int
@@ -992,8 +984,6 @@ rnafold_md_tile_cb(void)
     else if (getenv("RNA_ROW_FUSE") && getenv("RNA_ROW_FUSE")[0] && !env_is("RNA_ROW_FUSE", "0"))
                                                why = "RNA_ROW_FUSE owns a whole row";
     else if (!rnafold_gpu_sweep())             why = "off the GPU-resident sweep the host owns the row";
-    else if (rnafold_continuous_flow())        why = "continuous flow puts records on different rows";
-    else if (rnafold_slot_flow() >= 1)         why = "slot flow refills records mid-sweep";
 
     if (why) {
       fprintf(stderr, "device.cu                RNA_MD_TILE_CB=%d REFUSED: %s -- whole rows\n",
@@ -1094,17 +1084,6 @@ rnafold_rowtab_upload_all(void)
 
   rowtab_check(0);
   rowtab_copy(0, rows * RT_STRIDE(g_rt_nfiles), 0, rows * g_rt_nfiles);
-}
-
-/* Flow: one slot, as its row is built. Blocking, and before any kernel of the
- * row is issued; the slot has never been read, so no queued work can see it
- * change. */
-extern "C" void
-rnafold_rowtab_upload_row(const int i)
-{
-  rowtab_check(i);
-  rowtab_copy((size_t)i * RT_STRIDE(g_rt_nfiles), RT_STRIDE(g_rt_nfiles),
-              (size_t)i * g_rt_nfiles, (size_t)g_rt_nfiles);
 }
 
 

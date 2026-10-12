@@ -126,9 +126,6 @@ unsigned int* d_S;    //S[length+2] packed 10 bases (3 bits each) per word
 // launched per row and never sees the batch , so the stride is kept
 // here rather than recomputed from a value that is not in scope.
 static int g_s_stride = 0;
-// Continuous flow phase C3: which slot refill_slot2() is admitting, or -1.
-// Only meaningful while g_slot_only is set.
-static int g_slot_index = -1;
 int*          d_my_c;
 int*          d_energy_min2; //share with modular_decomposition.cu ?
 int*          d_new_e;
@@ -324,24 +321,7 @@ void put10(const unsigned int word, const int H, const int nfiles, const int i, 
   out[I] = word;
 }
 
-// Continuous flow phase C2: SLOT REFILL. A slot has to be able to take a
-// DIFFERENT record, which means redoing every piece of sequence-derived device
-// content this file owns -- the hard-constraint bitmasks, the packed sequence,
-// and d_my_c's INF prefill -- WITHOUT reallocating anything.
-//
-// It is done by re-entering init_gpu2() with the allocations suppressed rather
-// than by a second copy of the packing code, deliberately: a duplicated packer
-// that drifts from the original is exactly the kind of bug that produces wrong
-// energies with no crash. SLOT_ALLOC() is the only difference between the two
-// paths, and the buffers it skips are unchanged in size because the refill
-// keeps the same nfiles and the same capacity table.
-static int g_refill2 = 0;
-// Phase C3: a MID-SWEEP refill touches one slot while every other slot still
-// holds live data, so the whole-buffer d_my_c prefill has to be suppressed and
-// replaced by a range fill over that slot's triangle alone. Clobbering the
-// neighbours here would be silent: they are mid-recursion, not INF.
-static int g_slot_only = 0;
-#define SLOT_ALLOC(pp, sz) do { if(!g_refill2) TIMED_CUDAMALLOC(pp, sz); } while(0)
+#define SLOT_ALLOC(pp, sz) TIMED_CUDAMALLOC(pp, sz)
 
 /* Lyngsø S1 selftest (int_loop_lyngso.inc, included further down). */
 static void ly_alloc(const int nfiles, const size_t* row_off_H);
@@ -353,7 +333,7 @@ static int  ly_ering(void);
 PUBLIC void
 init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* tri_off_H, const size_t* row_off_H, //in, nfiles+1 entries each, mfe_cuda.c
-          const size_t* cap_H) { //in, nfiles slot capacities in nt -- continuous flow phase C1
+          const size_t* cap_H) { //in, nfiles record capacities in nt
   if(!first2) return;
   const double _t_ig2 = rnafold_now_seconds();
   if (!vrna_cuda_quiet()) fprintf(stderr,"%-24s init_gpu2(%d,VC,%d,%d,%d)\n",__FILE__,nfiles,turn_,length,block_size);
@@ -445,32 +425,10 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   // init_gpu3 runs after this function). Skipping this loop is most of the
   // point: it and its init_gpu3 twin were 197.4 s of a 769 s Colab run.
   if(g_hc_seq_derived) {
-    // SCOPED TO THE SLOT ON A REFILL, and this is load-bearing (2026-09-27).
-    //
     // pack_hc_kernel writes only the first Hc_ints2(cap) words of each record's
     // Hc_ints(cap) block here; the rest is MAXLOOP padding that has to read as
-    // zero. So this memset and that pack are a matched pair, and they must have
-    // the SAME scope.
-    //
-    // They did not. The memset was whole-batch while the pack was also
-    // whole-batch, which was consistent but meant a slot handover re-derived
-    // every record's masks -- the O(refills x slots) repack that made slot flow
-    // look 2.2x slower than it is. Scoping only the pack zeroes every OTHER
-    // slot's interior-loop mask and leaves it zero, which forbids interior-loop
-    // pairs for records that never changed: a WRONG ANSWER, not a slow one.
-    //
-    // It is also a wrong answer RNA_HC_VERIFY cannot see, because that check
-    // compares hccc_mb/mbenc/any/gu and NOT this buffer. It reported 0
-    // mismatching words over 174692 words x 4 masks on a run whose output was
-    // wrong at every k.
-    if(g_slot_only && g_slot_index >= 0) {
-      const size_t lo = hc_off_H[g_slot_index];
-      const size_t hi = hc_off_H[g_slot_index + 1];
-
-      gpuErrchk( cudaMemset(d_hccc + lo, 0, (hi - lo)*sizeof(unsigned int)) );
-    } else {
-      gpuErrchk( cudaMemset(d_hccc, 0, hc_off_H[nfiles]*sizeof(unsigned int)) );
-    }
+    // zero. So this memset and that pack are a matched pair, with the SAME scope.
+    gpuErrchk( cudaMemset(d_hccc, 0, hc_off_H[nfiles]*sizeof(unsigned int)) );
   } else {
   unsigned int* hccc   = (unsigned int*) calloc(hc_off_H[nfiles],sizeof(unsigned int));
   const double _t_pk1 = rnafold_now_seconds();
@@ -550,14 +508,7 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   {
     const int len  = (length+2);
     const int W10  = S_STRIDE(length);
-    // Admitting ONE record now touches only its own words. The old layout
-    // interleaved ten slots per word, so a single slot could not be rewritten
-    // without a read-modify-write of shared words and the whole batch was
-    // repacked instead -- which is what the per-record layout was for.
-    const int H_lo = (g_slot_only && g_slot_index >= 0) ? g_slot_index : 0;
-    const int H_hi = (g_slot_only && g_slot_index >= 0) ? g_slot_index+1 : nfiles;
-
-    for(int H=H_lo;H<H_hi;H++){
+    for(int H=0;H<nfiles;H++){
       for(int w=0;w<W10;w++){
         unsigned int word = 0;
 
@@ -578,23 +529,16 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
     }
   }
 #ifndef NDEBUG
-  if(!(g_slot_only && g_slot_index >= 0))
-    for(size_t i=0;i<size/4;i++) assert(buff[i] <= 04444444444);
+  for(size_t i=0;i<size/4;i++) assert(buff[i] <= 04444444444);
 #endif
   stage_ig_pack_s += rnafold_now_seconds() - _t_pk2;
-  if(g_slot_only && g_slot_index >= 0) {
-    const size_t w = (size_t)S_STRIDE(length);
-    gpuErrchk( cudaMemcpy(d_S + (size_t)g_slot_index*w, buff + (size_t)g_slot_index*w,
-                          w*sizeof(unsigned int), cudaMemcpyHostToDevice) );
-  } else {
-    gpuErrchk( cudaMemcpy(d_S,buff,size,cudaMemcpyHostToDevice) );
-  }
+  gpuErrchk( cudaMemcpy(d_S,buff,size,cudaMemcpyHostToDevice) );
   free(buff);
 
   { const size_t my_c_elems = tri_off_H[nfiles]; //sum of each H's own triangle size
     size = my_c_elems*sizeof(int);
     SLOT_ALLOC(&d_my_c, size);
-    if(!g_slot_only) init_my_c(my_c_elems);   // phase C3: see g_slot_only
+    init_my_c(my_c_elems);
   }
 
   // Staggered_Row_Batching Phase 6d: cached for the per-row entry points that
@@ -612,9 +556,8 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
 
   // RNA_C_RING: decided and sized per chunk (a slot is this chunk's row_total), and
   // INF everywhere, so a cell outside a row's size range reads exactly what the
-  // triangle's INF prefill would give. Slot flow, the only refill2 caller, refuses
-  // the ring, so the guard only keeps a refill from re-allocating it.
-  if(!g_refill2) {
+  // triangle's INF prefill would give.
+  {
     g_c_ring_on = rnafold_c_ring();
     g_c_pend = 0; g_c_rows = 0; g_c_flushes = 0;
     if(g_c_ring_on) {
@@ -635,50 +578,6 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   ly_alloc(nfiles, row_off_H);   /* Lyngsø G buffers (default on; RNA_INT_LOOP_LYNGSO=0 or a refusal -> no-op) */
   stage_ig2_s += rnafold_now_seconds() - _t_ig2;
   first2 = 0;
-}
-
-// Continuous flow phase C2: re-run init_gpu2()'s CONTENT for a chunk whose slots
-// have taken new occupants. Same nfiles, same capacity table, same buffers --
-// only the records differ. first2 is forced back on so the body runs; the
-// SLOT_ALLOC guard is what stops it reallocating over the live pointers.
-PUBLIC void
-refill_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
-            const int length, const int block_size,
-            const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H) {
-  assert(!first2);            // must be a live chunk, not a fresh one
-  g_refill2 = 1;
-  first2    = 1;
-  init_gpu2(nfiles, VC, turn_, length, block_size, tri_off_H, row_off_H, cap_H);
-  g_refill2 = 0;
-}
-
-// Continuous flow phase C3: refill ONE slot, mid-sweep, without disturbing the
-// others. The sequence-derived content this file owns is per-slot, d_S included: since the
-// per-record repack it owns [slot*S_STRIDE, (slot+1)*S_STRIDE) outright, so
-// admitting a record costs ONE small contiguous upload rather than repacking
-// the whole batch. That whole-batch repack is what the interleaved layout
-// forced, and removing it is what makes a slot cheap enough to recycle
-// mid-sweep -- the admission primitive the streaming queue needs.
-//
-// The one thing that must NOT be done whole-buffer is d_my_c's INF prefill --
-// hence g_slot_only and the range fill below.
-PUBLIC void
-refill_slot2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_,
-             const int length, const int block_size,
-             const size_t* tri_off_H, const size_t* row_off_H, const size_t* cap_H,
-             const int slot) {
-  g_slot_only  = 1;
-  g_slot_index = slot;
-  refill_gpu2(nfiles, VC, turn_, length, block_size, tri_off_H, row_off_H, cap_H);
-  g_slot_index = -1;
-  g_slot_only  = 0;
-
-  const size_t lo = tri_off_H[slot];
-  const size_t n  = tri_off_H[slot+1] - lo;
-  const size_t nblocks = (n + BLOCK_SIZE - 1)/BLOCK_SIZE;
-  init_my_c_kernel<<<nblocks,BLOCK_SIZE>>>(n, d_my_c + lo);
-  gpuErrchk( cudaPeekAtLastError() );
-  gpuErrchk( cudaDeviceSynchronize() );
 }
 
 // Frees the 5 nfiles/length-scaled device buffers allocated by init_gpu2()
@@ -912,9 +811,7 @@ rnafold_c_ring(void)
 {
   if(!c_ring_asked()) return 0;
   const char* why = NULL;
-  if(rnafold_continuous_flow())           why = "continuous flow puts records on different rows";
-  else if(rnafold_slot_flow())            why = "slot flow refills a record's triangle mid-sweep";
-  else if(!rnafold_gpu_sweep())           why = "off the GPU-resident sweep the host path owns new_C";
+  if(!rnafold_gpu_sweep())                why = "off the GPU-resident sweep the host path owns new_C";
   else if(c_env_on("RNA_ROW_FUSE"))       why = "RNA_ROW_FUSE writes the triangle from its fused kernel";
   static int said = 0;
   if(!said) {
@@ -1017,7 +914,7 @@ load_my_c(const int nfiles,
 	  const int i, const int turn_, const int length,
 	  const int* new_e,
 	  const size_t* size_off_H,     //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
-	  const int* i_H) {             //in, nfiles entries -- continuous flow phase A2
+	  const int* i_H) {             //in, nfiles entries -- per-record row index
   //out d_my_c
   const size_t total = size_off_H[nfiles];
   if(total==0) return;
@@ -1077,7 +974,7 @@ load_my_c(const int nfiles,
   }
   const int nblocks = (total + block_size - 1)/block_size;
 
-  load_my_c_kernel<<<nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, RNA_I_ROW(i), /*turn,*/ length,
+  load_my_c_kernel<<<nblocks,block_size,0,rnafold_stream_cell()>>>(nfiles, i, /*turn,*/ length,
 					   d_new_e,  //in
 					   d_my_c,   //out
 					   d_tri_off_H,  //in
@@ -1628,7 +1525,7 @@ int_loop_cuda(const int nfiles,
 	      const vrna_param_t *P,
 	      int* energy_min,
 	      const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
-	      const int* i_H) {         //in, nfiles entries -- continuous flow phase A3
+	      const int* i_H) {         //in, nfiles entries -- per-record row index
   //cf modular_decomposition.cu r1.79
   // Staggered_Row_Batching Phase 5: size_off_H[nfiles] replaces the old
   // scalar nblocks<=0 check -- numerically identical while every H shares
@@ -1655,7 +1552,7 @@ int_loop_cuda(const int nfiles,
     assert(nb <= 2147483647u);
     const dim3   grid((unsigned int)nb);
 #define IL_WARP_LAUNCH(RG, LYV) int_loop_warp_kernel<RG,LYV><<<grid, INT_LOOP_WARP_BLOCK_SIZE, 0, rnafold_stream_cell()>>>( \
-        nfiles, RNA_I_ROW(i), length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
+        nfiles, i, length, P->TerminalAU, P->ninio[2], d_param, P->lxc, \
         d_pair, d_S, d_hccc, d_up_int, d_my_c, d_tri_off_H, d_row_off_H, d_hc_off_H, \
         d_size_off_H, d_i_H, d_energy_min2, d_c_ring, g_row_total, il_G, \
         (LYV) ? (const int*)d_ly_G[i & 1] : (const int*)NULL, (LYV) ? g_row_total : (size_t)0)
@@ -1707,7 +1604,7 @@ int_loop_i(const int nfiles,
 	   const char* hard_constraints, const int* my_c,*/
 	   int* energy_min,
 	   const size_t* size_off_H, //in, nfiles+1 entries -- Staggered_Row_Batching Phase 5
-	   const int* i_H ) {        //in, nfiles entries -- continuous flow phase A3
+	   const int* i_H ) {        //in, nfiles entries -- per-record row index
   // Staggered_Row_Batching Phase 2b: this used to have a defensive
   // `if(first2) init_gpu2(...)` fallback here, but int_loop_i() is only ever
   // reached via fill_arrays_loop.c -> par_fill_arrays() -> par_mfe(), which

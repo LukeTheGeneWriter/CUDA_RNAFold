@@ -9,7 +9,8 @@
 #   RNA_FML_INT16 + --noLP        near-INF finite values in fML exceed the
 #                                 16-bit per-block offset. Each half is
 #                                 individually correct and verified.
-#   RNA_FML_INT16 + RNA_SLOT_FLOW a slot handover leaves stale baselines.
+#   RNA_FML_INT16 + RNA_SLOT_FLOW a slot handover leaves stale baselines
+#                                 (slot flow was deleted in the cleanup, C4).
 #
 # Both are PAIRWISE properties. Running each option alone proves nothing about
 # them, and the accepted set is now six options plus five orthogonal env
@@ -70,8 +71,8 @@ note_fail() { fail=$((fail+1)); FAILURES+=("$1"); }
 
 cpu_run() {   # cpu_run TAG CLI...
   local tag=$1; shift
-  env -u RNA_GPU_CHUNK -u RNA_FML_INT16 -u RNA_SLOT_FLOW \
-      -u RNA_CONTINUOUS_FLOW -u RNA_MIN_GPU_BATCH \
+  env -u RNA_GPU_CHUNK -u RNA_FML_INT16 -u RNA_C_RING \
+      -u RNA_INT_LOOP_LYNGSO -u RNA_MIN_GPU_BATCH \
       RNA_GPU=0 "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.out" 2> "$W/$tag.err"
   echo $?
 }
@@ -79,7 +80,7 @@ cpu_run() {   # cpu_run TAG CLI...
 gpu_run() {   # gpu_run TAG "ENV..." CLI...
   local tag=$1 envs=$2; shift 2
   # shellcheck disable=SC2086 -- envs and CLI are controlled single-word tokens
-  env -u RNA_FML_INT16 -u RNA_SLOT_FLOW -u RNA_CONTINUOUS_FLOW \
+  env -u RNA_FML_INT16 -u RNA_C_RING -u RNA_INT_LOOP_LYNGSO \
       -u RNA_MIN_GPU_BATCH -u RNA_GPU RNA_GPU_CHUNK=0 $envs \
       "$BIN" --noPS "$@" -i "$IN" > "$W/$tag.out" 2> "$W/$tag.err"
   echo $?
@@ -88,8 +89,8 @@ gpu_run() {   # gpu_run TAG "ENV..." CLI...
 sweeps_of()      { grep -c 'sweep shape:' "$W/$1.err"; }
 records_of()     { grep -c '^>' "$W/$1.out"; }
 
-# `peak/iteration N records` is a PEAK, not a total. Under RNA_SLOT_FLOW=2 the
-# 30 records occupy 15 slots and it reads 15 -- so summing it says "15 of 30
+# `peak/iteration N records` is a PEAK, not a total. Under RNA_SLOT_FLOW=2 (since
+# deleted) the 30 records occupied 15 slots and it read 15 -- so summing it says "15 of 30
 # fell to the CPU" about a run whose `active record-rows` and `cells` totals
 # are IDENTICAL to the non-flow run. It happens to equal the record count when
 # no flow is on and every record is resident at once, which is why it has
@@ -140,13 +141,15 @@ cli_args() {
 
 # Orthogonal env switches. chunk12 forces 5 chunks over 30 records, leaving a
 # 2-record remainder -- below the stock MIN_GPU_BATCH of 10, so it exercises
-# the PARTIAL CPU fallback that a single-chunk run never reaches.
-ENV_TAGS=(int16 slotflow contflow minbatch1 chunk12)
+# the PARTIAL CPU fallback that a single-chunk run never reaches. ring0 and ly0
+# are the two off-default int_loop kernels the cleanup kept (D2); they replaced
+# slotflow and contflow, which went with slot flow (C4), so the matrix stays 36.
+ENV_TAGS=(int16 ring0 ly0 minbatch1 chunk12)
 env_args() {
   case $1 in
     int16)     echo "RNA_FML_INT16=1" ;;
-    slotflow)  echo "RNA_SLOT_FLOW=2" ;;
-    contflow)  echo "RNA_CONTINUOUS_FLOW=1" ;;
+    ring0)     echo "RNA_C_RING=0" ;;
+    ly0)       echo "RNA_INT_LOOP_LYNGSO=0" ;;
     minbatch1) echo "RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0" ;;
     chunk12)   echo "RNA_GPU_CHUNK=12" ;;  # applied after the base, last wins
   esac
@@ -158,7 +161,6 @@ env_args() {
 is_refused() {   # is_refused TAG_A TAG_B
   case "$1+$2" in
     int16+noLP|noLP+int16)         return 0 ;;
-    int16+slotflow|slotflow+int16) return 0 ;;
     # int16 became the DEFAULT on 2026-09-27, and the knob is asymmetric: unset means
     # auto and stands down quietly where int16 is unsafe, while an EXPLICIT
     # RNA_FML_INT16=1 is an error there. This file always sets it explicitly, so every

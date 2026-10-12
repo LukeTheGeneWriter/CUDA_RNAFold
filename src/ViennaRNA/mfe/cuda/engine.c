@@ -551,7 +551,6 @@ extern void teardown_gpu3(void);
 extern size_t gpu_bytes_per_file(const int length);
 extern size_t compute_gpu_usable_bytes(void);
 extern void   rnafold_circ_expect(const int circ);
-extern int    rnafold_slot_flow(void);
 #endif
 
 
@@ -624,13 +623,9 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
   {
     size_t  start   = 0;
     int     devused = 0;
-    /* RNA_SLOT_FLOW shares slots between records, so RNAfold prices its chunks by slot,
-     * below this per-record sum: re-splitting them here would quietly change that mode.
-     * It is RNAfold's experimental knob and RNAfold sizes those chunks itself. */
-    const int     whole   = (rnafold_slot_flow() >= 1);
 
     while (start < n) {
-      const size_t  usable  = whole ? (size_t)-1 : compute_gpu_usable_bytes();
+      const size_t  usable  = compute_gpu_usable_bytes();
       size_t        end     = start;
       size_t        bytes   = 0;
 

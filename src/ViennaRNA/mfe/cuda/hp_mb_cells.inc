@@ -24,18 +24,18 @@ hp_mb_3p_cell(const int nfiles, const int i_row, const int turn, const int lengt
                  const size_t* __restrict__ row_off_H,
                  const size_t* __restrict__ hc2_off_H,
                  const size_t* __restrict__ seq_off_H,
-                 const int* __restrict__ len_H,   //continuous flow phase C1
+                 const int* __restrict__ len_H,   //per-record length
                  const size_t* __restrict__ size_off_H, const size_t total,
                 const int* __restrict__ i_H,
                const long long m) {
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
-  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
-  // i_row today, and the assert proves that at RUNTIME rather than by
+  // The row index is read per record (i_H). It equals
+  // i_row, and the assert proves that at RUNTIME rather than by
   // argument -- .cu files never see -DNDEBUG, so a table that ever
   // disagrees traps instead of folding silently wrong.
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
+  assert(i == i_row);
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int j = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
 
@@ -106,9 +106,8 @@ hp_mb_3p_cell(const int nfiles, const int i_row, const int turn, const int lengt
       // entirely (illegal access, reproduced with descending-length input at
       // RNA_GPU_VRAM_BUDGET_MB=8/16 -- the tail chunk there is 13 records with
       // batch max 560 whose last record is only 80nt). Recovered from the
-      // offset table rather than a new parameter -- SUPERSEDED by continuous
-      // flow phase C1, which took it from d_len_H instead: seq_off_H's stride is
-      // the SLOT's capacity+2 now, and this read needs the RECORD's length.
+      // offset table rather than a new parameter -- SUPERSEDED by d_len_H: this
+      // read needs the RECORD's length, not the buffer's stride.
       // Getting that wrong here is exactly the 00d1e07 bug.
       const int length_H = len_H[H];
       // This kernel carried no asserts at all, which is the reason the bug
@@ -151,12 +150,12 @@ new_c_cell(const int nfiles, const int i_row, const int turn, const int noGUclos
             const long long m) {
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
-  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
-  // i_row today, and the assert proves that at RUNTIME rather than by
+  // The row index is read per record (i_H). It equals
+  // i_row, and the assert proves that at RUNTIME rather than by
   // argument -- .cu files never see -DNDEBUG, so a table that ever
   // disagrees traps instead of folding silently wrong.
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
+  assert(i == i_row);
   const long long mj = (long long)m - (long long)size_off_H[H];
   const int j = mj + i+turn+1 + (int)size_off_H[nfiles + 1];
   const size_t o = row_off_H[H];
@@ -218,12 +217,12 @@ fml_prev_cell(const int nfiles, const int i_row, const int turn,
                const long long m) {
   if((size_t)m >= total) return;
   const int H = flatten_index_to_H((size_t)m, size_off_H, nfiles);
-  // PHASE A (continuous flow): the row index is PER-RECORD now. It equals
-  // i_row today, and the assert proves that at RUNTIME rather than by
+  // The row index is read per record (i_H). It equals
+  // i_row, and the assert proves that at RUNTIME rather than by
   // argument -- .cu files never see -DNDEBUG, so a table that ever
   // disagrees traps instead of folding silently wrong.
   const int i = i_H[H];
-  assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
+  assert(i == i_row);
   const long long mj = (long long)m - (long long)size_off_H[H] + (long long)size_off_H[nfiles + 1];   /* ROW-local (3a.2): mj == 0 is the row's first cell */
   const int j = mj + i+turn+1;
   const size_t o = row_off_H[H];

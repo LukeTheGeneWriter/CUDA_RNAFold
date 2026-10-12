@@ -313,6 +313,29 @@ end of C6 confirms 400×5601 and the soak are unchanged.
   (`RNA_SYNC_PROBE`, `RNA_MD3_LAUNCH_PROBE`, `RNA_MD_INF_STATS`,
   `RNA_MD_STREAM_STATS`, `RNA_MD_L2_*`).
 
+**C5 record (2026-10-11).** fdef63aa. The three off-default warp int_loop instances (D2)
+get their own bar, `tools/coverage/knobarms.sh`: `RNA_C_RING=0`, `RNA_INT_LOOP_LYNGSO=0`
+and both, on C_mixed, extreme and F_lite @ 64 MB — output equal to the frozen reference
+**and** stderr showing the arm took its path (the ring/Lyngsø ACTIVE lines present in
+the default arm, absent in the arm that turns them off). 12/12.
+
+**C4 notes (2026-10-11).**
+- Deleted with slot/continuous flow: `RNA_SLOT_FLOW`, `RNA_CONTINUOUS_FLOW`,
+  `RNA_SLOT_TURNOVER` and `RNA_SLOT_CAPACITY` (the last two were its test modes), the
+  schedule, the retire pool, `refill_gpu2/3`, `refill_slot2`, `reset_slot_md/_nolp`,
+  `rnafold_rowtab_upload_row`, `RNA_I_ROW()` (now `i`; the kernel asserts lose their
+  `i_row < 0` escape and are strict). The fetch/finish split stays.
+- RNAfold's chunk projection was slot-flow aware (`projected_chunk_bytes`, a sorted
+  `len_desc`); with one buffer set per record it is a running sum, exactly equal.
+- **The option matrix keeps 36 pairs**: its `slotflow`/`contflow` arms are replaced by
+  `ring0`/`ly0`, so every CLI option now meets the two off-default int_loop kernels.
+  `verify_option_triples.sh` (every triple had a flow dimension) and
+  `verify_retire_pool.sh` move to `tools/archive/`; `verify_nolp_parity.sh` keeps its
+  mixed-length arm without slot flow.
+- `choose_gpu()` is **not** deleted here although the T4 table lists it: it is WBL's
+  original device-query helper, unrelated to flow, and dead. Left for C6 with the other
+  cold leftovers, to be decided with Luke rather than swept up silently.
+
 Phase changes from these: C5 no longer touches md tile CB / fusion (`RNA_MD_TILE_CB`,
 `_FUSE`, `_RB`, `_REVERSE`, `RNA_ROW_FUSE` move from T4 to T3, flagged); a new **C6b** does
 the D3 split; a new **C9** stamps the post-cleanup commit into the D4 flag comment and tags

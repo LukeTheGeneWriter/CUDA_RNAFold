@@ -68,11 +68,11 @@ md_cell(
   if(active) {
     const int H = flatten_index_to_H((size_t)m, side_off_H, nfiles);
     const long long mj = (long long)m - (long long)side_off_H[H];
-    // Continuous flow phase A2. Read inside the `active` guard, the only place
+    // The per-record row index. Read inside the `active` guard, the only place
     // H exists; the inactive lanes never need it -- they just carry INF through
     // the shuffle below. Two lines use it: j and ij0.
     const int i = i_H[H];
-    assert(i_row < 0 || i == i_row);   // i_row<0: continuous flow, records are on different rows
+    assert(i == i_row);
 
     const int x = (int)mj + (int)side_off_H[nfiles + 1];   /* ROW-local: the k range, corners and loops all key on it (3a.2) */
     const int j = x + (i + 2*(turn+1)) + 1;

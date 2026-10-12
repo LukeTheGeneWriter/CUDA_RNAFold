@@ -147,18 +147,6 @@ rnafold_gpu_sweep(void) {
   }
   return v;
 }
-// Continuous flow phase B. OFF by default: with it off every record sits on
-// the same row as today and the kernels' assert(i == i_row) self-proof stays
-// live, so one binary can be A/B'd against itself -- the same shape that
-// settled RNA_GPU_SWEEP.
-//
-// ON, each record starts at ITS OWN top row on the first iteration instead of
-// waiting for the shared counter to come down to it, and retires when it
-// reaches row 1 instead of the whole batch finishing together. Same total work
-// (each record still computes exactly its own triangle, one row per iteration,
-// in the same order); what changes is WHEN each record's rows are computed, so
-// the early iterations stop being nearly empty. The answers must not move --
-// that is the verification bar.
 // int16 fml_j (INT16_FML_SCOPE.md). OFF by default and constant for the run,
 // the same shape as RNA_GPU_SWEEP above and for the same reason: one binary
 // folds both ways, so the encoding is compared against ITSELF rather than
@@ -185,11 +173,10 @@ static int g_fml_int16_auto   = -1;   /* -1 undecided; see rnafold_fml_int16_aut
 // build is ~21 % -- see PORT_ZEROCONF_SCOPE.md.
 //
 // WHY IT IS *AUTO* RATHER THAN MERELY ON. int16 is refused in combination with
-// RNA_SLOT_FLOW (a slot handover would leave stale per-block baselines) and with
 // RNA_MD_PRUNE (the packed triangle has per-block baselines, so a raw int32
-// minimum over it is meaningless). Those refusals call exit(). Flipping the
-// default without more would therefore make `RNA_SLOT_FLOW=2` a hard failure for
-// anyone who had it working -- a default must not break a working command line.
+// minimum over it is meaningless), and was with the since-deleted RNA_SLOT_FLOW.
+// Those refusals call exit(). Flipping the default without more would therefore
+// have made a working command line a hard failure -- a default must not do that.
 //
 // So the asymmetry, which is the same one PORT_ZEROCONF_SCOPE.md argues for
 // --enable-cuda: an EXPLICIT request that cannot be honoured is an error, while a
@@ -219,21 +206,16 @@ rnafold_fml_int16(void) {
 
     /* THE COMPATIBILITY RESOLUTION LIVES HERE, ONCE, because the alternative is
      * two downstream sites calling exit() on a combination the user never asked
-     * for. Both conditions are read from the environment rather than through
-     * their own accessors: rnafold_md_prune() calls back into this function, and
-     * a knob that can recurse into itself during initialisation is a hang
-     * waiting for a bug report. */
+     * for. The condition is read from the environment rather than through its
+     * own accessor: rnafold_md_prune() calls back into this function, and a knob
+     * that can recurse into itself during initialisation is a hang waiting for a
+     * bug report. */
     if(v) {
-      if(rnafold_slot_flow() >= 1)
-        why = "RNA_SLOT_FLOW is on, and a slot handover would leave the previous "
-              "occupant's per-block baselines in place";
-      else {
-        const char *pr = getenv("RNA_MD_PRUNE");
+      const char *pr = getenv("RNA_MD_PRUNE");
 
-        if(pr && pr[0] && pr[0] != '0')
-          why = "RNA_MD_PRUNE is on, and its block minima are meaningless over a "
-                "packed triangle with per-block baselines";
-      }
+      if(pr && pr[0] && pr[0] != '0')
+        why = "RNA_MD_PRUNE is on, and its block minima are meaningless over a "
+              "packed triangle with per-block baselines";
     }
 
     if(why) {
@@ -364,98 +346,8 @@ rnafold_fml_int16_vet_params(const int worst_stack, const int blk) {
   }
 }
 
-PUBLIC int
-rnafold_continuous_flow(void) {
-  static int v = -1;
-  if(v < 0) {
-    const char *e = getenv("RNA_CONTINUOUS_FLOW");
-    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
-    // Phase C3: slot flow IMPLIES continuous flow -- a slot can only take its
-    // next record early if records are on their own rows. This has to be
-    // decided HERE and not just inside the sweep, because RNA_I_ROW() asks this
-    // function whether there is still a single row for the kernels to assert
-    // against. Getting that wrong trips the assert rather than folding wrong,
-    // which is how it was caught.
-    // k=1 is the degenerate schedule -- one record per slot, no turnover -- and
-    // still needs per-record rows, so the implication starts at 1, not 2. That
-    // makes k=1 a test of the schedule plumbing in isolation from the handover.
-    if(!v && rnafold_slot_flow() >= 1) v = 1;
-    if(v) fprintf(stderr,"%-24s RNA_CONTINUOUS_FLOW=1: records start at their own "
-                         "top row and retire at their own last row\n", __FILE__);
-  }
-  return v;
-}
-
-// Continuous flow phase C1. A SLOT's capacity and its OCCUPANT's length are the
-// same number today, and the code uses them interchangeably. They stop being the
-// same the moment a slot outlives its first occupant (phase C2), so C1 separates
-// them while they still agree -- which is what makes the separation provable.
-//
-// RNA_SLOT_CAPACITY=max sizes every slot to the chunk maximum instead of its own
-// record's length. It WASTES VRAM and is not a mode anyone should run for real;
-// it exists as the end-to-end proof that a record folds correctly in an
-// over-sized slot, which is the load-bearing assumption of all of phase C. It
-// must stay byte-identical.
-PUBLIC int
-rnafold_slot_capacity_max(void) {
-  static int v = -1;
-  if(v < 0) {
-    const char *e = getenv("RNA_SLOT_CAPACITY");
-    v = (e && (e[0]=='m'||e[0]=='M')) ? 1 : 0;
-    if(v) fprintf(stderr,"%-24s RNA_SLOT_CAPACITY=max: every slot sized to the chunk "
-                         "maximum, not to its own record (test mode, wastes VRAM)\n", __FILE__);
-  }
-  return v;
-}
-
-// Continuous flow phase C2: SLOT TURNOVER self-check (RNA_SLOT_TURNOVER=1).
-// After a chunk folds normally, every record is re-admitted into a DIFFERENT
-// slot -- record r moves to slot r-1, cyclically -- and the chunk is folded a
-// second time. Slot capacities were sized for both occupants up front, so most
-// records end up in a slot LARGER than themselves, which is the arrangement all
-// of phase C depends on. Each slot's second result must equal the first result
-// of the record that moved into it.
-//
-// It doubles the work and discards the second answer, so it is a test mode, not
-// a feature. What it proves is the thing C3 needs and cannot assume: that
-// refilling a slot leaves NO trace of its previous occupant.
-PUBLIC int
-rnafold_slot_turnover(void) {
-  static int v = -1;
-  if(v < 0) {
-    const char *e = getenv("RNA_SLOT_TURNOVER");
-    v = (e && e[0] && strcmp(e,"0")) ? 1 : 0;
-    if(v) fprintf(stderr,"%-24s RNA_SLOT_TURNOVER=1: every chunk is folded twice, the "
-                         "second time with every record in a different slot (test mode)\n",
-                  __FILE__);
-  }
-  return v;
-}
-
-// Continuous flow phase C3: RNA_SLOT_FLOW=k folds the chunk in ceil(nfiles/k)
-// SLOTS instead of one slot per record. Each slot runs a queue of records back
-// to back: as soon as one reaches its last row the slot fetches it, backtracks
-// it, and takes the next -- mid-sweep, while every other slot keeps going.
-//
-// k=2 halves the slot count (and so the VRAM) for the same records; k=1 or unset
-// is today's behaviour. The output must not change, only the schedule.
-PUBLIC int
-rnafold_slot_flow(void) {
-  static int v = -1;
-  if(v < 0) {
-    const char *e = getenv("RNA_SLOT_FLOW");
-    v = (e && e[0]) ? atoi(e) : 0;
-    if(v < 0) v = 0;
-    if(v >= 1) fprintf(stderr,"%-24s RNA_SLOT_FLOW=%d: chunks run in 1/%d as many slots, "
-                             "each slot taking its next record mid-sweep\n", __FILE__, v, v);
-  }
-  return v;
-}
-
-// The chunk's slot capacities, owned here because par_fill_arrays() must see
-// EXACTLY the table par_mfe() allocated the buffers from. Recomputing them
-// there would be wrong under turnover: a slot's capacity covers both of its
-// occupants, so it depends on the whole chunk, not on the pass's own records.
+// The chunk's record capacities, owned here because par_fill_arrays() must see
+// EXACTLY the table par_mfe() allocated the buffers from.
 static size_t *g_cap_H = NULL;
 static int     g_cap_n = 0;
 
@@ -569,8 +461,7 @@ double rnafold_now_seconds(void) {
  *   sweep_t1..bt_t1   fetch + trace on the host, GPU IDLE -- N5a's prize
  *   exit -> next enter, from the other file's view: teardown, free, output
  *                     dispatch and any wait for the builder, GPU idle too
- * Times are seconds on CLOCK_MONOTONIC minus RNAfold's trace base. Slot flow
- * interleaves sweep and trace, so its sweep_t1/bt_t1 are left empty. */
+ * Times are seconds on CLOCK_MONOTONIC minus RNAfold's trace base. */
 static FILE  *g_chunk_fp    = NULL;
 static double g_chunk_base  = 0.0;
 static int    g_chunk_k     = 0;
@@ -1170,18 +1061,15 @@ typedef struct {
 // MFE, backtrack, then hand the scratch back. VC[]'s own c/fML pointers are
 // NULL outside this window (par_mfe() releases them up front), which is what
 // keeps peak host RAM at one record's worth per worker.
-// Phase C3: `slot` is where the record's triangles LIVE on the device, which is
-// the record's own index only when there is one record per slot. `idx` stays the
-// record index: it is what indexes VC/Structure/energy/EN, and so what keeps the
-// output in input order however the records were scheduled.
+// `slot` is where the record's triangles live on the device and `idx` is what
+// indexes VC/Structure/energy/EN. They are equal (one record per buffer, see
+// backtrack_one()); they were separate for slot flow, deleted in the cleanup (C4).
 PRIVATE void
 backtrack_fetch_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_scratch_t *sc) {
   vrna_fold_compound_t *vc = (vrna_fold_compound_t *) a->VC[idx];
   const size_t lo    = a->tri_off_H[slot];
-  // Phase C1: the OCCUPANT's own triangle, not the slot's. Indx(i,j)=j*(j-1)/2+i
-  // does not depend on length, so a record living in a larger slot occupies
-  // exactly the prefix -- and taking the slot's size here would both copy cells
-  // this record does not own and overrun host matrices sized to its own length.
+  // The record's own triangle: Indx(i,j)=j*(j-1)/2+i does not depend on length,
+  // so the cell count is the record's, and must fit the buffer it was given.
   const size_t len   = (size_t)vc->length;
   const size_t cells = (len + 1)*(len + 2)/2;
   assert(vc->type == VRNA_FC_TYPE_SINGLE);
@@ -1230,9 +1118,8 @@ backtrack_fetch_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt
 // triangles have landed in the scratch. It is pure host work: the circ check,
 // fM1, the exterior loop, the MFE read and the backtrack all read sc->c/sc->fML
 // and make no CUDA call at all. That is what makes it safe to run on a worker
-// thread while the sweep carries on with the next row, and it is the only half
-// that can be: the FETCH must stay ordered before the slot is refilled, because
-// refill_slot2() is about to overwrite exactly those cells.
+// thread. (It was split from the fetch for slot flow, where the fetch had to stay
+// on the sweep's thread; slot flow is gone, the seam is kept.)
 //
 // `slot` is deliberately not a parameter -- it addresses the device, and
 // nothing below this line does.
@@ -1375,9 +1262,8 @@ backtrack_finish_slot(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc)
   vc->matrices->fM2_real = NULL;   /* CIRCULAR: pooled, same reason */
 }
 
-// The two halves back to back, which is what every caller outside the flow path
-// wants: backtrack_all()'s workers each own one record start to finish, so
-// there is nothing to hand over and no reason to split it.
+// The two halves back to back: backtrack_all()'s workers each own one record
+// start to finish, so there is nothing to hand over and no reason to split it.
 PRIVATE void
 backtrack_one_slot(backtrack_pool_args_t *a, const int idx, const int slot, bt_scratch_t *sc) {
   backtrack_fetch_slot(a, idx, slot, sc);
@@ -1411,7 +1297,7 @@ callback_backtrack(const vrna_fold_compound_t* vc,
 
 PRIVATE void
 backtrack_one(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc) {
-  backtrack_one_slot(a, idx, idx, sc);   // one record per slot: they are the same
+  backtrack_one_slot(a, idx, idx, sc);   // one record per buffer: they are the same
 }
 
 PRIVATE void *
@@ -1434,32 +1320,21 @@ backtrack_worker(void *arg) {
 // identical to the old H*(length+1)/Hoff(H,length) formulas -- asserted
 // below as a regression gate on the table-building logic itself, ahead of
 // any real consumer switching over to it in a later phase.
-// Continuous flow phase C1: the one place the capacity rule lives. par_mfe() and
-// par_fill_arrays() both build the offset tables independently (Phase 2c) and
-// they address the SAME device buffers, so both must derive capacities the same
-// way -- hence a shared function rather than the rule written out twice.
+// The one place the capacity rule lives: a record's buffers are sized to its
+// own length. par_mfe() publishes the table (rnafold_chunk_capacities()) and
+// par_fill_arrays() reads it, because both address the SAME device buffers.
 PUBLIC void
 compute_slot_capacities(const int nfiles, const vrna_fold_compound_t **VC,
                         const int length, size_t* cap_H) {
-  const int cap_max = rnafold_slot_capacity_max();
+  (void)length;
   for(int H=0; H<nfiles; H++)
-    cap_H[H] = (size_t)(cap_max ? length : (int)VC[H]->length);
-  // Phase C2: under the turnover self-check slot H hosts VC[H] and then
-  // VC[(H+1)%nfiles], so it has to be big enough for both. This is the rule the
-  // real scheduler (C3) generalises: a slot's capacity covers every record its
-  // queue will ever hold.
-  if(rnafold_slot_turnover() && nfiles >= 2)
-    for(int H=0; H<nfiles; H++) {
-      const size_t other = (size_t)VC[(H+1)%nfiles]->length;
-      if(other > cap_H[H]) cap_H[H] = other;
-    }
+    cap_H[H] = (size_t)VC[H]->length;
 }
 
 PUBLIC void
 compute_batch_offsets(const int nfiles, const size_t* cap_H,
                        size_t* row_off_H, size_t* tri_off_H) {
-  // Phase C1: built from the SLOT CAPACITY table, not from VC[H]->length. The
-  // two are equal by default, so every table below is bit-for-bit what it was.
+  // Built from the capacity table, which is VC[H]->length (compute_slot_capacities()).
   row_off_H[0] = 0;
   tri_off_H[0] = 0;
   for(int H=0; H<nfiles; H++) {
@@ -1516,217 +1391,9 @@ compute_flatten_offsets(const int nfiles, const size_t* width_H, size_t* flat_of
 #endif
 }
 
-// Continuous flow phase C3: what happens the moment a record finishes its last
-// row. Its triangles are still in its slot on the device and are about to be
-// overwritten by the next occupant, so they are fetched HERE, and the record is
-// finished off -- exterior loop, MFE, backtrack -- into its own
-// output slot, which keeps the output in input order whatever the schedule did.
-//
-// PHASE 4b (2026-09-23): the two halves of that now run in different places.
-//
-//   fetch  (backtrack_fetch_slot)  -- on the SWEEP's own thread, and it has to
-//          be: refill_slot2() overwrites exactly these cells later in the same
-//          loop iteration, so the copy must be ordered before it. It already
-//          waits on one copy stream rather than on the device (rnafold_d2h_w).
-//   finish (backtrack_finish_slot) -- on a WORKER, because it is pure host work
-//          and the sweep has no reason to wait for it. This is the half that was
-//          costing the sweep a whole backtrack at every handover.
-//
-// The bounded resource is the SCRATCH PAIR, not the thread: a worker holds one
-// record's two (or three) triangles for as long as it is finishing that record.
-// So the pool is W scratches and W workers, and the sweep BLOCKS when all W are
-// out. That backpressure is the point -- it holds peak host matrix memory at
-// W x one record's worth, the same bound backtrack_all() lives under and the
-// same knob (RNA_BACKTRACK_THREADS) that sets it.
-//
-// W == 1, or any pthread failure, keeps the old fully-serial path as the
-// control, which is what the sha bar compares against.
-struct retire_worker_arg_s;
-
-typedef struct { int idx, slot, sc; } retire_job_t;
-
-typedef struct {
-  backtrack_pool_args_t      *args;
-  bt_scratch_t               *pool;
-  int                         n;         /* workers, scratches, queue capacity */
-  pthread_mutex_t             m;
-  pthread_cond_t              cv_job;    /* a worker waits for work or shutdown */
-  pthread_cond_t              cv_free;   /* the sweep waits for a scratch back  */
-  retire_job_t               *q;
-  int                         qh, qn;    /* ring head and occupancy */
-  int                        *freelist;
-  int                         nfree;
-  int                         shutdown;
-  pthread_t                  *threads;
-  struct retire_worker_arg_s *wargs;
-  int                         started;   /* 0 => serial fallback, no locking */
-  int                         retired;   /* sweep thread only */
-  /* Reachability evidence, not tuning. A pool that never held two records at
-   * once has not been tested by a green run, and this project has shipped a
-   * check that could not reach its own subject before -- so the numbers go in
-   * the summary line and the bar asserts on them.
-   *   inflight_max  records fetched but not yet finished, high-water
-   *   blocked       handovers where the sweep waited for a scratch to return */
-  int                         inflight, inflight_max, blocked;
-} retire_ctx_t;
-
-typedef struct retire_worker_arg_s { retire_ctx_t *r; int w; } retire_worker_arg_t;
-
-PRIVATE void *
-retire_worker(void *arg) {
-  retire_worker_arg_t *ta = (retire_worker_arg_t *) arg;
-  retire_ctx_t        *r  = ta->r;
-  const double         t0 = rnafold_now_seconds();
-
-  for(;;) {
-    retire_job_t job;
-
-    pthread_mutex_lock(&r->m);
-    while((r->qn == 0) && (!r->shutdown))
-      pthread_cond_wait(&r->cv_job, &r->m);
-    if((r->qn == 0) && r->shutdown) { pthread_mutex_unlock(&r->m); break; }
-    job   = r->q[r->qh];
-    r->qh = (r->qh + 1) % r->n;
-    r->qn--;
-    pthread_mutex_unlock(&r->m);
-
-    backtrack_finish_slot(r->args, job.idx, &r->pool[job.sc]);
-
-    /* Hand the scratch back, and wake the sweep if it is waiting for one. */
-    pthread_mutex_lock(&r->m);
-    r->inflight--;
-    r->freelist[r->nfree++] = job.sc;
-    pthread_cond_signal(&r->cv_free);
-    pthread_mutex_unlock(&r->m);
-  }
-
-  /* This worker's own span, for the same fetch/backtrack attribution split
-   * backtrack_all() does. pool[w].busy_s is written by worker w alone and the
-   * sweep only ever writes pool[*].fetch_s -- distinct members, so the two are
-   * separate memory locations and need no lock between them. */
-  r->pool[ta->w].busy_s += rnafold_now_seconds() - t0;
-  return NULL;
-}
-
-PRIVATE void
-on_retire_cb(void *ctx, int slot, int record) {
-  retire_ctx_t *r = (retire_ctx_t *) ctx;
-  int           sc;
-
-  /* The retiring record's last row may still be queued on the row streams: under
-   * RNA_STREAM_OVERLAP nothing at the end of an iteration waits for them, and the
-   * fetch below runs on a copy stream of its own. Drain them first.
-   * rnafold_streams_sync() touches the three ROW streams only, so a worker can
-   * never delay it -- and since 4b the workers make no CUDA call at all. */
-  rnafold_streams_sync();
-
-  if(r->started == 0) {                    /* serial control: the old path */
-    backtrack_one_slot(r->args, record, slot, &r->pool[0]);
-    r->retired++;
-    return;
-  }
-
-  pthread_mutex_lock(&r->m);
-  if(r->nfree == 0) r->blocked++;
-  while(r->nfree == 0)                     /* every scratch is out: backpressure */
-    pthread_cond_wait(&r->cv_free, &r->m);
-  sc = r->freelist[--r->nfree];
-  pthread_mutex_unlock(&r->m);
-
-  /* Ordered before the caller's refill_slot2(), which is the whole constraint. */
-  backtrack_fetch_slot(r->args, record, slot, &r->pool[sc]);
-
-  pthread_mutex_lock(&r->m);
-  r->q[(r->qh + r->qn) % r->n].idx  = record;
-  r->q[(r->qh + r->qn) % r->n].slot = slot;
-  r->q[(r->qh + r->qn) % r->n].sc   = sc;
-  r->qn++;
-  r->inflight++;
-  if(r->inflight > r->inflight_max) r->inflight_max = r->inflight;
-  pthread_cond_signal(&r->cv_job);
-  pthread_mutex_unlock(&r->m);
-
-  /* Counted at HAND-OFF, not at completion, so it stays a sweep-thread-only
-   * variable. retire_pool_drain() is what proves every one of them finished. */
-  r->retired++;
-}
-
-/* Start the pool. Any pthread failure falls back to serial (started == 0),
- * exactly as backtrack_all() does: a host that will not spawn threads should be
- * slow, not broken. */
-PRIVATE void
-retire_pool_start(retire_ctx_t *r, backtrack_pool_args_t *args,
-                  bt_scratch_t *pool, const int n) {
-  memset(r, 0, sizeof(*r));
-  r->args = args;
-  r->pool = pool;
-  r->n    = n;
-  if(n <= 1) return;                       /* serial control */
-
-  pthread_mutex_init(&r->m, NULL);
-  pthread_cond_init(&r->cv_job,  NULL);
-  pthread_cond_init(&r->cv_free, NULL);
-  r->q        = (retire_job_t *) vrna_alloc(sizeof(retire_job_t) * n);
-  r->freelist = (int *)          vrna_alloc(sizeof(int) * n);
-  r->threads  = (pthread_t *)    vrna_alloc(sizeof(pthread_t) * n);
-  r->wargs    = (retire_worker_arg_t *) vrna_alloc(sizeof(retire_worker_arg_t) * n);
-  for(int i=0;i<n;i++) {
-    r->freelist[i] = i;
-    r->wargs[i].r  = r;
-    r->wargs[i].w  = i;
-  }
-  r->nfree = n;
-
-  for(; r->started < n; r->started++)
-    if(pthread_create(&r->threads[r->started], NULL, retire_worker,
-                      &r->wargs[r->started]) != 0) {
-      fprintf(stderr,"mfe_cuda.c: pthread_create failed for retire worker %d, "
-                     "continuing with fewer threads\n", r->started);
-      break;
-    }
-  if(r->started == 0)
-    fprintf(stderr,"%-24s retire pool: no worker started, retiring serially\n",
-            __FILE__);
-}
-
-/* Shut the pool down and join. Must run before anything reads the records'
- * output and before the slots are reused: the workers are still writing
- * Structure[]/EN[]/energy[] until they are joined. */
-PRIVATE void
-retire_pool_drain(retire_ctx_t *r) {
-  /* r->q is the allocation witness, NOT r->started: a pool whose first
-   * pthread_create() failed has started == 0 and a full set of buffers, and
-   * keying the cleanup on `started` leaked all of them down that path. The
-   * n <= 1 control never allocates, so it still returns here. */
-  if(r->q == NULL) return;
-
-  if(r->started > 0) {
-    pthread_mutex_lock(&r->m);
-    r->shutdown = 1;
-    pthread_cond_broadcast(&r->cv_job);
-    pthread_mutex_unlock(&r->m);
-    for(int t=0;t<r->started;t++)
-      pthread_join(r->threads[t], NULL);
-  }
-
-  /* Every job taken and every scratch back. Either failing means a record was
-   * fetched and then never finished -- an unwritten structure, silently. */
-  if((r->qn != 0) || (r->nfree != r->n))
-    fprintf(stderr,"%-24s RETIRE POOL ERROR: %d jobs unfinished, %d of %d "
-                   "scratches returned\n", __FILE__, r->qn, r->nfree, r->n);
-
-  free(r->q); free(r->freelist); free(r->threads); free(r->wargs);
-  r->q = NULL; r->freelist = NULL; r->threads = NULL; r->wargs = NULL;
-  pthread_cond_destroy(&r->cv_free);
-  pthread_cond_destroy(&r->cv_job);
-  pthread_mutex_destroy(&r->m);
-  r->started = 0;
-}
-
-// Continuous flow phase C2: the post-sweep phase, lifted out of par_mfe()
-// unchanged so it can be run for a SECOND set of occupants in the same slots.
-// Everything it needs is now an argument; the only edit to the body was the
-// de-indent and declaring its own loop variable.
+// The post-sweep phase: every record's triangles fetched, finished and
+// backtracked. Everything it needs is an argument, so N5a P2 can run it on a
+// trace thread for the previous chunk.
 PRIVATE void
 backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
               const char **Structure, int *energy, float *EN,
@@ -1917,62 +1584,20 @@ par_mfe(const int nfiles,
                                    "represent");
       break;
     }
-  // Continuous flow phase C1: the per-slot capacity, in nucleotides. Every
-  // LAYOUT table below is built from this; every BOUND stays on the occupant's
-  // own VC[H]->length. Equal by default -- see rnafold_slot_capacity_max().
-  // Continuous flow phase C3: build the chunk's SCHEDULE first, because it
-  // decides how many slots there are and therefore the shape of everything
-  // below. Records are dealt round-robin in DESCENDING length order, so each
-  // slot's queue is non-increasing and its capacity is simply its first
-  // record's length -- which makes every later occupant fit by construction,
-  // with no allocator and nothing to defragment.
-  const int flow_k   = rnafold_slot_flow();
-  const int use_flow = (flow_k >= 1 && nfiles >= 2);
-  const int slots    = use_flow ? ((nfiles + flow_k - 1) / flow_k) : nfiles;
-
-  int order[nfiles], queue[nfiles], qoff[slots+1];
-  const vrna_fold_compound_t *VCsl_buf[slots];
-  const vrna_fold_compound_t **VCsl = VC;
-  if(use_flow) {
-    for(int a=0;a<nfiles;a++) order[a] = a;
-    for(int a=0;a<nfiles;a++) {          // selection sort, descending length
-      int best = a;
-      for(int b=a+1;b<nfiles;b++)
-        if(VC[order[b]]->length > VC[order[best]]->length) best = b;
-      const int t = order[a]; order[a] = order[best]; order[best] = t;
-    }
-    // Deal: slot s takes order[s], order[s+slots], order[s+2*slots], ...
-    int w = 0;
-    for(int s=0;s<slots;s++) {
-      qoff[s] = w;
-      for(int p=s; p<nfiles; p+=slots) queue[w++] = order[p];
-    }
-    qoff[slots] = w;
-    assert(w == nfiles);
-    for(int s=0;s<slots;s++) VCsl_buf[s] = VC[queue[qoff[s]]];
-    VCsl = VCsl_buf;
-  }
-
-  const int nslots = slots;
-  size_t cap_H[nslots];
-  compute_slot_capacities(nslots, VCsl, length, cap_H);
-  if(use_flow)
-    for(int s=0;s<nslots;s++) {         // the whole queue must fit the slot
-      for(int q=qoff[s]; q<qoff[s+1]; q++) {
-        const size_t l = (size_t)VC[queue[q]]->length;
-        if(l > cap_H[s]) cap_H[s] = l;
-      }
-    }
+  // Every LAYOUT table below is built from the capacity table; every BOUND
+  // stays on the record's own VC[H]->length. The two are the same number.
+  size_t cap_H[nfiles];
+  compute_slot_capacities(nfiles, VC, length, cap_H);
   // Publish it: par_fill_arrays() reads this instead of recomputing -- see
   // rnafold_chunk_capacities().
-  if(g_cap_n < nslots) {
+  if(g_cap_n < nfiles) {
     free(g_cap_H);
-    g_cap_H = (size_t *) vrna_alloc(sizeof(size_t) * nslots);
-    g_cap_n = nslots;
+    g_cap_H = (size_t *) vrna_alloc(sizeof(size_t) * nfiles);
+    g_cap_n = nfiles;
   }
-  memcpy(g_cap_H, cap_H, sizeof(size_t) * nslots);
-  size_t row_off_H[nslots+1], tri_off_H[nslots+1]; //Phase 2a, see compute_batch_offsets() above
-  compute_batch_offsets(nslots, cap_H, row_off_H, tri_off_H);
+  memcpy(g_cap_H, cap_H, sizeof(size_t) * nfiles);
+  size_t row_off_H[nfiles+1], tri_off_H[nfiles+1]; //Phase 2a, see compute_batch_offsets() above
+  compute_batch_offsets(nfiles, cap_H, row_off_H, tri_off_H);
   /* Can the device DERIVE hc->mx and ptype from the sequence, instead of the
    * host packing them in O(n^2) per record? That packing is 87% of gpuinit and
    * gpuinit is 22.9% of wall at 400x5601 (STRESS272_RESULTS.md), so this is the
@@ -1998,7 +1623,7 @@ par_mfe(const int nfiles,
    * Correctness bar is RNA_HC_VERIFY=1, which builds both ways and compares
    * every word of all four masks -- 532928 words x 4, zero mismatching. */
   {
-    const vrna_md_t *md0 = &(VCsl[0]->params->model_details);
+    const vrna_md_t *md0 = &(VC[0]->params->model_details);
     int h;
     int derivable = !md0->noLP;
 
@@ -2009,11 +1634,11 @@ par_mfe(const int nfiles,
      * somebody relaxes the guard. Asked directly now, per record: anything
      * carrying a hard-constraint depot or a soft constraint packs the host way.
      * Slower, never wrong, and it makes the derive path safe to leave on. */
-    for(h = 0; h < nslots; h++) {
-      if(VCsl[h] == NULL) continue;
-      if(VCsl[h]->sc != NULL) derivable = 0;
-      if((VCsl[h]->hc != NULL) && (VCsl[h]->hc->depot != NULL)) derivable = 0;
-      assert(VCsl[h]->params->model_details.noLP == md0->noLP);
+    for(h = 0; h < nfiles; h++) {
+      if(VC[h] == NULL) continue;
+      if(VC[h]->sc != NULL) derivable = 0;
+      if((VC[h]->hc != NULL) && (VC[h]->hc->depot != NULL)) derivable = 0;
+      assert(VC[h]->params->model_details.noLP == md0->noLP);
     }
 
     g_hc_seq_derived = derivable;
@@ -2055,9 +1680,9 @@ par_mfe(const int nfiles,
 
 
   const double t_gpuinit = rnafold_now_seconds();
-  init_gpu(nslots,length,tri_off_H,row_off_H);
-  init_gpu2(nslots,VCsl, turn, length, 512, tri_off_H, row_off_H, cap_H);
-  init_gpu3(nslots,VCsl, turn, length, 512, row_off_H, cap_H);
+  init_gpu(nfiles,length,tri_off_H,row_off_H);
+  init_gpu2(nfiles,VC, turn, length, 512, tri_off_H, row_off_H, cap_H);
+  init_gpu3(nfiles,VC, turn, length, 512, row_off_H, cap_H);
   /* RNA_STREAM_OVERLAP: create the row's streams and events once per chunk,
    * after the device exists and before any row is issued. A no-op at the
    * default, where every launch stays on the NULL stream. */
@@ -2083,16 +1708,7 @@ par_mfe(const int nfiles,
      * from the recursion work -- if the table does not arrive intact, every
      * later stage debugs the wrong thing.
      */
-    /*
-     * BY SLOT, NOT BY RECORD. The device indexes the table by the sweep's H,
-     * which under slot flow (RNA_SLOT_FLOW) is a SLOT: slot s starts with record
-     * queue[qoff[s]], almost never record s. Uploading (nfiles, VC) gave every
-     * slot some other record's c_gq -- the "-g + slot flow wrong in EVERY arm"
-     * defect (A100, 2026-09-30). Without slot flow VCsl == VC and nslots ==
-     * nfiles, so this is the old call exactly. par_fill_arrays() re-uploads at
-     * every handover, when a slot's occupant changes.
-     */
-    (void)rnafold_gq_upload(nslots, VCsl);
+    (void)rnafold_gq_upload(nfiles, VC);
 
     // Release every record's c/fML now. Nothing reads either between here and
     // backtrack_one(), which reattaches a pooled scratch pair per record --
@@ -2108,60 +1724,7 @@ par_mfe(const int nfiles,
     }
 
     int energy[nfiles];
-    if(use_flow) {
-      // Continuous flow phase C3: the sweep itself retires each record as it
-      // finishes, so there is no separate post-sweep phase -- on_retire_cb()
-      // fetches one record at each handover, and again for every slot's final
-      // occupant when the sweep ends.
-      //
-      // PHASE 4b: W scratch pairs and W workers rather than one of each, so the
-      // sweep pays only the FETCH at a handover and a worker finishes the record
-      // alongside the next rows. Peak host matrix memory rises from one record's
-      // worth to W, which is the bound backtrack_all() has always had and the
-      // same RNA_BACKTRACK_THREADS that sets it; RNA_BACKTRACK_THREADS=0 gives
-      // W=1 and the old serial path exactly.
-      const double t_bt  = rnafold_now_seconds();
-      const int    n_ret = backtrack_thread_count(nfiles, cpu_queue_threads);
-      bt_scratch_t *scp  = bt_pool_get(n_ret);  /* T2a: persistent, maybe pinned */
-      bt_pool_prepare(scp, n_ret, nfiles, VC);  /* serially, before any worker */
-      backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, NULL, tri_off_H };
-      retire_ctx_t rctx;
-      retire_pool_start(&rctx, &targ, scp, n_ret);
-      rnafold_schedule_t sched;
-      sched.slots     = nslots;
-      sched.length    = length;
-      sched.qoff      = qoff;
-      sched.queue     = queue;
-      sched.VC_all    = VC;
-      sched.on_retire = on_retire_cb;
-      sched.ctx       = &rctx;
-
-      par_fill_arrays(nslots, VCsl, energy, &sched);
-
-      // Before ANY of the output is read: the workers are still writing
-      // Structure[]/EN[]/energy[] for the last few records until they are joined.
-      retire_pool_drain(&rctx);
-
-      // Every record must have been retired exactly once -- a slot left holding
-      // a record would silently produce an unwritten structure.
-      if(rctx.retired != nfiles)
-        fprintf(stderr,"%-24s SCHEDULE ERROR: %d of %d records retired\n",
-                __FILE__, rctx.retired, nfiles);
-      fprintf(stderr,"%-24s slot flow: %d records through %d slots, %d retired, "
-                     "%d retire workers (peak %d in flight, %d stalls), "
-                     "%zu triangle cells\n",
-              __FILE__, nfiles, nslots, rctx.retired, n_ret,
-              rctx.inflight_max, rctx.blocked, tri_off_H[nslots]);
-      const double bt_phase_s = rnafold_now_seconds() - t_bt;
-      // Phase 4b: the fetch is on the sweep thread but the finish is not, so the
-      // split has to sum the whole pool, exactly as backtrack_all() does. Both
-      // parts are worker-seconds and can exceed the wall, hence the clamp.
-      double fs = 0.0;
-      for(int t=0; t<n_ret; t++) fs += scp[t].fetch_s;
-      phase_fetch_mx_s  += fs > bt_phase_s ? bt_phase_s : fs;
-      stage_backtrack_s += bt_phase_s - (fs > bt_phase_s ? bt_phase_s : fs);
-    } else {
-    par_fill_arrays(nfiles,VC,energy,NULL);
+    par_fill_arrays(nfiles,VC,energy);
     if(g_chunk_fp) {
       rnafold_device_drain();   /* sweep_t1 = the device finished, not the last issue */
       tr_sweep = rnafold_now_seconds();
@@ -2172,9 +1735,8 @@ par_mfe(const int nfiles,
      * been running beside, and before anything of this chunk's is traced. */
     bt_async_join(0);
 
-    if(rnafold_bt_pipeline() && !rnafold_slot_turnover()) {
-      /* N5a P1: retire, then backtrack from the retired set. The turnover
-       * self-check refolds these same buffers and keeps the old path. */
+    if(rnafold_bt_pipeline()) {
+      /* N5a P1: retire, then backtrack from the retired set. */
       rnafold_retired_t *ret = rnafold_retire_chunk(nfiles, tri_off_H);
       bt_async_t        *a   = &g_bt_async;
 
@@ -2184,7 +1746,7 @@ par_mfe(const int nfiles,
         a->nfiles            = nfiles;
         a->length            = length;
         a->cpu_queue_threads = cpu_queue_threads;
-        a->cells             = tri_off_H[nslots];
+        a->cells             = tri_off_H[nfiles];
         a->VC                = VC;
         a->Structure         = Structure;
         a->EN                = EN;
@@ -2222,63 +1784,12 @@ par_mfe(const int nfiles,
     }
     if(g_chunk_fp)
       tr_bt = rnafold_now_seconds();
-    }
 
-    // Continuous flow phase C2: the slot-turnover self-check. See
-    // rnafold_slot_turnover(). Record r moves to slot r-1 (cyclically), every
-    // slot is refilled from its new occupant, and the chunk is folded again;
-    // slot s must then reproduce exactly what record (s+1) produced the first
-    // time. nfiles is unchanged across the two passes on purpose -- d_S packs
-    // ten bases per word with H as the fastest index, so its layout depends on
-    // the slot COUNT and a pass with a different one would address it wrongly.
-    if(rnafold_slot_turnover() && nfiles >= 2) {
-      float *EN1  = (float *) vrna_alloc(sizeof(float) * nfiles);
-      char **Str1 = (char **) vrna_alloc(sizeof(char *) * nfiles);
-      for(i=0;i<nfiles;i++) { EN1[i] = EN[i]; Str1[i] = strdup(Structure[i]); }
-
-      const vrna_fold_compound_t **VC2 =
-        (const vrna_fold_compound_t **) vrna_alloc(sizeof(vrna_fold_compound_t *) * nfiles);
-      char **Str2   = (char **) vrna_alloc(sizeof(char *) * nfiles);
-      float *EN2    = (float *) vrna_alloc(sizeof(float) * nfiles);
-      int   *energy2= (int *)   vrna_alloc(sizeof(int)   * nfiles);
-      for(i=0;i<nfiles;i++) {
-        VC2[i]  = VC[(i+1) % nfiles];
-        Str2[i] = (char *) vrna_alloc(VC2[i]->length + 1);
-      }
-
-      // The occupants changed, so every piece of sequence-derived device
-      // content has to be rebuilt. The sweep's own state (d_fml_j, d_dml,
-      // d_dml1, d_fml_prev and all the host row buffers) is already reset by
-      // par_fill_arrays() on every call, and d_my_c's INF prefill comes back
-      // with refill_gpu2(); between them that is the complete reset list.
-      refill_gpu2(nfiles, VC2, turn, length, 512, tri_off_H, row_off_H, cap_H);
-      // -1: every occupant changed here, so the whole batch must be repacked.
-      refill_gpu3(nfiles, VC2, turn, length, 512, row_off_H, cap_H, -1);
-
-      par_fill_arrays(nfiles, VC2, energy2, NULL);
-      backtrack_all(nfiles, VC2, (const char **) Str2, energy2, EN2, tri_off_H, cpu_queue_threads, NULL);
-
-      int bad = 0;
-      for(i=0;i<nfiles;i++) {
-        const int src = (i+1) % nfiles;
-        if(EN2[i] != EN1[src] || strcmp(Str2[i], Str1[src]) != 0) {
-          if(++bad <= 5)
-            fprintf(stderr,"%-24s SLOT TURNOVER MISMATCH slot %d (record %d): "
-                           "second %.2f vs first %.2f\n",
-                    __FILE__, i, src, EN2[i], EN1[src]);
-        }
-      }
-      fprintf(stderr,"%-24s slot turnover: %d records refolded in rotated slots, "
-                     "%d mismatching\n", __FILE__, nfiles, bad);
-
-      for(i=0;i<nfiles;i++) { free(Str1[i]); free(Str2[i]); }
-      free(Str1); free(Str2); free(EN1); free(EN2); free(energy2); free(VC2);
-    }
     if(bt_handed) {
       /* handed off: the line is written when the trace is joined */
       g_bt_async.exit_t = rnafold_now_seconds();
     } else if(g_chunk_fp) {
-      chunk_trace_line(nfiles, length, tri_off_H[nslots], tr_enter, tr_init, tr_sweep, tr_bt,
+      chunk_trace_line(nfiles, length, tri_off_H[nfiles], tr_enter, tr_init, tr_sweep, tr_bt,
                        rnafold_now_seconds(), g_bt_threads, g_bt_fetch_ws, g_bt_busy_ws);
     }
   } else {

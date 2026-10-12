@@ -22,12 +22,9 @@
 //
 // Degenerates to "always true" while chunks are uniform-length, which is what
 // keeps this phase a no-op until Phase 6c actually admits mixed lengths.
-// Continuous flow PHASE B replaces the join mask with an ACTIVE mask. A record
-// is active on this iteration if it has a row of its own to compute:
-// i_H[H] >= 1 (it has not retired) and that row is inside its own triangle.
-//
-// Off the flow path i_H[H] == i for every H and i >= 1 by the loop bound, so
-// this is exactly the old HAS_JOINED() test, character for character in effect.
+// A record is ACTIVE on this row if the row is inside its own triangle. i_H[H]
+// is the row every record sits on, which is i for every H (continuous flow, which
+// put records on their own rows, was deleted in the cleanup, C4).
 #define IS_ACTIVE(H) (i_H[(H)] >= 1 && i_H[(H)] + (turn) + 1 <= (int)VC[(H)]->length)
 
 // One row's two width tables, from that row's per-record row index IH:
@@ -38,81 +35,30 @@
 // A macro because this file is included into the middle of a function body.
 #define ROW_WIDTH_TABLES(IH, SO, SD) do {                                              size_t w_so_[nfiles], w_sd_[nfiles];                                              for(int h_=0; h_<nfiles; h_++) {                                                    const int so_ = ((IH)[h_] >= 1) ? ((int)VC[h_]->length - (IH)[h_] - turn) : 0;             const int sd_ = ((IH)[h_] >= 1) ? ((int)VC[h_]->length - (IH)[h_] - 2*turn - 2) : 0;       w_so_[h_] = (so_ > 0) ? (size_t)so_ : 0;                                          w_sd_[h_] = (sd_ > 0) ? (size_t)sd_ : 0;                                        }                                                                                 compute_flatten_offsets(nfiles, w_so_, (SO));                                     compute_flatten_offsets(nfiles, w_sd_, (SD));                                   } while(0)
 
- // Continuous flow PHASE B: the per-record row index, now hoisted out of the
- // loop because under flow it CARRIES from one iteration to the next.
- //
- // OFF (default): rewritten to the shared i at the top of every iteration, so
- // every record sits on the same row and the kernels' assert(i == i_row) holds.
- //
- // ON: each record starts at its OWN top row -- so it works from iteration 0
- // instead of idling until the shared counter comes down to it -- and stops
- // when it reaches row 1, i.e. i_H[H] == 0 means retired. Every record still
- // advances exactly ONE row per iteration, which is what keeps every piece of
- // per-row machinery valid: the DMLi/DMLi1 rotation, md_snapshot_dml(), the
- // graph capture, and all the per-row offset tables.
- //
- // The iteration count is unchanged either way (length-turn-1, set by the
- // LONGEST record), and each record still computes exactly its own rows in the
- // same order -- so this moves WHEN work happens, not how much. A record
- // shorter than turn+2 has no rows at all and starts retired.
+ // The per-record row index the kernels and the row tables are indexed by:
+ // rewritten to the shared i at the top of every row.
  int i_H[nfiles];
- // Continuous flow phase C3: a schedule IMPLIES continuous flow -- slots take
- // their next record as soon as the current one finishes, which only means
- // anything if each record is on its own row.
- const int continuous_flow = rnafold_continuous_flow() || (sched != NULL);
- // How far each slot has got through its queue. 0 == the occupant installed by
- // par_mfe() before the sweep started.
- int q_pos[nfiles];
- for(int H=0;H<nfiles;H++) q_pos[H] = 0;
- // Phase B instrumentation. The plan expects continuous flow to cut the row
- // count, so count what the sweep actually launches rather than arguing about
- // it: iterations, (record, iteration) pairs that had a row to compute, and the
- // summed per-row widths. Clock-independent, so it is meaningful even on a
- // throttling box. One extra pass over nfiles per row, next to the several this
- // loop body already does.
+ for(int H=0;H<nfiles;H++) i_H[H] = 0;
+ // The sweep shape, counted rather than argued about: rows, (record, row) pairs
+ // that had a row to compute, the summed per-row widths, and their peaks.
+ // Clock-independent, so meaningful even on a throttling box.
  long long cf_iters = 0, cf_rows = 0, cf_cells = 0;
- // The totals above are conserved by phase B (it recomputes the same rows in a
- // different order), so they alone cannot show what it did. The PEAKS can: what
- // continuous flow changes is the per-iteration shape -- every live record is at
- // the same width, instead of the batch piling its widest rows into the last
- // iterations. A lower peak at the same total is a flatter sweep.
  long long cf_peak_cells = 0, cf_peak_rows = 0;
- for(int H=0;H<nfiles;H++) {
-   const int top = (int)VC[H]->length - turn - 1;
-   i_H[H] = (continuous_flow && top >= 1) ? top : 0;
- }
 
- // The sweep runs until the busiest slot has finished its whole queue. Without
- // a schedule that is just the longest record, exactly as before.
  int sweep_iters = length-turn-1;
- if(sched) {
-   sweep_iters = 0;
-   for(int s=0;s<nfiles;s++) {
-     int tot = 0;
-     for(int q=sched->qoff[s]; q<sched->qoff[s+1]; q++) {
-       const int rl = (int)sched->VC_all[sched->queue[q]]->length - turn - 1;
-       if(rl > 0) tot += rl;
-     }
-     if(tot > sweep_iters) sweep_iters = tot;
-   }
- }
 
  // Luke's Flow Batching, fix 3: THE CHUNK'S ROW TABLES (device.cu). One slot
  // per iteration, written once. In lock-step every row's tables depend only on
  // the record lengths, so they are all built here and go to the device in ONE
  // pinned upload -- the sweep then issues no per-row table traffic at all, and
- // no queued kernel on any stream can see a table change under it. Under
- // continuous flow a row is only known when its iteration arrives (slots turn
- // over mid-sweep), so each slot is built and uploaded as its row comes up.
+ // no queued kernel on any stream can see a table change under it.
  rnafold_rowtab_begin(nfiles, sweep_iters);
- if(!continuous_flow) {
-   for(int r = sweep_iters; r >= 1; r--) {
-     int* ih = rnafold_rowtab_ih_host(r);
-     for(int H=0;H<nfiles;H++) ih[H] = r;
-     ROW_WIDTH_TABLES(ih, rnafold_rowtab_size_host(r), rnafold_rowtab_side_host(r));
-   }
-   rnafold_rowtab_upload_all();
+ for(int r = sweep_iters; r >= 1; r--) {
+   int* ih = rnafold_rowtab_ih_host(r);
+   for(int H=0;H<nfiles;H++) ih[H] = r;
+   ROW_WIDTH_TABLES(ih, rnafold_rowtab_size_host(r), rnafold_rowtab_side_host(r));
  }
+ rnafold_rowtab_upload_all();
 
  /* BLOCKED MD STAGES 3a'/3b (PORT_MD_BLOCKING_DRIVER.md 2, 3.2): the sweep as a sequence
   * of STEPS, each one (row i, column block from tile_jlo).
@@ -172,7 +118,7 @@
     const int st_last  = tile_cb ? ((st_fl[st] >> 1) & 1) : 1;
     i = tile_cb ? st_i[st] : sweep_iters - (int)st;   /* i,j in [1..length] */
 
-    if(!continuous_flow) for(int H=0;H<nfiles;H++) i_H[H] = i;
+    for(int H=0;H<nfiles;H++) i_H[H] = i;
 
     // Staggered_Row_Batching Phase 2d: table-driven per-H row offset,
     // replacing the H-tightest H+j*nfiles convention.
@@ -199,12 +145,6 @@
     // load_min_fML); see ROW_WIDTH_TABLES above.
     const size_t* size_off_H = rnafold_rowtab_size_host(i);
     const size_t* side_off_H = rnafold_rowtab_side_host(i);
-    if(continuous_flow) {
-      int* ih = rnafold_rowtab_ih_host(i);
-      for(int H=0;H<nfiles;H++) ih[H] = i_H[H];
-      ROW_WIDTH_TABLES(ih, rnafold_rowtab_size_host(i), rnafold_rowtab_side_host(i));
-      rnafold_rowtab_upload_row(i);
-    }
 
     if(st_first) {   /* per ROW, once, whatever the step order */
     cf_iters++;
@@ -314,7 +254,7 @@
     // over it is gated off, so this loop has no consumer in device mode.
     if(!rnafold_gpu_sweep())
     for (int H=0;H<nfiles; H++) {
-    if(!IS_ACTIVE(H)) continue; // Phase 6d; continuous flow phase B
+    if(!IS_ACTIVE(H)) continue; // Phase 6d
     for (j = i_H[H]+turn+1; j <= (int)VC[H]->length; j++) {
       new_C[row_off_H[H]+j] = INF;
       // Both of these used to be triangle reads -- Ptype(H,ij) and
@@ -425,7 +365,7 @@
     // Phase 6d: must precede the en_i computation below, not just guard the
     // j-loop -- VC[H]->hc->up_ml[i] reads past a not-yet-joined H's array.
     if(!IS_ACTIVE(H)) continue;
-    const int i_h = i_H[H];   // continuous flow phase B: this record's own row
+    const int i_h = i_H[H];
       /*  extension with one unpaired nucleotide at 5' site
 	  and all other variants which are needed for odd
 	  dangle models -- per-H (was incorrectly computed once from
@@ -561,7 +501,7 @@
     if(!rnafold_gpu_sweep())
     for (int H=0;H<nfiles; H++) {
       if(!IS_ACTIVE(H)) continue;
-      const int i_h = i_H[H];   // continuous flow phase B: this record's own row
+      const int i_h = i_H[H];
       // The cell one below this row's first, (i, i+turn), is inside the
       // diagonal band -- never computed, INF in the fML prefill. Row i-1 will
       // read it as its own j == i+turn, so write it explicitly rather than
@@ -606,83 +546,8 @@
     if(noLP && !tile_cb)   /* tiles: cc is selected by row (rnafold_cc_ring_select) */
       nolp_rotate_cc();
 
-    // Continuous flow phase B: every active record advances one row; a record
-    // that was on row 1 lands on 0 and is retired from here on. Off the flow
-    // path this does nothing -- i_H is rewritten from i at the top of the next
-    // iteration.
-    if(continuous_flow)
-      for(int H=0;H<nfiles;H++) if(i_H[H] >= 1) i_H[H]--;
-
-    // Continuous flow phase C3: SLOT TURNOVER, mid-sweep. A slot whose row index
-    // has just reached 0 has finished its occupant's last row -- and that row is
-    // complete on the device, because the graph trio at the end of this
-    // iteration synced. So the record can be handed over for fetching and
-    // backtracking, and the slot handed to the next record in its queue.
-    //
-    // Everything the incoming record needs is put back to the state a chunk
-    // starts in, for THIS SLOT ONLY: the neighbours are mid-recursion and their
-    // buffers must not be touched.
-    if(sched) {
-      for(int s=0;s<nfiles;s++) {
-        if(i_H[s] >= 1) continue;                                  // still working
-        const int qn = sched->qoff[s+1] - sched->qoff[s];
-        if(q_pos[s] >= qn) continue;                               // already all retired
-        // The retire fetch reads this record's triangles on a copy stream that
-        // is not ordered against the sweep's non-blocking streams. md's per-row
-        // host sync used to cover that; RNA_MD_ROW_SYNC=0 removes it, so drain
-        // here instead. Once per handover, never per row.
-        rnafold_device_drain();
-        sched->on_retire(sched->ctx, s, sched->queue[sched->qoff[s] + q_pos[s]]);
-        q_pos[s]++;
-        if(q_pos[s] >= qn) continue;                               // queue empty: slot idle
-        const int rec = sched->queue[sched->qoff[s] + q_pos[s]];
-        ((const vrna_fold_compound_t **)VC)[s] = sched->VC_all[rec];
-
-        // host: the three DMLi generations and fml_prev. All three, because they
-        // rotate -- whichever becomes DMLi1 next row must read INF for a record
-        // that has no previous row yet.
-        for(size_t k=row_off_H[s]; k<row_off_H[s+1]; k++)
-          DMLi[k] = DMLi1[k] = DMLi2[k] = fml_prev[k] = INF;
-
-        // device: this slot's sweep state, then its sequence-derived content.
-        reset_slot_md(tri_off_H[s], tri_off_H[s+1]-tri_off_H[s],
-                      row_off_H[s], row_off_H[s+1]-row_off_H[s]);
-        // noLP's cc/cc1 are row-shaped state that rotates, exactly like the
-        // DMLi generations reset just above, and reset_slot_md() predates them.
-        // Without this the incoming record reads the outgoing record's cc1 and
-        // returns a self-consistent but SUBOPTIMAL structure.
-        if(noLP)
-          reset_slot_nolp(row_off_H[s], row_off_H[s+1]-row_off_H[s]);
-        refill_slot2(nfiles, VC, turn, length, 512, tri_off_H, row_off_H, cap_H, s);
-        // ONE slot: only s's occupant changed. This was a whole-batch repack
-        // until 2026-09-27, and it was the entire measured cost of slot flow.
-        refill_gpu3 (nfiles, VC, turn, length, 512, row_off_H, cap_H, s);
-        // -g: the c_gq table is laid out by SLOT (mfe_cuda.c uploads VCsl), so a
-        // new occupant needs its own. Whole-table re-upload: c_gq is sparse and
-        // this is once per handover, on a path that is off by default. Safe here
-        // because the device was drained at the top of this handover, and the
-        // kernels read the table's pointers at launch, never from a stale capture.
-        if(rnafold_gq_active())
-          (void)rnafold_gq_upload(nfiles, VC);
-
-        const int top = (int)VC[s]->length - turn - 1;
-        i_H[s] = (top >= 1) ? top : 0;
-      }
-    }
   } /* end of the step loop (one step per row without tiles: the old i-loop) */
  free(st_i); free(st_jlo); free(st_fl);
-
- // Anything still unretired -- a record with no rows of its own, or a slot that
- // emptied on the final iteration -- is retired here, so on_retire() is called
- // exactly once for every record in the schedule.
- if(sched)
-   rnafold_device_drain();   // before rnafold_rowtab_end()'s drain -- see the handover above
- if(sched)
-   for(int s=0;s<nfiles;s++)
-     while(q_pos[s] < sched->qoff[s+1] - sched->qoff[s]) {
-       sched->on_retire(sched->ctx, s, sched->queue[sched->qoff[s] + q_pos[s]]);
-       q_pos[s]++;
-     }
 
  // The sweep is over; drain and release the row tables.
  rnafold_c_ring_end(nfiles);   // RNA_C_RING: rows still only in the ring, before the tables go
@@ -691,9 +556,7 @@
 
  if (!vrna_cuda_quiet())
  fprintf(stderr,"%-24s sweep shape: %lld iterations, %lld active record-rows, "
-                "%lld cells; peak/iteration %lld records %lld cells; "
-                "continuous flow %s\n",
-         __FILE__, cf_iters, cf_rows, cf_cells, cf_peak_rows, cf_peak_cells,
-         continuous_flow ? "ON" : "OFF");
+                "%lld cells; peak/iteration %lld records %lld cells\n",
+         __FILE__, cf_iters, cf_rows, cf_cells, cf_peak_rows, cf_peak_cells);
 
 
