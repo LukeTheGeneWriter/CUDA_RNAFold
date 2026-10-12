@@ -172,11 +172,11 @@ static int g_fml_int16_auto   = -1;   /* -1 undecided; see rnafold_fml_int16_aut
 // far smaller than the md gain because md is ~43 % of the wall and the host-side
 // build is ~21 % -- see PORT_ZEROCONF_SCOPE.md.
 //
-// WHY IT IS *AUTO* RATHER THAN MERELY ON. int16 is refused in combination with
-// RNA_MD_PRUNE (the packed triangle has per-block baselines, so a raw int32
-// minimum over it is meaningless), and was with the since-deleted RNA_SLOT_FLOW.
-// Those refusals call exit(). Flipping the default without more would therefore
-// have made a working command line a hard failure -- a default must not do that.
+// WHY IT IS *AUTO* RATHER THAN MERELY ON. int16 cannot be honoured in some
+// combinations -- today --noLP (rnafold_fml_int16_stand_down()); earlier
+// RNA_MD_PRUNE and RNA_SLOT_FLOW, both deleted in the cleanup -- and refusing
+// them with exit() would have made a working command line a hard failure the
+// moment the default flipped. A default must not do that.
 //
 // So the asymmetry, which is the same one PORT_ZEROCONF_SCOPE.md argues for
 // --enable-cuda: an EXPLICIT request that cannot be honoured is an error, while a
@@ -199,40 +199,11 @@ rnafold_fml_int16(void) {
 
   if(v < 0) {
     const char *e = getenv("RNA_FML_INT16");
-    const char *why = NULL;
 
     /* unset -> on. "0" -> off. anything else -> on. */
     v = (e && e[0]) ? (strcmp(e, "0") ? 1 : 0) : 1;
 
-    /* THE COMPATIBILITY RESOLUTION LIVES HERE, ONCE, because the alternative is
-     * two downstream sites calling exit() on a combination the user never asked
-     * for. The condition is read from the environment rather than through its
-     * own accessor: rnafold_md_prune() calls back into this function, and a knob
-     * that can recurse into itself during initialisation is a hang waiting for a
-     * bug report. */
-    if(v) {
-      const char *pr = getenv("RNA_MD_PRUNE");
-
-      if(pr && pr[0] && pr[0] != '0')
-        why = "RNA_MD_PRUNE is on, and its block minima are meaningless over a "
-              "packed triangle with per-block baselines";
-    }
-
-    if(why) {
-      if(e && e[0] && strcmp(e, "0")) {
-        /* EXPLICIT request that cannot be honoured: that is an error. */
-        fprintf(stderr,"%-24s RNA_FML_INT16=1 cannot be honoured: %s. Unset one of "
-                       "them.\n", __FILE__, why);
-        exit(EXIT_FAILURE);
-      }
-      /* DEFAULT that cannot be honoured: step aside and say so. A new default
-       * must not break a command line that used to work. */
-      if (!vrna_cuda_quiet())
-        fprintf(stderr,"%-24s fml_j falls back to int32: %s. (int16 is the default; "
-                       "set RNA_FML_INT16=1 to make this combination an error.)\n",
-                __FILE__, why);
-      v = 0;
-    } else if (!vrna_cuda_quiet() && e && e[0]) {
+    if (!vrna_cuda_quiet() && e && e[0]) {
       /* explicit; AUTO says what it chose in rnafold_fml_int16_auto_decide() */
       fprintf(stderr,"%-24s fml_j is %s (RNA_FML_INT16 set explicitly)\n", __FILE__,
               v ? "16-bit offsets from a per-64 baseline" : "full int32");

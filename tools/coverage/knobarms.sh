@@ -14,12 +14,16 @@ tag=$f${2:+_b$2}
 [ -f "$O/$tag.out" ] || { echo "$tag: no frozen reference"; exit 2; }
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 RING='RNA_C_RING ACTIVE'; LY='RNA_INT_LOOP_LYNGSO ACTIVE'
+SP="RNA_MD_SPARSE ACTIVE"; ST="RNA_MD_SPARSE_SELFTEST ACTIVE"; ST0="compared, 0 MISMATCHING"
 # label | env | lines that must appear | lines that must not   (lists split on ';')
 ARMS=(
-  "default||$RING;$LY|"
+  "default||$RING;$LY;$SP|$ST"
   "ring0|RNA_C_RING=0|$LY|$RING"
   "ly0|RNA_INT_LOOP_LYNGSO=0|$RING|$LY"
   "ring0_ly0|RNA_C_RING=0 RNA_INT_LOOP_LYNGSO=0||$RING;$LY"
+  # the dense md, cut to one width in C6 (D1): its fallback arm and the selftest that uses it as the reference
+  "sparse0|RNA_MD_SPARSE=0|$RING;$LY|$SP;$ST"
+  "selftest|RNA_MD_SPARSE_SELFTEST=1|$ST;$ST0|$SP"
 )
 fail=0
 for a in "${ARMS[@]}"; do

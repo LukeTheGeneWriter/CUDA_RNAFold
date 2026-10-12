@@ -24,24 +24,7 @@ md_cell(
   const size_t* __restrict__ tri_off_H, const size_t* __restrict__ row_off_H,
   const size_t* __restrict__ side_off_H, const size_t total,
   const int* __restrict__ i_H,
-        const long long m, const int lane,
-  const fml_corner_t corner,   /* stage 2; .sm==NULL disables */
-  /* RNA_MD_PRUNE: block minima of fml_j, one int per 32 consecutive cells, or
-   * NULL. md is min over y of (A[y]+B[y+ij0]) -- a (min,+) convolution -- so
-   * min(A over blk) + min(B over win) is a VALID LOWER BOUND on a 32-block, and
-   * a block that cannot beat the running best never needs its 32 B-reads issued.
-   * Only B needs a summary: A is the 22 KB row buffer and is already cached, so
-   * reading it to get its block min is nearly free. */
-  const int* __restrict__ fml_jmin = NULL,
-  /* RNA_MD_PRUNE=2 SPEED PROBE ONLY: row i+1's DMLi as a FIXED threshold, so
-   * every block decides independently. NOT a provable upper bound on row i --
-   * both operands change between rows -- so this arm can return a SUBOPTIMAL
-   * structure. It exists to price the dependency chain and nothing else. */
-  const int* __restrict__ dml_prev = NULL,
-  /* RNA_MD_PRUNE: block minima of fml_i (the ROW operand), rebuilt each row.
-   * With it, a skipped block costs four loads; without it the bound degrades
-   * to B alone and the arm is the v1 that measured 2.1-2.5x slower. */
-  const int* __restrict__ fml_imin = NULL) {
+        const long long m, const int lane) {
   // Power of two <= 32 so a tile is a contiguous, warp-aligned lane group and
   // __shfl_down_sync()'s `width` can partition the warp for us. The launcher
   // additionally requires blockDim.x % 32 == 0, which is what makes "same
@@ -111,82 +94,10 @@ md_cell(
         const long long yij = y + ij0;
         assert(yij < Hoff(nfiles,length));
         assert(idx0 + y - 1 >= 0);   // the precondition the unsigned cast relies on
-        // Stage 2: the last K iterations of this loop are the entries nearest
-        // the diagonal, which are the ones re-read every row -- serve those
-        // from shared and decode only the rest.
-        const int  d = fml_corner_hit(corner, j, x - y)
-                     ? fml_corner_get(corner, H, j, x - y)
-                     : fml_decode(fml_j16, fml_b, tri_off_H[H]+yij,
+        const int  d = fml_decode(fml_j16, fml_b, tri_off_H[H]+yij,
                                   bcell + (size_t)((unsigned)(idx0 + y - 1)/FML_BLK));
         value = MIN2(fml_i[row_off_H[H]+y] + d, value);
       }
-    } else if (fml_jmin && TILE == 32) {
-      /* RNA_MD_PRUNE. Same answer, fewer reads.
-       *
-       * md is min over y of (A[y] + B[y+ij0]) -- a (min,+) convolution -- so
-       * min(A over a block) + min(B over the matching window) is a VALID LOWER
-       * BOUND on that block, and a block that cannot beat the best found so far
-       * never needs to be READ AT ALL.
-       *
-       * min is associative and commutative over exact integers, so reducing per
-       * block instead of per lane cannot change the result -- which is why this
-       * is byte-identical rather than merely close. `best` is warp-UNIFORM, so
-       * the skip is uniform too: all 32 lanes serve one cell, no divergence.
-       *
-       * V3: BOTH OPERANDS ARE SUMMARISED. v1 read A in full on every block (32
-       * loads plus a warp reduction) just to get min(A), so a "skipped" block
-       * still paid 33 operations to save 32 -- close to break-even on
-       * instructions while adding ALU to a loop that had none. Measured 2.1-2.5x
-       * SLOWER, and a fixed threshold (mode 2) was exactly as slow, which ruled
-       * out both the reduction and the ordering. With an A summary a skipped
-       * block costs FOUR LOADS AND NOTHING ELSE.
-       *
-       * Neither window is aligned to its summary's 32-cell blocks (A's base is
-       * row_off_H[H], B's is tri_off_H[H]+ij0, neither a multiple of 32), so
-       * each bound takes the min over the two aligned blocks that cover it.
-       * That is a min over a SUPERSET of the window, hence still a valid lower
-       * bound -- weaker than the exact window min the probe measured, which is
-       * why the realised skip fraction sits below the probe's 28-62 %.
-       */
-      int best = INF;
-      /* FIXED when dml_prev is supplied (mode 2), otherwise the running best
-       * (mode 1). Tfix is NOT an achieved value, so a block whose bound EQUALS
-       * it must be kept (<=); the running best IS achieved, so equality can be
-       * skipped (<). */
-      const int  Tfix  = dml_prev ? dml_prev[row_off_H[H]+j] : 0;
-      const bool fixed = (dml_prev != NULL);
-
-      for (int yb = 0; yb <= x; yb += 32) {
-        const int    hi   = MIN2(31, x - yb);
-        const size_t abase = row_off_H[H] + (size_t)yb;
-        const size_t bbase = tri_off_H[H] + (size_t)(yb + ij0);
-        /* Four loads, all from arrays 1/32 the size of what they summarise. */
-        const int amin = fml_imin ? MIN2(fml_imin[abase >> 5],
-                                        fml_imin[(abase + (size_t)hi) >> 5])
-                                  : -INF;   /* no A summary: bound degrades to B alone */
-        const int bmin = MIN2(fml_jmin[bbase >> 5],
-                              fml_jmin[(bbase + (size_t)hi) >> 5]);
-        const int lb   = (amin >= INF/2 || bmin >= INF/2) ? INF
-                       : ((amin == -INF) ? bmin : amin + bmin);
-
-        if (fixed ? (lb <= Tfix) : (lb < best)) {
-          /* The bound does not settle it: read the block and reduce it. */
-          const int  y    = yb + lane;
-          const bool live = (y <= x);
-          const int  a    = live ? fml_i[row_off_H[H] + (size_t)y] : INF;
-          const int  b    = live ? fml_j[bbase + (size_t)lane]     : INF;
-          const int  s    = (a >= INF/2 || b >= INF/2) ? INF : a + b;
-          int        bm   = s;
-
-          for (int o = 16; o > 0; o >>= 1)
-            bm = MIN2(__shfl_down_sync(0xffffffff, bm, o, 32), bm);
-          bm = __shfl_sync(0xffffffff, bm, 0, 32);
-          best = MIN2(bm, best);
-        }
-      }
-      /* Uniform across the warp, so the trailing reduction below is a no-op and
-       * yields exactly this value. */
-      value = best;
     } else
     for(int y=lane; y <= x; y += TILE) {
       assert(x>=0 && x<=length);
@@ -194,11 +105,7 @@ md_cell(
       assert(y<=x);
       const long long yij = y + ij0;
       assert(yij < Hoff(nfiles,length));
-      const int fj = fml_corner_hit(corner, j, x - y)
-                   ? fml_corner_get(corner, H, j, x - y)
-                   : fml_j[tri_off_H[H]+yij];
-
-      value = MIN2(fml_i[row_off_H[H]+y] + fj, value);
+      value = MIN2(fml_i[row_off_H[H]+y] + fml_j[tri_off_H[H]+yij], value);
     }
   }
 

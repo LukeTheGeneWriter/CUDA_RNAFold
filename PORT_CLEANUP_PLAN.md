@@ -340,3 +340,36 @@ Phase changes from these: C5 no longer touches md tile CB / fusion (`RNA_MD_TILE
 `_FUSE`, `_RB`, `_REVERSE`, `RNA_ROW_FUSE` move from T4 to T3, flagged); a new **C6b** does
 the D3 split; a new **C9** stamps the post-cleanup commit into the D4 flag comment and tags
 `post-cleanup`.
+
+**C4 record (2026-10-11).** 421295e8. All bars green, plus `verify_nolp_parity.sh`, whose
+`--noLP + RNA_FML_INT16 refuses at init` check had been failing since int16 AUTO (069981ff,
+09-27): the refusal moved to the stand-down in mfe_cuda.c and says "cannot be honoured",
+not "cannot be combined". The grep now accepts both; the code was always right. **First
+laptop ABBA** (C400, `--noPS`, pre-cleanup `~/pyq` = A vs C4 `~/pyqc` = B, 8 runs): B/A
+1.027, inside the +/-5 % bar; the laptop drifted 20 -> 26 s over the run (first ABBA block
+0.993, second 1.055), all 8 outputs identical.
+
+**C6 notes (2026-10-11).**
+- D1: the dense md keeps **one** instance, `modular_decomposition_kernel<32>` (`MD_TILE`).
+  Deleted with the other widths: `RNA_MD_TILE` (T3 -> retired: it only chose the dense
+  width), the smem twin and `RNA_MD_SMEM`, the global band and `RNA_MD_BAND`, the fML
+  corner descriptor (`fml_corner_t`, md_dev.h), and `RNA_MD_PRUNE` with `_STATS`,
+  `_UNSAFE` (block-minimum summaries, their upkeep in `load_fML_cell`, the probe kernel).
+  int16 AUTO's PRUNE conflict went with it; the `--noLP` stand-down is unchanged. A
+  tombstone comment in modular_decomposition.cu names what went and points at `pre-cleanup`.
+- The PRUNE_STATS section had been pasted into the middle of the CUDA-graph comment above
+  `load_fML_modular_decomposition_load_min_fML()`; the comment is whole again.
+- D2 needed nothing here: C5 already left `int_loop_warp_kernel<RING, LY>`, 4 instances.
+- `rnafold_min_gpu_batch()` is **not dead**: the CPU slice cap reads it. Kept.
+- H4: `process_record()`'s two per-record clock reads go through `trace_stamp()`, which
+  reads the clock only while `RNA_RECORD_TRACE` is open.
+- knobarms gains `sparse0` (`RNA_MD_SPARSE=0`, the dense fallback; int16 AUTO turns on
+  there, so it also drives the int16 decode in `md_cell`) and `selftest`
+  (`RNA_MD_SPARSE_SELFTEST=1`, dense as the reference, must report 0 mismatching); the
+  default arm now also requires `RNA_MD_SPARSE ACTIVE`. The C6 chain adds dense md under
+  `-c` (the fM2 writer) against upstream.
+- `choose_gpu()` (WBL's original device query, dead) is still in place, for Luke to decide.
+- **C6 bars (2026-10-12):** refcheck 9/9, option parity, matrix 36/36, gpu_cli 4/8/16/32,
+  binding 20/20, N5a P2, noLP all green; knobarms 18/18 (`sparse0` sweeps 5 chunks, not 7, on
+  F_lite @ 64 MB -- int16 AUTO turns on with the dense md and halves the triangle; same
+  output); dense md under `-c` equals upstream with int16 on and off.

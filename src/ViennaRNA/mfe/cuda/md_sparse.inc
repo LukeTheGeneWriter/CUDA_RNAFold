@@ -172,7 +172,6 @@ md_sparse_slots(const int j)
 static const char*
 md_sparse_refusal(void)
 {
-  if (rnafold_md_prune())             return "RNA_MD_PRUNE (a different dense-skipping scheme)";
   if (rnafold_md_tile_cb() > 0)       return "the tile path (RNA_MD_TILE_CB)";
   return NULL;
 }

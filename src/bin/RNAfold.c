@@ -1005,6 +1005,15 @@ trace_now(void)
   return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
+/* process_record()'s per-record stamps: a clock read only while tracing, not two
+ * on every record for a trace nobody asked for. trace_open() has run before any
+ * record is processed, so g_trace_fp is settled by then. */
+static double
+trace_stamp(void)
+{
+  return g_trace_fp ? trace_now() : 0.0;
+}
+
 static void
 trace_open(void)
 {
@@ -3116,7 +3125,7 @@ process_record(struct record_data *record)
   size_t                **mod_positions;
   size_t                mod_param_sets;
 
-  const double trace_p_in = trace_now();
+  const double trace_p_in = trace_stamp();
 
   opt = record->options;
 
@@ -3571,7 +3580,7 @@ record_end:
      * fold ends where the result is handed over, so they are the SAME instant and
      * must come from the same read. */
     {
-      const double trace_out = trace_now();
+      const double trace_out = trace_stamp();
 
 #ifdef VRNA_WITH_CUDA
       trace_record(record, length,
