@@ -140,7 +140,7 @@ vrna_cuda_device_count(void)
  *
  * That makes the phase split move when kernel speeds change even if no phase
  * got slower. It is the leading explanation for the long-standing "int16 makes
- * hp_mb 23-30 s slower" result (STRESS272_RESULTS.md 4, 13.6, 14.4, 15.3):
+ * hp_mb 23-30 s slower" result (docs/archive/STRESS272_RESULTS.md 4, 13.6, 14.4, 15.3):
  * int16 speeds up modular_decomp's kernels, the host arrives at hp_mb's upload
  * sooner, and waits there instead. hp_mb_loop.cu contains no int16 code at all
  * -- fml_decode() is called from modular_decomposition.cu and nowhere else --
@@ -177,7 +177,7 @@ rnafold_phase_sync_enabled(void)
 
 /* load_my_c()'s per-row cudaDeviceSynchronize (see int_loop.cu for why it existed).
  * DEFAULT OFF since 2026-09-30: the A100 priced it at -1.0 % alone and -3.0 % with
- * md's row sync also gone, byte-identical in every arm (PORT_LUKES_FLOW_BATCHING.md
+ * md's row sync also gone, byte-identical in every arm (docs/archive/PORT_LUKES_FLOW_BATCHING.md
  * 9.12). RNA_LOAD_MY_C_SYNC=1 restores the old per-row drain. Announced only when set. */
 extern "C" int
 rnafold_load_my_c_sync(void)
@@ -225,7 +225,7 @@ rnafold_device_drain(void)
  *                 hard-constraint masks -- no DP value at all
  *   new_c(i)      joins both, plus DMLi1 from row i+1
  *
- * PORT_STREAM_OVERLAP_SCOPE.md 12 works the graph out and prices the two
+ * docs/archive/PORT_STREAM_OVERLAP_SCOPE.md 12 works the graph out and prices the two
  * overlaps it allows. They are very different sizes:
  *
  *   1  hp_mb_3p(i) beside int_loop(i)            1.89 s of 65.3   ~2 % of wall
@@ -372,7 +372,7 @@ extern "C" cudaStream_t rnafold_stream_cell(void) { return g_stream_cell; }
 extern "C" cudaStream_t rnafold_stream_hp(void)   { return g_stream_hp ? g_stream_hp : g_stream_cell; }
 extern "C" cudaStream_t rnafold_stream_md(void)   { return g_stream_md ? g_stream_md : g_stream_cell; }
 
-/* Level 2's two extra edges, from PORT_STREAM_OVERLAP_SCOPE.md 5:
+/* Level 2's two extra edges, from docs/archive/PORT_STREAM_OVERLAP_SCOPE.md 5:
  *
  *   load_my_c(i) -> fml_scan(i)     the md chain may not read row i's c until
  *                                   the cell stream has written it
@@ -486,7 +486,7 @@ rnafold_phase_sync(void)
  * RNA_LAUNCH_STATS -- per-launch DEVICE time, so a phase total can be split
  * into "the kernel" and "everything else".
  *
- * WHY THIS EXISTS. STRESS272_RESULTS.md §20 left one question open and it is
+ * WHY THIS EXISTS. docs/archive/STRESS272_RESULTS.md §20 left one question open and it is
  * not answerable from phase totals. NCU says `int_loop_kernel` is IDENTICAL
  * under int16 and int32 -- 717,676.8 ns against 717,683.2 ns, every counter
  * matching -- while the `int_loop` PHASE is 25 s slower under int16 at
@@ -792,7 +792,7 @@ rt_check(const cudaError_t rc, const char *what)
 }
 
 /* One row slot: nfiles + 1 cumulative offsets, then ONE MORE entry -- the slot's
- * COLUMN SHIFT (blocked md stage 3a.2, PORT_MD_BLOCKING_DRIVER.md 3.2). Every kernel
+ * COLUMN SHIFT (blocked md stage 3a.2, docs/archive/PORT_MD_BLOCKING_DRIVER.md 3.2). Every kernel
  * that turns a flat index into a column adds slot[nfiles+1], so a table describing
  * only columns [jlo, jhi] of a row needs no other change anywhere. A row's own slots
  * carry 0 (the memset below), so whole rows are what they always were. */
@@ -805,7 +805,7 @@ static size_t *g_rt_size_d = NULL, *g_rt_side_d = NULL;   /* device */
 static int    *g_rt_ih_d   = NULL;
 static int     g_rt_nfiles = 0, g_rt_iters = -1;
 
-/* ---- Blocked md stage 3a.2: COLUMN-BLOCK tables (PORT_MD_BLOCKING_DRIVER.md 3.2).
+/* ---- Blocked md stage 3a.2: COLUMN-BLOCK tables (docs/archive/PORT_MD_BLOCKING_DRIVER.md 3.2).
  *
  * While a tile of row g_tile_row is active, rnafold_rowtab_size/side(_host)(row)
  * return the TILE's tables instead of the row's: the same layout (stride nfiles+2),
@@ -1000,7 +1000,7 @@ rnafold_md_tile_cb(void)
 /* RNA_MD_TILE_RB=RB: stage 3b -- RB rows per block-row, visited COLUMN-BLOCK MAJOR: for
  * each column block, left to right, the block-row's rows top down. md still runs over its
  * whole k range here (no bulk yet), so this is the stage that tests the ORDER: every
- * operand must already exist when its step runs (PORT_MD_BLOCKING_DRIVER.md 2, the
+ * operand must already exist when its step runs (docs/archive/PORT_MD_BLOCKING_DRIVER.md 2, the
  * read-by-read table). The row buffers that carry across steps are selected by row from
  * rings of RB+1 (3a.1). Needs RNA_MD_TILE_CB. Default 1 (= 3a'). Capped so the rings
  * fit MD_RING_MAX (130). */
@@ -1046,7 +1046,7 @@ rnafold_md_tile_reverse(void)
 /* RNA_MD_TILE_FUSE: stage 3e-fuse -- on the tile path, a step's c chain and fML scan
  * (hp_mb_3p, noLP's stack row, new_c, the c store, the scan) run as ONE launch, one
  * block per record (hp_mb_loop.cu, tile_front_kernel). The A100 run priced those
- * kernels at a tile's width as latency-bound launches (PORT_MD_BLOCKING_DRIVER.md 10).
+ * kernels at a tile's width as latency-bound launches (docs/archive/PORT_MD_BLOCKING_DRIVER.md 10).
  * ON by default whenever tiles are; RNA_MD_TILE_FUSE=0 runs them separately, which
  * is the comparison arm. Off the tile path it does nothing. */
 extern "C" int

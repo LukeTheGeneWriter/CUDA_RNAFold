@@ -1,7 +1,7 @@
 # Port Phase 1 — what to put to the ViennaRNA maintainers
 
 *Written 2026-09-05 against pristine ViennaRNA 2.7.2 — the release tarball at
-`~/vrna27/ViennaRNA-2.7.2` (`make check` 126/126, per `PORT_PHASE0.md`) for
+`~/vrna27/ViennaRNA-2.7.2` (`make check` 126/126, per `docs/archive/PORT_PHASE0.md`) for
 Part 1, and a clone of upstream's git at the `v2.7.2` tag for Part 1b. Those are
 the same source: the tag is upstream `master` exactly (`1ffec79`). Every line
 number below is from that tree. Every claim about behaviour was **run**, not

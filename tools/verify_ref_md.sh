@@ -10,7 +10,7 @@
 set -u
 B=${1:-$HOME/port27git/src/bin/RNAfold}
 shift 2>/dev/null || true
-T=$HOME/rnatest
+T=${COV_FIX:-$(cd "$(dirname "$0")/.." && pwd)/tests/fixtures}
 R=$T/ref_md
 W=${TMPDIR:-/tmp}/vrna_ref_md
 mkdir -p "$W" || exit 2

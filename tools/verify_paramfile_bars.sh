@@ -1,5 +1,5 @@
 #!/bin/bash
-# The four -P / --paramFile bars from PORT_NSP_PARAMFILE_SCOPE.md 2.4.
+# The four -P / --paramFile bars from docs/archive/PORT_NSP_PARAMFILE_SCOPE.md 2.4.
 #
 # WHY THIS FILE EXISTS. `-P` CANNOT BE GUARDED: vrna_params_load() mutates
 # library globals, so by fold-compound time it has left no flag for the routing

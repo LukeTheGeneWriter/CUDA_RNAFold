@@ -232,7 +232,7 @@ fewer records rather than OOMing.
    negative energy lands just *below* INF and wins the `min`. It matters only
    because `postprocess_circular()` tests `!= INF`, so it is clamped at the
    store and the linear hot path is untouched. The open question about
-   `new_c_kernel` is `PORT_INVESTIGATIONS.md` item 3.
+   `new_c_kernel` is `docs/archive/PORT_INVESTIGATIONS.md` item 3.
 
 ### The bars, run
 

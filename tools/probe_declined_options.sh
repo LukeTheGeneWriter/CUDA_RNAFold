@@ -2,7 +2,7 @@
 #
 # Which DECLINED options are declined out of NECESSITY, and which out of caution?
 #
-# PORT_ACCELERATION_SCOPE.md's "Tier 0 -- may already work; needs TESTING, not
+# docs/archive/PORT_ACCELERATION_SCOPE.md's "Tier 0 -- may already work; needs TESTING, not
 # building" has paid five times: noGU, uniq_ML, --nsp, -g and -d0 all moved from
 # DECLINED to ACCELERATED once someone lifted the check and compared. Each of
 # those measurements was made in a scratch build, which is both slow and exactly

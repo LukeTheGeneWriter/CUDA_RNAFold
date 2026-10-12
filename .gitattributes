@@ -22,3 +22,7 @@ tests/mfe_engine.ts         text eol=lf
 tests/mfe_cuda_guard.ts     text eol=lf
 m4/ac_rna_cuda.m4           text eol=lf
 src/ViennaRNA/mfe/cuda/*    text eol=lf
+tools/coverage/*.sh         text eol=lf
+# The bars compare fold output BYTE FOR BYTE against these; a CRLF checkout would make
+# every comparison fail (or, for a harness that skips what it cannot read, pass on nothing).
+tests/fixtures/**           -text

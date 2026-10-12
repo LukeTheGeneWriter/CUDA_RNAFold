@@ -397,3 +397,30 @@ too-big (1 MB budget: GPU on, 0 sweeps, all 60 records via the old `continue`), 
 pipeline 0/1, backtrack pipeline -j4, two input files (begin resets: 2 sweeps, 2 ON lines).
 The first slice and too-big arms took neither path (C400_lite chunks are one record; a 1 MB
 budget still fits short records) -- caught by their stderr counters and rerun.
+
+## 9. Queued after the cleanup (Luke, 2026-10-12)
+
+- **User RAM / VRAM / thread budgets.** A number in MB or `quarter` / `half` / `threequarter` /
+  `full` of the machine's TOTAL memory, as an upper limit under today's soft constraints
+  (0.85 x free VRAM, half of MemAvailable), so it still adapts to what is free. Python
+  defaults to `half`, the CLI to `full`; a record that cannot fit warns and folds anyway.
+  Includes the VRAM gaps (fraction syntax, a Python surface, the CUDA context counted) and
+  a true host-RAM prediction (backtrack scratch, pinned staging, the pipeline's second chunk,
+  retained triangles -- measured before modelled). Threads (build, backtrack, -j) take the
+  same fraction syntax of the core count.
+- **Future, unscoped:** multi-GPU (choose a device; run several) and cross-vendor backends
+  (HIP, SYCL, OpenCL, Vulkan, Metal).
+
+**C8 record (2026-10-12).** `choose_gpu()` / `use_cuda` deleted (Luke: yes; device selection
+kept as a future item, section 9). 35 docs and the uncited `results/` to `docs/archive/`;
+66 citations rewritten to `docs/archive/<name>` (all comments, one `echo` message). 18
+unreferenced or retired-knob tools and test files to `tools/archive/` (each re-checked for
+referrers). REVIEW_GUIDE.md is new. **The bars are now runnable by a reviewer**: fixtures,
+the pre-cleanup frozen references and the noLP inputs (2.3 MB) are in `tests/fixtures/`, the
+harnesses default to it rather than one laptop's $HOME, and the backtrack-pipeline self-check
+and a runner (`tools/coverage/bars.sh`) moved in from the session scratchpad.
+`verify_gpu_cli.sh` used to SKIP a missing fixture (pass having checked nothing); a missing
+fixture or reference now fails, as in the noLP bar. Bars, run with the committed runner in
+place: refcheck 9/9, parity, matrix 36/36, gpu_cli (24 IDENTICAL = 6 fixtures x 4 budgets,
+0 missing), binding 20/20, backtrack pipeline, knobarms 18/18, noLP. **The zeroconf bar did
+not complete** -- the run was stopped for low host memory during it -- and is owed at C9.

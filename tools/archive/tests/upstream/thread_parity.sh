@@ -6,7 +6,7 @@
 # statement about one cache, not about the tool. This runs the whole binary.
 #
 # Reference: ~/rnatest/ref_md/*.out, verified byte-identical to pristine 2.7.2
-# single-threaded in Phase 0 (PORT_PHASE0.md 0b). The CPU pool does not preserve
+# single-threaded in Phase 0 (docs/archive/PORT_PHASE0.md 0b). The CPU pool does not preserve
 # input order, so records are compared as a sorted MULTISET of
 # (structure, energy) lines -- the same compromise tests/verify_guards.sh makes.
 #

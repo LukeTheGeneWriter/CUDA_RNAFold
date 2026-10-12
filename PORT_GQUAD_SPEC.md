@@ -105,7 +105,7 @@ work, and it should be measured rather than chosen from this list on taste.
 **One parameter difference to carry across.** 2.7.2 adds three compiled-in
 constants that 2.3.0 does not have: `GQuadLayerMismatch37`, `GQuadLayerMismatchH`
 and `GQuadLayerMismatchMax`. They were the *only* energy-table difference found
-between the two versions (`PORT_PHASE0.md`), and they are live for multi-layer
+between the two versions (`docs/archive/PORT_PHASE0.md`), and they are live for multi-layer
 quadruplexes. A 2.3.0-based backport of this feature would therefore diverge from
 the 2.7.2 oracle on exactly the records it is meant to fix — another reason this
 waits for the rebase rather than being attempted on the current base.
@@ -298,7 +298,7 @@ slower, so it does not have to wait behind the performance work.
    builds `c_gq`, and that is serial per record in the same stage that the build
    pipeline exists to hide. It may be free; it has not been looked at.
 2. **`GQuadLayerMismatch37` / `H` / `Max`.** 2.7.2 adds these three constants and
-   2.3.0 lacks them (`PORT_PHASE0.md` — the *only* energy-table difference found
+   2.3.0 lacks them (`docs/archive/PORT_PHASE0.md` — the *only* energy-table difference found
    between the versions). They are live for multi-layer quadruplexes and reach
    the device only if the kernels need them; whether the two device sites do is
    not yet established.
@@ -416,7 +416,7 @@ the staged work can be measured before it is correct.
 exactly that quantity (`mfe_internal.c:640`).
 
 **A separate kernel, deliberately.** `int_loop_kernel` is **30 % of GPU time**
-(`STRESS272_RESULTS.md` §19) with a recorded history of regressions from being
+(`docs/archive/STRESS272_RESULTS.md` §19) with a recorded history of regressions from being
 touched without measurement. Folding gquad-only sweeps into the hottest loop in
 the project to serve a feature almost nobody runs is the wrong trade. One thread
 per `(H,j)` cell, launched only when a `c_gq` was uploaded.

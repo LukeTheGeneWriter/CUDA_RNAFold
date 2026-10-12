@@ -13,10 +13,12 @@ GPU=$CUDA/src/bin/RNAfold
 CPU=$NOCUDA/src/bin/RNAfold
 W=$HOME/dfprobe/nolpbar; mkdir -p $W
 fail=0
+FIX=${COV_FIX:-$(cd "$(dirname "$0")/.." && pwd)/tests/fixtures}/nolp
 say() { printf '  %-46s %s\n' "$1" "$2"; [ "$2" != ok ] && fail=1; return 0; }
 
 for fa in u900 u2000; do
-  F=$HOME/dfprobe/$fa.fa
+  F=$FIX/$fa.fa
+  [ -f "$F" ] || { say "$fa: fixture $F" MISSING; continue; }
   $CPU --noPS --noLP -i $F 2>/dev/null > $W/$fa.cpu
   RNA_GPU_CHUNK=0 RNA_MIN_GPU_BATCH=1 RNA_GPU_WORK_FLOOR=0 $GPU --noPS --noLP -i $F 2>$W/$fa.err > $W/$fa.gpu
   $CPU --noPS        -i $F 2>/dev/null > $W/$fa.plain

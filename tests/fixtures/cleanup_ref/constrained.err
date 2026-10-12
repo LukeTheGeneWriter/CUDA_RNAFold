@@ -1,0 +1,3 @@
+bin/RNAfold.c            GPU acceleration ON (1 device); reaching the device measured 0.07 s, so with 1 job a chunk needs 5.01e+04 matrix cells to beat the host
+mfe/cuda/mfe_cuda.c      fml_j AUTO: int16 -- a full-cap chunk would not fit in VRAM as int32 (full-cap chunk 9.0 GB as int32, 2.7 GB usable)
+bin/RNAfold.c            build pipeline AUTO: ON -- next chunk needs ~0.000 GB, MemAvailable 5.809 GB (bar is half)

@@ -11,13 +11,6 @@ WBL  3 Dec 2017 investigate data dependence in E_mb_loop_fast
 // inclusion order in whichever file includes it.
 #include <assert.h>
 
-#ifdef __cplusplus
-extern "C" void
-#else
-PUBLIC void
-#endif
-choose_gpu(int argc, char **argv); //updates argc and argv
-
 // Page-locked host allocation -- see cuda_host_alloc_ints()/cuda_host_free()
 // definitions in modular_decomposition.cu for why. Lets plain .c files
 // (fill_arrays.c) get pinned buffers without needing to #include
@@ -553,7 +546,7 @@ PUBLIC int rnafold_gpu_sweep(void);
 // concurrently instead of back to back. 0 = today's schedule, and every stream
 // below is the NULL stream so the default path is unchanged; 1 = hp_mb_3p(i)
 // beside int_loop(i) (~2 % of wall); 2 = also md(i) beside row i-1's cell work
-// (~21 %). See PORT_STREAM_OVERLAP_SCOPE.md 12 for the dependency graph and the
+// (~21 %). See docs/archive/PORT_STREAM_OVERLAP_SCOPE.md 12 for the dependency graph and the
 // WAR hazard that decides what may move.
 //
 // The stream handles themselves stay inside the .cu files: this header is
@@ -633,7 +626,7 @@ PUBLIC int  rnafold_phase_sync_enabled(void);
 // RNA_LAUNCH_STATS -- per-launch DEVICE time for int_loop_kernel, so a phase
 // total can be split into the kernel and everything else. Exists because NCU
 // says the kernel is identical under int16 while the PHASE is 25 s slower
-// (STRESS272_RESULTS.md 20.3/20.4), and no phase total can tell those apart.
+// (docs/archive/STRESS272_RESULTS.md 20.3/20.4), and no phase total can tell those apart.
 // Every instrumented launch ends in an event sync, so like RNA_PHASE_SYNC it is
 // a diagnostic and its wall is not comparable to a normal run. Defined in
 // device.cu.

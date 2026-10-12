@@ -19,7 +19,7 @@ CHUNK=${2:-8}
 shift 2 2>/dev/null || true
 BUDGETS=${*:-}
 BIN=$B/src/bin/RNAfold
-T=$HOME/rnatest
+T=${COV_FIX:-$(cd "$(dirname "$0")/.." && pwd)/tests/fixtures}
 R=$T/ref_md
 W=$HOME/gpucli
 mkdir -p "$W" || exit 2
@@ -36,8 +36,8 @@ run_all() {
   [ -n "$BUDGET" ] && echo "--- RNA_GPU_VRAM_BUDGET_MB=$BUDGET"
 fails=0
 for inp in C_mixed C_control asc desc extreme F_extreme; do
-  [ -f "$T/$inp.fa" ] || continue
-  [ -f "$R/$inp.out" ] || continue
+  # A missing fixture or reference FAILS: skipping it would pass having checked nothing.
+  [ -f "$T/$inp.fa" ] && [ -f "$R/$inp.out" ] || { printf '  %-12s MISSING fixture or reference\n' "$inp"; fails=$((fails+1)); continue; }
 
   t0=$(date +%s)
   if [ -n "$BUDGETS" ]; then

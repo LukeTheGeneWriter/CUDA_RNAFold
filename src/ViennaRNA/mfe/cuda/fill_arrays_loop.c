@@ -60,7 +60,7 @@
  }
  rnafold_rowtab_upload_all();
 
- /* BLOCKED MD STAGES 3a'/3b (PORT_MD_BLOCKING_DRIVER.md 2, 3.2): the sweep as a sequence
+ /* BLOCKED MD STAGES 3a'/3b (docs/archive/PORT_MD_BLOCKING_DRIVER.md 2, 3.2): the sweep as a sequence
   * of STEPS, each one (row i, column block from tile_jlo).
   *
   *   no tiles (the default)   one step per row, rows descending, the whole row: exactly

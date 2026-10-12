@@ -135,7 +135,7 @@ vrna_cuda_devices(void)
  * be declined out of CAUTION rather than NECESSITY -- noGU, uniq_ML, --nsp, -g
  * and -d0 all moved to ACCELERATED once someone measured them, and the way each
  * was measured was by taking the check out in a scratch build. That is a slow
- * and error-prone ritual (PORT_ACCELERATION_SCOPE.md "Tier 0 -- may already
+ * and error-prone ritual (docs/archive/PORT_ACCELERATION_SCOPE.md "Tier 0 -- may already
  * work; needs TESTING, not building"), and a scratch build is exactly the shape
  * of the stale-binary traps this project keeps writing down. One named,
  * announced hook makes every declined row measurable from a SHIPPED binary.
@@ -356,7 +356,7 @@ vrna_cuda_engine_supports(vrna_fold_compound_t  *fc,
    *
    * The guard tested md->pair[i][j] == 7 -- THE EFFECT, NOT THE FIELD -- because
    * md->nonstandards is only one of the routes in. That reasoning is preserved
-   * in PORT_NSP_PARAMFILE_SCOPE.md; it is worth keeping for the next guard that
+   * in docs/archive/PORT_NSP_PARAMFILE_SCOPE.md; it is worth keeping for the next guard that
    * has to choose between a request field and a materialised table.
    *
    * LIFTED 2026-09-10, because the cause was fixed rather than worked around.

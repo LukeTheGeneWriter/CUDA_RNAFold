@@ -1571,7 +1571,7 @@ par_mfe(const int nfiles,
   compute_batch_offsets(nfiles, cap_H, row_off_H, tri_off_H);
   /* Can the device DERIVE hc->mx and ptype from the sequence, instead of the
    * host packing them in O(n^2) per record? That packing is 87% of gpuinit and
-   * gpuinit is 22.9% of wall at 400x5601 (STRESS272_RESULTS.md), so this is the
+   * gpuinit is 22.9% of wall at 400x5601 (docs/archive/STRESS272_RESULTS.md), so this is the
    * largest single lever in the port.
    *
    * DERIVED HERE RATHER THAN SET BY THE CALLER, deliberately. On 2.3.0 this was

@@ -80,7 +80,7 @@ extern void   rnafold_set_chunk_cells_cap(const unsigned long long cap_cells);
  * which is why they were never wired up: the counter lives with the reporter,
  * the work lives here, and nobody closed the gap. The deep profile found 61% of
  * wall at 120x5601 outside every timer; these are the first four candidates.
- * See PROFILE272_DEEP_RESULTS.md. */
+ * See docs/archive/PROFILE272_DEEP_RESULTS.md. */
 extern double stage_build_s, stage_output_s, stage_teardown_s, stage_free_s;
 extern double rnafold_now_seconds(void);
 
@@ -683,7 +683,7 @@ output_needs_compound(struct options *opt)
  * flush_gpu_chunk() used to do both -- build every fold compound, then fold them
  * -- in one serial pass, which means the GPU sits idle for the whole build and
  * the cores sit idle for the whole fold. At 400 x 5601 that idle is 33.9% of
- * wall and `build` is 72% of it (STRESS272_RESULTS.md §14).
+ * wall and `build` is 72% of it (docs/archive/STRESS272_RESULTS.md §14).
  *
  * Splitting it here is a PURE REFACTOR and changes nothing on its own; it exists
  * so the build of one chunk can later be overlapped with the fold of the
@@ -710,7 +710,7 @@ struct gpu_batch {
  * WHAT CHANGED IS THE SIZE OF THE PRIZE, not the confidence. `build` was 24.5%
  * of wall on a T4. On an A100 the GPU phases are 3-5x faster and `build` does
  * not move at all -- 121.4 s of a 224.9 s wall, **54%**
- * (STRESS272_RESULTS.md 23.5). Measured here at 60 x 2400 on 12 cores:
+ * (docs/archive/STRESS272_RESULTS.md 23.5). Measured here at 60 x 2400 on 12 cores:
  * build 1.684 -> 0.260 s, **6.47x**, byte-identical at 2/3/4/6/8/12/auto.
  *
  * Scaling flattens past ~4-6 threads, which is what an allocation- and
@@ -1131,7 +1131,7 @@ fold_gpu_batch(struct gpu_batch *b,
  * One chunk deep: while the GPU folds chunk N, ONE host thread builds chunk
  * N+1's fold compounds. Prize is (chunks-1)/chunks x build -- ~19.6% of wall at
  * 400 x 5601, and exactly ZERO on a single-chunk run, because there is nothing
- * to overlap with. PORT_HETEROGENEOUS_SCOPE.md option B.
+ * to overlap with. docs/archive/PORT_HETEROGENEOUS_SCOPE.md option B.
  *
  * WHY ONE THREAD AND NOT A POOL. vrna_fold_compound() reaches vrna_params(),
  * whose SPEEDUP_PARAMS cache is four unsynchronised file-scope statics
@@ -1142,7 +1142,7 @@ fold_gpu_batch(struct gpu_batch *b,
  * one property this whole design rests on.
  *
  * AUTO BY DEFAULT, and that default was earned rather than assumed.
- * STRESS272_RESULTS.md 32.3 measured it at scale on an A100 at 400 x 5601:
+ * docs/archive/STRESS272_RESULTS.md 32.3 measured it at scale on an A100 at 400 x 5601:
  *
  *   chunks | off       | on        | wall   | peak host RSS
  *   -------+-----------+-----------+--------+-------------------
@@ -1415,7 +1415,7 @@ flush_gpu_chunk(struct record_data **chunk,
  * 1200%, and 107% with A and B both on). Everything else is waiting on the
  * device. So hold `m` records back from each chunk and hand them to the -j pool
  * before folding the rest: the cores work through them while the GPU works
- * through the chunk. PORT_CPU_QUEUE_SCOPE.md.
+ * through the chunk. docs/archive/PORT_CPU_QUEUE_SCOPE.md.
  *
  * NO NEW FOLDING CODE. A record that never entered a chunk has prefolded == 0,
  * so process_record() folds it itself -- the same path an undersized chunk has

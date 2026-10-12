@@ -248,7 +248,7 @@ uniform-length fixtures.
 Five options moved DECLINED → ACCELERATED in this project because somebody
 lifted the check and compared — `noGU`, `uniq_ML`, `--nsp`, `-g`, `-d0`. Each
 time the measurement was made in a scratch build, which is slow and is exactly
-the shape of the stale-binary traps recorded in `PORT_INVESTIGATIONS.md`. The
+the shape of the stale-binary traps recorded in `docs/archive/PORT_INVESTIGATIONS.md`. The
 `RNA_ENGINE_ALLOW` test hook (`mfe/cuda/engine.c`, announced on stderr, lifts a
 named check in **both** gate 1 and gate 2) makes the same measurement from a
 shipped binary, and this is the first sweep with it.

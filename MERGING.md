@@ -67,7 +67,7 @@ not "what did you change in ViennaRNA" but "will you carry a new subdirectory".
 | reference bar | byte-identical to upstream across the option surface, 18/18 with the route **asserted** |
 | option guard | **accepts six** — default, temperature, `noGU`, `uniq_ML`, salt, `noLP` — and declines the rest explicitly |
 | combinations | **36/36 pairs**, 24 focused triples (`verify_option_matrix.sh`, `verify_option_triples.sh`) |
-| performance | **32.4× over upstream** at 400 × 5601 nt, and **A/B = 0.990** — the port costs upstream's own CPU path nothing (`BENCH272_V5_RESULTS.md`) |
+| performance | **32.4× over upstream** at 400 × 5601 nt, and **A/B = 0.990** — the port costs upstream's own CPU path nothing (`docs/archive/BENCH272_V5_RESULTS.md`) |
 
 That last row is the one that matters most to a maintainer, and it is worth
 stating in the PR before the speedup: **turning the accelerator off returns
@@ -335,7 +335,7 @@ Ordered by increasing difficulty and decreasing independence:
 | 1. `params.c` race fix | **superseded, deliberately.** Not patched; *reported* as Defect B in `PORT_UPSTREAM_PROPOSAL.md`. Patching an unrelated upstream bug inside a large feature branch buries it. |
 | 2. port onto current upstream | **DONE.** `port27` branches off the `v2.7.2` tag; `make check` 145/145. |
 | 3. remove the `vrna_mfe()` shadowing | **DONE.** The inside-engine seam replaced it; the fork now deletes 7 lines of upstream code in total. |
-| 4. configuration through `vrna_md_t` | **SCOPED 2026-09-08, and the mechanism REJECTED** — see `PORT_CONFIG_SCOPE.md`. The goal stands (24 env vars, not 22, are the largest reviewer-visible debt) but `vrna_md_t` is the wrong home: wrong struct, an ABI break for every consumer, and it promises per-compound scope for six knobs that are process-wide caches. The seam already carries a per-compound `void *data`, so the fix costs **zero** upstream lines. |
+| 4. configuration through `vrna_md_t` | **SCOPED 2026-09-08, and the mechanism REJECTED** — see `docs/archive/PORT_CONFIG_SCOPE.md`. The goal stands (24 env vars, not 22, are the largest reviewer-visible debt) but `vrna_md_t` is the wrong home: wrong struct, an ABI break for every consumer, and it promises per-compound scope for six knobs that are process-wide caches. The seam already carries a per-compound `void *data`, so the fix costs **zero** upstream lines. |
 | 5. land the batch entry point, opt-in | **BUILT, not landed.** `--enable-cuda` exists, defaults off, host path untouched without it. "Landing" now means an upstream decision, not code — §3.1/3.2 of the proposal. |
 | 6. Python bindings | **OPEN.** Users reach ViennaRNA through `import RNA`; until the CUDA path is reachable there, adoption is zero regardless of what merges. |
 

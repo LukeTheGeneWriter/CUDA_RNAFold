@@ -1142,7 +1142,7 @@ process_record(struct record_data *record)
    *
    * MEASURED, not assumed. Setting vc = NULL on this path and rebuilding took
    * stage_output from 0.130 s to 0.000 s on a 12-record mixed-length batch with
-   * NOTHING dereferencing it. See PORT_HOST_WALL_SCOPE.md.
+   * NOTHING dereferencing it. See docs/archive/PORT_HOST_WALL_SCOPE.md.
    *
    * The comment on the prefolded branch below used to say the compound was
    * "still used for everything downstream". It is not, once everything

@@ -9,7 +9,7 @@
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v miniforge | paste -sd:)
 for v in $(env | grep -o "^RNA_[A-Z0-9_]*"); do unset $v; done
 f=$1; [ -n "$2" ] && export RNA_GPU_VRAM_BUDGET_MB=$2
-R=${RNAFOLD:-~/pyq/src/bin/RNAfold}; O=${REF_DIR:-~/cleanup_ref}; T=${COV_FIX:-~/rnatest}
+R=${RNAFOLD:-~/pyq/src/bin/RNAfold}; O=${REF_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/tests/fixtures/cleanup_ref}; T=${COV_FIX:-$(cd "$(dirname "$0")/../.." && pwd)/tests/fixtures}
 tag=$f${2:+_b$2}
 [ -f "$O/$tag.out" ] || { echo "$tag: no frozen reference"; exit 2; }
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT

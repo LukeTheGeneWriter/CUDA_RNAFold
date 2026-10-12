@@ -3,15 +3,15 @@
 # usage: refcheck.sh freeze|check <fixture> [budget_mb]
 #   freeze  write <ref>/<tag>.out from this build (run once, at the pre-cleanup tag)
 #   check   fold again, plain and -j4, and byte-compare both with the frozen output
-#   REF_DIR  reference directory (default ~/cleanup_ref)
+#   REF_DIR  reference directory (default tests/fixtures/cleanup_ref)
 #   RNAFOLD  binary (default ~/pyq/src/bin/RNAfold)
-#   COV_FIX  fixture directory holding <fixture>.fa (default ~/rnatest)
+#   COV_FIX  fixture directory holding <fixture>.fa (default tests/fixtures)
 # budget_mb sets RNA_GPU_VRAM_BUDGET_MB to force a multi-chunk run on a small card;
 # every other RNA_* variable is unset. One fixture per job (laptop memory reaper).
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v miniforge | paste -sd:)
 for v in $(env | grep -o "^RNA_[A-Z0-9_]*"); do unset $v; done
 mode=$1; f=$2; [ -n "$3" ] && export RNA_GPU_VRAM_BUDGET_MB=$3
-R=${RNAFOLD:-~/pyq/src/bin/RNAfold}; O=${REF_DIR:-~/cleanup_ref}; T=${COV_FIX:-~/rnatest}
+R=${RNAFOLD:-~/pyq/src/bin/RNAfold}; O=${REF_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/tests/fixtures/cleanup_ref}; T=${COV_FIX:-$(cd "$(dirname "$0")/../.." && pwd)/tests/fixtures}
 [ -f "$T/$f.fa" ] || { echo "no $T/$f.fa"; exit 2; }
 mkdir -p "$O"; tag=$f${3:+_b$3}; W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 RNA_GPU_VERBOSE=1 $R --noPS < "$T/$f.fa" > "$W/a.out" 2> "$W/a.err"; a=$?

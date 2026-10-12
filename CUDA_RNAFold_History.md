@@ -24,7 +24,7 @@ backtrack. The device work is the O(n³) fill.
 
 **Where it stands at this tip:** 400 × 5601 nt folds in **85.9 s** on an
 A100-SXM4-40GB at the shipped defaults, against **32.4×** the same workload on
-upstream's CPU path (`BENCH272_V5_RESULTS.md`).
+upstream's CPU path (`docs/archive/BENCH272_V5_RESULTS.md`).
 
 ---
 
@@ -194,12 +194,12 @@ otherwise gate 2 inspects a different object than the one that gets folded.
 ## 5. What is known and not fixed
 
 Recorded here so the next branch starts from the truth rather than from
-optimism. Full detail in `STRESS272_RESULTS.md` §30–35.
+optimism. Full detail in `docs/archive/STRESS272_RESULTS.md` §30–35.
 
 * **`modular_decomposition` is bandwidth-bound in production** — 82.8 % of DRAM
   peak at 400 × 5601, 44 % of wall. The roofline position is a property of the
   **grid**, not the kernel: the same kernel reads 7.9 % of peak on a small
-  fixture. `PORT_LUKES_FLOW_BATCHING.md` is the plan.
+  fixture. `docs/archive/PORT_LUKES_FLOW_BATCHING.md` is the plan.
 * **`int_loop` is retirement-limited, not occupancy-limited.** Raising warps per
   block lifts the ceiling and *lowers* achieved occupancy.
 * **`RNA_STREAM_OVERLAP=2` is experimental and unverified at scale.** A race at
@@ -217,7 +217,7 @@ optimism. Full detail in `STRESS272_RESULTS.md` §30–35.
 
 `Finished_Port` is a base tip, not a development line. Work forks from it:
 
-* **`Lukes_Flow_Batching`** — `PORT_LUKES_FLOW_BATCHING.md`: column tiling in
+* **`Lukes_Flow_Batching`** — `docs/archive/PORT_LUKES_FLOW_BATCHING.md`: column tiling in
   `modular_decomposition`, row-granular stream-out, and continuous-flow
   retirement.
 

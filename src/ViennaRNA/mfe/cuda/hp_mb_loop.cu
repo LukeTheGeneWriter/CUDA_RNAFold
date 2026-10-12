@@ -145,7 +145,7 @@ int* d_energy_mb_row;
 int* d_energy_stack_row;
 int* d_cc;
 int* d_cc1;
-/* Stage 3a.1 (PORT_MD_BLOCKING_DRIVER.md 3.1): cc/cc1 as a ring. new_c reads row i+1's
+/* Stage 3a.1 (docs/archive/PORT_MD_BLOCKING_DRIVER.md 3.1): cc/cc1 as a ring. new_c reads row i+1's
  * cc at j-1, LEFT of its own column, so the blocked schedule needs RB+1 rows of it.
  * Depth 2 (the default) IS the old swap; d_cc and d_cc1 point into the ring, and the
  * ring owns the allocations (free by allocation, not by where the pointers are now). */
@@ -208,7 +208,7 @@ extern "C" cudaStream_t rnafold_stream_md(void);
  * d_energy_3p00_row is written by hp_mb_3p(i) and read by fml_scan(i). At level
  * 2 those two live on different streams and hp_mb(i-1) is issued while row i's
  * fml_scan may still be reading -- a write-after-read across rows, on a buffer
- * reused every row (PORT_STREAM_OVERLAP_SCOPE.md 4). It would not crash; it
+ * reused every row (docs/archive/PORT_STREAM_OVERLAP_SCOPE.md 4). It would not crash; it
  * would produce a wrong multibranch 3' term, intermittently, depending on
  * scheduling.
  *
@@ -1704,7 +1704,7 @@ hp_mb_md_sparse_buffers(const char **up_ml_ok, const size_t **seq_off_H)
 
 /* ================= RNA_ROW_FUSE: hp_mb_3p + new_c + load_my_c in ONE launch ===
  *
- * PORT_MD_BLOCKING_INTEGRATION.md section 3.7, the revised stage 3 step (a).
+ * docs/archive/PORT_MD_BLOCKING_INTEGRATION.md section 3.7, the revised stage 3 step (a).
  *
  * WHY THESE THREE AND NOT FOUR. The plan said "fuse the four per-cell phases".
  * int_loop cannot join them: it is ONE BLOCK PER CELL, 32 threads cooperating on
@@ -1900,7 +1900,7 @@ row_cells_i(const int nfiles, const vrna_fold_compound_t **VC,
 
 /* ========== Blocked md 3e-fuse: one tile step's c chain + fML scan, ONE launch ==========
  *
- * PORT_MD_BLOCKING_DRIVER.md 10 and 12. At a tile's width (one CB-column block of every
+ * docs/archive/PORT_MD_BLOCKING_DRIVER.md 10 and 12. At a tile's width (one CB-column block of every
  * record) the step's small kernels are bound by per-launch latency, not work: the A100
  * priced them at 1.59x their whole-row cost per cell, which would eat the blocked md's
  * gain. This kernel runs them in one launch, ONE BLOCK PER RECORD:

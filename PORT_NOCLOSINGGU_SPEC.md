@@ -143,7 +143,7 @@ and the next real value in that block (180) was 9999710 away from it.
 Both lines are now `fml_tadd()`, the `INF`-safe add already defined for exactly
 this purpose a few lines above. Fixed at the source rather than clamped at the
 consumer, because the same fML feeds `DMLi`, and `DMLi` carrying near-`INF`
-sentinels is `PORT_INVESTIGATIONS.md` item 3. (It does **not** close that item:
+sentinels is `docs/archive/PORT_INVESTIGATIONS.md` item 3. (It does **not** close that item:
 the reduction there adds two fML values without a guard of its own, which is a
 separate instance of the same family.)
 

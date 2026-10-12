@@ -1,0 +1,33 @@
+bin/RNAfold.c            GPU acceleration ON (1 device); reaching the device measured 0.18 s, so with 1 job a chunk needs 1.18e+05 matrix cells to beat the host
+mfe/cuda/mfe_cuda.c      fml_j AUTO: int16 -- a full-cap chunk would not fit in VRAM as int32 (full-cap chunk 9.0 GB as int32, 2.7 GB usable)
+bin/RNAfold.c            build pipeline AUTO: ON -- next chunk needs ~0.018 GB, MemAvailable 5.881 GB (bar is half)
+bin/RNAfold.c            build threads 12 (auto: nproc, the default)
+./mfe/cuda/modular_decomposition.cu init_gpu(30, 1240)
+./mfe/cuda/modular_decomposition.cu fmli_kernel block size 768, modular_decomposition_kernel block size 576 (both were hardcoded 64), md tile 32
+./mfe/cuda/md_sparse.inc RNA_MD_SPARSE ACTIVE: md reads only candidate split points (lists rebuilt every row) plus a row scan, in place of the dense md (rho 0.25, 8-B entries)
+./mfe/cuda/int_loop.cu   init_gpu2(30,VC,3,1240,512)
+./mfe/cuda/int_loop.cu   int_loop kernel: warp-per-cell (the measured default)
+./mfe/cuda/int_loop.cu   RNA_C_RING ACTIVE: int_loop reads c from a 32-row ring; the c triangle is written 16 rows at a time (RNA_C_FLUSH_ROWS)
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_ERING ACTIVE: fresh entries read a 32-row e ring (2.4 MB)
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2 ACTIVE: 3-D carry grid, planes per thread per row (5, or 1 when 5 cannot fill) (capacity 24576 threads)
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO ACTIVE: int_loop enumerates the direct loops only; generic interior loops come from the carried table (G 3.8 MB)
+./mfe/cuda/hp_mb_loop.cu init_gpu3(30,VC,3,1240,512)
+./mfe/cuda/hp_mb_loop.cu RNA_HP_TABLE ON: hairpin length term from a host-built double table, one entry per size
+./mfe/cuda/hp_mb_loop.cu RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered on row parity (+0.2 MB)
+./mfe/cuda/int_loop.cu   int_loop_kernel block size 32 (measured default -- see comment above)
+./mfe/cuda/int_loop.cu   RNA_INT_LOOP_CELLS_PER_WARP=auto: G per row, the largest <= 4 that leaves every SM enough warps (=1 turns packing off)
+./mfe/cuda/hp_mb_loop.cu hp_mb_3p_kernel block size 768 (was hardcoded 512)
+./mfe/cuda/hp_mb_loop.cu new_c_kernel block size 768
+./mfe/cuda/modular_decomposition.cu RNA_MD_TAIL ACTIVE: md reads fml_i from energy_min, and ONE kernel closes the row (was load_fML + fmli + load_min_fML + pack_fml + fml_prev + a D2D snapshot)
+./mfe/cuda/modular_decomposition.cu RNA_ROW_BATCH=5 ACTIVE: the fML triangle is written 5 rows at a time from a row-major stage
+./mfe/cuda/modular_decomposition.cu CUDA graph capture for load_fML/modular_decomposition/load_min_fML: enabled
+./mfe/cuda/int_loop.cu   RNA_C_RING: 1236 rows ringed, 78 triangle flushes this chunk
+mfe/cuda/fill_arrays_loop.c sweep shape: 1236 iterations, 19680 active record-rows, 8262880 cells; peak/iteration 30 records 19680 cells; continuous flow OFF
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:0 5:632 1:604
+RNAfold.c                build pipeline: 1 chunks, builder 0.018 s, OVERLAPPED 0.000 s (0% of builder time hidden behind the GPU)
+./mfe/cuda/modular_decomposition.cu CUDA graph stats: 1234 update() succeeded, 1 first-time instantiate, 1 forced reinstantiate (update failed), 0.003 s cumulative capture/update/instantiate/destroy overhead (excludes launch+sync)
+mfe/cuda/mfe_cuda.c      backtrack scratch (worker-s): alloc=0.000 fetch=0.120
+mfe/cuda/mfe_cuda.c      stage timing (s): build=0.018 prepare=0.005 prefill=0.000 backtrack=0.035 output=0.000 gpuinit=0.025 teardown=0.000 free=0.000 || non-sweep total=0.083
+mfe/cuda/mfe_cuda.c      gpuinit breakdown (s): init_gpu=0.013 init_gpu2=0.007 init_gpu3=0.005 || of which pack=0.003 cudaMalloc=0.004 other=0.019
+mfe/cuda/mfe_cuda.c      phase timing (s): int_loop=0.051 hp_mb=0.038 load_my_c=0.022 modular_decomp=0.036 fetch_mx=0.062 | new_c_host=0.000 fml_host=0.000 fml_prev_host=0.000 || GPU+transfer total=0.209 host-combine total=0.000
+./mfe/cuda/md_sparse.inc RNA_MD_SPARSE: 1 chunk(s); 555349 candidates of 8242207 finite fML(k,j) (6.74 %); 45 column(s) overflowed at rho 0.25 (8-B entries), 816 md cell(s) took the dense fallback; lists 17.3 MB (admission charged 17.5 MB)

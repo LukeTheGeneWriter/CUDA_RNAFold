@@ -14,7 +14,7 @@ B=${1:-$HOME/port27cuda}
 BIN=$B/src/bin/RNAfold
 . "$(dirname "$0")/bar_preflight.sh"
 bar_preflight "$BIN" "$B" || exit 2
-T=$HOME/rnatest
+T=${COV_FIX:-$(cd "$(dirname "$0")/.." && pwd)/tests/fixtures}
 CUDA_LIBDIR=$(dirname "$(command -v nvcc)")/../lib
 export LD_LIBRARY_PATH=$CUDA_LIBDIR
 W=$HOME/relaxed

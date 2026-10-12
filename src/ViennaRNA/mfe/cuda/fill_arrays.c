@@ -137,7 +137,7 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
   // because d0 and d2 are the only models that can ask for the others. A d1
   // single-sided call would return 0 where upstream returns a dangle5/dangle3
   // term. assert() is compiled out here (NVCC_ASSERT_FLAGS is -DNDEBUG by
-  // design -- PORT_INVESTIGATIONS.md item 4), so this check is the enforcement.
+  // design -- docs/archive/PORT_INVESTIGATIONS.md item 4), so this check is the enforcement.
   if ((P->model_details.dangles != 0) && (P->model_details.dangles != 2)) {
     fprintf(stderr,
             "par_fill_arrays: this CUDA build implements dangle models 0 and 2 "

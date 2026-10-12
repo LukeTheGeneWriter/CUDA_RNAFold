@@ -81,7 +81,7 @@ fml_scan_block(const int nfiles, const int i_row, const int turn,
       // wins a min against a real energy -- which is why it survived every
       // byte-identical run this project has. It is fixed rather than clamped
       // because the same fML feeds DMLi, and DMLi carrying near-INF sentinels is
-      // PORT_INVESTIGATIONS.md item 3.
+      // docs/archive/PORT_INVESTIGATIONS.md item 3.
       //
       // fml_tadd() is the INF-safe add already defined above for exactly this.
       const int c_term = fml_tadd(new_e[o+j], e3p00[o+j]);

@@ -89,7 +89,7 @@ int_loop_warp_cell_r(const int nfiles, const int i_row, const int length,
 
     /* The scan is latency-bound: ncu on an RTX 3050 put `wait` (a fixed-latency
      * register chain) at 46 % of all stalling, with DRAM at 0.83 % and the my_c window
-     * already L1-resident. That kills the lever PORT_MD_BLOCKING_SCOPE.md proposed for
+     * already L1-resident. That kills the lever docs/archive/PORT_MD_BLOCKING_SCOPE.md proposed for
      * it -- staging the 30x30 window in shared -- because the loads are neither the
      * stall nor the bytes. Per candidate the body runs SEVEN warp shuffles (five for the
      * binary search, two gathers) and one MIN2 accumulator.

@@ -22,7 +22,7 @@
  * instead of applying rtype[]. Both are exact identities at default settings,
  * which is why the port was byte-identical for a year with them; --nsp breaks
  * the second, because model.c:1104 FORCES rtype[7] = 7 after the derivation
- * loop. See PORT_NSP_PARAMFILE_SCOPE.md 1.
+ * loop. See docs/archive/PORT_NSP_PARAMFILE_SCOPE.md 1.
  *
  * THE SPEC MUST BE ASYMMETRIC, AND THAT IS THE WHOLE POINT OF THIS FILE.
  *

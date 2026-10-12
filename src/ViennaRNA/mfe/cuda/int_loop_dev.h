@@ -50,14 +50,14 @@ struct cuda_param_s {
   //The asymmetry cap, appended last for the same reason the salt fields were:
   //no offset above it moves. Carried per-batch because a parameter file can
   //change it (params/io.c:671) -- see the note on MAX_NINIO at the top of this
-  //file and PORT_NSP_PARAMFILE_SCOPE.md §2.2.
+  //file and docs/archive/PORT_NSP_PARAMFILE_SCOPE.md §2.2.
   int     max_ninio;
   //rtype[], appended last for the same reason. Energy() used to obtain type_2
   //by SWAPPING the index order (pair[S[q]][S[p]]) instead of applying rtype[].
   //That is an exact identity at default settings -- md->rtype[] is BUILT from
   //md->pair[] (model.c:1098-1100, rtype[pair[i][j]] = pair[j][i]) -- and stops
   //being one under --nsp, where model.c:1104 FORCES rtype[7] = 7 over whatever
-  //the derivation loop wrote. See PORT_NSP_PARAMFILE_SCOPE.md §1.
+  //the derivation loop wrote. See docs/archive/PORT_NSP_PARAMFILE_SCOPE.md §1.
   int     rtype[8];
   //VRNA-PATCH free: this is OURS. noGUclosure is a MODEL DETAIL, not an energy
   //parameter, and it sits here for the same reason rtype[] does -- it is read
@@ -216,7 +216,7 @@ cell_invariants(const unsigned int* __restrict__ S, const char* __restrict__ pai
   cell_inv_t c;
   // vrna_get_ptype_md() PROMOTES 0 -> 7 (alphabet.c:475-477); the raw pair value
   // is not the same thing, and omitting it here is the trap that made --nsp a
-  // live wrong answer. See PORT_NSP_PARAMFILE_SCOPE.md 1.
+  // live wrong answer. See docs/archive/PORT_NSP_PARAMFILE_SCOPE.md 1.
   const unsigned char t = Ptype(S,pair_,H,s_stride,i,j);
   c.type = (t == 0) ? 7 : (int)t;
   c.si1  = unpack(S,H,s_stride,i+1);
@@ -360,7 +360,7 @@ Energy(const int H, const int s_stride, const int i, const int j, const int q, c
 	      // stack_row_kernel() promotes then applies rtype[], and
 	      // hp_mb_3p_kernel() applies rtype[] with a documented raw-index
 	      // convention. Only Energy() did neither, so under --nsp the fork
-	      // disagreed with ITSELF. See PORT_NSP_PARAMFILE_SCOPE.md §1.
+	      // disagreed with ITSELF. See docs/archive/PORT_NSP_PARAMFILE_SCOPE.md §1.
 	      // H1: hoisted to cell_invariants(), computed once per cell.
 	      const int type = ci.type;
 	      assert(type<8);
@@ -387,7 +387,7 @@ Energy(const int H, const int s_stride, const int i, const int j, const int q, c
 	      // `energy = my_c[pq]; energy += IntLoop_X(...)`. An INF returned
 	      // from the callee would be ADDED to a real negative c[pq] and land
 	      // just BELOW INF, winning the min -- the same near-INF sentinel
-	      // mechanism recorded in PORT_INVESTIGATIONS.md item 3. Upstream
+	      // mechanism recorded in docs/archive/PORT_INVESTIGATIONS.md item 3. Upstream
 	      // avoids it the same way, with explicit `continue`s before the
 	      // call; its in-callee test is unreachable from this path.
 	      //

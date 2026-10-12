@@ -13,7 +13,7 @@
  *
  * WHY IT MATTERS: measured at 400 x 5601 on a T4, int16 wins 62.4 s in
  * modular_decomp and hands 34.8 s back, of which fetch_mx is 7.7-12.5 s
- * (STRESS272_RESULTS.md 15.3, 16.2). This loop is that component.
+ * (docs/archive/STRESS272_RESULTS.md 15.3, 16.2). This loop is that component.
  *
  *   gcc -O2 -o fml_decode_equiv tools/fml_decode_equiv.c && ./fml_decode_equiv
  *

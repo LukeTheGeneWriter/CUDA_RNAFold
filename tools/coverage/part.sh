@@ -5,7 +5,7 @@
 #
 # usage: part.sh reset | parity | <fixture>
 #   COV_TREE    coverage tree (default ~/covq)
-#   COV_FIX     fixture directory holding <fixture>.fa (default ~/rnatest)
+#   COV_FIX     fixture directory holding <fixture>.fa (default tests/fixtures)
 #   COV_BUDGET  sets RNA_GPU_VRAM_BUDGET_MB, to force a multi-chunk run on a small card
 #   COV_CPU     non-empty: the CPU arm (RNA_GPU=0); use a separate tree or reset between arms
 # Every other RNA_* variable is unset: this is the DEFAULT path.
@@ -14,7 +14,7 @@ for v in $(env | grep -o "^RNA_[A-Z0-9_]*"); do unset $v; done
 [ -n "$COV_BUDGET" ] && export RNA_GPU_VRAM_BUDGET_MB=$COV_BUDGET
 [ -n "$COV_CPU" ] && export RNA_GPU=0
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
-B=${COV_TREE:-~/covq}; R=$B/src/bin/RNAfold; T=${COV_FIX:-~/rnatest}; W=$B/covrun
+B=${COV_TREE:-~/covq}; R=$B/src/bin/RNAfold; T=${COV_FIX:-$(cd "$(dirname "$0")/../.." && pwd)/tests/fixtures}; W=$B/covrun
 mkdir -p "$W"; cd "$W"
 case "$1" in
   reset)  find "$B/src" -name "*.gcda" -delete; rm -f "$W"/*; echo reset;;

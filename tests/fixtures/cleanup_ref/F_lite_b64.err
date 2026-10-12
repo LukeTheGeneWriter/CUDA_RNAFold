@@ -1,0 +1,82 @@
+bin/RNAfold.c            GPU acceleration ON (1 device); reaching the device measured 0.19 s, so with 1 job a chunk needs 1.26e+05 matrix cells to beat the host
+./mfe/cuda/modular_decomposition.cu RNA_GPU_VRAM_BUDGET_MB=64 capping GPU chunk budget (free VRAM would have allowed 2808 MB)
+mfe/cuda/mfe_cuda.c      fml_j AUTO: int16 -- a full-cap chunk would not fit in VRAM as int32 (full-cap chunk 9.0 GB as int32, 0.1 GB usable)
+bin/RNAfold.c            build pipeline AUTO: ON -- next chunk needs ~0.009 GB, MemAvailable 5.827 GB (bar is half)
+bin/RNAfold.c            build threads 12 (auto: nproc, the default)
+./mfe/cuda/modular_decomposition.cu init_gpu(9, 1297)
+./mfe/cuda/modular_decomposition.cu fmli_kernel block size 768, modular_decomposition_kernel block size 576 (both were hardcoded 64), md tile 32
+./mfe/cuda/md_sparse.inc RNA_MD_SPARSE ACTIVE: md reads only candidate split points (lists rebuilt every row) plus a row scan, in place of the dense md (rho 0.25, 8-B entries)
+./mfe/cuda/int_loop.cu   init_gpu2(9,VC,3,1297,512)
+./mfe/cuda/int_loop.cu   int_loop kernel: warp-per-cell (the measured default)
+./mfe/cuda/int_loop.cu   RNA_C_RING ACTIVE: int_loop reads c from a 32-row ring; the c triangle is written 16 rows at a time (RNA_C_FLUSH_ROWS)
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_ERING ACTIVE: fresh entries read a 32-row e ring (1.0 MB)
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2 ACTIVE: 3-D carry grid, planes per thread per row (5, or 1 when 5 cannot fill) (capacity 24576 threads)
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO ACTIVE: int_loop enumerates the direct loops only; generic interior loops come from the carried table (G 1.5 MB)
+./mfe/cuda/hp_mb_loop.cu init_gpu3(9,VC,3,1297,512)
+./mfe/cuda/hp_mb_loop.cu RNA_HP_TABLE ON: hairpin length term from a host-built double table, one entry per size
+./mfe/cuda/hp_mb_loop.cu RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered on row parity (+0.1 MB)
+./mfe/cuda/int_loop.cu   int_loop_kernel block size 32 (measured default -- see comment above)
+./mfe/cuda/int_loop.cu   RNA_INT_LOOP_CELLS_PER_WARP=auto: G per row, the largest <= 4 that leaves every SM enough warps (=1 turns packing off)
+./mfe/cuda/hp_mb_loop.cu hp_mb_3p_kernel block size 768 (was hardcoded 512)
+./mfe/cuda/hp_mb_loop.cu new_c_kernel block size 768
+./mfe/cuda/modular_decomposition.cu RNA_MD_TAIL ACTIVE: md reads fml_i from energy_min, and ONE kernel closes the row (was load_fML + fmli + load_min_fML + pack_fml + fml_prev + a D2D snapshot)
+./mfe/cuda/modular_decomposition.cu RNA_ROW_BATCH=5 ACTIVE: the fML triangle is written 5 rows at a time from a row-major stage
+./mfe/cuda/modular_decomposition.cu CUDA graph capture for load_fML/modular_decomposition/load_min_fML: enabled
+./mfe/cuda/int_loop.cu   RNA_C_RING: 1293 rows ringed, 81 triangle flushes this chunk
+mfe/cuda/fill_arrays_loop.c sweep shape: 1293 iterations, 7950 active record-rows, 4243727 cells; peak/iteration 9 records 7950 cells; continuous flow OFF
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:0 5:358 1:935
+./mfe/cuda/modular_decomposition.cu init_gpu(7, 3197)
+./mfe/cuda/modular_decomposition.cu fmli_kernel block size 768, modular_decomposition_kernel block size 576 (both were hardcoded 64), md tile 32
+./mfe/cuda/int_loop.cu   init_gpu2(7,VC,3,3197,512)
+./mfe/cuda/hp_mb_loop.cu init_gpu3(7,VC,3,3197,512)
+./mfe/cuda/hp_mb_loop.cu RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered on row parity (+0.1 MB)
+./mfe/cuda/int_loop.cu   RNA_C_RING: 3193 rows ringed, 200 triangle flushes this chunk
+mfe/cuda/fill_arrays_loop.c sweep shape: 3193 iterations, 4936 active record-rows, 5538549 cells; peak/iteration 7 records 4936 cells; continuous flow OFF
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:0 5:6 1:3187
+./mfe/cuda/modular_decomposition.cu init_gpu(13, 1997)
+./mfe/cuda/modular_decomposition.cu fmli_kernel block size 768, modular_decomposition_kernel block size 576 (both were hardcoded 64), md tile 32
+./mfe/cuda/int_loop.cu   init_gpu2(13,VC,3,1997,512)
+./mfe/cuda/hp_mb_loop.cu init_gpu3(13,VC,3,1997,512)
+./mfe/cuda/hp_mb_loop.cu RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered on row parity (+0.1 MB)
+./mfe/cuda/int_loop.cu   RNA_C_RING: 1993 rows ringed, 125 triangle flushes this chunk
+mfe/cuda/fill_arrays_loop.c sweep shape: 1993 iterations, 7849 active record-rows, 4572587 cells; peak/iteration 13 records 7849 cells; continuous flow OFF
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:0 5:303 1:1690
+./mfe/cuda/modular_decomposition.cu init_gpu(6, 3197)
+./mfe/cuda/modular_decomposition.cu fmli_kernel block size 768, modular_decomposition_kernel block size 576 (both were hardcoded 64), md tile 32
+./mfe/cuda/int_loop.cu   init_gpu2(6,VC,3,3197,512)
+./mfe/cuda/hp_mb_loop.cu init_gpu3(6,VC,3,3197,512)
+./mfe/cuda/hp_mb_loop.cu RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered on row parity (+0.1 MB)
+./mfe/cuda/int_loop.cu   RNA_C_RING: 3193 rows ringed, 200 triangle flushes this chunk
+mfe/cuda/fill_arrays_loop.c sweep shape: 3193 iterations, 4360 active record-rows, 5299695 cells; peak/iteration 6 records 4360 cells; continuous flow OFF
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:0 5:0 1:3193
+./mfe/cuda/modular_decomposition.cu init_gpu(5, 3197)
+./mfe/cuda/modular_decomposition.cu fmli_kernel block size 768, modular_decomposition_kernel block size 576 (both were hardcoded 64), md tile 32
+./mfe/cuda/int_loop.cu   init_gpu2(5,VC,3,3197,512)
+./mfe/cuda/hp_mb_loop.cu init_gpu3(5,VC,3,3197,512)
+./mfe/cuda/hp_mb_loop.cu RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered on row parity (+0.1 MB)
+./mfe/cuda/int_loop.cu   RNA_C_RING: 3193 rows ringed, 200 triangle flushes this chunk
+mfe/cuda/fill_arrays_loop.c sweep shape: 3193 iterations, 5572 active record-rows, 7115234 cells; peak/iteration 5 records 5572 cells; continuous flow OFF
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:0 5:160 1:3033
+./mfe/cuda/modular_decomposition.cu init_gpu(15, 1997)
+./mfe/cuda/modular_decomposition.cu fmli_kernel block size 768, modular_decomposition_kernel block size 576 (both were hardcoded 64), md tile 32
+./mfe/cuda/int_loop.cu   init_gpu2(15,VC,3,1997,512)
+./mfe/cuda/hp_mb_loop.cu init_gpu3(15,VC,3,1997,512)
+./mfe/cuda/hp_mb_loop.cu RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered on row parity (+0.1 MB)
+./mfe/cuda/int_loop.cu   RNA_C_RING: 1993 rows ringed, 125 triangle flushes this chunk
+mfe/cuda/fill_arrays_loop.c sweep shape: 1993 iterations, 8653 active record-rows, 6576335 cells; peak/iteration 15 records 8653 cells; continuous flow OFF
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:0 5:478 1:1515
+./mfe/cuda/modular_decomposition.cu init_gpu(2, 1997)
+./mfe/cuda/modular_decomposition.cu fmli_kernel block size 768, modular_decomposition_kernel block size 576 (both were hardcoded 64), md tile 32
+./mfe/cuda/int_loop.cu   init_gpu2(2,VC,3,1997,512)
+./mfe/cuda/hp_mb_loop.cu init_gpu3(2,VC,3,1997,512)
+./mfe/cuda/hp_mb_loop.cu RNA_STREAM_OVERLAP=2: hp/mb row buffers double-buffered on row parity (+0.0 MB)
+./mfe/cuda/int_loop.cu   RNA_C_RING: 1993 rows ringed, 125 triangle flushes this chunk
+mfe/cuda/fill_arrays_loop.c sweep shape: 1993 iterations, 2191 active record-rows, 2006722 cells; peak/iteration 2 records 2191 cells; continuous flow OFF
+./mfe/cuda/int_loop_lyngso.inc RNA_INT_LOOP_LYNGSO_V2: rows by planes per thread: 25:0 5:0 1:1993
+RNAfold.c                build pipeline: 7 chunks, builder 0.202 s, OVERLAPPED 0.191 s (95% of builder time hidden behind the GPU)
+./mfe/cuda/modular_decomposition.cu CUDA graph stats: 16837 update() succeeded, 7 first-time instantiate, 7 forced reinstantiate (update failed), 0.031 s cumulative capture/update/instantiate/destroy overhead (excludes launch+sync)
+mfe/cuda/mfe_cuda.c      backtrack scratch (worker-s): alloc=0.000 fetch=0.293
+mfe/cuda/mfe_cuda.c      stage timing (s): build=0.202 prepare=0.010 prefill=0.000 backtrack=0.105 output=0.001 gpuinit=0.076 teardown=0.000 free=0.002 || non-sweep total=0.396
+mfe/cuda/mfe_cuda.c      gpuinit breakdown (s): init_gpu=0.031 init_gpu2=0.023 init_gpu3=0.022 || of which pack=0.011 cudaMalloc=0.016 other=0.049
+mfe/cuda/mfe_cuda.c      phase timing (s): int_loop=0.550 hp_mb=0.416 load_my_c=0.305 modular_decomp=0.408 fetch_mx=0.187 | new_c_host=0.001 fml_host=0.001 fml_prev_host=0.000 || GPU+transfer total=1.866 host-combine total=0.001
+./mfe/cuda/md_sparse.inc RNA_MD_SPARSE: 7 chunk(s); 2390796 candidates of 35310018 finite fML(k,j) (6.77 %); 125 column(s) overflowed at rho 0.25 (8-B entries), 4760 md cell(s) took the dense fallback; lists 14.0 MB (admission charged 14.1 MB)

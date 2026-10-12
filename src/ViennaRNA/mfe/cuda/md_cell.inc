@@ -159,7 +159,7 @@ md_cell(
      * fix a value the linear path evidently tolerates would be trading a
      * measured-good hot path for a theoretical one. Whether DMLi's near-INF
      * values can bite new_c_kernel is a separate question -- see
-     * PORT_INVESTIGATIONS.md.
+     * docs/archive/PORT_INVESTIGATIONS.md.
      */
     if(fm2) fm2[fm2_out] = (value > INF/2) ? INF : value;
   }

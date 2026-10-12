@@ -35,7 +35,7 @@ if [ "${1:-}" = "--expect-accelerated" ]; then EXPECT=accelerated; shift; fi
 if [ "${1:-}" = "--expect-routed" ];      then EXPECT=routed;      shift; fi
 
 TREE=${1:-$HOME/port27rel}
-SRC=${2:-$HOME/rnatest/asc.fa}
+SRC=${2:-$(cd "$(dirname "$0")/.." && pwd)/tests/fixtures/asc.fa}
 BIN=$TREE/src/bin/RNAfold
 EVAL=$TREE/src/bin/RNAeval
 WORK=$(mktemp -d)

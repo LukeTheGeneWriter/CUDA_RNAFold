@@ -244,7 +244,7 @@ declines(vrna_fold_compound_t *fc)
  * The replacement is tests/mfe_cuda_nsp.ts, which compares the batch backend
  * against upstream under an ASYMMETRIC spec. That distinction is not
  * cosmetic: a symmetric spec (--nsp="-GA") masks the divergence completely
- * and passes against the BROKEN binary. See PORT_NSP_PARAMFILE_SCOPE.md 1.
+ * and passes against the BROKEN binary. See docs/archive/PORT_NSP_PARAMFILE_SCOPE.md 1.
  */
 
 #test test_guard_accepts_hard_structure_constraints

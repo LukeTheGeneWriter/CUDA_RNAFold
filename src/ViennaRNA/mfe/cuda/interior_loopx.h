@@ -104,7 +104,7 @@ IntLoop_X(const int n1,
 	  //2026-09-09, which was wrong: MAX_NINIO is a WRITABLE library global
 	  //(params/default.c:70) that a parameter file overwrites (params/io.c:671,
 	  //the NINIO block's third value). It is now carried in cuda_param_t and
-	  //passed in from the live global. See PORT_NSP_PARAMFILE_SCOPE.md §2.2.
+	  //passed in from the live global. See docs/archive/PORT_NSP_PARAMFILE_SCOPE.md §2.2.
 	  const int max_ninio,
 	  const int bulge[MAXLOOP+1],
 	  const int internal_loop[MAXLOOP+1],

@@ -7,7 +7,7 @@
 
 //LAW 14 Jul 2026 added WBL diff till 2026
 //WBL  5 Jul 2026 see if can get to compile with CUDA 13.*
-//WBL 15 May 2023 add use_cuda
+//WBL 15 May 2023 add use_cuda (removed with choose_gpu, cleanup C8 2026-10-12)
 //WBL  4 Mar 2018 add optional pause to fake persistence mode
 //WBL 17 Feb 2018 simplify GPU startup message and send to stderr
 //WBL  2 Jan 2018 
@@ -96,146 +96,11 @@ inline void gpuAssert(cudaError_t code, const char *file, const int line, const 
    }
 }
 
-/*taken from helper_string.h
-//https://people.maths.ox.ac.uk/gilesm/cuda/prac1/helper_string.h getCmdLineArgumentInt
-inline int getCmdLineArgumentInt(int argc, char **argv, const char *string_ref)
-{
-    bool bFound = false;
-    int value = -1;
-
-    if (argc >= 1)
-    {
-        for (int i=1; i < argc; i++)
-        {
-            int string_start = stringRemoveDelimiter('-', argv[i]);
-            const char *string_argv = &argv[i][string_start];
-            int length = (int)strlen(string_ref);
-
-            if (!STRNCASECMP(string_argv, string_ref, length))
-            {
-                if (length+1 <= (int)strlen(string_argv))
-                {
-		    //printf("getCmdLineArgumentInt(%d,%s) removing argc %d %s ",
-		    //	   argc,argv[0],i,argv[i]);
-		    //fflush(stdout);
-
-                    int auto_inc = (string_argv[length] == '=') ? 1 : 0;
-                    value = atoi(&string_argv[length + auto_inc]);
-		    //WBL 15 Dec 2017 remove argv[i]
-		    //for(int k=i; k < argc-1; k++) argv[k] = argv[k+1];
-		    /* fails for unknown reason
-		      for(int k=i; k < argc-1; k++){
-		      printf("getCmdLineArgumentInt(%d,%s) argv[%d]%s becomes %s\n",
-			     argc,argv[0],k,argv[k],argv[k+1]);
-		    }
-		    printf("getCmdLineArgumentInt(%d,%s) argv[%d] set null\n",
-			     argc,argv[0],argc-1);
-		    argv[argc-1] = NULL;
-		    argc--;
-		    **
-		    argv[i][0] = '\0'; //ensure -device= is not visible to rest of RNAfold
-		    //printf("`%s' value %d\n", &string_argv[length + auto_inc],value);
-                }
-                else
-                {
-                    value = 0;
-                }
-
-                bFound = true;
-                continue;
-            }
-        }
-    }
-
-    if (bFound)
-    {
-        return value;
-    }
-    else
-    {
-        return 0;
-    }
-}
-*/   //End comment block from WBL
-int use_cuda = 0;
-//C interface to CUDA code
-extern "C" void
-choose_gpu(int argc, char **argv) {
-//based on CUDA 9.0 0Samples/natrixMul.cu
-    // By default, we use device 0, otherwise we override the device ID based on what is provided at the command line
-    //Eg --device=1 (for second GPU)
-    //Eg --persistence=1 (to pause)
-    int devID = 0;
-    /*int persistence = 0;
-
-    if (checkCmdLineFlag(argc, (const char **)argv, "device"))
-    {
-        devID = getCmdLineArgumentInt(argc, argv, "device");
-        cudaSetDevice(devID);
-    }
-    if (checkCmdLineFlag(argc, (const char **)argv, "persistence"))
-    {
-        persistence = getCmdLineArgumentInt(argc, argv, "persistence");
-    }
-	*/
-    cudaError_t error;
-    cudaDeviceProp deviceProp;
-    error = cudaGetDevice(&devID);
-
-    if (error != cudaSuccess)
-    {
-        printf("cudaGetDevice returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-    }
-
-    error = cudaGetDeviceProperties(&deviceProp, devID);
-	/*
-    if (deviceProp.computeMode == cudaComputeModeProhibited)
-    {
-        fprintf(stderr, "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n");
-        exit(EXIT_SUCCESS);
-    }
-	*/
-    if (error != cudaSuccess)
-    {
-        printf("cudaGetDeviceProperties returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-    }
-    else
-    {
-      fprintf(stderr,"RNAfold GPU Device %d: \"%s\" with compute capability %d.%d\n",
-	      devID, deviceProp.name, deviceProp.major, deviceProp.minor); //BLOCK_SIZE);
-    }
-	//ok zero copy will be really inefficient but makes a start
-	//https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/index.html
-    //https://devtalk.nvidia.com/default/topic/895513/cudamalloc-slow/?offset=1
-    //njuffa suggests calling cudafree can get GPU warmed up early
-	if (!deviceProp.canMapHostMemory){
-		fprintf(stderr,"RNAfold GPU Device %d: \"%s\" does not support zero copy\n", devID, deviceProp.name);
-		use_cuda = 0;
-		return; //for the time being RNAFold will use pthreads instead
-	}
-	error = cudaSetDeviceFlags(cudaDeviceMapHost);
-	if (error != cudaSuccess){
-		printf("failed to set cudaDeviceMapHost for zero copy error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-		use_cuda = 0;
-		return; //for the time being, RNAFold will use pthreads instead
-	}
-
-    error = cudaFree(0);
-    if (error != cudaSuccess)
-    {
-        printf("cudaFree(0) returned error %s (code %d), line(%d)\n", cudaGetErrorString(error), error, __LINE__);
-    }
-
-    /*https://devtalk.nvidia.com/default/topic/1030608/cuda-programming-and-performance/why-2-9-seconds-to-start-tesla-k20/
-    if(persistence){
-      fprintf(stderr,"pausing\n");
-      pause();
-      fprintf(stderr,"pause returned, exiting with errno %d, %s line %d\n", 
-                     errno, __FILE__,__LINE__);
-      exit(errno);
-    }*/
-	use_cuda = 1;
-}
+/* choose_gpu() and use_cuda (WBL, May 2023; from the CUDA matrixMul sample) were
+ * deleted in the cleanup (C8): nothing called them, and their jobs -- the device
+ * probe and the driver warm-up -- are vrna_cuda_devices() and RNAfold's reach-cost
+ * probe. Its commented-out --device=N is kept as a future item (multi-GPU); the
+ * code is at the `pre-cleanup` tag. */
 
 void int_Memcpy(int* out, const int* in, const size_t size, const cudaMemcpyKind dir, const int error_report) { // 32-bit signed integer overflow bug fix
   const cudaError_t error = cudaMemcpy(out, in, size*sizeof(int), dir);
@@ -490,7 +355,7 @@ static cudaStream_t g_issue_stream = 0;
 static int g_md_tail_now = 0;
 static int g_md_tail_row = -1;
 
-/* ---- Blocked md, stage 3a.1 (PORT_MD_BLOCKING_DRIVER.md section 3.1): the rotating
+/* ---- Blocked md, stage 3a.1 (docs/archive/PORT_MD_BLOCKING_DRIVER.md section 3.1): the rotating
  * row buffers as RINGS.
  *
  * The blocked schedule visits RB rows per column block, so a buffer that row i reads
@@ -1929,7 +1794,7 @@ fml_fetch_decode(int* dst, const size_t tri_lo, const size_t cells, const int H,
   // cost of this function: 2.46 -> 0.46 ns/cell, 5.3x, which over 400 x 5601 is
   // 15.4 -> 2.9 worker-seconds. int16 already saves ~2.1 s of PCIe by moving
   // half the bytes, so this is what turns the int16 fML fetch from more
-  // expensive than the int32 one into less. See STRESS272_RESULTS.md 15.3.
+  // expensive than the int32 one into less. See docs/archive/STRESS272_RESULTS.md 15.3.
   //
   // tools/fml_decode_equiv.c holds the old loop verbatim as the reference and
   // compares the two over 1500 shapes -- including the ragged ones where
@@ -2000,7 +1865,7 @@ fetch_fML(const int nfiles, int** fML_H, const size_t* tri_off_H) {
  * Two changes to the md chain's per-row shape, both answer-neutral by construction
  * (2026-09-29, from a call-order audit of the default path). BOTH DEFAULT ON SINCE
  * 2026-09-30: with RNA_LOAD_MY_C_SYNC they are -5.3 % at 400 x 5601 on an A100,
- * byte-identical in every arm against the CPU (PORT_LUKES_FLOW_BATCHING.md 9.12).
+ * byte-identical in every arm against the CPU (docs/archive/PORT_LUKES_FLOW_BATCHING.md 9.12).
  * Each has an env var that restores the old path, and announces itself only when set.
  *
  * md's per-row cudaStreamSynchronize below level 2 is now OFF; RNA_MD_ROW_SYNC=1

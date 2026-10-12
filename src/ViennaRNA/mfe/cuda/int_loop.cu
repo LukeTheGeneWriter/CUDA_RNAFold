@@ -49,7 +49,7 @@
 // The check that used to sit in init_gpu2() -- `assert(MAX_NINIO == 300)` --
 // could not fail, because with the #define in scope it expanded to
 // assert(300 == 300). It read as a guard against exactly the hazard it did
-// not test. See PORT_NSP_PARAMFILE_SCOPE.md §2.2.
+// not test. See docs/archive/PORT_NSP_PARAMFILE_SCOPE.md §2.2.
 //
 // The declaration comes from ViennaRNA/params/default.h, which is included
 // explicitly above. It was ALREADY reaching this file transitively (via
@@ -1043,7 +1043,7 @@ Max_p(const int i, const int j, const int q,
 // values, computed once instead of N times.
 //
 // Whether nvcc's LICM had already done this is a question the SASS answers, not
-// a question this comment should assert. See PORT_WARP_SCAN_SCOPE.md H1.
+// a question this comment should assert. See docs/archive/PORT_WARP_SCAN_SCOPE.md H1.
 
 
 
@@ -1062,7 +1062,7 @@ Max_p(const int i, const int j, const int q,
 // tag) and was byte-identical to it in every arm.
 //
 // WHAT THE MEASUREMENT SAID, and this kernel is the shape it pointed at.
-// STRESS272_RESULTS.md 22.5 profiled int_loop_kernel's warp stalls at three
+// docs/archive/STRESS272_RESULTS.md 22.5 profiled int_loop_kernel's warp stalls at three
 // block sizes:
 //
 //     stall              bs 32    bs 64   bs 128
@@ -1339,7 +1339,7 @@ rnafold_int_loop_cpw_for(const size_t cells)
 // deletes both __syncthreads() and both shared arrays by giving one warp the
 // whole cell, so col_mask[] and prefix[] live in registers. Measured on the
 // A100: barrier 0.933 -> 0.000 cycles per issue, EXACTLY zero, and
-// short_scoreboard 1.167 -> 0.710. See STRESS272_RESULTS.md 27.
+// short_scoreboard 1.167 -> 0.710. See docs/archive/STRESS272_RESULTS.md 27.
 
 
 // ===================== G-quadruplex G2: the interior-loop term ==============
@@ -1350,7 +1350,7 @@ rnafold_int_loop_cpw_for(const size_t cells)
 // d_energy_min2, which is int_loop_kernel's output for exactly that quantity.
 //
 // A SEPARATE KERNEL, DELIBERATELY. int_loop_kernel is 30% of GPU time
-// (STRESS272_RESULTS.md 19) and has a recorded history of regressions from
+// (docs/archive/STRESS272_RESULTS.md 19) and has a recorded history of regressions from
 // being touched without measurement. Folding three more (p,q) sweeps into it
 // would put gquad-only work inside the hottest loop in the project and risk the
 // default path for a feature almost nobody runs. This launches only when a c_gq
@@ -1540,7 +1540,7 @@ int_loop_cuda(const int nfiles,
 
   // RNA_LAUNCH_STATS: bracket the kernel ALONE -- not the two offset uploads
   // above, which belong to the phase but not to the kernel. Splitting those two
-  // apart is the entire point (STRESS272_RESULTS.md 20.4).
+  // apart is the entire point (docs/archive/STRESS272_RESULTS.md 20.4).
   rnafold_launch_stats_begin();
 
   rnafold_retired_knobs();

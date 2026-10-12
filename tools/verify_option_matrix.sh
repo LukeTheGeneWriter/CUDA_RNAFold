@@ -41,7 +41,7 @@
 set -u
 export PATH="$HOME/miniforge3/bin:$PATH"
 B=${1:-$HOME/port27cuda}
-IN=${2:-$HOME/rnatest/asc.fa}
+IN=${2:-$(cd "$(dirname "$0")/.." && pwd)/tests/fixtures/asc.fa}
 BIN=$B/src/bin/RNAfold
 . "$(dirname "$0")/bar_preflight.sh"
 bar_preflight "$BIN" "$B" || exit 2

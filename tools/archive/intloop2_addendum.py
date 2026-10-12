@@ -6,7 +6,7 @@
 # a warm device is fine -- but it must not overlap a timed arm, and NCU serialises
 # the device while it runs.
 #
-# WHAT IS MISSING WITHOUT IT. STRESS272_RESULTS.md 20.3 established that
+# WHAT IS MISSING WITHOUT IT. docs/archive/STRESS272_RESULTS.md 20.3 established that
 # int_loop_kernel sits at 44-48% occupancy, 40-44% SM throughput and 4.2-5.2% of
 # DRAM peak -- so it is latency-bound rather than bandwidth- or compute-bound.
 # It did NOT establish WHICH latency, and for a latency-bound kernel the stall
