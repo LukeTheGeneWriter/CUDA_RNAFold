@@ -207,3 +207,12 @@ checks: the CPU-only build compiles budget.c, folds, is silent and byte-identica
 accelerated build). **Case 7, the CPU-only build WITH the Python module, is owed**: the run was
 stopped for low host memory while compiling RNA_wrap.cpp, for the third time this session. It
 passed at C9 (JOBS=2) when the laptop had more free memory.
+
+**Zeroconf case 7 closed (2026-10-13):** rerun alone after Luke closed his browser: the CPU-only
+build with the Python module builds, has no undefined `vrna_cuda` / `vrna_budget` symbols,
+imports with 0 devices, folds on the host with the same answers, and resolves the budgets
+(Python default half; VRAM "no ceiling" with no device); `set_budget()` works. All 7 checks
+pass, so the zero-config contract holds for decision 3, B1 and B2. Memory, sampled every 20 s:
+the SWIG wrapper's compile (cc1plus) peaked at 1.15 GB and WSL never had less than 4.9 GB
+available -- the three earlier stops were pressure on the Windows side (13.7 GB, the browser),
+not inside WSL.
