@@ -379,7 +379,7 @@ in 7 families, replacing the single RNA_INT_LOOP_UNROLL notice): each one set pr
 `IGNORED: retired with <family>` once; checked with four set (one line each, output
 unchanged) and none set (no line). README gains the T1 table; TESTING_KNOBS.md carries
 T2/T3, with the D4 knobs as a "flagged" group. All bars green, and **the zeroconf CPU-only
-bar passes (first run in the cleanup, 22/22)**, on a copy of ~/pyqc. Retired-name grep:
+bar passes (first run in the cleanup, 21/21 -- recorded as 22/22 in the C7 commit message, a miscount: one line was printed twice)**, on a copy of ~/pyqc. Retired-name grep:
 in src only deletion notes remain; three tools still SET retired knobs
 (`int_loop_lookup_bar.sh`, `nb_dryrun.py`, `intloop2_addendum.py`) and go to the archive in C8.
 
@@ -424,3 +424,15 @@ fixture or reference now fails, as in the noLP bar. Bars, run with the committed
 place: refcheck 9/9, parity, matrix 36/36, gpu_cli (24 IDENTICAL = 6 fixtures x 4 budgets,
 0 missing), binding 20/20, backtrack pipeline, knobarms 18/18, noLP. **The zeroconf bar did
 not complete** -- the run was stopped for low host memory during it -- and is owed at C9.
+
+**C9 record (2026-10-13).** The D4 flag comment is in the source: above
+`rnafold_md_tile_cb()` in device.cu (the md tile path and row fusion, kept pending final
+tests), naming the tree before the cleanup (`pre-cleanup`, 6123cebe) and after it
+(`post-cleanup`, this commit), with a pointer at `row_cells_i()` in hp_mb_loop.cu.
+Comment-only. Build clean; refcheck C_mixed identical; **the zeroconf bar owed from C8
+passes, 21/21**, rerun at JOBS=2 on a copy after the C8 run was stopped for low memory.
+Tagged `post-cleanup`.
+
+**Cleanup done.** C0-C9 on Lukes_Flow_Batching, local, not pushed. Still open from this
+plan: the D7 pricing of the H5 layout lock, the final A100 run (400 x 5601 and the soak)
+against `pre-cleanup`, and the D4 verdict.

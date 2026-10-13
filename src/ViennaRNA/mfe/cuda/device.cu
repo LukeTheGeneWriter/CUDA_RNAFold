@@ -944,6 +944,15 @@ rnafold_tile_end(void)
   g_tile_row = -1;
 }
 
+/* ==== FLAGGED -- cleanup decision D4 (Luke, 2026-10-11): KEEP PENDING FINAL TESTS. ====
+ * The md tile path (RNA_MD_TILE_CB, _RB, _REVERSE, RNA_MD_TILE_FUSE and its NEGCTL) and
+ * row fusion (RNA_ROW_FUSE, row_cells_i() in hp_mb_loop.cu) are off by default, and
+ * survived the 2026-10-11/12 cleanup on this flag alone: "run some final tests and if it
+ * doesn't pay we'll can it". To remove or revive them against a known tree:
+ *   before the cleanup   tag `pre-cleanup`  (6123cebe)
+ *   after the cleanup    tag `post-cleanup` (the commit that added this note)
+ * TESTING_KNOBS.md lists them as the flagged group. */
+
 /* RNA_MD_TILE_CB=N: stage 3a' -- RB = 1, each row run as N-column blocks instead of
  * whole. A DIAGNOSTIC: it must give the row path's answer byte for byte (that is the
  * proof of the column ranges and the scan's carry-in, before 3b changes the order),

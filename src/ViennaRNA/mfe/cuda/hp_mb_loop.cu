@@ -1810,6 +1810,10 @@ row_cells_kernel(const int nfiles, const int i_row, const int turn, const int le
 }
 
 
+/* RNA_ROW_FUSE is FLAGGED (cleanup decision D4): kept pending final tests, with the md
+ * tile path. The note naming the trees before and after the cleanup is at
+ * rnafold_md_tile_cb() in device.cu. */
+
 /* Returns 1 if this row was handled by the fused kernel, 0 if the caller must run
  * the three phases separately. Refusing is the whole interface: a half-supported
  * fast path that silently skips stack_row_i() would be a wrong answer, and this
