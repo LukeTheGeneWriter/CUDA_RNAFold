@@ -131,3 +131,27 @@ Every stage also runs the standing bars (`tools/coverage/bars.sh`) and the zeroc
 **Signed off by Luke, 2026-10-13: "Yes to all three, go ahead."** Explicit settings win over the
 budget, with a warning; the shedding order is backtrack workers → backtrack pipeline → build
 pipeline → chunk width; the Python CPU-path window is fixed first.
+
+## 8. Results
+
+### 8.1 Decision 3: the Python CPU-path window (2026-10-13)
+
+**M2a, host bytes per MFE compound** (RSS per compound, built / folded by upstream's
+`vrna_mfe()`): 2.24 / 6.30 L² at 600 nt, 1.28 / 4.83 at 1200, 1.13 / 5.01 at 2800, 1.28 / 4.93
+at 5601. The window charge stays 1.5 L² + 128 L for a compound the device folds, and is
+5 L² + 1024 L (bounds every row) for one the host folds. Whether the host folds is decided once
+per call: the backend is unregistered, `RNA_GPU=0`, no device, or the engine declines the first
+compound (every record shares one model and no constraints).
+
+`RNA.fold(list)` on A_longseq (60 × ≤ 2800 nt), peak RSS, same answer in every arm:
+
+| arm | before | after |
+|---|---|---|
+| CPU path, `RNA_HOST_AVAIL_MB=600` (300 MB windows) | **1083 MB** | **345 MB** |
+| GPU path, same | 905 | 906 |
+| CPU path, real MemAvailable (all 60 fit half of it) | 1415 | 1415 |
+| GPU path | 1078 | 1078 |
+
+Bar: `tools/coverage/py_window_check.sh` (CPU arm ≤ 420 MB, one sha); it fails on the old
+code. Binding suite 20/20. Note the GPU arm: 906 MB under a 300 MB window, because the window
+bounds only the compounds, not the 12 backtrack workers -- that is B3.

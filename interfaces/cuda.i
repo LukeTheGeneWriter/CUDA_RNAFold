@@ -138,9 +138,20 @@ extern "C" {
    * rnafold_compound_bytes() charges 1.0 L^2, which fits the CLI's measured chunk
    * difference but is 1.5x short here, so this uses the structural bound. */
   static size_t
-  rnafold_py_compound_bytes(size_t len)
+  rnafold_py_compound_bytes(size_t len,
+                            int    host_fold)
   {
     const size_t L = len + 1;
+
+    /* FOLDED ON THE HOST, a compound keeps its MFE matrices until the window is
+     * freed, so it costs four times as much. MEASURED 2026-10-13 (PORT_BUDGETS.md
+     * M2), RSS per compound, built / folded by upstream's vrna_mfe(): 2.24 / 6.30 L^2
+     * at 600 nt, 1.28 / 4.83 at 1200, 1.13 / 5.01 at 2800, 1.28 / 4.93 at 5601.
+     * Charging the built size on that path is what let RNA.fold(list) with RNA_GPU=0
+     * peak 1.3x above the GPU path on a GPU-less budget. 5 L^2 + 1024 L bounds every
+     * measured length. */
+    if (host_fold)
+      return 5 * L * L + 1024 * L;
 
     return (3 * L * L) / 2 + 128 * L;
   }
@@ -159,7 +170,7 @@ extern "C" {
     /* Registration is idempotent, and 0 is not a failure: vrna_mfe_batch()
      * then folds every compound on the host through upstream's own vrna_mfe().
      * Same answers, no GPU. */
-    (void)vrna_cuda_register_batch_backend();
+    const unsigned int registered = vrna_cuda_register_batch_backend();
     rnafold_py_set_quiet();
 
     vrna_fold_compound_t  **fcs        = (vrna_fold_compound_t **)vrna_alloc(sizeof(vrna_fold_compound_t *) * n);
@@ -169,6 +180,16 @@ extern "C" {
 
     for (size_t i = 0; i < n; i++)
       structures[i] = (char *)vrna_alloc(sizeof(char) * (sequences[i].size() + 1));
+
+    /* Will these compounds be folded on the HOST? Then each keeps its matrices until
+     * its window is freed (rnafold_py_compound_bytes()). Every record here shares one
+     * model and carries no constraints, so whether the engine accepts the batch is
+     * settled by the first compound; it is built now and used as the first record. */
+    int host_fold = (registered == 0) || vrna_cuda_switched_off() || (vrna_cuda_devices() == 0);
+
+    fcs[0] = vrna_fold_compound(sequences[0].c_str(), md, VRNA_OPTION_MFE);
+    if (!host_fold && !vrna_cuda_engine_supports(fcs[0], NULL))
+      host_fold = 1;
 
     /* Build, fold and free in WINDOWS that fit in half of the host memory
      * available as each window starts. Every compound used to be built before any
@@ -185,7 +206,7 @@ extern "C" {
       size_t        need    = 0;
 
       while (end < n) {
-        const size_t b = rnafold_py_compound_bytes(sequences[end].size());
+        const size_t b = rnafold_py_compound_bytes(sequences[end].size(), host_fold);
 
         if ((avail > 0) && (end > start) && (need + b > avail / 2))
           break;
@@ -195,7 +216,8 @@ extern "C" {
       }
 
       for (size_t i = start; i < end; i++)
-        fcs[i] = vrna_fold_compound(sequences[i].c_str(), md, VRNA_OPTION_MFE);
+        if (fcs[i] == NULL)   /* fcs[0] was built above */
+          fcs[i] = vrna_fold_compound(sequences[i].c_str(), md, VRNA_OPTION_MFE);
 
       if (!vrna_mfe_batch(fcs + start, end - start, structures + start, energies + start))
         ok = 0;
