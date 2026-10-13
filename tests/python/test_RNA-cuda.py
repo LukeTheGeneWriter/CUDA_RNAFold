@@ -603,12 +603,18 @@ class cuda_budgetTest(unittest.TestCase):
         p = subprocess.run([sys.executable, "-c", BUDGET_REPORT_PROBE % module_dir()],
                            capture_output=True, text=True, timeout=300, env=e)
         self.assertEqual(p.returncode, 0, p.stderr[-800:])
-        return [l for l in p.stderr.splitlines() if "budget:" in l]
+        self.last_stderr = p.stderr
+        return [l for l in p.stderr.splitlines() if "budget: RAM" in l]
 
     def test_report_says_what_is_in_force(self):
         lines = self.report({"RNA_GPU_VERBOSE": "1"})
         self.assertEqual(len(lines), 1, "want one budget line: %s" % lines)
         self.assertIn("threads %d (half of %d)" % (max(1, os.cpu_count() // 2), os.cpu_count()), lines[0])
+        if device_present():
+            # B2: the VRAM budget's positive evidence, the peak this process held
+            peak = [l for l in self.last_stderr.splitlines() if "VRAM budget: peak held" in l]
+            self.assertEqual(len(peak), 1, "want one VRAM peak line: %s" % self.last_stderr[-600:])
+            self.assertIn("within it", peak[0])
 
     def test_report_is_silent_at_full_and_when_quiet(self):
         full = {n: "full" for n in self.NAMES}

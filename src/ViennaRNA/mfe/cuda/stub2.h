@@ -201,6 +201,29 @@ PUBLIC size_t
 #endif
 compute_gpu_usable_bytes(void);
 
+// The soft limit alone (free VRAM x 0.85, RNA_GPU_VRAM_BUDGET_MB), and the warning for a
+// record over the VRAM budget that is folded alone anyway (PORT_BUDGETS.md B2).
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ size_t
+#else
+PUBLIC size_t
+#endif
+compute_gpu_usable_bytes_soft(void);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+rnafold_vram_over_budget(const size_t need, const size_t allowed);
+
+#ifdef __cplusplus
+extern "C" /*PUBLIC*/ void
+#else
+PUBLIC void
+#endif
+rnafold_vram_sample(void);   /* the VRAM budget's peak, sampled by par_mfe() */
+
 // Per-row (fixed i, all j, all H) hairpin/multibranch/3'-extension energy
 // kernel -- see hp_mb_loop.cu for why these three (and only these three) can
 // be computed fresh each i instead of precomputed as a full nfiles*ijsize

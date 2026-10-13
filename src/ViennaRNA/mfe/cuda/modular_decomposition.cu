@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <limits.h>
+#include <stdint.h>   /* SIZE_MAX: a VRAM budget with no ceiling */
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
@@ -797,10 +798,54 @@ gpu_bytes_per_file(const int length) {
 // chunks otherwise split on length change alone), and being a polite tenant
 // on a GPU shared with another process. Env var rather than a CLI flag, per
 // this project's convention of avoiding gengetopt regeneration.
-PUBLIC size_t
-compute_gpu_usable_bytes(void) {
+//
+// RNA_VRAM_BUDGET (budget.c, PORT_BUDGETS.md B2) is a different thing: a ceiling on the
+// whole PROCESS -- context and every buffer -- given in MB or as a fraction of the card's
+// total. RNA_GPU_VRAM_BUDGET_MB stays what it was, a buffers-only test cap the harnesses
+// depend on for exact chunk counts.
+//
+// What the process holds is measured, not modelled: the context is charged as the total
+// minus what is free at the process's FIRST query (before any buffer of ours), and its
+// buffers as whatever has left the free pool since -- which is how a chunk retained for
+// the backtrack pipeline is charged without anyone keeping a ledger. Measured on the
+// laptop under WSL (2026-10-13): every process sees 3304 of 4096 MB free whether or not
+// another holds a context, so the 792 MB is this process's own reserve. On a native,
+// shared GPU the charge also takes in other processes, which makes the budget stricter,
+// never looser.
+extern "C" size_t vrna_budget_vram(size_t device_total);   /* budget.c */
+static size_t g_vram_free0 = 0;   /* free at the first query; 0 = not yet queried */
+static size_t g_vram_ctx   = 0;   /* charged for the context and driver reserve */
+static size_t g_vram_total = 0;
+static size_t g_vram_cap   = 0;   /* the budget in force, set while one is (0 = none) */
+static size_t g_vram_minfree = SIZE_MAX;   /* lowest free VRAM sampled: the peak held */
+
+/* Bytes the next chunk may take under the VRAM budget; SIZE_MAX when there is none. */
+static size_t
+gpu_budget_allowed(const size_t free_bytes, const size_t total_bytes)
+{
+  const size_t cap  = vrna_budget_vram(total_bytes);
+  if (cap == SIZE_MAX)
+    return SIZE_MAX;
+  const size_t ours = (g_vram_free0 > free_bytes) ? g_vram_free0 - free_bytes : 0;
+  const size_t held = g_vram_ctx + ours;
+  /* The SAME 0.85 the soft limit applies to free VRAM, for the same reason: the per-record
+   * model (gpu_bytes_per_file) counts the buffers it knows, not allocator granularity or
+   * what is allocated beside them. MEASURED 2026-10-13 at a quarter budget on the laptop:
+   * without it the peak ended 8 and 14 MB over (A_longseq, F_lite), 3-6 % of the room
+   * the budget left; with it every arm stays within. */
+  return (cap > held) ? (size_t)((double)(cap - held) * 0.85) : 0;
+}
+
+/* budgeted: apply RNA_VRAM_BUDGET. The unbudgeted figure is the soft limit alone,
+ * asked when one record is over the budget: within it, the record is folded anyway. */
+static size_t
+gpu_usable_bytes(const int budgeted) {
   size_t free_bytes = 0, total_bytes = 0;
   gpuErrchk( cudaMemGetInfo(&free_bytes, &total_bytes) );
+  if (g_vram_free0 == 0) {
+    g_vram_free0 = free_bytes;
+    g_vram_ctx   = (total_bytes > free_bytes) ? total_bytes - free_bytes : 0;
+  }
   const double safety_margin = 0.85; // TODO: tune further if a tighter margin ever OOMs
   size_t usable = (size_t)((double)free_bytes * safety_margin);
 
@@ -820,6 +865,26 @@ compute_gpu_usable_bytes(void) {
     } else {
       fprintf(stderr, "%-24s ignoring RNA_GPU_VRAM_BUDGET_MB=%s (want a positive integer)\n",
               __FILE__, env_budget);
+    }
+  }
+  if (budgeted) {
+    const size_t allowed = gpu_budget_allowed(free_bytes, total_bytes);
+    static int   said    = 0;
+
+    if (allowed != SIZE_MAX) {
+      g_vram_total = total_bytes;
+      g_vram_cap   = vrna_budget_vram(total_bytes);
+      if (!said) {
+        said = 1;
+        if (!vrna_cuda_quiet())
+          fprintf(stderr, "%-24s VRAM budget %.0f MB of %.0f: %.0f MB charged for the context, "
+                          "chunks sized to at most %.0f MB (free VRAM would allow %.0f)\n", __FILE__,
+                  (double)vrna_budget_vram(total_bytes) / 1048576.0, (double)total_bytes / 1048576.0,
+                  (double)g_vram_ctx / 1048576.0, (double)allowed / 1048576.0,
+                  (double)usable / 1048576.0);
+      }
+      if (allowed < usable)
+        usable = allowed;
     }
   }
   /* int16 AUTO (mfe_cuda.c): decided on the first query, before any record is priced for
@@ -843,6 +908,76 @@ compute_gpu_usable_bytes(void) {
     }
   }
   return usable;
+}
+
+PUBLIC size_t
+compute_gpu_usable_bytes(void) {
+  return gpu_usable_bytes(1);
+}
+
+/* The soft limit alone: free VRAM x 0.85 (and the RNA_GPU_VRAM_BUDGET_MB test cap). */
+PUBLIC size_t
+compute_gpu_usable_bytes_soft(void) {
+  return gpu_usable_bytes(0);
+}
+
+/* A record over the VRAM budget but within the soft limit: say so, then the caller folds
+ * it alone on the device (PORT_BUDGETS.md: warn, and fold it anyway). The first five are
+ * named; after that only a count, at exit, so a long input cannot flood stderr. */
+static int g_vram_over_n = 0;   /* records folded alone over the budget */
+
+static void
+vram_over_report(void)
+{
+  if (g_vram_over_n > 5)
+    fprintf(stderr, "%-24s %d records in all were over the VRAM budget and folded alone "
+                    "anyway\n", __FILE__, g_vram_over_n);
+}
+
+/* POSITIVE EVIDENCE that the budget held: par_mfe() samples free VRAM after each chunk's
+ * allocations and again at the end of its sweep (when a retained chunk is still
+ * resident), and the lowest reading is the most this process held. Only while a VRAM
+ * budget is in force, so `full` pays nothing. */
+static void
+vram_peak_report(void)
+{
+  if ((g_vram_minfree == SIZE_MAX) || vrna_cuda_quiet())
+    return;
+  const size_t held = (g_vram_total > g_vram_minfree) ? g_vram_total - g_vram_minfree : 0;
+  fprintf(stderr, "%-24s VRAM budget: peak held %.0f MB (context and reserve %.0f) of a "
+                  "%.0f MB budget -- %s\n", __FILE__, (double)held / 1048576.0,
+          (double)g_vram_ctx / 1048576.0, (double)g_vram_cap / 1048576.0,
+          (held <= g_vram_cap) ? "within it"
+          : (g_vram_over_n > 0) ? "over it: a record over the budget was folded alone, as warned"
+          : "OVER IT: the device holds more than the chunk model predicted");
+}
+
+PUBLIC void
+rnafold_vram_sample(void)
+{
+  size_t f = 0, t = 0;
+
+  if (g_vram_cap == 0)
+    return;
+  if (cudaMemGetInfo(&f, &t) != cudaSuccess) {
+    cudaGetLastError();
+    return;
+  }
+  if (g_vram_minfree == SIZE_MAX)
+    atexit(vram_peak_report);
+  if (f < g_vram_minfree)
+    g_vram_minfree = f;
+}
+
+PUBLIC void
+rnafold_vram_over_budget(const size_t need, const size_t allowed)
+{
+  if (g_vram_over_n++ == 0)
+    atexit(vram_over_report);
+  if (g_vram_over_n <= 5)
+    fprintf(stderr, "%-24s WARNING: a record needs %.0f MB of VRAM, over the VRAM budget's "
+                    "%.0f MB; folding it alone on the device anyway (within what is free)\n",
+            __FILE__, (double)need / 1048576.0, (double)allowed / 1048576.0);
 }
 
 extern "C" void

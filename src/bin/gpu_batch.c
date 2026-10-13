@@ -72,6 +72,9 @@ extern void   rnafold_bt_pipeline_ctx(void *ctx);
 extern int    rnafold_bt_pipeline_went_async(void);
 extern void   rnafold_bt_pipeline_drain(void);
 extern size_t compute_gpu_usable_bytes(void);
+/* The soft limit alone, and the warning for a record over the VRAM budget (B2). */
+extern size_t compute_gpu_usable_bytes_soft(void);
+extern void   rnafold_vram_over_budget(const size_t need, const size_t allowed);
 /* int16 AUTO prices a full-cap chunk: it needs the cap this file admits by (modular_decomposition.cu). */
 extern void   rnafold_set_chunk_cells_cap(const unsigned long long cap_cells);
 /* The four stage counters that mfe_cuda.c PRINTS but nothing incremented until
@@ -1984,7 +1987,17 @@ gpu_batch_offer(struct record_data *record,
          * The work floor above already answers "is this worth the device"; this only
          * answers "does it fit". */
         if (gpu_bytes_per_file((int)this_len) > chunk_usable_bytes) {
-          return GPU_BATCH_TOO_BIG;   /* the caller dispatches it and moves on */
+          /* Over the VRAM BUDGET (RNA_VRAM_BUDGET) but within what is free: warn, and
+           * fold it ALONE on the device -- the budget sizes chunks, it does not exile a
+           * record (PORT_BUDGETS.md). Sizing the chunk to exactly this record makes the
+           * next record flush it. Only a record over the soft limit goes to the cores. */
+          const size_t need = gpu_bytes_per_file((int)this_len);
+
+          if (need > compute_gpu_usable_bytes_soft())
+            return GPU_BATCH_TOO_BIG;   /* the caller dispatches it and moves on */
+
+          rnafold_vram_over_budget(need, chunk_usable_bytes);
+          chunk_usable_bytes = need;
         }
       }
 

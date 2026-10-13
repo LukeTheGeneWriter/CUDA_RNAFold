@@ -565,6 +565,8 @@ extern void teardown_gpu3(void);
 /* The VRAM model RNAfold.c chunks with (modular_decomposition.cu), for the same reason */
 extern size_t gpu_bytes_per_file(const int length);
 extern size_t compute_gpu_usable_bytes(void);
+extern size_t compute_gpu_usable_bytes_soft(void);
+extern void   rnafold_vram_over_budget(const size_t need, const size_t allowed);
 extern void   rnafold_circ_expect(const int circ);
 #endif
 
@@ -655,10 +657,19 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
       }
 
       if (end == start) {
-        /* this record alone is bigger than the device: the host folds it */
-        energies[start] = vrna_mfe(fcs[start], structures[start]);
-        start++;
-        continue;
+        const size_t need = gpu_bytes_per_file((int)fcs[start]->length);
+
+        if (need > compute_gpu_usable_bytes_soft()) {
+          /* this record alone is bigger than the device: the host folds it */
+          energies[start] = vrna_mfe(fcs[start], structures[start]);
+          start++;
+          continue;
+        }
+
+        /* over the VRAM budget but within what is free: warn, and fold it alone on the
+         * device anyway (PORT_BUDGETS.md) */
+        rnafold_vram_over_budget(need, usable);
+        end = start + 1;
       }
 
       rnafold_bt_async_allow(end == n);

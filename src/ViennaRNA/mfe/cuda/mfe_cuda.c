@@ -1660,6 +1660,7 @@ par_mfe(const int nfiles,
   rnafold_streams_init();
   tr_init = rnafold_now_seconds();
   stage_gpuinit_s += tr_init - t_gpuinit;
+  rnafold_vram_sample();   /* RNA_VRAM_BUDGET: this chunk's buffers are all allocated */
 
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {
     int i;
@@ -1696,6 +1697,7 @@ par_mfe(const int nfiles,
 
     int energy[nfiles];
     par_fill_arrays(nfiles,VC,energy);
+    rnafold_vram_sample();   /* and at the sweep's end, beside any retained chunk */
     if(g_chunk_fp) {
       rnafold_device_drain();   /* sweep_t1 = the device finished, not the last issue */
       tr_sweep = rnafold_now_seconds();

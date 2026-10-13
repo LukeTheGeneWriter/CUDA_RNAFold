@@ -176,3 +176,34 @@ low host memory before it reached it.
 Build-tree note: after a rebuild the binding imports `interfaces/Python/RNA/RNA.py`, a copy of
 the regenerated `RNA.py` that make may skip when Windows and WSL clocks disagree; copy it, or
 a fixed test keeps failing against the old module.
+
+### 8.3 B2: the VRAM budget (2026-10-13)
+
+`compute_gpu_usable_bytes()` takes `RNA_VRAM_BUDGET` (whole process) on top of the soft limit;
+`RNA_GPU_VRAM_BUDGET_MB` stays the buffers-only test cap. What the process holds is MEASURED:
+the context and driver reserve as the total minus what is free at the first query, its buffers
+as what has left the free pool since -- so a chunk retained for the backtrack pipeline is
+charged with no ledger. **M1 settled under WSL:** every process sees 3304 of 4096 MB free
+whether or not another holds a context, so the 792 MB is this process's own reserve. The room
+left under the budget gets the soft limit's own 0.85 margin: without it two quarter-budget
+arms ended 8 and 14 MB over (the chunk model misses allocator granularity and side buffers).
+A record over the budget but within the soft limit is warned about (five named, then a count)
+and folded ALONE on the device; only one over the soft limit goes to the cores, as before.
+Evidence: par_mfe() samples free VRAM after each chunk's allocations and at its sweep's end,
+and the exit line reports the peak held.
+
+| fixture | full | threequarter | half | quarter | half + bt pipeline | 900 MB |
+|---|---|---|---|---|---|---|
+| C400_lite (12 × 5601) | 1 sweep | 1, 2420 / 3072 MB | 2, 1746 / 2048 | 12, 938 / 1024 | 3, 1848 / 2048 | 12, 6 warnings, 938 (over, as warned) |
+| A_longseq (60 × ≤ 2800) | 1 | 1, 1958 / 3072 | 2, 1864 / 2048 | 8, 1004 / 1024 | 2, 1864 / 2048 | 17, 892 / 900 |
+| F_lite (57) | 1 | 1, 1136 / 3072 | 1, 1136 / 2048 | 2, 996 / 1024 | 1, 1136 / 2048 | 5, 898 / 900 |
+
+Output identical to the frozen reference in all 18 arms; `full` prints nothing and changes
+nothing (refcheck 9/9, same chunk counts); binding 27/27 (the report test now also asserts
+the peak line says "within it").
+
+Zeroconf (owed since decision 3 and B1, run at the end of B2 at JOBS=1): cases 1-6 pass (15
+checks: the CPU-only build compiles budget.c, folds, is silent and byte-identical to the
+accelerated build). **Case 7, the CPU-only build WITH the Python module, is owed**: the run was
+stopped for low host memory while compiling RNA_wrap.cpp, for the third time this session. It
+passed at C9 (JOBS=2) when the laptop had more free memory.
