@@ -52,6 +52,7 @@
  * link time, which is the expensive way to find out. */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>   /* SIZE_MAX: a budget with no ceiling */
 extern "C" {
 #include <ViennaRNA/mfe/cuda/engine.h>
 #include <ViennaRNA/mfe/global.h>
@@ -172,6 +173,7 @@ extern "C" {
      * Same answers, no GPU. */
     const unsigned int registered = vrna_cuda_register_batch_backend();
     rnafold_py_set_quiet();
+    vrna_budget_report(vrna_cuda_device_memory());
 
     vrna_fold_compound_t  **fcs        = (vrna_fold_compound_t **)vrna_alloc(sizeof(vrna_fold_compound_t *) * n);
     char                  **structures = (char **)vrna_alloc(sizeof(char *) * n);
@@ -279,6 +281,36 @@ my_cuda_fold(std::vector<std::string> sequences);
 %rename (cuda_batches) vrna_cuda_device_batches;
 unsigned long vrna_cuda_device_batches(void);
 
+/* ---- resource budgets (budget.c, PORT_BUDGETS.md) ----
+ * The raw calls, underscored; cuda_python.i wraps them as RNA.set_budget(),
+ * RNA.budget() and the ram=/vram=/threads= keywords, and sets Python's default
+ * ("half") at import. */
+%{
+  /* Resolved budgets in MB (RAM, VRAM) and a count (threads); -1 = no ceiling. The
+   * VRAM figure needs the device's total, so it is resolved here rather than in
+   * budget.c, which knows nothing about devices. */
+  static double
+  rnafold_py_budget_mb(int which)
+  {
+    size_t b;
+
+    if (which == VRNA_BUDGET_RAM)
+      b = vrna_budget_ram();
+    else if (which == VRNA_BUDGET_VRAM)
+      b = vrna_budget_vram(vrna_cuda_device_memory());
+    else
+      return (double)vrna_budget_threads();
+
+    return (b == SIZE_MAX) ? -1.0 : (double)b / 1048576.0;
+  }
+%}
+%rename (_budget_set)     vrna_budget_set;
+%rename (_budget_default) vrna_budget_default;
+%rename (_budget_mb)      rnafold_py_budget_mb;
+int     vrna_budget_set(int which, const char *spec);
+int     vrna_budget_default(const char *spec);
+double  rnafold_py_budget_mb(int which);
+
 %{
   /* One record through the batch backend. `keep`: leave the record's MFE matrices
    * populated afterwards, as vrna_mfe() does (see vrna_cuda_keep_matrices()). */
@@ -292,6 +324,7 @@ unsigned long vrna_cuda_device_batches(void);
 
     (void)vrna_cuda_register_batch_backend();
     rnafold_py_set_quiet();
+    vrna_budget_report(vrna_cuda_device_memory());
     vrna_cuda_keep_matrices(keep);
     (void)vrna_mfe_batch(&fc, 1, s, &e);
     vrna_cuda_keep_matrices(0);

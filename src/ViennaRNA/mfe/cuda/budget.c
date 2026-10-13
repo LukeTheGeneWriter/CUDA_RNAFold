@@ -1,0 +1,338 @@
+/*
+ *  Resource budgets: how much host RAM, device memory and how many threads a run
+ *  may take (PORT_BUDGETS.md, signed off 2026-10-13).
+ *
+ *  No CUDA here: the file is built into the CUDA library and the CPU-only one
+ *  alike, because a GPU-less laptop is exactly where a RAM and thread budget
+ *  matters most.
+ *
+ *  A budget is a number (MB for RAM and VRAM, a count for threads) or a fraction
+ *  of the machine's TOTAL: quarter, half, threequarter, full. It is an UPPER
+ *  LIMIT. Every consumer keeps the soft limit it has always had (half of
+ *  MemAvailable for host builds, 0.85 x free VRAM), so a run still adapts to what
+ *  is free right now; the budget only lowers the ceiling. `full` adds no ceiling
+ *  at all, which is what makes it today's behaviour byte for byte.
+ *
+ *  Precedence, per resource: vrna_budget_set() (the Python API), then the
+ *  environment (RNA_RAM_BUDGET, RNA_VRAM_BUDGET, RNA_THREAD_BUDGET, read at every
+ *  query so a script that changes os.environ is obeyed from its next call), then
+ *  the program's default (vrna_budget_default(): RNAfold `full`, Python `half`).
+ *  An explicit per-consumer setting (`-j`, RNA_BACKTRACK_THREADS, ...) wins over
+ *  any budget, with a warning; that is the consumer's job, not this file's.
+ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <stdint.h>
+#include <unistd.h>
+
+#include "ViennaRNA/mfe/cuda/engine.h"
+
+typedef struct {
+  int     kind;    /* 0 unset, 1 fraction, 2 absolute (MB, or a count for threads) */
+  double  value;
+} budget_spec_t;
+
+static budget_spec_t  g_set[3];                                  /* vrna_budget_set() */
+static budget_spec_t  g_default[3] = { { 1, 1.0 }, { 1, 1.0 }, { 1, 1.0 } };   /* full */
+static const char     *g_env[3]  = { "RNA_RAM_BUDGET", "RNA_VRAM_BUDGET", "RNA_THREAD_BUDGET" };
+static const char     *g_name[3] = { "RAM", "VRAM", "threads" };
+
+
+/* "quarter" | "half" | "threequarter" | "full" (any case, also "three-quarter",
+ * "three_quarter"), or a positive number. 1 on success. */
+static int
+budget_parse(const char     *s,
+             budget_spec_t  *out)
+{
+  char    *end;
+  double  v;
+
+  if ((s == NULL) || (s[0] == '\0'))
+    return 0;
+
+  if (!strcasecmp(s, "quarter"))
+    *out = (budget_spec_t){ 1, 0.25 };
+  else if (!strcasecmp(s, "half"))
+    *out = (budget_spec_t){ 1, 0.5 };
+  else if ((!strcasecmp(s, "threequarter")) || (!strcasecmp(s, "three-quarter")) ||
+           (!strcasecmp(s, "three_quarter")))
+    *out = (budget_spec_t){ 1, 0.75 };
+  else if (!strcasecmp(s, "full"))
+    *out = (budget_spec_t){ 1, 1.0 };
+  else {
+    v = strtod(s, &end);
+    if ((end == s) || (*end != '\0') || !(v > 0.0))
+      return 0;
+
+    *out = (budget_spec_t){ 2, v };
+  }
+
+  return 1;
+}
+
+
+static int
+budget_valid(int which)
+{
+  return (which >= VRNA_BUDGET_RAM) && (which <= VRNA_BUDGET_THREADS);
+}
+
+
+/* The spec in force for one resource: set > environment > default. An
+ * unparseable environment value is reported once and ignored. */
+static budget_spec_t
+budget_spec(int which)
+{
+  static int    warned[3];
+  budget_spec_t s;
+  const char    *e;
+
+  if (g_set[which].kind)
+    return g_set[which];
+
+  e = getenv(g_env[which]);
+  if ((e != NULL) && (e[0] != '\0')) {
+    if (budget_parse(e, &s))
+      return s;
+
+    if (!warned[which]) {
+      warned[which] = 1;
+      fprintf(stderr,
+              "%-24s ignoring %s=%s (want quarter, half, threequarter, full or a "
+              "positive number)\n", "mfe/cuda/budget.c", g_env[which], e);
+    }
+  }
+
+  return g_default[which];
+}
+
+
+int
+vrna_budget_set(int         which,
+                const char  *spec)
+{
+  budget_spec_t s;
+
+  if (!budget_valid(which))
+    return 0;
+
+  if ((spec == NULL) || (spec[0] == '\0')) {
+    g_set[which].kind = 0;      /* back to the environment / the default */
+    return 1;
+  }
+
+  if (!budget_parse(spec, &s))
+    return 0;
+
+  g_set[which] = s;
+  return 1;
+}
+
+
+int
+vrna_budget_default(const char *spec)
+{
+  budget_spec_t s;
+  int           k;
+
+  if (!budget_parse(spec, &s))
+    return 0;
+
+  for (k = 0; k < 3; k++)
+    g_default[k] = s;
+
+  return 1;
+}
+
+
+/* /proc/meminfo, in bytes; 0 when it cannot be read. */
+static size_t
+budget_meminfo(const char *key)
+{
+  FILE          *f;
+  char          line[256];
+  unsigned long v;
+  size_t        kb  = 0;
+  size_t        len = strlen(key);
+
+  if ((f = fopen("/proc/meminfo", "r")) == NULL)
+    return 0;
+
+  while (fgets(line, sizeof(line), f))
+    if ((!strncmp(line, key, len)) && (line[len] == ':') &&
+        (sscanf(line + len + 1, "%lu", &v) == 1)) {
+      kb = (size_t)v;
+      break;
+    }
+
+  fclose(f);
+  return kb * (size_t)1024;
+}
+
+
+size_t
+vrna_budget_host_total(void)
+{
+  size_t t = budget_meminfo("MemTotal");
+
+#if defined(_SC_PHYS_PAGES) && defined(_SC_PAGESIZE)
+  if (t == 0) {
+    long p = sysconf(_SC_PHYS_PAGES), s = sysconf(_SC_PAGESIZE);
+    if ((p > 0) && (s > 0))
+      t = (size_t)p * (size_t)s;
+  }
+#endif
+
+  return t;
+}
+
+
+size_t
+vrna_budget_host_available(void)
+{
+  const char  *e = getenv("RNA_HOST_AVAIL_MB");   /* the existing test hook */
+
+  if ((e != NULL) && (e[0] != '\0') && (atol(e) >= 0))
+    return (size_t)atol(e) * (size_t)1048576;
+
+  return budget_meminfo("MemAvailable");
+}
+
+
+int
+vrna_budget_hw_threads(void)
+{
+  long n = sysconf(_SC_NPROCESSORS_ONLN);
+
+  return (n > 0) ? (int)n : 1;
+}
+
+
+/* A byte ceiling from a spec against a total: SIZE_MAX means "no ceiling" (full, or an
+ * unknown total under a fraction -- a budget must not invent a limit it cannot see). */
+static size_t
+budget_bytes(budget_spec_t  s,
+             size_t         total)
+{
+  if (s.kind == 2)
+    return (size_t)(s.value * 1048576.0);
+
+  if (s.value >= 1.0)
+    return SIZE_MAX;
+
+  if (total == 0)
+    return SIZE_MAX;
+
+  return (size_t)(s.value * (double)total);
+}
+
+
+size_t
+vrna_budget_ram(void)
+{
+  return budget_bytes(budget_spec(VRNA_BUDGET_RAM), vrna_budget_host_total());
+}
+
+
+size_t
+vrna_budget_vram(size_t device_total)
+{
+  return budget_bytes(budget_spec(VRNA_BUDGET_VRAM), device_total);
+}
+
+
+int
+vrna_budget_threads(void)
+{
+  const budget_spec_t s   = budget_spec(VRNA_BUDGET_THREADS);
+  const int           hw  = vrna_budget_hw_threads();
+  int                 n;
+
+  if (s.kind == 2)
+    n = (int)s.value;
+  else
+    n = (int)(s.value * (double)hw);
+
+  if (n < 1)
+    n = 1;
+
+  return n;
+}
+
+
+int
+vrna_budget_is_full(int which)
+{
+  budget_spec_t s;
+
+  if (!budget_valid(which))
+    return 1;
+
+  s = budget_spec(which);
+  return (s.kind == 1) && (s.value >= 1.0);
+}
+
+
+static void
+budget_describe(char          *buf,
+                size_t        n,
+                int           which,
+                size_t        total)
+{
+  const budget_spec_t s = budget_spec(which);
+  const char          *word = (s.value == 0.25) ? "quarter" : (s.value == 0.5) ? "half" :
+                              (s.value == 0.75) ? "threequarter" : "full";
+
+  if (which == VRNA_BUDGET_THREADS) {
+    if (s.kind == 2)
+      snprintf(buf, n, "threads %d (set)", vrna_budget_threads());
+    else
+      snprintf(buf, n, "threads %d (%s of %d)", vrna_budget_threads(), word,
+               vrna_budget_hw_threads());
+
+    return;
+  }
+
+  if ((s.kind == 1) && (s.value >= 1.0))
+    snprintf(buf, n, "%s full", g_name[which]);
+  else if (s.kind == 2)
+    snprintf(buf, n, "%s %.0f MB (set)", g_name[which], s.value);
+  else if (total == 0)
+    snprintf(buf, n, "%s %s (total unknown: no ceiling)", g_name[which], word);
+  else
+    snprintf(buf, n, "%s %.0f MB (%s of %.0f)", g_name[which],
+             s.value * (double)total / 1048576.0, word, (double)total / 1048576.0);
+}
+
+
+void
+vrna_budget_report(size_t device_total)
+{
+  static int  said = 0;
+  char        r[96], v[96], t[96];
+
+  if (said)
+    return;
+
+  /* Only when a budget is in force: `full` everywhere is today's behaviour and says
+   * nothing, which keeps the CPU-only build silent as stock ViennaRNA is. */
+  if (vrna_budget_is_full(VRNA_BUDGET_RAM) && vrna_budget_is_full(VRNA_BUDGET_VRAM) &&
+      vrna_budget_is_full(VRNA_BUDGET_THREADS))
+    return;
+
+  said = 1;
+  if (vrna_cuda_quiet())
+    return;
+
+  budget_describe(r, sizeof(r), VRNA_BUDGET_RAM, vrna_budget_host_total());
+  budget_describe(v, sizeof(v), VRNA_BUDGET_VRAM, device_total);
+  budget_describe(t, sizeof(t), VRNA_BUDGET_THREADS, 0);
+  fprintf(stderr, "%-24s budget: %s | %s | %s\n", "mfe/cuda/budget.c", r, v, t);
+}

@@ -513,5 +513,109 @@ class cuda_hostWindowTest(unittest.TestCase):
         self.assertEqual(r["device_batches"], 1, "a list that fits was split: %s" % r)
 
 
+def meminfo_mb(key):
+    with open("/proc/meminfo") as f:
+        for line in f:
+            if line.startswith(key + ":"):
+                return int(line.split()[1]) / 1024.0
+    return None
+
+
+BUDGET_REPORT_PROBE = r"""
+import sys
+sys.path.insert(0, %r)
+import RNA
+RNA.fold("GGGGAAAACCCC")
+"""
+
+
+class cuda_budgetTest(unittest.TestCase):
+    """Resource budgets (PORT_BUDGETS.md B1): parsing, precedence and the report
+
+    Resolution only -- what each consumer does with its budget is B2-B4's bar."""
+
+    NAMES = ("RNA_RAM_BUDGET", "RNA_VRAM_BUDGET", "RNA_THREAD_BUDGET")
+
+    def setUp(self):
+        self.saved = {n: os.environ.pop(n, None) for n in self.NAMES}
+        RNA.set_budget(reset=True)
+
+    def tearDown(self):
+        RNA.set_budget(reset=True)
+        for n, v in self.saved.items():
+            if v is not None:
+                os.environ[n] = v
+
+    def test_python_defaults_to_half(self):
+        hw = os.cpu_count()
+        b = RNA.budget()
+        self.assertEqual(b["threads"], max(1, hw // 2))
+        total = meminfo_mb("MemTotal")
+        self.assertAlmostEqual(b["ram"], total / 2, delta=2)
+
+    def test_words_and_numbers(self):
+        hw, total = os.cpu_count(), meminfo_mb("MemTotal")
+        RNA.set_budget(ram="quarter", threads=3)
+        self.assertAlmostEqual(RNA.budget()["ram"], total / 4, delta=2)
+        self.assertEqual(RNA.budget()["threads"], 3)
+        RNA.set_budget(ram=1024, threads="full")
+        self.assertEqual(RNA.budget()["ram"], 1024.0)
+        self.assertEqual(RNA.budget()["threads"], hw)
+        RNA.set_budget(ram="full", threads="ThreeQuarter")
+        self.assertIsNone(RNA.budget()["ram"], "full must add no ceiling")
+        self.assertEqual(RNA.budget()["threads"], max(1, int(0.75 * hw)))
+
+    def test_junk_is_refused_and_changes_nothing(self):
+        RNA.set_budget(ram=2048)
+        before = RNA.budget()
+        for bad in ("most", "-1", "0", "12MB", ""):
+            with self.assertRaises(ValueError, msg="accepted ram=%r" % bad):
+                RNA.set_budget(threads=2, ram=bad)
+            self.assertEqual(RNA.budget(), before, "a refused call left a change behind")
+
+    def test_precedence_set_over_environment_over_default(self):
+        with env("RNA_THREAD_BUDGET", "1"):
+            self.assertEqual(RNA.budget()["threads"], 1, "the environment beats the default")
+            RNA.set_budget(threads=2)
+            self.assertEqual(RNA.budget()["threads"], 2, "set_budget() beats the environment")
+            RNA.set_budget(reset=True)
+            self.assertEqual(RNA.budget()["threads"], 1, "reset returns to the environment")
+
+    def test_per_call_budget_is_restored(self):
+        RNA.set_budget(ram=3000)
+        s, e = RNA.fold("GGGGAAAACCCC", ram=512, threads=1)
+        self.assertEqual([s, e], list(RNA.fold("GGGGAAAACCCC", cpu_only=True)))
+        self.assertEqual(RNA.budget()["ram"], 3000.0)
+        RNA.set_budget(reset=True)
+        RNA.fold(["GGGGAAAACCCC"], vram="quarter")
+        self.assertEqual(RNA.budget(), cuda_budgetTest.default_budget(), "a per-call budget leaked")
+
+    @staticmethod
+    def default_budget():
+        RNA.set_budget(reset=True)
+        return RNA.budget()
+
+    def report(self, extra):
+        e = dict(os.environ)
+        for n in self.NAMES:
+            e.pop(n, None)
+        e.update(extra)
+        p = subprocess.run([sys.executable, "-c", BUDGET_REPORT_PROBE % module_dir()],
+                           capture_output=True, text=True, timeout=300, env=e)
+        self.assertEqual(p.returncode, 0, p.stderr[-800:])
+        return [l for l in p.stderr.splitlines() if "budget:" in l]
+
+    def test_report_says_what_is_in_force(self):
+        lines = self.report({"RNA_GPU_VERBOSE": "1"})
+        self.assertEqual(len(lines), 1, "want one budget line: %s" % lines)
+        self.assertIn("threads %d (half of %d)" % (max(1, os.cpu_count() // 2), os.cpu_count()), lines[0])
+
+    def test_report_is_silent_at_full_and_when_quiet(self):
+        full = {n: "full" for n in self.NAMES}
+        full["RNA_GPU_VERBOSE"] = "1"
+        self.assertEqual(self.report(full), [], "full is today's behaviour and says nothing")
+        self.assertEqual(self.report({}), [], "the binding is quiet unless RNA_GPU_VERBOSE")
+
+
 if __name__ == '__main__':
     unittest.main(testRunner=taprunner.TAPTestRunner())

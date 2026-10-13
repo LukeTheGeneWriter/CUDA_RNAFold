@@ -50,6 +50,7 @@
 #ifdef VRNA_WITH_CUDA
 /* implemented in device.cu */
 unsigned int vrna_cuda_device_count(void);
+size_t       vrna_cuda_device_memory_total(void);
 #endif
 
 /*
@@ -122,6 +123,20 @@ vrna_cuda_devices(void)
     return 0;
 
   return vrna_cuda_device_count();
+#else
+  return 0;
+#endif
+}
+
+
+PUBLIC size_t
+vrna_cuda_device_memory(void)
+{
+#ifdef VRNA_WITH_CUDA
+  if (vrna_cuda_devices() == 0)
+    return 0;
+
+  return vrna_cuda_device_memory_total();
 #else
   return 0;
 #endif

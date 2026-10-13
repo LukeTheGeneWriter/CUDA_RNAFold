@@ -155,3 +155,24 @@ compound (every record shares one model and no constraints).
 Bar: `tools/coverage/py_window_check.sh` (CPU arm ≤ 420 MB, one sha); it fails on the old
 code. Binding suite 20/20. Note the GPU arm: 906 MB under a 300 MB window, because the window
 bounds only the compounds, not the 12 backtrack workers -- that is B3.
+
+### 8.2 B1: the resolver, the API and the report (2026-10-13)
+
+`src/ViennaRNA/mfe/cuda/budget.c`, built into the CUDA and the CPU-only library. `engine.h`:
+`vrna_budget_set/default/ram/vram/threads/is_full/report`, `vrna_cuda_device_memory()`.
+Environment `RNA_RAM_BUDGET`, `RNA_VRAM_BUDGET`, `RNA_THREAD_BUDGET`; Python `RNA.set_budget()`
+(all or nothing; `""` refused -- `reset=True` is the way back), `RNA.budget()`, and
+`ram=` / `vram=` / `threads=` on `RNA.fold` and `fc.mfe`, restored after the call. Python sets
+`half` at import. Nothing obeys a budget yet (B2-B4).
+
+Bars: binding suite 27/27 (7 new: Python default half, words and numbers, junk refused and
+nothing left behind, precedence set > environment > default, per-call restore, one report
+line, silence at full and when quiet); refcheck C_mixed, extreme, F_lite @ 64 and C400_lite @
+256 identical with the same chunk counts (the CLI default `full` changes nothing); the CLI
+prints `budget: RAM 2048 MB (set) | VRAM full | threads 6 (half of 12)` when one is set,
+nothing by default, and names an unparseable value. **Zeroconf owed**: the run was stopped for
+low host memory before it reached it.
+
+Build-tree note: after a rebuild the binding imports `interfaces/Python/RNA/RNA.py`, a copy of
+the regenerated `RNA.py` that make may skip when Windows and WSL clocks disagree; copy it, or
+a fixed test keeps failing against the old module.

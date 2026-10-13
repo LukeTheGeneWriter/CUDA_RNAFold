@@ -44,6 +44,13 @@ vrna_cuda_devices(void);
 
 
 /**
+ *  @brief  Total memory of the device the backend uses, in bytes; 0 without one
+ */
+size_t
+vrna_cuda_device_memory(void);
+
+
+/**
  *  @brief  Attach the CUDA MFE backend to a fold compound
  *
  *  Binds the backend through vrna_gr_set_inside_engine(). Whether any given
@@ -157,5 +164,72 @@ vrna_cuda_set_quiet(int on);
  */
 int
 vrna_cuda_quiet(void);
+
+
+/**
+ *  @name   Resource budgets (budget.c, PORT_BUDGETS.md)
+ *
+ *  How much host RAM, device memory and how many threads a run may take. A budget
+ *  is a number (MB for RAM and VRAM, a count for threads) or a fraction of the
+ *  machine's total: "quarter", "half", "threequarter", "full". It only lowers the
+ *  ceiling: every consumer keeps its own soft limit, and "full" is no ceiling.
+ *  Precedence: vrna_budget_set(), then RNA_RAM_BUDGET / RNA_VRAM_BUDGET /
+ *  RNA_THREAD_BUDGET, then vrna_budget_default().
+ *  @{
+ */
+#define VRNA_BUDGET_RAM     0
+#define VRNA_BUDGET_VRAM    1
+#define VRNA_BUDGET_THREADS 2
+
+/** @brief  Set one budget; NULL or "" returns it to the environment / default. 1 = ok, 0 = unparseable */
+int
+vrna_budget_set(int         which,
+                const char  *spec);
+
+
+/** @brief  The program's default for all three (RNAfold "full", Python "half"). 1 = ok */
+int
+vrna_budget_default(const char *spec);
+
+
+/** @brief  Host RAM ceiling in bytes; SIZE_MAX = none */
+size_t
+vrna_budget_ram(void);
+
+
+/** @brief  Device memory ceiling in bytes for a card of @p device_total bytes; SIZE_MAX = none */
+size_t
+vrna_budget_vram(size_t device_total);
+
+
+/** @brief  Thread budget, at least 1 */
+int
+vrna_budget_threads(void);
+
+
+/** @brief  Whether a resource's budget is "full" (no ceiling) */
+int
+vrna_budget_is_full(int which);
+
+
+/** @brief  MemTotal, MemAvailable (honours the RNA_HOST_AVAIL_MB test hook) and hardware threads */
+size_t
+vrna_budget_host_total(void);
+
+
+size_t
+vrna_budget_host_available(void);
+
+
+int
+vrna_budget_hw_threads(void);
+
+
+/** @brief  One stderr line describing the budgets in force, once per process, and only when one is not full */
+void
+vrna_budget_report(size_t device_total);
+
+
+/** @} */
 
 #endif

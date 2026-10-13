@@ -144,6 +144,7 @@ libRNA_conv_la_LIBADD += libRNA_mfe_cuda.la
 ## is written against, which cites it by line number.
 libRNA_mfe_cuda_la_SOURCES = \
     mfe/cuda/engine.c \
+    mfe/cuda/budget.c \
     mfe/cuda/mfe_cuda.c \
     mfe/cuda/gquad.c
 
@@ -179,7 +180,7 @@ else
 ## CUDA library's copy of the same source.
 noinst_LTLIBRARIES += libRNA_mfe_cuda_host.la
 libRNA_conv_la_LIBADD += libRNA_mfe_cuda_host.la
-libRNA_mfe_cuda_host_la_SOURCES = mfe/cuda/engine.c
+libRNA_mfe_cuda_host_la_SOURCES = mfe/cuda/engine.c mfe/cuda/budget.c
 libRNA_mfe_cuda_host_la_CPPFLAGS = $(AM_CPPFLAGS)
 endif
 

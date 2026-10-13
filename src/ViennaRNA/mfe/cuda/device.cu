@@ -128,6 +128,25 @@ vrna_cuda_device_count(void)
 }
 
 
+/* Device 0's total memory in bytes, for the VRAM budget's fractions (budget.c); 0
+ * when there is no device. cudaGetDeviceProperties needs no context of its own. */
+extern "C" size_t
+vrna_cuda_device_memory_total(void)
+{
+  cudaDeviceProp p;
+
+  if (vrna_cuda_device_count() == 0u)
+    return 0;
+
+  if (cudaGetDeviceProperties(&p, 0) != cudaSuccess) {
+    cudaGetLastError();
+    return 0;
+  }
+
+  return (size_t)p.totalGlobalMem;
+}
+
+
 /*
  * RNA_PHASE_SYNC -- turn the per-phase timers from an ATTRIBUTION into a
  * MEASUREMENT.

@@ -75,6 +75,7 @@
 #include "ViennaRNA/combinatorics/basic.h"
 #include "ViennaRNA/intern/color_output.h"
 #include "ViennaRNA/io/sanitize.h"
+#include "ViennaRNA/mfe/cuda/engine.h"   /* resource budgets (both builds) */
 
 #ifdef VRNA_WITH_CUDA
 /* N5a P0: per-chunk spans beside the RNA_RECORD_TRACE file (mfe_cuda.c). */
@@ -978,6 +979,8 @@ process_input(FILE            *input_stream,
   /* The GPU chunk accumulator and the run's GPU decision: gpu_batch.c. */
   gpu_batch_begin(opt);
 #endif
+  /* The budgets in force, once, and only when one is not `full` (RNAfold's default). */
+  vrna_budget_report(vrna_cuda_device_memory());
 
   /* print user help if we get input from tty */
   if (istty_in && istty_out) {
