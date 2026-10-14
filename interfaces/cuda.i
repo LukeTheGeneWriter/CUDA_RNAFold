@@ -207,10 +207,36 @@ extern "C" {
       size_t        end     = start;
       size_t        need    = 0;
 
+      /* RAM budget (PORT_BUDGETS.md B3): a window also stays under the budget, less the
+       * process base and, on the device path, one backtrack worker for its longest record
+       * -- the workers beyond one are shed by the backend (vrna_budget_workers()). */
+      const size_t  ram     = vrna_budget_ram();
+      size_t        lmax    = 0;
+
       while (end < n) {
         const size_t b = rnafold_py_compound_bytes(sequences[end].size(), host_fold);
+        size_t       lim = (avail > 0) ? avail / 2 : SIZE_MAX;
 
-        if ((avail > 0) && (end > start) && (need + b > avail / 2))
+        if (sequences[end].size() > lmax)
+          lmax = sequences[end].size();
+
+        if (ram != SIZE_MAX) {
+          /* MEASURED: this process's RSS (interpreter, module, whatever it already holds),
+           * plus the CUDA runtime's host side before the device has first been used, plus
+           * one backtrack worker on the device path. */
+          const size_t fixed = vrna_budget_rss() +
+                               ((!host_fold && (vrna_cuda_device_batches() == 0)) ?
+                                vrna_budget_base_bytes(1) : 0) +
+                               (host_fold ? 0 : vrna_budget_worker_bytes(lmax, md ? md->circ : 0));
+          /* 5 % of the room for what the per-compound charge leaves out -- result strings,
+           * Python objects: without it the host path ended 1 MB over a 700 MB budget */
+          const size_t room  = (ram > fixed) ? (size_t)((double)(ram - fixed) * 0.95) : 0;
+
+          if (room < lim)
+            lim = room;
+        }
+
+        if ((end > start) && (need + b > lim))
           break;
 
         need += b;

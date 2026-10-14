@@ -230,6 +230,51 @@ void
 vrna_budget_report(size_t device_total);
 
 
+/** @brief  The fitted host model (PORT_BUDGETS.md 8.4), in bytes */
+size_t
+vrna_budget_compound_bytes(size_t length);
+
+
+size_t
+vrna_budget_worker_bytes(size_t  length,
+                         int     circ);
+
+
+size_t
+vrna_budget_hostfold_bytes(size_t length);
+
+
+size_t
+vrna_budget_base_bytes(int gpu);
+
+
+/** @brief  Host memory a driver holds beside the chunk being backtracked (slots below) */
+#define VRNA_BUDGET_HELD_NEXT_CHUNK 0   /* a build pipeline's next chunk */
+#define VRNA_BUDGET_HELD_RETAINED   1   /* a chunk retained for the backtrack pipeline */
+#define VRNA_BUDGET_HELD_CARRY      2   /* the previous chunk, freed but kept by the allocator */
+void
+vrna_budget_held(int     slot,
+                 size_t  bytes);
+
+
+size_t
+vrna_budget_held_total(void);
+
+
+/** @brief  This process's resident set now, in bytes (0 if unreadable) */
+size_t
+vrna_budget_rss(void);
+
+
+/** @brief  How many backtrack workers fit the RAM budget beside @p need_now bytes (at least 1; @p want when none is set) */
+int
+vrna_budget_workers(int     want,
+                    size_t  need_now,
+                    size_t  max_length,
+                    int     circ,
+                    int     explicit_setting);
+
+
 /** @} */
 
 #endif

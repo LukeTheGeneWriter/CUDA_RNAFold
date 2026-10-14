@@ -216,3 +216,64 @@ pass, so the zero-config contract holds for decision 3, B1 and B2. Memory, sampl
 the SWIG wrapper's compile (cc1plus) peaked at 1.15 GB and WSL never had less than 4.9 GB
 available -- the three earlier stops were pressure on the Windows side (13.7 GB, the browser),
 not inside WSL.
+
+### 8.4 M2b: the host model, fitted (2026-10-13)
+
+Uniform lengths, one chunk each; backtrack workers 1 / 4 / 12 and half the records; then
+2800 × 40 in four chunks with each pipeline toggled. Peak RSS:
+
+| L | n | w1 | w4 | w12 | w1, n/2 | per worker | per compound |
+|---|---|---|---|---|---|---|---|
+| 600 | 200 | 314 | 343 | 419 | 213 | 9.5 MB | 1.01 MB |
+| 1200 | 100 | 349 | 394 | 514 | 232 | 15.0 | 2.34 |
+| 2800 | 40 | 609 | 746 | 1113 | 378 | 45.8 | 11.6 |
+| 5601 | 12 | 804 | 1280 | **2550** | 532 | 158.7 | 45.3 |
+
+2800 × 40 in 4 chunks, 4 workers: neither pipeline 498 MB; build pipeline 578; backtrack
+pipeline 958; both 950. CPU path at 2800: 54 MB at `-j1`, 179 at `-j4`.
+
+**The model** (bounds every arm, never under; 0-13 % over):
+- per backtrack worker: 8 MiB + 5 L² (7.5 L² with `-c`: fM2 is a third triangle)
+- per compound on the GPU path: 1.5 L² + 192 L + 0.5 MiB (RNAfold's old 1.0 L² + 128 L is short)
+- process base on the GPU path: 100 MiB (the CUDA runtime on the host); 16 MiB on the CPU path
+- after the first chunk: + one chunk's compounds (freed memory the allocator keeps)
+- build pipeline: + the next chunk's compounds
+- backtrack pipeline: + two chunks' compounds + 1.2 × the workers' scratch
+- a host fold: 5 L² + 1024 L each (8.1)
+
+At 5601 nt twelve workers cost 2.55 GB against 0.80 GB with one, at the same wall (8.9 vs 9.2 s).
+
+### 8.5 B3: the RAM budget (2026-10-13)
+
+Four gates, in decision 2's order, each announced when it acts:
+1. **backtrack workers** (`vrna_budget_workers()`, at par_mfe's backtrack): as many as fit beside
+   what the process holds, at least one; an explicit `RNA_BACKTRACK_THREADS` wins, with a warning.
+   Under a budget the grow-only scratch pool is trimmed to the workers in use and released at the
+   end of a batch, so a library caller keeps nothing between calls.
+2. the backtrack pipeline: opt-in today, so an explicit `RNA_BT_PIPELINE=1` wins (decision 1);
+   its AUTO gate (after P4) is this same computation.
+3. **the build pipeline** (RNAfold): off when the next chunk will not fit beside the pending one.
+4. **chunk width** (RNAfold admission; the Python window): a record joins while the chunk fits at
+   one worker and no pipeline; one record alone over the budget is warned about and folded.
+
+**What the process holds is MEASURED (its RSS), not modelled.** The first version used the fitted
+base (8.4: 100 MiB) and was right for RNAfold and 30 MB short for Python (interpreter + a 56 MB
+module); RSS is exact for both and already includes memory the allocator keeps after a free. The
+fitted model prices only what is ABOUT to be allocated: compounds not yet built, workers' scratch.
+Margins, as for the VRAM budget's 0.85: the worker gate leaves 10 % of the room (without it a
+Python fold at 700 MB peaked at 718), the Python window 5 % (without it the host path ended 1 MB
+over).
+
+| run | budget | peak RSS | what was shed |
+|---|---|---|---|
+| 5601 × 12, one chunk | full | 2550 MB | -- |
+| | 1500 MB | 1281 | workers 12 → 4 (same wall, 9.0 vs 9.4 s) |
+| | 1000 MB | 963 | workers 12 → 2 |
+| | 700 MB | 714 (over, as warned) | build pipeline off; chunks narrowed; workers 9 → 1; three records warned (one alone needs 709-800 MB) |
+| 2800 × 40, 4 chunks | full | 947 | -- |
+| | 800 / 600 MB | 613 / 500 | workers per chunk (1-6 / 1-3) |
+| A_longseq (60 × ≤ 2800) | 700 MB | 678 | workers 12 → 4 |
+| Python `RNA.fold(list)`, GPU / host | `ram=700` | 675 / 649 | workers 12 → 3 → 2 / the window |
+
+Output identical to the reference in every arm; refcheck 9/9 at `full` with the same chunk counts;
+binding 27/27; `py_window_check.sh` passes.

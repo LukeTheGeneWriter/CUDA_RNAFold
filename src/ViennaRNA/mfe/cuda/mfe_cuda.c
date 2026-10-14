@@ -26,6 +26,7 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>   /* SIZE_MAX: a RAM budget with no ceiling */
 #include <math.h>
 #include <ctype.h>
 #include <string.h>
@@ -964,8 +965,33 @@ bt_scratch_ensure(bt_scratch_t *sc, const size_t cells, const int want_fm2) {
 static bt_scratch_t *g_bt_pool   = NULL;
 static int           g_bt_pool_n = 0;
 
+/* RAM budget (PORT_BUDGETS.md B3): the grow-only pool is right for throughput and wrong
+ * under a budget -- a pool grown before the budget took effect would never shrink, and
+ * a library caller would keep it all after its fold returned. So while a RAM budget is
+ * in force the slots beyond `keep` are freed. Never while a trace is in flight: the
+ * backtrack pipeline's trace thread uses the same pool. */
+PRIVATE void
+bt_pool_trim(const int keep) {
+  if(g_bt_async.live)
+    return;
+  for(int t = keep; t < g_bt_pool_n; t++)
+    bt_scratch_free(&g_bt_pool[t]);
+  if(keep < g_bt_pool_n)
+    g_bt_pool_n = keep;
+}
+
+/* engine.c, at the end of a batch: under a RAM budget the process does not keep its
+ * backtrack scratch between calls. */
+PUBLIC void
+rnafold_bt_pool_release_under_budget(void) {
+  if(vrna_budget_ram() != SIZE_MAX)
+    bt_pool_trim(0);
+}
+
 PRIVATE bt_scratch_t *
 bt_pool_get(const int n) {
+  if(vrna_budget_ram() != SIZE_MAX)
+    bt_pool_trim(n);
   if(n > g_bt_pool_n) {
     g_bt_pool = (bt_scratch_t *) vrna_realloc(g_bt_pool, sizeof(bt_scratch_t) * n);
     memset(g_bt_pool + g_bt_pool_n, 0, sizeof(bt_scratch_t) * (n - g_bt_pool_n));
@@ -1377,7 +1403,27 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
   // slot per worker, so peak host matrix memory is n_bt_threads records'
   // worth rather than nfiles.
   const double t_bt = rnafold_now_seconds();
-  const int n_bt_threads = backtrack_thread_count(nfiles, cpu_queue_threads);
+  /* RAM budget (PORT_BUDGETS.md B3, decision 2): backtrack workers are shed first. What
+   * the process holds is MEASURED (its RSS: base, this chunk's compounds, memory the
+   * allocator kept), less the scratch pool it is about to reuse, plus what the driver
+   * is still adding beside it (a build pipeline's next chunk). */
+  size_t max_len = 0;
+  for(int H = 0; H < nfiles; H++)
+    if((size_t)VC[H]->length > max_len) max_len = VC[H]->length;
+  size_t need_now = 0;
+  if(vrna_budget_ram() != SIZE_MAX) {
+    size_t pool = 0;
+    for(int t = 0; t < g_bt_pool_n; t++)
+      pool += g_bt_pool[t].cells * sizeof(int) *
+              ((g_bt_pool[t].c ? 1 : 0) + (g_bt_pool[t].fML ? 1 : 0) + (g_bt_pool[t].fM2 ? 1 : 0));
+    const size_t rss = vrna_budget_rss();
+    need_now = ((rss > pool) ? rss - pool : 0) + vrna_budget_held_total();
+  }
+  const char *bt_env = getenv("RNA_BACKTRACK_THREADS");
+  const int n_bt_threads =
+    vrna_budget_workers(backtrack_thread_count(nfiles, cpu_queue_threads), need_now, max_len,
+                        VC[0]->params->model_details.circ,
+                        (bt_env && bt_env[0] && strcmp(bt_env, "auto")) ? 1 : 0);
   int next_i = 0;
   backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H,
                                  ret, ret ? ret->id : -1 };

@@ -24,6 +24,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>   /* SIZE_MAX: a RAM budget with no ceiling */
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
@@ -1613,6 +1614,73 @@ pipeline_drain(struct options *opt)
 }
 
 
+/* RAM budget (PORT_BUDGETS.md B3): a chunk's compounds by the fitted model, and its
+ * longest record. */
+static size_t
+chunk_host_of(struct record_data  **chunk,
+              int                 n,
+              size_t              *lmax)
+{
+  size_t  b = 0, m = 0;
+  int     i;
+
+  for (i = 0; i < n; i++) {
+    const size_t l = chunk[i]->sequence ? strlen(chunk[i]->sequence) : 0;
+
+    b += vrna_budget_compound_bytes(l);
+    if (l > m)
+      m = l;
+  }
+
+  if (lmax)
+    *lmax = m;
+
+  return b;
+}
+
+
+/* Does a build pipeline fit the RAM budget? It holds the NEXT chunk while the pending
+ * one folds and backtracks (at one worker at least), so both sets of compounds are
+ * resident. Given up after the workers and before the chunk width (decision 2); an
+ * explicit RNA_BUILD_PIPELINE=1 wins, with a warning (decision 1). */
+static int
+budget_fits_build_pipeline(struct record_data  **chunk,
+                           int                 n,
+                           struct options      *opt,
+                           int                 explicit_on)
+{
+  const size_t  ram = vrna_budget_ram();
+  size_t        l1 = 0, l2 = 0, need;
+  static int    said = -1;
+  int           fits;
+
+  if (ram == SIZE_MAX)
+    return 1;
+
+  /* measured (RSS, which already holds the pending chunk's compounds) + the next chunk's */
+  need = vrna_budget_rss() + chunk_host_of(chunk, n, &l1);
+  if (g_pending)
+    (void)chunk_host_of(g_pending->chunk, g_pending->n, &l2);
+
+  need += vrna_budget_worker_bytes((l1 > l2) ? l1 : l2, opt->md.circ);
+  fits  = (need <= ram);
+
+  if (fits != said) {
+    said = fits;
+    if ((!fits) && explicit_on)
+      fprintf(stderr, "%-24s WARNING: RNA_BUILD_PIPELINE=1 needs ~%.0f MB, over the RAM "
+                      "budget's %.0f MB; the explicit setting wins\n", "bin/gpu_batch.c",
+              (double)need / 1048576.0, (double)ram / 1048576.0);
+    else if (!fits && !vrna_cuda_quiet())
+      fprintf(stderr, "%-24s RAM budget: build pipeline off (two chunks need ~%.0f MB of "
+                      "%.0f MB)\n", "bin/gpu_batch.c", (double)need / 1048576.0,
+              (double)ram / 1048576.0);
+  }
+
+  return fits;
+}
+
+
 /* Pipelined replacement for flush_gpu_chunk(). Identical behaviour whenever the
  * pipeline is declined -- by RNA_BUILD_PIPELINE=0, by AUTO finding too little
  * host memory, or by output_needs_compound(). */
@@ -1642,8 +1710,9 @@ pipeline_flush(struct record_data **chunk,
    * vrna_params(). Serial is slower, not wrong. */
   {
     const int mode = rnafold_build_pipeline();
+    const int fits = budget_fits_build_pipeline(chunk, n, opt, mode == RNAFOLD_PIPELINE_ON);
     const int want = (mode == RNAFOLD_PIPELINE_ON) ||
-                     ((mode == RNAFOLD_PIPELINE_AUTO) &&
+                     ((mode == RNAFOLD_PIPELINE_AUTO) && fits &&
                       pipeline_fits_in_host_memory(chunk, n));
 
     if ((!want) || (output_needs_compound(opt))) {
@@ -1675,7 +1744,12 @@ pipeline_flush(struct record_data **chunk,
   a.b   = b;
   a.opt = opt;
 
+  /* RAM budget: while the builder holds `b`, the folding chunk's backtrack workers are
+   * sized beside it (vrna_budget_workers). */
+  vrna_budget_held(VRNA_BUDGET_HELD_NEXT_CHUNK, chunk_host_of(b->chunk, n, NULL));
+
   if (pthread_create(&th, NULL, builder_main, &a) != 0) {
+    vrna_budget_held(VRNA_BUDGET_HELD_NEXT_CHUNK, 0);
     /* No thread available: degrade to the serial shape rather than fail. */
     build_gpu_batch(b, opt);
     pipeline_drain(opt);
@@ -1695,6 +1769,7 @@ pipeline_flush(struct record_data **chunk,
     fold_span = rnafold_now_seconds() - t_fold;
 
     pthread_join(th, NULL);   /* `a` is a stack local; joining keeps it alive */
+    vrna_budget_held(VRNA_BUDGET_HELD_NEXT_CHUNK, 0);
 
     /* Zero on the first chunk, where pipeline_drain() had nothing to fold --
      * which is exactly the (chunks-1)/chunks the prize is bounded by. */
@@ -1719,6 +1794,8 @@ static unsigned int          gpu_chunk_len;
 static size_t                chunk_usable_bytes;
 static int                   chunk_started;
 static size_t                chunk_bytes;
+static size_t                chunk_host;        /* RAM budget (B3): the chunk's compounds */
+static size_t                chunk_host_lmax;   /* and its longest record */
 
 
 void
@@ -1734,6 +1811,8 @@ gpu_batch_begin(struct options *opt)
   chunk_usable_bytes = 0;
   chunk_started = 0;
   chunk_bytes = 0;
+  chunk_host = 0;
+  chunk_host_lmax = 0;
 
   /* The GPU chunk accumulator: a THIRD dispatch path alongside the serial and
    * per-record-parallel ones. Records are held back until a chunk's worth have
@@ -1933,6 +2012,7 @@ gpu_batch_offer(struct record_data *record,
         pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
         gpu_chunk_n = 0;
         chunk_bytes = 0;
+        chunk_host = chunk_host_lmax = 0;
         gpu_chunk_cells = 0;
         chunk_started = 0;
       }
@@ -1957,10 +2037,37 @@ gpu_batch_offer(struct record_data *record,
           need_flush = 1;
       }
 
+      /* RAM BUDGET (PORT_BUDGETS.md B3): chunk width is shed LAST (decision 2), so a record
+       * joins while the chunk fits at ONE backtrack worker and with no pipeline -- the
+       * workers and the pipelines are given up first, where they are decided. */
+      {
+        const size_t ram = vrna_budget_ram();
+
+        if ((ram != SIZE_MAX) && (gpu_chunk_n > 0)) {
+          const size_t lmax = (this_len > chunk_host_lmax) ? this_len : chunk_host_lmax;
+          /* measured (RSS) + this chunk's compounds, not yet built + one worker */
+          const size_t need = vrna_budget_rss() + chunk_host +
+                              vrna_budget_compound_bytes(this_len) +
+                              vrna_budget_worker_bytes(lmax, opt->md.circ);
+          static int   said = 0;
+
+          if (need > ram) {
+            need_flush = 1;
+            if ((!said) && (!vrna_cuda_quiet())) {
+              said = 1;
+              fprintf(stderr, "%-24s RAM budget: chunks narrowed to fit %.0f MB (at one "
+                              "backtrack worker and no pipeline)\n", "bin/gpu_batch.c",
+                      (double)ram / 1048576.0);
+            }
+          }
+        }
+      }
+
       if (need_flush) {
         pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
         gpu_chunk_n = 0;
         chunk_bytes = 0;
+        chunk_host = chunk_host_lmax = 0;
         gpu_chunk_cells = 0;
 
         /* Query AFTER the flush: flush_gpu_chunk() tears the device state down,
@@ -2009,6 +2116,20 @@ gpu_batch_offer(struct record_data *record,
                                                             sizeof(void *) * gpu_chunk_cap);
       }
       chunk_bytes += gpu_bytes_per_file((int)this_len);
+      chunk_host  += vrna_budget_compound_bytes(this_len);
+      if (this_len > chunk_host_lmax)
+        chunk_host_lmax = this_len;
+      if ((gpu_chunk_n == 0) && (vrna_budget_ram() != SIZE_MAX)) {
+        /* one record alone over the RAM budget: warn, and fold it anyway (decision) */
+        const size_t need = vrna_budget_rss() + chunk_host +
+                            vrna_budget_worker_bytes(this_len, opt->md.circ);
+        static int   warned = 0;
+
+        if ((need > vrna_budget_ram()) && (warned++ < 5))
+          fprintf(stderr, "%-24s WARNING: a %u nt record needs ~%.0f MB of host memory, over "
+                          "the RAM budget's %.0f MB; folding it anyway\n", "bin/gpu_batch.c",
+                  this_len, (double)need / 1048576.0, (double)vrna_budget_ram() / 1048576.0);
+      }
 
       gpu_chunk_len            = this_len;
       gpu_chunk[gpu_chunk_n++] = record;

@@ -566,6 +566,7 @@ extern void teardown_gpu3(void);
 extern size_t gpu_bytes_per_file(const int length);
 extern size_t compute_gpu_usable_bytes(void);
 extern size_t compute_gpu_usable_bytes_soft(void);
+extern void   rnafold_bt_pool_release_under_budget(void);
 extern void   rnafold_vram_over_budget(const size_t need, const size_t allowed);
 extern void   rnafold_circ_expect(const int circ);
 #endif
@@ -719,6 +720,7 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
   teardown_gpu();
   teardown_gpu2();
   teardown_gpu3();
+  rnafold_bt_pool_release_under_budget();   /* B3: no scratch kept between calls */
 
   return 1;
 #else

@@ -312,6 +312,153 @@ budget_describe(char          *buf,
 }
 
 
+/* ---------------------------------------------------------------- the host model (B3)
+ *
+ * FITTED, not asserted (PORT_BUDGETS.md 8.4, laptop, 2026-10-13): peak RSS at uniform
+ * lengths 600 / 1200 / 2800 / 5601 with 1 / 4 / 12 backtrack workers and with half the
+ * records, plus four-chunk runs with each pipeline toggled. These bounds sit above every
+ * measured arm, by 0-13 %; a budget's model must never predict under. */
+#define BUDGET_MIB ((size_t)1048576)
+
+size_t
+vrna_budget_compound_bytes(size_t length)
+{
+  const size_t L = length + 1;
+
+  return (3 * L * L) / 2 + 192 * L + BUDGET_MIB / 2;
+}
+
+
+size_t
+vrna_budget_worker_bytes(size_t  length,
+                         int     circ)
+{
+  const size_t L = length + 1;
+
+  /* a c/fML pair (and fM2 with -c) sized to the chunk's longest record, its trace
+   * stack, and the thread's own stack and allocator arena (the 8 MiB) */
+  return 8 * BUDGET_MIB + (circ ? (15 * L * L) / 2 : 5 * L * L);
+}
+
+
+size_t
+vrna_budget_hostfold_bytes(size_t length)
+{
+  const size_t L = length + 1;
+
+  return 5 * L * L + 1024 * L;
+}
+
+
+size_t
+vrna_budget_base_bytes(int gpu)
+{
+  return (gpu ? 100 : 16) * BUDGET_MIB;
+}
+
+
+/* Host memory the DRIVER holds beside the chunk being backtracked: the next chunk a build
+ * pipeline is building, a chunk retained for the backtrack pipeline. Set and cleared by
+ * whoever holds it; the worker decision subtracts the sum. */
+static size_t g_held[3];
+
+void
+vrna_budget_held(int     slot,
+                 size_t  bytes)
+{
+  if ((slot >= 0) && (slot < 3))
+    g_held[slot] = bytes;
+}
+
+
+size_t
+vrna_budget_held_total(void)
+{
+  return g_held[0] + g_held[1] + g_held[2];
+}
+
+
+/* The process's resident set right now, in bytes; 0 when it cannot be read. MEASURED rather
+ * than modelled, like the VRAM budget's context: a fitted base was right for RNAfold (100
+ * MiB) and 30 MB short for a Python process, which carries the interpreter and a 56 MB
+ * extension module; RSS also includes memory the allocator keeps after a free, which a
+ * model would have to guess. */
+size_t
+vrna_budget_rss(void)
+{
+  FILE          *f;
+  unsigned long pages = 0, rss = 0;
+
+  if ((f = fopen("/proc/self/statm", "r")) == NULL)
+    return 0;
+
+  if (fscanf(f, "%lu %lu", &pages, &rss) != 2)
+    rss = 0;
+
+  fclose(f);
+  return (size_t)rss * (size_t)sysconf(_SC_PAGESIZE);
+}
+
+
+/* SHED BACKTRACK WORKERS FIRST (decision 2): they cost 8 MiB + 5 L^2 each and, on the
+ * laptop, nothing in wall time to give up. Returns how many to run: `want` when no RAM
+ * budget is in force or it fits, otherwise as many as fit beside `need_now` bytes (what
+ * the process holds before the workers' scratch, plus what the driver is about to add),
+ * at least one. An explicit RNA_BACKTRACK_THREADS wins over the budget (decision 1), with
+ * a warning. Each distinct decision is announced once. */
+int
+vrna_budget_workers(int     want,
+                    size_t  need_now,
+                    size_t  max_length,
+                    int     circ,
+                    int     explicit_setting)
+{
+  static int    said_want = -1, said_got = -1;
+  const size_t  cap = vrna_budget_ram();
+  size_t        need, room, per;
+  int           got;
+
+  if ((cap == SIZE_MAX) || (want <= 1))
+    return want;
+
+  per   = vrna_budget_worker_bytes(max_length, circ);
+  need  = need_now;
+  /* 10 % of the room for what arrives with the workers beyond their scratch -- the pinned
+   * transfer stage each gets, per-record backtrack allocations: without it a Python fold
+   * at a 700 MB budget peaked at 718 with 4 workers allowed beside 511 MB held */
+  room  = (cap > need) ? (size_t)((double)(cap - need) * 0.9) : 0;
+  got   = (int)(room / per);
+  if (got < 1)
+    got = 1;
+
+  if (got >= want)
+    return want;
+
+  if (explicit_setting) {
+    if (said_want != want) {
+      said_want = want;
+      fprintf(stderr, "%-24s WARNING: RNA_BACKTRACK_THREADS=%d exceeds the RAM budget, which "
+                      "fits %d (%.0f MB each at %zu nt); the explicit setting wins\n",
+              "mfe/cuda/budget.c", want, got, (double)per / 1048576.0, max_length);
+    }
+
+    return want;
+  }
+
+  if ((said_want != want) || (said_got != got)) {
+    said_want = want;
+    said_got  = got;
+    if (!vrna_cuda_quiet())
+      fprintf(stderr, "%-24s RAM budget: backtrack workers %d -> %d (%.0f MB each at %zu nt; "
+                      "%.0f MB of the %.0f MB budget already held)\n", "mfe/cuda/budget.c",
+              want, got, (double)per / 1048576.0, max_length, (double)need / 1048576.0,
+              (double)cap / 1048576.0);
+  }
+
+  return got;
+}
+
+
 void
 vrna_budget_report(size_t device_total)
 {
