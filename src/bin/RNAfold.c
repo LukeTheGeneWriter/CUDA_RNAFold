@@ -254,8 +254,10 @@ postscript_layout(vrna_fold_compound_t  *fc,
    * all to the pool together, so `RNAfold -j8` WITHOUT --noPS aborted with
    * "double free or corruption" after a burst of naview "Loop N has crossed regions"
    * warnings (Colab T4, reproduced on the laptop 2026-10-02, rc=134, 2 of 300 plots
-   * written). The layout is cheap beside the fold, so serialising it costs nothing
-   * measurable. */
+   * written). The layout is cheap beside the fold: 53 us per record (D7, 2026-10-14:
+   * 0.016 s over 300 records of 400-800 nt, against 0.126 s for layout + write), and
+   * -j4 with plots is +0.2 % on the CPU path. Pristine 2.7.2 crashes 5 of 5 at -j8 with
+   * plots: PORT_UPSTREAM_PROPOSAL.md Defect E, tests/upstream/plot_layout_race.sh. */
   THREADSAFE_FILE_OUTPUT(({
     layout = vrna_plot_layout(structure, opt->plot_layout);
     vrna_plot_structure(filename_plot,

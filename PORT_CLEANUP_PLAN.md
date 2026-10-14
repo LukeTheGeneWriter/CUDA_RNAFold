@@ -436,3 +436,17 @@ Tagged `post-cleanup`.
 **Cleanup done.** C0-C9 on Lukes_Flow_Batching, local, not pushed. Still open from this
 plan: the D7 pricing of the H5 layout lock, the final A100 run (400 x 5601 and the soak)
 against `pre-cleanup`, and the D4 verdict.
+
+**D7 record (2026-10-14): the H5 layout lock is priced, and it is offered upstream as Defect E.**
+- **The defect is upstream's.** On pristine 2.7.2, `RNAfold -j8` with plots, 300 records of
+  400-800 nt: **0/5 clean** (3 segfaults, 2 aborts). The controls are clean: `-j8 --noPS` 5/5
+  and `-j1` with plots 5/5.
+- **The fix holds.** Our tree, `-j8` with plots: CPU 5/5 and GPU 5/5 clean, and every plot is
+  identical to pristine `-j1`'s.
+- **The price.** The lock adds only the layout, because the write was already locked: 0.016 s
+  over the 300 records, about 53 µs per record (layout plus write is 0.126 s). Wall times at
+  `-j4`, ABBA x 3: CPU 26.89 s with `--noPS` vs 26.95 s with plots (+0.2 %, within the spread);
+  GPU 2.05 s vs 2.19 s, a difference that is the write.
+- **Verdict: keep it.** It goes to upstream as `PORT_UPSTREAM_PROPOSAL.md` Defect E, with
+  `tests/upstream/plot_layout_race.sh` as the reproducer.
+- **What this plan still has open:** the final A100 run against `pre-cleanup`, and the D4 verdict.
