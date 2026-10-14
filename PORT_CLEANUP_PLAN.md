@@ -450,3 +450,11 @@ against `pre-cleanup`, and the D4 verdict.
 - **Verdict: keep it.** It goes to upstream as `PORT_UPSTREAM_PROPOSAL.md` Defect E, with
   `tests/upstream/plot_layout_race.sh` as the reproducer.
 - **What this plan still has open:** the final A100 run against `pre-cleanup`, and the D4 verdict.
+
+**2026-10-14: the final A100 check and D4 are in the N5a notebook** (`CUDA_RNAFold_N5a.ipynb`, from the local
+generator `tools/make_nb_n5a.py`). Section C: `pre-cleanup` (6123cebe) vs `post-cleanup` (c4226271) vs head at
+400 × 5601 and the soak, rotated x 3, one sha (Q5: post not slower than pre beyond spread). Section D: the default
+vs `RNA_ROW_FUSE=1` (needs overlap 0) and vs `RNA_MD_TILE_CB=1024` (needs overlap, graphs, c ring and row batch off),
+each with its matched control and its ACTIVE line asserted, at 400 × 5601 and 3000 × 1200 (Q6: a path pays only if
+faster than the default beyond spread at 400 × 5601 and not slower at 3000 × 1200; otherwise it is canned).
+Rehearsed on the laptop end to end: three trees, one sha per fixture; ACTIVE 6/6 for each path.
