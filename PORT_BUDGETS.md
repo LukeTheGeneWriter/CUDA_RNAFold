@@ -320,4 +320,5 @@ host pools were measured to pay (1.23×, 2026-08-30).
 
 Python: `test_thread_budget_binds_backtrack_workers` (threads=2: the cap acts, peak ≤ 2,
 answers equal the CPU's). Binding 28/28; refcheck 9/9 at `full`; `bt_pipeline_check.sh` 9/9
-(negative controls bite). Zeroconf for B3 + B4 (budget.c changed) not yet run.
+(negative controls bite). Zeroconf for B3 + B4 on a copy (`~/zcb4`, 2026-10-14): all 7 cases pass,
+including case 7 (CPU-only + Python).
