@@ -454,3 +454,69 @@ it, the engine's rule (b) joins the trace before the sweep. 2800 × 40, off vs o
 Where VRAM sets the width the overlap is given up rather than a chunk added (decision 2's tradeoff); where
 the cap sets it (the A100's usual case) nothing joins early. Binding 32/32, refcheck 9/9,
 `bt_pipeline_check.sh` 9/9.
+
+## 10. P4 scope: the A100 session (2026-10-14)
+
+### 10.1 What exists
+
+`tools/make_nb_n5a.py` writes the N5a P4 notebook (generated 10-10 for P2, **never run**; the `.ipynb` is
+gitignored, the generator is the source). Sections: **G** exactness (12 cases × CPU / off / on, NEGCTL 1 and 2,
+the `--unordered` refusal), **T** off vs on at 400 × 5601, 3000 × 1200, 1200 × 1200 (ABBA × 3) and the 2400 soak,
+**H** the trace-thread split under full heterogeneous load (4 / 8 / 12 / auto / decision 9.4's formula), **V**
+report. Pre-registered: Q0 (G passes), Q1 (AUTO becomes the default if on beats off beyond spread at 400 × 5601
+and 3000 × 1200 and loses nowhere), Q2 (a thread arm replaces auto only if it beats it beyond spread). About
+75 min. It builds `--without-python`, so it cannot see the library.
+
+Since then: budgets B1-B4, decision 1 (the cap in the library), P3, the driver's rule (b).
+
+### 10.2 Plan: extend the N5a notebook into one session
+
+1. **Head checks.** LFB must carry P3 and the budgets (`RNAFOLD_BT_ASYNC_INTERNAL`, `vrna_budget_threads_acquire`,
+   `rnafold_bt_pending_device_bytes` in `gpu_batch.c`), or it stops before building.
+2. **G additions.** Per multi-chunk case, RNAfold's chunk count with the pipeline on must equal off (the driver's
+   rule (b) at A100 scale); record the early-join count.
+3. **T and H unchanged**, plus one H arm: **`RNA_THREAD_BUDGET=NPROC`** under the same load. A number (not
+   `full`) turns on B4's shared count, so the builders and the trace pool draw from one count instead of each
+   taking every core (the CPU slice is not drawn, 10.4). It is the mechanism H was asked to find by hand.
+4. **B, budgets at scale (new).** 400 × 5601, CLI, `full` vs `half` (RAM, VRAM, threads together) and each
+   resource alone at `half`, ABBA × 3. Per arm: wall, chunk count, peak RSS (`/usr/bin/time -v`), the VRAM peak
+   line (B2's measured context on an A100, owed since M1), the thread peak line, what was shed.
+5. **L, the library (new).** A second build `--with-python` (about 8 min). `RNA.fold(list)` on 400 × 5601 and
+   3000 × 1200, Python's default budget (`half`) and `full`:
+   - `RNA_GPU_CHUNK_CELLS` default vs `0`: decision 1's effect where the cap, not VRAM, binds;
+   - `RNA_BT_PIPELINE` 0 vs 1: P3, with the internal hand-off and early-join counts;
+   - answers hashed against the CLI's for the same fixture (one sha per fixture across CLI and library).
+6. **V** reports all of it with the rules below.
+
+About 75 + 10 (B) + 25 (L, incl. the build) ≈ **110 min** on an A100-80GB. Sections save as they go and resume.
+
+### 10.3 Pre-registered rules (proposed)
+
+- **Q0, Q1, Q2 as signed for N5a**, with Q1 judged on the CLI arms (T) **and** the library arms (L): AUTO for
+  `RNA_BT_PIPELINE` becomes the default for both only if neither loses beyond spread anywhere.
+- **Q3, budgets hold at scale (gating):** at `half`, peak RSS ≤ the RAM budget, the VRAM peak line says "within
+  it", the thread peak ≤ the thread budget; output identical to `full`. A failure is a bug to fix, not a tradeoff.
+- **Q4, decision 1 (gating for keeping it):** library wall with the cap ≤ without it, beyond spread or within it.
+  If the cap loses in the library, it is reverted there (RNAfold keeps its own, measured 10-06).
+- **Reported, not gating:** what `half` costs in wall on the A100 (CLI and library), what each resource alone
+  costs, early joins, and whether the thread-budget H arm beats auto.
+
+### 10.4 Notes and limits
+
+- The CPU slice (`RNA_CPU_SLICE` + `-j`) is capped by the thread budget only through `-j`'s auto size, not drawn
+  from the shared count (its threads live for the run, B4). The H arm measures the count as built.
+- Colab's A100 VMs carry far more host RAM than the laptop (the notebook records MemTotal; I recall about 83 GB on
+  the high-RAM tier, unverified), so Q3's RAM half may not bind at 400 × 5601. The VRAM half (40 GB) binds. Report which bound.
+- The AUTO gate for the backtrack pipeline, if Q1 passes, is B3's computation ("two chunks fit the budget"),
+  implemented after this run as its own stage with its own bar.
+
+### 10.5 Decisions for sign-off
+
+1. **One session: extend the N5a notebook** (shared build, fixtures and harness) rather than a second notebook.
+   *Recommended:* one A100 session, and T, H, B and L see the same binary.
+2. **Q3 and Q4 as written** (budgets gating on correctness at scale; the library cap kept only if it does not
+   lose). *Recommended.*
+3. **Q1 judged on the library too** (AUTO for both or for neither). *Recommended:* one schedule, as N5a §3.7 says.
+4. **The thread-budget arm in H.** *Recommended:* it costs one arm and tests the mechanism B4 built.
+
+**Signed off by Luke, 2026-10-14: "yes to all four, go ahead."**
