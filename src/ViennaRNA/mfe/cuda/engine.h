@@ -181,6 +181,10 @@ vrna_cuda_quiet(void);
 #define VRNA_BUDGET_VRAM    1
 #define VRNA_BUDGET_THREADS 2
 
+/** @brief  The chunk cell cap's default: 48 x (5601 x 5602 / 2) cells. RNAfold and the library
+ *          share it; RNA_GPU_CHUNK_CELLS overrides, 0 disables (bin/gpu_batch.c explains it) */
+#define VRNA_GPU_CHUNK_CELLS_DEFAULT 753000000ull
+
 /** @brief  Set one budget; NULL or "" returns it to the environment / default. 1 = ok, 0 = unparseable */
 int
 vrna_budget_set(int         which,

@@ -288,8 +288,10 @@ static void md_sparse_md(const int nfiles, const int turn, const int* fml_i, con
 static int  md_sparse_live(void);   /* RNA_MD_SPARSE=1 and this chunk's lists exist */
 static size_t md_sparse_bytes_per_file(const int length);   /* the lists, for chunk admission */
 static int    md_sparse_planned(void);   /* sparse md will run: no DRAM pressure from the triangle */
-/* RNAfold's admission cell cap (RNAfold.c sets it); 0 on the library path, which sizes by VRAM. */
-static unsigned long long g_chunk_cells_cap = 0;
+/* The admission cell cap (0: none). RNAfold sets it from its driver; the library path
+ * (engine.c) sets the same default itself (PORT_BUDGETS.md 9.6, decision 1). */
+static unsigned long long g_chunk_cells_cap     = 0;
+static int                g_chunk_cells_cap_set = 0;
 
 // Staggered_Row_Batching Phase 4: per-row "current active width" tables for
 // load_fML/fmli_kernel/modular_decomposition_kernel/load_min_fML_kernel's
@@ -984,6 +986,15 @@ extern "C" void
 rnafold_set_chunk_cells_cap(const unsigned long long cap_cells)
 {
   g_chunk_cells_cap = cap_cells;
+  g_chunk_cells_cap_set = 1;
+}
+
+/* 1 and the cap when a caller has set one (RNAfold, or an earlier library batch) */
+extern "C" int
+rnafold_get_chunk_cells_cap(unsigned long long *cap_cells)
+{
+  *cap_cells = g_chunk_cells_cap;
+  return g_chunk_cells_cap_set;
 }
 
 // ---------------------------------------------------------------------------

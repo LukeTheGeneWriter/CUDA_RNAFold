@@ -432,6 +432,20 @@ print("RESULT " + json.dumps({"equal": got == ref, "device_batches": RNA.cuda_ba
 '''
 
 
+# Six records of 400 nt, for the chunk cell cap.
+CAP_PROBE = r'''
+import json, random, sys
+sys.path.insert(0, %r)
+import RNA
+
+rng = random.Random(4)
+seqs = ["".join(rng.choice("ACGU") for _ in range(400)) for _ in range(6)]
+got = [tuple(x) for x in RNA.fold(seqs)]
+ref = [tuple(RNA.fold(s, cpu_only=True)) for s in seqs]
+print("RESULT " + json.dumps({"equal": got == ref}))
+'''
+
+
 class cuda_chunkTest(unittest.TestCase):
     """A batch bigger than the device is split to fit it, not handed over whole
 
@@ -457,6 +471,26 @@ class cuda_chunkTest(unittest.TestCase):
         self.assertEqual(r["device_batches"], 1, "the batch never reached the device: %s" % r)
         chunks = p.stderr.count("init_gpu(")
         self.assertGreaterEqual(chunks, 2, "the batch was not split (%d device chunk(s))" % chunks)
+
+    def test_chunk_cell_cap_applies_to_library_lists(self):
+        """PORT_BUDGETS.md 9.6 decision 1: RNA_GPU_CHUNK_CELLS splits a library list as in RNAfold"""
+        if not device_present():
+            self.skipTest("no CUDA device")
+        counts = {}
+        for cap in ("170000", "0"):
+            # 400 nt = 80 200 cells: two records per chunk under 170 000, so 6 records -> 3
+            e = dict(os.environ, RNA_GPU_CHUNK_CELLS=cap, RNA_GPU_VERBOSE="1")
+            for n in ("RNA_GPU_VRAM_BUDGET_MB", "RNA_VRAM_BUDGET", "RNA_BT_PIPELINE"):
+                e.pop(n, None)
+            p = subprocess.run([sys.executable, "-c", CAP_PROBE % module_dir()],
+                               capture_output=True, text=True, timeout=600, env=e)
+            line = [l for l in p.stdout.splitlines() if l.startswith("RESULT ")]
+            self.assertTrue(line, "the cap probe crashed (rc %d): %s"
+                            % (p.returncode, (p.stdout + p.stderr)[-800:]))
+            self.assertTrue(json.loads(line[-1][7:])["equal"], "answers differ at cap %s" % cap)
+            self.assertIn("RNA_GPU_CHUNK_CELLS=%s" % cap, p.stderr, "the cap was not announced")
+            counts[cap] = p.stderr.count("init_gpu(")
+        self.assertEqual(counts, {"170000": 3, "0": 1}, "device chunks per cap: %s" % counts)
 
 
 # Each host window is its own vrna_mfe_batch() call, so RNA.cuda_batches() counts the

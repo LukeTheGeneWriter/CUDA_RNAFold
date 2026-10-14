@@ -569,6 +569,36 @@ extern size_t compute_gpu_usable_bytes_soft(void);
 extern void   rnafold_bt_pool_release_under_budget(void);
 extern void   rnafold_vram_over_budget(const size_t need, const size_t allowed);
 extern void   rnafold_circ_expect(const int circ);
+extern void   rnafold_set_chunk_cells_cap(const unsigned long long cap_cells);
+extern int    rnafold_get_chunk_cells_cap(unsigned long long *cap_cells);
+
+/* The chunk cell cap for a library batch (PORT_BUDGETS.md 9.6, decision 1). RNAfold sets
+ * its own (same default, same variable) before calling; anyone else gets this, set before
+ * the first VRAM query so int16 AUTO prices the same full-cap chunk RNAfold's does. Library
+ * chunks were as wide as VRAM allowed: the width that lost to the cap on the A100 (74.8 vs
+ * 61.0 s at 400 x 5601), and too wide for a retained chunk to fit beside the next. */
+static unsigned long long
+engine_chunk_cells(void)
+{
+  unsigned long long  cap;
+  const char          *e;
+
+  if (rnafold_get_chunk_cells_cap(&cap))
+    return cap;
+
+  cap = VRNA_GPU_CHUNK_CELLS_DEFAULT;
+  e   = getenv("RNA_GPU_CHUNK_CELLS");
+  if ((e) && (e[0]) && (atoll(e) >= 0)) {
+    cap = (unsigned long long)atoll(e);
+    if (!vrna_cuda_quiet())
+      fprintf(stderr, "%-24s RNA_GPU_CHUNK_CELLS=%llu (default %llu): chunk width capped by "
+                      "matrix area%s\n", "mfe/cuda/engine.c", cap, VRNA_GPU_CHUNK_CELLS_DEFAULT,
+              cap ? "" : " -- DISABLED, the VRAM budget alone decides");
+  }
+
+  rnafold_set_chunk_cells_cap(cap);
+  return cap;
+}
 #endif
 
 
@@ -639,21 +669,30 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
   }
 
   {
-    size_t  start   = 0;
-    int     devused = 0;
+    size_t                    start   = 0;
+    int                       devused = 0;
+    const unsigned long long  cap     = engine_chunk_cells();   /* before the first query */
 
     while (start < n) {
-      const size_t  usable  = compute_gpu_usable_bytes();
-      size_t        end     = start;
-      size_t        bytes   = 0;
+      const size_t        usable  = compute_gpu_usable_bytes();
+      size_t              end     = start;
+      size_t              bytes   = 0;
+      unsigned long long  cells   = 0;
 
       while (end < n) {
-        const size_t b = gpu_bytes_per_file((int)fcs[end]->length);
+        const size_t              b = gpu_bytes_per_file((int)fcs[end]->length);
+        const unsigned long long  c = (unsigned long long)fcs[end]->length *
+                                      ((unsigned long long)fcs[end]->length + 1ull) / 2ull;
 
         if (bytes + b > usable)
           break;
 
+        /* the cell cap, as RNAfold's admission applies it: never on an empty chunk */
+        if ((cap > 0) && (end > start) && (cells + c > cap))
+          break;
+
         bytes += b;
+        cells += c;
         end++;
       }
 

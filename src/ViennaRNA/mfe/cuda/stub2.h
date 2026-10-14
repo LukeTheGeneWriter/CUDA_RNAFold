@@ -422,12 +422,17 @@ extern "C"
 void rnafold_fml_int16_auto_decide(const size_t usable_bytes, const unsigned long long cap_cells,
                                    const size_t full_cap_bytes32, const int dense_md);
 
-// The admission cell cap RNAfold applies (0: none, as on the library path). RNAfold sets it
-// before its first compute_gpu_usable_bytes(); modular_decomposition.cu reads it there.
+// The admission cell cap (0: none). RNAfold sets it before its first
+// compute_gpu_usable_bytes(); the library path (engine.c) sets the same default when no
+// driver has. modular_decomposition.cu reads it there (int16 AUTO).
 #ifdef __cplusplus
 extern "C"
 #endif
 void rnafold_set_chunk_cells_cap(const unsigned long long cap_cells);
+#ifdef __cplusplus
+extern "C"
+#endif
+int  rnafold_get_chunk_cells_cap(unsigned long long *cap_cells);
 
 // CIRCULAR RNA (PORT_CIRC_SPEC.md). fM2_real is the ONE matrix
 // postprocess_circular() needs that the sweep never filled -- and it is not new

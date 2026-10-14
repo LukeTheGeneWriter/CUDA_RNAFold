@@ -475,7 +475,7 @@ static int g_host_jobs = 1;
  *
  * 48 * (5601*5602/2) = 7.53e8 cells. RNA_GPU_CHUNK_CELLS overrides; 0 disables.
  */
-#define VRNA_GPU_CHUNK_CELLS 753000000ull
+#define VRNA_GPU_CHUNK_CELLS VRNA_GPU_CHUNK_CELLS_DEFAULT   /* engine.h: the library uses it too */
 
 static unsigned long long
 rnafold_gpu_chunk_cells(void)
