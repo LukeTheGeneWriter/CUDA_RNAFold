@@ -534,3 +534,30 @@ About 75 + 10 (B) + 25 (L, incl. the build) ≈ **110 min** on an A100-80GB. Sec
 - **Dry run on the laptop** (the new parsers on real output, not a notebook run): a `half` CLI run parses to RAM
   3388 MB, threads 6 / 6, VRAM 1882 / 2048 MB "within it", RSS 838 MB; the library's canonical sha equals the CLI's
   for 2800 × 40 (`5ada0337c2ef`); P3's line parses (1 traced beside the next, 0 early). All cells compile.
+
+### 10.7 Output files and option conflicts (Luke, 2026-10-14)
+
+**A gap: no bar checked what RNAfold WRITES.** Every standing bar ran `--noPS` without `--outfile`, so the
+PostScript plots and `--outfile` files were never compared, and the backtrack pipeline dispatches output from a
+callback after the next sweep. New standing bar **`tools/coverage/outfile_check.sh`** (in `bars.sh`): modes
+per-record `--outfile`, `--outfile=NAME`, plots, per-record `--outfile -j4`; arms CPU / GPU / multi-chunk /
+pipeline / pipeline + half budgets / `NEGCTL=1`. Every arm writes the same set of files with the same contents as
+the CPU (PostScript date and creator lines aside) and the same stdout; files counted; sweeps counted (multi-chunk
+arms 27); the pipeline traced 27 chunks beside a sweep in each file mode and stayed sequential, saying so, for
+plots; **`NEGCTL=1` changes the files in all 4 modes** (the bar can fail). 24/24.
+
+**The binding under options with P3:** `cuda_pipelineOptionsTest`, `RNA.cuda_fold(list, md)` with the pipeline
+on and 4+ sub-chunks for noLP, circ, dangles 0, salt 0.2, G-quadruplexes, 30 °C: answers equal the CPU's, folded on
+the device, sub-chunks traced beside the next in every one. Binding 38/38.
+
+**The notebook, checked for its own conflicts and dumps:**
+- every `RNA_*` knob it sets exists in the source; Python's `half` default is `vrna_budget_default()`, below the
+  environment, so the L arm's `full` environment is obeyed;
+- **fixed:** G's new "as many chunks on as off" rule would have failed the `j_slice` case for no fault (the CPU
+  slice claims records by timing); it is exempt there;
+- **fixed:** eight measured-failure stops (`run`, `reps`, the CPU reference, G, the soak, the library run, the
+  module check, the library-vs-CLI sha) raised without saving anything, so a failed A100 run would have left
+  nothing to download. They now go through `stop()`: save `n5a.json`, bundle json + logs + build logs, then stop;
+- **fixed:** the bundle would have carried every fold output (~560 MB of `.out` across T, H, B); outputs over
+  2 MB are left out (their shas are in `n5a.json`) and the count is printed; the library probe's stdout is saved
+  beside its stderr; build logs join the final bundle. `bundle()` and `stop()` dry-run on a fake `/content`.

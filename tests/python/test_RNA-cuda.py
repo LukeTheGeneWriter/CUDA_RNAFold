@@ -517,6 +517,59 @@ class cuda_pipelineTest(unittest.TestCase):
                         "the negative control did not bite: internal hand-offs never happened")
 
 
+# P3 under model options: RNA.cuda_fold(list, md) with the pipeline on, several sub-chunks.
+MODEL_PIPE_PROBE = r'''
+import json, random, sys
+sys.path.insert(0, %r)
+import RNA
+
+settings = json.loads(%r)
+rng = random.Random(11)
+def seq(L):
+    s = []
+    while len(s) < L:
+        s += list("GGGAGGGAGGGAGGG") if settings.get("gquad") and rng.random() < 0.05 else [rng.choice("ACGU")]
+    return "".join(s[:L])
+seqs = [seq(400) for _ in range(8)]
+md = RNA.md()
+for k, v in settings.items():
+    setattr(md, k, v)
+got = [tuple(x) for x in RNA.cuda_fold(seqs, md)]
+ref = []
+for s in seqs:
+    st, e = RNA.fold_compound(s, md).mfe(cpu_only=True)
+    ref.append((st, round(e, 2)))
+print("RESULT " + json.dumps({"equal": [(a, round(b, 2)) for a, b in got] == ref}))
+'''
+
+
+class cuda_pipelineOptionsTest(unittest.TestCase):
+    """P3 with the model options a library caller sets: the same answers as the CPU, with
+    sub-chunks really traced beside the next (no option silently turns the pipeline off)"""
+
+    def probe(self, settings):
+        if not device_present():
+            self.skipTest("no CUDA device")
+        e = dict(os.environ, RNA_BT_PIPELINE="1", RNA_GPU_CHUNK_CELLS="170000", RNA_GPU_VERBOSE="1")
+        for n in ("RNA_GPU_VRAM_BUDGET_MB", "RNA_VRAM_BUDGET", "RNA_BT_PIPELINE_NEGCTL"):
+            e.pop(n, None)
+        p = subprocess.run([sys.executable, "-c", MODEL_PIPE_PROBE % (module_dir(), json.dumps(settings))],
+                           capture_output=True, text=True, timeout=600, env=e)
+        line = [l for l in p.stdout.splitlines() if l.startswith("RESULT ")]
+        self.assertTrue(line, "%s: the probe crashed (rc %d): %s" % (settings, p.returncode, p.stderr[-800:]))
+        self.assertTrue(json.loads(line[-1][7:])["equal"], "%s: answers differ from the CPU's" % settings)
+        self.assertGreaterEqual(p.stderr.count("init_gpu("), 2, "%s: not folded on the device in sub-chunks" % settings)
+        inside = re.findall(r"inside vrna_mfe_batch\(\): (\d+) sub-chunk", p.stderr)
+        self.assertTrue(inside and int(inside[0]) > 0, "%s: no sub-chunk traced beside the next" % settings)
+
+    def test_noLP(self):       self.probe({"noLP": 1})
+    def test_circ(self):       self.probe({"circ": 1})
+    def test_dangles0(self):   self.probe({"dangles": 0})
+    def test_salt(self):       self.probe({"salt": 0.2})
+    def test_gquad(self):      self.probe({"gquad": 1})
+    def test_temperature(self): self.probe({"temperature": 30.0})
+
+
 class cuda_chunkTest(unittest.TestCase):
     """A batch bigger than the device is split to fit it, not handed over whole
 
