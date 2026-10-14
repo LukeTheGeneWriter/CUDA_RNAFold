@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import re
 import subprocess
 import sys
 import tempfile
@@ -528,6 +529,19 @@ import RNA
 RNA.fold("GGGGAAAACCCC")
 """
 
+# B4: enough records that an uncapped backtrack pool would take every core
+THREAD_PROBE = r'''
+import json, random, sys
+sys.path.insert(0, %r)
+import RNA
+
+rng = random.Random(9)
+seqs = ["".join(rng.choice("ACGU") for _ in range(300)) for _ in range(16)]
+got = [tuple(x) for x in RNA.fold(seqs)]
+ref = [tuple(RNA.fold(s, cpu_only=True)) for s in seqs]
+print("RESULT " + json.dumps({"equal": got == ref}))
+'''
+
 
 class cuda_budgetTest(unittest.TestCase):
     """Resource budgets (PORT_BUDGETS.md B1): parsing, precedence and the report
@@ -621,6 +635,27 @@ class cuda_budgetTest(unittest.TestCase):
         full["RNA_GPU_VERBOSE"] = "1"
         self.assertEqual(self.report(full), [], "full is today's behaviour and says nothing")
         self.assertEqual(self.report({}), [], "the binding is quiet unless RNA_GPU_VERBOSE")
+
+    def test_thread_budget_binds_backtrack_workers(self):
+        """B4: threads=2 caps the backtrack pool and the peak drawn; answers unchanged"""
+        if not device_present():
+            self.skipTest("no CUDA device (the backtrack pool is the device path's)")
+        if (os.cpu_count() or 1) < 3:
+            self.skipTest("a budget of 2 binds nothing on %d threads" % os.cpu_count())
+        e = dict(os.environ, RNA_THREAD_BUDGET="2", RNA_GPU_VERBOSE="1")
+        e.pop("RNA_BACKTRACK_THREADS", None)
+        p = subprocess.run([sys.executable, "-c", THREAD_PROBE % module_dir()],
+                           capture_output=True, text=True, timeout=600, env=e)
+        line = [l for l in p.stdout.splitlines() if l.startswith("RESULT ")]
+        self.assertTrue(line, "the thread probe crashed (rc %d): %s"
+                        % (p.returncode, (p.stdout + p.stderr)[-800:]))
+        self.assertTrue(json.loads(line[-1][7:])["equal"], "answers differ under a thread budget")
+        self.assertIn("thread budget: backtrack workers", p.stderr, "the cap never acted")
+        peak = re.findall(r"thread budget: peak (\d+) concurrent workers of a budget of (\d+)",
+                          p.stderr)
+        self.assertEqual(len(peak), 1, "want one peak line: %s" % p.stderr[-600:])
+        self.assertEqual(peak[0][1], "2")
+        self.assertLessEqual(int(peak[0][0]), 2, "more workers ran than the budget")
 
 
 if __name__ == '__main__':

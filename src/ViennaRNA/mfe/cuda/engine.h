@@ -275,6 +275,24 @@ vrna_budget_workers(int     want,
                     int     explicit_setting);
 
 
+/** @brief  A pool's size capped at the thread budget (announced once per @p who); an explicit setting wins, with a warning */
+int
+vrna_budget_cap_threads(const char  *who,
+                        int         want,
+                        int         explicit_setting);
+
+
+/** @brief  Draw @p want workers from the shared thread budget (an auto pool waits while it is spent and may get fewer); hand @p held back to _release() */
+int
+vrna_budget_threads_acquire(int want,
+                            int explicit_setting,
+                            int *held);
+
+
+void
+vrna_budget_threads_release(int held);
+
+
 /** @} */
 
 #endif

@@ -277,3 +277,47 @@ over).
 
 Output identical to the reference in every arm; refcheck 9/9 at `full` with the same chunk counts;
 binding 27/27; `py_window_check.sh` passes.
+
+### 8.6 B4: the thread budget (2026-10-14)
+
+Two steps, both in `budget.c`:
+1. **Cap.** `vrna_budget_cap_threads()` caps each pool's auto size at the budget, announced
+   once per pool: build threads, backtrack workers (before B3's RAM gate, which may shed more),
+   and `-j` / `-j 0`. An explicit `RNA_BUILD_THREADS`, `RNA_BACKTRACK_THREADS` or `-j N` wins,
+   with a warning (decision 1).
+2. **Draw.** Pools overlap (a build pipeline's builders beside this chunk's backtrack; with
+   `RNA_BT_PIPELINE=1` a trace beside the next sweep and the next build), so capping each pool
+   alone allows twice the budget. Every pool therefore draws its workers from one shared count:
+   an auto pool waits while the budget is spent, then takes what is free (at least one); an
+   explicit pool never waits and is counted. A pool of n counts n whether it spawns them or runs
+   serially on its caller; a caller that only joins is not counted. No holder waits on anything
+   while it holds workers, so the wait cannot deadlock. At `full` nothing is counted and nothing
+   waits. The `-j` pool is capped, not drawn: its threads live for the whole run.
+
+Positive evidence: an exit line, `thread budget: peak N concurrent workers of a budget of B
+(W draws waited, S took fewer than asked)`; and, independently, a sampler that counts the
+process's RUNNING threads (state R in `/proc/<pid>/task/*/stat`, every 10 ms). maxR also counts
+the main thread driving the GPU and CUDA's own threads, which no pool owns; it moves by
+one between repeat runs (budget 1: maxR 1, then 2). The internal peak never exceeded the budget.
+
+Laptop, 2800 × 40 (`~/m2b`), 12 hardware threads:
+
+| arm | wall | maxR | peak (budget) | output |
+|---|---|---|---|---|
+| full | 5.6 s | 12 | -- (no line) | reference |
+| `RNA_THREAD_BUDGET=4` / 2 / 1 | 4.8 / 5.2 / 6.3 s | 4 / 2 / 1 | 4 / 2 / 1 | identical |
+| 2 + `RNA_BACKTRACK_THREADS=8` | 5.1 s | 8 | 8 (2), warned | identical |
+| 2 + `RNA_BUILD_THREADS=8` | 4.9 s | 8 | 8 (2), warned | identical |
+| 3 + `-j` / `-j6` | 5.0 / 5.0 s | 3 / 3 | 3 (3) / warned for `-j6` | identical |
+| full + `-j` | 4.8 s | 12 | -- | identical |
+| **contention:** `RNA_BT_PIPELINE=1`, `RNA_VRAM_BUDGET=1100` (8 chunks), budget 2 / 3 | 10.1 / 10.2 s | 4 / 4 | 2 / 3, **5 draws waited, 1 took fewer** | identical |
+
+Without contention (one chunk, or chunks of one record) no draw waits: the builders finish
+inside the sweep before the backtrack starts. The wait path was reached only with the backtrack
+pipeline and multi-record chunks; it is exercised there, in both budgets, with no hang. Shedding
+threads cost nothing on the laptop (the fold is GPU-bound); P4 prices it on the A100, where the
+host pools were measured to pay (1.23×, 2026-08-30).
+
+Python: `test_thread_budget_binds_backtrack_workers` (threads=2: the cap acts, peak ≤ 2,
+answers equal the CPU's). Binding 28/28; refcheck 9/9 at `full`; `bt_pipeline_check.sh` 9/9
+(negative controls bite). Zeroconf for B3 + B4 (budget.c changed) not yet run.

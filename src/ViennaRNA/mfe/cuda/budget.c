@@ -483,3 +483,159 @@ vrna_budget_report(size_t device_total)
   budget_describe(t, sizeof(t), VRNA_BUDGET_THREADS, 0);
   fprintf(stderr, "%-24s budget: %s | %s | %s\n", "mfe/cuda/budget.c", r, v, t);
 }
+
+
+/* ---------------------------------------------------------------- threads (B4)
+ *
+ * Two steps. vrna_budget_cap_threads() caps what a pool ASKS for at the budget, once,
+ * announced; an explicit setting (-j N, RNA_BUILD_THREADS, RNA_BACKTRACK_THREADS) wins,
+ * with a warning (decision 1). Then every pool DRAWS its workers from one shared count
+ * (vrna_budget_threads_acquire / _release), because pools overlap: with the build
+ * pipeline the next chunk's builders run beside this chunk's backtrack, and with the
+ * backtrack pipeline a trace runs beside the next sweep. Capping each pool alone would
+ * let two of them run 2 x the budget.
+ *
+ * A pool of n workers counts n whether it spawns them or runs serially on its caller; a
+ * caller that only joins its workers is not counted. An auto-sized pool waits while the
+ * budget is spent and then takes what is free (at least one); an explicit pool never
+ * waits and is counted. No holder waits on anything while it holds workers (builders
+ * build, backtrack workers trace), so the wait cannot deadlock.
+ *
+ * At `full` none of this runs: the count is not kept, nothing waits, today's behaviour. */
+#if VRNA_WITH_PTHREADS
+# include <pthread.h>
+static pthread_mutex_t  g_thr_mtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t   g_thr_cv  = PTHREAD_COND_INITIALIZER;
+#endif
+static int              g_thr_in_use, g_thr_peak, g_thr_budget_seen, g_thr_waits,
+                        g_thr_short, g_thr_reported;
+
+
+static void
+budget_threads_report(void)
+{
+  if (vrna_cuda_quiet())
+    return;
+
+  fprintf(stderr, "%-24s thread budget: peak %d concurrent workers of a budget of %d "
+                  "(%d draws waited, %d took fewer than asked)\n", "mfe/cuda/budget.c",
+          g_thr_peak, g_thr_budget_seen, g_thr_waits, g_thr_short);
+}
+
+
+int
+vrna_budget_cap_threads(const char  *who,
+                        int         want,
+                        int         explicit_setting)
+{
+  static char said[8][32];
+  static int  nsaid;
+  int         cap, k;
+
+  if ((want <= 1) || vrna_budget_is_full(VRNA_BUDGET_THREADS))
+    return want;
+
+  cap = vrna_budget_threads();
+  if (want <= cap)
+    return want;
+
+  /* each pool says it once (builders and a trace thread may get here together) */
+#if VRNA_WITH_PTHREADS
+  pthread_mutex_lock(&g_thr_mtx);
+#endif
+  for (k = 0; k < nsaid; k++)
+    if (!strcmp(said[k], who))
+      break;
+
+  if ((k == nsaid) && (nsaid < 8)) {
+    snprintf(said[nsaid++], sizeof(said[0]), "%s", who);
+    if (explicit_setting)
+      fprintf(stderr, "%-24s WARNING: %s %d exceeds the thread budget of %d; the explicit "
+                      "setting wins\n", "mfe/cuda/budget.c", who, want, cap);
+    else if (!vrna_cuda_quiet())
+      fprintf(stderr, "%-24s thread budget: %s %d -> %d\n", "mfe/cuda/budget.c", who,
+              want, cap);
+  }
+
+#if VRNA_WITH_PTHREADS
+  pthread_mutex_unlock(&g_thr_mtx);
+#endif
+
+  return explicit_setting ? want : cap;
+}
+
+
+/* Returns how many workers to run; *held is what to hand back to _release() (0 when
+ * nothing was counted, so a budget changed between the two cannot unbalance it). */
+int
+vrna_budget_threads_acquire(int want,
+                            int explicit_setting,
+                            int *held)
+{
+  int b, got;
+
+  *held = 0;
+  if (want < 1)
+    want = 1;
+
+  if (vrna_budget_is_full(VRNA_BUDGET_THREADS))
+    return want;
+
+  b = vrna_budget_threads();
+
+#if VRNA_WITH_PTHREADS
+  pthread_mutex_lock(&g_thr_mtx);
+  if (!explicit_setting && (g_thr_in_use >= b)) {
+    g_thr_waits++;
+    while (g_thr_in_use >= b)
+      pthread_cond_wait(&g_thr_cv, &g_thr_mtx);
+  }
+#endif
+
+  got = want;
+  if (!explicit_setting && (got > b - g_thr_in_use))
+    got = b - g_thr_in_use;
+
+  if (got < 1)                  /* only without pthreads, where nothing overlaps */
+    got = 1;
+
+  if (got < want)
+    g_thr_short++;
+
+  g_thr_in_use += got;
+  if (g_thr_in_use > g_thr_peak)
+    g_thr_peak = g_thr_in_use;
+
+  if (b > g_thr_budget_seen)
+    g_thr_budget_seen = b;
+
+  if (!g_thr_reported) {
+    g_thr_reported = 1;
+    atexit(budget_threads_report);
+  }
+
+#if VRNA_WITH_PTHREADS
+  pthread_mutex_unlock(&g_thr_mtx);
+#endif
+
+  *held = got;
+  return got;
+}
+
+
+void
+vrna_budget_threads_release(int held)
+{
+  if (held <= 0)
+    return;
+
+#if VRNA_WITH_PTHREADS
+  pthread_mutex_lock(&g_thr_mtx);
+#endif
+  g_thr_in_use -= held;
+
+#if VRNA_WITH_PTHREADS
+  pthread_cond_broadcast(&g_thr_cv);
+  pthread_mutex_unlock(&g_thr_mtx);
+#endif
+}

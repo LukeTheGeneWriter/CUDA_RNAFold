@@ -567,6 +567,8 @@ main(int  argc,
     }
 
     opt.jobs = MAX2(1, opt.jobs);
+    /* B4: `-j` / `-j 0` (every core) is capped at the thread budget; `-j N` wins, warned */
+    opt.jobs = vrna_budget_cap_threads("-j", opt.jobs, (args_info.jobs_arg != 0));
 #else
     vrna_log_warning(
       "This version of RNAfold has been built without parallel input processing capabilities");

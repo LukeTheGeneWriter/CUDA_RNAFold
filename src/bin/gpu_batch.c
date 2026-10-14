@@ -727,9 +727,11 @@ struct gpu_batch {
  * on the pipeline path, so a `-j nproc` run briefly has 2x nproc runnable
  * threads. Left alone deliberately -- the builders are short-lived and the
  * fold they overlap is GPU-bound, so the cost is context switches rather than
- * contention, and capping it would need a shared thread budget this driver
- * does not have. RNA_BACKTRACK_THREADS subtracts `cpu_queue_threads` for the
- * same reason, but that queue is retired on this branch and is always 0 here.
+ * contention. Under a thread budget (B4) the builders and the backtrack workers
+ * draw from one shared count, and -j's auto size is capped at the budget; at
+ * `full` this paragraph holds. RNA_BACKTRACK_THREADS subtracts
+ * `cpu_queue_threads` for the same reason, but that queue is retired on this
+ * branch and is always 0 here.
  *
  * "0" or "1" still forces serial, which is how the A/B is run.
  *
@@ -742,6 +744,8 @@ struct gpu_batch {
  * the failure would never have shown up here and would have shown up in a
  * library caller doing a temperature sweep.
  */
+static int g_build_threads_explicit;
+
 static int
 rnafold_build_threads(void)
 {
@@ -757,7 +761,12 @@ rnafold_build_threads(void)
       v = atoi(e);
       if (v < 1)
         v = 1;
+
+      g_build_threads_explicit = 1;
     }
+
+    /* B4: the thread budget caps the auto size; RNA_BUILD_THREADS wins, warned */
+    v = vrna_budget_cap_threads("build threads", v, g_build_threads_explicit);
 
     /* ANNOUNCE IT. Every other knob in this driver that changes what runs says
      * so on stderr, for one reason: a run that did not apply a setting must not
@@ -825,7 +834,11 @@ build_gpu_batch(struct gpu_batch *b,
   const double t_build = rnafold_now_seconds();
   const int    nthr    = rnafold_build_threads();
 
-  if ((nthr <= 1) || (n < 2)) {
+  int          held;
+  const int    nwant = ((nthr <= 1) || (n < 2)) ? 1 : ((nthr < n) ? nthr : n);
+  const int    ngot  = vrna_budget_threads_acquire(nwant, g_build_threads_explicit, &held);
+
+  if (ngot <= 1) {
     for (i = 0; i < n; i++)
       build_one(b, opt, i);
   } else {
@@ -835,7 +848,7 @@ build_gpu_batch(struct gpu_batch *b,
      * than a work queue -- the records in one chunk are close in length, so the
      * imbalance is small and a queue would add a second shared structure for no
      * measured gain. */
-    const int  t = (nthr < n) ? nthr : n;
+    const int  t = ngot;   /* B4: what the shared thread budget gave */
     pthread_t  *th = (pthread_t *)vrna_alloc(sizeof(pthread_t) * t);
     struct build_range *rg =
       (struct build_range *)vrna_alloc(sizeof(struct build_range) * t);
@@ -862,6 +875,8 @@ build_gpu_batch(struct gpu_batch *b,
     free(th);
     free(rg);
   }
+
+  vrna_budget_threads_release(held);
 
   /* WALL time, not summed worker time. Threading a phase once made its timer go
    * NEGATIVE on this project by subtracting worker-seconds from wall-seconds

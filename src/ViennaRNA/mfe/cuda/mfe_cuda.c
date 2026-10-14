@@ -1419,11 +1419,18 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
     const size_t rss = vrna_budget_rss();
     need_now = ((rss > pool) ? rss - pool : 0) + vrna_budget_held_total();
   }
-  const char *bt_env = getenv("RNA_BACKTRACK_THREADS");
-  const int n_bt_threads =
-    vrna_budget_workers(backtrack_thread_count(nfiles, cpu_queue_threads), need_now, max_len,
-                        VC[0]->params->model_details.circ,
-                        (bt_env && bt_env[0] && strcmp(bt_env, "auto")) ? 1 : 0);
+  const char *bt_env      = getenv("RNA_BACKTRACK_THREADS");
+  const int   bt_explicit = (bt_env && bt_env[0] && strcmp(bt_env, "auto")) ? 1 : 0;
+  /* B4: the thread budget caps the pool, the RAM budget may shed more, and the workers
+   * are then DRAWN from the shared count -- a build pipeline's builders or a trace
+   * thread's workers may hold some of it right now. */
+  const int n_bt_want =
+    vrna_budget_workers(vrna_budget_cap_threads("backtrack workers",
+                                                backtrack_thread_count(nfiles, cpu_queue_threads),
+                                                bt_explicit),
+                        need_now, max_len, VC[0]->params->model_details.circ, bt_explicit);
+  int bt_held;
+  const int n_bt_threads = vrna_budget_threads_acquire(n_bt_want, bt_explicit, &bt_held);
   int next_i = 0;
   backtrack_pool_args_t targ = { VC, Structure, energy, EN, nfiles, &next_i, tri_off_H,
                                  ret, ret ? ret->id : -1 };
@@ -1458,6 +1465,7 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
     free(targs);
     free(bt_threads);
   }
+  vrna_budget_threads_release(bt_held);
   // The fetch is timed per worker so it needs no lock. Fold the slots in and
   // charge it to transfer rather than to backtracking, which it dwarfs. Note
   // the local, not the global: phase_fetch_mx_s accumulates across chunks.
