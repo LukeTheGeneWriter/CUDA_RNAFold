@@ -520,3 +520,17 @@ About 75 + 10 (B) + 25 (L, incl. the build) ≈ **110 min** on an A100-80GB. Sec
 4. **The thread-budget arm in H.** *Recommended:* it costs one arm and tests the mechanism B4 built.
 
 **Signed off by Luke, 2026-10-14: "yes to all four, go ahead."**
+
+### 10.6 Built (2026-10-14)
+
+- **Zeroconf for P3 and the driver's rule (b)** on a copy (`~/zcp3`): all 7 cases pass.
+- **`tools/make_nb_n5a.py`** (local only, like every notebook generator: `.gitignore`, Luke 2026-09-23) now writes
+  the P4 session, `CUDA_RNAFold_N5a.ipynb`: head checks for P3, rule (b) at the driver and B1-B4 (the old
+  check looked for `bt_chunk_done` in `RNAfold.c`, where it no longer lives, and would have stopped a correct head);
+  G requires as many chunks on as off and records early joins; H adds the `tb` arm (`RNA_THREAD_BUDGET=NPROC`,
+  reported beside Q2); new **B** (budgets at 400 × 5601 under `/usr/bin/time -v`, Q3) and **L** (a `--with-python`
+  build of the same commit, `RNA.fold(list)` cap × pipeline + `full`, one canonical sha with the CLI, Q4 and Q1's
+  library half); V reports Q0-Q4.
+- **Dry run on the laptop** (the new parsers on real output, not a notebook run): a `half` CLI run parses to RAM
+  3388 MB, threads 6 / 6, VRAM 1882 / 2048 MB "within it", RSS 838 MB; the library's canonical sha equals the CLI's
+  for 2800 × 40 (`5ada0337c2ef`); P3's line parses (1 traced beside the next, 0 early). All cells compile.
