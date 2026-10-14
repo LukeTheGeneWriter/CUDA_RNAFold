@@ -322,3 +322,90 @@ Python: `test_thread_budget_binds_backtrack_workers` (threads=2: the cap acts, p
 answers equal the CPU's). Binding 28/28; refcheck 9/9 at `full`; `bt_pipeline_check.sh` 9/9
 (negative controls bite). Zeroconf for B3 + B4 on a copy (`~/zcb4`, 2026-10-14): all 7 cases pass,
 including case 7 (CPU-only + Python).
+
+## 9. P3 scope: the backtrack pipeline inside `vrna_mfe_batch()` (2026-10-14)
+
+### 9.1 Where it stands
+
+| piece | today |
+|---|---|
+| P1 retire → fetch → trace | every caller, with `RNA_BT_PIPELINE=1` |
+| P2 trace beside the next sweep | **RNAfold only**: `cuda_batch_cb()` lets only the LAST sub-chunk of a call hand off (`rnafold_bt_async_allow(end == n)`), and only to a driver that attached a callback |
+| library lists (`RNA.fold(list)`, `fc.mfe` batches, C callers) | `cuda_batch_cb()` splits the list into VRAM-sized sub-chunks and traces each in place: **nothing overlaps** |
+| the chunk-cells cap (`RNA_GPU_CHUNK_CELLS`, 7.53e8) | **RNAfold only** (`rnafold_set_chunk_cells_cap()` from `gpu_batch.c`); library sub-chunks are as wide as VRAM allows |
+| budgets under the pipeline | VRAM: a retained set lowers measured free memory, so `gpu_budget_allowed()` already charges it. RAM: trace workers pass B3's worker gate. Threads: they draw from B4's count. The scratch trim skips while a trace is live (`bt_pool_trim`). |
+
+### 9.2 Design
+
+Inside `cuda_batch_cb()`, sub-chunk k (not the last) hands its trace to the trace thread; the loop
+tears down, sizes, sweeps sub-chunk k+1; that `par_mfe()` joins k after its sweep (the existing
+one-at-a-time rule) and so on. The LAST sub-chunk is traced in place, unless a driver attached
+(RNAfold: P2's hand-off, unchanged). Before returning, the call joins any internal trace still
+pending (e.g. when the list ends with a host-folded oversized record), so **`vrna_mfe_batch()`
+stays synchronous** (decision 9.1 of N5a: no new public API).
+
+Changes, all internal:
+1. `bt_async_t` carries its own callback: an internal hand-off has none (the trace writes straight
+   into the caller's `structures[]` / `energies[]`, which outlive the call); a driver hand-off keeps
+   RNAfold's. Today the join calls the driver's callback for any trace.
+2. `rnafold_bt_async_allow()` gains a mode: `INTERNAL` for k < last, `DRIVER` for the last (today's).
+3. `cuda_batch_cb()`: the allow per sub-chunk, a drain of an internal trace before
+   `rnafold_bt_pool_release_under_budget()` and before return.
+4. Evidence: the existing `backtrack pipeline: ... traced beside the next sweep ... OVERLAPPED` line
+   (exit, `RNA_GPU_VERBOSE` in Python), with internal hand-offs counted.
+
+### 9.3 The tradeoff: a retained set narrows the next sub-chunk
+
+While k is retained, k+1 is sized against VRAM minus k's triangles. Library sub-chunks are VRAM-wide
+(9.1), so on any VRAM-bound list **every sub-chunk after the first gets narrower, and there are more
+of them**. On the A100 a chunk costs about 2 s (`project_chunking_costs`, A100), against about 1.3 s of
+backtrack hidden per chunk: the pipeline could lose. RNAfold avoids it because the cap, not VRAM,
+sets its width (N5a §7: "the cap keeps chunks small, so two fit").
+
+Two rules fix it; both are decisions below:
+- **(a) Apply the chunk cap in `cuda_batch_cb()`** with RNAfold's default. Library chunks become the
+  width that won on the A100 (capped 61.0 vs uncapped 74.8 s at 400 × 5601), and two of them fit.
+  Output is identical by construction; chunk counts of library calls change.
+- **(b) Never narrow for the pipeline.** When the next sub-chunk sized beside the retained set holds
+  fewer records than it would without it, join the pending trace first, then size it again. That is
+  exactly the sequential order for that step, so it can cost no more than `RNA_BT_PIPELINE=0`, and
+  chunk counts equal the sequential run's. It also applies to RNAfold's own in-engine splits. A hint that RNAfold P2 splits today: the B4
+  contention arm (`RNA_VRAM_BUDGET=1100`) retired 11 chunks where the build pipeline reported 8;
+  to confirm with the chunk trace before (b) is written.
+
+### 9.4 Bars
+
+1. Byte-identical: `RNA.fold(list)` multi-chunk with `RNA_BT_PIPELINE=1` vs `=0` vs `cpu_only`
+   (`RNA_GPU_VRAM_BUDGET_MB` small, as `CHUNK_PROBE`), circ, an oversized-record list, and one
+   ending in a host-folded record (the drain).
+2. Positive evidence: internal hand-offs counted > 0 and OVERLAPPED > 0 in a subprocess test; chunk
+   counts equal to `=0` under (b).
+3. Negative controls (`RNA_BT_NEGCTL=1/2`) bite in the library path too.
+4. Budgets: VRAM peak within budget with a retained set; thread peak ≤ budget; RAM within.
+5. Standing: binding suite, refcheck 9/9, `bt_pipeline_check.sh` (RNAfold P2 unchanged except (b)),
+   zeroconf on a copy.
+6. Laptop: correctness only; wall in P4.
+
+### 9.5 Synergies and tradeoffs
+
+| pair | relation |
+|---|---|
+| P3 + chunk cap in the library (a) | SYNERGY: two capped chunks fit, so the overlap needs no narrowing; the cap is also the faster width on the A100 by itself |
+| P3 vs wide library chunks | TRADEOFF without (a)/(b): more chunks at ~2 s each against ~1.3 s hidden |
+| P3 + Python RAM window (B3) | P3 overlaps within ONE call; a list the window splits into several calls overlaps only inside each window. Overlap across calls would make the call asynchronous: out of scope |
+| P3 + thread budget (B4) | the trace's workers draw from the same count as everything else; Python's default `half` halves the trace pool |
+| P3 + N5 (device backtrack) | EITHER/OR, as for RNAfold |
+
+### 9.6 Decisions for sign-off
+
+1. **Apply RNAfold's chunk cap in the library path** (`RNA_GPU_CHUNK_CELLS`, same default and
+   override). *Recommended*: it is the measured faster width and what makes two chunks fit; output
+   identical; changes library chunk counts, so it lands as its own commit with its own bar.
+2. **Never narrow for the pipeline (rule b), in the engine, for both the library and RNAfold's
+   in-engine splits.** *Recommended*: P3 can then cost nothing in chunk count, and it removes the
+   narrowing RNAfold's P2 appears to have today (9.3, to confirm).
+3. **Keep opt-in (`RNA_BT_PIPELINE=1`)** for the library too until P4 decides AUTO for both.
+   *Recommended* (N5a decision 9.2).
+
+**Signed off by Luke, 2026-10-14: "yes to all three, go ahead."** Order: decision 1 (the cap in the
+library) lands first as its own commit and bar, then P3 with rule (b).
