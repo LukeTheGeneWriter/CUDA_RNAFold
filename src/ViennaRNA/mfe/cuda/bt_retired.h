@@ -26,6 +26,13 @@ typedef struct {
   int     negctl_freed;  /* RNA_BT_PIPELINE_NEGCTL=2 freed the buffers at hand-off */
 } rnafold_retired_t;
 
+/* P3 (PORT_BUDGETS.md 9.2): what engine.c lets the coming par_mfe() do with its trace
+ * (rnafold_bt_async_allow), and why it joins a pending one (rnafold_bt_pipeline_join). */
+#define RNAFOLD_BT_ASYNC_DRIVER   1   /* the last sub-chunk: to a driver that attached (P2) */
+#define RNAFOLD_BT_ASYNC_INTERNAL 2   /* any other sub-chunk: joined inside the call (P3) */
+#define RNAFOLD_BT_JOIN_END       0   /* end of a call: an internal trace only */
+#define RNAFOLD_BT_JOIN_EARLY     1   /* rule (b): it would narrow the next sub-chunk */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,6 +40,7 @@ extern "C" {
 /* device.cu: drain the device, detach the fetch set, and later free it. */
 rnafold_retired_t *rnafold_retire_chunk(const int nslots, const size_t *tri_off_H);
 void  rnafold_retired_release(rnafold_retired_t *r);
+size_t rnafold_retired_bytes(const rnafold_retired_t *r);  /* device bytes it holds (P3) */
 int   rnafold_bt_negctl(void);                           /* RNA_BT_PIPELINE_NEGCTL, 0/1/2 */
 void  rnafold_retired_negctl_free(rnafold_retired_t *r); /* NEGCTL=2 only */
 

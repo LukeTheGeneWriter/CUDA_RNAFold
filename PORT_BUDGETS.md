@@ -409,3 +409,33 @@ Two rules fix it; both are decisions below:
 
 **Signed off by Luke, 2026-10-14: "yes to all three, go ahead."** Order: decision 1 (the cap in the
 library) lands first as its own commit and bar, then P3 with rule (b).
+
+### 9.7 Results: decision 1 and P3 (laptop, 2026-10-14)
+
+**Decision 1** (96a98bc4): the library applies the cell cap. Binding test: cap 170 000 → 3 device
+chunks for 6 × 400, 0 → 1. Python hashes unchanged at 40 × 2800 and 60 × 1200; int16 chosen
+before and after. On the laptop Python's half-VRAM budget binds before the cap, so the A100 (P4)
+is where library chunk counts change.
+
+**P3.** `RNA.fold(list)`, `RNA_BT_PIPELINE=0` vs `1`, answers equal to the CPU in every arm:
+
+| list | chunks off / on | inside one call: traced beside the next / joined early | fold off → on |
+|---|---|---|---|
+| 8 × 400, cap 170 000 | 4 / 4 | 3 / 0 | 1.20 → 0.53 s |
+| 24 × 1200, cap 2.2e6 | 8 / 8 | 7 / 0 | 1.76 → 1.75 s |
+| 40 × 2800 (VRAM-bound, 2 chunks) | 2 / 2 | 1 / 0 | 6.77 → 6.44 s |
+| 100 × 2800 (VRAM-bound, `RNA_GPU_CHUNK_CELLS=0`) | 4 / 4 | 3 / **2** | 15.41 → 15.31 s |
+
+Rule (b) fired where it must (100 × 2800: two sub-chunks would have been narrowed) and the chunk
+count stayed at 4. The binding suite's `cuda_pipelineTest` adds: a cap-bound list (overlap, no early
+join, same chunks), a VRAM-bound list ending in host folds (the end-of-call drain), and
+`NEGCTL=2`, which bites on internal hand-offs. Binding 32/32; refcheck 9/9; `bt_pipeline_check.sh`
+9/9 (`NEGCTL=2` now ends in rc 134/139 on circ/noLP where it was rc 1: still a bite, the freed set
+is simply reused differently).
+
+**Found: RNAfold's own admission narrows under P2.** 2800 × 40 at `RNA_VRAM_BUDGET=1100`: 6 chunks
+with the pipeline off, **9 with it on**, same output. The driver (`gpu_batch.c`) sizes each chunk
+with `compute_gpu_usable_bytes()` while the previous chunk's retained set is still on the device;
+rule (b) lives in the engine and cannot see it (it fired twice there, on in-engine splits). On the
+A100 the cap, not VRAM, usually sets RNAfold's width, so this bites only VRAM-bound runs; it would
+still cost about 2 s a chunk there. Fix: the same rule at the driver's admission.

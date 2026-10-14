@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <cuda_runtime.h>
 
 #include "bt_retired.h"   /* N5a: the retired chunk */
@@ -1375,6 +1376,33 @@ rnafold_retire_chunk(const int nslots, const size_t *tri_off_H)
 
   return r;
 }
+
+/* P3, rule (b): what a retired set holds on the device -- c, fML (int32 or int16), fM2 with
+ * -c, and the per-record int16 baselines, priced at L + 2 ints a record from the mean
+ * length. Errs high, the side on which the engine waits rather than narrows. */
+extern "C" size_t
+rnafold_retired_bytes(const rnafold_retired_t *r)
+{
+  size_t  b;
+  double  len;
+
+  if ((!r) || r->negctl_freed || (r->nslots <= 0))
+    return 0;
+
+  b = r->cells * sizeof(int);
+  if (r->d_fml_j)
+    b += r->cells * sizeof(int);
+  if (r->d_fml_j16)
+    b += r->cells * sizeof(short);
+  if (r->d_fm2)
+    b += r->cells * sizeof(int);
+
+  len = sqrt(2.0 * (double)r->cells / (double)r->nslots);
+  b  += (size_t)r->nslots * ((size_t)len + 2) * sizeof(int) +
+        (size_t)(r->nslots + 1) * sizeof(size_t);
+  return b;
+}
+
 
 extern "C" void
 rnafold_retired_release(rnafold_retired_t *r)

@@ -446,6 +446,77 @@ print("RESULT " + json.dumps({"equal": got == ref}))
 '''
 
 
+# P3: a list folded with the backtrack pipeline on; the shape is the probe's argument.
+PIPE_PROBE = r'''
+import json, random, sys
+sys.path.insert(0, %r)
+import RNA
+
+rng = random.Random(6)
+seqs = ["".join(rng.choice("ACGU") for _ in range(L)) for L in %r]
+got = [tuple(x) for x in RNA.fold(seqs)]
+ref = [tuple(RNA.fold(s, cpu_only=True)) for s in seqs]
+print("RESULT " + json.dumps({"equal": got == ref}))
+'''
+
+
+class cuda_pipelineTest(unittest.TestCase):
+    """P3 (PORT_BUDGETS.md 9): RNA_BT_PIPELINE=1 inside one vrna_mfe_batch() call
+
+    Each sub-chunk but the last is traced beside the next one's sweep, and joined before
+    the call returns. Rule (b): never narrow a sub-chunk for the pipeline, so the device
+    chunk count equals the pipeline-off run's."""
+
+    def run_probe(self, lengths, extra):
+        e = dict(os.environ, RNA_GPU_VERBOSE="1")
+        for n in ("RNA_GPU_VRAM_BUDGET_MB", "RNA_VRAM_BUDGET", "RNA_BT_PIPELINE",
+                  "RNA_BT_PIPELINE_NEGCTL", "RNA_GPU_CHUNK_CELLS"):
+            e.pop(n, None)
+        e.update(extra)
+        p = subprocess.run([sys.executable, "-c", PIPE_PROBE % (module_dir(), lengths)],
+                           capture_output=True, text=True, timeout=600, env=e)
+        line = [l for l in p.stdout.splitlines() if l.startswith("RESULT ")]
+        r = json.loads(line[-1][7:]) if line else None
+        inside = re.findall(r"inside vrna_mfe_batch\(\): (\d+) sub-chunk\(s\) traced beside the "
+                            r"next, (\d+) joined early", p.stderr)
+        return p, r, p.stderr.count("init_gpu("), inside
+
+    def check(self, lengths, extra, want_overlap):
+        if not device_present():
+            self.skipTest("no CUDA device")
+        p0, r0, c0, _ = self.run_probe(lengths, dict(extra, RNA_BT_PIPELINE="0"))
+        self.assertTrue(r0 and r0["equal"], "pipeline off is wrong: %s" % (p0.stderr[-600:]))
+        p1, r1, c1, inside = self.run_probe(lengths, dict(extra, RNA_BT_PIPELINE="1"))
+        self.assertTrue(r1, "the pipeline probe crashed (rc %d): %s" % (p1.returncode, p1.stderr[-800:]))
+        self.assertTrue(r1["equal"], "answers differ with the pipeline on")
+        self.assertEqual(c1, c0, "rule (b): the pipeline changed the device chunk count")
+        self.assertEqual(len(inside), 1, "no P3 report line: %s" % p1.stderr[-600:])
+        if want_overlap:
+            self.assertGreater(int(inside[0][0]), 0, "no sub-chunk was traced beside the next")
+        return c1, inside[0]
+
+    def test_cap_bound_list_overlaps(self):
+        """the cell cap sets the width: sub-chunks overlap, no early joins, same chunk count"""
+        c, (n, early) = self.check([400] * 8, {"RNA_GPU_CHUNK_CELLS": "170000"}, True)
+        self.assertEqual(c, 4)
+        self.assertEqual(early, "0", "a cap-bound list should never need an early join")
+
+    def test_vram_bound_list_with_host_fold(self):
+        """VRAM sets the width (rule b may join early) and the list ends in a host fold (the drain)"""
+        self.check([400, 1200, 400, 400, 400, 1200, 400, 400, 400, 2800],
+                   {"RNA_GPU_VRAM_BUDGET_MB": "1", "RNA_GPU_CHUNK_CELLS": "0"}, False)
+
+    def test_negative_control_bites_on_internal_handoffs(self):
+        """NEGCTL=2 frees a handed-off set: an internal hand-off must then fail or differ"""
+        if not device_present():
+            self.skipTest("no CUDA device")
+        p, r, _, _ = self.run_probe([400] * 8, {"RNA_GPU_CHUNK_CELLS": "170000",
+                                                "RNA_BT_PIPELINE": "1",
+                                                "RNA_BT_PIPELINE_NEGCTL": "2"})
+        self.assertTrue((r is None) or (not r["equal"]),
+                        "the negative control did not bite: internal hand-offs never happened")
+
+
 class cuda_chunkTest(unittest.TestCase):
     """A batch bigger than the device is split to fit it, not handed over whole
 

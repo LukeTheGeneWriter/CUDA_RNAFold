@@ -48,6 +48,8 @@
 #include "ViennaRNA/mfe/cuda/engine.h"
 
 #ifdef VRNA_WITH_CUDA
+#include "ViennaRNA/mfe/cuda/bt_retired.h"   /* P3: the hand-off and join modes */
+
 /* implemented in device.cu */
 unsigned int vrna_cuda_device_count(void);
 size_t       vrna_cuda_device_memory_total(void);
@@ -557,9 +559,11 @@ par_mfe(const int                     nfiles,
 /* The device state a batch sizes for itself, released below. Declared in
  * stub2.h; repeated here for the same reason par_mfe() is. */
 extern void teardown_gpu(void);
-/* N5a P2: may this par_mfe() hand its backtrack to a trace thread? Only the
- * last piece of a batch, and only for a driver that attached (mfe_cuda.c). */
-extern void rnafold_bt_async_allow(const int ok);
+/* N5a P2/P3: may this par_mfe() hand its backtrack to a trace thread? The last piece of a
+ * batch to a driver that attached, any other piece internally (mfe_cuda.c, bt_retired.h). */
+extern void   rnafold_bt_async_allow(const int ok);
+extern size_t rnafold_bt_pending_device_bytes(void);
+extern void   rnafold_bt_pipeline_join(const int why);
 extern void teardown_gpu2(void);
 extern void teardown_gpu3(void);
 /* The VRAM model RNAfold.c chunks with (modular_decomposition.cu), for the same reason */
@@ -598,6 +602,39 @@ engine_chunk_cells(void)
 
   rnafold_set_chunk_cells_cap(cap);
   return cap;
+}
+
+
+/* Records [start, end) form the next device sub-chunk: as many as fit in `usable` bytes and
+ * under the cell cap, as RNAfold's admission applies it (never on an empty chunk). */
+static size_t
+engine_chunk_end(vrna_fold_compound_t       **fcs,
+                 size_t                     n,
+                 size_t                     start,
+                 size_t                     usable,
+                 unsigned long long         cap)
+{
+  size_t              end   = start;
+  size_t              bytes = 0;
+  unsigned long long  cells = 0;
+
+  while (end < n) {
+    const size_t              b = gpu_bytes_per_file((int)fcs[end]->length);
+    const unsigned long long  c = (unsigned long long)fcs[end]->length *
+                                  ((unsigned long long)fcs[end]->length + 1ull) / 2ull;
+
+    if (bytes + b > usable)
+      break;
+
+    if ((cap > 0) && (end > start) && (cells + c > cap))
+      break;
+
+    bytes += b;
+    cells += c;
+    end++;
+  }
+
+  return end;
 }
 #endif
 
@@ -674,26 +711,24 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
     const unsigned long long  cap     = engine_chunk_cells();   /* before the first query */
 
     while (start < n) {
-      const size_t        usable  = compute_gpu_usable_bytes();
-      size_t              end     = start;
-      size_t              bytes   = 0;
-      unsigned long long  cells   = 0;
+      size_t  usable  = compute_gpu_usable_bytes();
+      size_t  end     = engine_chunk_end(fcs, n, start, usable, cap);
 
-      while (end < n) {
-        const size_t              b = gpu_bytes_per_file((int)fcs[end]->length);
-        const unsigned long long  c = (unsigned long long)fcs[end]->length *
-                                      ((unsigned long long)fcs[end]->length + 1ull) / 2ull;
+      /* P3, RULE (b) (PORT_BUDGETS.md 9.3): NEVER NARROW FOR THE PIPELINE. A pending trace's
+       * retired set is still on the device, so this sub-chunk was sized beside it. If it
+       * would hold more records without it, wait for the trace and size again: exactly the
+       * sequential order for this step, so the pipeline never adds a chunk. Where the cell
+       * cap, not VRAM, sets the width, both sizes agree and the overlap is kept. The 0.85 is
+       * the margin both VRAM limits apply to the room they leave. */
+      if (end < n) {
+        const size_t pend = rnafold_bt_pending_device_bytes();
 
-        if (bytes + b > usable)
-          break;
-
-        /* the cell cap, as RNAfold's admission applies it: never on an empty chunk */
-        if ((cap > 0) && (end > start) && (cells + c > cap))
-          break;
-
-        bytes += b;
-        cells += c;
-        end++;
+        if ((pend > 0) &&
+            (engine_chunk_end(fcs, n, start, usable + (size_t)((double)pend * 0.85), cap) > end)) {
+          rnafold_bt_pipeline_join(RNAFOLD_BT_JOIN_EARLY);
+          usable  = compute_gpu_usable_bytes();
+          end     = engine_chunk_end(fcs, n, start, usable, cap);
+        }
       }
 
       if (end == start) {
@@ -712,7 +747,10 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
         end = start + 1;
       }
 
-      rnafold_bt_async_allow(end == n);
+      /* the last sub-chunk may go to a driver that attached (P2); any other is traced
+       * beside the next sub-chunk's sweep and joined inside this call (P3). Both only with
+       * RNA_BT_PIPELINE=1, which par_mfe() checks. */
+      rnafold_bt_async_allow((end == n) ? RNAFOLD_BT_ASYNC_DRIVER : RNAFOLD_BT_ASYNC_INTERNAL);
       par_mfe((int)(end - start), (const vrna_fold_compound_t **)(fcs + start),
               (const char **)(structures + start), energies + start, 0);
       rnafold_bt_async_allow(0);
@@ -724,6 +762,11 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
       teardown_gpu3();
       start = end;
     }
+
+    /* P3: vrna_mfe_batch() stays synchronous. A trace handed off inside this call (the list
+     * ended in host folds, or the last device sub-chunk was not the last record) is joined
+     * here, before the scratch it uses can be released below. */
+    rnafold_bt_pipeline_join(RNAFOLD_BT_JOIN_END);
 
     /* vrna_cuda_device_batches(): one per batch the device folded any of */
     if (devused)

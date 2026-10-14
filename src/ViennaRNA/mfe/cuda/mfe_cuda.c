@@ -554,12 +554,14 @@ typedef struct {
   size_t                      *tri_off_H;  /* heap copy, nfiles+1 */
   void                        *ctx;
   double                       enter, init_t1, sweep_t1, exit_t, t_start, bt_t1;
+  rnafold_bt_done_fn           cb;          /* the driver's, or NULL: an internal hand-off (P3) */
   int                          bt_threads;
   double                       fetch_ws, busy_ws;
 } bt_async_t;
 
 static bt_async_t g_bt_async;
 static int        g_bt_async_n      = 0;     /* chunks traced beside a sweep */
+static int        g_bt_internal_n   = 0;     /* of which inside one vrna_mfe_batch() (P3) */
 static double     g_bt_traced_s     = 0.0;   /* their trace wall, summed */
 static double     g_bt_wait_s       = 0.0;   /* waited for a trace at a join */
 static double     g_bt_drain_wait_s = 0.0;   /* waited for the last one at the end */
@@ -582,10 +584,38 @@ rnafold_bt_pipeline_went_async(void) {
   return g_bt_went_async;
 }
 
-/* engine.c: may the coming par_mfe() call hand its trace off? */
+/* engine.c: may the coming par_mfe() call hand its trace off? RNAFOLD_BT_ASYNC_DRIVER (the
+ * last sub-chunk of a call: to a driver that attached, P2) or RNAFOLD_BT_ASYNC_INTERNAL (any
+ * other sub-chunk, P3: no callback; the trace writes straight into the caller's arrays and
+ * the engine joins it before the call returns), 0 = trace in place. */
 PUBLIC void
 rnafold_bt_async_allow(const int ok) {
   g_bt_async_ok = ok;
+}
+
+/* P3, rule (b) (PORT_BUDGETS.md 9.3): device bytes the pending trace's retired set holds,
+ * so the engine can tell whether it narrows the next sub-chunk. 0 when none is pending. */
+PUBLIC size_t
+rnafold_bt_pending_device_bytes(void) {
+  return g_bt_async.live ? rnafold_retired_bytes(g_bt_async.ret) : 0;
+}
+
+PRIVATE void bt_async_join(const int at_drain);
+
+static int g_bt_early_n = 0;   /* P3 rule (b): joined early rather than narrow a sub-chunk */
+
+/* P3: join the pending trace now. RNAFOLD_BT_JOIN_END: the engine's end-of-call drain, an
+ * internal trace only (a driver hand-off stays pending for its driver). RNAFOLD_BT_JOIN_EARLY:
+ * rule (b), whatever is pending, because it would narrow the next sub-chunk. */
+PUBLIC void
+rnafold_bt_pipeline_join(const int why) {
+  if(!g_bt_async.live)
+    return;
+  if((why == RNAFOLD_BT_JOIN_END) && g_bt_async.cb)
+    return;
+  if(why == RNAFOLD_BT_JOIN_EARLY)
+    g_bt_early_n++;
+  bt_async_join(0);
 }
 
 PRIVATE void
@@ -617,6 +647,7 @@ bt_async_join(const int at_drain) {
   bt_async_t   *a = &g_bt_async;
   double        t0, w;
   void         *ctx;
+  rnafold_bt_done_fn cb;
 
   if(!a->live)
     return;
@@ -636,11 +667,12 @@ bt_async_join(const int at_drain) {
   free(a->energy);
   free(a->tri_off_H);
   ctx     = a->ctx;
+  cb      = a->cb;
   a->live = 0;
   g_bt_retired_n++;
 
-  if(g_bt_done_cb)
-    g_bt_done_cb(ctx);
+  if(cb)
+    cb(ctx);
 }
 
 PUBLIC void
@@ -652,10 +684,14 @@ PRIVATE void
 rnafold_bt_pipeline_report(void) {
   const double hidden = g_bt_traced_s - g_bt_wait_s - g_bt_drain_wait_s;
 
+  /* tools/make_nb_n5a.py parses this line with a strict regex: keep its shape */
   fprintf(stderr, "%-24s backtrack pipeline: %d chunk(s) retired, %d traced beside the "
                   "next sweep: traced %.3f s, waited %.3f s at joins + %.3f s at the end, "
                   "OVERLAPPED %.3f s\n", __FILE__, g_bt_retired_n, g_bt_async_n,
           g_bt_traced_s, g_bt_wait_s, g_bt_drain_wait_s, hidden > 0.0 ? hidden : 0.0);
+  fprintf(stderr, "%-24s backtrack pipeline inside vrna_mfe_batch(): %d sub-chunk(s) traced "
+                  "beside the next, %d joined early so the next was not narrowed\n", __FILE__,
+          g_bt_internal_n, g_bt_early_n);
 }
 
 PRIVATE void
@@ -1767,8 +1803,14 @@ par_mfe(const int nfiles,
       rnafold_retired_t *ret = rnafold_retire_chunk(nfiles, tri_off_H);
       bt_async_t        *a   = &g_bt_async;
 
-      if(g_bt_done_cb && g_bt_async_ok && g_bt_next_ctx) {
-        /* P2: hand the trace off and return; the caller sweeps the next chunk */
+      const int to_driver = (g_bt_async_ok == RNAFOLD_BT_ASYNC_DRIVER) && g_bt_done_cb &&
+                            g_bt_next_ctx;
+      const int internal  = (g_bt_async_ok == RNAFOLD_BT_ASYNC_INTERNAL);
+
+      if(to_driver || internal) {
+        /* P2: hand the trace off and return; the caller sweeps the next chunk. P3: the
+         * caller is engine.c, which sweeps its next sub-chunk and joins this one before
+         * vrna_mfe_batch() returns. */
         a->ret               = ret;
         a->nfiles            = nfiles;
         a->length            = length;
@@ -1780,7 +1822,8 @@ par_mfe(const int nfiles,
         a->energy            = (int *) vrna_alloc(sizeof(int) * nfiles);
         a->tri_off_H         = (size_t *) vrna_alloc(sizeof(size_t) * (nfiles + 1));
         memcpy(a->tri_off_H, tri_off_H, sizeof(size_t) * (nfiles + 1));
-        a->ctx               = g_bt_next_ctx;
+        a->cb                = to_driver ? g_bt_done_cb : NULL;
+        a->ctx               = to_driver ? g_bt_next_ctx : NULL;
         a->enter             = tr_enter;
         a->init_t1           = tr_init;
         a->sweep_t1          = tr_sweep;
@@ -1791,8 +1834,12 @@ par_mfe(const int nfiles,
           bt_handed       = 1;
           if(rnafold_bt_negctl() == 2)   /* negative control: give the set away */
             rnafold_retired_negctl_free(ret);
-          g_bt_next_ctx   = NULL;
-          g_bt_went_async = 1;
+          if(to_driver) {
+            g_bt_next_ctx   = NULL;
+            g_bt_went_async = 1;
+          } else {
+            g_bt_internal_n++;
+          }
           g_bt_async_n++;
         } else {
           /* no thread to be had: P1's sequential order, still correct */
