@@ -72,6 +72,7 @@ extern void   rnafold_bt_pipeline_attach(void (*done)(void *ctx));
 extern void   rnafold_bt_pipeline_ctx(void *ctx);
 extern int    rnafold_bt_pipeline_went_async(void);
 extern void   rnafold_bt_pipeline_drain(void);
+extern size_t rnafold_bt_pending_device_bytes(void);   /* P3 rule (b), mfe_cuda.c */
 extern size_t compute_gpu_usable_bytes(void);
 /* The soft limit alone, and the warning for a record over the VRAM budget (B2). */
 extern size_t compute_gpu_usable_bytes_soft(void);
@@ -2090,6 +2091,13 @@ gpu_batch_offer(struct record_data *record,
          * buffers as unavailable. */
         rnafold_set_chunk_cells_cap(rnafold_gpu_chunk_cells());   /* before the first query: int16 AUTO */
         chunk_usable_bytes = compute_gpu_usable_bytes();
+        /* RULE (b) AT THE DRIVER (PORT_BUDGETS.md 9.7): never narrow a chunk for the
+         * backtrack pipeline. A trace handed off under P2 may still hold its retired set
+         * on the device; size as if it were gone (the same 0.85 margin both VRAM limits
+         * leave), and the engine joins it before the sweep if this chunk then does not
+         * fit beside it (cuda_batch_cb). Measured before: 6 -> 9 chunks at 2800 x 40,
+         * RNA_VRAM_BUDGET=1100. Nothing pending (pipeline off): no change. */
+        chunk_usable_bytes += (size_t)((double)rnafold_bt_pending_device_bytes() * 0.85);
         chunk_started      = 1;
 
         /* Degraded case: free VRAM cannot hold even ONE record of this length, so

@@ -439,3 +439,18 @@ with `compute_gpu_usable_bytes()` while the previous chunk's retained set is sti
 rule (b) lives in the engine and cannot see it (it fired twice there, on in-engine splits). On the
 A100 the cap, not VRAM, usually sets RNAfold's width, so this bites only VRAM-bound runs; it would
 still cost about 2 s a chunk there. Fix: the same rule at the driver's admission.
+
+
+**Fixed: rule (b) at the driver** (Luke, 2026-10-14). `gpu_batch.c` sizes a new chunk as if a pending retired
+set were gone (+ 0.85 × its bytes, the margin both VRAM limits leave); if the chunk then does not fit beside
+it, the engine's rule (b) joins the trace before the sweep. 2800 × 40, off vs on, one sha throughout:
+
+| `RNA_VRAM_BUDGET` | sweeps off / on (before the fix: on) | traced beside the next sweep | joined early |
+|---|---|---|---|
+| 1100 | 6 / 6 (9) | 6 | 5 |
+| 1600 | 3 / 3 | 3 | 1 |
+| full | 1 / 1 | 1 | 0 |
+
+Where VRAM sets the width the overlap is given up rather than a chunk added (decision 2's tradeoff); where
+the cap sets it (the A100's usual case) nothing joins early. Binding 32/32, refcheck 9/9,
+`bt_pipeline_check.sh` 9/9.
