@@ -159,7 +159,8 @@ libRNA_mfe_cuda_la_LIBADD = \
     mfe/cuda/modular_decomposition.lo \
     mfe/cuda/int_loop.lo \
     mfe/cuda/hp_mb_loop.lo \
-    mfe/cuda/gquad.lo
+    mfe/cuda/gquad.lo \
+    mfe/cuda/bt_device.lo
 
 ## -DSTUB is what the 2.3.0 build used for this file and it is still required:
 ## without it the .c side sees ~26 bogus implicit declarations at the .c/.cu
@@ -956,6 +957,21 @@ mfe/cuda/hp_mb_loop.lo: $(srcdir)/mfe/cuda/hp_mb_loop.cu \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
 	  -c $(srcdir)/mfe/cuda/hp_mb_loop.cu -o mfe/cuda/hp_mb_loop.lo
 
+## N5 device backtrack (PORT_DEVICE_BACKTRACK.md P2): f5 and the MFE trace of a
+## retired chunk. It evaluates loops with the sweep's own device helpers, so it
+## depends on every header int_loop.lo and hp_mb_loop.lo take them from.
+mfe/cuda/bt_device.lo: $(srcdir)/mfe/cuda/bt_device.cu \
+                       $(srcdir)/mfe/cuda/bt_device.h \
+                       $(srcdir)/mfe/cuda/bt_retired.h \
+                       $(srcdir)/mfe/cuda/stub2.h \
+                       $(srcdir)/mfe/cuda/interior_loopx.h \
+                       $(srcdir)/mfe/cuda/int_loop_dev.h \
+                       $(srcdir)/mfe/cuda/hp_mb_dev.h
+	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
+	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
+	  -c $(srcdir)/mfe/cuda/bt_device.cu -o mfe/cuda/bt_device.lo
+
 ## G-quadruplex stage G0: carries c_gq to the device. Compiled whether or
 ## not -g is accepted by the routing guard -- it is inert until the two
 ## call sites in G1/G2 read it.
@@ -971,7 +987,8 @@ CLEANFILES = mfe/cuda/device.lo mfe/cuda/device.$(OBJEXT) \
              mfe/cuda/modular_decomposition.lo mfe/cuda/modular_decomposition.$(OBJEXT) \
              mfe/cuda/int_loop.lo mfe/cuda/int_loop.$(OBJEXT) \
              mfe/cuda/hp_mb_loop.lo mfe/cuda/hp_mb_loop.$(OBJEXT) \
-             mfe/cuda/gquad.lo mfe/cuda/gquad.$(OBJEXT)
+             mfe/cuda/gquad.lo mfe/cuda/gquad.$(OBJEXT) \
+             mfe/cuda/bt_device.lo mfe/cuda/bt_device.$(OBJEXT)
 endif
 
 ## distributed whether or not CUDA is enabled, so `make dist` from a
@@ -999,6 +1016,8 @@ EXTRA_DIST += mfe/cuda/device.cu \
               mfe/cuda/nth.h \
               mfe/cuda/stub2.h \
               mfe/cuda/bt_retired.h \
+              mfe/cuda/bt_device.cu \
+              mfe/cuda/bt_device.h \
               mfe/cuda/gquad.c \
               mfe/cuda/fill_arrays.c \
               mfe/cuda/fill_arrays_loop.c \

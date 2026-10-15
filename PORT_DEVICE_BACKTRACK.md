@@ -195,12 +195,14 @@ Positive evidence: `RNA_DEVICE_BT ACTIVE: <k> chunk(s), <m> record(s) traced on 
 
 **Steps.** Each is committed only with its bars green.
 
-| step | what | bar |
-|---|---|---|
-| P2a | parameter fill shared (answer-neutral refactor) | refcheck 9/9, option parity + matrix, gpu_cli |
-| P2b | `bt_device.cu`: kernel, int16 decode, per-set copies, release; not yet called | builds; zeroconf (the CPU-only build must not see it) |
-| P2c | the seam in `par_mfe()` (both paths), refusal + banners, VC f5 write-back, stat_cb, budget accounting | below |
-| P2d | bars and laptop measurement | below |
+| step | what | bar | status (2026-10-15) |
+|---|---|---|---|
+| P2a | parameter fill shared (answer-neutral refactor) | refcheck 9/9, option parity + matrix, gpu_cli | **done** ea6267ab: refcheck 9/9, parity, matrix 36/36, gpu_cli, binding 38, bt_pipeline, output files, knob arms, noLP |
+| P2b | `bt_device.cu`: kernel, int16 decode, per-set copies, release; not yet called | builds; zeroconf (the CPU-only build must not see it) | built clean, no warnings; `libRNA.a` carries the 7 `rnafold_dbt_*` symbols, RNAfold none; refcheck C_mixed unchanged; zeroconf running |
+| P2c | the seam in `par_mfe()` (both paths), refusal + banners, VC f5 write-back, stat_cb, budget accounting | below | next |
+| P2d | bars and laptop measurement | below | — |
+
+P2b as built: one block per record (`RNA_DEVICE_BT_BLOCK` 32/64/128/256, default 128 until P2d measures), f5 block-wide then the trace on warp 0; int16 fML read on its baselines with the closed-form `colb(j)`, an i > j read mapped back to its own cell first; each set's copies in ONE device allocation (freed by the pointer, `rnafold_dbt_bytes()` for the budget); the trace's own stream at the device's lowest priority. Its first exactness evidence is P2c's `RNA_DEVICE_BT=verify` on real sweeps.
 
 **P2d bars.**
 1. **The new `tests/device_bt_check.sh`.** Each arm runs RNA_DEVICE_BT=1, and the same with `verify`, against the CPU reference (RNA_GPU=0), byte-identical, with ACTIVE asserted:
