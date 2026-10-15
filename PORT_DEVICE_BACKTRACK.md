@@ -142,6 +142,95 @@ Ties are exercised, not assumed. A count pass that scans every candidate, and ma
 2. **int16 fML.** The sweep's default stores fML as int16 with per-block baselines (N3). P1 read int32, so P2's kernel must decode in place, as `fetch_fML_one_Hw` widens today.
 3. **Off-diagonal reads.** Upstream's nibble loops read cells such as fML(i, i−1), which by the index arithmetic is fML(1, i). The device kernel uses the same arithmetic, so it reads the same cell. In P2 the host trace and the device trace read the same device triangle, so the self-comparison covers this by construction.
 
+### P2 plan (for sign-off, 2026-10-15)
+
+**Goal.** The P1 kernel in the tree behind `RNA_DEVICE_BT=1`, default model only. Two paths:
+- **Pipeline on:** it traces the retired set beside the next sweep, on its own low-priority stream.
+- **Pipeline off:** the same set, traced in place.
+
+Every other option refuses to the host trace, with a banner. With the variable unset, nothing changes: no code on the default path runs.
+
+**What the device trace has to replace.** `backtrack_finish_slot()` / `callback_backtrack_bts()` do five things per record. The device path must do each, or refuse:
+
+| host today | device path |
+|---|---|
+| f5 from c (`vrna_mfe_exterior_f5`) into `vc->matrices->f5` | f5 on the device, copied back into `vc->matrices->f5` (n+1 ints) so library state is identical (D3) |
+| `energy[idx] = f5[n]`, `EN[idx] = energy/100` | the same, from the copied f5 |
+| structure via `vrna_backtrack_from_intervals_bps` + `vrna_db_from_bps` | the kernel writes the dot-bracket string (n+1 bytes); `.`, `(`, `)` only, because G-quads refuse |
+| `stat_cb(VRNA_STATUS_MFE_POST)` | called on the host, per record, where the host path calls it |
+| uniq_ML fM1, circular, `RNA_CIRC_VERIFY`, keep_matrices, backtrack_type C/M, no-backtrack | refuse (below) |
+
+**The seam.** In `par_mfe()`, with `RNA_DEVICE_BT=1`, the chunk always goes through `rnafold_retire_chunk()`, whether or not the pipeline is on (D5). The two paths then differ only in who calls the trace:
+- **Pipeline on:** the trace thread (`bt_async_main`) launches the device trace in place of `backtrack_all()`.
+- **Pipeline off:** `par_mfe()` calls the same function, then releases the set.
+
+There are no host workers and no scratch pool: `bt_pool_get()` is never called, so B3 has nothing to shed. The join, callback, ordering and release rules of N5a are unchanged.
+
+**What the trace owns (D2).** The sweep's `d_S`, salt table and `hp_len` are freed at every chunk's teardown (`int_loop.cu:594`, `hp_mb_loop.cu:849-850`). The next chunk's `init_gpu3()` also rewrites `d_param2->hp_len`. A trace running beside the next sweep cannot read any of them. So each retired set gets its own small device copies, built at retire from `VC[]`:
+- sequence encodings (S1 shorts, the sequence chars, the 3-bit packing `unpack()` reads);
+- the parameter structs, `hp_len` and the salt table;
+- the scratch: f5, the interval stack and the structure out.
+
+Together that is about 22 n bytes a record, about 50 MB at 400 × 5601. `rnafold_retired_bytes()` charges it, so B2 and P3 rule (b) see it. `rnafold_retired_release()` frees it by the pointer.
+
+**One source of truth for the parameters.** `load_param()` / `load_param2()` fill their host structs inline today. P2a moves the fill into `rnafold_param_fill()` / `rnafold_param2_fill()` (int_loop.cu, hp_mb_loop.cu), and the sweep and the trace both call them. The prototype's copy of that code then goes; the prototype keeps its own only as the standalone reference.
+
+**The kernel** (new `bt_device.cu`, with its Makefile prerequisites on `stub2.h`, `int_loop_dev.h`, `hp_mb_dev.h` and `interior_loopx.h`):
+- **f5:** one block per record (D1). A block-wide min per j, with blockDim a knob `RNA_DEVICE_BT_BLOCK` (32/128/256, default decided by P2d's measurement).
+- **The trace:** warp 0 of the block, as in P1: same picks, same order.
+- **fML read in place,** int32 or int16. For int16, a cell is `base[boff[H] + colb(j) + (i−1)/FML_BLK] + v16`, with `FML_INF16` meaning INF. `colb(j) = FML_BLK·q(q+1)/2 + r(q+1)`, where q = (j−1)/FML_BLK and r = (j−1) mod FML_BLK, is the closed form of the host decode's running sum. A read with i > j (the nibble's fML(i, i−1)) is mapped back through the flat index to its own (i', j') first, so it gets that cell's baseline, as the host decode gives it.
+- **Off-diagonal reads.** For int32, the same index arithmetic reads the same cell as the host trace.
+
+**Refusal (the default model, strictly; D4).** A chunk traces on the device only if every record has all of the following. Otherwise the whole chunk traces on the host, with one banner `RNA_DEVICE_BT REFUSED: <reason>` per reason per run:
+- dangles 2, linear, no `--noLP`, no G-quads, no uniq_ML, default salt, default temperature, no `--noClosingGU`, default span;
+- no hard constraints (the batch flag that makes `d_up_int` non-NULL), no soft constraints, no unstructured domains, no auxiliary grammar;
+- `backtrack` on with type 'F', and not `vrna_cuda_keeping_matrices()`;
+- the default parameter tables: compared once per batch against `vrna_params()` of the default model, which catches `-P` files.
+
+Positive evidence: `RNA_DEVICE_BT ACTIVE: <k> chunk(s), <m> record(s) traced on the device`, in the end-of-run report.
+
+**Self-comparison built in (D6).** `RNA_DEVICE_BT=verify` runs both traces on every record and exits non-zero on the first difference in structure, energy or any f5 cell. That is the bar's main arm. It is the cell-by-cell form of the int16 decode check, on real sweeps.
+
+**Negative control.** `RNA_DEVICE_BT_NEGCTL=1` reverses every search's order, as P1's control does. On the A/U fixture the output must change, with energies unchanged.
+
+**Steps.** Each is committed only with its bars green.
+
+| step | what | bar |
+|---|---|---|
+| P2a | parameter fill shared (answer-neutral refactor) | refcheck 9/9, option parity + matrix, gpu_cli |
+| P2b | `bt_device.cu`: kernel, int16 decode, per-set copies, release; not yet called | builds; zeroconf (the CPU-only build must not see it) |
+| P2c | the seam in `par_mfe()` (both paths), refusal + banners, VC f5 write-back, stat_cb, budget accounting | below |
+| P2d | bars and laptop measurement | below |
+
+**P2d bars.**
+1. **The new `tests/device_bt_check.sh`.** Each arm runs RNA_DEVICE_BT=1, and the same with `verify`, against the CPU reference (RNA_GPU=0), byte-identical, with ACTIVE asserted:
+   - fixtures: random, A/U-only and G-rich;
+   - fML: int32 and int16;
+   - pipeline: off and on;
+   - chunks: multi-chunk (small RNA_GPU_CHUNK_CELLS) and single;
+   - lengths: mixed lengths in one chunk.
+2. **Refusal arms,** each REFUSED and identical to the host: `-d0`, `--noLP`, `-c`, `-g`, `-C`, `-T 25`, `-P` file, `--salt`, `--noClosingGU`, `--maxBPspan`, the binding with keep_matrices.
+3. **The NEGCTL bites.**
+4. **The standing bars with RNA_DEVICE_BT unset** (default path untouched): refcheck, parity, matrix, gpu_cli, binding, bt_pipeline_check, output files, knob arms, noLP, zeroconf. **And again with RNA_DEVICE_BT=1:** refcheck, bt_pipeline_check, output files, binding.
+
+**P2d measurement (laptop).** Arms: off / N5a / N5 / N5 + N5a, at 400 × 1200, 40 × 5601 and 2000 × 1200, recording wall, RSS and VRAM:
+- 12 cores, and the 2-core simulation (taskset 0,1, pools pinned);
+- `RNA_DEVICE_BT_BLOCK` 32 / 128 / 256 at 40 × 5601.
+
+The A100 verdict is P4's.
+
+**Risks specific to P2.**
+- **Sharing SMs with the next sweep.** At 5601 nt a trace block is resident for tens of ms. A low-priority stream orders new launches but does not preempt resident blocks, so the sweep can slow. That is what P2d's N5 + N5a arm and P4 measure, and why the block width is a knob.
+- **Partial chunks.** A chunk that mixes refusing and accepted records refuses whole. Simple, and correct.
+
+**Decisions for Luke:**
+- **D1.** f5 on a block per record, with the width chosen by measurement (recommended), or keep P1's warp.
+- **D2.** The trace owns small per-set copies of sequences and parameters (recommended; decoupled from the sweep's lifetimes), or retain the sweep's `d_S`/tables with the set (couples teardown to the trace).
+- **D3.** Copy device f5 back into each compound, so library state is identical to the host path (recommended; n+1 ints).
+- **D4.** Strict refusal, including `-T` and `-P`, even though the energy tables would carry them; they come back in P3 with their bars (recommended, as signed for §3.4).
+- **D5.** The pipeline-off path also goes through a retired set, one code path for both (recommended).
+- **D6.** `RNA_DEVICE_BT=verify` as the built-in self-comparison (recommended; as `RNA_HC_VERIFY`).
+
 ## 5. Relations
 
 | pair | relation |
