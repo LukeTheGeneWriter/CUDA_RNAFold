@@ -198,7 +198,7 @@ Positive evidence: `RNA_DEVICE_BT ACTIVE: <k> chunk(s), <m> record(s) traced on 
 | step | what | bar | status (2026-10-15) |
 |---|---|---|---|
 | P2a | parameter fill shared (answer-neutral refactor) | refcheck 9/9, option parity + matrix, gpu_cli | **done** ea6267ab: refcheck 9/9, parity, matrix 36/36, gpu_cli, binding 38, bt_pipeline, output files, knob arms, noLP |
-| P2b | `bt_device.cu`: kernel, int16 decode, per-set copies, release; not yet called | builds; zeroconf (the CPU-only build must not see it) | built clean, no warnings; `libRNA.a` carries the 7 `rnafold_dbt_*` symbols, RNAfold none; refcheck C_mixed unchanged; zeroconf running |
+| P2b | `bt_device.cu`: kernel, int16 decode, per-set copies, release; not yet called | builds; zeroconf (the CPU-only build must not see it) | built clean, no warnings; `libRNA.a` carries the 7 `rnafold_dbt_*` symbols, RNAfold none; refcheck C_mixed unchanged; zeroconf 21/21; **done** 9cba88a1 |
 | P2c | the seam in `par_mfe()` (both paths), refusal + banners, VC f5 write-back, stat_cb, budget accounting | below | next |
 | P2d | bars and laptop measurement | below | — |
 
