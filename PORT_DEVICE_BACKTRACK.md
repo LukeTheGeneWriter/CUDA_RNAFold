@@ -108,6 +108,40 @@ Two more findings from (i):
 
 **Gap left for the AUTO stage:** the RAM model counts two chunks of compounds, but under N5a three are alive at once (building, sweeping, tracing). So `RNA_RAM_BUDGET=half` with N5a on still peaks at 4.34 GB against a 3.39 GB budget. The budget gate must count three chunks before N5a can be default-on.
 
+### P1 results (laptop RTX 3050, 2026-10-15): EXACT, and the trace is cheap; f5 is the cost
+
+`tools/proto_device_bt.cu` with `tools/proto_device_bt.sh BUILD_DIR [timing]`:
+- **What it does.** Upstream folds each record on the host (RNA_GPU=0). The device gets that c and fML in the sweep's layout, builds f5 itself, and traces with one warp per record.
+- **Shared energies.** Energies come from the sweep's own device functions (`Energy()`/`IntLoop_X`, `E_Hairpin_device`, `E_MLstem_device`), with parameter structs built as `load_param()`/`load_param2()` build them. Only the exterior stem is new.
+- **Tie order.** Each search ballots 32 candidates at a time and takes the earliest match in upstream's order.
+
+**Exactness.** On every fixture, every f5 cell, every MFE and every structure equals upstream's, with 0 failures:
+- random, A/U-only and G-rich, at 400 nt (40 records each) and 1200 nt (12 each);
+- the six timing fixtures, 200 to 5601 nt.
+
+Ties are exercised, not assumed. A count pass that scans every candidate, and makes the same picks, found searches with more than one match in nearly every record: 210–496 per fixture, in 39/40 to all records.
+
+**Negative control: it bites.** With every search's order reversed (last match, categories in reverse), 38/40 A/U records change structure, all still at the MFE. So the ties are real, and the order is what decides them.
+
+**Timing.** "Device" is one batch, every record in its own warp at once, so a batch costs about one record's latency. "Host" is upstream's `vrna_mfe_exterior_f5` + `vrna_backtrack5` per record, serial, with no fetch.
+
+| L | records | device batch | of which f5 | host per record |
+|---|---|---|---|---|
+| 200 | 64 | 0.99 ms | 0.69 | 0.14 ms |
+| 400 | 64 | 2.79 ms | 2.23 | 0.41 ms |
+| 800 | 32 | 9.0 ms | 7.8 | 1.09 ms |
+| 1200 | 16 | 18.6 ms | 16.9 | 2.30 ms |
+| 2400 | 8 | 67.9 ms | 64.5 | 9.42 ms |
+| 5601 | 4 | 267 ms | 261 | 47.6 ms |
+
+- **The trace itself is cheap: about 6 ms at 5601 nt.** f5 is 90–98 % of the device time. One warp walking j sequentially with a 32-lane min costs O(n²/32) per record, against the host's O(n²).
+- **What this means for a chunk.** A 400 × 5601 chunk is 400 concurrent warps, so it should cost about one record's latency plus contention: on the order of 0.3 s on this GPU, unmeasured at that width. Today the host spends 400 × 47.6 ms / 12 workers ≈ 1.6 s of trace, plus about 100 MB of fetch per record.
+
+**Carried into P2:**
+1. **f5 wider than a warp.** A block per record, or f5 from the sweep's own last rows. The 5601 latency should drop by the block width.
+2. **int16 fML.** The sweep's default stores fML as int16 with per-block baselines (N3). P1 read int32, so P2's kernel must decode in place, as `fetch_fML_one_Hw` widens today.
+3. **Off-diagonal reads.** Upstream's nibble loops read cells such as fML(i, i−1), which by the index arithmetic is fML(1, i). The device kernel uses the same arithmetic, so it reads the same cell. In P2 the host trace and the device trace read the same device triangle, so the self-comparison covers this by construction.
+
 ## 5. Relations
 
 | pair | relation |
