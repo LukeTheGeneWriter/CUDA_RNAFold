@@ -142,7 +142,7 @@ Ties are exercised, not assumed. A count pass that scans every candidate, and ma
 2. **int16 fML.** The sweep's default stores fML as int16 with per-block baselines (N3). P1 read int32, so P2's kernel must decode in place, as `fetch_fML_one_Hw` widens today.
 3. **Off-diagonal reads.** Upstream's nibble loops read cells such as fML(i, i−1), which by the index arithmetic is fML(1, i). The device kernel uses the same arithmetic, so it reads the same cell. In P2 the host trace and the device trace read the same device triangle, so the self-comparison covers this by construction.
 
-### P2 plan (for sign-off, 2026-10-15)
+### P2 plan (SIGNED OFF 2026-10-15: Luke, "yes to all six"; experimental arms may be guarded)
 
 **Goal.** The P1 kernel in the tree behind `RNA_DEVICE_BT=1`, default model only. Two paths:
 - **Pipeline on:** it traces the retired set beside the next sweep, on its own low-priority stream.

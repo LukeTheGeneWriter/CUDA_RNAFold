@@ -91,6 +91,10 @@ struct cuda_param_s {
 //vrna_md_t model_details;   /**<  @brief  Model details to be used in the recursions */
 };
 
+/* Fills every field from P (int_loop.cu): the sweep's load_param() and the device trace both
+ * build their struct with it (N5 P2a). */
+void rnafold_param_fill(cuda_param_t *H, const vrna_param_t *P);
+
 // Words per record in d_S: ten 3-bit bases per word, and every slot is the
 // batch's `length+2` wide, so the stride is uniform and derivable.
 #define S_STRIDE(length) (((length) + 2 + 9) / 10)

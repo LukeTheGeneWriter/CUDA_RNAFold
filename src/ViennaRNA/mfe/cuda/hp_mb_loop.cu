@@ -286,16 +286,16 @@ nolp_init_kernel(const size_t total, int* __restrict__ a) {
 static int g_mlbase_host = 0;
 extern "C" int hp_mb_mlbase(void) { return g_mlbase_host; }
 
-void load_param2(const vrna_param_t *P){
-  cuda_param2_t* H = (cuda_param2_t*) malloc(sizeof(cuda_param2_t));
-
+/* N5 P2a (PORT_DEVICE_BACKTRACK.md, P2 plan): the host half of load_param2(), every field and
+ * nothing else, shared with the device trace (bt_device.cu) so the sweep and the trace cannot
+ * be fed different parameter structs. hp_len is left NULL: each owner attaches its own table. */
+void rnafold_param2_fill(cuda_param2_t *H, const vrna_param_t *P){
   memcpy(H->hairpin,     P->hairpin,     31*sizeof(int));
   memcpy(H->mismatchH,   P->mismatchH,   (NBPAIRS+1)*5*5*sizeof(int));
   memcpy(H->mismatchM,   P->mismatchM,   (NBPAIRS+1)*5*5*sizeof(int));
   memcpy(H->MLintern,    P->MLintern,    (NBPAIRS+1)*sizeof(int));
   H->MLclosing  = P->MLclosing;
   H->MLbase     = P->MLbase;
-  g_mlbase_host = P->MLbase;
   memcpy(H->rtype,       P->model_details.rtype, 8*sizeof(int));
   H->TerminalAU = P->TerminalAU;
   H->lxc        = (float)P->lxc;
@@ -310,6 +310,13 @@ void load_param2(const vrna_param_t *P){
   memcpy(H->Hexaloops,   P->Hexaloops,   1801*sizeof(char));
   memcpy(H->stack,       P->stack,       (NBPAIRS+1)*(NBPAIRS+1)*sizeof(int));
   H->hp_len     = NULL;   // attached by init_gpu3() once the batch length is known
+}
+
+void load_param2(const vrna_param_t *P){
+  cuda_param2_t* H = (cuda_param2_t*) malloc(sizeof(cuda_param2_t));
+
+  rnafold_param2_fill(H, P);
+  g_mlbase_host = P->MLbase;
 
   gpuErrchk( cudaMemcpy(d_param2,H,sizeof(cuda_param2_t),cudaMemcpyHostToDevice) );
   free(H);

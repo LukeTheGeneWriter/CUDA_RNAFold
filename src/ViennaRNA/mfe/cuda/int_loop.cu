@@ -255,25 +255,12 @@ sanity(const vrna_fold_compound_t* vc0, const vrna_fold_compound_t* vc) {
 }
 
 
-void load_param(const vrna_param_t *P){
-  //Even though only used once make copy on host as probably easier to debug than many cudaMemcpy
-  cuda_param_t* H = (cuda_param_t*) malloc(sizeof(cuda_param_s));
-
+/* N5 P2a (PORT_DEVICE_BACKTRACK.md, P2 plan): the host half of load_param(), every field and
+ * nothing else, shared with the device trace (bt_device.cu) so the sweep and the trace cannot
+ * be fed different parameter structs. The int16 vetting stays in load_param(): it commits the
+ * sweep's fML layout and is no business of a trace. */
+void rnafold_param_fill(cuda_param_t *H, const vrna_param_t *P){
   memcpy(H->stack,        P->stack,        (NBPAIRS+1)*(NBPAIRS+1)*sizeof(int));
-  // The int16 fML bound is derived from the LOADED table, not from the literal
-  // -340 of the default one -- a -P file replaces stack37 and can push the
-  // offset past int16. Vetted here because this is the first point at which the
-  // real table is in hand, and long before any cell is packed. See
-  // rnafold_fml_int16_vet_params().
-  {
-    int worst = 0;   /* most negative entry; INF guards the unused NN slots */
-    for(int a=0; a<=NBPAIRS; a++)
-      for(int b=0; b<=NBPAIRS; b++) {
-        const int v = P->stack[a][b];
-        if(v < worst && v > -INF/2) worst = v;
-      }
-    rnafold_fml_int16_vet_params(worst, FML_BLK);
-  }
   H->ninio2     =         P->ninio[2];
   H->lxc        =  (float)P->lxc;
   H->TerminalAU =         P->TerminalAU;
@@ -292,6 +279,27 @@ void load_param(const vrna_param_t *P){
   H->dangles     =        P->model_details.dangles;
   //n_max = MAXLOOP+1 fills exactly MAXLOOP+3 entries (n_max+2)
   rnafold_build_salt_table(P, MAXLOOP+1, H->SaltLoop);
+}
+
+void load_param(const vrna_param_t *P){
+  //Even though only used once make copy on host as probably easier to debug than many cudaMemcpy
+  cuda_param_t* H = (cuda_param_t*) malloc(sizeof(cuda_param_s));
+
+  // The int16 fML bound is derived from the LOADED table, not from the literal
+  // -340 of the default one -- a -P file replaces stack37 and can push the
+  // offset past int16. Vetted here because this is the first point at which the
+  // real table is in hand, and long before any cell is packed. See
+  // rnafold_fml_int16_vet_params().
+  {
+    int worst = 0;   /* most negative entry; INF guards the unused NN slots */
+    for(int a=0; a<=NBPAIRS; a++)
+      for(int b=0; b<=NBPAIRS; b++) {
+        const int v = P->stack[a][b];
+        if(v < worst && v > -INF/2) worst = v;
+      }
+    rnafold_fml_int16_vet_params(worst, FML_BLK);
+  }
+  rnafold_param_fill(H, P);
 
   const cudaError_t error = cudaMemcpy(d_param,H,sizeof(cuda_param_s),cudaMemcpyHostToDevice);
   if (error != cudaSuccess)  {

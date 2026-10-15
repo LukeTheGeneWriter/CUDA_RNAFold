@@ -47,6 +47,10 @@ struct cuda_param2_s {
   const int* hp_len;
 };
 
+/* Fills every field from P but hp_len (hp_mb_loop.cu): the sweep's load_param2() and the
+ * device trace both build their struct with it (N5 P2a). */
+void rnafold_param2_fill(cuda_param2_t *H, const vrna_param_t *P);
+
 __device__ inline unsigned char
 Ptype2(const short* __restrict__ S, const char* __restrict__ pair, const int i, const int j) {
   return pair[S[i]*8 + S[j]];
