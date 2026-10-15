@@ -41,6 +41,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#ifdef __GLIBC__
+#include <malloc.h>   /* malloc_trim(): fold_gpu_batch() returns a chunk's tables */
+#endif
 
 #include "ViennaRNA/mfe/global.h"
 #include "ViennaRNA/partfunc/global.h"
@@ -1731,6 +1734,16 @@ fold_gpu_batch(struct gpu_batch *b,
     chunk[i]->prefolded_structure = Str[i];   /* handed over; freed with the record */
     vrna_fold_compound_free(VC[i]);
   }
+#ifdef __GLIBC__
+  /* Give the chunk's tables back to the OS. glibc keeps freed memory in the
+   * arena that served it, and these compounds were built on the build threads
+   * (and, with the pipeline, a chunk ahead on the builder thread) but are freed
+   * here: without the trim the process keeps every arena's high-water mark
+   * (2000 x 1200, laptop: 2573/2580 MB peak RSS without, 2338/2340 MB with,
+   * every output unchanged; 2026-10-15). The trim is Lukes_Flow_Batching's
+   * 45c63f7c, where N5a frees a chunk later and it saved 6.3 -> 4.4 GB. */
+  malloc_trim(0);
+#endif
   stage_free_s += rnafold_now_seconds() - t_free;
 
   /* Release the device state this chunk sized, before the next chunk sizes its
