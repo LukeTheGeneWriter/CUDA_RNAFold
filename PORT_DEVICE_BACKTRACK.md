@@ -87,6 +87,27 @@ at a time after S2, each with its parity bar, in the order they are used: dangle
 H section shows the trace pool costing the CPU slice ≥ 5 %. Otherwise N5 is recorded as not needed, with
 the numbers, and stops.
 
+### P0 results (laptop, 2026-10-14): GO, on criterion (ii)
+
+Fixtures are random ACGU, 40 × 5601 and 2000 × 1200. Every run's output equals the default run's.
+
+| criterion | measured | verdict |
+|---|---|---|
+| (ii) trace workers' share of peak RSS | 159 MB per worker at 5601 nt (= 5 L², as §1 predicted); 12 default workers hold 1.9 GB of a 3.8 GB peak = **50 %**. At 1200 nt, about 15 %. | **GO** (≥ 25 %) |
+| (i) exposed trace on 2 cores, N5a on | `taskset -c 0,1`, both pools pinned to 2, 3 reps ABBA, after the trim below. 2000 × 1200: exposed (waits at joins + at the end) 5.8–6.6 s, mean 6.17 s of a 61.6 s wall = **10.0 %**. 40 × 5601: 2.37 s of 29.2 s = 8.1 %. | on the line at 1200 nt; below at 5601 |
+| (iii) the A100 H section | awaits the N5a notebook run | pending |
+
+Two more findings from (i):
+- **On 2 cores, N5a costs.** At 2000 × 1200, N5a on took 60.2–62.5 s against 56.5 s off (+8.5 %), with RSS of 4.2 vs 2.1 GB. Off's backtrack + fetch is 4.3 s (7.6 %). The trace workers and the sweep compete for two cores, and N5 removes exactly that contention. One off run took 42.2 s; it is unexplained, and it is excluded from the mean.
+- **N5a's AUTO stage must look at the core count**, not only at memory: at 2 cores it should stay off.
+
+**Found and fixed on the way (45c63f7c): glibc kept every chunk's tables.**
+- Cause: compounds are built on the builder thread and freed a chunk later, and glibc did not return that memory to the OS.
+- Before the fix: 2000 × 1200 with both pipelines on peaked at 6.3 GB and swapped on the 6.7 GB host. The 2-core numbers above were first measured in that state (+11.7 %, swap-contaminated) and were re-measured after the fix.
+- The fix: `malloc_trim(0)` after each chunk is freed. The peak is now 4.4 GB with no swap; 40 × 5601 is unchanged at 3.8 GB, and every bar is green.
+
+**Gap left for the AUTO stage:** the RAM model counts two chunks of compounds, but under N5a three are alive at once (building, sweeping, tracing). So `RNA_RAM_BUDGET=half` with N5a on still peaks at 4.34 GB against a 3.39 GB budget. The budget gate must count three chunks before N5a can be default-on.
+
 ## 5. Relations
 
 | pair | relation |
