@@ -199,10 +199,16 @@ Positive evidence: `RNA_DEVICE_BT ACTIVE: <k> chunk(s), <m> record(s) traced on 
 |---|---|---|---|
 | P2a | parameter fill shared (answer-neutral refactor) | refcheck 9/9, option parity + matrix, gpu_cli | **done** ea6267ab: refcheck 9/9, parity, matrix 36/36, gpu_cli, binding 38, bt_pipeline, output files, knob arms, noLP |
 | P2b | `bt_device.cu`: kernel, int16 decode, per-set copies, release; not yet called | builds; zeroconf (the CPU-only build must not see it) | built clean, no warnings; `libRNA.a` carries the 7 `rnafold_dbt_*` symbols, RNAfold none; refcheck C_mixed unchanged; zeroconf 21/21; **done** 9cba88a1 |
-| P2c | the seam in `par_mfe()` (both paths), refusal + banners, VC f5 write-back, stat_cb, budget accounting | below | next |
+| P2c | the seam in `par_mfe()` (both paths), refusal + banners, VC f5 write-back, stat_cb, budget accounting | below | built; smoke green (below); standing bars + zeroconf pending |
 | P2d | bars and laptop measurement | below | — |
 
 P2b as built: one block per record (`RNA_DEVICE_BT_BLOCK` 32/64/128/256, default 128 until P2d measures), f5 block-wide then the trace on warp 0; int16 fML read on its baselines with the closed-form `colb(j)`, an i > j read mapped back to its own cell first; each set's copies in ONE device allocation (freed by the pointer, `rnafold_dbt_bytes()` for the budget); the trace's own stream at the device's lowest priority. Its first exactness evidence is P2c's `RNA_DEVICE_BT=verify` on real sweeps.
+
+P2c as built (2026-10-16): `par_mfe()` asks `dbt_refusal()`, and an accepted chunk is retired whether the pipeline is on or not. Its device copies hang off the retired set (`rnafold_retired_t.dbt`), so `rnafold_retired_release()` frees them and `rnafold_retired_bytes()` charges them. `trace_retired()` is the one entry, called by the trace thread and by `par_mfe()`. A set with no copies traces on the host as before. A device failure (non-zero status) fails the chunk over to the host trace with a `FAILED` banner; under verify it exits. `-P` is detected by `vrna_param_t.param_file`, not by comparing with `vrna_params()`: that returns whatever file is loaded, so it could not see one.
+
+Smoke, laptop: C_mixed, extreme and an A/U fixture, single chunk, int32/int16 × pipeline off/on, verify and `=1` against RNA_GPU=0. All identical, ACTIVE asserted, NEGCTL bites (20/24 A/U structures change, energies equal; verify + NEGCTL exits 1), `-d0` REFUSED and identical, unset prints nothing new. Then multi-chunk (A_longseq_smallbatch, C_mixed, A/U, 4 to 7 chunks): 24/24 identical, 0 failed over.
+
+**A race the multi-chunk arms found.** The first multi-chunk run failed every record of every chunk after the first, with the pipeline OFF only (status 5: no decomposition for a c cell). On one A/U chunk it gave a WRONG structure that traced clean. The cause was the prepare's upload: a plain `cudaMemcpy` from pageable memory can return before the DMA lands, and the trace kernel's stream is non-blocking, so it does not wait for the legacy stream. Launched at once (pipeline off), the kernel read a part-uploaded blob. Launched later from the trace thread (pipeline on), it was hidden. The upload now goes on the trace's own stream and is synchronised. Single-chunk arms could not see this, and neither could the pipeline-on arms, so P2d's bar must keep multi-chunk × pipeline off.
 
 **P2d bars.**
 1. **The new `tests/device_bt_check.sh`.** Each arm runs RNA_DEVICE_BT=1, and the same with `verify`, against the CPU reference (RNA_GPU=0), byte-identical, with ACTIVE asserted:

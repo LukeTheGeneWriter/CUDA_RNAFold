@@ -24,6 +24,8 @@ typedef struct {
   size_t *d_base_off_H;  /* per-record start in d_fml_b */
   int    *d_fm2;         /* circular only, else NULL */
   int     negctl_freed;  /* RNA_BT_PIPELINE_NEGCTL=2 freed the buffers at hand-off */
+  struct rnafold_dbt_s *dbt;  /* N5: the device trace's own copies (bt_device.h), or NULL for
+                               * the host trace; released, and charged, with the set */
 } rnafold_retired_t;
 
 /* P3 (PORT_BUDGETS.md 9.2): what engine.c lets the coming par_mfe() do with its trace

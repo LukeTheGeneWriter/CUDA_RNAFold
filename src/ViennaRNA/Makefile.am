@@ -914,7 +914,8 @@ NVCC_ALL_FLAGS = -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) $(NVCC_ASSERT_FLAGS) \
 	  -I$(top_srcdir)/src -I$(top_builddir)/src -I$(srcdir)/mfe/cuda
 
 mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu \
-                    $(srcdir)/mfe/cuda/bt_retired.h
+                    $(srcdir)/mfe/cuda/bt_retired.h \
+                    $(srcdir)/mfe/cuda/bt_device.h
 	$(AM_V_at)$(MKDIR_P) mfe/cuda
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \

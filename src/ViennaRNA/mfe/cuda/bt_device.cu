@@ -578,7 +578,14 @@ rnafold_dbt_prepare(struct vrna_fc_s *const *VC, const int nslots, const size_t 
       w[i / 10] |= ((unsigned int)VC[H]->sequence_encoding[i] & 7u) << ((i % 10) * 3);
   }
 
-  DBT_CK(cudaMemcpy(d->d_blob, h, up, cudaMemcpyHostToDevice));
+  /* On the trace's OWN stream, and synchronised. A plain cudaMemcpy from pageable memory may return
+   * before the DMA lands, and the trace kernel runs on a non-blocking stream that does not wait for the
+   * legacy one: launched straight after (pipeline off), it read a part-uploaded blob -- status 5 on
+   * every record of every chunk after the first, and on one A/U chunk a WRONG structure that traced
+   * clean (P2c smoke, 2026-10-16). Same stream orders the launch after the upload. */
+  pthread_once(&g_dbt_once, dbt_stream_make);
+  DBT_CK(cudaMemcpyAsync(d->d_blob, h, up, cudaMemcpyHostToDevice, g_dbt_stream));
+  DBT_CK(cudaStreamSynchronize(g_dbt_stream));
   free(h);
   free(sp_off);
 

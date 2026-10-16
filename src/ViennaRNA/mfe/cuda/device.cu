@@ -15,6 +15,7 @@
 #include <cuda_runtime.h>
 
 #include "bt_retired.h"   /* N5a: the retired chunk */
+#include "bt_device.h"    /* N5: a set's device-trace copies, freed with it */
 
 /* vrna_cuda_quiet(): engine.c. On when a library caller (the Python binding) has
  * asked for the routine diagnostics below to be left out; errors still print. */
@@ -1400,7 +1401,7 @@ rnafold_retired_bytes(const rnafold_retired_t *r)
   len = sqrt(2.0 * (double)r->cells / (double)r->nslots);
   b  += (size_t)r->nslots * ((size_t)len + 2) * sizeof(int) +
         (size_t)(r->nslots + 1) * sizeof(size_t);
-  return b;
+  return b + rnafold_dbt_bytes(r->dbt);   /* N5: exact, one allocation */
 }
 
 
@@ -1409,6 +1410,8 @@ rnafold_retired_release(rnafold_retired_t *r)
 {
   if (!r)
     return;
+
+  rnafold_dbt_free(r->dbt);   /* N5: NULL for a host-traced set */
 
   if (r->negctl_freed) {   /* NEGCTL=2 freed them at hand-off */
     free(r);

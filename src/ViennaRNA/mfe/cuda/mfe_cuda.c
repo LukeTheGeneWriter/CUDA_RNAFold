@@ -60,6 +60,7 @@ WBL 12 Aug 2017 Revert to ViennaRNA-2.3.0/src/ViennaRNA/mfe.c add #GA
 #include <assert.h>
 #ifdef STUB
 #include "stub2.h"
+#include "bt_device.h"   /* N5: the device trace of a retired chunk */
 //#include "stub.h"
 #endif /*STUB*/
 
@@ -509,6 +510,135 @@ rnafold_bt_pipeline(void) {
 /* positive evidence: chunks that went through retire -> backtrack -> release */
 static int g_bt_retired_n = 0;
 
+/* ===================== N5 P2c: the trace on the device ======================
+ *
+ * PORT_DEVICE_BACKTRACK.md, P2 plan. RNA_DEVICE_BT=1 traces an accepted chunk on the
+ * device (bt_device.cu) from its retired set, in place of fetching its triangles;
+ * RNA_DEVICE_BT=verify runs both traces on every record, outputs the host's, and exits
+ * non-zero on the first difference in structure, energy or any f5 cell (D6). Off by
+ * default until an A100 run decides (§3.5). The default model only (D4): any other
+ * chunk refuses whole to the host trace, with one banner per reason per run. With the
+ * variable unset, rnafold_device_bt() is 0 and nothing below runs. */
+#define RNAFOLD_DBT_OFF    0
+#define RNAFOLD_DBT_ON     1
+#define RNAFOLD_DBT_VERIFY 2
+
+static int g_dbt_chunks   = 0;   /* traced on the device */
+static int g_dbt_records  = 0;
+static int g_dbt_verified = 0;   /* of which compared with the host trace, identical */
+static int g_dbt_refused  = 0;   /* chunks refused to the host trace */
+static int g_dbt_failed   = 0;   /* chunks a record of which did not trace: host trace */
+
+PRIVATE void
+dbt_report(void) {
+  fprintf(stderr, "%-24s RNA_DEVICE_BT ACTIVE: %d chunk(s), %d record(s) traced on the "
+                  "device; %d chunk(s) refused, %d failed over to the host trace\n",
+          __FILE__, g_dbt_chunks, g_dbt_records, g_dbt_refused, g_dbt_failed);
+  if(g_dbt_verified)
+    fprintf(stderr, "%-24s RNA_DEVICE_BT VERIFY: %d record(s) identical to the host trace "
+                    "(structure, energy, every f5 cell)\n", __FILE__, g_dbt_verified);
+}
+
+PRIVATE int
+rnafold_device_bt(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_DEVICE_BT");
+    v = RNAFOLD_DBT_OFF;
+    if(e && e[0] && strcmp(e, "0")) {
+      if(!strcmp(e, "1"))           v = RNAFOLD_DBT_ON;
+      else if(!strcmp(e, "verify")) v = RNAFOLD_DBT_VERIFY;
+      else fprintf(stderr, "%-24s RNA_DEVICE_BT=%s IGNORED: 1 or verify\n", __FILE__, e);
+    }
+    if(v) {
+      fprintf(stderr, "%-24s RNA_DEVICE_BT=%s: each accepted chunk is traced on the device%s\n",
+              __FILE__, e, (v == RNAFOLD_DBT_VERIFY) ? ", and again on the host, compared "
+                                                       "record by record" : "");
+      atexit(dbt_report);
+    }
+  }
+  return v;
+}
+
+/* RNA_DEVICE_BT_NEGCTL=1: every search reversed (bt_device.h). A uniform fixture's
+ * structures must then change, its energies not; under verify the run must fail. */
+PRIVATE int
+rnafold_dbt_negctl(void) {
+  static int v = -1;
+  if(v < 0) {
+    const char *e = getenv("RNA_DEVICE_BT_NEGCTL");
+    v = (e && e[0] && strcmp(e, "0")) ? 1 : 0;
+    if(v) fprintf(stderr, "%-24s RNA_DEVICE_BT_NEGCTL=1: every device search is REVERSED -- "
+                          "a negative control, the structures are not upstream's\n", __FILE__);
+  }
+  return v;
+}
+
+/* Why the chunk cannot trace on the device, or NULL. Strict (D4): the default model and
+ * nothing else, including -T and -P, which come back one at a time with their bars (P3).
+ * The device reads VC[0]'s tables for every record, as the sweep does (sanity()). */
+PRIVATE const char *
+dbt_refusal(const int nfiles, const vrna_fold_compound_t **VC, const char **Structure) {
+  if(vrna_cuda_keeping_matrices())
+    return "the caller keeps the matrices (vrna_cuda_keep_matrices)";
+  if(VC[0]->params->param_file[0])
+    return "a parameter file is loaded (-P)";
+  if(!Structure)
+    return "no structure buffers";
+  for(int H = 0; H < nfiles; H++) {
+    const vrna_fold_compound_t *vc = VC[H];
+    const vrna_md_t            *md = &(vc->params->model_details);
+
+    if(vc->type != VRNA_FC_TYPE_SINGLE)           return "not a single-sequence fold compound";
+    if(!Structure[H])                             return "no structure buffer";
+    if(md->dangles != 2)                          return "dangles other than 2 (-d)";
+    if(md->circ)                                  return "circular (-c)";
+    if(md->noLP)                                  return "--noLP";
+    if(md->gquad)                                 return "G-quadruplexes (-g)";
+    if(md->uniq_ML)                               return "uniq_ML";
+    if(md->noGU)                                  return "--noGU";
+    if(md->noGUclosure)                           return "--noClosingGU";
+    if(md->special_hp != VRNA_MODEL_DEFAULT_SPECIAL_HP) return "no special hairpins (-4)";
+    if(md->energy_set != VRNA_MODEL_DEFAULT_ENERGY_SET) return "a non-default energy set (-e)";
+    if(md->logML)                                 return "logML";
+    if(md->nonstandards[0])                       return "non-standard pairs (--nsp)";
+    if(md->min_loop_size != TURN)                 return "a non-default minimum loop size";
+    if(md->temperature != VRNA_MODEL_DEFAULT_TEMPERATURE) return "a non-default temperature (-T)";
+    if(md->salt != VRNA_MODEL_DEFAULT_SALT)       return "a non-default salt (--salt)";
+    if((md->max_bp_span > 0) && (md->max_bp_span < (int)vc->length))
+                                                  return "a restricted span (--maxBPspan)";
+    if(!md->backtrack)                            return "no backtrack (md.backtrack = 0)";
+    if(md->backtrack_type != 'F')                 return "backtrack type C or M";
+    if(vc->hc && (vc->hc->depot || (vc->hc->type != VRNA_HC_DEFAULT)))
+                                                  return "hard constraints (-C)";
+    if(vc->sc)                                    return "soft constraints";
+    if(vc->domains_up)                            return "unstructured domains";
+    if(vc->aux_grammar)                           return "an auxiliary grammar";
+    if(!vc->matrices || !vc->matrices->f5)        return "no f5 to write back";
+  }
+  return NULL;
+}
+
+/* One banner per reason per run (the reasons are literals, so the pointer is the key). */
+PRIVATE int
+dbt_accept(const int nfiles, const vrna_fold_compound_t **VC, const char **Structure) {
+  static const char *said[32];
+  static int         nsaid = 0;
+  const char        *why   = dbt_refusal(nfiles, VC, Structure);
+  int                k;
+
+  if(!why)
+    return 1;
+  g_dbt_refused++;
+  for(k = 0; (k < nsaid) && (said[k] != why); k++) ;
+  if(k == nsaid) {
+    if(nsaid < 32) said[nsaid++] = why;
+    fprintf(stderr, "%-24s RNA_DEVICE_BT REFUSED: %s -- the chunk traces on the host\n",
+            __FILE__, why);
+  }
+  return 0;
+}
+
 /* ===================== N5a P2: the trace runs beside the next sweep ==========
  *
  * PORT_BACKTRACK_PIPELINE.md §3.3/§3.4. With RNA_BT_PIPELINE=1 and a driver that
@@ -624,12 +754,18 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
               const size_t *tri_off_H, const int cpu_queue_threads,
               const rnafold_retired_t *ret);
 
+PRIVATE void
+trace_retired(const int nfiles, const vrna_fold_compound_t **VC,
+              const char **Structure, int *energy, float *EN,
+              const size_t *tri_off_H, const int cpu_queue_threads,
+              const rnafold_retired_t *ret);
+
 PRIVATE void *
 bt_async_main(void *p) {
   bt_async_t *a = (bt_async_t *)p;
 
   a->t_start = rnafold_now_seconds();
-  backtrack_all(a->nfiles, a->VC, a->Structure, a->energy, a->EN, a->tri_off_H,
+  trace_retired(a->nfiles, a->VC, a->Structure, a->energy, a->EN, a->tri_off_H,
                 a->cpu_queue_threads, a->ret);
   a->bt_t1      = rnafold_now_seconds();
   /* backtrack_all() leaves these for the chunk trace; copy them while they
@@ -1537,6 +1673,108 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
   stage_backtrack_s += bt_phase_s - fetch_this_chunk;
 }
 
+/* N5 P2c: RNA_DEVICE_BT=verify -- the host trace has just written its answers; each
+ * record's device answer must equal them, structure, energy and every f5 cell. */
+PRIVATE void
+dbt_verify(const int nfiles, const vrna_fold_compound_t **VC, const char **Structure,
+           const int *energy, const rnafold_retired_t *ret) {
+  for(int H = 0; H < nfiles; H++) {
+    const vrna_fold_compound_t *vc = VC[H];
+    const int   n   = (int)vc->length;
+    const int  *df5 = rnafold_dbt_f5(ret->dbt, H);
+    const char *ds  = rnafold_dbt_structure(ret->dbt, H);
+    const int  *hf5 = vc->matrices->f5;
+
+    for(int j = 0; j <= n; j++)
+      if(df5[j] != hf5[j]) {
+        fprintf(stderr, "%-24s RNA_DEVICE_BT VERIFY FAILED: chunk %d record %d (n=%d): "
+                        "f5[%d] device %d, host %d\n", __FILE__, ret->id, H, n, j, df5[j], hf5[j]);
+        exit(EXIT_FAILURE);
+      }
+    if(df5[n] != energy[H]) {
+      fprintf(stderr, "%-24s RNA_DEVICE_BT VERIFY FAILED: chunk %d record %d (n=%d): "
+                      "energy device %d, host %d\n", __FILE__, ret->id, H, n, df5[n], energy[H]);
+      exit(EXIT_FAILURE);
+    }
+    if(strncmp(ds, Structure[H], (size_t)n + 1)) {
+      int k = 0;
+      while((k < n) && (ds[k] == Structure[H][k])) k++;
+      fprintf(stderr, "%-24s RNA_DEVICE_BT VERIFY FAILED: chunk %d record %d (n=%d): "
+                      "structures differ first at %d\n  device %s\n  host   %s\n",
+              __FILE__, ret->id, H, n, k + 1, ds, Structure[H]);
+      exit(EXIT_FAILURE);
+    }
+  }
+  g_dbt_verified += nfiles;
+}
+
+/* N5 P2c: one chunk's trace from its retired set. Both callers come through here, the
+ * trace thread (pipeline on) and par_mfe() (pipeline off), so the two paths differ only
+ * in who calls it (D5). A set with no device copies is traced on the host, as before. On
+ * the device the record gets exactly what backtrack_finish_slot() gives it: f5 written
+ * back into the compound (D3), energy, the MFE_POST callback, the structure and EN. */
+PRIVATE void
+trace_retired(const int nfiles, const vrna_fold_compound_t **VC,
+              const char **Structure, int *energy, float *EN,
+              const size_t *tri_off_H, const int cpu_queue_threads,
+              const rnafold_retired_t *ret) {
+  const double t0 = rnafold_now_seconds();
+  int          bad;
+
+  if(!ret || !ret->dbt) {
+    backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, ret);
+    return;
+  }
+
+  bad = rnafold_dbt_run(ret->dbt, ret, rnafold_dbt_negctl() ? RNAFOLD_DBT_ORDER_REVERSED
+                                                            : RNAFOLD_DBT_ORDER_UPSTREAM);
+  if(bad) {
+    for(int H = 0; H < nfiles; H++)
+      if(rnafold_dbt_status(ret->dbt, H)) {
+        fprintf(stderr, "%-24s RNA_DEVICE_BT FAILED: chunk %d: %d of %d record(s) did not "
+                        "trace on the device (first: record %d, n=%d, status %d)%s\n",
+                __FILE__, ret->id, bad, nfiles, H, (int)VC[H]->length,
+                rnafold_dbt_status(ret->dbt, H),
+                (rnafold_device_bt() == RNAFOLD_DBT_VERIFY) ? "" : " -- the chunk traces on the host");
+        break;
+      }
+    if(rnafold_device_bt() == RNAFOLD_DBT_VERIFY)
+      exit(EXIT_FAILURE);
+    g_dbt_failed++;
+    backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, ret);
+    return;
+  }
+
+  g_dbt_chunks++;
+  g_dbt_records += nfiles;
+
+  if(rnafold_device_bt() == RNAFOLD_DBT_VERIFY) {
+    /* the host's answers are the output; the device's must equal them */
+    backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, ret);
+    dbt_verify(nfiles, VC, Structure, energy, ret);
+    return;
+  }
+
+  for(int H = 0; H < nfiles; H++) {
+    vrna_fold_compound_t *vc = (vrna_fold_compound_t *) VC[H];
+    const int             n  = (int)vc->length;
+    const int            *f5 = rnafold_dbt_f5(ret->dbt, H);
+
+    memcpy(vc->matrices->f5, f5, sizeof(int) * ((size_t)n + 1));
+    energy[H] = f5[n];
+    if(vc->stat_cb)
+      vc->stat_cb(vc, VRNA_STATUS_MFE_POST, vc->auxdata);
+    memcpy((char *)Structure[H], rnafold_dbt_structure(ret->dbt, H), (size_t)n + 1);
+    EN[H] = (float) energy[H]/100.;   /* callback_backtrack_bts()'s expression */
+  }
+
+  /* no workers and no fetch: the chunk span says so */
+  g_bt_threads  = 0;
+  g_bt_fetch_ws = 0.0;
+  g_bt_busy_ws  = 0.0;
+  stage_backtrack_s += rnafold_now_seconds() - t0;
+}
+
 //except par_fill_arrays(), do each file sequentially as before
 PUBLIC void
 par_mfe(const int nfiles,
@@ -1798,14 +2036,24 @@ par_mfe(const int nfiles,
      * been running beside, and before anything of this chunk's is traced. */
     bt_async_join(0);
 
-    if(rnafold_bt_pipeline()) {
+    /* N5 P2c: an accepted chunk always goes through a retired set, pipeline or not (D5);
+     * its device copies are built now, while VC[] and the sweep's tables are this chunk's. */
+    const int dbt = rnafold_device_bt() && dbt_accept(nfiles, VC, Structure);
+
+    if(rnafold_bt_pipeline() || dbt) {
       /* N5a P1: retire, then backtrack from the retired set. */
       rnafold_retired_t *ret = rnafold_retire_chunk(nfiles, tri_off_H);
       bt_async_t        *a   = &g_bt_async;
 
-      const int to_driver = (g_bt_async_ok == RNAFOLD_BT_ASYNC_DRIVER) && g_bt_done_cb &&
+      if(dbt)
+        ret->dbt = rnafold_dbt_prepare((struct vrna_fc_s *const *)VC, nfiles, tri_off_H);
+
+      /* only the pipeline hands a trace off; without it the set is traced in place */
+      const int to_driver = rnafold_bt_pipeline() &&
+                            (g_bt_async_ok == RNAFOLD_BT_ASYNC_DRIVER) && g_bt_done_cb &&
                             g_bt_next_ctx;
-      const int internal  = (g_bt_async_ok == RNAFOLD_BT_ASYNC_INTERNAL);
+      const int internal  = rnafold_bt_pipeline() &&
+                            (g_bt_async_ok == RNAFOLD_BT_ASYNC_INTERNAL);
 
       if(to_driver || internal) {
         /* P2: hand the trace off and return; the caller sweeps the next chunk. P3: the
@@ -1849,7 +2097,7 @@ par_mfe(const int nfiles,
       }
 
       if(!a->live || (a->ret != ret)) {
-        backtrack_all(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, ret);
+        trace_retired(nfiles, VC, Structure, energy, EN, tri_off_H, cpu_queue_threads, ret);
         rnafold_retired_release(ret);
         g_bt_retired_n++;
       }
