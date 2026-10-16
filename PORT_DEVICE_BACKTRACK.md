@@ -199,7 +199,7 @@ Positive evidence: `RNA_DEVICE_BT ACTIVE: <k> chunk(s), <m> record(s) traced on 
 |---|---|---|---|
 | P2a | parameter fill shared (answer-neutral refactor) | refcheck 9/9, option parity + matrix, gpu_cli | **done** ea6267ab: refcheck 9/9, parity, matrix 36/36, gpu_cli, binding 38, bt_pipeline, output files, knob arms, noLP |
 | P2b | `bt_device.cu`: kernel, int16 decode, per-set copies, release; not yet called | builds; zeroconf (the CPU-only build must not see it) | built clean, no warnings; `libRNA.a` carries the 7 `rnafold_dbt_*` symbols, RNAfold none; refcheck C_mixed unchanged; zeroconf 21/21; **done** 9cba88a1 |
-| P2c | the seam in `par_mfe()` (both paths), refusal + banners, VC f5 write-back, stat_cb, budget accounting | below | built; smoke green (below); standing bars + zeroconf pending |
+| P2c | the seam in `par_mfe()` (both paths), refusal + banners, VC f5 write-back, stat_cb, budget accounting | below | **done** ec9ec0b5: smoke + multi-chunk green (below); standing bars with RNA_DEVICE_BT unset: refcheck 9/9, parity, matrix, gpu_cli, binding 38, bt_pipeline, output files, knob arms 18/18, noLP; zeroconf 21/21 |
 | P2d | bars and laptop measurement | below | — |
 
 P2b as built: one block per record (`RNA_DEVICE_BT_BLOCK` 32/64/128/256, default 128 until P2d measures), f5 block-wide then the trace on warp 0; int16 fML read on its baselines with the closed-form `colb(j)`, an i > j read mapped back to its own cell first; each set's copies in ONE device allocation (freed by the pointer, `rnafold_dbt_bytes()` for the budget); the trace's own stream at the device's lowest priority. Its first exactness evidence is P2c's `RNA_DEVICE_BT=verify` on real sweeps.
@@ -226,6 +226,10 @@ Smoke, laptop: C_mixed, extreme and an A/U fixture, single chunk, int32/int16 ×
 - `RNA_DEVICE_BT_BLOCK` 32 / 128 / 256 at 40 × 5601.
 
 The A100 verdict is P4's.
+
+**The default rule (Q7, Luke 2026-10-16): the whole run, not the trace.** A folding run is many systems at once: sweep, builder, trace pipeline, CPU slice and output. The device trace becomes the default only if the **wall of the entire run** (launch to exit) is faster beyond spread than the faster of off and N5a: at 400 × 5601 and 3000 × 1200, **and** under the full heterogeneous load (CPU slice + `-j NPROC`), and slower beyond spread nowhere, the soaks included. The trace's own time is reported, never judged. A faster trace that slows the sweep, the builder or the cores beside it loses. The A100 notebook's section N carries this (NT, NH).
+
+**Each side traces its own records.** Records the cores fold (the CPU slice, `-j`, a record the engine declines) go through upstream's `vrna_mfe()`: host fill, host trace. The CLI never attaches the engine (`vrna_cuda_attach()` is library API only), and `RNA_DEVICE_BT` lives in `par_mfe()`, the device batch, alone. So the device trace can only ever take records the device folded, whatever its default. `tests/device_bt_check.sh` asserts it by count under the CPU slice: device-traced + core-folded = every record. The notebook's NH asserts the same at A100 scale.
 
 **Risks specific to P2.**
 - **Sharing SMs with the next sweep.** At 5601 nt a trace block is resident for tens of ms. A low-priority stream orders new launches but does not preempt resident blocks, so the sweep can slow. That is what P2d's N5 + N5a arm and P4 measure, and why the block width is a knob.
