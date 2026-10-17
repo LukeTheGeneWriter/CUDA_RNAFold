@@ -200,7 +200,7 @@ Positive evidence: `RNA_DEVICE_BT ACTIVE: <k> chunk(s), <m> record(s) traced on 
 | P2a | parameter fill shared (answer-neutral refactor) | refcheck 9/9, option parity + matrix, gpu_cli | **done** ea6267ab: refcheck 9/9, parity, matrix 36/36, gpu_cli, binding 38, bt_pipeline, output files, knob arms, noLP |
 | P2b | `bt_device.cu`: kernel, int16 decode, per-set copies, release; not yet called | builds; zeroconf (the CPU-only build must not see it) | built clean, no warnings; `libRNA.a` carries the 7 `rnafold_dbt_*` symbols, RNAfold none; refcheck C_mixed unchanged; zeroconf 21/21; **done** 9cba88a1 |
 | P2c | the seam in `par_mfe()` (both paths), refusal + banners, VC f5 write-back, stat_cb, budget accounting | below | **done** ec9ec0b5: smoke + multi-chunk green (below); standing bars with RNA_DEVICE_BT unset: refcheck 9/9, parity, matrix, gpu_cli, binding 38, bt_pipeline, output files, knob arms 18/18, noLP; zeroconf 21/21 |
-| P2d | bars and laptop measurement | below | **bars done** (2026-10-16, below): device_bt_check 0 failures; standing bars unset and with RNA_DEVICE_BT=1 (refcheck asserting ACTIVE, parity, matrix 36/36, gpu_cli, binding 38/38 both ways, bt_pipeline, output files, knob arms 18/18, noLP); zeroconf 21/21. Measurement: below |
+| P2d | bars and laptop measurement | below | **bars done** (2026-10-16, below): device_bt_check 0 failures; standing bars unset and with RNA_DEVICE_BT=1 (refcheck asserting ACTIVE, parity, matrix 36/36, gpu_cli, binding 38/38 both ways, bt_pipeline, output files, knob arms 18/18, noLP); zeroconf 21/21 (a72c9414). Laptop measurement **done** (below): N5 never lost a whole run, block default stays 128 |
 
 P2b as built: one block per record (`RNA_DEVICE_BT_BLOCK` 32/64/128/256, default 128 until P2d measures), f5 block-wide then the trace on warp 0; int16 fML read on its baselines with the closed-form `colb(j)`, an i > j read mapped back to its own cell first; each set's copies in ONE device allocation (freed by the pointer, `rnafold_dbt_bytes()` for the budget); the trace's own stream at the device's lowest priority. Its first exactness evidence is P2c's `RNA_DEVICE_BT=verify` on real sweeps.
 
@@ -233,6 +233,25 @@ What the bars found:
 - `RNA_DEVICE_BT_BLOCK` 32 / 128 / 256 at 40 × 5601.
 
 The A100 verdict is P4's.
+
+**P2d measurement as run (laptop, 2026-10-16, 4 GB power-capped GPU, 12 threads, 6.8 GB WSL).** Whole-run wall, median of 3 in ABBA order; every arm of a group had one sha. The GPU fell into a low-clock state at 19:28 (one 2000 × 1200 run took 175 s, 3.2× the GPU time of its twin), and M2, M3 and M4 ran in it. Their arms are comparable within the group (spreads 0–2 %) but not with M1's.
+
+| group | off | N5a | N5 | both | backtrack stage off → N5 | peak RSS off / N5a / N5 / both |
+|---|---|---|---|---|---|---|
+| 400 × 1200 | 10.98 | 11.00 | 10.46 | 10.43 | 0.29 → 0.04 s | 1211 / 1211 / 1061 / 1061 MB |
+| 40 × 5601 | 27.64 | 27.46 | **25.94** | **25.89** | 1.40 → 0.35 s | 3819 / 3820 / **1922** / 1923 MB |
+| 2000 × 1200 | 54.20 | 58.11 | **52.36** | 56.41 | 1.34 → 0.26 s | 2333 / **4373** / 2119 / 4157 MB |
+| het (slice + -j12), 400 × 1200 * | 36.25 | 36.25 | 35.86 | 35.86 | 0.33 → 0.17 s | 1212 / 1211 / 1095 / 1095 MB |
+| 2-core (taskset 0,1, pools 2, -j2 + slice) * | 38.02 | 38.11 | 37.29 | 37.33 | 0.63 → 0.17 s | 1062 for all |
+
+\* in the low-clock state. 400 × 1200's spreads (14–32 %) hide every difference there.
+
+- **The device trace never lost a whole run.** Against the faster of off and N5a it was −5.5 % at 40 × 5601 (beyond the spread), −3.4 % at 2000 × 1200 (beyond the spread), −1.1 % under heterogeneous load and −1.9 % on 2 cores. Under the CPU slice the cores folded their own records with the host trace: 394 device + 6 cores, and 399 + 1.
+- **RSS: N5 halves it at 5601,** 3.8 → 1.9 GB. Presumably the host-side trace inputs are no longer held, but that is not yet attributed.
+- **N5a costs at 2000 × 1200 on this box.** Retiring a chunk for the trace thread doubles RSS to 4.4 GB of 6.8, and the wall was +7.2 % vs off. "both" inherits it: +7.7 % vs N5. The device trace does not need the pipeline's retained host set, so the cost is the pipeline's, but the A100's 85 GB will not show it. NT/NH judge it there.
+- **Block width (M4, 40 × 5601, low clock):** 32 → 84.24 s (trace 3.77 s), 128 → 81.52 (1.09), 256 → 81.04 (0.67). 32 loses; 128 vs 256 is −0.6 %, so the default stays 128 until the A100's NB.
+
+So the laptop decides nothing (Q7 is the A100's), but nothing here argues against N5 as a default candidate, and the pipeline's memory cost on small hosts is now a known factor for the "both" arm.
 
 **The default rule (Q7, Luke 2026-10-16): the whole run, not the trace.** A folding run is many systems at once: sweep, builder, trace pipeline, CPU slice and output. The device trace becomes the default only if the **wall of the entire run** (launch to exit) is faster beyond spread than the faster of off and N5a: at 400 × 5601 and 3000 × 1200, **and** under the full heterogeneous load (CPU slice + `-j NPROC`), and slower beyond spread nowhere, the soaks included. The trace's own time is reported, never judged. A faster trace that slows the sweep, the builder or the cores beside it loses. The A100 notebook's section N carries this (NT, NH).
 
