@@ -531,6 +531,8 @@ static int g_dbt_failed   = 0;   /* chunks a record of which did not trace: host
 
 PRIVATE void
 dbt_report(void) {
+  if(vrna_cuda_quiet())   /* the binding: RNA_GPU_VERBOSE=1 brings these back */
+    return;
   fprintf(stderr, "%-24s RNA_DEVICE_BT ACTIVE: %d chunk(s), %d record(s) traced on the "
                   "device; %d chunk(s) refused, %d failed over to the host trace\n",
           __FILE__, g_dbt_chunks, g_dbt_records, g_dbt_refused, g_dbt_failed);
@@ -551,9 +553,10 @@ rnafold_device_bt(void) {
       else fprintf(stderr, "%-24s RNA_DEVICE_BT=%s IGNORED: 1 or verify\n", __FILE__, e);
     }
     if(v) {
-      fprintf(stderr, "%-24s RNA_DEVICE_BT=%s: each accepted chunk is traced on the device%s\n",
-              __FILE__, e, (v == RNAFOLD_DBT_VERIFY) ? ", and again on the host, compared "
-                                                       "record by record" : "");
+      if(!vrna_cuda_quiet())
+        fprintf(stderr, "%-24s RNA_DEVICE_BT=%s: each accepted chunk is traced on the device%s\n",
+                __FILE__, e, (v == RNAFOLD_DBT_VERIFY) ? ", and again on the host, compared "
+                                                         "record by record" : "");
       atexit(dbt_report);
     }
   }
@@ -633,8 +636,9 @@ dbt_accept(const int nfiles, const vrna_fold_compound_t **VC, const char **Struc
   for(k = 0; (k < nsaid) && (said[k] != why); k++) ;
   if(k == nsaid) {
     if(nsaid < 32) said[nsaid++] = why;
-    fprintf(stderr, "%-24s RNA_DEVICE_BT REFUSED: %s -- the chunk traces on the host\n",
-            __FILE__, why);
+    if(!vrna_cuda_quiet())   /* a refusal is a designed outcome; FAILED below stays loud */
+      fprintf(stderr, "%-24s RNA_DEVICE_BT REFUSED: %s -- the chunk traces on the host\n",
+              __FILE__, why);
   }
   return 0;
 }

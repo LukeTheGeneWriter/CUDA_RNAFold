@@ -15,6 +15,7 @@
 # usage: TREE=<build> [W=<workdir>] [COV_FIX=<fixtures>] outfile_check.sh
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v miniforge | paste -sd:)
 for v in $(env | grep -o "^RNA_[A-Z0-9_]*"); do unset $v; done
+[ -n "${BARS_ENV:-}" ] && export $BARS_ENV   # an experimental arm's variables (bars.sh), after the scrub
 R=${TREE:-$HOME/pyq}/src/bin/RNAfold; T=${COV_FIX:-$(cd "$(dirname "$0")/../.." && pwd)/tests/fixtures}
 W=${W:-$HOME/outfile_check}; rm -rf "$W"; mkdir -p "$W"
 FA=$T/C_mixed.fa; NREC=$(grep -c '^>' "$FA")

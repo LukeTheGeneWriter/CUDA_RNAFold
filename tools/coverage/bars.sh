@@ -8,6 +8,9 @@
 # (it reconfigures the tree it is given).
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v miniforge | paste -sd:)
 for v in $(env | grep -o "^RNA_[A-Z0-9_]*"); do unset $v; done
+# BARS_ENV="RNA_X=1 ..." runs every bar with an experimental arm on (set after the scrub, here and
+# in the sub-bars that scrub their own); BARS_WANT is the banner refcheck must then see.
+[ -n "${BARS_ENV:-}" ] && export $BARS_ENV
 TREE=${TREE:?set TREE to a configured, built tree}; O=${1:?log directory}; mkdir -p "$O"
 D=$(cd "$(dirname "$0")" && pwd); TL=$D/..; ROOT=$D/../..
 NOCUDA=${NOCUDA:-$HOME/port27git}   # a no-CUDA build: the noLP bar's upstream oracle

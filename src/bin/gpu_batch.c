@@ -2202,12 +2202,25 @@ gpu_batch_end(struct options *opt)
               "RNAfold.c", g_pipelined_n, g_builder_s, g_overlap_s,
               (g_builder_s > 0.0) ? 100.0 * g_overlap_s / g_builder_s : 0.0);
 
-    if ((rnafold_cpu_slice()) || (g_slice_done > 0))
-      fprintf(stderr,
-              "%-24s cpu slice: %ld records folded on the cores, "
-              "final slice size %d%s\n",
-              "RNAfold.c", g_slice_done, g_slice_m,
-              (opt->jobs > 1) ? "" : "  <-- -j not set, so the slice stayed 0");
+    /* EVERY record the slice took, not only the finished ones (2026-10-16). This prints
+     * before the pool is joined, so the last sliced records can still be folding: it
+     * reported 3 where the record trace showed 4 routed to the cores, and the N5 bar
+     * that counts device-traced + core-folded = all records caught it. */
+    {
+      long done, out;
+
+      pthread_mutex_lock(&g_slice_mtx);
+      done = g_slice_done;
+      out  = g_slice_out;
+      pthread_mutex_unlock(&g_slice_mtx);
+
+      if ((rnafold_cpu_slice()) || (done + out > 0))
+        fprintf(stderr,
+                "%-24s cpu slice: %ld records folded on the cores (%ld still folding "
+                "at this report), final slice size %d%s\n",
+                "RNAfold.c", done + out, out, g_slice_m,
+                (opt->jobs > 1) ? "" : "  <-- -j not set, so the slice stayed 0");
+    }
 
     free(gpu_chunk);
   }

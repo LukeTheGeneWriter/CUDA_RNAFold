@@ -802,6 +802,7 @@ class cuda_budgetTest(unittest.TestCase):
             self.skipTest("a budget of 2 binds nothing on %d threads" % os.cpu_count())
         e = dict(os.environ, RNA_THREAD_BUDGET="2", RNA_GPU_VERBOSE="1")
         e.pop("RNA_BACKTRACK_THREADS", None)
+        e.pop("RNA_DEVICE_BT", None)   # the cap is on the HOST trace's pool; the device trace has none
         p = subprocess.run([sys.executable, "-c", THREAD_PROBE % module_dir()],
                            capture_output=True, text=True, timeout=600, env=e)
         line = [l for l in p.stdout.splitlines() if l.startswith("RESULT ")]

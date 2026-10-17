@@ -1106,7 +1106,18 @@ rowtab_copy(const size_t lo_o, const size_t n_o, const size_t lo_i, const size_t
 }
 
 /* Lock-step: every slot, once, before the sweep. Blocking, so every kernel the
- * sweep issues afterwards reads finished tables. */
+ * sweep issues afterwards reads finished tables.
+ *
+ * BLOCKING BY AN EXPLICIT SYNC, not by the copies (2026-10-16). The row kernels run
+ * on NON-BLOCKING streams (rnafold_streams_init), which the legacy stream does not
+ * order. A cudaMemcpy from PINNED memory returns only when it has landed, but the
+ * tables fall back to malloc when cudaHostAlloc fails (rt_pinned_alloc), and a
+ * PAGEABLE one may return before its DMA does -- the race N5 P2c's device trace hit
+ * (feedback: pageable cudaMemcpy does not order a non-blocking stream). This is
+ * also the one point that orders the chunk's other setup -- init_gpu*'s pageable
+ * uploads and the legacy-stream INF fills -- before row one, so it says so. The
+ * LEGACY stream, not the device: a device sync would also wait for the pipeline's
+ * device trace on its own stream. Once per chunk. */
 extern "C" void
 rnafold_rowtab_upload_all(void)
 {
@@ -1114,6 +1125,7 @@ rnafold_rowtab_upload_all(void)
 
   rowtab_check(0);
   rowtab_copy(0, rows * RT_STRIDE(g_rt_nfiles), 0, rows * g_rt_nfiles);
+  rt_check(cudaStreamSynchronize(0), "upload: setup drain");
 }
 
 

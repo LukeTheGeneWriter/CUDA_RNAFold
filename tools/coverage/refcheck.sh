@@ -10,6 +10,9 @@
 # every other RNA_* variable is unset. One fixture per job (laptop memory reaper).
 export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v miniforge | paste -sd:)
 for v in $(env | grep -o "^RNA_[A-Z0-9_]*"); do unset $v; done
+# BARS_ENV: an experimental arm's variables, set after the scrub (e.g. "RNA_DEVICE_BT=1");
+# BARS_WANT: the banner that arm must print, or the check fails (positive evidence it ran).
+[ -n "${BARS_ENV:-}" ] && export $BARS_ENV
 mode=$1; f=$2; [ -n "$3" ] && export RNA_GPU_VRAM_BUDGET_MB=$3
 R=${RNAFOLD:-~/pyq/src/bin/RNAfold}; O=${REF_DIR:-$(cd "$(dirname "$0")/../.." && pwd)/tests/fixtures/cleanup_ref}; T=${COV_FIX:-$(cd "$(dirname "$0")/../.." && pwd)/tests/fixtures}
 [ -f "$T/$f.fa" ] || { echo "no $T/$f.fa"; exit 2; }
@@ -26,7 +29,12 @@ case "$mode" in
           s4=$(cmp -s "$W/b.out" "$O/$tag.out" && echo yes || echo NO)
           sw0=$(grep -c 'sweep shape' "$O/$tag.err")
           ok=PASS; [ $a = 0 ] && [ $b = 0 ] && [ $s1 = yes ] && [ $s4 = yes ] && [ "$sw" = "$sw0" ] || ok=FAIL
-          echo "$tag $ok rc $a/$b same $s1 j4_same $s4 sweeps $sw (ref $sw0) sha $sha"
+          want=""; if [ -n "${BARS_WANT:-}" ]; then
+            if grep -q "$BARS_WANT" "$W/a.err"; then want=" | $(grep -o "$BARS_WANT.*" "$W/a.err" | head -1 | cut -c1-90)"
+            elif [ "$sw" = 0 ]; then want=" | no sweep, so no '$BARS_WANT' expected"
+            else want=" | MISSING '$BARS_WANT'"; ok=FAIL; fi
+          fi
+          echo "$tag $ok rc $a/$b same $s1 j4_same $s4 sweeps $sw (ref $sw0) sha $sha$want"
           [ $ok = PASS ];;
   *) echo "usage: $0 freeze|check <fixture> [budget_mb]"; exit 2;;
 esac
