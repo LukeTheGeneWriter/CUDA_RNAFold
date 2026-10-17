@@ -1,6 +1,6 @@
 # Cross-vendor GPUs and many devices: scope (V0 / V1, Vulkan first)
 
-**Status: SCOPING ONLY (Luke, 2026-10-17).** Nothing here is built. It waits until the CUDA kernels settle,
+**Status: SCOPING ONLY (Luke, 2026-10-17): the cherry on top, after the CUDA heterogeneous workflow is proven.** Nothing here is built. It waits until the CUDA kernels settle,
 so that no optimisation has to be made twice. The open CUDA work comes first: N5a's AUTO gate, N5 P3
 (options on the device trace), N4 (md latency cut), C4 (CPU fast fold), and whatever the A100 notebooks
 surface. **Vulkan first; HIP later; OpenCL and OpenGL compute are not planned.**
@@ -110,6 +110,17 @@ Each of V0a–V0d is its own commit with its bars green. Order: d (cheap) → b 
 - **D2. Shader language.** GLSL → SPIR-V via glslang (recommended: ubiquitous, in every Vulkan SDK and distro), or Slang (closer to CUDA C++, one more toolchain to install).
 - **D3. Order.** V0d → V0b → V0a → V0c → V1 (recommended), or V1 first as a pure prototype before any refactor (faster answer, but its code is thrown away).
 - **D4. What V2 proves first.** The iGPU + dGPU + cores mix on this laptop (recommended: the hardware is here), or two CUDA contexts on one GPU first (mechanics only).
+
+**Luke's answers (2026-10-17).**
+- **Priority.** Multi-GPU and cross-vendor are the cherry on top. They come after the best CUDA-enabled heterogeneous workflow (GPU + cores) is proven.
+- **D1** is revisited once we know whether WSL can carry real Vulkan drivers. **The probe (2026-10-17, Ubuntu 26.04 on WSL2 6.18): it cannot, as shipped.** There is no `/dev/dri` (so RADV and the other Mesa GPU drivers have no device). `/usr/lib/wsl/lib` carries CUDA and D3D12 but no NVIDIA Vulkan driver, and Ubuntu's `mesa-vulkan-drivers` 26.0.3 is built without dzn (Mesa's Vulkan-on-D3D12). The only Vulkan device WSL shows is **lavapipe** (llvmpipe, CPU, Vulkan 1.4): subgroup **8**, int64 + int64 atomics, bufferDeviceAddress, maxStorageBufferRange 128 MB. Two ways to go further:
+  - **Build Mesa with dzn** (`-Dvulkan-drivers=microsoft-experimental`, needs sudo for the build dependencies). Both GPUs would then appear in WSL through D3D12. That is a translation layer: fit for correctness, not for timing, and its subgroup support is unproven.
+  - **Keep the split (D1(a)),** with real drivers on Windows.
+
+  Either way, lavapipe is useful now. It runs in WSL with no setup, and its subgroup of 8 is a third width for V0c's `LANES` check (32 / 16 on CUDA; 64 / 32 on the iGPU; 8 on lavapipe).
+- **D2** is open. The recommendation stands: GLSL.
+- **D3:** V0 first.
+- **D4** is deferred until V2.
 
 ## 10. Recommendation
 
