@@ -18,15 +18,24 @@ run() {
   local rep=$(grep -o "backtrack pipeline:.*" $name.on.err)
   local async=$(echo "$rep" | grep -o "[0-9]* traced beside" | grep -o "^[0-9]*")
   local ov=$(echo "$rep" | grep -o "OVERLAPPED [0-9.]*" | grep -o "[0-9.]*$")
+  # Under RNA_DEVICE_BT (BARS_ENV), a chunk the DEVICE traced is never handed off (N5 P2d): when every
+  # chunk was, the evidence is ZERO traced beside, and NEGCTL=2 (which acts at the hand-off) has nothing to bite.
+  local dact=$(grep -oE 'RNA_DEVICE_BT ACTIVE: [0-9]+ chunk\(s\), [0-9]+ record\(s\) traced on the device; [0-9]+ chunk\(s\) refused' $name.on.err)
+  local dchunks=$(echo "$dact" | grep -oE '^RNA_DEVICE_BT ACTIVE: [0-9]+' | grep -oE '[0-9]+$')
+  local dref=$(echo "$dact" | grep -oE '[0-9]+ chunk\(s\) refused' | grep -oE '^[0-9]+')
+  local devall=0; [ "${dchunks:-0}" -ge 1 ] && [ "${dref:-1}" = 0 ] && devall=1
   local v=PASS
   { [ $rc -eq 0 ] && [ "$c" = "$o" ] && [ "$o" = "$n" ]; } || v=FAIL
-  if [ "$multi" = 1 ]; then { [ "${async:-0}" -ge 1 ] && awk "BEGIN{exit !(${ov:-0} > 0)}"; } || v=FAIL; fi
+  if [ "$multi" = 1 ] && [ $devall = 1 ]; then [ "${async:-x}" = 0 ] || v=FAIL
+  elif [ "$multi" = 1 ]; then { [ "${async:-0}" -ge 1 ] && awk "BEGIN{exit !(${ov:-0} > 0)}"; } || v=FAIL; fi
   local b1=bites b2=bites
   { [ "$g1" = "$o" ] && [ $r1 -eq 0 ]; } && { b1="DOES-NOT-BITE"; v=FAIL; }
-  if [ "$multi" = 1 ]; then { [ "$g2" = "$o" ] && [ $r2 -eq 0 ]; } && { b2="DOES-NOT-BITE"; v=FAIL; }; else b2="n/a"; fi
-  [ $r2 -ne 0 ] && b2="bites(rc$r2)"
+  if [ "$multi" = 1 ] && [ $devall = 0 ]; then { [ "$g2" = "$o" ] && [ $r2 -eq 0 ]; } && { b2="DOES-NOT-BITE"; v=FAIL; }
+  elif [ $devall = 1 ]; then b2="n/a(device-traced)"; else b2="n/a"; fi
+  [ $r2 -ne 0 ] && [ $devall = 0 ] && b2="bites(rc$r2)"
   [ $v = FAIL ] && bad=$((bad+1))
-  printf "%-16s cpu %s off %s on %s | async %s, OVERLAPPED %s s | neg1 %s neg2 %s [%s]\n" "$name" $c $o $n "${async:-0}" "${ov:-0}" $b1 $b2 $v
+  printf "%-16s cpu %s off %s on %s | async %s, OVERLAPPED %s s%s | neg1 %s neg2 %s [%s]\n" "$name" $c $o $n "${async:-0}" "${ov:-0}" \
+         "$([ $devall = 1 ] && echo ", device-traced ${dchunks} chunk(s), none handed off")" $b1 $b2 $v
 }
 run cap_multichunk $T/A_longseq_smallbatch.fa 1 RNA_GPU_CHUNK_CELLS=20000000 --
 run default_1chunk $T/A_longseq_smallbatch.fa 0 --

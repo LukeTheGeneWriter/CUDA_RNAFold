@@ -2052,11 +2052,18 @@ par_mfe(const int nfiles,
       if(dbt)
         ret->dbt = rnafold_dbt_prepare((struct vrna_fc_s *const *)VC, nfiles, tri_off_H);
 
-      /* only the pipeline hands a trace off; without it the set is traced in place */
-      const int to_driver = rnafold_bt_pipeline() &&
+      /* Only the pipeline hands a trace off; without it the set is traced in place. And a
+       * chunk the DEVICE traces is never handed off (P2d, 2026-10-17): its trace is 0.05-0.15 s
+       * of GPU time on the same GPU as the next sweep, so the overlap it would be parked for
+       * is at most that, while parking it keeps its compounds alive through the next chunk's
+       * prepare. With the build pipeline also on, three chunks were resident: prepare 0.3 ->
+       * 3.4 s, RSS 2.1 -> 4.2 GB, wall +6.5 % at 2000 x 1200 (PORT_DEVICE_BACKTRACK.md). A
+       * chunk the device accepted and then failed over traces in place too; a refused chunk
+       * keeps the pipeline. */
+      const int to_driver = rnafold_bt_pipeline() && !dbt &&
                             (g_bt_async_ok == RNAFOLD_BT_ASYNC_DRIVER) && g_bt_done_cb &&
                             g_bt_next_ctx;
-      const int internal  = rnafold_bt_pipeline() &&
+      const int internal  = rnafold_bt_pipeline() && !dbt &&
                             (g_bt_async_ok == RNAFOLD_BT_ASYNC_INTERNAL);
 
       if(to_driver || internal) {

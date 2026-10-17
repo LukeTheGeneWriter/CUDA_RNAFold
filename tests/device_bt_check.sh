@@ -67,6 +67,11 @@ arm() {
   [ "$mode" = verify ] && { [ "${ver:-0}" = "$n" ] || { v=FAIL; why="$why verified ${ver:-0}/$n"; }; }
   # multi-chunk must BE multi-chunk, or it is the single-chunk arm again
   [ "$cc" != 0 ] && { [ "${ch:-0}" -ge 2 ] || { v=FAIL; why="$why only ${ch:-0} chunk"; }; }
+  # pipeline on: a device-traced chunk is traced in place, never handed off (P2d) -- the report must say 0
+  if [ "$pl" = 1 ]; then
+    local hand=$(grep -oE 'retired, [0-9]+ traced beside' $tag.err | grep -oE '[0-9]+')
+    [ "${hand:-x}" = 0 ] || { v=FAIL; why="$why handed-off=${hand:-?}"; }
+  fi
   grep -h 'FAILED\|IGNORED\|REFUSED' $tag.err | sort -u | head -2 | sed 's/^/      /'
   [ $v = FAIL ] && bad=$((bad+1))
   printf "  %-34s %2s chunk(s) %4s rec %4s verified  [%s]%s\n" $tag "${ch:-?}" "${rec:-0}" "${ver:--}" $v "$why"

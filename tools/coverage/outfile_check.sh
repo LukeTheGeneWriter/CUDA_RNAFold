@@ -57,8 +57,21 @@ for m in "${MODES[@]}"; do
         grep -q "backtracks stay sequential" "$e" || { v=FAIL; ev="$ev; plots did not refuse the pipeline"; }
       else
         n=$(grep -o '[0-9]* traced beside the next sweep' "$e" | grep -o '^[0-9]*')
-        [ "${n:-0}" -ge 1 ] || { v=FAIL; ev="$ev; nothing traced beside a sweep"; }
-        ev="$ev traced-beside ${n:-0}"
+        # Under RNA_DEVICE_BT (BARS_ENV) a chunk the device ACCEPTED is never handed off (N5 P2d),
+        # whether it traced there or failed over to the host in place (NEGCTL=1's zeroed c does):
+        # when every chunk was accepted, the evidence is ZERO traced beside.
+        dact=$(grep -oE 'RNA_DEVICE_BT ACTIVE: [0-9]+ chunk\(s\), [0-9]+ record\(s\) traced on the device; [0-9]+ chunk\(s\) refused, [0-9]+ failed over' "$e")
+        dch=$(echo "$dact" | grep -oE '^RNA_DEVICE_BT ACTIVE: [0-9]+' | grep -oE '[0-9]+$')
+        dref=$(echo "$dact" | grep -oE '[0-9]+ chunk\(s\) refused' | grep -oE '^[0-9]+')
+        dfo=$(echo "$dact" | grep -oE '[0-9]+ failed over' | grep -oE '^[0-9]+')
+        dch=$(( ${dch:-0} + ${dfo:-0} ))
+        if [ "$dch" -ge 1 ] && [ "${dref:-1}" = 0 ]; then
+          [ "${n:-x}" = 0 ] || { v=FAIL; ev="$ev; a device-traced chunk was handed off"; }
+          ev="$ev device-accepted $dch chunk(s) (${dfo:-0} failed over), traced-beside ${n:-?}"
+        else
+          [ "${n:-0}" -ge 1 ] || { v=FAIL; ev="$ev; nothing traced beside a sweep"; }
+          ev="$ev traced-beside ${n:-0}"
+        fi
       fi ;;
     esac
     case $arm in pipe_half)

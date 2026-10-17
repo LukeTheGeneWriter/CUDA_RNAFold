@@ -470,7 +470,8 @@ class cuda_pipelineTest(unittest.TestCase):
     def run_probe(self, lengths, extra):
         e = dict(os.environ, RNA_GPU_VERBOSE="1")
         for n in ("RNA_GPU_VRAM_BUDGET_MB", "RNA_VRAM_BUDGET", "RNA_BT_PIPELINE",
-                  "RNA_BT_PIPELINE_NEGCTL", "RNA_GPU_CHUNK_CELLS"):
+                  "RNA_BT_PIPELINE_NEGCTL", "RNA_GPU_CHUNK_CELLS",
+                  "RNA_DEVICE_BT"):   # these test the HOST trace's hand-off; a device-traced chunk has none
             e.pop(n, None)
         e.update(extra)
         p = subprocess.run([sys.executable, "-c", PIPE_PROBE % (module_dir(), lengths)],

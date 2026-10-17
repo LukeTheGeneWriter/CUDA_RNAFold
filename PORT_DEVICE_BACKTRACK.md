@@ -258,6 +258,17 @@ The A100 verdict is P4's.
 - **The trace kernel is f5, and f5 is latency.** From the block-width arms, T(b) ≈ a / b + w: the f5 phase is ~80 % of the kernel at 128 threads and the walk (warp 0) ~20 %. Each j costs two block barriers, a serial combine on thread 0 and a `volatile` global read of f5[i−1] per candidate (the c column itself is coalesced: the triangle is column-major). f5 in shared memory (22 KB at 5601 nt) is the obvious lever, but the kernel is ~1.3 % of the wall at 5601 here, so it waits for NT's backtrack stage on the A100.
 - **The laptop has two clock states.** The first run after an idle spell sweeps ~1.5× faster (12.2 s of sweep GPU time vs ~18 s after); a 2000 × 1200 n5 took 35.0 s fresh and 52.2 s steady. A rep 0 that straddles the change looks like an arm effect. Discard a warm-up, or compare steady-state reps only.
 
+**Fixed (2026-10-17): a chunk the device accepts is never handed off.** In `par_mfe()` the hand-off (to the driver or the internal trace thread) now requires `!dbt`, so a device-accepted chunk traces in place and its compounds are freed before the next chunk's prepare: two chunks resident, not three. That covers a chunk that fails over to the host trace too (it traces in place, synchronously). A refused chunk keeps the pipeline. 2000 × 1200, warm-up discarded, ABBA × 2, one sha across all 8 runs:
+
+| arm | wall (2 reps) | prepare | backtrack stage | peak RSS | handed off |
+|---|---|---|---|---|---|
+| off | 51.48 / 54.31 | 0.39–0.41 s | 1.27–1.35 s | 2259–2333 MB | – |
+| N5a | 59.94 / 59.30 | 3.6–5.2 s | 1.75–2.10 s | 4373 MB | 6 |
+| N5 | 52.53 / 52.20 | 0.39–0.43 s | 0.26 s | 2144–2147 MB | – |
+| both | 52.30 / 52.76 | 0.40–0.52 s | 0.27 s | 2140–2142 MB | **0** |
+
+"both" = N5 now (+0.2 s, inside the spread; it was +3.4 s), at 2.1 GB, not 4.2. The remaining three-chunk cost is N5a's own (host-traced chunks), which NT / NH judge on the A100. The bars follow it: under `RNA_DEVICE_BT=1` the backtrack-pipeline check, the output-file bar and `device_bt_check.sh` require ZERO traced beside when every chunk was device-accepted (NEGCTL=2 acts at the hand-off, so it has nothing to bite there), and the binding's hand-off tests drop RNA_DEVICE_BT, since they test the host trace's hand-off. Under NEGCTL=1 (c zeroed) the device trace rejects every record (status 5), all 27 chunks fail over, and the output changes: the control still bites. Standing bars green unset and with RNA_DEVICE_BT=1, `device_bt_check.sh` 0 failures, zeroconf 21/21.
+
 So the laptop decides nothing (Q7 is the A100's), but nothing here argues against N5 as a default candidate, and the pipeline's memory cost on small hosts is now a known factor for the "both" arm.
 
 **The default rule (Q7, Luke 2026-10-16, signed off 2026-10-17): the whole run, not the trace.** A folding run is many systems at once: sweep, builder, trace pipeline, CPU slice and output. The device trace becomes the default only if the **wall of the entire run** (launch to exit) is faster beyond spread than the faster of off and N5a: at 400 × 5601 and 3000 × 1200, **and** under the full heterogeneous load (CPU slice + `-j NPROC`), and slower beyond spread nowhere, the soaks included. The trace's own time is reported, never judged. A faster trace that slows the sweep, the builder or the cores beside it loses. The A100 notebook's section N carries this (NT, NH).
