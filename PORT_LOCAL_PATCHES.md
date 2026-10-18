@@ -158,6 +158,16 @@ Plus two for many-at-once folding: `batch-backend-api` (`mfe/global.h`) and
 and `vrna_mfe_batch()`, which until 2026-10-11 sat outside the block). `vrna_mfe_batch()` is useful to upstream on
 CPU on its own — it is a place to put *any* many-at-once folder, threaded or not.
 
+Plus **`mx-triangles-deferred`** (`datastructures/dp_matrices.h` / `.c`, 2026-10-17):
+`vrna_mx_mfe_defer_triangles(on)`, a thread-local flag under which the default MFE
+allocator leaves `c` and `fML` NULL. A backend that fills those triangles elsewhere
+asks prepare not to allocate them. Before this, prepare calloc'd both for every record,
+and `par_mfe()` freed them unread before the sweep: 2.4 GB allocated and zeroed per
+2000 × 1200 chunk. With the backtrack pipeline's third resident chunk, that churn grew
+the heap to 6.2 GB of fresh pages (PORT_BACKTRACK_PIPELINE.md §11). It is safe for
+every other caller: the flag is off by default, and a later `vrna_mx_prepare()` with
+it clear sees the triangles missing and allocates the full set again.
+
 ### DRIVER
 
 **`rnafold-driver`** — `src/bin/RNAfold.c`, +1333 lines, declared once at the top

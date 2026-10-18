@@ -247,6 +247,29 @@ vrna_mx_pf_free(vrna_fold_compound_t *vc)
 }
 
 
+/* VRNA-PATCH-BEGIN(mx-triangles-deferred, SEAM) -- PORT_LOCAL_PATCHES.md
+ * The flag behind vrna_mx_mfe_defer_triangles() (dp_matrices.h). A batch backend
+ * that fills c / fML on a device asks prepare not to allocate them: before this,
+ * every record's two triangles were calloc'd (and, from a reused heap, zeroed)
+ * only to be freed unread before the sweep -- 2.4 GB per 2000 x 1200 chunk.
+ */
+static _Thread_local int defer_triangles = 0;
+
+
+PUBLIC int
+vrna_mx_mfe_defer_triangles(int on)
+{
+  const int prev = defer_triangles;
+
+  defer_triangles = on ? 1 : 0;
+
+  return prev;
+}
+
+
+/* VRNA-PATCH-END(mx-triangles-deferred) */
+
+
 PUBLIC int
 vrna_mx_add(vrna_fold_compound_t  *vc,
             vrna_mx_type_e        mx_type,
@@ -1312,11 +1335,16 @@ init_mx_mfe_default(vrna_fold_compound_t  *fc,
       }
     }
 
-    if (alloc_vector & ALLOC_C)
+    /* VRNA-PATCH-BEGIN(mx-triangles-deferred, SEAM) -- PORT_LOCAL_PATCHES.md
+     * Skipped while the caller defers them (vrna_mx_mfe_defer_triangles()).
+     */
+    if ((alloc_vector & ALLOC_C) && (!defer_triangles))
       mx->c = (int *)vrna_alloc(sizeof(int) * size);
 
-    if (alloc_vector & ALLOC_FML)
+    if ((alloc_vector & ALLOC_FML) && (!defer_triangles))
       mx->fML = (int *)vrna_alloc(sizeof(int) * size);
+
+    /* VRNA-PATCH-END(mx-triangles-deferred) */
 
     if ((alloc_vector & ALLOC_UNIQ) ||
         (alloc_vector & ALLOC_CIRC)) {

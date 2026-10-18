@@ -429,6 +429,29 @@ vrna_mx_pf_add(vrna_fold_compound_t *fc,
                unsigned int         options);
 
 
+/* VRNA-PATCH-BEGIN(mx-triangles-deferred, SEAM) -- PORT_LOCAL_PATCHES.md
+ * A caller that fills c / fML somewhere else (a batch backend keeps them on a
+ * device and attaches host copies only to backtrack) can ask the DEFAULT MFE
+ * allocator, on this thread, to leave those two triangles unallocated.
+ */
+/**
+ *  @brief  Leave the default MFE matrices' c and fML triangles unallocated (this thread)
+ *
+ *  While set (non-zero), vrna_mx_mfe_add() for #VRNA_MX_DEFAULT attaches every other
+ *  matrix as usual and leaves @p c and @p fML NULL. A later vrna_mx_prepare() with the
+ *  flag clear sees them missing and allocates the full set again, so a compound
+ *  prepared this way can still be folded by vrna_mfe(). Thread-local.
+ *
+ *  @param  on  Non-zero to defer the two triangles, 0 to restore the default
+ *  @returns    The previous setting
+ */
+int
+vrna_mx_mfe_defer_triangles(int on);
+
+
+/* VRNA-PATCH-END(mx-triangles-deferred) */
+
+
 int
 vrna_mx_prepare(vrna_fold_compound_t  *fc,
                 unsigned int          options);

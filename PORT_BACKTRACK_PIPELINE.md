@@ -340,3 +340,31 @@ At 2000 × 600 (two chunks, so never a third) every arm is 14.9–15.5 s with eq
 - **If N5 becomes the default,** N5a acts only on chunks the device trace refuses (non-default models). The prize narrows, G1 still matters, and G2 matters less.
 
 Order: G1 → G2 → G3, each committed with its bars green.
+
+### 11.1 G0, found by G1's profile (2026-10-17): prepare allocated triangles nobody read
+
+**The profile.** A preload shim logged glibc's `mallinfo2()` and `smaps_rollup` before and after every per-chunk
+`malloc_trim` (2000 × 1200).
+- **off:** ~1.06 GB live, the heap's address span ~2.0–2.2 GB, each trim returns ~0.95 GB.
+- **N5a:** live memory peaks at 2.0 GB (three chunks), but **the heap's span balloons from 2.45 to 6.2 GB**, and RSS reaches 4.36 GB at a moment when 0.94 GB is live.
+
+So the peak was churn, not data.
+
+**The churn.** `vrna_fold_compound_prepare()` (upstream) attaches the default MFE matrices, including every record's full host `c` and `fML` triangles. `par_mfe()` freed both, unread, before the sweep: the sweep fills them on the device, and the backtrack attaches pooled scratch. At 1200 nt that is 5.8 MB a record, **2.4 GB allocated, zeroed (from a reused heap) and freed per chunk.** With two chunks resident the allocator reuses the holes. With three interleaved it cannot, so the heap grows into fresh pages: the 1.0 M extra faults. (At 5601 nt the triangles are above glibc's mmap threshold, so they were mapped and never touched, which is why 40 × 5601 never showed it.)
+
+**The fix (SEAM `mx-triangles-deferred`, PORT_LOCAL_PATCHES.md).** `vrna_mx_mfe_defer_triangles(1)` is a thread-local flag, set by `par_mfe()` around its prepare loop. Under it the default MFE allocator leaves `c` and `fML` NULL. A later `vrna_mx_prepare()` with the flag clear sees them missing and allocates the full set, so CPU callers are untouched.
+
+A/B, same build otherwise, 2000 × 1200, warm-up discarded, ABBA × 2, one sha across all 16 runs (C_mixed = CPU):
+
+| arm | wall old → new (2 reps) | prepare | minor faults | peak RSS | heap span |
+|---|---|---|---|---|---|
+| off | 53.53 / 54.89 → 54.32 / 54.31 | 0.39–0.43 → 0.01 s | 1.42 → 1.32 M | 2333 → 2253 MB | |
+| **N5a** | **60.42 / 59.75 → 54.95 / 55.62** | 3.37–4.41 → 0.01 s | **2.44 → 1.31 M** | **4373 → 3214 MB** | 6.24 → 3.86–3.91 GB |
+| N5 | 52.57 / 52.48 → 52.16 / 52.21 | 0.39–0.42 → 0.01 s | 1.36 → 1.25 M | 2143 → 2065 MB | |
+| both | 51.11 / 52.55 → 52.43 / 52.10 | 0.40–0.44 → 0.01 s | 1.36 → 1.25 M | 2140 → 2061 MB | |
+
+- **N5a's three-chunk penalty falls from ~+5.5 s to ~+1 s** against off. What is left is real: the third chunk's live compounds (RSS 3.2 GB), and the trace sharing cores with the builder (bt 2.0–2.3 s against off's 1.4–1.5 s).
+- **Every arm sheds prepare** (0.4 s → 0.01 s) and 8 % of its faults. Off's wall is neutral within the laptop's spread; the A100's NT shows whether the 0.4 s is worth more there.
+- **What this changes in the plan.** G1 stands: under `RNA_RAM_BUDGET=half` the only lever today is shedding backtrack workers. Measured: 12 → 1, the trace's wait at joins 1.5 → 3.9 s, and peak RSS unmoved at 4.34 GB, since workers cannot release compounds. G2's payoff is now ~1 GB of RSS and the contention, not 3 s of faults. It is re-measured after G1, and built only if it still pays for its race risk.
+
+**Also found: a 2-record chunk.** At 2000 × 1200 the chunks are 416 / 414 / **2** / 414 / 414 / 340: the third is a whole sweep for 2 records. With the build pipeline off there are 5 chunks, not 6. The build pipeline admits chunk 2 against a device that has not yet run chunk 1. By the time the engine folds it, chunk 1 has left some persistent VRAM, so 2 records no longer fit and become their own sub-chunk. Small here (0.14–0.5 s); a chunk costs ~2 s on the A100. Logged as its own item (S2), not part of G1–G3.

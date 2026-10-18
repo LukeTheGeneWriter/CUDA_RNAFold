@@ -1969,6 +1969,13 @@ par_mfe(const int nfiles,
   if(VC[0]->type == VRNA_FC_TYPE_SINGLE) {
     int i;
     const double t_prepare = rnafold_now_seconds();
+    /* ...and without the host c / fML triangles (2026-10-17). The sweep fills them on
+     * the device and the backtrack attaches pooled scratch (or the device traces), so
+     * prepare's two triangles were calloc'd -- zeroed from a reused heap -- and freed
+     * unread below: 2.4 GB per 2000 x 1200 chunk. With the backtrack pipeline's third
+     * resident chunk that churn grew the heap to 6.2 GB of fresh pages (+1.0 M faults,
+     * prepare 0.4 -> 3.3 s; PORT_BACKTRACK_PIPELINE.md §11). */
+    const int defer_prev = vrna_mx_mfe_defer_triangles(1);
     for(i=0;i<nfiles;i++) {
       if(!vrna_fold_compound_prepare(VC[i], VRNA_OPTION_MFE)){
 	vrna_message_warning("vrna_mfe@mfe.c: Failed to prepare vrna_fold_compound");
@@ -1978,6 +1985,7 @@ par_mfe(const int nfiles,
       /* call user-defined recursion status callback function */
       if(VC[i]->stat_cb){ VC[i]->stat_cb(VC[i], VRNA_STATUS_MFE_PRE, VC[i]->auxdata);}  /* PORT: 2.7.2 signature */
     }
+    (void)vrna_mx_mfe_defer_triangles(defer_prev);
     stage_prepare_s += rnafold_now_seconds() - t_prepare;
   }
 
@@ -2014,7 +2022,8 @@ par_mfe(const int nfiles,
      */
     (void)rnafold_gq_upload(nfiles, VC);
 
-    // Release every record's c/fML now. Nothing reads either between here and
+    // Release every record's c/fML now (NULL already when prepare deferred them, as
+    // above; a compound prepared elsewhere may still carry them). Nothing reads either between here and
     // backtrack_one(), which reattaches a pooled scratch pair per record --
     // new_c_host stopped writing My_c in a1430bd, fml_host stopped writing
     // My_fML in 89e5721, and the dead prefill went in 4b2a18b, so the sweep
