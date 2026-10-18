@@ -294,3 +294,49 @@ Notes:
   wherever the builder defaults to nproc; P4 sweeps it under full heterogeneous load (§6).
 - **The bar run was once reaped for host memory** (a coverage build was running beside it); the rerun of the
   remaining bars is the one recorded here.
+
+## 11. The AUTO gate: what it must price, and the plan (PROPOSED 2026-10-17, awaiting sign-off)
+
+**What §3.5's gate misses.** §3.5 gates AUTO on VRAM and host memory. With the build pipeline also on, N5a keeps
+three chunks' compounds alive during a sweep: k−1 retired and tracing, k sweeping, k+1 building. On the laptop that
+costs more than memory. E1 (2000 × 1200 and 2000 × 600, same binary, warm-up discarded, ABBA × 2, one sha per
+shape; steady-state rep shown, rep 0 at 1200 straddled the laptop's clock change):
+
+| 2000 × 1200 | wall | prepare | sys | minor faults | peak RSS |
+|---|---|---|---|---|---|
+| off | 54.39 | 0.43 | 31.9 | 1.42 M | 2333 MB |
+| N5a | 58.40 | 3.30 | 38.2 | **2.44 M** | **4373 MB** |
+| off, build pipeline off | 55.81 | 0.38 | 32.5 | 1.42 M | 1388 MB |
+| N5a, build pipeline off | 56.76 | 0.26 | 36.3 | 1.42 M | 2223 MB |
+| off, malloc_trim a no-op | 55.60 | 1.12 | 32.2 | 0.76 M | 2517 MB |
+| N5a, malloc_trim a no-op | 60.21 | 4.29 | 38.7 | 1.73 M | **6315 MB** |
+| off, glibc malloc on THP | 59.09 | 4.90 | 37.1 | 1.28 M | 4512 MB |
+| N5a, glibc malloc on THP | 58.29 | 3.35 | 37.2 | 1.28 M | 5490 MB |
+
+At 2000 × 600 (two chunks, so never a third) every arm is 14.9–15.5 s with equal faults.
+
+- **The cost is the third resident chunk.** About 1.0 M fresh-page faults (≈ 4 GB of first touches), +6 s of system time, +2.9 s of prepare, RSS × 1.9. On this host a fault costs ~6 µs. It appears with 2.4 GB still free and no swap, so **a memory gate cannot price it.** Its size on another host is that host's fault cost, which NT / NH now report (prepare, minor faults, RSS per arm).
+- **Not the trim.** Without `malloc_trim` the extra faults remain (+0.97 M) and RSS reaches 6.3 GB. The trim (45c63f7c) stays.
+- **Not huge pages.** `glibc.malloc.hugetlb=1` makes every arm worse (off's prepare 4.9 s, RSS +2.2 GB). Never set it.
+- **Not fragmentation.** One arena was worse (prepare 4.9 s; PORT_DEVICE_BACKTRACK.md).
+- **The trace also waits.** With both pipelines on, the trace waited 1.8 s at joins: the builder's threads and the trace's threads share the cores.
+- **On this laptop N5a never wins.** Even alone it is +0.95 s (+1.7 %) against off with the build pipeline off. Its prize (backtrack 26.6 % exposed at 400 × 5601) is the A100's to show.
+
+**Plan.**
+- **G1. The RAM model counts the retained chunk (laptop; needed whatever the default).** `vrna_budget_held()` gets the retained set while it lives, so the build pipeline's gate and the worker sizing see three chunks when there are three. Bar: under `RNA_RAM_BUDGET=half` with both pipelines on, peak RSS stays within the budget (today 4.34 GB against 3.39), and the output is identical.
+- **G2. Two chunks resident, both overlaps kept (laptop-measurable; the fix).** Per chunk, a trace (~0.5 s here) and a build (~0.6 s) both fit inside one sweep (~9 s). So serialise them inside the sweep window: the builder waits until chunk k−1's trace is finished and its compounds freed before it allocates k+1. That requires finishing a chunk (output dispatch + free) when its trace completes, on the trace side, not at main's join after the next sweep.
+  - Expected: prepare back to ~0.4 s, faults ≈ off, RSS ≈ off's 2.3 GB, both overlaps still hidden.
+  - Risk: output and free move off the main thread, so a race audit is needed. Output order already comes from the ostream slots, which `-j` relies on. The stage timers, record trace and budget slots it touches must be audited too.
+  - Bars: the standing set, `bt_pipeline_check` with both negative controls, and a new assertion that peak RSS ≤ the two-chunk model with both pipelines on.
+  - Rejected alternatives: (a) the builder waits for main's join, which loses the build overlap; (b) AUTO runs only one of the two pipelines, simple but it gives up N5a wherever it would help.
+- **G3. `RNA_BT_PIPELINE=auto` (build now; the default stays 0).** On when:
+  - the input has more than one chunk;
+  - VRAM fits two retained sets;
+  - RAM fits per G1's model;
+  - there are at least 4 hardware threads (2 cores were +8.5 %);
+  - the chunk is not device-traced (P2d).
+
+  The default moves from 0 to auto only if the A100's NT / NH show the **whole run's wall** faster beyond spread, under full heterogeneous load too (the Q7 rule applies to N5a as well).
+- **If N5 becomes the default,** N5a acts only on chunks the device trace refuses (non-default models). The prize narrows, G1 still matters, and G2 matters less.
+
+Order: G1 → G2 → G3, each committed with its bars green.
