@@ -489,6 +489,11 @@ ly_carry3_kernel(const int i, const int length, const int negctl,
   ly_carry3_body<CREAD, PT, RING>(i, length, negctl, P, pair_, S, hccc, up_int, my_c, c_ring, c_ring_stride, tri_off_H, row_off_H, hc_off_H, row_total, Gp, Gc, Er, stat);
 }
 
+/* C13 (PORT_BUILD_AUDIT.md B4): 128 x 16 = 2048 threads per SM, which is sm_80's (A100)
+ * limit, where it was tuned and is honoured. sm_86/89 allow 1536, so ptxas there ignores
+ * the 16 ("minnctapersm will be ignored") and this kernel compiles as plain
+ * __launch_bounds__(128). It is the opt-in RNA_INT_LOOP_LYNGSO_LB=1 path; a per-arch
+ * value would be an A/B on that hardware, not a cleanup. */
 template<class CREAD, int PT>
 __global__ void
 __launch_bounds__(128, 16)
