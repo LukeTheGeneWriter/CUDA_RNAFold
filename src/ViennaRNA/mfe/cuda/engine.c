@@ -54,6 +54,7 @@
 unsigned int vrna_cuda_device_count(void);
 size_t       vrna_cuda_device_memory_total(void);
 const char   *vrna_cuda_device_name_0(void);
+size_t       vrna_cuda_struct_size_dev(int which);
 #endif
 
 /*
@@ -827,11 +828,59 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
 }
 
 
+#ifdef VRNA_WITH_CUDA
+/* C10 (PORT_BUILD_AUDIT.md B2): do the host and the device translation units agree on
+ * the layout of what they share? nvcc once compiled without config.h, so device code saw
+ * a vrna_fold_compound_t without its VRNA_WITH_SVM tail and nothing said so. A mismatch
+ * now refuses the backend, loudly, rather than letting a device read land on the wrong
+ * member. Checked once; the answer cannot change within a process. */
+PRIVATE int
+cuda_layout_agrees(void)
+{
+  static int verdict = -1;
+
+  if (verdict < 0) {
+    const size_t host[3] = {
+      sizeof(vrna_fold_compound_t), sizeof(vrna_md_t), sizeof(vrna_param_t)
+    };
+    const char   *name[3] = {
+      "vrna_fold_compound_t", "vrna_md_t", "vrna_param_t"
+    };
+    int          i;
+
+    verdict = 1;
+    for (i = 0; i < 3; i++) {
+      const size_t dev = vrna_cuda_struct_size_dev(i);
+
+      if (dev != host[i]) {
+        fprintf(stderr,
+                "%-24s BUILD ERROR: %s is %zu bytes on the host and %zu in the CUDA code "
+                "(they were compiled with different configurations) -- the GPU backend "
+                "is disabled; folding on the CPU\n", "mfe/cuda/engine.c", name[i], host[i],
+                dev);
+        verdict = 0;
+      }
+    }
+  }
+
+  return verdict;
+}
+
+
+#endif
+
+
 PUBLIC unsigned int
 vrna_cuda_register_batch_backend(void)
 {
   if (vrna_cuda_devices() == 0)
     return 0;
+
+#ifdef VRNA_WITH_CUDA
+  if (!cuda_layout_agrees())
+    return 0;
+
+#endif
 
   return vrna_mfe_batch_backend_set(&cuda_batch_cb, NULL);
 }

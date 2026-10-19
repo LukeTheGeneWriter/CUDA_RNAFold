@@ -910,13 +910,30 @@ NVCC_COMPILE = $(SHELL) $(srcdir)/mfe/cuda/nvcc-libtool.sh $(NVCC_BIN)
 ## --enable-asserts. Kept separate from NVCC_FLAGS because appending to that
 ## inside the asserts macro lands on the wrong side of RNA_ENABLE_CUDA's own
 ## assignment and is silently lost.
+##
+## C10 (PORT_BUILD_AUDIT.md B2): $(DEFS) $(DEFAULT_INCLUDES) $(RNA_CPPFLAGS) give nvcc the
+## preprocessor view the C side has. Without them config.h was never read, and device code
+## saw a vrna_fold_compound_t without its VRNA_WITH_SVM tail. Every .cu now #errors if
+## HAVE_CONFIG_H is missing, and engine.c compares the shared struct sizes at run time.
+##
+## C10 (B1): -MD writes each object's real header dependencies (config.h and every
+## ViennaRNA header included) to mfe/cuda/$(DEPDIR)/<name>.Plo, read back below. The
+## hand-written prerequisites stay for the first build, before any .Plo exists. Without
+## this a reconfigure, or an edit to fold_compound.h, rebuilt no .cu file at all.
 NVCC_ALL_FLAGS = -ccbin $(NVCC_HOST_CC) $(NVCC_FLAGS) $(NVCC_ASSERT_FLAGS) \
-	  -I$(top_srcdir)/src -I$(top_builddir)/src -I$(srcdir)/mfe/cuda
+	  $(DEFS) $(DEFAULT_INCLUDES) $(RNA_CPPFLAGS) \
+	  -I$(top_srcdir)/src -I$(top_builddir)/src -I$(srcdir)/mfe/cuda \
+	  -MD -MT $@ -MF mfe/cuda/$(DEPDIR)/$(@F:.lo=.Plo)
+
+NVCC_DEPFILES = mfe/cuda/$(DEPDIR)/device.Plo mfe/cuda/$(DEPDIR)/modular_decomposition.Plo \
+                mfe/cuda/$(DEPDIR)/int_loop.Plo mfe/cuda/$(DEPDIR)/hp_mb_loop.Plo \
+                mfe/cuda/$(DEPDIR)/bt_device.Plo mfe/cuda/$(DEPDIR)/gquad.Plo
+-include $(NVCC_DEPFILES)
 
 mfe/cuda/device.lo: $(srcdir)/mfe/cuda/device.cu \
                     $(srcdir)/mfe/cuda/bt_retired.h \
                     $(srcdir)/mfe/cuda/bt_device.h
-	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(AM_V_at)$(MKDIR_P) mfe/cuda/$(DEPDIR)
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
 	  -c $(srcdir)/mfe/cuda/device.cu -o mfe/cuda/device.lo
@@ -928,7 +945,7 @@ mfe/cuda/modular_decomposition.lo: $(srcdir)/mfe/cuda/modular_decomposition.cu \
                                    $(srcdir)/mfe/cuda/md_chain_cells.inc \
                                    $(srcdir)/mfe/cuda/md_sparse.inc \
                                    $(srcdir)/mfe/cuda/md_dev.h
-	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(AM_V_at)$(MKDIR_P) mfe/cuda/$(DEPDIR)
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
 	  -c $(srcdir)/mfe/cuda/modular_decomposition.cu -o mfe/cuda/modular_decomposition.lo
@@ -943,7 +960,7 @@ mfe/cuda/int_loop.lo: $(srcdir)/mfe/cuda/int_loop.cu \
                       $(srcdir)/mfe/cuda/int_loop_cell.inc \
                       $(srcdir)/mfe/cuda/int_loop_cells.inc \
                       $(srcdir)/mfe/cuda/int_loop_dev.h
-	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(AM_V_at)$(MKDIR_P) mfe/cuda/$(DEPDIR)
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
 	  -c $(srcdir)/mfe/cuda/int_loop.cu -o mfe/cuda/int_loop.lo
@@ -953,7 +970,7 @@ mfe/cuda/hp_mb_loop.lo: $(srcdir)/mfe/cuda/hp_mb_loop.cu \
                         $(srcdir)/mfe/cuda/hp_mb_cells.inc \
                         $(srcdir)/mfe/cuda/fml_scan_block.inc \
                         $(srcdir)/mfe/cuda/hp_mb_dev.h
-	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(AM_V_at)$(MKDIR_P) mfe/cuda/$(DEPDIR)
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
 	  -c $(srcdir)/mfe/cuda/hp_mb_loop.cu -o mfe/cuda/hp_mb_loop.lo
@@ -968,7 +985,7 @@ mfe/cuda/bt_device.lo: $(srcdir)/mfe/cuda/bt_device.cu \
                        $(srcdir)/mfe/cuda/interior_loopx.h \
                        $(srcdir)/mfe/cuda/int_loop_dev.h \
                        $(srcdir)/mfe/cuda/hp_mb_dev.h
-	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(AM_V_at)$(MKDIR_P) mfe/cuda/$(DEPDIR)
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
 	  -c $(srcdir)/mfe/cuda/bt_device.cu -o mfe/cuda/bt_device.lo
@@ -979,7 +996,7 @@ mfe/cuda/bt_device.lo: $(srcdir)/mfe/cuda/bt_device.cu \
 mfe/cuda/gquad.lo: $(srcdir)/mfe/cuda/gquad.cu \
                    $(srcdir)/mfe/cuda/gquad_dev.h \
                    $(srcdir)/mfe/cuda/stub2.h
-	$(AM_V_at)$(MKDIR_P) mfe/cuda
+	$(AM_V_at)$(MKDIR_P) mfe/cuda/$(DEPDIR)
 	$(nvcc_verbose)$(LIBTOOL) --tag=CC --mode=compile \
 	  $(NVCC_COMPILE) $(NVCC_ALL_FLAGS) \
 	  -c $(srcdir)/mfe/cuda/gquad.cu -o mfe/cuda/gquad.lo
@@ -989,7 +1006,8 @@ CLEANFILES = mfe/cuda/device.lo mfe/cuda/device.$(OBJEXT) \
              mfe/cuda/int_loop.lo mfe/cuda/int_loop.$(OBJEXT) \
              mfe/cuda/hp_mb_loop.lo mfe/cuda/hp_mb_loop.$(OBJEXT) \
              mfe/cuda/gquad.lo mfe/cuda/gquad.$(OBJEXT) \
-             mfe/cuda/bt_device.lo mfe/cuda/bt_device.$(OBJEXT)
+             mfe/cuda/bt_device.lo mfe/cuda/bt_device.$(OBJEXT) \
+             $(NVCC_DEPFILES)
 endif
 
 ## distributed whether or not CUDA is enabled, so `make dist` from a

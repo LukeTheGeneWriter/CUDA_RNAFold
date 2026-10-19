@@ -8,11 +8,23 @@
  *  of kernels arrive.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#else
+/* C10 (PORT_BUILD_AUDIT.md B2): without config.h this TU sees a shorter
+ * vrna_fold_compound_t (VRNA_WITH_SVM) than the host does, silently. */
+#error "a .cu file must be compiled with -DHAVE_CONFIG_H (see NVCC_ALL_FLAGS)"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <cuda_runtime.h>
+
+#include "ViennaRNA/model.h"
+#include "ViennaRNA/params/basic.h"
+#include "ViennaRNA/fold_compound.h"   /* C10: vrna_cuda_struct_size_dev() */
 
 #include "bt_retired.h"   /* N5a: the retired chunk */
 #include "bt_device.h"    /* N5: a set's device-trace copies, freed with it */
@@ -146,6 +158,25 @@ vrna_cuda_device_memory_total(void)
   }
 
   return (size_t)p.totalGlobalMem;
+}
+
+
+/* C10 (PORT_BUILD_AUDIT.md B2): the sizes of the structs host and device code share, as
+ * a device translation unit sees them. engine.c compares them with its own and refuses
+ * the backend on a mismatch. 0 = vrna_fold_compound_t, 1 = vrna_md_t, 2 = vrna_param_t. */
+extern "C" size_t
+vrna_cuda_struct_size_dev(int which)
+{
+  switch (which) {
+    case 0:
+      return sizeof(vrna_fold_compound_t);
+    case 1:
+      return sizeof(vrna_md_t);
+    case 2:
+      return sizeof(vrna_param_t);
+  }
+
+  return 0;
 }
 
 

@@ -18,6 +18,10 @@
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#else
+/* C10 (PORT_BUILD_AUDIT.md B2): without config.h this TU sees a shorter
+ * vrna_fold_compound_t (VRNA_WITH_SVM) than the host does, silently. */
+#error "a .cu file must be compiled with -DHAVE_CONFIG_H (see NVCC_ALL_FLAGS)"
 #endif
 
 #include <stdio.h>

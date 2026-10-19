@@ -2074,6 +2074,22 @@ gpu_activate(struct options *opt)
       gpu_enabled      = (ndev > 0) && (gpu_mode == GPU_MODE_PENDING);
     }
 
+    /* REGISTER BEFORE ANNOUNCING (C10). The backend can refuse -- a build whose host and
+     * device code disagree on a struct layout -- and an ON line printed first would then
+     * be a false claim. One of only TWO places this driver names CUDA -- the other is
+     * the vrna_cuda_devices() probe above. After this call the driver asks for batches
+     * through vrna_mfe_batch() and the library decides; every other line of the chunking
+     * machinery is backend-agnostic, which is the claim that actually matters and the one
+     * MERGING.md repeats. CIRCULAR: the VRAM model must know BEFORE the first chunk is
+     * sized, because fM2_real is a second full triangle per record. */
+    if (gpu_enabled) {
+      rnafold_circ_expect(opt->md.circ);
+      if (!vrna_cuda_register_batch_backend()) {
+        gpu_enabled = 0;
+        why         = "the CUDA backend refused to register (see the line above)";
+      }
+    }
+
     if ((!gpu_enabled) && (!why))
       why = "no CUDA device is visible";
 
@@ -2125,16 +2141,6 @@ gpu_activate(struct options *opt)
     }
 
     if (gpu_enabled) {
-      /* One of only TWO places this driver names CUDA -- the other is the
-       * vrna_cuda_devices() probe 20 lines up, which is why this comment used
-       * to say "the one and only" and was wrong. After this call the driver
-       * asks for batches through vrna_mfe_batch() and the library decides;
-       * every other line of the chunking machinery is backend-agnostic, which
-       * is the claim that actually matters and the one MERGING.md repeats. */
-      /* CIRCULAR: the VRAM model must know BEFORE the first chunk is sized,
-       * because fM2_real is a second full triangle per record. */
-      rnafold_circ_expect(opt->md.circ);
-      vrna_cuda_register_batch_backend();
       /* N5a: RNA_BT_PIPELINE=1 lets a chunk's backtrack run beside the next
        * sweep; its answers come back through bt_chunk_done(). */
       if (rnafold_bt_pipeline())
