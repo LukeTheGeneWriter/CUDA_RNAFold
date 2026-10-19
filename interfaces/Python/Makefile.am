@@ -188,7 +188,10 @@ CLEANFILES = \
     ViennaRNA/__pycache__/* \
     $(srcdir)/*.pyc
 
-all-local:  RNA/_RNA$(PYTHON3_SO)
+## RNA/RNA.py too (C11, PORT_BUILD_AUDIT.md B12): it was reached only through the .pyc
+## rules, so after an interface change the build-tree package paired a new _RNA with the
+## old proxy, and a new function was missing from `import RNA`.
+all-local:  RNA/_RNA$(PYTHON3_SO) RNA/RNA.py
 
 clean-local:
 	-rm -rf $(CLEANFILES)
