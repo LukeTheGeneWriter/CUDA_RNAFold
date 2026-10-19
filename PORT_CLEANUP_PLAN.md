@@ -458,3 +458,20 @@ vs `RNA_ROW_FUSE=1` (needs overlap 0) and vs `RNA_MD_TILE_CB=1024` (needs overla
 each with its matched control and its ACTIVE line asserted, at 400 × 5601 and 3000 × 1200 (Q6: a path pays only if
 faster than the default beyond spread at 400 × 5601 and not slower at 3000 × 1200; otherwise it is canned).
 Rehearsed on the laptop end to end: three trees, one sha per fixture; ACTIVE 6/6 for each path.
+
+## 10. Build hygiene, from the build audit (2026-10-18)
+
+Findings B1-B8 of `PORT_BUILD_AUDIT.md`, folded in as four more phases. B9-B11 need no
+action (stock libtool, optional upstream dependencies, upstream's own gcc 15 warnings).
+As before: one commit per phase, with bars after each.
+
+| Phase | Findings | Content | Behaviour change | Bar beyond the standing ones |
+|---|---|---|---|---|
+| C10 | B1, B2 | `.cu` rules: nvcc writes dependency files (`-MD -MF`, included by `Makefile.am`), and `NVCC_ALL_FLAGS` gains `$(DEFS)` and the `-D` flags the C side gets | none (device TUs see the full `vrna_fold_compound_t`) | **positive evidence of the fix:** after `touch config.h` and after touching `fold_compound.h`, every `.cu` file recompiles (counted in `make V=1`); `sizeof(vrna_fold_compound_t)` printed from a host TU and a device TU are equal (negctl: today's flags, unequal) |
+| C11 | B3, B12 | `RNAlib2.pc.in`: `Libs.private: -lm @CUDA_LIBS@`; `RNA/RNA.py` joins `all-local` in `interfaces/Python/Makefile.am` | none | the audit's static program that calls `vrna_cuda_devices()` links with `pkg-config --static` flags alone and prints `devices 1` (negctl: today's `.pc`, undefined `cuda*`); the CPU-only build's `.pc` carries no `-lcudart` |
+| C12 | B5-B8 | Correct the stale ".cu files never see -DNDEBUG" comments (`hp_mb_cells.inc` x3, `fml_scan_block.inc`: `NVCC_ASSERT_FLAGS` has carried it since the asserts macro; Bill Langdon, 2026-10-19); delete dead variables and `E_int_loop`; drop `gpuAssert`'s stray `file`; `%zu` at `mfe_cuda.c:1343`; drop the unkept `const` from `par_mfe()`'s compound chain; the `-Wextra` leftovers in `gpu_batch.c`, `RNAfold.c`, `mfe_cuda.c`; look at the signedness in `mb_loop_fast.c` before changing it | none | the audit's A1/A2 greps report none of our files (the `fill_arrays_loop.c` lines are an artefact: it is `#include`d, not a translation unit); refcheck byte-identical |
+| C13 | B4 | `ly_carry3_lb_kernel`'s `__launch_bounds__` minimum-blocks hint: compile for sm_80 locally and read ptxas | none if the hint is ignored on sm_80 too (then it is deleted; SASS identical is the bar) | if sm_80 honours it, it stays, with the architecture it was tuned on in the comment, and a per-arch value is an A100 A/B item, not cleanup |
+
+Not folded: the zeroconf harness speed-ups (`--disable-lto --disable-static` on the throwaway
+copies, no restore rebuild). They change the harness, not the product, and are proposed
+separately (PORT_SHORT_SEQUENCES.md section 7).
