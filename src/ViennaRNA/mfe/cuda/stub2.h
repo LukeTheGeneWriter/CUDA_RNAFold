@@ -113,7 +113,7 @@ extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
+init_gpu2(const int nfiles, vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* tri_off_H, const size_t* row_off_H, //in, both nfiles+1 entries -- see compute_batch_offsets()
           const size_t* cap_H); //in, nfiles record capacities in nt
 
@@ -122,7 +122,7 @@ extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
+init_gpu3(const int nfiles, vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* row_off_H, //in, nfiles+1 entries -- see compute_batch_offsets()
           const size_t* cap_H); //in, nfiles record capacities in nt
 
@@ -233,7 +233,7 @@ extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
+hp_mb_3p_i(const int nfiles, vrna_fold_compound_t **VC,
 	   const int i, const int turn, const int length,
 	   int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row, //all out
 	   char* gate_row, //out -- bit0 = hc->matrix[ij]!=0, bit1 = ptype[ij] is GU/UG
@@ -257,7 +257,7 @@ extern "C" /*PUBLIC*/ void
 PUBLIC void
 #endif
 int_loop_i(const int nfiles,
-	   const vrna_fold_compound_t **VC,
+	   vrna_fold_compound_t **VC,
 	   const int i, const int turn, const int length,
 	   /*const int* indx, const int ijsize,
 	   const char* hard_constraints, const int* my_c,*/
@@ -268,8 +268,8 @@ int_loop_i(const int nfiles,
 
 PUBLIC void
 par_mfe(const int nfiles,
-	const vrna_fold_compound_t** VC,
-	const char** Structure,
+	vrna_fold_compound_t** VC,
+	char** Structure,
 	float* EN, //out
 	const int cpu_queue_threads); //RNAfold.c's already-resolved RNA_CPU_THREADS count, for RNA_BACKTRACK_THREADS=auto sizing
 
@@ -291,7 +291,7 @@ extern "C" /*PUBLIC*/ void
 #else
 PUBLIC void
 #endif
-compute_slot_capacities(const int nfiles, const vrna_fold_compound_t **VC,
+compute_slot_capacities(const int nfiles, vrna_fold_compound_t **VC,
                         const int length, size_t* cap_H); //out, nfiles record capacities in nt
 
 #ifdef __cplusplus
@@ -463,7 +463,7 @@ void  fetch_fm2_one(int *dst, const size_t tri_lo, const size_t cells);
 #ifdef __cplusplus
 extern "C" {
 #endif
-int  rnafold_gq_upload(const int nfiles, const vrna_fold_compound_t **VC);
+int  rnafold_gq_upload(const int nfiles, vrna_fold_compound_t **VC);
 void rnafold_gq_free(void);
 int  rnafold_gq_active(void);
 int  rnafold_gq_probe(const size_t n, const int *pH, const unsigned int *pi,
@@ -626,7 +626,7 @@ PUBLIC void          rnafold_md_ring_select(const int i);   /* modular_decomposi
 PUBLIC void          rnafold_cc_ring_select(const int i, const int fill);   /* hp_mb_loop.cu */
 /* RNA_ROW_FUSE: hp_mb_3p + new_c + load_my_c as one launch. 1 = handled, 0 = run
  * the three phases separately (noLP and RNA_STREAM_OVERLAP are refused). */
-PUBLIC int           row_cells_i(const int nfiles, const vrna_fold_compound_t **VC,
+PUBLIC int           row_cells_i(const int nfiles, vrna_fold_compound_t **VC,
                                  const int i, const int turn, const int length,
                                  const int noGUclosure, const int noLP,
                                  const size_t* size_off_H, const int* i_H);
@@ -862,7 +862,7 @@ rnafold_pinned_free(void *p, int pinned) {
 #endif
 
 PRIVATE void
-par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy);
+par_fill_arrays(const int nfiles, vrna_fold_compound_t **VC, int* Energy);
 
 int
 mb_loop_fast( vrna_fold_compound_t *vc,

@@ -92,11 +92,6 @@ static size_t       *d_gq_ent_off  = NULL;   /* [nfiles+1] into v/col         */
 static size_t       *d_gq_row_off  = NULL;   /* [nfiles+1] into rowoff        */
 static int           g_gq_active   = 0;      /* did anything get uploaded?    */
 
-/* Sizes kept for the read-back bar and for free(). */
-static size_t        g_gq_entries  = 0;
-static size_t        g_gq_rowslots = 0;
-static int           g_gq_nfiles   = 0;
-
 
 /*
  * The lookup, mirroring vrna_smx_csr_int_get() line for line.
@@ -161,9 +156,6 @@ rnafold_gq_free(void)
   d_gq_ent_off = NULL;
   d_gq_row_off = NULL;
   g_gq_active  = 0;
-  g_gq_entries = 0;
-  g_gq_rowslots = 0;
-  g_gq_nfiles  = 0;
 }
 
 
@@ -218,9 +210,6 @@ rnafold_gq_upload_flat(const int           nfiles,
     return -1;
   }
 
-  g_gq_entries  = entries;
-  g_gq_rowslots = rowslots;
-  g_gq_nfiles   = nfiles;
   g_gq_active   = 1;
 
   if (!vrna_cuda_quiet()) fprintf(stderr, "gquad.cu                 c_gq uploaded: %d records, %zu "
@@ -313,7 +302,6 @@ out:
  */
 
 static int    *d_gq_row      = NULL;   /* g_row_total ints, like energy_*_row */
-static size_t  g_gq_row_total = 0;
 
 
 __global__ void
@@ -361,7 +349,6 @@ rnafold_gq_row_alloc(const size_t row_total)
     d_gq_row = NULL;
   }
 
-  g_gq_row_total = 0;
 
   if ((!g_gq_active) || (row_total == 0))
     return 0;                        /* nothing uploaded: no row buffer needed */
@@ -372,7 +359,6 @@ rnafold_gq_row_alloc(const size_t row_total)
     return -1;
   }
 
-  g_gq_row_total = row_total;
 
   return 1;
 }
@@ -385,7 +371,6 @@ rnafold_gq_row_free(void)
     cudaFree(d_gq_row);
 
   d_gq_row = NULL;
-  g_gq_row_total = 0;
 }
 
 

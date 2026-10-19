@@ -55,11 +55,11 @@ mb_loop_fast( vrna_fold_compound_t *vc,
   unsigned char type, tt;
   char          *ptype, *hc, eval_loop, el;
   short         S_i1, S_j1, *S;
-  int           decomp, en, e, cp, *indx, *hc_up, *fc, ij, hc_decompose,
+  int           decomp, en, e, cp, *indx, *fc, ij, hc_decompose,
                 dangle_model, *rtype;
+  unsigned int  *hc_up;     /* C12: 2.7.2's hc->up_ml is unsigned (was int) */
   vrna_sc_t     *sc;
   vrna_param_t  *P;
-  vrna_ud_t     *domains_up;
 #ifdef WITH_GEN_HC
   vrna_callback_hc_evaluate *f;
 #endif
@@ -78,7 +78,6 @@ mb_loop_fast( vrna_fold_compound_t *vc,
   dangle_model  = P->model_details.dangles;
   rtype         = &(P->model_details.rtype[0]);
   type          = (unsigned char)ptype[ij];
-  domains_up    = vc->domains_up;
   /* init values */
   e             = 0;//INF;
   decomp        = 0;//INF;

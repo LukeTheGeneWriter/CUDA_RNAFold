@@ -219,7 +219,6 @@ postscript_layout(vrna_fold_compound_t  *fc,
 
   char  *ligandMotif = opt->ligandMotif;
   char  *filename_delim = opt->filename_delim;
-  int   verbose = opt->verbose;
 
   filename_plot = generate_filename("%s%sss.ps",
                                     "rna.ps",

@@ -55,7 +55,7 @@ void min_fml(const int i, const int j, const int* my_fML, const int* DMLi, const
 #define Indx(H,i,j)            (VC[H]->jindx[j]+i)
 
 PRIVATE void
-par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) {
+par_fill_arrays(const int nfiles, vrna_fold_compound_t **VC, int* Energy) {
 
   {
     static int phase_timing_registered = 0;
@@ -66,9 +66,8 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     }
   }
 
-  unsigned char     type;
 //char              *ptype, *hard_constraints;
-  int               i, j, ij, length, /*energy,*/ new_c, /*stackEnergy,*/ no_close, turn,
+  int               i, j, length, /*energy,*/ new_c, /*stackEnergy,*/ no_close, turn,
                     noGUclosure, noLP, uniq_ML, /*dangle_model, *indx, *my_f5,
                     my_c, *my_fML, *my_fM1,*/ hc_decompose, /* *cc, *cc1, *Fmi,*/ *DMLi,
                     *DMLi1, *DMLi2,
@@ -400,8 +399,6 @@ par_fill_arrays(const int nfiles, const vrna_fold_compound_t **VC, int* Energy) 
     return;
   }
 
-  const int ijsize = (length+1)*(length+2)/2;
-  //fprintf(stderr,"fill_arrays(vc) length %d, ijsize %d\n",length,ijsize);
 
   // energy_hp/energy_mb/energy_3p_00/energy_3p_en (hairpin loop, multibranch
   // loop, and 3' multibranch-stem-extension energies) used to be precomputed

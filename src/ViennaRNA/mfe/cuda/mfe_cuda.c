@@ -581,7 +581,7 @@ rnafold_dbt_negctl(void) {
  * nothing else, including -T and -P, which come back one at a time with their bars (P3).
  * The device reads VC[0]'s tables for every record, as the sweep does (sanity()). */
 PRIVATE const char *
-dbt_refusal(const int nfiles, const vrna_fold_compound_t **VC, const char **Structure) {
+dbt_refusal(const int nfiles, vrna_fold_compound_t **VC, char **Structure) {
   if(vrna_cuda_keeping_matrices())
     return "the caller keeps the matrices (vrna_cuda_keep_matrices)";
   if(VC[0]->params->param_file[0])
@@ -624,7 +624,7 @@ dbt_refusal(const int nfiles, const vrna_fold_compound_t **VC, const char **Stru
 
 /* One banner per reason per run (the reasons are literals, so the pointer is the key). */
 PRIVATE int
-dbt_accept(const int nfiles, const vrna_fold_compound_t **VC, const char **Structure) {
+dbt_accept(const int nfiles, vrna_fold_compound_t **VC, char **Structure) {
   static const char *said[32];
   static int         nsaid = 0;
   const char        *why   = dbt_refusal(nfiles, VC, Structure);
@@ -681,8 +681,8 @@ typedef struct {
   rnafold_retired_t           *ret;
   int                          nfiles, length, cpu_queue_threads;
   size_t                       cells;
-  const vrna_fold_compound_t **VC;
-  const char                 **Structure;
+  vrna_fold_compound_t **VC;
+  char                 **Structure;
   float                       *EN;
   int                         *energy;     /* heap: par_mfe()'s is a VLA */
   size_t                      *tri_off_H;  /* heap copy, nfiles+1 */
@@ -753,14 +753,14 @@ rnafold_bt_pipeline_join(const int why) {
 }
 
 PRIVATE void
-backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
-              const char **Structure, int *energy, float *EN,
+backtrack_all(const int nfiles, vrna_fold_compound_t **VC,
+              char **Structure, int *energy, float *EN,
               const size_t *tri_off_H, const int cpu_queue_threads,
               const rnafold_retired_t *ret);
 
 PRIVATE void
-trace_retired(const int nfiles, const vrna_fold_compound_t **VC,
-              const char **Structure, int *energy, float *EN,
+trace_retired(const int nfiles, vrna_fold_compound_t **VC,
+              char **Structure, int *energy, float *EN,
               const size_t *tri_off_H, const int cpu_queue_threads,
               const rnafold_retired_t *ret);
 
@@ -1194,7 +1194,7 @@ bt_pool_get(const int n) {
  * nothing. */
 PRIVATE void
 bt_pool_prepare(bt_scratch_t *pool, const int n, const int nfiles,
-                const vrna_fold_compound_t **VC) {
+                vrna_fold_compound_t **VC) {
   size_t cells_max = 0;
   int    want_fm2  = 0;
 
@@ -1211,8 +1211,8 @@ bt_pool_prepare(bt_scratch_t *pool, const int n, const int nfiles,
 }
 
 typedef struct {
-  const vrna_fold_compound_t **VC;
-  const char                 **Structure;
+  vrna_fold_compound_t **VC;
+  char                 **Structure;
   int                         *energy;  /* now an OUTPUT: filled here, not by par_fill_arrays() */
   float                        *EN;
   int                           nfiles;
@@ -1340,7 +1340,7 @@ backtrack_finish_slot(backtrack_pool_args_t *a, const int idx, bt_scratch_t *sc)
       }
     }
 
-    fprintf(stderr, "RNA_CIRC_VERIFY: record len %u -- %u cells disagree\n",
+    fprintf(stderr, "RNA_CIRC_VERIFY: record len %zu -- %u cells disagree\n",
             len, bad);
     if(bad)
       exit(EXIT_FAILURE);
@@ -1497,7 +1497,7 @@ backtrack_worker(void *arg) {
 // own length. par_mfe() publishes the table (rnafold_chunk_capacities()) and
 // par_fill_arrays() reads it, because both address the SAME device buffers.
 PUBLIC void
-compute_slot_capacities(const int nfiles, const vrna_fold_compound_t **VC,
+compute_slot_capacities(const int nfiles, vrna_fold_compound_t **VC,
                         const int length, size_t* cap_H) {
   (void)length;
   for(int H=0; H<nfiles; H++)
@@ -1568,8 +1568,8 @@ compute_flatten_offsets(const int nfiles, const size_t* width_H, size_t* flat_of
 // backtracked. Everything it needs is an argument, so N5a P2 can run it on a
 // trace thread for the previous chunk.
 PRIVATE void
-backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
-              const char **Structure, int *energy, float *EN,
+backtrack_all(const int nfiles, vrna_fold_compound_t **VC,
+              char **Structure, int *energy, float *EN,
               const size_t *tri_off_H, const int cpu_queue_threads,
               const rnafold_retired_t *ret) {
   int i;
@@ -1680,7 +1680,7 @@ backtrack_all(const int nfiles, const vrna_fold_compound_t **VC,
 /* N5 P2c: RNA_DEVICE_BT=verify -- the host trace has just written its answers; each
  * record's device answer must equal them, structure, energy and every f5 cell. */
 PRIVATE void
-dbt_verify(const int nfiles, const vrna_fold_compound_t **VC, const char **Structure,
+dbt_verify(const int nfiles, vrna_fold_compound_t **VC, char **Structure,
            const int *energy, const rnafold_retired_t *ret) {
   for(int H = 0; H < nfiles; H++) {
     const vrna_fold_compound_t *vc = VC[H];
@@ -1718,8 +1718,8 @@ dbt_verify(const int nfiles, const vrna_fold_compound_t **VC, const char **Struc
  * the device the record gets exactly what backtrack_finish_slot() gives it: f5 written
  * back into the compound (D3), energy, the MFE_POST callback, the structure and EN. */
 PRIVATE void
-trace_retired(const int nfiles, const vrna_fold_compound_t **VC,
-              const char **Structure, int *energy, float *EN,
+trace_retired(const int nfiles, vrna_fold_compound_t **VC,
+              char **Structure, int *energy, float *EN,
               const size_t *tri_off_H, const int cpu_queue_threads,
               const rnafold_retired_t *ret) {
   const double t0 = rnafold_now_seconds();
@@ -1782,8 +1782,8 @@ trace_retired(const int nfiles, const vrna_fold_compound_t **VC,
 //except par_fill_arrays(), do each file sequentially as before
 PUBLIC void
 par_mfe(const int nfiles,
-	const vrna_fold_compound_t** VC,
-	const char** Structure,
+	vrna_fold_compound_t** VC,
+	char** Structure,
 	float* EN, //out
 	const int cpu_queue_threads) {
 

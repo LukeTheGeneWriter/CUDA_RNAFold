@@ -896,18 +896,12 @@ static void
 build_gpu_batch(struct gpu_batch *b,
                 struct options   *opt)
 {
-  struct record_data  **chunk = b->chunk;
   int                   n     = b->n;
   int                   i;
-
-  vrna_fold_compound_t  **VC;
-  char                  **Str;
 
   b->VC  = (vrna_fold_compound_t **)vrna_alloc(sizeof(void *) * n);
   b->Str = (char **)vrna_alloc(sizeof(char *) * n);
   b->EN  = (float *)vrna_alloc(sizeof(float) * n);
-  VC     = b->VC;
-  Str    = b->Str;
 
   /* stage_build_s was DECLARED and PRINTED but never incremented, so the stage
    * line reported build=0.000 for the life of the project -- which reads as

@@ -78,12 +78,6 @@ extern "C" int vrna_cuda_quiet(void);
 
 #define turn 3
 
-/*Unused to host C code to check answers given by GPU code
-PRIVATE int
-E_int_loop( const vrna_fold_compound_t *vc,
-            const int i,
-            const int j);
-*/
 /********************************************************************
 Begin CUDA code
 ********************************************************************/
@@ -196,7 +190,7 @@ inline void gpuAssert(cudaError_t code, const char *file, const int line, const 
    if (code != cudaSuccess) 
    {
      fprintf(stderr,"CUDA error: %s (code %d) %s %d\n", cudaGetErrorString(code), code, file, line);
-     if(first) fprintf(stderr,"CUDA error: on first kernel.\n", file);
+     if(first) fprintf(stderr,"CUDA error: on first kernel.\n");
      if (abort) exit(code);
    }
 }
@@ -343,7 +337,7 @@ static int  ly_eval_knob(void);
 static int  ly_ering(void);
 
 PUBLIC void
-init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
+init_gpu2(const int nfiles, vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* tri_off_H, const size_t* row_off_H, //in, nfiles+1 entries each, mfe_cuda.c
           const size_t* cap_H) { //in, nfiles record capacities in nt
   if(!first2) return;
@@ -446,7 +440,6 @@ init_gpu2(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, co
   const double _t_pk1 = rnafold_now_seconds();
   for(int H=0;H<nfiles;H++){
     assert(bitsperint==(1+0x1f));
-    unsigned int mask;
     // Staggered_Row_Batching Phase 6a: bounded by this H's own length, not
     // the shared `length` scalar -- VC[H]->hc->matrix is only ever sized to
     // VC[H]->length, so using the shared length here would read past a
@@ -1610,7 +1603,7 @@ int_loop_cuda(const int nfiles,
 
 PUBLIC void
 int_loop_i(const int nfiles,
-	   const vrna_fold_compound_t **VC,
+	   vrna_fold_compound_t **VC,
 	   const int i, const int turn_, const int length,
 	   /*const int* indx, const int ijsize,
 	   const char* hard_constraints, const int* my_c,*/
@@ -1628,249 +1621,6 @@ int_loop_i(const int nfiles,
 
   int_loop_cuda(nfiles,i,/*turn,*/length,VC[0]->params, energy_min, size_off_H, i_H);
   return;
-  /* normal code to run calculation on host to check answers given by GPU
-  int new_e[length+1];
-  int_loop_cuda(i,turn,length,my_c, new_e);
-
-  int j;
-  for (j = i+turn+1; j <= length; j++) {
-    const int ij  = indx[j]+i;
-    assert(ij>=0 && ij<ijsize);
-    const int hc_decompose  = hard_constraints[ij];
-
-    if (hc_decompose) {   // we evaluate this pair **
-
-      // check for interior loops **
-      energy_min[j] = E_int_loop(vc, i, j); //vrna_E_int_loop(vc, i, j);
-    } // end >> if (pair) << **
-  }
-
-  int err = 0;
-  for (j = i+turn+1; j <= length; j++) {
-    if(new_e[j] != energy_min[j]) {
-      printf("new_e[%d]%d != energy_min[%d]%d\n",j,new_e[j], j,energy_min[j]);
-      err = 1;
-    } else {
-//    printf("new_e[%d]%d\n",j,new_e[j]);
-    }
-  }
-  if(err) exit(1);
-*/
-}
-
-//Unused to host C code to check answers given by GPU code
-PRIVATE int
-E_int_loop( const vrna_fold_compound_t *vc,
-            const int i,
-            const int j){
-
-  unsigned char     type, type_2;
-  /* PORT TO 2.7.2: hc->mx is unsigned char (was char), hc->up_int is
-   * unsigned int (was int). Widened here rather than cast at each use. */
-  unsigned char     *hc, *hc_pq, eval_loop;
-  char              *ptype, *ptype_pq;
-  short             *S, S_i1, S_j1, *S_p1, *S_q1;
-  unsigned int      *hc_up;
-  size_t            hc_stride;      /* dense hc->mx row stride, = vc->length */
-  int               q, p, j_q, p_i, pq, *c_pq, max_q, max_p, tmp,
-                    *rtype, /*noGUclosure, **no_close,*/ energy, cp, //en,
-                    *indx, ij, hc_decompose, e, *c, //*ggg,
-                    //with_gquad,
-                    turn;
-  vrna_sc_t         *sc;
-  vrna_param_t      *P;
-  vrna_md_t         *md;
-  vrna_mx_mfe_t     *matrices;
-//vrna_ud_t         *domains_up;
-//#ifdef WITH_GEN_HC
-//vrna_callback_hc_evaluate *f;
-//#endif
-
-  cp            = vc->cutpoint;
-  indx          = vc->jindx;
-  /* PORT TO 2.7.2: hc->matrix[indx[j]+i] became hc->mx[n*i+j]. This is host
-   * code evaluating one (i,j), so the fetch is a direct translation; indx is
-   * still needed below for the DP matrices, whose triangular layout upstream
-   * did not change. */
-  hc            = vc->hc->mx;
-  hc_stride     = (size_t)vc->length;
-  hc_up         = vc->hc->up_int;
-  P             = vc->params;
-  matrices      = vc->matrices;
-  ij            = indx[j] + i;
-  hc_decompose  = hc[hc_stride * i + j];
-  e             = INF;
-  c             = vc->matrices->c;
-//ggg           = vc->matrices->ggg;
-  md            = &(P->model_details);
-//with_gquad    = md->gquad;
-  turn          = md->min_loop_size;
-//domains_up    = vc->domains_up;
-
-//#ifdef WITH_GEN_HC
-//f = vc->hc->f;
-//#endif
-
-  /* CONSTRAINED INTERIOR LOOP start */
-  if(hc_decompose & VRNA_CONSTRAINT_CONTEXT_INT_LOOP){
-    /* prepare necessary variables */
-    rtype       = &(md->rtype[0]);
-//  noGUclosure = md->noGUclosure;
-    max_q       = i+turn+2;
-    max_q       = MAX2(max_q, j - MAXLOOP - 1);
-
-    ptype     = vc->ptype;
-    type      = (unsigned char)ptype[ij];
-//  no_close  = (((type==3)||(type==4))&&noGUclosure);
-    S         = vc->sequence_encoding;
-
-    S_i1      = S[i+1];
-    S_j1      = S[j-1];
-    sc        = vc->sc;
-
-  /*if(type == 0) gcov says branch never taken
-      type = 7;*/
-
-  /*if(domains_up && domains_up->energy_cb){
-      exit(1); gcov says branch never taken
-      for(q = j - 1; q >= max_q; q--){
-        j_q = j - q - 1;
-
-        if(hc_up[q+1] < j_q) break;
-
-        pq        = indx[q] + i + 1;
-        p_i       = 0;
-        max_p     = i + 1;
-        tmp       = i + 1 + MAXLOOP - j_q;
-        max_p     = MAX2(max_p, tmp);
-        tmp       = q - turn;
-        max_p     = MIN2(max_p, tmp);
-        tmp       = i + 1 + hc_up[i + 1];
-        max_p     = MIN2(max_p, tmp);
-        hc_pq     = hc + pq;
-        c_pq      = c + pq;
-
-        ptype_pq  = ptype + pq;
-        S_p1      = S + i;
-        S_q1      = S + q + 1;
-
-        for(p = i+1; p <= max_p; p++){
-          eval_loop = *hc_pq & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC;
-#ifdef WITH_GEN_HC
-          if(f)
-            eval_loop = (f(i, j, p, q, VRNA_DECOMP_PAIR_IL, vc->hc->data)) ? eval_loop : (char)0;
-#endif
-          ** discard this configuration if (p,q) is not allowed to be enclosed pair of an interior loop **
-          if(eval_loop){
-            energy = *c_pq;
-            if(energy != INF){
-              type_2 = rtype[(unsigned char)*ptype_pq];
-
-              if(type_2 == 0)
-                type_2 = 7;
-
-              if (noGUclosure)
-                if (no_close||(type_2==3)||(type_2==4))
-                  if ((p>i+1)||(q<j-1)) continue;  ** continue unless stack **
-
-              energy += eval_interior_loop( vc, i, j, p, q);
-              e = MIN2(e, energy);
-            }
-          }
-          hc_pq++;    ** get hc[pq + 1] **
-          c_pq++;     ** get c[pq + 1] **
-          p_i++;      ** increase unpaired region [i+1...p-1] **
-
-          ptype_pq++; ** get ptype[pq + 1] **
-          S_p1++;
-
-          pq++;
-        } ** end q-loop **
-      } ** end p-loop **
-    } else */{
-
-      for(q = j - 1; q >= max_q; q--){
-        j_q = j - q - 1;
-
-        if(hc_up[q+1] < j_q) break; //appears to be needed despite that gcov says it has no impact
-
-        pq        = indx[q] + i + 1;
-        p_i       = 0;
-        max_p     = i + 1;
-        tmp       = i + 1 + MAXLOOP - j_q;
-        max_p     = MAX2(max_p, tmp);
-        tmp       = q - turn;
-        max_p     = MIN2(max_p, tmp);
-        tmp       = i + 1 + hc_up[i + 1];
-        max_p     = MIN2(max_p, tmp);
-        /* PORT: dense hc->mx -- (p,q) is at hc[n*p + q], and advancing p by one
-         * moves a whole row, not one element. c and ptype stay triangular. */
-        hc_pq     = hc + hc_stride * (size_t)(i + 1) + q;
-        c_pq      = c + pq;
-
-        ptype_pq  = ptype + pq;
-        S_p1      = S + i;
-        S_q1      = S + q + 1;
-
-        for(p = i+1; p <= max_p; p++){
-          eval_loop = *hc_pq & VRNA_CONSTRAINT_CONTEXT_INT_LOOP_ENC;
-//#ifdef WITH_GEN_HC
-//        if(f)
-//          eval_loop = (f(i, j, p, q, VRNA_DECOMP_PAIR_IL, vc->hc->data)) ? eval_loop : (char)0;
-//#endif
-          /* discard this configuration if (p,q) is not allowed to be enclosed pair of an interior loop */
-          if(eval_loop){
-            energy = *c_pq;
-            if(energy != INF){
-              type_2 = rtype[(unsigned char)*ptype_pq];
-
-	      /* gcov says if never taken
-              if (noGUclosure)
-		exit(1);
-                if (no_close||(type_2==3)||(type_2==4))
-                  if ((p>i+1)||(q<j-1)) continue;  ** continue unless stack **
-
-              if(type_2 == 0)
-                type_2 = 7;
-			 */
-              energy += ubf_eval_int_loop(i, j, p, q,
-                                          i + 1, j - 1, p - 1, q + 1,
-                                          S_i1, S_j1, *S_p1, *S_q1,
-                                          type, type_2, rtype,
-                                          ij, cp,
-                                          P, sc);
-	      /*
-	      printf("ubf_eval_int_loop( %d %d %d %d ...) %d %d %d c[%d]%d gives %d\n",
-		     i, j, p, q, p-(i+1), q-max_q, (p-(i+1))+(q-max_q),int(c_pq-c),*c_pq,energy);
-	      stop = 1;
-	      */
-              e = MIN2(e, energy);
-            }
-          }
-          hc_pq    += hc_stride;  /* dense hc->mx: next p is a whole row on */
-          c_pq++;     /* get c[pq + 1] */
-          p_i++;      /* increase unpaired region [i+1...p-1] */
-
-          ptype_pq++; /* get ptype[pq + 1] */
-          S_p1++;
-
-          pq++;
-        } /* end q-loop */
-      } /* end p-loop */
-    }
-
-    /*gcov says branch never taken
-    if(with_gquad){
-      ** include all cases where a g-quadruplex may be enclosed by base pair (i,j) **
-      if ((!no_close) && ((cp < 0) || ON_SAME_STRAND(i, j, cp))) {
-        energy = E_GQuad_IntLoop(i, j, type, S, ggg, indx, P);
-        e = MIN2(e, energy);
-      }
-    }
-    */
-  }
-
-  return e;
 }
 
 

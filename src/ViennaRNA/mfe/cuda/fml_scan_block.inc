@@ -26,10 +26,11 @@ fml_scan_block(const int nfiles, const int i_row, const int turn,
                 const size_t* __restrict__ size_off_H,
                 const int* __restrict__ i_H,
                const int H, int* sa, int* sc) {
-  // The row index is read per record (i_H). It equals
-  // i_row, and the assert proves that at RUNTIME rather than by
-  // argument -- .cu files never see -DNDEBUG, so a table that ever
-  // disagrees traps instead of folding silently wrong.
+  // The row index is read per record (i_H). It equals i_row, and the
+  // assert proves that at RUNTIME in a --enable-asserts build. A release
+  // build defines NDEBUG for nvcc too (NVCC_ASSERT_FLAGS; this comment
+  // said otherwise until Bill Langdon noticed, 2026-10-19), so there the
+  // check is compiled out and i_H == i_row rests on construction.
   const int i = i_H[H];
   assert(i == i_row);
   const long long width = (long long)size_off_H[H+1] - (long long)size_off_H[H];

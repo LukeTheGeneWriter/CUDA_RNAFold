@@ -567,8 +567,8 @@ cuda_engine_cb(vrna_fold_compound_t *fc,
 /* the batch sweep, declared in mfe/cuda/stub2.h (internal, not installed) */
 extern void
 par_mfe(const int                     nfiles,
-        const vrna_fold_compound_t  **VC,
-        const char                  **Structure,
+        vrna_fold_compound_t  **VC,
+        char                  **Structure,
         float                        *EN,
         const int                     cpu_queue_threads);
 
@@ -767,8 +767,7 @@ cuda_batch_cb(vrna_fold_compound_t  **fcs,
        * beside the next sub-chunk's sweep and joined inside this call (P3). Both only with
        * RNA_BT_PIPELINE=1, which par_mfe() checks. */
       rnafold_bt_async_allow((end == n) ? RNAFOLD_BT_ASYNC_DRIVER : RNAFOLD_BT_ASYNC_INTERNAL);
-      par_mfe((int)(end - start), (const vrna_fold_compound_t **)(fcs + start),
-              (const char **)(structures + start), energies + start, 0);
+      par_mfe((int)(end - start), fcs + start, structures + start, energies + start, 0);
       rnafold_bt_async_allow(0);
       devused = 1;
 

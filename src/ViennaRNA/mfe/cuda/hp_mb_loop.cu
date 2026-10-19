@@ -392,7 +392,7 @@ pack_hc_kernel(const int nfiles, const int turn,
 #define SLOT_ALLOC(pp, sz) TIMED_CUDAMALLOC(pp, sz)
 
 PUBLIC void
-init_gpu3(const int nfiles, const vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
+init_gpu3(const int nfiles, vrna_fold_compound_t **VC, const int turn_, const int length, const int block_size,
           const size_t* row_off_H, //in, nfiles+1 entries -- see compute_batch_offsets(), mfe_cuda.c
           const size_t* cap_H) { //in, nfiles record capacities in nt
   if(!first3) return;
@@ -1641,7 +1641,7 @@ fml_prev_i(const int nfiles, const int i, const int turn,
 }
 
 PUBLIC void
-hp_mb_3p_i(const int nfiles, const vrna_fold_compound_t **VC,
+hp_mb_3p_i(const int nfiles, vrna_fold_compound_t **VC,
            const int i, const int turn, const int length,
            int* energy_hp_row, int* energy_mb_row, int* energy_3p00_row, //all out, size nfiles*(length+1)
            char* gate_row, //out, same shape but one byte per cell
@@ -1830,7 +1830,7 @@ row_cells_kernel(const int nfiles, const int i_row, const int turn, const int le
  * fast path that silently skips stack_row_i() would be a wrong answer, and this
  * project has shipped two of those. */
 PUBLIC int
-row_cells_i(const int nfiles, const vrna_fold_compound_t **VC,
+row_cells_i(const int nfiles, vrna_fold_compound_t **VC,
             const int i, const int turn, const int length,
             const int noGUclosure, const int noLP,
             const size_t* size_off_H,

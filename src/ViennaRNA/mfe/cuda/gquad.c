@@ -50,7 +50,7 @@ extern void rnafold_gq_free(void);
  */
 int
 rnafold_gq_upload(const int                   nfiles,
-                  const vrna_fold_compound_t  **VC)
+                  vrna_fold_compound_t  **VC)
 {
   size_t        entries = 0, rowslots = 0, e_cursor = 0, r_cursor = 0;
   int           H, any = 0, rc;

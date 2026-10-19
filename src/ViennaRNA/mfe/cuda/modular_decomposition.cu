@@ -1238,8 +1238,8 @@ load_fML(const int nfiles,
   const size_t total = size_off_H[nfiles];
   if(total==0) return;
 
-  // NB: the old #ifdef NDEBUG pre-sync here was dead code -- this build never
-  // defines NDEBUG -- and is superseded anyway: everything in this function
+  // NB: the old #ifdef NDEBUG pre-sync here was dead code when it was removed
+  // (nvcc did not get NDEBUG then; it does now) and is superseded anyway: everything in this function
   // now runs on graph_stream, a *blocking* stream, so the legacy-default-
   // stream ordering rule already guarantees init_fML_kernel (NULL stream) has
   // completed before any of this is issued.
@@ -1421,7 +1421,6 @@ modular_decomposition_kernel(
  * nothing -- which is why this is a runtime pointer rather than a compile flag.
  */
 static int    *d_fm2        = NULL;
-static size_t  g_fm2_cells  = 0;
 
 extern "C" int *
 rnafold_circ_fm2_device(void)
@@ -1435,7 +1434,6 @@ rnafold_circ_free(void)
 {
   if(d_fm2) cudaFree(d_fm2);
   d_fm2 = NULL;
-  g_fm2_cells = 0;
 }
 
 
@@ -1452,7 +1450,6 @@ rnafold_fml_detach(rnafold_retired_t *r)
   r->d_fml_b      = d_fml_b;      d_fml_b      = NULL;
   r->d_base_off_H = d_base_off_H; d_base_off_H = NULL;
   r->d_fm2        = d_fm2;        d_fm2        = NULL;
-  g_fm2_cells = 0;
 }
 
 
@@ -1476,7 +1473,6 @@ rnafold_circ_alloc(const int circ, const size_t tri_cells)
     return -1;
   }
 
-  g_fm2_cells = tri_cells;
   {
     const size_t nb = (tri_cells + BLOCK_SIZE - 1)/BLOCK_SIZE;
     init_fML_kernel<<<nb,BLOCK_SIZE>>>(tri_cells, d_fm2);   /* fills INF */
