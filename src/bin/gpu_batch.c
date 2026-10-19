@@ -28,6 +28,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <math.h>     /* pow(): the admission model's host term */
 #include <pthread.h>
 #ifdef __GLIBC__
 #include <malloc.h>   /* malloc_trim(): finish_gpu_batch() returns a chunk's tables */
@@ -327,8 +328,8 @@ gpu_path_usable(struct options *opt,
 
 /* NO LONGER AN ADMISSION GATE (2026-09-27). This was the 2.3.0 record-count
  * threshold, and it decided whether a chunk went to the device at all. It does not
- * any more -- rnafold_chunk_earns_gpu() asks about WORK, in cells, against a floor
- * derived from this host. See the derivation above VRNA_HOST_FOLD_CELLS_PER_SEC for
+ * any more -- rnafold_chunk_earns_gpu() asks about WORK, in cells, through the
+ * admission model below. See its WHAT IT REPLACES for
  * why a record count was the wrong unit (ten 80 nt sequences beat one 5601 nt one,
  * which is backwards) and why it had to go.
  *
@@ -338,106 +339,79 @@ gpu_path_usable(struct options *opt,
  * whether to send one -- and a record count is a defensible unit for it, because the
  * records in one chunk are of similar length by construction. */
 #define VRNA_MIN_GPU_BATCH 10
-/* ============ THE ADMISSION TEST, AND THE ONE CONSTANT IT STILL HAS ==========
+/* ============ THE ADMISSION MODEL (S3, 2026-10-18) ==========================
  *
- * WHAT WAS HERE, AND WHY IT IS GONE (2026-09-27)
+ * WHAT IT REPLACES. From 2026-09-27 until S3 the test was one floor on a chunk's
+ * total matrix cells, floor = F * R_host * jobs, with F the measured probe and
+ * R_host = 6.7e5 cells/s. Cells was the right unit (it replaced a record count that
+ * sent ten 80 nt records to the device and kept one 5601 nt record off it), but the
+ * model was wrong in three ways that PORT_SHORT_SEQUENCES.md section 8.2 measured
+ * (E-A2: 1-4096 records at 60-300 nt, -j1/-j4/-j12, every arm byte-identical to the
+ * CPU's, each device arm's probe logged and subtracted):
  *
- * Gate 4 used to be two tests joined by OR:
+ *   - It had no PER-RECORD device term. Each record on the device path costs about
+ *     0.68 ms of host-side build, fetch and trace whatever its length, so below about
+ *     85 nt at -j12 the device loses at every N, and the floor admitted them anyway.
+ *   - It assumed the host scales linearly with -j. Here -j12 is 3.75x one job.
+ *   - It charged the probe alone as the fixed cost. The first real CUDA work
+ *     (context, modules) costs another ~0.34 s beyond it.
  *
- *     if (n >= VRNA_MIN_GPU_BATCH) return 1;      // 10 records
- *     return (cells >= VRNA_MIN_GPU_CELLS);       // 250000 triangular cells
+ * THE MODEL. For records of c = L(L+1)/2 cells each,
  *
- * The record-count arm was backwards in both directions -- ten 80 nt sequences went
- * to the device and one 5601 nt sequence did not -- and because it SHORT-CIRCUITED,
- * the cells floor added to fix exactly that could never be reached by any input of
- * more than ten records. Measured 2026-09-27: 3 x 300 nt (1.35e5 cells, under the
- * floor) routes to the CPU, and the same input with RNA_MIN_GPU_CELLS=1000 routes to
- * the GPU. The floor was correct and unreachable.
+ *     host wall  = sum t_h(c_i) / S(min(n, jobs))     t_h(c) = K c^1.15, one job
+ *     device     = fixed + sum (h + k c_i)
+ *     S(j)       = j / (1 + beta (j - 1))
  *
- * WHY A CELL CONSTANT IS NOT SHIPPABLE
+ * and the device is used when the host wall is the larger. `fixed` is what is still
+ * to be paid: the probe prior plus C0 before the device is reached, C0 after the
+ * probe and before the first chunk, and only the per-chunk cost after that. Two
+ * limits fall out of it, which together are the minimum GPU batch by length squared:
  *
- * 250000 was measured on ONE host -- an RTX 3050 laptop, against one core. But
- * break-even is not a property of the input. It is where
+ *   - A MINIMUM LENGTH, where t_h(c)/S(jobs) = h + k c. Below it the device loses at
+ *     any N, so such a record is never offered to the device (Luke, D1). It moves
+ *     with -j (about 45 nt at -j1, 95 nt at -j12 here), so it is solved once per run.
+ *   - A MINIMUM BATCH above it, set by the fixed cost. The measured crossovers
+ *     (200 nt: 128 records at -j12, 32 at -j1) are reproduced to within one doubling.
  *
- *     host time  ==  device startup + device time
- *
- * and two of those three terms belong to the MACHINE. This is going to university
- * clusters with 128-core hosts and datacentre GPUs, where a constant fitted on a
- * 4-core laptop is wrong in the expensive direction: a faster host makes the device
- * LESS attractive, and a constant cannot know that.
- *
- * SO DERIVE IT FROM WHAT THE MACHINE TELLS US
- *
- *     cells / (R_host * jobs)  >  F + cells / R_device
- *     cells > F / (1/(R_host*jobs) - 1/R_device)
- *
- * and since R_device >> R_host*jobs for any sane pairing (measured here: 5.0e6 vs
- * 6.7e5 cells/s, and the gap widens on a real GPU), to within a few percent
- *
- *     floor ~= F * R_host * jobs
- *
- * The two machine-dependent terms are now MEASURED on the host that is running:
- *
- *   F      what it costs to reach a usable device at all. Timed directly: the first
- *          vrna_cuda_devices() call is what creates the CUDA context, and that is
- *          the dominant term -- on this laptop it is ~0.6 s while init_gpu() proper
- *          is 0.042 s. A shared cluster GPU, a cold driver or a MIG slice raises it,
- *          and the floor rises with it, which is the correct response and one no
- *          constant can make.
- *   jobs   how many cores the host will really fold on (-j). This is the term the
- *          old constant could not express at all, and on the machines this is going
- *          to it is the one that matters most.
- *
- * WHAT IS LEFT IS ONE COMPILED-IN NUMBER, and deliberately it is a CPU FOLD RATE
- * rather than an opaque cell count: interpretable, portable, and the obvious thing
- * for the tuner in PORT_ZEROCONF_SCOPE.md section 3.1 to replace with a measurement.
- *
- * Derived from the trace of 24 records (8 each at 600/900/1200 nt) folded on one
- * core: 1.045e7 cells in 15.67 s.
- *
- * VALIDATED, AND IT OVERTURNED THE MEASUREMENT IT WAS MEANT TO REPRODUCE.
- *
- * Re-measured 2026-09-27 on this host by forcing RNA_GPU_WORK_FLOOR to 0 and to
- * huge on the SAME binary (so both arms are one build, and each arm's sweep count
- * was checked so neither could silently be the other):
- *
- *     shape      cells      gpu       cpu     ratio
- *     3x300      1.35e5    0.428 s   0.468 s   1.09x
- *     8x200      1.61e5    0.398 s   0.491 s   1.23x
- *     8x400      6.42e5    0.536 s   1.189 s   2.21x
- *     1x1600     1.28e6    1.035 s   2.774 s   2.68x
- *     20x600     3.61e6    1.125 s   6.081 s   5.40x
- *
- * The device wins at EVERY size, including 8x200, which tests/gpu_crossover.sh had
- * recorded as a 0.84x LOSS. That older figure is superseded: it predates int16 being
- * the default and several other changes, and the 250000-cell floor was fitted to it.
- * So the floor it produced was too conservative -- it was keeping work on the CPU
- * that the device would have won.
- *
- * BUT THE FLOOR IS STILL NECESSARY, AND THIS IS WHY F HAS TO BE MEASURED RATHER THAN
- * ASSUMED. Those walls are best-of-three with a WARM driver, where reaching the
- * device measured 0.09 s. On a genuinely cold driver the same call measured 0.75 s,
- * which added to the 3x300 GPU arm turns 0.428 s into ~1.09 s against the CPU's
- * 0.468 s -- a 2.3x LOSS. Same host, same input, opposite verdict, and the only
- * thing that changed is a cost this code now measures instead of guessing:
- *
- *     warm (F = 0.09 s) -> floor 5.7e4 cells -> 3x300 goes to the GPU, wins 1.09x
- *     cold (F = 0.75 s) -> floor 5.0e5 cells -> 3x300 goes to the CPU, correctly
- *
- * No constant can be right in both regimes. That is the case for this whole change.
+ * MACHINE DEPENDENCE. The constants are an RTX 3050 laptop's, against 12 logical
+ * cores. beta especially: a server CPU scales closer to linearly, which moves every
+ * crossover toward the host. RNA_GPU_COST_MODEL overrides any of them, as
+ * "K=2.65e-7,h=6.8e-4,k=8.1e-8,C0=0.34,beta=0.18"; the A100 calibration (D3) and the
+ * tuner of PORT_ZEROCONF_SCOPE.md section 3.1 are where better numbers come from. A
+ * forced RNA_GPU_WORK_FLOOR still means the old total-cells test with no minimum
+ * length, so RNA_GPU_WORK_FLOOR=0 is "always the device" for every harness that
+ * forces the path.
  */
-#define VRNA_HOST_FOLD_CELLS_PER_SEC 670000.0
+#define VRNA_GPU_MODEL_K      2.65e-7  /* host, one job: s per cell^1.15 (200 nt: 23.4 ms) */
+#define VRNA_GPU_MODEL_EXP    1.15
+#define VRNA_GPU_MODEL_H      6.8e-4   /* device path, per record: s */
+#define VRNA_GPU_MODEL_KDEV   8.1e-8   /* device path, per cell: s */
+#define VRNA_GPU_MODEL_C0     0.34     /* first real CUDA work beyond the probe: s */
+#define VRNA_GPU_MODEL_BETA   0.18     /* host -j scaling: S(4) = 2.6, S(12) = 4.0 */
+#define VRNA_GPU_MODEL_CHUNK  0.04     /* each chunk after the first: s */
+#define VRNA_GPU_PROBE_PRIOR  0.08     /* the probe, until it is measured: E-A2's median */
+#define VRNA_GPU_MODEL_LMAX   65536    /* the minimum-length search gives up here */
 
-/* F, in seconds: measured once, at the vrna_cuda_devices() probe. Negative means
- * "not measured yet", in which case the floor falls back to the value below --
- * which is what the old constant effectively encoded, so an unmeasured run behaves
- * as the tree did before this change rather than surprising anyone. */
+/* F, in seconds: measured at the vrna_cuda_devices() probe, and reported. The model
+ * does not need it after the probe -- by then it is paid. */
 static double g_gpu_reach_cost = -1.0;
-#define VRNA_GPU_REACH_COST_FALLBACK 0.6
 
-/* jobs, captured where opt is in scope so the floor can be computed from a static
+/* jobs, captured where opt is in scope so the model can be evaluated from a static
  * without threading opt through two call sites that do not otherwise need it. */
 static int g_host_jobs = 1;
+
+/* Per PROCESS, not per input stream: a second input file re-probes (cheaply), but
+ * the context and modules C0 pays for are still there. */
+static int g_device_reached = 0;
+static int g_device_chunks  = 0;   /* chunks the device has taken */
+
+static struct {
+  double K, h, k, C0, beta;
+} g_model = { VRNA_GPU_MODEL_K, VRNA_GPU_MODEL_H, VRNA_GPU_MODEL_KDEV,
+              VRNA_GPU_MODEL_C0, VRNA_GPU_MODEL_BETA };
+
+static int g_min_len = 0;   /* the minimum length, nt; solved by gpu_model_begin() */
+static int g_short_n = 0;   /* records kept on the host for being under it */
 
 /* ADMISSION CAP (2026-09-27, Luke: "shoot for 48 residents").
  *
@@ -541,88 +515,193 @@ rnafold_gpu_chunk_cells(void)
  */
 static int rnafold_min_gpu_batch(void);   /* defined just below */
 
-/* The work floor, in triangular matrix cells. See the derivation above.
+/* A forced work floor, in triangular matrix cells, or -1 when none is set and the
+ * model decides.
  *
- * Overridable, because a threshold this project cannot yet measure end to end must
- * stay falsifiable: RNA_GPU_WORK_FLOOR is the name, and RNA_MIN_GPU_CELLS is
- * accepted as an alias so the harnesses and notebooks that already set it keep
- * working. 0 means "no floor": always use the device.
+ * RNA_GPU_WORK_FLOOR is the name, and RNA_MIN_GPU_CELLS is accepted as an alias so
+ * the harnesses and notebooks that already set it keep working. Forced, it is the
+ * pre-S3 test exactly: a chunk goes to the device once its total cells reach it, and
+ * no record is too short. 0 means "no floor": always use the device.
  */
 static double
 rnafold_gpu_work_floor(void)
 {
-  static double v = -1.0;
+  static int    read = 0;
+  static double v    = -1.0;
 
-  if (v < 0.0) {
+  if (!read) {
     const char *e = getenv("RNA_GPU_WORK_FLOOR");
 
+    read = 1;
     if ((!e) || (!e[0]))
       e = getenv("RNA_MIN_GPU_CELLS");
 
-    if ((e) && (e[0])) {
-      const double n = atof(e);
-
-      if (n >= 0.0) {
-        v = n;
-        fprintf(stderr, "%-24s work floor forced to %.0f cells: a chunk goes to the "
-                        "device once its total matrix area reaches this\n",
-                "bin/RNAfold.c", v);
-        return v;
-      }
-    }
-
-    {
-      const double F = (g_gpu_reach_cost >= 0.0) ? g_gpu_reach_cost
-                                                 : VRNA_GPU_REACH_COST_FALLBACK;
-
-      v = F * VRNA_HOST_FOLD_CELLS_PER_SEC * (double)g_host_jobs;
+    if ((e) && (e[0]) && (atof(e) >= 0.0)) {
+      v = atof(e);
+      fprintf(stderr, "%-24s work floor forced to %.0f cells: a chunk goes to the "
+                      "device once its total matrix area reaches this\n",
+              "bin/RNAfold.c", v);
     }
   }
 
   return v;
 }
 
-/* Does this chunk earn the device?
- *
- * ONE test, in ONE unit: the work in the chunk, as matrix cells, against a floor
- * derived from this host. No record-count arm -- that is what made one long
- * sequence go to the CPU while ten short ones went to the GPU.
- *
- * AND CELLS, NOT NUCLEOTIDES, BECAUSE THE EXPERIMENT SAID SO. Total length does not
- * predict the benefit: at 1600 total nt, 8x200 measures 1.23x while 1x1600 measures
- * 2.68x -- same total nucleotides, better than a factor of two apart. In cells those
- * shapes are 1.61e5 and 1.28e6, an eightfold difference, and the speedups order the
- * same way. Cells is also the quantity the device's fixed cost is amortised against,
- * which is why it is the right unit rather than merely a better-correlated one.
- *
- * (An earlier note here cited 8x200 as a 0.84x LOSS, from tests/gpu_crossover.sh.
- * That measurement is superseded -- see the re-measurement above -- and with it the
- * claim that the two shapes gave OPPOSITE verdicts. They now both win; the argument
- * rests on the size of the win, not its sign.)
- */
+
+static double
+gpu_model_host_s(const double cells)   /* one job */
+{
+  return g_model.K * pow(cells, VRNA_GPU_MODEL_EXP);
+}
+
+
+static double
+gpu_model_dev_s(const double cells)
+{
+  return g_model.h + g_model.k * cells;
+}
+
+
+/* How much faster than one job the host folds n records: no more than n of them
+ * run at once, which is the wave quantisation a few records at a high -j need. */
+static double
+gpu_model_speedup(const int n)
+{
+  const int j = (n < g_host_jobs) ? ((n > 0) ? n : 1) : g_host_jobs;
+
+  return (double)j / (1.0 + g_model.beta * (double)(j - 1));
+}
+
+
+/* What the device still costs before it folds anything more. */
+static double
+gpu_model_fixed_s(void)
+{
+  if (!g_device_reached)
+    return VRNA_GPU_PROBE_PRIOR + g_model.C0;
+
+  return (g_device_chunks == 0) ? g_model.C0 : VRNA_GPU_MODEL_CHUNK;
+}
+
+
+/* Work, summed as the model needs it. */
+struct gpu_work {
+  int     n;
+  double  cells;
+  double  host_s;   /* one job */
+  double  dev_s;
+};
+
+
+static void
+gpu_work_add(struct gpu_work  *w,
+             const double     L)
+{
+  const double c = L * (L + 1.0) / 2.0;
+
+  w->n++;
+  w->cells  += c;
+  w->host_s += gpu_model_host_s(c);
+  w->dev_s  += gpu_model_dev_s(c);
+}
+
+
+static int
+gpu_work_earns(const struct gpu_work *w)
+{
+  const double floor_cells = rnafold_gpu_work_floor();
+
+  if (floor_cells >= 0.0)
+    return (floor_cells == 0.0) || (w->cells >= floor_cells);
+
+  return w->host_s / gpu_model_speedup(w->n) > gpu_model_fixed_s() + w->dev_s;
+}
+
+
+/* D1: is a record of L nt long enough for the device at all? */
+static int
+gpu_record_admissible(const double L)
+{
+  return (rnafold_gpu_work_floor() >= 0.0) || (L >= (double)g_min_len);
+}
+
+
+/* Once per input stream, after g_host_jobs is known: read RNA_GPU_COST_MODEL (once
+ * per process) and solve the minimum length for this -j. The marginal saving
+ * t_h/S - (h + k c) is convex in c and negative at c = 0, so it crosses zero once,
+ * and the first L where it is positive is the answer. */
+static void
+gpu_model_begin(void)
+{
+  static int read = 0;
+  int        L;
+
+  if (!read) {
+    const char *e = getenv("RNA_GPU_COST_MODEL");
+
+    read = 1;
+    if ((e) && (e[0])) {
+      char *s = strdup(e), *tok, *save = NULL;
+
+      for (tok = strtok_r(s, ",", &save); tok; tok = strtok_r(NULL, ",", &save)) {
+        char *eq = strchr(tok, '=');
+
+        if (!eq)
+          continue;
+
+        *eq = '\0';
+        if (!strcmp(tok, "K"))
+          g_model.K = atof(eq + 1);
+        else if (!strcmp(tok, "h"))
+          g_model.h = atof(eq + 1);
+        else if (!strcmp(tok, "k"))
+          g_model.k = atof(eq + 1);
+        else if (!strcmp(tok, "C0"))
+          g_model.C0 = atof(eq + 1);
+        else if (!strcmp(tok, "beta"))
+          g_model.beta = atof(eq + 1);
+        else
+          fprintf(stderr, "%-24s RNA_GPU_COST_MODEL: unknown term '%s', ignored\n",
+                  "bin/RNAfold.c", tok);
+      }
+      free(s);
+      fprintf(stderr, "%-24s RNA_GPU_COST_MODEL: K=%g h=%g k=%g C0=%g beta=%g\n",
+              "bin/RNAfold.c", g_model.K, g_model.h, g_model.k, g_model.C0, g_model.beta);
+    }
+  }
+
+  g_min_len = VRNA_GPU_MODEL_LMAX;
+  for (L = 1; L < VRNA_GPU_MODEL_LMAX; L++) {
+    const double c = (double)L * (L + 1.0) / 2.0;
+
+    if (gpu_model_host_s(c) / gpu_model_speedup(g_host_jobs) > gpu_model_dev_s(c)) {
+      g_min_len = L;
+      break;
+    }
+  }
+
+  g_short_n = 0;
+}
+
+
+/* Does this chunk earn the device? The model, over the records it holds. Asked once
+ * per chunk and only once the device is reached, so a chunk that earns it is counted
+ * here: the next chunk's fixed cost is the per-chunk one, C0 having been paid. */
 static int
 rnafold_chunk_earns_gpu(struct record_data **chunk, const int n)
 {
-  const double floor_cells = rnafold_gpu_work_floor();
-  double       cells       = 0.0;
-  int          i;
-
-  if (floor_cells <= 0.0)
-    return 1;
+  struct gpu_work w = { 0, 0.0, 0.0, 0.0 };
+  int             i;
 
   for (i = 0; i < n; i++)
-    if ((chunk[i]) && (chunk[i]->sequence)) {
-      const double L = (double)strlen(chunk[i]->sequence);
+    if ((chunk[i]) && (chunk[i]->sequence))
+      gpu_work_add(&w, (double)strlen(chunk[i]->sequence));
 
-      cells += L * (L + 1.0) / 2.0;   /* this record's triangle, in cells */
+  if (!gpu_work_earns(&w))
+    return 0;
 
-      /* Early out: the answer cannot change once the floor is passed, and at
-       * 10000 records the strlen() sweep is not free. */
-      if (cells >= floor_cells)
-        return 1;
-    }
-
-  return 0;
+  g_device_chunks++;
+  return 1;
 }
 
 static int
@@ -1855,8 +1934,8 @@ static const char           *gpu_why;           /* GPU_MODE_DECLINED: the option
 static struct record_data  **gpu_hold;          /* PENDING: read, not yet dispatched */
 static int                   gpu_hold_n;
 static int                   gpu_hold_cap;
-static double                gpu_hold_cells;
-static double                gpu_shadow_cells;  /* DECLINED: what the device was missing */
+static struct gpu_work       gpu_hold_work;
+static struct gpu_work       gpu_shadow_work;   /* DECLINED: what the device was missing */
 
 
 void
@@ -1881,8 +1960,8 @@ gpu_batch_begin(struct options *opt,
   gpu_hold = NULL;
   gpu_hold_n = 0;
   gpu_hold_cap = 0;
-  gpu_hold_cells = 0.0;
-  gpu_shadow_cells = 0.0;
+  memset(&gpu_hold_work, 0, sizeof(gpu_hold_work));
+  memset(&gpu_shadow_work, 0, sizeof(gpu_shadow_work));
   vrna_cuda_set_verbose(opt->verbose);
 
   /* The GPU chunk accumulator: a THIRD dispatch path alongside the serial and
@@ -1932,6 +2011,7 @@ gpu_batch_begin(struct options *opt,
     const char *why = NULL;
 
     g_host_jobs  = (opt->jobs > 0) ? opt->jobs : 1;
+    gpu_model_begin();   /* the minimum length moves with -j */
     gpu_hard_cap = (e && e[0]) ? atoi(e) : 0;   /* 0 or less: budget decides */
     if (gpu_hard_cap < 0)
       gpu_hard_cap = 0;
@@ -2016,19 +2096,30 @@ gpu_activate(struct options *opt)
      *   no device at all        -> silent unless --verbose. Nothing surprising
      *                              happened; there was nothing to decline.
      */
+    /* Which GPU, by name (Bill Langdon, 2026-10-19): device 0, the one the backend
+     * uses. Asked only once a device answered, so a machine without one pays nothing. */
+    const char *dev_name = (ndev > 0) ? vrna_cuda_device_name() : NULL;
+
+    if (!dev_name)
+      dev_name = "the GPU";
+
     if (gpu_enabled) {
-      fprintf(stderr, "%-24s GPU acceleration ON (%d device%s); reaching the device "
-                      "measured %.2f s, so with %d job%s a chunk needs %.3g matrix "
-                      "cells to beat the host\n", "bin/RNAfold.c",
-              vrna_cuda_devices(), (vrna_cuda_devices() == 1) ? "" : "s",
-              g_gpu_reach_cost, g_host_jobs, (g_host_jobs == 1) ? "" : "s",
-              rnafold_gpu_work_floor());
+      g_device_reached = 1;
+      if (rnafold_gpu_work_floor() >= 0.0)
+        fprintf(stderr, "%-24s GPU acceleration ON: %s (device 0 of %d); reaching the "
+                        "device measured %.2f s; a chunk needs %.3g matrix cells (forced)\n",
+                "bin/RNAfold.c", dev_name, ndev, g_gpu_reach_cost, rnafold_gpu_work_floor());
+      else
+        fprintf(stderr, "%-24s GPU acceleration ON: %s (device 0 of %d); reaching the "
+                        "device measured %.2f s; with %d job%s, records under %d nt fold "
+                        "on the host\n", "bin/RNAfold.c", dev_name, ndev, g_gpu_reach_cost,
+                g_host_jobs, (g_host_jobs == 1) ? "" : "s", g_min_len);
     } else if (ndev > 0) {
       /* A device is present and unused: the hardware is sitting there. (RNA_GPU=0,
        * the user asking for the CPU, is said in gpu_batch_begin() and never gets
        * here.) */
-      fprintf(stderr, "%-24s GPU acceleration OFF: %s -- folding on the CPU\n",
-              "bin/RNAfold.c", why ? why : "unavailable");
+      fprintf(stderr, "%-24s GPU acceleration OFF: %s -- folding on the CPU; %s is "
+                      "unused\n", "bin/RNAfold.c", why ? why : "unavailable", dev_name);
     } else if (opt->verbose) {
       vrna_log_info("no CUDA device visible; folding on the CPU path");
     }
@@ -2188,7 +2279,7 @@ offer_into_chunk(struct record_data *record,
          * while a user with a bigger card saw it work. A gate whose behaviour turns
          * on the size of the card is not a gate anyone can reason about.
          *
-         * The work floor above already answers "is this worth the device"; this only
+         * The admission model above already answers "is this worth the device"; this only
          * answers "does it fit". */
         if (gpu_bytes_per_file((int)this_len) > chunk_usable_bytes) {
           /* Over the VRAM BUDGET (RNA_VRAM_BUDGET) but within what is free: warn, and
@@ -2238,30 +2329,6 @@ offer_into_chunk(struct record_data *record,
 }
 
 
-/* S2: would this much work, in matrix cells, earn the device once it is reached?
- * Asked BEFORE the probe, so the device's fixed cost cannot be measured yet and a
- * prior stands in for it: VRNA_GPU_WAKE_COST_PRIOR, the ~0.3 s the 16-record arms
- * of PORT_SHORT_SEQUENCES.md section 3 put on probe + init + teardown (the probe
- * alone measures 0.07-0.09 s here and understates it about fourfold). A forced
- * RNA_GPU_WORK_FLOOR is honoured as it is after the probe, so RNA_GPU_WORK_FLOOR=0
- * still means "always the device" and every harness that forces the path keeps it. */
-#define VRNA_GPU_WAKE_COST_PRIOR 0.3
-
-static int
-work_would_earn_gpu(const double cells)
-{
-  const char *e = getenv("RNA_GPU_WORK_FLOOR");
-
-  if ((!e) || (!e[0]))
-    e = getenv("RNA_MIN_GPU_CELLS");
-
-  if ((e) && (e[0]) && (atof(e) >= 0.0))
-    return cells >= rnafold_gpu_work_floor();
-
-  return cells >= VRNA_GPU_WAKE_COST_PRIOR * VRNA_HOST_FOLD_CELLS_PER_SEC * (double)g_host_jobs;
-}
-
-
 /* S1: fold what the chunk holds NOW, and wait for it, so an interactive user sees
  * the answer before the next prompt. The build and backtrack pipelines both leave
  * work pending by design; both are drained, and the next record starts a fresh
@@ -2288,8 +2355,8 @@ hold_dispatch_all(void)
   for (i = 0; i < gpu_hold_n; i++)
     rnafold_dispatch_record(gpu_hold[i]);
 
-  gpu_hold_n     = 0;
-  gpu_hold_cells = 0.0;
+  gpu_hold_n = 0;
+  memset(&gpu_hold_work, 0, sizeof(gpu_hold_work));
 }
 
 
@@ -2297,29 +2364,38 @@ int
 gpu_batch_offer(struct record_data *record,
                 struct options     *opt)
 {
-  const double L     = (double)strlen(record->sequence);
-  const double cells = L * (L + 1.0) / 2.0;
+  const double L = (double)strlen(record->sequence);
 
   if (gpu_mode == GPU_MODE_OFF)
     return GPU_BATCH_NOT_TAKEN;
+
+  /* S3, D1: under the minimum length the device loses at any batch size, so the
+   * record is never offered to it -- not held, not counted toward waking it. */
+  if ((!gpu_interactive) && (!gpu_record_admissible(L))) {
+    g_short_n++;
+    return GPU_BATCH_NOT_TAKEN;
+  }
 
   if (gpu_mode == GPU_MODE_DECLINED) {
     /* Never held: the sweep cannot run these options. The device is reached only
      * once the input is big enough that its absence mattered, so the one-line
      * warning appears exactly when it is worth reading -- and a short -d3 run pays
      * no wake-up just to be told. gpu_activate() settles the mode to OFF. */
-    gpu_shadow_cells += cells;
-    if (work_would_earn_gpu(gpu_shadow_cells))
+    gpu_work_add(&gpu_shadow_work, L);
+    if (gpu_work_earns(&gpu_shadow_work))
       (void)gpu_activate(opt);
 
     return GPU_BATCH_NOT_TAKEN;
   }
 
-  /* S1: a terminal is never kept waiting. */
+  /* S1: a terminal is never kept waiting. The record is its own chunk, so the model
+   * is asked about it alone, at one job: that is also the minimum-length test. */
   if (gpu_interactive) {
-    int r;
+    struct gpu_work w = { 0, 0.0, 0.0, 0.0 };
+    int             r;
 
-    if (!work_would_earn_gpu(cells))
+    gpu_work_add(&w, L);
+    if (!gpu_work_earns(&w))
       return GPU_BATCH_NOT_TAKEN;   /* the per-record path, at once */
 
     if ((gpu_mode == GPU_MODE_PENDING) && (!gpu_activate(opt)))
@@ -2341,10 +2417,10 @@ gpu_batch_offer(struct record_data *record,
                                                          sizeof(void *) * gpu_hold_cap);
     }
 
-    gpu_hold[gpu_hold_n++]  = record;
-    gpu_hold_cells         += cells;
+    gpu_hold[gpu_hold_n++] = record;
+    gpu_work_add(&gpu_hold_work, L);
 
-    if (!work_would_earn_gpu(gpu_hold_cells))
+    if (!gpu_work_earns(&gpu_hold_work))
       return GPU_BATCH_TAKEN;       /* held; gpu_batch_end() dispatches it if the input stops */
 
     if (!gpu_activate(opt)) {
@@ -2359,8 +2435,8 @@ gpu_batch_offer(struct record_data *record,
       if (offer_into_chunk(gpu_hold[i], opt) == GPU_BATCH_TOO_BIG)
         rnafold_dispatch_record(gpu_hold[i]);
 
-    gpu_hold_n     = 0;
-    gpu_hold_cells = 0.0;
+    gpu_hold_n = 0;
+    memset(&gpu_hold_work, 0, sizeof(gpu_hold_work));
     return GPU_BATCH_TAKEN;
   }
 
@@ -2384,6 +2460,12 @@ gpu_batch_end(struct options *opt)
   free(gpu_hold);
   gpu_hold     = NULL;
   gpu_hold_cap = 0;
+
+  if ((g_short_n > 0) && (vrna_cuda_verbose()))
+    fprintf(stderr, "%-24s %d record%s under %d nt folded on the host: too short to "
+                    "earn the device at %d job%s\n", "bin/gpu_batch.c", g_short_n,
+            (g_short_n == 1) ? "" : "s", g_min_len, g_host_jobs,
+            (g_host_jobs == 1) ? "" : "s");
 
   if (gpu_enabled) {
     pipeline_flush(gpu_chunk, gpu_chunk_n, opt);

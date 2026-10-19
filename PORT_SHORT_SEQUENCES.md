@@ -352,3 +352,56 @@ On these constants the model reproduces the crossovers above to within one doubl
   crossover toward the CPU.
 - All five stay overridable.
 - D3, calibration on the A100 host, is where the next numbers come from.
+
+## 9. S3, as built (2026-10-18)
+
+**What changed** (`src/bin/gpu_batch.c` only): the total-cells floor and S2's 0.3 s wake prior
+are replaced by the section 8.2 model, evaluated per record and per chunk.
+
+- `gpu_model_begin()` solves the **minimum length** once per input stream, for this -j:
+  **45 nt at -j1, 73 nt at -j4, 95 nt at -j12** on the compiled-in constants.
+  A piped record under it is never offered to the device: not held, not counted toward waking it
+  (D1). `--verbose` counts them at the end.
+- A held input (PENDING) wakes the device once `host wall > prior + C0 + Σ device`; a chunk goes
+  to the device once `host wall > C0 (first chunk) or 0.04 s (later) + Σ device`. At a terminal
+  the record is asked alone, at one job, so a single record earns the device from about 700 nt.
+- The ON line now says where the minimum length fell
+  ("with 12 jobs, records under 95 nt fold on the host").
+- `RNA_GPU_COST_MODEL` overrides any of K, h, k, C0, beta, and announces itself. A forced
+  `RNA_GPU_WORK_FLOOR` is the pre-S3 test exactly, with no minimum length, so every harness that
+  forces the path is unchanged.
+
+**Routing, from the binary's own evidence** (RNA_RECORD_TRACE routes, ON line; every output
+byte-identical to `RNA_GPU=0`):
+
+| shape | -j1 | -j12 |
+|---|---|---|
+| 3 × 300, 8 × 200, 30 × 100 | host | host |
+| 8 × 400 | device | host |
+| 256 × 80, 300 × 120, 4096 × 60 | device | host (80, 60 nt: under the minimum length) |
+| 1 × 1600, 20 × 600, 64 × 300 | device | device |
+
+Bill's 24 nt, piped: stderr empty, libcuda never loaded. Mixed 30 × 24 + 64 × 300 at -j12:
+the 30 short records fold on the host, the 64 on the device.
+
+**Against E-A2, offline** (each cell charged the measured median wall of the arm the model
+picks): **128.3 s over the whole matrix against the oracle's 123.1 s (+4 %); the old floor 165.9 s
+(+35 %)**. Worst cell 2.0× (model) vs 11.9× (old: 512 × 60 nt at -j12). Every remaining miss is
+the device chosen one doubling of N early.
+
+### 9.1 Found on the way: the cold probe is GPU idle time
+
+The misses all sit just above a step of about +0.6 s in the device walls, at every length. No
+code path switches there (the `--verbose` lines at 300 nt × 8 and × 16 are identical). The step
+is the probe:
+
+| E-A2 device runs | cold (F > 0.3 s) |
+|---|---|
+| straight after another device run | **0 of 132** |
+| after a CPU arm | **58 % of 132** |
+
+The cold runs start once the CPU arms before them last about 0.2 s or more. That is the
+laptop dGPU dropping to a deeper power state when idle (presumably Optimus runtime power
+management; WSL exposes no sysfs power state to confirm it). ABBA put one warm device run in
+every pair, so E-A2's median F of 0.08 s is the warm case. **A user's one-shot run usually starts
+with the GPU idle, so on this laptop F is about 0.7 s.**

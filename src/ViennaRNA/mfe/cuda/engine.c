@@ -53,6 +53,7 @@
 /* implemented in device.cu */
 unsigned int vrna_cuda_device_count(void);
 size_t       vrna_cuda_device_memory_total(void);
+const char   *vrna_cuda_device_name_0(void);
 #endif
 
 /*
@@ -141,6 +142,20 @@ vrna_cuda_device_memory(void)
   return vrna_cuda_device_memory_total();
 #else
   return 0;
+#endif
+}
+
+
+PUBLIC const char *
+vrna_cuda_device_name(void)
+{
+#ifdef VRNA_WITH_CUDA
+  if (vrna_cuda_devices() == 0)
+    return NULL;
+
+  return vrna_cuda_device_name_0();
+#else
+  return NULL;
 #endif
 }
 

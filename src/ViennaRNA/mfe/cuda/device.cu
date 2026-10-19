@@ -149,6 +149,33 @@ vrna_cuda_device_memory_total(void)
 }
 
 
+/* Device 0's name ("NVIDIA GeForce RTX 3050 Laptop GPU"), or NULL with no device.
+ * Bill Langdon, 2026-10-19: a user should be told which GPU folded, not only that
+ * one did. Device 0 because that is the one the backend uses; choosing among
+ * several is the multi-GPU item, not this. The runtime API, not cuDeviceGetName():
+ * the library links cudart only. */
+extern "C" const char *
+vrna_cuda_device_name_0(void)
+{
+  static char    name[sizeof(((cudaDeviceProp *)0)->name) + 1];
+  cudaDeviceProp p;
+
+  if (name[0])
+    return name;
+
+  if (vrna_cuda_device_count() == 0u)
+    return NULL;
+
+  if (cudaGetDeviceProperties(&p, 0) != cudaSuccess) {
+    cudaGetLastError();
+    return NULL;
+  }
+
+  strncpy(name, p.name, sizeof(name) - 1);
+  return name;
+}
+
+
 /*
  * RNA_PHASE_SYNC -- turn the per-phase timers from an ATTRIBUTION into a
  * MEASUREMENT.

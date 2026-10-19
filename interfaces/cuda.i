@@ -34,6 +34,7 @@
  *     RNA.cuda_devices()    how many usable CUDA devices there are. 0 when the
  *                           library was built without CUDA, which is not an
  *                           error -- folding still works
+ *     RNA.cuda_device_name() the name of the device folding uses, or None
  *     RNA.cuda_enable()     register the batch backend. Idempotent, and 0 here
  *                           simply means the batch below runs on the CPU
  *     RNA.cuda_fold([...])  fold a LIST of sequences, get a list of
@@ -66,6 +67,7 @@ extern "C" {
 %template(CudaFoldResult)   std::vector<std::pair<std::string, float> >;
 
 %rename (cuda_devices) my_cuda_devices;
+%rename (cuda_device_name) my_cuda_device_name;
 %rename (cuda_enable)  my_cuda_enable;
 %rename (cuda_fold)    my_cuda_fold;
 
@@ -89,6 +91,14 @@ extern "C" {
   my_cuda_devices(void)
   {
     return vrna_cuda_devices();
+  }
+
+
+  /* The name of the device folding would use, or None without one. */
+  const char *
+  my_cuda_device_name(void)
+  {
+    return vrna_cuda_device_name();
   }
 
 
@@ -281,6 +291,7 @@ extern "C" {
 %}
 
 unsigned int my_cuda_devices(void);
+const char   *my_cuda_device_name(void);
 unsigned int my_cuda_enable(void);
 
 std::vector<std::pair<std::string, float> >

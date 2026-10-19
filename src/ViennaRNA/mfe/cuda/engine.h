@@ -51,6 +51,15 @@ vrna_cuda_device_memory(void);
 
 
 /**
+ *  @brief  Name of the device the backend uses ("NVIDIA A100-SXM4-40GB"); NULL without one
+ *
+ *  The string is owned by the library and must not be freed.
+ */
+const char *
+vrna_cuda_device_name(void);
+
+
+/**
  *  @brief  Attach the CUDA MFE backend to a fold compound
  *
  *  Binds the backend through vrna_gr_set_inside_engine(). Whether any given

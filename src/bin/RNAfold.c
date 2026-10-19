@@ -643,6 +643,19 @@ main(int  argc,
     vrna_log_warning("Depending on the origin of the circular sequence, some structures may be missed when using --noLP\n"
              "Try rotating your sequence a few times");
 
+  /* Which executable, on which machine (Bill Langdon, 2026-10-19): two builds side by
+   * side, or a cluster job on an unknown node, are otherwise indistinguishable in a
+   * log. Under --verbose, because the default path says nothing a stock RNAfold does
+   * not (his 2026-10-18 report). The GPU, by name, is in the ON/OFF line. */
+  if (opt.verbose) {
+    char host[256] = "";
+
+    if (gethostname(host, sizeof(host) - 1) != 0)
+      strcpy(host, "unknown host");
+
+    vrna_log_info("%s on %s", argv[0], host);
+  }
+
   if ((opt.verbose) && (opt.jobs > 1))
     vrna_log_info("Preparing %d parallel computation slots", opt.jobs);
 

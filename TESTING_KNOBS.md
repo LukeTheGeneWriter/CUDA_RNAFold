@@ -55,7 +55,8 @@ matrix pin the ones the cleanup kept.
 
 | Variable | Default | Effect |
 |---|---|---|
-| `RNA_GPU_WORK_FLOOR` (alias `RNA_MIN_GPU_CELLS`) | measured | matrix cells a chunk needs before it goes to the device: the measured cost of reaching it × host fold rate × `-j`; `0` always uses the device |
+| `RNA_GPU_WORK_FLOOR` (alias `RNA_MIN_GPU_CELLS`) | unset (the model decides) | forces the pre-S3 test: a chunk goes to the device once its total matrix cells reach this, and no record is too short; `0` always uses the device |
+| `RNA_GPU_COST_MODEL` | `K=2.65e-7,h=6.8e-4,k=8.1e-8,C0=0.34,beta=0.18` | the admission model's constants (any subset, comma-separated): host `K·cells^1.15` s per record at one job, scaling `j/(1+beta(j−1))`; device `h + k·cells` per record plus `C0` before the first chunk. Sets the minimum length (said in the ON line) and the minimum batch. Measured on an RTX 3050 laptop (PORT_SHORT_SEQUENCES.md §8.2) |
 | `RNA_MIN_GPU_BATCH` | `10` | smallest chunk the device takes; also the floor `RNA_CPU_SLICE` keeps on the GPU |
 | `RNA_GPU_CHUNK_CELLS` | `753000000` | caps a chunk's matrix area (48 × 5601 nt); `0` disables the cap |
 | `RNA_GPU_UNIFORM_CHUNKS` | unset | set: a chunk is flushed whenever the record length changes |
