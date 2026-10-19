@@ -167,6 +167,21 @@ vrna_cuda_quiet(void);
 
 
 /**
+ *  @brief  Say the AUTO decisions a default run makes (int16 / int32, ...) on stderr
+ *
+ *  Off by default: a run that took the defaults prints only whether the device was
+ *  used, as stock ViennaRNA prints nothing. RNAfold turns it on under --verbose.
+ *  An EXPLICIT knob still announces itself regardless.
+ */
+void
+vrna_cuda_set_verbose(int on);
+
+
+int
+vrna_cuda_verbose(void);
+
+
+/**
  *  @name   Resource budgets (budget.c, PORT_BUDGETS.md)
  *
  *  How much host RAM, device memory and how many threads a run may take. A budget

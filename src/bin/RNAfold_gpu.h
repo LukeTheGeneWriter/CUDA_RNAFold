@@ -119,7 +119,8 @@ void    apply_constraints(vrna_fold_compound_t  *fc,
 #define GPU_BATCH_TAKEN     1
 #define GPU_BATCH_TOO_BIG   2
 
-void  gpu_batch_begin(struct options *opt);
+void  gpu_batch_begin(struct options *opt,
+                      int            interactive);   /* stdin is a terminal: hold nothing */
 int   gpu_batch_offer(struct record_data *record,
                       struct options     *opt);
 void  gpu_batch_end(struct options *opt);

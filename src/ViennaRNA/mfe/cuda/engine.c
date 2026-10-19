@@ -884,6 +884,24 @@ vrna_cuda_quiet(void)
 }
 
 
+/* vrna_cuda_verbose(): see engine.h. Bill Langdon, 2026-10-18: an interactive user
+ * typing one sequence was shown "fml_j AUTO: int32 -- ..." instead of an answer. */
+static int verbose = 0;
+
+PUBLIC void
+vrna_cuda_set_verbose(int on)
+{
+  verbose = (on != 0);
+}
+
+
+PUBLIC int
+vrna_cuda_verbose(void)
+{
+  return verbose && !quiet;
+}
+
+
 PUBLIC unsigned int
 vrna_cuda_attach(vrna_fold_compound_t *fc)
 {

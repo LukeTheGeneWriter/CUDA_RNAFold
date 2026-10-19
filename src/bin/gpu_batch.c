@@ -776,10 +776,12 @@ rnafold_build_threads(void)
      * so on stderr, for one reason: a run that did not apply a setting must not
      * be able to pass for one that did. This one was silent for three days
      * while its default disagreed with MERGING.md, and no harness could have
-     * caught that. */
-    fprintf(stderr,
-            "%-24s build threads %d%s\n", "bin/RNAfold.c", v,
-            (e && e[0]) ? " (from RNA_BUILD_THREADS)" : " (auto: nproc, the default)");
+     * caught that. The DEFAULT is said only under --verbose (PORT_SHORT_SEQUENCES.md
+     * D2); an explicit RNA_BUILD_THREADS always is, which is the case that rule is for. */
+    if ((e && e[0]) || vrna_cuda_verbose())
+      fprintf(stderr,
+              "%-24s build threads %d%s\n", "bin/RNAfold.c", v,
+              (e && e[0]) ? " (from RNA_BUILD_THREADS)" : " (auto: nproc, the default)");
   }
 
   return v;
@@ -1362,11 +1364,12 @@ pipeline_fits_in_host_memory(struct record_data **chunk,
   fits = (avail > 0) && (need <= avail / 2);
 
   if (fits != last) {
-    fprintf(stderr,
-            "%-24s build pipeline AUTO: %s -- next chunk needs ~%.3f GB, "
-            "MemAvailable %.3f GB (bar is half)\n",
-            "bin/RNAfold.c", fits ? "ON" : "off",
-            need / 1073741824.0, avail / 1073741824.0);
+    if (vrna_cuda_verbose())   /* an AUTO verdict: said under --verbose (PORT_SHORT_SEQUENCES.md D2) */
+      fprintf(stderr,
+              "%-24s build pipeline AUTO: %s -- next chunk needs ~%.3f GB, "
+              "MemAvailable %.3f GB (bar is half)\n",
+              "bin/RNAfold.c", fits ? "ON" : "off",
+              need / 1073741824.0, avail / 1073741824.0);
     last = fits;
   }
 
@@ -1826,9 +1829,39 @@ static size_t                chunk_bytes;
 static size_t                chunk_host;        /* RAM budget (B3): the chunk's compounds */
 static size_t                chunk_host_lmax;   /* and its longest record */
 
+/* THE DEVICE IS REACHED LAZILY (PORT_SHORT_SEQUENCES.md S2, 2026-10-18).
+ *
+ * W. B. Langdon: one short sequence typed at the prompt got "fml_j AUTO: ..." and
+ * no answer until Ctrl-D, and a short input paid the GPU's wake-up for a fold the
+ * CPU finishes first. Measured here: ~100 ms per invocation with RNA_GPU=0 against
+ * ~290-360 ms by default, for a 24 nt record that then folded on the CPU anyway.
+ * The probe that creates the CUDA context ran in gpu_batch_begin(), before a single
+ * record had been read.
+ *
+ * Now nothing touches CUDA until the input holds enough work to earn the device.
+ * Until then records are HELD here, host side, and an input that ends first is
+ * folded on the per-record path having never created a context. Interactive input
+ * (S1) is never held at all: a terminal user is owed each answer before the next
+ * prompt, so a record either earns the device on its own and is folded at once,
+ * alone, or goes to the per-record path as stock ViennaRNA does. */
+#define GPU_MODE_OFF      0   /* settled on the CPU: RNA_GPU=0, no device, or declined */
+#define GPU_MODE_PENDING  1   /* may use the device; not reached yet */
+#define GPU_MODE_DECLINED 2   /* options the sweep cannot run; not reached yet */
+#define GPU_MODE_ON       3
+
+static int                   gpu_mode;
+static int                   gpu_interactive;   /* stdin is a terminal */
+static const char           *gpu_why;           /* GPU_MODE_DECLINED: the option */
+static struct record_data  **gpu_hold;          /* PENDING: read, not yet dispatched */
+static int                   gpu_hold_n;
+static int                   gpu_hold_cap;
+static double                gpu_hold_cells;
+static double                gpu_shadow_cells;  /* DECLINED: what the device was missing */
+
 
 void
-gpu_batch_begin(struct options *opt)
+gpu_batch_begin(struct options *opt,
+                int            interactive)
 {
   gpu_chunk = NULL;
   gpu_chunk_n = 0;
@@ -1842,6 +1875,15 @@ gpu_batch_begin(struct options *opt)
   chunk_bytes = 0;
   chunk_host = 0;
   chunk_host_lmax = 0;
+  gpu_mode = GPU_MODE_OFF;
+  gpu_interactive = interactive;
+  gpu_why = NULL;
+  gpu_hold = NULL;
+  gpu_hold_n = 0;
+  gpu_hold_cap = 0;
+  gpu_hold_cells = 0.0;
+  gpu_shadow_cells = 0.0;
+  vrna_cuda_set_verbose(opt->verbose);
 
   /* The GPU chunk accumulator: a THIRD dispatch path alongside the serial and
    * per-record-parallel ones. Records are held back until a chunk's worth have
@@ -1889,20 +1931,10 @@ gpu_batch_begin(struct options *opt)
     const char *off = getenv("RNA_GPU");
     const char *why = NULL;
 
-    /* F, MEASURED. cudaGetDeviceCount() is what brings up the driver and creates
-     * the context, so this call IS the cost of reaching the device, and it is the
-     * dominant term in the admission floor -- ~0.6 s here against 0.042 s for
-     * init_gpu() proper. Timing it costs nothing because the call has to happen
-     * anyway, and it makes the floor respond to a cold driver, a shared cluster
-     * GPU or a MIG slice instead of asserting a laptop's number. */
-    {
-      const double t_probe = trace_now();
-      const int    ndev    = vrna_cuda_devices();
-
-      g_gpu_reach_cost = trace_now() - t_probe;
-      g_host_jobs      = (opt->jobs > 0) ? opt->jobs : 1;
-      gpu_enabled      = (ndev > 0);
-    }
+    g_host_jobs  = (opt->jobs > 0) ? opt->jobs : 1;
+    gpu_hard_cap = (e && e[0]) ? atoi(e) : 0;   /* 0 or less: budget decides */
+    if (gpu_hard_cap < 0)
+      gpu_hard_cap = 0;
 
     /* THE EXPLICIT OFF SWITCH. Deleting gate 3 removed the only way to ask for the
      * CPU path at run time, and two different people need one:
@@ -1920,17 +1952,50 @@ gpu_batch_begin(struct options *opt)
      *   where they used to say nothing.
      *
      * It is announced like any other decision, so a run that used the CPU cannot be
-     * mistaken for one that used the device, or the reverse. */
+     * mistaken for one that used the device, or the reverse. Since S2 it never
+     * touches CUDA at all: RNA_GPU=0 is now exactly stock ViennaRNA's cost. */
     if ((off) && (off[0]) && (!strcmp(off, "0"))) {
-      gpu_enabled = 0;
-      why         = "RNA_GPU=0";
+      gpu_mode = GPU_MODE_OFF;
+      fprintf(stderr, "%-24s GPU acceleration OFF: RNA_GPU=0 -- folding on the CPU\n",
+              "bin/RNAfold.c");
+    } else if (!gpu_path_usable(opt, &why)) {
+      gpu_mode = GPU_MODE_DECLINED;   /* reached, and said, only if it would have mattered */
+      gpu_why  = why;
+    } else {
+      gpu_mode = GPU_MODE_PENDING;
+    }
+  }
+}
+
+
+/* Reach the device: the probe, the announcement and the backend. Was the body of
+ * gpu_batch_begin() until S2 made it lazy; called at most once per input stream, by
+ * gpu_batch_offer(), when the input first holds enough work to earn the device. A
+ * DECLINED run reaches it only to say what the unused device was missing. Settles
+ * gpu_mode, and returns whether the device is now in use. */
+static int
+gpu_activate(struct options *opt)
+{
+  const char *why = gpu_why;
+  int         ndev;
+
+  {
+    /* F, MEASURED. cudaGetDeviceCount() is what brings up the driver and creates
+     * the context, so this call IS the cost of reaching the device, and it is the
+     * dominant term in the admission floor -- ~0.6 s here against 0.042 s for
+     * init_gpu() proper. Timing it costs nothing because the call has to happen
+     * anyway, and it makes the floor respond to a cold driver, a shared cluster
+     * GPU or a MIG slice instead of asserting a laptop's number. */
+    {
+      const double t_probe = trace_now();
+
+      ndev             = vrna_cuda_devices();
+      g_gpu_reach_cost = trace_now() - t_probe;
+      gpu_enabled      = (ndev > 0) && (gpu_mode == GPU_MODE_PENDING);
     }
 
     if ((!gpu_enabled) && (!why))
       why = "no CUDA device is visible";
-
-    if ((gpu_enabled) && (!gpu_path_usable(opt, &why)))
-      gpu_enabled = 0;
 
     /* ANNOUNCE THE DECISION -- but only when there is a decision to announce.
      *
@@ -1958,10 +2023,10 @@ gpu_batch_begin(struct options *opt)
               vrna_cuda_devices(), (vrna_cuda_devices() == 1) ? "" : "s",
               g_gpu_reach_cost, g_host_jobs, (g_host_jobs == 1) ? "" : "s",
               rnafold_gpu_work_floor());
-    } else if ((vrna_cuda_devices() > 0) || ((off) && (off[0]))) {
-      /* A device is present and unused, or the user asked for the CPU. Both are
-       * worth one line: the first because the hardware is sitting there, the second
-       * because a harness must be able to prove which arm it got. */
+    } else if (ndev > 0) {
+      /* A device is present and unused: the hardware is sitting there. (RNA_GPU=0,
+       * the user asking for the CPU, is said in gpu_batch_begin() and never gets
+       * here.) */
       fprintf(stderr, "%-24s GPU acceleration OFF: %s -- folding on the CPU\n",
               "bin/RNAfold.c", why ? why : "unavailable");
     } else if (opt->verbose) {
@@ -1969,10 +2034,6 @@ gpu_batch_begin(struct options *opt)
     }
 
     if (gpu_enabled) {
-      gpu_hard_cap = (e && e[0]) ? atoi(e) : 0;   /* 0 or less: budget decides */
-      if (gpu_hard_cap < 0)
-        gpu_hard_cap = 0;
-
       /* One of only TWO places this driver names CUDA -- the other is the
        * vrna_cuda_devices() probe 20 lines up, which is why this comment used
        * to say "the one and only" and was wrong. After this call the driver
@@ -1989,6 +2050,9 @@ gpu_batch_begin(struct options *opt)
         rnafold_bt_pipeline_attach(&bt_chunk_done);
     }
   }
+
+  gpu_mode = gpu_enabled ? GPU_MODE_ON : GPU_MODE_OFF;
+  return gpu_enabled;
 }
 
 
@@ -1996,13 +2060,10 @@ gpu_batch_begin(struct options *opt)
  * off for this run. GPU_BATCH_TOO_BIG: free VRAM cannot hold even this one record;
  * the caller folds it on the pool and skips the rest of its loop body, exactly as
  * the `continue` here used to. */
-int
-gpu_batch_offer(struct record_data *record,
-                struct options     *opt)
+static int
+offer_into_chunk(struct record_data *record,
+                 struct options     *opt)
 {
-  if (!gpu_enabled)
-    return GPU_BATCH_NOT_TAKEN;
-
   {
       /* A chunk must be UNIFORM LENGTH.
        *
@@ -2177,6 +2238,136 @@ gpu_batch_offer(struct record_data *record,
 }
 
 
+/* S2: would this much work, in matrix cells, earn the device once it is reached?
+ * Asked BEFORE the probe, so the device's fixed cost cannot be measured yet and a
+ * prior stands in for it: VRNA_GPU_WAKE_COST_PRIOR, the ~0.3 s the 16-record arms
+ * of PORT_SHORT_SEQUENCES.md section 3 put on probe + init + teardown (the probe
+ * alone measures 0.07-0.09 s here and understates it about fourfold). A forced
+ * RNA_GPU_WORK_FLOOR is honoured as it is after the probe, so RNA_GPU_WORK_FLOOR=0
+ * still means "always the device" and every harness that forces the path keeps it. */
+#define VRNA_GPU_WAKE_COST_PRIOR 0.3
+
+static int
+work_would_earn_gpu(const double cells)
+{
+  const char *e = getenv("RNA_GPU_WORK_FLOOR");
+
+  if ((!e) || (!e[0]))
+    e = getenv("RNA_MIN_GPU_CELLS");
+
+  if ((e) && (e[0]) && (atof(e) >= 0.0))
+    return cells >= rnafold_gpu_work_floor();
+
+  return cells >= VRNA_GPU_WAKE_COST_PRIOR * VRNA_HOST_FOLD_CELLS_PER_SEC * (double)g_host_jobs;
+}
+
+
+/* S1: fold what the chunk holds NOW, and wait for it, so an interactive user sees
+ * the answer before the next prompt. The build and backtrack pipelines both leave
+ * work pending by design; both are drained, and the next record starts a fresh
+ * chunk (chunk_started = 0 re-reads free VRAM, as after any flush). */
+static void
+flush_chunk_now(struct options *opt)
+{
+  pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
+  pipeline_drain(opt);
+  rnafold_bt_pipeline_drain();
+  gpu_chunk_n     = 0;
+  chunk_bytes     = 0;
+  chunk_host      = chunk_host_lmax = 0;
+  gpu_chunk_cells = 0;
+  chunk_started   = 0;
+}
+
+
+static void
+hold_dispatch_all(void)
+{
+  int i;
+
+  for (i = 0; i < gpu_hold_n; i++)
+    rnafold_dispatch_record(gpu_hold[i]);
+
+  gpu_hold_n     = 0;
+  gpu_hold_cells = 0.0;
+}
+
+
+int
+gpu_batch_offer(struct record_data *record,
+                struct options     *opt)
+{
+  const double L     = (double)strlen(record->sequence);
+  const double cells = L * (L + 1.0) / 2.0;
+
+  if (gpu_mode == GPU_MODE_OFF)
+    return GPU_BATCH_NOT_TAKEN;
+
+  if (gpu_mode == GPU_MODE_DECLINED) {
+    /* Never held: the sweep cannot run these options. The device is reached only
+     * once the input is big enough that its absence mattered, so the one-line
+     * warning appears exactly when it is worth reading -- and a short -d3 run pays
+     * no wake-up just to be told. gpu_activate() settles the mode to OFF. */
+    gpu_shadow_cells += cells;
+    if (work_would_earn_gpu(gpu_shadow_cells))
+      (void)gpu_activate(opt);
+
+    return GPU_BATCH_NOT_TAKEN;
+  }
+
+  /* S1: a terminal is never kept waiting. */
+  if (gpu_interactive) {
+    int r;
+
+    if (!work_would_earn_gpu(cells))
+      return GPU_BATCH_NOT_TAKEN;   /* the per-record path, at once */
+
+    if ((gpu_mode == GPU_MODE_PENDING) && (!gpu_activate(opt)))
+      return GPU_BATCH_NOT_TAKEN;
+
+    r = offer_into_chunk(record, opt);
+    if (r == GPU_BATCH_TAKEN)
+      flush_chunk_now(opt);
+
+    return r;
+  }
+
+  if (gpu_mode == GPU_MODE_PENDING) {
+    int i;
+
+    if (gpu_hold_n == gpu_hold_cap) {
+      gpu_hold_cap = gpu_hold_cap ? gpu_hold_cap * 2 : 64;
+      gpu_hold     = (struct record_data **)vrna_realloc(gpu_hold,
+                                                         sizeof(void *) * gpu_hold_cap);
+    }
+
+    gpu_hold[gpu_hold_n++]  = record;
+    gpu_hold_cells         += cells;
+
+    if (!work_would_earn_gpu(gpu_hold_cells))
+      return GPU_BATCH_TAKEN;       /* held; gpu_batch_end() dispatches it if the input stops */
+
+    if (!gpu_activate(opt)) {
+      hold_dispatch_all();          /* no device after all: every held record, at once */
+      return GPU_BATCH_TAKEN;
+    }
+
+    /* Reached. The held records join chunks in input order, exactly as if they had
+     * been offered now; ostream slots were requested at read time, so the output
+     * order does not depend on any of this. */
+    for (i = 0; i < gpu_hold_n; i++)
+      if (offer_into_chunk(gpu_hold[i], opt) == GPU_BATCH_TOO_BIG)
+        rnafold_dispatch_record(gpu_hold[i]);
+
+    gpu_hold_n     = 0;
+    gpu_hold_cells = 0.0;
+    return GPU_BATCH_TAKEN;
+  }
+
+  return offer_into_chunk(record, opt);
+}
+
+
 void
 gpu_batch_end(struct options *opt)
 {
@@ -2186,6 +2377,14 @@ gpu_batch_end(struct options *opt)
    * once rather than at each call site. It was a record count until 2026-09-27; the
    * tail of a long-sequence input is now correctly kept on the device, which is where
    * a handful of 5601 nt records belongs. */
+
+  /* S2: the input ended before it held enough work to earn the device. Everything
+   * held goes down the per-record path, and no CUDA context was ever created. */
+  hold_dispatch_all();
+  free(gpu_hold);
+  gpu_hold     = NULL;
+  gpu_hold_cap = 0;
+
   if (gpu_enabled) {
     pipeline_flush(gpu_chunk, gpu_chunk_n, opt);
     /* The pipeline leaves the last chunk built but unfolded by construction --

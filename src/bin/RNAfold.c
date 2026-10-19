@@ -981,10 +981,13 @@ process_input(FILE            *input_stream,
 
 #ifdef VRNA_WITH_CUDA
   /* The GPU chunk accumulator and the run's GPU decision: gpu_batch.c. */
-  gpu_batch_begin(opt);
+  gpu_batch_begin(opt, istty_in);
 #endif
-  /* The budgets in force, once, and only when one is not `full` (RNAfold's default). */
-  vrna_budget_report(vrna_cuda_device_memory());
+  /* The budgets in force, once, and only when one is not `full` (RNAfold's default).
+   * The card's size is asked for only when a VRAM budget needs it: the query creates
+   * the CUDA context, and a run that never earns the device must not pay for one
+   * (PORT_SHORT_SEQUENCES.md S2). */
+  vrna_budget_report(vrna_budget_is_full(VRNA_BUDGET_VRAM) ? 0 : vrna_cuda_device_memory());
 
   /* print user help if we get input from tty */
   if (istty_in && istty_out) {

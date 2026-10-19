@@ -241,7 +241,7 @@ rnafold_fml_int16_auto_decide(const size_t usable_bytes, const unsigned long lon
   else if (cap_cells == 0)  { g_fml_int16_auto = 1; why = "chunks are sized by VRAM (no cell cap)"; }
   else if (full_cap_bytes32 > usable_bytes) { g_fml_int16_auto = 1; why = "a full-cap chunk would not fit in VRAM as int32"; }
   else                      { g_fml_int16_auto = 0; why = "sparse md, and a full-cap chunk fits in VRAM as int32"; }
-  if (!rnafold_fml_int16_explicit() && getenv("RNA_FML_INT16") == NULL && !vrna_cuda_quiet())
+  if (!rnafold_fml_int16_explicit() && getenv("RNA_FML_INT16") == NULL && vrna_cuda_verbose())
     fprintf(stderr, "%-24s fml_j AUTO: %s -- %s (full-cap chunk %.1f GB as int32, %.1f GB usable)\n",
             __FILE__, g_fml_int16_auto ? "int16" : "int32", why,
             (double)full_cap_bytes32 / 1073741824.0, (double)usable_bytes / 1073741824.0);
