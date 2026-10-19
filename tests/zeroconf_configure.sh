@@ -33,13 +33,26 @@
 #   usage: tests/zeroconf_configure.sh [build-dir]    (default: $HOME/lfb)
 #
 # Leaves the tree configured accelerated, since that is what everything else assumes.
+#
+# SPEED (2026-10-19). The full run was 908 s at JOBS=4 (PORT_SHORT_SEQUENCES.md section
+# 7), long enough to be killed by host memory pressure more than once. Half of each build
+# was the LTO link of ~30 programs, and the 4.4 MB SWIG wrapper compiled twice because
+# static libraries are on. These cases test CUDA DETECTION and the CPU-only and Python
+# builds, not LTO or static archives -- the default (LTO, static) accelerated build is the
+# tree's own build, which the standing bars run on. So by default every case configures
+# with upstream's own --disable-lto --disable-static; ZC_FAST=0 runs them with configure's
+# defaults instead. ZC_NO_RESTORE=1 skips the final restore (configure + rebuild), for a
+# tree that is a throwaway copy, as in the bar sessions.
 
 set -u
 
 TREE=${1:-$HOME/lfb}
 WORK=${TMPDIR:-$HOME}/zeroconf.$$
-COMMON="--without-perl --without-python --without-swig --without-doc
+COMMON_BASE="--without-perl --without-python --without-swig --without-doc
         --without-rnaxplorer --without-forester --without-kinfold --without-rnalocmin"
+FAST=""
+[ "${ZC_FAST:-1}" = 1 ] && FAST="--disable-lto --disable-static"
+COMMON="$COMMON_BASE $FAST"
 # Overridable: this runs four full builds back to back, and on a small host that
 # is enough memory pressure to get the run killed from outside.
 JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
@@ -178,7 +191,7 @@ echo "=== 7. no toolkit, WITH the Python module -- what a default CPU-only insta
 # machine with Python and SWIG but no nvcc could not `./configure && make` at all.
 # Upstream's default configure builds this module whenever python3 and swig exist.
 PYCOMMON="--without-perl --without-doc
-          --without-rnaxplorer --without-forester --without-kinfold --without-rnalocmin"
+          --without-rnaxplorer --without-forester --without-kinfold --without-rnalocmin $FAST"
 if ! $NOCUDA_ENV sh -c 'command -v swig' >/dev/null 2>&1; then
   bad "swig is not reachable, so the Python module cannot be built -- install swig"
 elif $NOCUDA_ENV ./configure $PYCOMMON > "$WORK/c8.log" 2>&1; then
@@ -226,11 +239,15 @@ else
   bad "configure with Python on failed when no toolkit was present (see $WORK/c8.log)"
 fi
 
-echo "=== restoring the accelerated configuration"
-./configure $COMMON > "$WORK/c7.log" 2>&1 && cuda_on \
-  && pass "tree left configured accelerated" \
-  || bad "could not restore the accelerated configuration"
-make -j"$JOBS" > "$WORK/m7.log" 2>&1 && pass "and rebuilt" || bad "restore build failed"
+if [ "${ZC_NO_RESTORE:-0}" = 1 ]; then
+  echo "=== ZC_NO_RESTORE=1: the tree is a throwaway copy, left as case 7 configured it"
+else
+  echo "=== restoring the accelerated configuration (configure's defaults: LTO and static on)"
+  ./configure $COMMON_BASE > "$WORK/c7.log" 2>&1 && cuda_on \
+    && pass "tree left configured accelerated" \
+    || bad "could not restore the accelerated configuration"
+  make -j"$JOBS" > "$WORK/m7.log" 2>&1 && pass "and rebuilt" || bad "restore build failed"
+fi
 
 echo
 if [ "$fail" -eq 0 ]; then
