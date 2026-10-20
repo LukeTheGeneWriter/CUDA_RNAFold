@@ -26,13 +26,15 @@ fml_scan_block(const int nfiles, const int i_row, const int turn,
                 const size_t* __restrict__ size_off_H,
                 const int* __restrict__ i_H,
                const int H, int* sa, int* sc) {
-  // The row index is read per record (i_H). It equals i_row, and the
-  // assert proves that at RUNTIME in a --enable-asserts build. A release
-  // build defines NDEBUG for nvcc too (NVCC_ASSERT_FLAGS; this comment
-  // said otherwise until Bill Langdon noticed, 2026-10-19), so there the
-  // check is compiled out and i_H == i_row rests on construction.
+  // The row index is read per record (i_H). It equals i_row, and this
+  // proves it at RUNTIME, in every build: it was an assert(), which a
+  // release build compiles out (nvcc gets NDEBUG too -- Bill Langdon,
+  // 2026-10-19). __trap() survives NDEBUG and kills the context, so a
+  // table that ever disagrees ends the run instead of folding silently
+  // wrong. No printf: device printf lands in the fold output on stdout.
   const int i = i_H[H];
-  assert(i == i_row);
+  if (i != i_row)
+    __trap();
   const long long width = (long long)size_off_H[H+1] - (long long)size_off_H[H];
   if(width <= 0) return;                  // has not joined the sweep -- whole block returns
   const size_t o  = row_off_H[H];
