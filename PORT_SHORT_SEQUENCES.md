@@ -504,6 +504,28 @@ When the device is cold, the hot budget costs 1.95× the CPU run, which is a reg
 stock RNAfold. When it is hot, the cold budget gives up a 1.5× speed-up but is never slower than the
 CPU run. That is the asymmetry the decision rests on.
 
+**Speed bar** (`sp3w.sh`: 30–600 nt, 1–4096 records, -j1 and -j12, 2 reps; arms cpu, auto =
+cold budget, auto08 = `F=0.08` (the pushed tip's routing), dev; 1102 rows. The run died about
+10:23 on 10-20, with the WSL session, after its waiter was reaped; the last ~100 warm -j1 rows
+from 150 nt × 1024 on are missing. Fit: `sp3w_fit.py`):
+
+| regime | cells | auto (cold) | auto08 | best per cell | cells where the route chosen was slower than the CPU |
+|---|---|---|---|---|---|
+| idle, 12 s before each run | 77 | **74.9 s** | 80.9 s | 74.0 s | auto **0**; auto08 7, at 1.24–3.8× (200 × 128 at -j12: 1.91 s vs 0.50 s) |
+| warm, a device run just before | 60 | 43.7 s | **35.7 s** | 36.0 s | auto 0 (bar one CPU-route outlier, 3.26 s against 0.23 s in its other rep) |
+
+- Idle: the cold budget is 7.4 % faster in sum than the 0.08 s one, and within 1.2 % of the
+  best-route sum. Of its 6 cells outside the 10 % bar, 4 are millisecond CPU-route runs where both
+  budgets chose the same route (noise). The other 2 (300 and 400 nt × 16 at -j1) are forgone
+  device wins, never slower than the CPU.
+- Warm: the cold budget gives up 22 % in sum (about 14 % without the outlier). That is the
+  forgone side of the asymmetry; no cell is slower than the CPU.
+- **Found:** from -j1 at 300 nt on, the idle arms' F stayed at 0.10 s despite 12 s of idle. The GPU
+  had stopped going cold, presumably because something else on the laptop was keeping the dGPU
+  awake. So the cold state is a property of the machine's state as well as of idle time, and the
+  configured cold value is an upper bound. When it overestimates, the cost is a forgone
+  speed-up, never a slowdown.
+
 - **The minimum length does not move.** It is set by the per-record terms alone (where
   `t_h(c)/S(jobs) > h + k·c`), so 45/73/95 nt at -j1/4/12 stand. F moves the minimum batch: at
   200 nt and -j12 from about 120 records (F 0.08) to about 490 (F 1.4).
