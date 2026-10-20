@@ -294,7 +294,8 @@ AS_IF([test "x$enable_cuda" = "xyes"],[
   cuda_report_detail="
       - nvcc                  : ${cuda_report_nvcc}
       - host compiler         : ${cuda_report_host}
-      - compute capabilities  : ${cuda_report_arch}"
+      - compute capabilities  : ${cuda_report_arch}
+      - reaching the GPU      : ${cuda_report_wake}"
 ],[
   AS_IF([test "x$cuda_report_why" != "x"],
         [cuda_report_detail="

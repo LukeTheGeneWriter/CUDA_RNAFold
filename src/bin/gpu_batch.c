@@ -376,7 +376,8 @@ gpu_path_usable(struct options *opt,
  * MACHINE DEPENDENCE. The constants are an RTX 3050 laptop's, against 12 logical
  * cores. beta especially: a server CPU scales closer to linearly, which moves every
  * crossover toward the host. RNA_GPU_COST_MODEL overrides any of them, as
- * "K=2.65e-7,h=6.8e-4,k=8.1e-8,C0=0.34,beta=0.18"; the A100 calibration (D3) and the
+ * "K=2.65e-7,h=6.8e-4,k=8.1e-8,C0=0.34,beta=0.18", and F (reaching the device, below)
+ * as well; F alone is measured per machine, by configure. The A100 calibration (D3) and the
  * tuner of PORT_ZEROCONF_SCOPE.md section 3.1 are where better numbers come from. A
  * forced RNA_GPU_WORK_FLOOR still means the old total-cells test with no minimum
  * length, so RNA_GPU_WORK_FLOOR=0 is "always the device" for every harness that
@@ -389,8 +390,26 @@ gpu_path_usable(struct options *opt,
 #define VRNA_GPU_MODEL_C0     0.34     /* first real CUDA work beyond the probe: s */
 #define VRNA_GPU_MODEL_BETA   0.18     /* host -j scaling: S(4) = 2.6, S(12) = 4.0 */
 #define VRNA_GPU_MODEL_CHUNK  0.04     /* each chunk after the first: s */
-#define VRNA_GPU_PROBE_PRIOR  0.08     /* the probe, until it is measured: E-A2's median */
+#define VRNA_GPU_PROBE_PRIOR  0.08     /* the probe, when configure did not measure it */
 #define VRNA_GPU_MODEL_LMAX   65536    /* the minimum-length search gives up here */
+
+/* F BEFORE THE PROBE: WHAT REACHING THE DEVICE COSTS DEPENDS ON HOW LONG IT IDLED
+ * (PORT_SHORT_SEQUENCES.md 9.2-9.3). On the RTX 3050 laptop: 0.07 s straight after another
+ * process used it, 0.7 s after 0.3-5 s idle, 1.4 s from 10 s on, flat to 120 s. The
+ * 0.08 above is the hot case only, and a one-shot run is the cold one.
+ *
+ * So configure measures both on the machine it runs on (m4/ac_rna_cuda.m4, 3b), and the
+ * model budgets the COLD one (Luke, 2026-10-20). The cost is asymmetric: two small runs
+ * back to back that come out faster than budgeted lose nothing, but two that each wake
+ * a hot-budgeted device and take longer than the host would have are a regression.
+ *
+ * A build host is often not the run host (a cluster login node), so the measured value
+ * applies only where gethostname() matches the host configure ran on; elsewhere the
+ * prior above. The host name costs nothing to read and touches no device. */
+#if defined(VRNA_GPU_WAKE_COLD_S) && defined(VRNA_GPU_WAKE_HOST)
+static const double VRNA_GPU_WAKE_COLD = VRNA_GPU_WAKE_COLD_S;
+static const char   VRNA_GPU_WAKE_AT[] = VRNA_GPU_WAKE_HOST;   /* "" = any host */
+#endif
 
 /* F, in seconds: measured at the vrna_cuda_devices() probe, and reported. The model
  * does not need it after the probe -- by then it is paid. */
@@ -406,9 +425,12 @@ static int g_device_reached = 0;
 static int g_device_chunks  = 0;   /* chunks the device has taken */
 
 static struct {
-  double K, h, k, C0, beta;
+  double K, h, k, C0, beta, F;
 } g_model = { VRNA_GPU_MODEL_K, VRNA_GPU_MODEL_H, VRNA_GPU_MODEL_KDEV,
-              VRNA_GPU_MODEL_C0, VRNA_GPU_MODEL_BETA };
+              VRNA_GPU_MODEL_C0, VRNA_GPU_MODEL_BETA, VRNA_GPU_PROBE_PRIOR };
+
+/* Where g_model.F came from, for the ON line. */
+static const char *g_F_source = "default; configure did not measure it";
 
 static int g_min_len = 0;   /* the minimum length, nt; solved by gpu_model_begin() */
 static int g_short_n = 0;   /* records kept on the host for being under it */
@@ -578,7 +600,7 @@ static double
 gpu_model_fixed_s(void)
 {
   if (!g_device_reached)
-    return VRNA_GPU_PROBE_PRIOR + g_model.C0;
+    return g_model.F + g_model.C0;
 
   return (g_device_chunks == 0) ? g_model.C0 : VRNA_GPU_MODEL_CHUNK;
 }
@@ -640,6 +662,22 @@ gpu_model_begin(void)
     const char *e = getenv("RNA_GPU_COST_MODEL");
 
     read = 1;
+#if defined(VRNA_GPU_WAKE_COLD_S) && defined(VRNA_GPU_WAKE_HOST)
+    {
+      char host[256] = "";
+
+      if (!VRNA_GPU_WAKE_AT[0]) {
+        g_model.F  = VRNA_GPU_WAKE_COLD;
+        g_F_source = "cold, given to configure";
+      } else if ((gethostname(host, sizeof(host) - 1) == 0) &&
+                 (!strcmp(host, VRNA_GPU_WAKE_AT))) {
+        g_model.F  = VRNA_GPU_WAKE_COLD;
+        g_F_source = "cold, measured by configure";
+      } else {
+        g_F_source = "default; configure measured another host";
+      }
+    }
+#endif
     if ((e) && (e[0])) {
       char *s = strdup(e), *tok, *save = NULL;
 
@@ -660,13 +698,17 @@ gpu_model_begin(void)
           g_model.C0 = atof(eq + 1);
         else if (!strcmp(tok, "beta"))
           g_model.beta = atof(eq + 1);
-        else
+        else if (!strcmp(tok, "F")) {
+          g_model.F  = atof(eq + 1);
+          g_F_source = "RNA_GPU_COST_MODEL";
+        } else
           fprintf(stderr, "%-24s RNA_GPU_COST_MODEL: unknown term '%s', ignored\n",
                   "bin/RNAfold.c", tok);
       }
       free(s);
-      fprintf(stderr, "%-24s RNA_GPU_COST_MODEL: K=%g h=%g k=%g C0=%g beta=%g\n",
-              "bin/RNAfold.c", g_model.K, g_model.h, g_model.k, g_model.C0, g_model.beta);
+      fprintf(stderr, "%-24s RNA_GPU_COST_MODEL: K=%g h=%g k=%g C0=%g beta=%g F=%g\n",
+              "bin/RNAfold.c", g_model.K, g_model.h, g_model.k, g_model.C0, g_model.beta,
+              g_model.F);
     }
   }
 
@@ -2121,8 +2163,9 @@ gpu_activate(struct options *opt)
                 "bin/RNAfold.c", dev_name, ndev, g_gpu_reach_cost, rnafold_gpu_work_floor());
       else
         fprintf(stderr, "%-24s GPU acceleration ON: %s (device 0 of %d); reaching the "
-                        "device measured %.2f s; with %d job%s, records under %d nt fold "
-                        "on the host\n", "bin/RNAfold.c", dev_name, ndev, g_gpu_reach_cost,
+                        "device measured %.2f s (budgeted %.2f s, %s); with %d job%s, "
+                        "records under %d nt fold on the host\n", "bin/RNAfold.c", dev_name,
+                ndev, g_gpu_reach_cost, g_model.F, g_F_source,
                 g_host_jobs, (g_host_jobs == 1) ? "" : "s", g_min_len);
     } else if (ndev > 0) {
       /* A device is present and unused: the hardware is sitting there. (RNA_GPU=0,

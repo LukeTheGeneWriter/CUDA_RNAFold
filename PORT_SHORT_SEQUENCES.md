@@ -405,3 +405,105 @@ laptop dGPU dropping to a deeper power state when idle (presumably Optimus runti
 management; WSL exposes no sysfs power state to confirm it). ABBA put one warm device run in
 every pair, so E-A2's median F of 0.08 s is the warm case. **A user's one-shot run usually starts
 with the GPU idle, so on this laptop F is about 0.7 s.**
+
+### 9.2 The idle-GPU wake cost, measured (2026-10-19), and what it means for the prior
+
+**Idle-gap sweep** (`gap.sh`: wake the device, idle g seconds, time the next run's probe; 4 reps):
+
+| GPU idle before the run | reaching the device, F |
+|---|---|
+| 0 s | 0.07 s |
+| 0.05–0.2 s | about 0.2 s |
+| 0.3–5 s | about 0.7 s (15 of 16 runs cold) |
+| 10 s | about 1.38 s, every run |
+
+A user's one-shot run normally starts from a GPU idle for seconds or minutes, so on this laptop
+it pays **0.7–1.4 s** to reach the device. S3's prior (0.08 s, E-A2's median) is the warm case
+only; E-A2's ABBA order put a warm device run in every pair.
+
+**Speed bar, partial** (`sp3.sh`, idle regime, -j12, 30–300 nt, 30 cells, 2 reps; the run was lost
+when WSL shut down after its waiter was reaped). Bar: auto within 10 % of min(cpu, device).
+
+- Every cell where auto stayed on the CPU passes but one: 23 of 24, including every length under
+  the minimum and every small batch (Bill's case). The exception is 4096 × 30 nt at 1.13×.
+- All six misses are cells where auto chose the device near the crossover:
+  200 × 128 at **2.79×** (auto 1.49 s vs CPU 0.535 s), and 100 × 4096, 150 × 1024, 150 × 4096,
+  200 × 1024 at 1.15–1.18×.
+- Summed: auto 19.3 s, best possible 16.4 s, all-CPU 24.0 s.
+
+**Reading.** With the prior at the idle value (~1.4 s), the model routes 200 × 128 and
+100 × 4096 to the CPU, which removes the two worst misses. The three remaining device-side misses
+(1.15–1.18×) are partly the harness: the arms did not idle equally. Auto ran after a CPU arm, so
+its GPU had slept longer, and its measured F was 1.04 s median against the forced-device arm's
+0.71 s.
+
+**Proposed (not built):**
+- Raise `VRNA_GPU_PROBE_PRIOR` from 0.08 to the idle value, about 1.4 s on this laptop. This
+  only moves the pre-probe decision. After the probe, F is measured and already paid.
+  - On a server GPU that stays awake (persistence mode), this is conservative: it keeps a few
+    borderline inputs on the host.
+  - The A100 calibration (D3) decides its value there.
+- Make `sp3.sh` idle every arm into the same tier (sleep > 10 s before each run, or alternate the
+  arm order per cell), then rerun the speed bar in full.
+
+### 9.3 Configure measures the wake cost; RNAfold budgets the cold one (2026-10-20)
+
+**The curve past 10 s, and what else depends on idle** (`gap2.sh`, 3 reps per arm; "rest" is the
+first run's wall minus F, i.e. C0 plus one 300 nt fold):
+
+| GPU idle before the run | F | rest |
+|---|---|---|
+| 0 s | 0.07 s | ~0.3 s |
+| 1 s | 0.70 s | ~0.3 s |
+| 10, 15, 20, 30, 60, 120 s | **1.38–1.48 s** | ~0.3 s |
+| 15 s, then `nvidia-smi --query-gpu` | 0.07 s | ~0.3 s |
+
+- The device is fully cold by 10 s and stays at one value to 120 s, so two numbers describe it:
+  hot and cold.
+- Only F depends on idle. C0 does not, so K, h, k, C0 and beta stand.
+- `nvidia-smi` (NVML) wakes the device fully. Configure's architecture query (`ac_rna_cuda.m4`
+  step 2) is one, so the cold sample needs its own idle; and a host running a GPU monitor is
+  probably always hot.
+
+**Decision (Luke, 2026-10-20): budget the cold value.** Hot applies to runs that use the device
+many times, not to individual invocations. The cost is asymmetric: two small invocations back to
+back that come out faster than budgeted lose nothing, but two that each wake a hot-budgeted device
+and take longer than the host would have are a regression.
+
+**Built:**
+- `m4/ac_rna_cuda.m4` 3b. Where a device answers, configure builds a probe that times
+  `cudaGetDeviceCount()` (what RNAfold's first contact is), takes the median of 5 back-to-back runs
+  as hot and one run after 12 s idle as cold, ~15 s in all. The results go into config.h as
+  `VRNA_GPU_WAKE_HOT_S`, `VRNA_GPU_WAKE_COLD_S` and `VRNA_GPU_WAKE_HOST` (`uname -n`), and the
+  summary prints them. Opt-out `--without-gpu-wake-probe`; `vrna_cv_gpu_wake_cold=S` (`_hot`,
+  `_host`) gives them instead, with an empty host meaning every host. Values are reprinted by awk,
+  so a malformed one cannot reach the C compiler, and a value of 0 or less is refused.
+- `gpu_batch.c`: the model's pre-probe F is the configured cold value when `gethostname()` matches,
+  else 0.08 (a build host is often not the run host). `RNA_GPU_COST_MODEL` takes `F=`. The ON line
+  says `budgeted X s, <source>` next to the measured F.
+**Verified** (`wake_test.sh`, a copy of the tip build plus this change; 25 of 26 checks pass, and
+the one FAIL was the harness's grep catching a config.h comment, while the ON line it printed was
+right):
+- configure: the opt-out, the given values (no probe, no sleep), a malformed value (reprinted as
+  1.400), 0 (refused) and the measured case (0.075 s hot, 1.410 s cold, tied to the host). The
+  measured configure took 29 s against 13–14 s for the given ones, so the probe costs ~15 s.
+- At -j1, -j4 and -j12 the minimum length is the tip's (45/73/95 nt) under the cold budget and
+  under `F=0.08`, and the output is identical.
+- 256 × 200 nt at -j12 (the hot crossover is ~120 records): the tip and `F=0.08` route it to the
+  device, the cold budget keeps it on the host, and the outputs are identical.
+- A config.h naming another host gives the 0.08 default; an empty host applies the value everywhere.
+
+**The asymmetry, measured at that cell** (3 reps, median wall per route):
+
+| GPU state before the run | host route | device route | device / host |
+|---|---|---|---|
+| cold (12 s idle) | 1.04 s | 2.03 s | **1.95×** |
+| hot (straight after a wake) | 1.07 s | 0.70 s | 0.65× |
+
+When the device is cold, the hot budget costs 1.95× the CPU run, which is a regression against
+stock RNAfold. When it is hot, the cold budget gives up a 1.5× speed-up but is never slower than the
+CPU run. That is the asymmetry the decision rests on.
+
+- **The minimum length does not move.** It is set by the per-record terms alone (where
+  `t_h(c)/S(jobs) > h + k·c`), so 45/73/95 nt at -j1/4/12 stand. F moves the minimum batch: at
+  200 nt and -j12 from about 120 records (F 0.08) to about 490 (F 1.4).

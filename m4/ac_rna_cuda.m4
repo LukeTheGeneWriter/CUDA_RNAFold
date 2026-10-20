@@ -67,7 +67,16 @@ AC_DEFUN([RNA_ENABLE_CUDA], [
               [cuda_arch="$withval"],
               [cuda_arch=""])
 
+  ## What reaching the GPU costs, hot and cold (3b below). On by default where a device
+  ## is visible: it adds ~15 s to configure, and nothing where there is no GPU.
+  AC_ARG_WITH([gpu-wake-probe],
+              [AS_HELP_STRING([--without-gpu-wake-probe],
+                              [do not time how long reaching the GPU takes (hot, and after 12 s idle); RNAfold then budgets a default. The values can be given instead as vrna_cv_gpu_wake_cold=SECONDS (and _hot, and _host=NAME to tie them to one host)])],
+              [cuda_wake_probe="$withval"],
+              [cuda_wake_probe=yes])
+
   cuda_report_nvcc=""
+  cuda_report_wake=""
   cuda_report_arch=""
   cuda_report_host=""
   cuda_report_why=""
@@ -334,6 +343,108 @@ but if the final link fails try --disable-cuda or a matching host compiler."])
     ])
 
     rm -f conftest.cu conftest.cu.o
+  ])
+
+  ## ------------------------------------------ 3b. what reaching the GPU costs
+  ##
+  ## RNAfold decides per input whether the device can win (gpu_batch.c, S3), and the
+  ## largest fixed term is reaching it at all. That is a property of the MACHINE, and of
+  ## how long the device idled: on the RTX 3050 laptop 0.07 s straight after another
+  ## process used it, 1.4 s once it has idled 10 s or more, flat out to 120 s
+  ## (PORT_SHORT_SEQUENCES.md 9.2). So time both, here, where a device can be asked:
+  ##
+  ##   hot   the median of 5 back-to-back runs, after one that wakes it;
+  ##   cold  one run after 12 s of idle.
+  ##
+  ## RNAfold budgets the COLD one, and only on the host measured here (a build host is
+  ## often not the run host). The hot one is reported. Order matters: step 2's
+  ## nvidia-smi query wakes the device fully, so the cold sample needs its own idle.
+  ##
+  ## The probe links cudart statically (nvcc's default), so a libcudart.so off the
+  ## loader's path cannot turn "a device answered" into "no device".
+  AS_IF([test "x$enable_cuda" = "xyes"],[
+    cuda_wake_hot=""
+    cuda_wake_cold=""
+    cuda_wake_host=""
+    cuda_wake_how=""
+
+    AS_IF([test "x$vrna_cv_gpu_wake_cold" != "x"],[
+      cuda_wake_cold="$vrna_cv_gpu_wake_cold"
+      cuda_wake_hot="${vrna_cv_gpu_wake_hot:-$vrna_cv_gpu_wake_cold}"
+      cuda_wake_host="$vrna_cv_gpu_wake_host"
+      cuda_wake_how="given"
+    ],[test "x$cuda_wake_probe" = "xno"],[
+      cuda_report_wake="not measured (--without-gpu-wake-probe); RNAfold budgets its default"
+    ],[test "x$cross_compiling" = "xyes"],[
+      cuda_report_wake="not measured (cross-compiling); RNAfold budgets its default"
+    ],[
+      AC_MSG_CHECKING([what reaching the GPU costs, hot and after 12 s idle])
+
+      cat > conftest_wake.cu <<_ACEOF
+#include <cuda_runtime.h>
+#include <stdio.h>
+#include <time.h>
+int main(void)
+{
+  struct timespec a, b;
+  int             n = 0;
+
+  clock_gettime(CLOCK_MONOTONIC, &a);
+  if ((cudaGetDeviceCount(&n) != cudaSuccess) || (n < 1))
+    return 1;
+
+  clock_gettime(CLOCK_MONOTONIC, &b);
+  printf("%.3f\n", (double)(b.tv_sec - a.tv_sec) + 1e-9 * (double)(b.tv_nsec - a.tv_nsec));
+  return 0;
+}
+_ACEOF
+
+      ## a driver that hangs must not hang configure
+      cuda_wake_to=""
+      AS_IF([(timeout 5 true) >/dev/null 2>&1], [cuda_wake_to="timeout 60"])
+
+      AS_IF([$NVCC_BIN -ccbin "$NVCC_HOST_CC" $NVCC_FLAGS conftest_wake.cu -o conftest_wake.exe >/dev/null 2>&1 &&
+             $cuda_wake_to ./conftest_wake.exe >/dev/null 2>&1],[
+        cuda_wake_hots=""
+        for cuda_i in 1 2 3 4 5; do
+          cuda_wake_hots="$cuda_wake_hots `$cuda_wake_to ./conftest_wake.exe 2>/dev/null`"
+        done
+        cuda_wake_hot=`for cuda_v in $cuda_wake_hots; do echo "$cuda_v"; done | sort -n | sed -n 3p`
+        sleep 12
+        cuda_wake_cold=`$cuda_wake_to ./conftest_wake.exe 2>/dev/null`
+        cuda_wake_host=`uname -n 2>/dev/null`
+        cuda_wake_how="measured"
+        AC_MSG_RESULT([${cuda_wake_hot:-?} s hot, ${cuda_wake_cold:-?} s cold])
+      ],[
+        AC_MSG_RESULT([no device answered])
+        cuda_report_wake="not measured (no device answered at configure time); RNAfold budgets its default"
+      ])
+
+      rm -f conftest_wake.cu conftest_wake.exe
+    ])
+
+    ## Numbers or nothing: what reaches config.h is reprinted by awk, so a stray
+    ## character in a given value cannot become a compile error in gpu_batch.c. A
+    ## cold sample under the hot median (noise) is raised to it.
+    AS_IF([test "x$cuda_wake_how" != "x"],[
+      cuda_wake_ok=`awk -v c="$cuda_wake_cold" 'BEGIN { print ((c + 0 > 0) ? "yes" : "no") }'`
+      AS_IF([test "x$cuda_wake_ok" = "xyes"],[
+        cuda_wake_hot=`awk -v h="$cuda_wake_hot" 'BEGIN { printf "%.3f", ((h + 0 > 0) ? h + 0 : 0) }'`
+        cuda_wake_cold=`awk -v c="$cuda_wake_cold" -v h="$cuda_wake_hot" 'BEGIN { printf "%.3f", ((c + 0 < h + 0) ? h + 0 : c + 0) }'`
+        cuda_wake_host=`echo "$cuda_wake_host" | tr -d '"\\\\'`
+        AC_DEFINE_UNQUOTED([VRNA_GPU_WAKE_HOT_S], [$cuda_wake_hot],
+                           [Reaching the GPU, seconds, straight after another process used it (configure measured or was given it)])
+        AC_DEFINE_UNQUOTED([VRNA_GPU_WAKE_COLD_S], [$cuda_wake_cold],
+                           [Reaching the GPU, seconds, after 12 s idle; RNAfold budgets this one])
+        AC_DEFINE_UNQUOTED([VRNA_GPU_WAKE_HOST], ["$cuda_wake_host"],
+                           [The host VRNA_GPU_WAKE_COLD_S applies to; empty means every host])
+        cuda_wake_where="on every host"
+        AS_IF([test "x$cuda_wake_host" != "x"], [cuda_wake_where="on $cuda_wake_host only"])
+        cuda_report_wake="$cuda_wake_hot s hot, $cuda_wake_cold s after 12 s idle ($cuda_wake_how); RNAfold budgets the cold one $cuda_wake_where"
+      ],[
+        cuda_report_wake="not measured (the probe gave '$cuda_wake_cold'); RNAfold budgets its default"
+      ])
+    ])
   ])
 
   ## ------------------------------------------------ 4. honour the user's intent
