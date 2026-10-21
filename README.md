@@ -379,6 +379,19 @@ batches the device actually folded, if you need to prove which path ran.
 diagnostics, which `RNAfold` prints on stderr, are left out from Python unless
 `RNA_GPU_VERBOSE=1` is set.
 
+Python takes at most **half** of the machine's RAM, VRAM and threads by default, so a
+fold in a notebook leaves the rest of a laptop usable (`RNAfold` defaults to all of it):
+
+```python
+RNA.set_budget(ram="quarter", vram=2000, threads="full")   # MB, a count, or a fraction
+RNA.fold(seqs, ram="threequarter")                         # for this call only
+RNA.budget()                                               # what is in force
+```
+
+A budget only lowers the ceiling; answers never depend on it. The environment
+variables `RNA_RAM_BUDGET`, `RNA_VRAM_BUDGET` and `RNA_THREAD_BUDGET` (below) set the
+same from outside, and `set_budget()` overrides them.
+
 #### Run-time settings
 
 None of these is needed; the defaults are what was measured fastest. Answers never
@@ -392,13 +405,17 @@ depend on them: every setting below folds byte-identical output, except
 | `RNA_BUILD_THREADS` | `auto` (nproc) | threads that build the next chunk's fold compounds; `N` for exactly N |
 | `RNA_BACKTRACK_THREADS` | `auto` | threads tracing structures back after a sweep; `0` serial, `N` exactly N |
 | `RNA_BUILD_PIPELINE` | auto | build chunk k+1 while k folds, when host memory allows; `0` off, `1` on regardless of memory |
-| `RNA_GPU_VRAM_BUDGET_MB` | 85 % of free VRAM | caps the device memory a chunk may plan for (smaller chunks, never a different answer) |
+| `RNA_RAM_BUDGET` | `full` (CLI), `half` (Python) | an upper limit on the host memory a run may use: `quarter`, `half`, `threequarter`, `full` of the machine's total RAM, or a number of MB. Still bounded by what is free when each chunk starts; over budget it sheds backtrack workers, then the pipelines, then chunk width. A single record bigger than the budget is folded anyway, with a warning |
+| `RNA_VRAM_BUDGET` | `full` (CLI), `half` (Python) | the same for device memory, of the card's total; the CUDA context's own memory is counted against it |
+| `RNA_THREAD_BUDGET` | `full` (CLI), `half` (Python) | the same for CPU threads (a fraction of the cores, or a count), shared by the build, backtrack and `-j` pools |
+| `RNA_GPU_VRAM_BUDGET_MB` | 85 % of free VRAM | the older MB-only cap, kept as an alias of `RNA_VRAM_BUDGET` |
 | `RNA_GPU_CHUNK` | `0` | at most N records per chunk; `0` lets the memory budget decide |
 | `RNA_FML_INT16` | auto | stores the fML triangle as 16-bit offsets where that pays (the dense md, or a chunk that would not fit in VRAM as int32); `0` int32, `1` int16, and an error where it cannot apply (e.g. `--noLP`) |
 | `RNA_MD_SPARSE` | on | the sparse multiloop decomposition; `0` restores the dense one |
 | `RNA_CPU_SLICE` | off | with `-j`, `1` holds some records of each chunk back for the CPU pool while the GPU folds the rest |
 | `RNA_CPU_SLICE_CAP` | `33` | the most of a chunk, in percent (0–90), that `RNA_CPU_SLICE` may hold back |
 | `RNA_BT_PIPELINE` | off | `1` traces chunk k's structures while chunk k+1 sweeps (opt-in until measured on an A100) |
+| `RNA_DEVICE_BT` | off | `1` traces structures on the GPU instead of the host threads (opt-in until measured on an A100); options the device trace cannot reproduce are refused per chunk with a `REFUSED` line and traced on the host. `verify` runs both traces on every record and stops on the first disagreement |
 | `RNA_ENGINE_ALLOW` | unset | comma-separated engine ids to run on the GPU although the routing guard declines them; for measurement only, **answers from such a run are not trusted** |
 
 Variables for verification, diagnostics and tuning on new hardware are listed in

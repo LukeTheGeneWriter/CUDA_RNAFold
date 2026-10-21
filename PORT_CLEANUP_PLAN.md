@@ -475,3 +475,26 @@ As before: one commit per phase, with bars after each.
 Not folded: the zeroconf harness speed-ups (`--disable-lto --disable-static` on the throwaway
 copies, no restore rebuild). They change the harness, not the product, and are proposed
 separately (PORT_SHORT_SEQUENCES.md section 7).
+
+### 10.1 As built (2026-10-19), pushed in 388852e0..755703e9
+
+| Phase | Commit | What landed | Evidence |
+|---|---|---|---|
+| C10 | 21861f12 | `NVCC_ALL_FLAGS` gains `$(DEFS) $(DEFAULT_INCLUDES) $(RNA_CPPFLAGS)`; every `.cu` includes `config.h` and `#error`s without `HAVE_CONFIG_H`; nvcc writes `-MD` dependency files (`mfe/cuda/.deps/*.Plo`) that the Makefile includes; `vrna_cuda_register_batch_backend()` compares `sizeof(vrna_fold_compound_t / vrna_md_t / vrna_param_t)` between a host and a device TU and refuses the backend on a mismatch; RNAfold registers before it announces | touching `fold_compound.h` recompiles all six `.cu` files (before: none); a `.cu` built without `-DHAVE_CONFIG_H` stops at the `#error`; a forced size mismatch prints `BUILD ERROR: vrna_fold_compound_t is 384 bytes on the host and 392 in the CUDA code`, runs no sweep and answers as `RNA_GPU=0` (the negative control bites) |
+| C11 | 2640ccb0 | `RNAlib2.pc.in`: `Libs.private: -lm @CUDA_LIBS@`; `interfaces/Python`'s `all-local` depends on `RNA/RNA.py` | the audit's static program calling `vrna_cuda_devices()` links with `pkg-config --static` flags alone; a new binding function reaches `import RNA` after a plain `make` |
+| C12 | 9198c1d9 | B5-B8: `E_int_loop()` and unused statics/locals deleted; `gpuAssert`'s stray format argument; `%zu` for a `size_t`; the unkept `const` removed from all 42 `par_mfe()` chain signatures at once (C++ will not convert `T**` to `const T**` piecemeal); the stale ".cu files never see -DNDEBUG" comments corrected | no behaviour change; 14 files, +66 / -343; standing bars green |
+| C13 | 755703e9 | `ly_carry3_lb_kernel`'s `__launch_bounds__(128, 16)` documented as sm_80's (2048 threads/SM); sm_86/89 allow 1536, so ptxas ignores the 16 there | comment only; sm_80 ptxas honours it, so it stays, and a per-arch value is an A100 A/B item, not cleanup |
+| harness | 628f2351 | `tests/zeroconf_configure.sh`: `--disable-lto --disable-static` in the cases by default (`ZC_FAST=0` restores), `ZC_NO_RESTORE=1` for throwaway copies | zeroconf 908 s -> 279-297 s, rc 0; harness only |
+
+**Bars:** the full session (refcheck, parity, matrix, gpu_cli, binding, backtrack pipeline,
+output files, knob arms, noLP, device_bt_check, short_input_check, zeroconf; standing bars
+again under `RNA_DEVICE_BT=1`) was green on 755703e9 before the push (2026-10-19), and is
+re-run on 5c93fa04 (2026-10-20).
+
+**Follow-on:** C12's corrected comment showed that the row-index `assert` in
+`hp_mb_cells.inc` (x3) and `fml_scan_block.inc` (x1) is compiled out of every release build.
+5c93fa04 makes it a `__trap()`, which survives `NDEBUG` (median wall within +3.2 %; an inverted
+trap kills the run with rc 207 and no output).
+
+**On Finished_Port:** C10 (with B6) and C11 apply there too and were ported 2026-10-20; C12's
+other items are LFB code that FP does not carry, and C13's kernel is LFB-only.

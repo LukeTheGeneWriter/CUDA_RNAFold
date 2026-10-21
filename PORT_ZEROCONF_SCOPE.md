@@ -372,7 +372,7 @@ Each of these is testable. Status as of 2026-09-27, after the zero-config change
 | 4 | git-clone path works; requirements documented | **MET** for CUDA (README); upstream's own `yacc` requirement for RNAforester is unchanged and is theirs |
 | 5 | the tarball builds accelerated | **MET** — `EXTRA_DIST` carries every `.cu`/`.inc`/private header and sits OUTSIDE the CUDA conditional, so a non-CUDA `make dist` still ships an accelerable tree |
 | 6 | a no-CUDA build configures, builds, folds | **MET, and it was BROKEN** — see below |
-| 7 | knob surface documented | open (§2.5) |
+| 7 | knob surface documented | **MET 2026-10-20** for documentation: the user settings (incl. the RAM/VRAM/thread budgets and `RNA_DEVICE_BT`) are in the README's *Run-time settings*, everything else in TESTING_KNOBS.md (T2/T3), and retired names announce themselves as IGNORED. §2.5's further step, CLI flags in place of env vars for the user-facing few, is not done (phase 2) |
 
 **Criterion 6 caught a live defect that nothing else would have.** The
 `RNA_RECORD_TRACE` block landed inside `#ifdef VRNA_WITH_CUDA` while being called
